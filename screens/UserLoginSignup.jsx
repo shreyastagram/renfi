@@ -77,7 +77,7 @@ const UserLoginSignup = ({ route, navigation }) => {
       }
       setSubmitSuccess('Login successful!');
       setLoading(false);
-      navigation.replace('BookServices');
+  navigation.replace('MapScreen');
     } catch (err) {
       setSubmitError('Network error. Please try again.');
       setLoading(false);
