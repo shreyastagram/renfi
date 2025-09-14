@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import socketService from '../utils/socket';
 
 function validateEmailOrPhone(value) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -70,8 +71,15 @@ const ProviderLoginSignup = ({ route, navigation }) => {
         setLoading(false);
         return;
       }
+      
+      // Get provider data from response
+      const providerData = await response.json();
       setLoading(false);
-  navigation.replace('ManageAccount');
+      
+      // Connect to socket with real provider ID
+      socketService.connect('provider', providerData.providerId || emailOrPhone);
+      
+      navigation.replace('ProviderDashboard');
     } catch (err) {
       setSubmitError('Network error. Please try again.');
       setLoading(false);
@@ -102,8 +110,15 @@ const ProviderLoginSignup = ({ route, navigation }) => {
         setLoading(false);
         return;
       }
+      
+      // Get provider data from response
+      const providerData = await response.json();
       setLoading(false);
-      navigation.replace('ProviderProfile');
+      
+      // Connect to socket with real provider ID
+      socketService.connect('provider', providerData.providerId || emailOrPhone);
+      
+      navigation.replace('ProviderDashboard');
     } catch (err) {
       setSubmitError('Network error. Please try again.');
       setLoading(false);

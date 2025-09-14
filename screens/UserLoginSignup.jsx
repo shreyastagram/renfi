@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import socketService from '../utils/socket';
 
 function validateEmailOrPhone(value) {
   // Simple email regex
@@ -75,9 +76,21 @@ const UserLoginSignup = ({ route, navigation }) => {
         setLoading(false);
         return;
       }
+      
+      // Get user data from response
+      const userData = await response.json();
+      console.log('User login response:', userData); // Debug log
+      
       setSubmitSuccess('Login successful!');
       setLoading(false);
-  navigation.replace('MapScreen');
+      
+      // ✅ CRITICAL FIX: Connect to socket with real user ID
+      if (userData.userId) {
+        socketService.connect('user', userData.userId);
+        console.log('Connecting user to socket:', userData.userId);
+      }
+      
+      navigation.replace('MapScreen');
     } catch (err) {
       setSubmitError('Network error. Please try again.');
       setLoading(false);
@@ -109,8 +122,20 @@ const UserLoginSignup = ({ route, navigation }) => {
         setSubmitError(errorData.message || 'Signup failed.');
         return;
       }
+      
+      // Get user data from response
+      const userData = await response.json();
+      console.log('User register response:', userData); // Debug log
+      
       setSubmitSuccess('Signup successful!');
-      navigation.replace('UserProfile');
+      
+      // ✅ CRITICAL FIX: Connect to socket with real user ID
+      if (userData.userId) {
+        socketService.connect('user', userData.userId);
+        console.log('Connecting new user to socket:', userData.userId);
+      }
+      
+      navigation.replace('MapScreen');
     } catch (err) {
       setSubmitError('Network error. Please try again.');
     }
