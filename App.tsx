@@ -10,6 +10,7 @@ import UserProfileScreen from './screens/UserProfileScreen.jsx';
 import BookServicesScreen from './screens/BookServicesScreen.jsx';
 import ProviderProfileScreen from './screens/ProviderProfileScreen.jsx';
 import MapScreen from './screens/MapScreen.jsx';
+import ProviderDashboard from './screens/ProviderDashboard.jsx';
 
 const Stack = createNativeStackNavigator();
 
@@ -51,6 +52,11 @@ export default function App() {
           name="ManageAccount"
           component={ManageAccountScreen}
           options={{ title: 'Manage Account' }}
+        />
+        <Stack.Screen
+          name="ProviderDashboard"
+          component={ProviderDashboard}
+          options={{ title: 'Provider Dashboard' }}
         />
         <Stack.Screen
           name="MapScreen"
