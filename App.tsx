@@ -11,6 +11,8 @@ import BookServicesScreen from './screens/BookServicesScreen.jsx';
 import ProviderProfileScreen from './screens/ProviderProfileScreen.jsx';
 import MapScreen from './screens/MapScreen.jsx';
 import ProviderDashboard from './screens/ProviderDashboard.jsx';
+import ServiceSelectionScreen from './screens/ServiceSelectionScreen.jsx';
+import ProviderProfileSetup from './screens/ProviderProfileSetup.jsx';
 
 const Stack = createNativeStackNavigator();
 
@@ -62,6 +64,16 @@ export default function App() {
           name="MapScreen"
           component={MapScreen}
           options={{ title: 'Map' }}
+        />
+        <Stack.Screen
+          name="ServiceSelection"
+          component={ServiceSelectionScreen}
+          options={{ title: 'Select Service' }}
+        />
+        <Stack.Screen
+          name="ProviderProfileSetup"
+          component={ProviderProfileSetup}
+          options={{ title: 'Profile Setup' }}
         />
       </Stack.Navigator>
     </NavigationContainer>
