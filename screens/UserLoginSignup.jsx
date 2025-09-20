@@ -90,7 +90,7 @@ const UserLoginSignup = ({ route, navigation }) => {
         console.log('Connecting user to socket:', userData.userId);
       }
       
-      navigation.replace('MapScreen');
+      navigation.replace('ServiceSelection');
     } catch (err) {
       setSubmitError('Network error. Please try again.');
       setLoading(false);
@@ -135,7 +135,7 @@ const UserLoginSignup = ({ route, navigation }) => {
         console.log('Connecting new user to socket:', userData.userId);
       }
       
-      navigation.replace('MapScreen');
+      navigation.replace('ServiceSelection');
     } catch (err) {
       setSubmitError('Network error. Please try again.');
     }

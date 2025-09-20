@@ -151,18 +151,41 @@ class SocketService extends SimpleEventEmitter {
   }
 
   // Respond to service request (for providers)
-  respondToRequest(requestId, response, providerId = null, estimatedTime = null) {
+  respondToRequest(requestId, response, providerId = null, estimatedTime = null, providerData = null) {
+    console.log('🔧 SocketService: respondToRequest called with:');
+    console.log('  - requestId:', requestId);
+    console.log('  - response:', response);
+    console.log('  - providerId:', providerId);
+    console.log('  - estimatedTime:', estimatedTime);
+    console.log('  - providerData:', providerData);
+    console.log('  - socket exists:', !!this.socket);
+    console.log('  - isConnected:', this.isConnected);
+    
     if (this.socket && this.isConnected) {
-      this.socket.emit('providerResponse', {
+      const responsePayload = {
         requestId,
-        providerId: providerId || `dummy_provider_${Date.now()}`, // Include provider ID
+        providerId: providerId || `dummy_provider_${Date.now()}`,
         response, // 'accept' or 'reject'
         estimatedTime,
         timestamp: new Date().toISOString(),
-      });
-      console.log('📤 Provider response sent:', { requestId, response, providerId, estimatedTime });
+        // Include additional provider information
+        ...(providerData && {
+          providerName: providerData.providerName,
+          providerPhone: providerData.providerPhone,
+          providerRating: providerData.providerRating,
+          providerExperience: providerData.providerExperience
+        })
+      };
+      
+      console.log('📤 SocketService: Emitting providerResponse with complete payload:');
+      console.log(JSON.stringify(responsePayload, null, 2));
+      
+      this.socket.emit('providerResponse', responsePayload);
+      console.log('✅ SocketService: Provider response emitted successfully');
     } else {
-      console.error('Socket not connected. Cannot send response.');
+      console.error('❌ SocketService: Cannot send response - Socket not connected');
+      console.error('  - Socket exists:', !!this.socket);
+      console.error('  - Is connected:', this.isConnected);
     }
   }
 
@@ -175,8 +198,22 @@ class SocketService extends SimpleEventEmitter {
 
   // Listen for provider responses (for users)
   onProviderResponse(callback) {
+    console.log('🔔 Setting up provider response listeners for multiple events');
     if (this.socket) {
-      this.socket.on('providerResponse', callback);
+      // Listen for all possible event names that backend might emit
+      const eventNames = ['providerResponse', 'serviceRequestUpdate', 'requestStatusUpdate'];
+      
+      eventNames.forEach(eventName => {
+        this.socket.on(eventName, (data) => {
+          console.log(`📥 Provider response received on event '${eventName}':`, data);
+          console.log('📥 Response type:', typeof data);
+          console.log('📥 Response keys:', Object.keys(data || {}));
+          callback(data);
+        });
+        console.log(`✅ Listener attached for event: ${eventName}`);
+      });
+    } else {
+      console.error('❌ Socket not available for provider response listeners');
     }
   }
 
@@ -190,7 +227,16 @@ class SocketService extends SimpleEventEmitter {
   // Remove all listeners for an event
   removeAllListeners(event) {
     if (this.socket) {
-      this.socket.removeAllListeners(event);
+      if (event === 'providerResponse') {
+        // Remove all provider response event variants
+        const eventNames = ['providerResponse', 'serviceRequestUpdate', 'requestStatusUpdate'];
+        eventNames.forEach(eventName => {
+          this.socket.removeAllListeners(eventName);
+          console.log(`🧹 Removed all listeners for: ${eventName}`);
+        });
+      } else {
+        this.socket.removeAllListeners(event);
+      }
     }
   }
 

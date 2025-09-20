@@ -7,6 +7,8 @@ import {
   Alert,
   PermissionsAndroid,
   Platform,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import Geolocation from '@react-native-community/geolocation';
@@ -16,12 +18,18 @@ MapboxGL.setAccessToken(
   'pk.eyJ1IjoiZml4aG9taSIsImEiOiJjbWY2Zjg1MTUwMnhmMm1zNnQxaTdkcmtnIn0.AtF-wG4vaenzSf0Ff9aYBg',
 );
 
-const MapScreen = () => {
+const MapScreen = ({ navigation, route }) => {
   const [userLocation, setUserLocation] = useState(null);
   const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [realUserId, setRealUserId] = useState(null);
   const [statusCheckCount, setStatusCheckCount] = useState(0); // To prevent infinite polling
+  const [selectedService, setSelectedService] = useState(null); // New state for selected service
+  const [requestStatus, setRequestStatus] = useState('idle'); // 'idle', 'sending', 'pending', 'accepted', 'rejected'
+  const [currentRequest, setCurrentRequest] = useState(null); // Store current request data
+  const [acceptedProvider, setAcceptedProvider] = useState(null); // Store provider who accepted
+  const [showRequestModal, setShowRequestModal] = useState(false); // Show request status modal
+  const [currentRequestId, setCurrentRequestId] = useState(null); // Track current request ID
   const cameraRef = useRef(null);
   
   // Get real user ID from socket service or use dummy as fallback
@@ -29,6 +37,12 @@ const MapScreen = () => {
 
   useEffect(() => {
     requestLocationPermission();
+
+    // Handle selected service from navigation
+    if (route.params?.selectedService) {
+      setSelectedService(route.params.selectedService);
+      console.log('Service selected:', route.params.selectedService);
+    }
 
     // ✅ DYNAMIC STATUS UPDATE: Function to check and update connection status
     const updateConnectionStatus = () => {
@@ -61,15 +75,109 @@ const MapScreen = () => {
     const setupSocketListeners = () => {
       const socket = socketService.getSocket();
       if (socket) {
-        // Listen for provider responses
-        socketService.onProviderResponse(data => {
-          console.log('Provider response received:', data);
-          Alert.alert(
-            'Provider Response',
-            `Provider ${data.response} your service request!`,
-            [{ text: 'OK' }],
-          );
+        console.log('🔧 Setting up provider response listeners in MapScreen');
+        
+        // Enhanced provider response handler
+        const handleProviderResponse = (data) => {
+          console.log('🎯 RAW Provider response received in MapScreen:', JSON.stringify(data, null, 2));
+          console.log('🎯 Current request ID:', currentRequestId);
+          console.log('🎯 Response request ID:', data?.requestId);
+          console.log('🎯 Current request status:', requestStatus);
+          
+          // Ensure we have the response and it matches current request
+          if (!data || !data.requestId) {
+            console.log('❌ Invalid response format:', data);
+            return;
+          }
+          
+          if (data.requestId !== currentRequestId) {
+            console.log('⚠️ Response for different request, ignoring');
+            console.log('⚠️ Expected:', currentRequestId, 'Received:', data.requestId);
+            return;
+          }
+          
+          // Force state update with explicit logging
+          console.log('✅ Processing response for current request');
+          
+          if (data.response === 'accept') {
+            console.log('🎉 PROVIDER ACCEPTED - Updating UI');
+            
+            // Update state immediately
+            setRequestStatus('accepted');
+            setAcceptedProvider({
+              providerId: data.providerId,
+              estimatedTime: data.estimatedTime || '30 minutes',
+              providerName: data.providerName || `Provider ${data.providerId}`,
+              providerPhone: data.providerPhone || 'Not available',
+              providerRating: data.providerRating || 'Not rated',
+              providerExperience: data.providerExperience || 'Not specified',
+              timestamp: data.timestamp || new Date().toISOString()
+            });
+            setShowRequestModal(true);
+            
+            console.log('✅ State updated to accepted');
+            
+            // Show success alert
+            Alert.alert(
+              'Request Accepted! 🎉',
+              `${data.providerName || 'A provider'} has accepted your ${selectedService?.name} request and will arrive in ${data.estimatedTime || '30 minutes'}.`,
+              [{ text: 'OK' }]
+            );
+            
+          } else if (data.response === 'reject') {
+            console.log('❌ PROVIDER REJECTED - Updating UI');
+            
+            setRequestStatus('rejected');
+            setAcceptedProvider(null);
+            setShowRequestModal(true);
+            
+            console.log('✅ State updated to rejected');
+            
+            // Auto-hide rejection after 5 seconds
+            setTimeout(() => {
+              setShowRequestModal(false);
+              setRequestStatus('idle');
+              setCurrentRequest(null);
+              setCurrentRequestId(null);
+            }, 5000);
+            
+            // Show rejection alert
+            Alert.alert(
+              'Request Not Available',
+              'No providers are currently available for this service. Please try again later.',
+              [
+                { text: 'Try Again', onPress: () => {
+                  setRequestStatus('idle');
+                  setCurrentRequest(null);
+                  setCurrentRequestId(null);
+                  setShowRequestModal(false);
+                }},
+                { text: 'Cancel' }
+              ]
+            );
+          }
+        };
+        
+        // Set up the provider response listener
+        socketService.onProviderResponse(handleProviderResponse);
+        
+        // Also listen directly on socket for debugging
+        socket.on('providerResponse', (data) => {
+          console.log('📡 Direct socket providerResponse received:', data);
+          handleProviderResponse(data);
         });
+        socket.on('serviceRequestUpdate', (data) => {
+          console.log('📡 Direct socket serviceRequestUpdate received:', data);
+          handleProviderResponse(data);
+        });
+        socket.on('requestStatusUpdate', (data) => {
+          console.log('📡 Direct socket requestStatusUpdate received:', data);
+          handleProviderResponse(data);
+        });
+        
+        console.log('✅ All provider response listeners attached');
+      } else {
+        console.log('❌ Socket not available for setting up listeners');
       }
     };
 
@@ -111,7 +219,7 @@ const MapScreen = () => {
       socketService.removeAllListeners('providerResponse');
       // Don't disconnect here as user might navigate back
     };
-  }, []);
+  }, [route.params?.selectedService, currentRequestId]); // Add currentRequestId dependency
 
   const requestLocationPermission = async () => {
     try {
@@ -191,17 +299,27 @@ const MapScreen = () => {
 
   const sendServiceRequest = () => {
     console.log('🔧 ===== SERVICE REQUEST BUTTON PRESSED =====');
+    console.log('🔧 Selected service:', selectedService);
     console.log('🔧 User location:', userLocation);
-    console.log('🔧 User location type:', typeof userLocation);
-    console.log('🔧 User location is array:', Array.isArray(userLocation));
-    console.log('🔧 User location length:', userLocation?.length);
-    if (userLocation) {
-      console.log('🔧 userLocation[0] (lng):', userLocation[0], typeof userLocation[0]);
-      console.log('🔧 userLocation[1] (lat):', userLocation[1], typeof userLocation[1]);
-    }
     console.log('🔧 Socket connected:', socketService.getConnectionStatus());
-    console.log('🔧 isSocketConnected state:', isSocketConnected);
     console.log('🔧 Using userId:', userId, '(real:', realUserId, ', from socket:', socketService.getCurrentUserId(), ')');
+    
+    // Check if service is selected
+    if (!selectedService) {
+      console.log('❌ No service selected - showing service selection');
+      Alert.alert(
+        'Service Required',
+        'Please select a service type first.',
+        [
+          { 
+            text: 'Select Service', 
+            onPress: () => navigation.navigate('ServiceSelection') 
+          },
+          { text: 'Cancel' }
+        ]
+      );
+      return;
+    }
     
     if (!userLocation) {
       console.log('❌ No user location - showing alert');
@@ -221,33 +339,149 @@ const MapScreen = () => {
       return;
     }
 
+    // Set status to sending
+    setRequestStatus('sending');
+
+    // Generate unique request ID
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log('📍 Generated request ID:', requestId);
+    setCurrentRequestId(requestId);
+
     const serviceRequest = {
       userId: userId, // Use real user ID
       userLocation: {
         latitude: userLocation[1],
         longitude: userLocation[0],
       },
-      serviceType: 'general_help', // dummy service type
-      description: 'I need help with my service request',
-      requestId: `req_${Date.now()}`,
+      serviceType: selectedService.id, // Use selected service ID
+      serviceName: selectedService.name, // Add service name
+      serviceIcon: selectedService.icon, // Add service icon
+      serviceDescription: selectedService.description, // Add service description
+      description: `I need ${selectedService.name} service - ${selectedService.description}`,
+      requestId: requestId,
+      timestamp: new Date().toISOString(),
     };
+
+    // Store current request
+    setCurrentRequest(serviceRequest);
 
     console.log('📤 About to send service request:');
     console.log('📤 Full payload:', JSON.stringify(serviceRequest, null, 2));
-    console.log('📤 userLocation object specifically:', serviceRequest.userLocation);
+    console.log('📤 Service details:', { 
+      type: selectedService.id, 
+      name: selectedService.name 
+    });
     console.log('📤 Calling socketService.sendServiceRequest...');
     
     socketService.sendServiceRequest(serviceRequest);
     
-    console.log('📤 socketService.sendServiceRequest call completed');
+    // Set status to pending and show modal after a brief delay
+    setTimeout(() => {
+      setRequestStatus('pending');
+      setShowRequestModal(true);
+      console.log('⏳ Request status set to pending');
+    }, 1000);
 
-    Alert.alert(
-      'Service Request Sent',
-      'Your service request has been sent to nearby providers. You will be notified when a provider responds.',
-      [{ text: 'OK' }],
-    );
+    // Auto-timeout after 2 minutes if no response
+    setTimeout(() => {
+      if (requestStatus === 'pending' && currentRequestId === requestId) {
+        console.log('⏰ Request timed out for ID:', requestId);
+        setRequestStatus('rejected');
+        Alert.alert(
+          'Request Timeout',
+          'No providers responded to your request. Please try again.',
+          [{ text: 'OK', onPress: () => {
+            setRequestStatus('idle');
+            setCurrentRequest(null);
+            setCurrentRequestId(null);
+            setShowRequestModal(false);
+          }}]
+        );
+      }
+    }, 120000); // 2 minutes
     
+    console.log('📤 socketService.sendServiceRequest call completed');
     console.log('🔧 ===== SERVICE REQUEST FUNCTION COMPLETED =====');
+  };
+
+  const cancelRequest = () => {
+    console.log('🚫 Cancelling request:', currentRequestId);
+    setRequestStatus('idle');
+    setCurrentRequest(null);
+    setCurrentRequestId(null);
+    setAcceptedProvider(null);
+    setShowRequestModal(false);
+  };
+
+  const contactProvider = () => {
+    if (acceptedProvider?.providerPhone && acceptedProvider.providerPhone !== 'Not available') {
+      Alert.alert(
+        'Contact Provider',
+        `Call ${acceptedProvider.providerName}?\nPhone: ${acceptedProvider.providerPhone}`,
+        [
+          { text: 'Cancel' },
+          { 
+            text: 'Call', 
+            onPress: () => {
+              // You can implement actual calling functionality here
+              console.log('Calling provider:', acceptedProvider.providerPhone);
+            }
+          }
+        ]
+      );
+    } else {
+      Alert.alert(
+        'Contact Info',
+        'Provider contact information is not available.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const startNewRequest = () => {
+    console.log('🔄 Starting new request');
+    setRequestStatus('idle');
+    setCurrentRequest(null);
+    setCurrentRequestId(null);
+    setAcceptedProvider(null);
+    setShowRequestModal(false);
+  };
+
+  // Debug function to test provider responses
+  const simulateProviderAccept = () => {
+    if (currentRequest) {
+      console.log('🧪 Simulating provider acceptance for request:', currentRequest.requestId);
+      const mockResponse = {
+        requestId: currentRequest.requestId,
+        providerId: 'test_provider_123',
+        response: 'accept',
+        estimatedTime: '25 minutes',
+        providerName: 'Test Provider',
+        providerPhone: '+1-555-TEST',
+        providerRating: 4.9,
+        providerExperience: '3 years',
+        timestamp: new Date().toISOString()
+      };
+      
+      // Directly call the handler to test UI update
+      console.log('🧪 Triggering provider response handler');
+      const socket = socketService.getSocket();
+      if (socket) {
+        socket.emit('providerResponse', mockResponse);
+      }
+    } else {
+      Alert.alert('Debug', 'No active request to test with');
+    }
+  };
+
+  const debugCurrentState = () => {
+    console.log('🐛 CURRENT STATE DEBUG:');
+    console.log('  - requestStatus:', requestStatus);
+    console.log('  - currentRequest:', currentRequest);
+    console.log('  - isSocketConnected:', isSocketConnected);
+    console.log('  - acceptedProvider:', acceptedProvider);
+    console.log('  - showRequestModal:', showRequestModal);
+    console.log('  - selectedService:', selectedService);
   };
 
   return (
@@ -273,6 +507,18 @@ const MapScreen = () => {
         </Text>
       </View>
 
+      {/* Selected Service Indicator */}
+      {selectedService && (
+        <TouchableOpacity 
+          style={styles.serviceIndicator}
+          onPress={() => navigation.navigate('ServiceSelection')}
+        >
+          <Text style={styles.serviceIndicatorIcon}>{selectedService.icon}</Text>
+          <Text style={styles.serviceIndicatorText}>{selectedService.name}</Text>
+          <Text style={styles.changeServiceText}>Tap to change</Text>
+        </TouchableOpacity>
+      )}
+
       {/* My Location Button */}
       <TouchableOpacity
         style={styles.myLocationButton}
@@ -288,15 +534,141 @@ const MapScreen = () => {
       <TouchableOpacity
         style={[
           styles.serviceRequestButton,
-          { opacity: (!isSocketConnected || !userLocation) ? 0.5 : 1.0 }
+          { 
+            opacity: (!isSocketConnected || !userLocation || requestStatus === 'sending') ? 0.5 : 1.0,
+            backgroundColor: requestStatus === 'pending' ? '#FF9500' : 
+                           requestStatus === 'accepted' ? '#4CAF50' : '#FF6B35'
+          }
         ]}
-        onPress={sendServiceRequest}
-        disabled={!isSocketConnected || !userLocation}
+        onPress={requestStatus === 'idle' ? sendServiceRequest : 
+                 requestStatus === 'pending' ? () => setShowRequestModal(true) :
+                 requestStatus === 'accepted' ? () => setShowRequestModal(true) :
+                 sendServiceRequest}
+        disabled={!isSocketConnected || !userLocation || requestStatus === 'sending'}
       >
         <Text style={styles.serviceRequestText}>
-          🔧 Request Service {!isSocketConnected ? '(Disconnected)' : !userLocation ? '(No Location)' : ''}
+          {requestStatus === 'sending' ? '⏳ Sending Request...' :
+           requestStatus === 'pending' ? '⏰ Waiting for Provider...' :
+           requestStatus === 'accepted' ? '✅ Provider Assigned' :
+           requestStatus === 'rejected' ? '❌ Request Declined' :
+           selectedService ? `🔧 Request ${selectedService.name}` : '🔧 Select Service'
+          } {!isSocketConnected ? '(Disconnected)' : !userLocation ? '(No Location)' : ''}
         </Text>
       </TouchableOpacity>
+
+      {/* Debug button for testing - only in development */}
+      {__DEV__ && (
+        <TouchableOpacity
+          style={[styles.serviceRequestButton, { 
+            backgroundColor: '#9C27B0', 
+            marginTop: 10,
+            paddingVertical: 10
+          }]}
+          onPress={debugCurrentState}
+        >
+          <Text style={styles.serviceRequestText}>🐛 Debug State</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Request Status Modal */}
+      <Modal
+        visible={showRequestModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={requestStatus === 'pending' ? undefined : () => setShowRequestModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {/* Pending State */}
+            {requestStatus === 'pending' && (
+              <>
+                <ActivityIndicator size="large" color="#FF6B35" style={styles.modalIcon} />
+                <Text style={styles.modalTitle}>Finding Service Provider</Text>
+                <Text style={styles.modalSubtitle}>
+                  Looking for available {selectedService?.name} providers near you...
+                </Text>
+                
+                <View style={styles.requestDetails}>
+                  <Text style={styles.requestDetailTitle}>Request Details:</Text>
+                  <Text style={styles.requestDetailItem}>🔧 Service: {selectedService?.name}</Text>
+                  <Text style={styles.requestDetailItem}>📝 Description: {selectedService?.description}</Text>
+                  <Text style={styles.requestDetailItem}>🕒 Requested: {new Date().toLocaleTimeString()}</Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={cancelRequest}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel Request</Text>
+                </TouchableOpacity>
+
+                {/* Debug button for testing - only in development */}
+                {__DEV__ && (
+                  <TouchableOpacity
+                    style={[styles.modalButton, { backgroundColor: '#FF9500', marginTop: 10 }]}
+                    onPress={simulateProviderAccept}
+                  >
+                    <Text style={[styles.modalButtonText, { color: '#fff' }]}>🧪 Test Accept</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+
+            {/* Accepted State */}
+            {requestStatus === 'accepted' && acceptedProvider && (
+              <>
+                <Text style={styles.modalIcon}>✅</Text>
+                <Text style={styles.modalTitle}>Provider Found!</Text>
+                <Text style={styles.modalSubtitle}>
+                  Your {selectedService?.name} request has been accepted
+                </Text>
+
+                <View style={styles.providerInfo}>
+                  <Text style={styles.providerTitle}>Provider Information:</Text>
+                  <Text style={styles.providerDetail}>👤 Name: {acceptedProvider.providerName}</Text>
+                  <Text style={styles.providerDetail}>📞 Phone: {acceptedProvider.providerPhone}</Text>
+                  <Text style={styles.providerDetail}>⏱️ ETA: {acceptedProvider.estimatedTime}</Text>
+                  <Text style={styles.providerDetail}>🕒 Accepted: {new Date(acceptedProvider.timestamp).toLocaleTimeString()}</Text>
+                </View>
+
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.contactButton]}
+                    onPress={contactProvider}
+                  >
+                    <Text style={styles.contactButtonText}>📞 Contact Provider</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.newRequestButton]}
+                    onPress={startNewRequest}
+                  >
+                    <Text style={styles.newRequestButtonText}>New Request</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {/* Rejected State */}
+            {requestStatus === 'rejected' && (
+              <>
+                <Text style={styles.modalIcon}>❌</Text>
+                <Text style={styles.modalTitle}>Request Declined</Text>
+                <Text style={styles.modalSubtitle}>
+                  No providers are available for {selectedService?.name} service at this time.
+                </Text>
+
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.tryAgainButton]}
+                  onPress={startNewRequest}
+                >
+                  <Text style={styles.tryAgainButtonText}>Try Again</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -328,6 +700,39 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  serviceIndicator: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 15,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    alignItems: 'center',
+    minWidth: 80,
+  },
+  serviceIndicatorIcon: {
+    fontSize: 20,
+    marginBottom: 2,
+  },
+  serviceIndicatorText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#000',
+  },
+  changeServiceText: {
+    fontSize: 10,
+    color: '#6C6C70',
+    marginTop: 2,
   },
   myLocationButton: {
     position: 'absolute',
@@ -374,6 +779,140 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFFFFF',
     fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    margin: 20,
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    maxWidth: 350,
+    width: '90%',
+  },
+  modalIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'center',
+    color: '#333',
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  requestDetails: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    width: '100%',
+  },
+  requestDetailTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#333',
+  },
+  requestDetailItem: {
+    fontSize: 14,
+    color: '#555',
+    marginBottom: 4,
+    lineHeight: 18,
+  },
+  providerInfo: {
+    backgroundColor: '#E8F5E8',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    width: '100%',
+  },
+  providerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#2E7D32',
+  },
+  providerDetail: {
+    fontSize: 14,
+    color: '#2E7D32',
+    marginBottom: 4,
+    lineHeight: 18,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: 12,
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    flex: 1,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+    textAlign: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#F44336',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+    textAlign: 'center',
+  },
+  contactButton: {
+    backgroundColor: '#2196F3',
+  },
+  contactButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+    textAlign: 'center',
+  },
+  newRequestButton: {
+    backgroundColor: '#FF6B35',
+  },
+  newRequestButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+    textAlign: 'center',
+  },
+  tryAgainButton: {
+    backgroundColor: '#4CAF50',
+  },
+  tryAgainButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+    textAlign: 'center',
   },
 });
 

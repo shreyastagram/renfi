@@ -10,17 +10,23 @@ import {
   TextInput,
 } from 'react-native';
 import socketService from '../utils/socket';
+import { providerStorage } from '../utils/providerStorage';
 
-const ProviderDashboard = () => {
+const ProviderDashboard = ({ navigation }) => {
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [incomingRequests, setIncomingRequests] = useState([]);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [estimatedTime, setEstimatedTime] = useState('');
   const [showResponseModal, setShowResponseModal] = useState(false);
+  const [providerProfile, setProviderProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   useEffect(() => {
     // Check socket connection
     setIsSocketConnected(socketService.getConnectionStatus());
+
+    // Fetch provider profile on load
+    fetchProviderProfile();
 
     // Listen for incoming service requests
     socketService.onServiceRequest((requestData) => {
@@ -54,20 +60,111 @@ const ProviderDashboard = () => {
     };
   }, []);
 
-  const handleRequestResponse = (request, response) => {
+  // Fetch provider profile to check completion status
+  const fetchProviderProfile = async () => {
+    try {
+      setProfileLoading(true);
+      
+      // Get real provider ID from storage
+      const providerId = await providerStorage.getProviderId();
+      
+      if (!providerId) {
+        console.log('❌ No provider ID found - redirecting to login');
+        navigation.replace('ProviderLoginSignup', { mode: 'login' });
+        return;
+      }
+      
+      console.log('🔍 Fetching profile for provider ID:', providerId);
+      
+      const response = await fetch(`http://10.0.2.2:5050/auth/provider/profile/${providerId}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setProviderProfile(data.data);
+        console.log('✅ Provider profile loaded:', data.data);
+        
+        // Also update stored provider data
+        await providerStorage.saveProviderData(data.data);
+      } else {
+        console.log('❌ Failed to load provider profile:', data.message);
+        // If profile doesn't exist, redirect to profile setup
+        if (data.message.includes('not found')) {
+          navigation.replace('ProviderProfileSetup', {
+            providerId: providerId,
+            isEditing: false
+          });
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error fetching provider profile:', error);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const editProfile = async () => {
+    const providerId = await providerStorage.getProviderId();
+    
+    if (providerId && providerProfile) {
+      navigation.navigate('ProviderProfileSetup', {
+        providerId: providerId,
+        isEditing: true,
+        existingProfile: providerProfile
+      });
+    } else {
+      Alert.alert('Error', 'Unable to edit profile. Please login again.');
+    }
+  };
+
+  const handleRequestResponse = async (request, response) => {
+    console.log('🔧 ProviderDashboard: Handling request response:', { requestId: request.requestId, response });
     setSelectedRequest(request);
     if (response === 'accept') {
       setShowResponseModal(true);
     } else {
       // Direct reject
-      respondToRequest(request.requestId, 'reject', null);
+      await respondToRequest(request.requestId, 'reject', null);
     }
   };
 
-  const respondToRequest = (requestId, response, estimatedTime = null) => {
-    const providerId = 'dummyProvider123'; // TODO: Get from real auth
+  const respondToRequest = async (requestId, response, estimatedTime = null) => {
+    console.log('🔧 ProviderDashboard: Responding to request:', { requestId, response, estimatedTime });
     
-    socketService.respondToRequest(requestId, response, providerId, estimatedTime);
+    // Get real provider ID from storage
+    const realProviderId = await providerStorage.getProviderId();
+    
+    if (!realProviderId) {
+      Alert.alert('Error', 'Provider ID not found. Please login again.');
+      navigation.replace('ProviderLoginSignup', { mode: 'login' });
+      return;
+    }
+    
+    // Use real provider data from profile or storage
+    const providerData = {
+      providerId: realProviderId,
+      providerName: providerProfile?.name || 'Provider',
+      providerPhone: providerProfile?.phone || 'Not provided',
+      providerRating: providerProfile?.rating || 0,
+      providerExperience: providerProfile?.experience || 'Not specified',
+      serviceCategories: providerProfile?.serviceCategories || []
+    };
+    
+    console.log('📤 ProviderDashboard: Sending response with REAL provider data:', providerData);
+    console.log('📤 ProviderDashboard: Final payload will be:', {
+      requestId,
+      response,
+      providerId: providerData.providerId,
+      estimatedTime,
+      ...providerData
+    });
+    
+    socketService.respondToRequest(
+      requestId, 
+      response, 
+      providerData.providerId, 
+      estimatedTime,
+      providerData // Send real provider info
+    );
     
     // Remove from pending requests
     setIncomingRequests(prev => prev.filter(req => req.requestId !== requestId));
@@ -83,12 +180,12 @@ const ProviderDashboard = () => {
     setEstimatedTime('');
   };
 
-  const submitAcceptance = () => {
+  const submitAcceptance = async () => {
     if (!estimatedTime) {
       Alert.alert('Error', 'Please provide estimated time');
       return;
     }
-    respondToRequest(selectedRequest.requestId, 'accept', estimatedTime);
+    await respondToRequest(selectedRequest.requestId, 'accept', estimatedTime);
   };
 
   return (
@@ -102,6 +199,56 @@ const ProviderDashboard = () => {
         </View>
       </View>
 
+      {/* Profile Status Section */}
+      {!profileLoading && (
+        <View style={styles.profileSection}>
+          {providerProfile && providerProfile.serviceCategories && providerProfile.serviceCategories.length > 0 ? (
+            // Profile Complete
+            <View style={styles.profileCompleteCard}>
+              <View style={styles.profileHeader}>
+                <Text style={styles.profileName}>{providerProfile.name || 'Provider'}</Text>
+                <TouchableOpacity style={styles.editButton} onPress={editProfile}>
+                  <Text style={styles.editButtonText}>✏️ Edit</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.profileDetails}>
+                📞 {providerProfile.phone} | 🛠️ {providerProfile.experience}
+              </Text>
+              <View style={styles.servicesContainer}>
+                <Text style={styles.servicesTitle}>Services:</Text>
+                <View style={styles.serviceChips}>
+                  {providerProfile.serviceCategories.map((category) => (
+                    <View key={category} style={styles.serviceChip}>
+                      <Text style={styles.serviceChipText}>{category}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </View>
+          ) : (
+            // Profile Incomplete
+            <View style={styles.profileIncompleteCard}>
+              <Text style={styles.incompleteTitle}>⚠️ Complete Your Profile</Text>
+              <Text style={styles.incompleteMessage}>
+                Set up your service specializations to start receiving targeted requests
+              </Text>
+              <TouchableOpacity 
+                style={styles.completeProfileButton}
+                onPress={async () => {
+                  const providerId = await providerStorage.getProviderId();
+                  navigation.navigate('ProviderProfileSetup', {
+                    providerId: providerId,
+                    isEditing: false
+                  });
+                }}
+              >
+                <Text style={styles.completeProfileButtonText}>Complete Profile</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      )}
+
       <Text style={styles.sectionTitle}>Pending Requests ({incomingRequests.length})</Text>
       
       <ScrollView style={styles.requestsList}>
@@ -110,7 +257,14 @@ const ProviderDashboard = () => {
         ) : (
           incomingRequests.map((request) => (
             <View key={request.requestId} style={styles.requestCard}>
-              <Text style={styles.requestType}>{request.serviceType}</Text>
+              <View style={styles.serviceHeader}>
+                <Text style={styles.serviceIcon}>{request.serviceIcon || '🔧'}</Text>
+                <View style={styles.serviceInfo}>
+                  <Text style={styles.requestType}>{request.serviceName || request.serviceType}</Text>
+                  <Text style={styles.serviceDescription}>{request.serviceDescription}</Text>
+                </View>
+              </View>
+              
               <Text style={styles.requestDescription}>{request.description}</Text>
               <Text style={styles.requestLocation}>
                 📍 {request.location?.latitude?.toFixed(4)}, {request.location?.longitude?.toFixed(4)}
@@ -210,6 +364,103 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
+  profileSection: {
+    marginBottom: 20,
+  },
+  profileCompleteCard: {
+    backgroundColor: '#e8f5e8',
+    borderColor: '#4CAF50',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+  },
+  profileIncompleteCard: {
+    backgroundColor: '#fff3cd',
+    borderColor: '#ffc107',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  profileHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  profileName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2e7d32',
+  },
+  editButton: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+  },
+  editButtonText: {
+    color: '#4CAF50',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  profileDetails: {
+    fontSize: 14,
+    color: '#388e3c',
+    marginBottom: 12,
+  },
+  servicesContainer: {
+    marginTop: 8,
+  },
+  servicesTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2e7d32',
+    marginBottom: 6,
+  },
+  serviceChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  serviceChip: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 6,
+    marginBottom: 4,
+  },
+  serviceChipText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  incompleteTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#856404',
+    marginBottom: 8,
+  },
+  incompleteMessage: {
+    fontSize: 14,
+    color: '#856404',
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  completeProfileButton: {
+    backgroundColor: '#ffc107',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  completeProfileButtonText: {
+    color: '#212529',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -236,16 +487,33 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  serviceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  serviceIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  serviceInfo: {
+    flex: 1,
+  },
+  serviceDescription: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 2,
+  },
   requestType: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 4,
   },
   requestDescription: {
     fontSize: 14,
     color: '#666',
     marginBottom: 8,
+    lineHeight: 18,
   },
   requestLocation: {
     fontSize: 12,

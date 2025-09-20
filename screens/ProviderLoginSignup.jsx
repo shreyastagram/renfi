@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import socketService from '../utils/socket';
+import { providerStorage } from '../utils/providerStorage';
 
 function validateEmailOrPhone(value) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -76,10 +77,36 @@ const ProviderLoginSignup = ({ route, navigation }) => {
       const providerData = await response.json();
       setLoading(false);
       
-      // Connect to socket with real provider ID
-      socketService.connect('provider', providerData.providerId || emailOrPhone);
+      console.log('✅ Login successful:', providerData);
       
-      navigation.replace('ProviderDashboard');
+      // Extract real provider ID
+      const realProviderId = providerData.providerId || providerData.data?._id;
+      
+      if (!realProviderId) {
+        setSubmitError('Failed to get provider ID from server.');
+        return;
+      }
+      
+      // Store provider ID and data
+      await providerStorage.saveProviderId(realProviderId);
+      if (providerData.data) {
+        await providerStorage.saveProviderData(providerData.data);
+      }
+      
+      // Connect to socket with real provider ID
+      socketService.connect('provider', realProviderId);
+      
+      // Check if profile is complete (has service categories)
+      if (providerData.data && providerData.data.serviceCategories && providerData.data.serviceCategories.length > 0) {
+        // Profile is complete, go to dashboard
+        navigation.replace('ProviderDashboard');
+      } else {
+        // Profile incomplete, redirect to setup
+        navigation.replace('ProviderProfileSetup', {
+          providerId: realProviderId,
+          isEditing: false
+        });
+      }
     } catch (err) {
       setSubmitError('Network error. Please try again.');
       setLoading(false);
@@ -115,10 +142,30 @@ const ProviderLoginSignup = ({ route, navigation }) => {
       const providerData = await response.json();
       setLoading(false);
       
-      // Connect to socket with real provider ID
-      socketService.connect('provider', providerData.providerId || emailOrPhone);
+      console.log('✅ Signup successful:', providerData);
       
-      navigation.replace('ProviderDashboard');
+      // Extract real provider ID
+      const realProviderId = providerData.providerId || providerData.data?._id;
+      
+      if (!realProviderId) {
+        setSubmitError('Failed to get provider ID from server.');
+        return;
+      }
+      
+      // Store provider ID and data
+      await providerStorage.saveProviderId(realProviderId);
+      if (providerData.data) {
+        await providerStorage.saveProviderData(providerData.data);
+      }
+      
+      // Connect to socket with real provider ID
+      socketService.connect('provider', realProviderId);
+      
+      // New providers need to complete profile setup
+      navigation.replace('ProviderProfileSetup', {
+        providerId: realProviderId,
+        isEditing: false
+      });
     } catch (err) {
       setSubmitError('Network error. Please try again.');
       setLoading(false);
