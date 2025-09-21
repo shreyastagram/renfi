@@ -217,6 +217,94 @@ class SocketService extends SimpleEventEmitter {
     }
   }
 
+  // 🔧 NEW: Listen for progressive search events
+  onSearchPhaseUpdate(callback) {
+    if (this.socket) {
+      this.socket.on('searchPhaseUpdate', callback);
+      console.log('✅ Listener attached for searchPhaseUpdate');
+    }
+  }
+
+  onProvidersFound(callback) {
+    if (this.socket) {
+      this.socket.on('providersFound', callback);
+      console.log('✅ Listener attached for providersFound');
+    }
+  }
+
+  onSearchTimeout(callback) {
+    if (this.socket) {
+      this.socket.on('searchTimeout', callback);
+      console.log('✅ Listener attached for searchTimeout');
+    }
+  }
+
+  onServiceRequestConfirmed(callback) {
+    if (this.socket) {
+      this.socket.on('serviceRequestConfirmed', callback);
+      console.log('✅ Listener attached for serviceRequestConfirmed');
+    }
+  }
+
+  // 🔧 NEW: Location update methods for live tracking
+  sendLocationUpdate(locationData) {
+    if (this.socket && this.isConnected) {
+      console.log('📤 Sending location update via socket:', locationData);
+      this.socket.emit('providerLocationUpdate', locationData);
+    } else {
+      console.warn('❌ Cannot send location update - Socket not connected');
+    }
+  }
+
+  onLocationUpdateConfirmed(callback) {
+    if (this.socket) {
+      this.socket.on('locationUpdateConfirmed', callback);
+      console.log('✅ Listener attached for locationUpdateConfirmed');
+    }
+  }
+
+  onNewProviderInRange(callback) {
+    if (this.socket) {
+      this.socket.on('newProviderInRange', callback);
+      console.log('✅ Listener attached for newProviderInRange');
+    }
+  }
+
+  stopLocationSharing(providerId) {
+    if (this.socket && this.isConnected) {
+      this.socket.emit('providerLocationStop', {
+        providerId,
+        timestamp: new Date().toISOString()
+      });
+      console.log('📤 Sent location stop signal for provider:', providerId);
+    }
+  }
+
+  // Cancel active service request
+  cancelServiceRequest(requestId, userId) {
+    if (this.socket && this.isConnected) {
+      const cancellationData = {
+        requestId,
+        userId,
+        timestamp: new Date().toISOString(),
+        reason: 'user_cancelled'
+      };
+      
+      console.log('📤 Sending service request cancellation:', cancellationData);
+      this.socket.emit('cancelServiceRequest', cancellationData);
+    } else {
+      console.warn('❌ Cannot cancel request - Socket not connected');
+    }
+  }
+
+  // Listen for request cancellation confirmations
+  onRequestCancelled(callback) {
+    if (this.socket) {
+      this.socket.on('requestCancelled', callback);
+      console.log('✅ Listener attached for requestCancelled');
+    }
+  }
+
   // Remove event listeners
   removeListener(event, callback) {
     if (this.socket) {
@@ -231,6 +319,13 @@ class SocketService extends SimpleEventEmitter {
         // Remove all provider response event variants
         const eventNames = ['providerResponse', 'serviceRequestUpdate', 'requestStatusUpdate'];
         eventNames.forEach(eventName => {
+          this.socket.removeAllListeners(eventName);
+          console.log(`🧹 Removed all listeners for: ${eventName}`);
+        });
+      } else if (event === 'progressiveSearch') {
+        // Remove all progressive search events
+        const searchEventNames = ['searchPhaseUpdate', 'providersFound', 'searchTimeout', 'serviceRequestConfirmed'];
+        searchEventNames.forEach(eventName => {
           this.socket.removeAllListeners(eventName);
           console.log(`🧹 Removed all listeners for: ${eventName}`);
         });

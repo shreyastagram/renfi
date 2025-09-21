@@ -11,6 +11,45 @@ import {
 } from 'react-native';
 import socketService from '../utils/socket';
 import { providerStorage } from '../utils/providerStorage';
+import { formatDistance } from '../utils/locationUtils';
+import liveLocationService from '../utils/liveLocationService';
+
+// Utility functions for distance-based features
+const calculateRequestPriority = (distance) => {
+  if (!distance) return 'normal';
+  if (distance <= 0.5) return 'urgent';
+  if (distance <= 1) return 'high';
+  if (distance <= 2) return 'medium';
+  return 'low';
+};
+
+const calculateTravelTime = (distance) => {
+  if (!distance) return null;
+  // Assume 30 km/h average speed in urban areas
+  const timeInHours = distance / 30;
+  const timeInMinutes = Math.round(timeInHours * 60);
+  return timeInMinutes < 60 ? `${timeInMinutes}min` : `${Math.round(timeInHours * 10) / 10}h`;
+};
+
+const getPriorityColor = (priority) => {
+  switch (priority) {
+    case 'urgent': return '#FF1744';
+    case 'high': return '#FF9800';
+    case 'medium': return '#2196F3';
+    case 'low': return '#4CAF50';
+    default: return '#9E9E9E';
+  }
+};
+
+const getPriorityIcon = (priority) => {
+  switch (priority) {
+    case 'urgent': return '🚨';
+    case 'high': return '⚡';
+    case 'medium': return '📍';
+    case 'low': return '📌';
+    default: return '📋';
+  }
+};
 
 const ProviderDashboard = ({ navigation }) => {
   const [isSocketConnected, setIsSocketConnected] = useState(false);
@@ -20,6 +59,11 @@ const ProviderDashboard = ({ navigation }) => {
   const [showResponseModal, setShowResponseModal] = useState(false);
   const [providerProfile, setProviderProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  
+  // 🔧 NEW: Live location tracking state
+  const [isLocationTracking, setIsLocationTracking] = useState(false);
+  const [isOnline, setIsOnline] = useState(false);
+  const [lastLocationUpdate, setLastLocationUpdate] = useState(null);
 
   useEffect(() => {
     // Check socket connection
@@ -31,19 +75,54 @@ const ProviderDashboard = ({ navigation }) => {
     // Listen for incoming service requests
     socketService.onServiceRequest((requestData) => {
       console.log('📩 Incoming service request:', requestData);
-      console.log('📍 Location data:', requestData.location); // Check what backend sends
-      console.log('📍 userLocation data:', requestData.userLocation); // Check if this exists
-      setIncomingRequests(prev => [...prev, requestData]);
+      console.log('� DEBUGGING - All fields in request:');
+      console.log('  - distance:', requestData.distance);
+      console.log('  - userDistance:', requestData.userDistance);
+      console.log('  - searchRadius:', requestData.searchRadius);
+      console.log('  - location:', requestData.location);
+      console.log('  - userLocation:', requestData.userLocation);
+      console.log('  - providerId:', requestData.providerId);
+      console.log('📍 RAW REQUEST DATA:', JSON.stringify(requestData, null, 2));
       
-      // ✅ FIXED: Use 'location' field that backend actually sends
+      // Enhance request with distance-based priority
+      const enhancedRequest = {
+        ...requestData,
+        priority: calculateRequestPriority(requestData.distance),
+        distanceDisplay: requestData.userDistance || (requestData.distance ? `${requestData.distance}km away` : 'Distance unknown'),
+        isUrgent: requestData.distance && requestData.distance <= 0.5, // Within 500m
+        isNearby: requestData.distance && requestData.distance <= 1,   // Within 1km
+        estimatedTravelTime: requestData.distance ? calculateTravelTime(requestData.distance) : null
+      };
+      
+      // Sort requests by distance when adding new ones
+      setIncomingRequests(prev => {
+        const updated = [...prev, enhancedRequest];
+        return updated.sort((a, b) => {
+          // Prioritize by distance (closest first), then by timestamp
+          const distanceA = a.distance || 999;
+          const distanceB = b.distance || 999;
+          if (distanceA !== distanceB) {
+            return distanceA - distanceB;
+          }
+          return new Date(b.timestamp) - new Date(a.timestamp);
+        });
+      });
+      
+      // Enhanced notification with distance information
       const locationText = requestData.location?.latitude && requestData.location?.longitude 
-        ? `${requestData.location.latitude}, ${requestData.location.longitude}`
+        ? `${requestData.location.latitude.toFixed(4)}, ${requestData.location.longitude.toFixed(4)}`
         : 'Location unavailable';
       
-      // Show notification
+      const distanceInfo = requestData.distance 
+        ? ` (${requestData.distance}km away)` 
+        : '';
+      
+      const urgencyPrefix = enhancedRequest.isUrgent ? '🚨 URGENT: ' : 
+                           enhancedRequest.isNearby ? '⚡ NEARBY: ' : '';
+      
       Alert.alert(
-        'New Service Request!',
-        `Service: ${requestData.serviceType}\nLocation: ${locationText}`,
+        `${urgencyPrefix}New Service Request!`,
+        `Service: ${requestData.serviceType}\nLocation: ${locationText}${distanceInfo}`,
         [{ text: 'View Dashboard', onPress: () => {} }],
       );
     });
@@ -59,6 +138,143 @@ const ProviderDashboard = ({ navigation }) => {
       socketService.removeAllListeners('incomingServiceRequest');
     };
   }, []);
+
+  // 🔧 NEW: Live location tracking management
+  useEffect(() => {
+    // Resume location tracking if it was active
+    liveLocationService.resumeTrackingIfNeeded();
+    
+    // Set up location update listeners
+    socketService.onLocationUpdateConfirmed((data) => {
+      console.log('📍 Location update confirmed:', data);
+      if (data.success) {
+        setLastLocationUpdate(new Date().toISOString());
+      } else {
+        console.error('❌ Location update failed:', data.error);
+      }
+    });
+
+    // Listen for new providers coming in range during active requests
+    socketService.onNewProviderInRange((data) => {
+      console.log('🎯 New provider in range notification:', data);
+      // Could show notification about new opportunities
+    });
+
+    // Listen for request cancellations
+    socketService.onRequestCancelled((data) => {
+      console.log('🚫 Request cancelled:', data);
+      
+      // Remove the cancelled request from incoming requests
+      setIncomingRequests(prev => {
+        const updated = prev.filter(request => request.requestId !== data.requestId);
+        console.log(`📝 Removed cancelled request ${data.requestId}. Remaining: ${updated.length} requests`);
+        return updated;
+      });
+
+      // Also remove from responded requests if exists
+      setRespondedRequests(prev => {
+        const updated = prev.filter(request => request.requestId !== data.requestId);
+        return updated;
+      });
+
+      // Show notification that request was cancelled
+      Alert.alert(
+        'Request Cancelled',
+        `Service request was cancelled by the user.`,
+        [{ text: 'OK' }]
+      );
+    });
+
+    // Check current tracking status
+    const trackingStatus = liveLocationService.getTrackingStatus();
+    setIsLocationTracking(trackingStatus.isTracking);
+    if (trackingStatus.lastLocation) {
+      setLastLocationUpdate(trackingStatus.lastLocation.timestamp);
+    }
+
+    return () => {
+      // Clean up listeners but don't stop tracking
+      const socket = socketService.getSocket();
+      if (socket) {
+        socket.off('locationUpdateConfirmed');
+        socket.off('newProviderInRange');
+        socket.off('requestCancelled');
+      }
+    };
+  }, []);
+
+  // 🔧 NEW: Toggle online/offline status with location tracking
+  const toggleOnlineStatus = async () => {
+    const providerId = await providerStorage.getProviderId();
+    
+    if (!providerId) {
+      Alert.alert('Error', 'Provider ID not found. Please login again.');
+      return;
+    }
+
+    if (!isOnline) {
+      // Going online - start location tracking
+      Alert.alert(
+        'Go Online',
+        'This will start sharing your live location with customers for better service matching. Continue?',
+        [
+          { text: 'Cancel' },
+          { 
+            text: 'Go Online', 
+            onPress: async () => {
+              console.log('🟢 Provider going online with live location');
+              
+              const success = await liveLocationService.startTracking(providerId);
+              if (success) {
+                setIsOnline(true);
+                setIsLocationTracking(true);
+                
+                // Notify backend about online status
+                socketService.getSocket()?.emit('providerStatusUpdate', {
+                  providerId,
+                  isAvailable: true,
+                  timestamp: new Date().toISOString()
+                });
+                
+                Alert.alert('Online', 'You are now online and sharing live location!');
+              } else {
+                Alert.alert('Error', 'Failed to start location tracking');
+              }
+            }
+          }
+        ]
+      );
+    } else {
+      // Going offline - stop location tracking
+      Alert.alert(
+        'Go Offline',
+        'This will stop sharing your location and you won\'t receive new service requests. Continue?',
+        [
+          { text: 'Cancel' },
+          { 
+            text: 'Go Offline', 
+            onPress: async () => {
+              console.log('🔴 Provider going offline');
+              
+              await liveLocationService.stopTracking();
+              setIsOnline(false);
+              setIsLocationTracking(false);
+              setLastLocationUpdate(null);
+              
+              // Notify backend about offline status
+              socketService.getSocket()?.emit('providerStatusUpdate', {
+                providerId,
+                isAvailable: false,
+                timestamp: new Date().toISOString()
+              });
+              
+              Alert.alert('Offline', 'You are now offline and not receiving requests.');
+            }
+          }
+        ]
+      );
+    }
+  };
 
   // Fetch provider profile to check completion status
   const fetchProviderProfile = async () => {
@@ -249,6 +465,56 @@ const ProviderDashboard = ({ navigation }) => {
         </View>
       )}
 
+      {/* 🔧 NEW: Online/Offline Status & Live Location Toggle */}
+      <View style={styles.statusSection}>
+        <View style={styles.statusCard}>
+          <View style={styles.statusHeader}>
+            <Text style={styles.statusTitle}>Service Status</Text>
+            <TouchableOpacity 
+              style={[styles.statusToggle, { backgroundColor: isOnline ? '#4CAF50' : '#757575' }]}
+              onPress={toggleOnlineStatus}
+            >
+              <Text style={styles.statusToggleText}>
+                {isOnline ? '🟢 ONLINE' : '⚫ OFFLINE'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.statusDetails}>
+            <View style={styles.statusRow}>
+              <Text style={styles.statusLabel}>📍 Location Tracking:</Text>
+              <Text style={[styles.statusValue, { color: isLocationTracking ? '#4CAF50' : '#757575' }]}>
+                {isLocationTracking ? 'Active' : 'Inactive'}
+              </Text>
+            </View>
+            
+            {lastLocationUpdate && (
+              <View style={styles.statusRow}>
+                <Text style={styles.statusLabel}>🕒 Last Update:</Text>
+                <Text style={styles.statusValue}>
+                  {new Date(lastLocationUpdate).toLocaleTimeString()}
+                </Text>
+              </View>
+            )}
+            
+            <View style={styles.statusRow}>
+              <Text style={styles.statusLabel}>🔗 Connection:</Text>
+              <Text style={[styles.statusValue, { color: isSocketConnected ? '#4CAF50' : '#F44336' }]}>
+                {isSocketConnected ? 'Connected' : 'Disconnected'}
+              </Text>
+            </View>
+          </View>
+          
+          {isOnline && isLocationTracking && (
+            <View style={styles.onlineIndicator}>
+              <Text style={styles.onlineText}>
+                ✨ You're live! Customers can find you based on your current location.
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+
       <Text style={styles.sectionTitle}>Pending Requests ({incomingRequests.length})</Text>
       
       <ScrollView style={styles.requestsList}>
@@ -256,7 +522,31 @@ const ProviderDashboard = ({ navigation }) => {
           <Text style={styles.noRequestsText}>No pending service requests</Text>
         ) : (
           incomingRequests.map((request) => (
-            <View key={request.requestId} style={styles.requestCard}>
+            <View key={request.requestId} style={[
+              styles.requestCard,
+              { borderLeftColor: getPriorityColor(request.priority) }
+            ]}>
+              {/* Priority and Distance Header */}
+              <View style={styles.requestHeader}>
+                <View style={styles.priorityBadge}>
+                  <Text style={styles.priorityIcon}>{getPriorityIcon(request.priority)}</Text>
+                  <Text style={[styles.priorityText, { color: getPriorityColor(request.priority) }]}>
+                    {request.priority?.toUpperCase() || 'NORMAL'}
+                  </Text>
+                </View>
+                {request.distanceDisplay && (
+                  <View style={[styles.distanceBadge, { 
+                    backgroundColor: request.isUrgent ? '#FFEBEE' : request.isNearby ? '#E8F5E8' : '#F5F5F5' 
+                  }]}>
+                    <Text style={[styles.distanceText, {
+                      color: request.isUrgent ? '#C62828' : request.isNearby ? '#2E7D32' : '#666'
+                    }]}>
+                      📍 {request.distanceDisplay}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
               <View style={styles.serviceHeader}>
                 <Text style={styles.serviceIcon}>{request.serviceIcon || '🔧'}</Text>
                 <View style={styles.serviceInfo}>
@@ -266,12 +556,30 @@ const ProviderDashboard = ({ navigation }) => {
               </View>
               
               <Text style={styles.requestDescription}>{request.description}</Text>
-              <Text style={styles.requestLocation}>
-                📍 {request.location?.latitude?.toFixed(4)}, {request.location?.longitude?.toFixed(4)}
-              </Text>
-              <Text style={styles.requestTime}>
-                🕒 {new Date(request.timestamp || Date.now()).toLocaleTimeString()}
-              </Text>
+              
+              {/* Enhanced location and travel info */}
+              <View style={styles.locationInfoContainer}>
+                <Text style={styles.requestLocation}>
+                  📍 {request.location?.latitude?.toFixed(4)}, {request.location?.longitude?.toFixed(4)}
+                </Text>
+                {request.estimatedTravelTime && (
+                  <Text style={styles.travelTime}>
+                    🚗 Est. travel: {request.estimatedTravelTime}
+                  </Text>
+                )}
+              </View>
+              
+              <View style={styles.timeInfoContainer}>
+                <Text style={styles.requestTime}>
+                  🕒 {new Date(request.timestamp || Date.now()).toLocaleTimeString()}
+                </Text>
+                {request.searchRadius && (
+                  <Text style={styles.searchRadius}>
+                    🔍 Search radius: {request.searchRadius}km
+                  </Text>
+                )}
+              </View>
+              
               <Text style={styles.requestUser}>
                 👤 User: {request.userId}
               </Text>
@@ -486,6 +794,60 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: '#9E9E9E',
+  },
+  // Enhanced request header with priority and distance
+  requestHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  priorityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  priorityIcon: {
+    fontSize: 12,
+    marginRight: 4,
+  },
+  priorityText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  distanceBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#F5F5F5',
+  },
+  distanceText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  locationInfoContainer: {
+    marginBottom: 8,
+  },
+  timeInfoContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  travelTime: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  searchRadius: {
+    fontSize: 11,
+    color: '#888',
   },
   serviceHeader: {
     flexDirection: 'row',
@@ -594,6 +956,76 @@ const styles = StyleSheet.create({
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+  },
+  // 🔧 NEW: Live location status UI styles
+  statusSection: {
+    marginBottom: 20,
+  },
+  statusCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  statusHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  statusTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  statusToggle: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  statusToggleText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  statusDetails: {
+    marginBottom: 12,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  statusLabel: {
+    fontSize: 14,
+    color: '#666',
+    flex: 1,
+  },
+  statusValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+    textAlign: 'right',
+  },
+  onlineIndicator: {
+    backgroundColor: '#E8F5E8',
+    borderRadius: 8,
+    padding: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4CAF50',
+  },
+  onlineText: {
+    fontSize: 13,
+    color: '#2E7D32',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });
 

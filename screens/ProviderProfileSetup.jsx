@@ -10,6 +10,7 @@ import {
   Modal,
 } from 'react-native';
 import { providerStorage } from '../utils/providerStorage';
+import { getCurrentLocation, isValidLocation, formatLocation } from '../utils/locationUtils';
 
 // Service Categories Configuration - matching ServiceSelectionScreen
 const AVAILABLE_SERVICES = [
@@ -66,6 +67,9 @@ const ProviderProfileSetup = ({ route, navigation }) => {
   const [experience, setExperience] = useState('');
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [serviceTypes, setServiceTypes] = useState('');
+  const [latitude, setLatitude] = useState(null);
+  const [longitude, setLongitude] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(false);
   
   // UI state
   const [loading, setLoading] = useState(false);
@@ -87,8 +91,41 @@ const ProviderProfileSetup = ({ route, navigation }) => {
       setExperience(existingProfile.experience || '');
       setSelectedCategories(existingProfile.serviceCategories || []);
       setServiceTypes(existingProfile.serviceTypes?.join(', ') || '');
+      
+      // Populate location data if available
+      if (existingProfile.location) {
+        setLatitude(existingProfile.location.latitude);
+        setLongitude(existingProfile.location.longitude);
+      }
     }
   }, [isEditing, existingProfile]);
+
+  // Get current GPS location
+  const getCurrentGPSLocation = async () => {
+    setLocationLoading(true);
+    setErrors(prev => ({ ...prev, location: '' }));
+    
+    try {
+      const location = await getCurrentLocation();
+      setLatitude(location.latitude);
+      setLongitude(location.longitude);
+      console.log('📍 Provider location updated:', formatLocation(location.latitude, location.longitude));
+    } catch (error) {
+      console.error('Location error:', error);
+      setErrors(prev => ({ ...prev, location: 'Unable to get location. Please check permissions.' }));
+      
+      Alert.alert(
+        'Location Error',
+        'Unable to get your current location. Please check location permissions and try again.',
+        [
+          { text: 'Cancel' },
+          { text: 'Retry', onPress: getCurrentGPSLocation }
+        ]
+      );
+    } finally {
+      setLocationLoading(false);
+    }
+  };
 
   // Validation functions
   const validateName = (name) => {
@@ -147,6 +184,11 @@ const ProviderProfileSetup = ({ route, navigation }) => {
     const experienceError = validateExperience(experience);
     if (experienceError) newErrors.experience = experienceError;
     
+    // Validate location (optional but recommended)
+    if (!latitude || !longitude) {
+      newErrors.location = 'Location is recommended for better service matching';
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -180,7 +222,13 @@ const ProviderProfileSetup = ({ route, navigation }) => {
         phone: phone.trim(),
         serviceCategories: selectedCategories,
         serviceTypes: serviceTypesArray,
-        experience: experience
+        experience: experience,
+        location: latitude && longitude ? {
+          lat: latitude,
+          lng: longitude,
+          address: '', // Could be enhanced with address lookup
+          lastUpdated: new Date().toISOString()
+        } : null
       };
 
       console.log('📤 Sending profile data:', profileData);
@@ -364,6 +412,44 @@ const ProviderProfileSetup = ({ route, navigation }) => {
             textAlignVertical="top"
           />
           <Text style={styles.helpText}>Separate multiple services with commas</Text>
+        </View>
+
+        {/* Location Section */}
+        <View style={styles.inputSection}>
+          <Text style={styles.label}>📍 Service Location (Recommended)</Text>
+          <Text style={styles.helpText}>
+            Your location helps us match you with nearby service requests
+          </Text>
+          
+          {latitude && longitude ? (
+            <View style={styles.locationInfo}>
+              <Text style={styles.locationText}>✅ Location Set</Text>
+              <Text style={styles.locationCoords}>
+                {formatLocation(latitude, longitude)}
+              </Text>
+              <TouchableOpacity 
+                style={styles.locationButton}
+                onPress={getCurrentGPSLocation}
+                disabled={locationLoading}
+              >
+                <Text style={styles.locationButtonText}>
+                  {locationLoading ? '🔄 Updating...' : '🔄 Update Location'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity 
+              style={[styles.locationButton, styles.getLocationButton]}
+              onPress={getCurrentGPSLocation}
+              disabled={locationLoading}
+            >
+              <Text style={styles.locationButtonText}>
+                {locationLoading ? '🔄 Getting Location...' : '📍 Get My Location'}
+              </Text>
+            </TouchableOpacity>
+          )}
+          
+          {errors.location && <Text style={styles.errorText}>{errors.location}</Text>}
         </View>
 
         {/* Submit Button */}
@@ -566,6 +652,44 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 40,
+  },
+  locationInfo: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  locationText: {
+    fontSize: 16,
+    color: '#4CAF50',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  locationCoords: {
+    fontSize: 12,
+    color: '#888',
+    marginBottom: 12,
+    fontFamily: 'monospace',
+  },
+  locationButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  getLocationButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    marginTop: 8,
+    width: '100%',
+  },
+  locationButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   // Modal styles
   modalOverlay: {
