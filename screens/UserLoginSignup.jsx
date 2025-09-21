@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import socketService from '../utils/socket';
+import { useApp } from '../context/AppContext';
 
 function validateEmailOrPhone(value) {
   // Simple email regex
@@ -22,8 +23,11 @@ function validatePassword(value) {
 
 
 const UserLoginSignup = ({ route, navigation }) => {
+  const { clearAppState } = useApp();
+  
   useEffect(() => {
-    console.log('Navigated to UserLoginSignup page');
+    // Clear any previous app state when user comes to login
+    clearAppState();
   }, []);
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -57,7 +61,6 @@ const UserLoginSignup = ({ route, navigation }) => {
     setSubmitSuccess('');
     if (!validateFields()) {
       setSubmitError('Please fix the errors above.');
-      console.log('Login validation failed');
       return;
     }
     setLoading(true);
@@ -90,7 +93,8 @@ const UserLoginSignup = ({ route, navigation }) => {
         console.log('Connecting user to socket:', userData.userId);
       }
       
-      navigation.replace('ServiceSelection');
+      // Navigate to UserLocation screen to start the proper flow
+      navigation.replace('UserLocation');
     } catch (err) {
       setSubmitError('Network error. Please try again.');
       setLoading(false);
@@ -102,7 +106,6 @@ const UserLoginSignup = ({ route, navigation }) => {
     setSubmitSuccess('');
     if (!validateFields()) {
       setSubmitError('Please fix the errors above.');
-      console.log('Signup validation failed');
       return;
     }
     setSubmitError('');
@@ -135,14 +138,14 @@ const UserLoginSignup = ({ route, navigation }) => {
         console.log('Connecting new user to socket:', userData.userId);
       }
       
-      navigation.replace('ServiceSelection');
+      // Navigate to UserLocation screen to start the proper flow
+      navigation.replace('UserLocation');
     } catch (err) {
       setSubmitError('Network error. Please try again.');
     }
   };
 
   const goToLogin = () => {
-    console.log('Go to Login pressed');
     navigation.replace('UserLoginSignup', { mode: 'login' });
   };
 

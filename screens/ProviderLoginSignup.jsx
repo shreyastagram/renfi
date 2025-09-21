@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
 import socketService from '../utils/socket';
 import { providerStorage } from '../utils/providerStorage';
+import { getCurrentLocation, isValidLocation, formatLocation } from '../utils/locationUtils';
 
 function validateEmailOrPhone(value) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -26,9 +27,13 @@ const ProviderLoginSignup = ({ route, navigation }) => {
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
   const [address, setAddress] = useState('');
+  const [latitude, setLatitude] = useState(null);
+  const [longitude, setLongitude] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(false);
   const [emailOrPhoneError, setEmailOrPhoneError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [addressError, setAddressError] = useState('');
+  const [locationError, setLocationError] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [loading, setLoading] = useState(false);
   const mode = route?.params?.mode || 'login';
@@ -43,10 +48,46 @@ const ProviderLoginSignup = ({ route, navigation }) => {
     const emailOrPhoneErr = validateEmailOrPhone(emailOrPhone);
     const passwordErr = validatePassword(password);
     const addressErr = mode === 'signup' ? validateAddress(address) : '';
+    const locationErr = mode === 'signup' && (!latitude || !longitude) ? 'Location is required for service providers.' : '';
+    
     setEmailOrPhoneError(emailOrPhoneErr);
     setPasswordError(passwordErr);
     setAddressError(addressErr);
-    return !emailOrPhoneErr && !passwordErr && !addressErr;
+    setLocationError(locationErr);
+    
+    return !emailOrPhoneErr && !passwordErr && !addressErr && !locationErr;
+  };
+
+  // Get current GPS location
+  const getCurrentGPSLocation = async () => {
+    setLocationLoading(true);
+    setLocationError('');
+    
+    try {
+      console.log('🔍 Requesting location permissions and GPS...');
+      const location = await getCurrentLocation();
+      setLatitude(location.latitude);
+      setLongitude(location.longitude);
+      console.log('📍 Provider location obtained:', formatLocation(location.latitude, location.longitude));
+      
+      // Clear any previous errors
+      setLocationError('');
+    } catch (error) {
+      console.error('❌ Location error:', error);
+      setLocationError(error.message || 'Unable to get location. Please check permissions.');
+      
+      // Show alert to user
+      Alert.alert(
+        'Location Required',
+        error.message || 'We need your location to match you with nearby service requests. Please enable location permissions and try again.',
+        [
+          { text: 'Cancel' },
+          { text: 'Retry', onPress: getCurrentGPSLocation }
+        ]
+      );
+    } finally {
+      setLocationLoading(false);
+    }
   };
 
   const handleLogin = async () => {
@@ -129,6 +170,8 @@ const ProviderLoginSignup = ({ route, navigation }) => {
           email: emailOrPhone,
           password,
           address,
+          lat: latitude,
+          lng: longitude,
         }),
       });
       if (!response.ok) {
@@ -218,6 +261,44 @@ const ProviderLoginSignup = ({ route, navigation }) => {
             onBlur={() => setAddressError(validateAddress(address))}
           />
           {!!addressError && <Text style={styles.errorText}>{addressError}</Text>}
+          
+          {/* Location Section for Signup */}
+          <View style={styles.locationSection}>
+            <Text style={styles.locationTitle}>📍 Your Service Location</Text>
+            <Text style={styles.locationSubtitle}>
+              We need your location to match you with nearby service requests
+            </Text>
+            
+            {latitude && longitude ? (
+              <View style={styles.locationInfo}>
+                <Text style={styles.locationText}>✅ Location Set</Text>
+                <Text style={styles.locationCoords}>
+                  {formatLocation(latitude, longitude)}
+                </Text>
+                <TouchableOpacity 
+                  style={styles.locationButton}
+                  onPress={getCurrentGPSLocation}
+                  disabled={locationLoading}
+                >
+                  <Text style={styles.locationButtonText}>
+                    {locationLoading ? '🔄 Updating...' : '🔄 Update Location'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity 
+                style={[styles.locationButton, styles.getLocationButton]}
+                onPress={getCurrentGPSLocation}
+                disabled={locationLoading}
+              >
+                <Text style={styles.locationButtonText}>
+                  {locationLoading ? '🔄 Getting Location...' : '📍 Get My Location'}
+                </Text>
+              </TouchableOpacity>
+            )}
+            
+            {!!locationError && <Text style={styles.errorText}>{locationError}</Text>}
+          </View>
         </>
       )}
       {mode === 'signup' ? (
@@ -321,6 +402,63 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontSize: 16,
     textDecorationLine: 'underline',
+  },
+  locationSection: {
+    width: '100%',
+    maxWidth: 350,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 16,
+    marginVertical: 16,
+    alignItems: 'center',
+  },
+  locationTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  locationSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  locationInfo: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  locationText: {
+    fontSize: 16,
+    color: '#4CAF50',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  locationCoords: {
+    fontSize: 12,
+    color: '#888',
+    marginBottom: 12,
+    fontFamily: 'monospace',
+  },
+  locationButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  getLocationButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    width: '100%',
+  },
+  locationButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 
