@@ -139,20 +139,28 @@ const ServiceSelectionScreen = ({ navigation }) => {
         
         const handleProviderResponse = (data) => {
           console.log('🎯 Provider response received:', data);
+          console.log('🎯 Current request ID:', currentRequestId);
+          console.log('🎯 Response request ID:', data?.requestId);
+          console.log('🎯 Current request status:', requestStatus);
+          console.log('🎯 Alert already shown:', alertShownRef.current);
           
           if (!data || !data.requestId || data.requestId !== currentRequestId) {
+            console.log('❌ Request ID mismatch or missing data');
             return;
           }
 
           if (requestStatus === 'accepted' || requestStatus === 'rejected') {
+            console.log('❌ Request already processed');
             return;
           }
 
           if (alertShownRef.current) {
+            console.log('❌ Alert already shown');
             return;
           }
           
           if (data.response === 'accept') {
+            console.log('✅ Processing provider acceptance');
             alertShownRef.current = true;
             setRequestStatus('accepted');
             setAcceptedProvider({
@@ -166,6 +174,7 @@ const ServiceSelectionScreen = ({ navigation }) => {
               timestamp: data.timestamp || new Date().toISOString()
             });
             setShowRequestModal(true);
+            console.log('✅ Provider acceptance processed successfully');
             
           } else if (data.response === 'reject') {
             alertShownRef.current = true;
@@ -315,6 +324,12 @@ const ServiceSelectionScreen = ({ navigation }) => {
   };
 
   const handleSendRequest = () => {
+    console.log('🚀 HandleSendRequest called');
+    console.log('🚀 Selected service:', selectedService?.name);
+    console.log('🚀 User location:', userLocation);
+    console.log('🚀 Socket connected:', isSocketConnected);
+    console.log('🚀 Current request status:', requestStatus);
+    
     if (!selectedService) {
       Alert.alert(
         'Service Required',
@@ -346,11 +361,15 @@ const ServiceSelectionScreen = ({ navigation }) => {
     }
 
     // Send the request and show dialog
+    console.log('🚀 About to call sendServiceRequest');
     const success = sendServiceRequest();
+    console.log('🚀 SendServiceRequest returned:', success);
+    
     if (success) {
       console.log('✅ Request sent successfully, showing dialog');
       setShowRequestModal(true);
     } else {
+      console.log('❌ Request failed to send');
       Alert.alert(
         'Request Failed',
         'Unable to send your request. Please try again.',
@@ -437,8 +456,18 @@ const ServiceSelectionScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Select a Service</Text>
-        <Text style={styles.subtitle}>Choose the type of service you need</Text>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.title}>Select a Service</Text>
+            <Text style={styles.subtitle}>Choose the type of service you need</Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.profileButton}
+            onPress={() => navigation.navigate('UserProfile')}
+          >
+            <Text style={styles.profileButtonText}>👤 Profile</Text>
+          </TouchableOpacity>
+        </View>
         
         {/* Location Status */}
         <View style={styles.statusContainer}>
@@ -760,6 +789,23 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E7',
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  profileButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  profileButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
   title: {
     fontSize: 28,
