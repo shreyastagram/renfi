@@ -11,6 +11,7 @@ import UserProfileScreen from './screens/UserProfileScreen.jsx';
 import BookServicesScreen from './screens/BookServicesScreen.jsx';
 import ProviderProfileScreen from './screens/ProviderProfileScreen.jsx';
 import ProviderDashboard from './screens/ProviderDashboard.jsx';
+import ProviderHistoryScreen from './screens/ProviderHistoryScreen.jsx';
 import ServiceSelectionScreen from './screens/ServiceSelectionScreen.jsx';
 import UserLocationScreen from './screens/UserLocationScreen.jsx';
 import ProviderProfileSetup from './screens/ProviderProfileSetup.jsx';
@@ -61,6 +62,11 @@ export default function App() {
             name="ProviderDashboard"
             component={ProviderDashboard}
             options={{ title: 'Provider Dashboard' }}
+          />
+          <Stack.Screen
+            name="ProviderHistory"
+            component={ProviderHistoryScreen}
+            options={{ title: 'Service History' }}
           />
           {/* New Flow: Location → Service */}
           <Stack.Screen

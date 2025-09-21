@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PROVIDER_ID_KEY = 'providerId';
 const PROVIDER_DATA_KEY = 'providerData';
+const PROVIDER_TOKEN_KEY = 'providerToken';
 
 export const providerStorage = {
   // Save provider ID
@@ -22,6 +23,28 @@ export const providerStorage = {
       return providerId;
     } catch (error) {
       console.error('❌ Failed to get provider ID:', error);
+      return null;
+    }
+  },
+
+  // Save provider authentication token
+  saveProviderToken: async (token) => {
+    try {
+      await AsyncStorage.setItem(PROVIDER_TOKEN_KEY, token);
+      console.log('✅ Provider token saved');
+    } catch (error) {
+      console.error('❌ Failed to save provider token:', error);
+    }
+  },
+
+  // Get provider authentication token
+  getProviderToken: async () => {
+    try {
+      const token = await AsyncStorage.getItem(PROVIDER_TOKEN_KEY);
+      console.log('📱 Retrieved provider token:', token ? 'Present' : 'Not found');
+      return token;
+    } catch (error) {
+      console.error('❌ Failed to get provider token:', error);
       return null;
     }
   },
@@ -52,7 +75,7 @@ export const providerStorage = {
   // Clear all provider data (for logout)
   clearProviderData: async () => {
     try {
-      await AsyncStorage.multiRemove([PROVIDER_ID_KEY, PROVIDER_DATA_KEY]);
+      await AsyncStorage.multiRemove([PROVIDER_ID_KEY, PROVIDER_DATA_KEY, PROVIDER_TOKEN_KEY]);
       console.log('✅ Provider data cleared');
     } catch (error) {
       console.error('❌ Failed to clear provider data:', error);
@@ -63,7 +86,8 @@ export const providerStorage = {
   isProviderLoggedIn: async () => {
     try {
       const providerId = await AsyncStorage.getItem(PROVIDER_ID_KEY);
-      return !!providerId;
+      const token = await AsyncStorage.getItem(PROVIDER_TOKEN_KEY);
+      return !!(providerId && token);
     } catch (error) {
       console.error('❌ Failed to check provider login status:', error);
       return false;

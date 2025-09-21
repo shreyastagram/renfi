@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import socketService from '../utils/socket';
+import { userStorage } from '../utils/userStorage';
 import { useApp } from '../context/AppContext';
 
 function validateEmailOrPhone(value) {
@@ -83,14 +84,37 @@ const UserLoginSignup = ({ route, navigation }) => {
       // Get user data from response
       const userData = await response.json();
       console.log('User login response:', userData); // Debug log
+      console.log('User ID from response:', userData.userId);
+      console.log('User ID from data:', userData.data?._id);
+      console.log('User ID from user:', userData.user?._id);
+      console.log('Response keys:', Object.keys(userData));
+      
+      // Save authentication data - try different possible user ID fields
+      const userId = userData.userId || userData.data?._id || userData.user?._id || userData._id;
+      const token = userData.token;
+      
+      if (userId && token) {
+        console.log('✅ Saving user ID:', userId);
+        console.log('✅ Saving token:', token ? 'Present' : 'Missing');
+        await userStorage.saveUserId(userId);
+        await userStorage.saveUserToken(token);
+        await userStorage.saveUserData(userData);
+      } else {
+        console.error('❌ Missing userId or token in response');
+        console.error('User ID found:', userId);
+        console.error('Token found:', token ? 'Present' : 'Missing');
+        setSubmitError('Login response missing required data');
+        setLoading(false);
+        return;
+      }
       
       setSubmitSuccess('Login successful!');
       setLoading(false);
       
       // ✅ CRITICAL FIX: Connect to socket with real user ID
-      if (userData.userId) {
-        socketService.connect('user', userData.userId);
-        console.log('Connecting user to socket:', userData.userId);
+      if (userId) {
+        socketService.connect('user', userId);
+        console.log('Connecting user to socket:', userId);
       }
       
       // Navigate to UserLocation screen to start the proper flow
@@ -129,13 +153,36 @@ const UserLoginSignup = ({ route, navigation }) => {
       // Get user data from response
       const userData = await response.json();
       console.log('User register response:', userData); // Debug log
+      console.log('User ID from response:', userData.userId);
+      console.log('User ID from data:', userData.data?._id);
+      console.log('User ID from user:', userData.user?._id);
+      console.log('Response keys:', Object.keys(userData));
+      
+      // Save authentication data - try different possible user ID fields
+      const userId = userData.userId || userData.data?._id || userData.user?._id || userData._id;
+      const token = userData.token;
+      
+      if (userId && token) {
+        console.log('✅ Saving user ID:', userId);
+        console.log('✅ Saving token:', token ? 'Present' : 'Missing');
+        await userStorage.saveUserId(userId);
+        await userStorage.saveUserToken(token);
+        await userStorage.saveUserData(userData);
+      } else {
+        console.error('❌ Missing userId or token in response');
+        console.error('User ID found:', userId);
+        console.error('Token found:', token ? 'Present' : 'Missing');
+        setSubmitError('Signup response missing required data');
+        setLoading(false);
+        return;
+      }
       
       setSubmitSuccess('Signup successful!');
       
       // ✅ CRITICAL FIX: Connect to socket with real user ID
-      if (userData.userId) {
-        socketService.connect('user', userData.userId);
-        console.log('Connecting new user to socket:', userData.userId);
+      if (userId) {
+        socketService.connect('user', userId);
+        console.log('Connecting new user to socket:', userId);
       }
       
       // Navigate to UserLocation screen to start the proper flow

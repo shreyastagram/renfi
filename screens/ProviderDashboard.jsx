@@ -374,6 +374,7 @@ const ProviderDashboard = ({ navigation }) => {
       ...providerData
     });
     
+    console.log('📤 ProviderDashboard: Calling socketService.respondToRequest');
     socketService.respondToRequest(
       requestId, 
       response, 
@@ -381,6 +382,24 @@ const ProviderDashboard = ({ navigation }) => {
       estimatedTime,
       providerData // Send real provider info
     );
+    
+    console.log('📤 ProviderDashboard: Also emitting debug event to backend');
+    // Also emit a debug event to help troubleshoot
+    const socket = socketService.getSocket();
+    if (socket) {
+      socket.emit('providerResponseDebug', {
+        requestId,
+        response,
+        providerId: providerData.providerId,
+        estimatedTime,
+        providerData,
+        timestamp: new Date().toISOString(),
+        debugMessage: 'Direct emit from ProviderDashboard'
+      });
+      console.log('📤 ProviderDashboard: Debug event emitted successfully');
+    } else {
+      console.log('❌ ProviderDashboard: No socket available for debug event');
+    }
     
     // Remove from pending requests
     setIncomingRequests(prev => prev.filter(req => req.requestId !== requestId));
@@ -408,10 +427,18 @@ const ProviderDashboard = ({ navigation }) => {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Provider Dashboard</Text>
-        <View style={styles.statusIndicator}>
-          <Text style={[styles.statusText, { color: isSocketConnected ? '#4CAF50' : '#F44336' }]}>
-            {isSocketConnected ? '🟢 Online' : '🔴 Offline'}
-          </Text>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            style={styles.historyButton}
+            onPress={() => navigation.navigate('ProviderHistory')}
+          >
+            <Text style={styles.historyButtonText}>📋 History</Text>
+          </TouchableOpacity>
+          <View style={styles.statusIndicator}>
+            <Text style={[styles.statusText, { color: isSocketConnected ? '#4CAF50' : '#F44336' }]}>
+              {isSocketConnected ? '🟢 Online' : '🔴 Offline'}
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -515,11 +542,21 @@ const ProviderDashboard = ({ navigation }) => {
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Pending Requests ({incomingRequests.length})</Text>
+      <Text style={styles.sectionTitle}>
+        Service Requests ({incomingRequests.length} pending)
+      </Text>
       
       <ScrollView style={styles.requestsList}>
         {incomingRequests.length === 0 ? (
-          <Text style={styles.noRequestsText}>No pending service requests</Text>
+          <View style={styles.noRequestsContainer}>
+            <Text style={styles.noRequestsText}>No pending service requests</Text>
+            <TouchableOpacity 
+              style={styles.historyButton}
+              onPress={() => navigation.navigate('ProviderHistory')}
+            >
+              <Text style={styles.historyButtonText}>📋 View Accepted Requests</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           incomingRequests.map((request) => (
             <View key={request.requestId} style={[
@@ -657,6 +694,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  historyButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  historyButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -782,7 +835,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
     color: '#666',
-    marginTop: 50,
+    marginBottom: 20,
+  },
+  noRequestsContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
   },
   requestCard: {
     backgroundColor: '#fff',

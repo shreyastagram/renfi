@@ -118,18 +118,27 @@ const ProviderLoginSignup = ({ route, navigation }) => {
       const providerData = await response.json();
       setLoading(false);
       
-      console.log('✅ Login successful:', providerData);
+      console.log('✅ Provider Login successful:', providerData);
+      console.log('Provider ID from response:', providerData.providerId);
+      console.log('Provider ID from data:', providerData.data?._id);
+      console.log('Response keys:', Object.keys(providerData));
       
       // Extract real provider ID
       const realProviderId = providerData.providerId || providerData.data?._id;
       
       if (!realProviderId) {
+        console.error('❌ No provider ID found in response');
         setSubmitError('Failed to get provider ID from server.');
         return;
       }
       
-      // Store provider ID and data
+      console.log('🔑 Using provider ID:', realProviderId);
+      
+      // Store provider ID, token, and data
       await providerStorage.saveProviderId(realProviderId);
+      if (providerData.token) {
+        await providerStorage.saveProviderToken(providerData.token);
+      }
       if (providerData.data) {
         await providerStorage.saveProviderData(providerData.data);
       }
@@ -195,8 +204,11 @@ const ProviderLoginSignup = ({ route, navigation }) => {
         return;
       }
       
-      // Store provider ID and data
+      // Store provider ID, token, and data
       await providerStorage.saveProviderId(realProviderId);
+      if (providerData.token) {
+        await providerStorage.saveProviderToken(providerData.token);
+      }
       if (providerData.data) {
         await providerStorage.saveProviderData(providerData.data);
       }
