@@ -21,6 +21,16 @@ const FloatingWidget = ({
   userName,
   onNavigate 
 }) => {
+  // Debug: Check if onNavigate is available
+  useEffect(() => {
+    console.log('🔧 FloatingWidget: Component mounted with props:', {
+      userType,
+      userName,
+      onNavigate: typeof onNavigate,
+      onLogout: typeof onLogout
+    });
+  }, [onNavigate, userType]);
+
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const translateX = useRef(new Animated.Value(screenWidth - WIDGET_SIZE - 20)).current;
   const translateY = useRef(new Animated.Value(screenHeight / 2)).current;
@@ -49,16 +59,124 @@ const FloatingWidget = ({
     pulse();
   }, []);
 
-  const menuItems = userType === 'user' ? [
-    { label: 'Home', action: () => onNavigate('UserLocation'), icon: '🏠' },
-    { label: 'Book Services', action: () => onNavigate('ServiceSelection'), icon: '📅' },
-    { label: 'Profile', action: () => onNavigate('UserProfile'), icon: '👤' },
-    { label: 'Manage Account', action: () => onNavigate('UserProfile'), icon: '⚙️' },
-  ] : [
-    { label: 'Dashboard', action: () => onNavigate('ProviderDashboard'), icon: '📊' },
-    { label: 'Profile', action: () => onNavigate('ProviderProfile'), icon: '👤' },
-    { label: 'History', action: () => onNavigate('ProviderHistory'), icon: '📋' },
-  ];
+  // Define menu items based on userType with proper error handling
+  const menuItems = React.useMemo(() => {
+    console.log('🔧 FloatingWidget: Creating menu items for userType:', userType);
+    
+    if (userType === 'user') {
+      return [
+        { 
+          label: 'Home', 
+          action: () => {
+            console.log('🔗 FloatingWidget: User - Navigating to UserLocation');
+            if (onNavigate) {
+              onNavigate('UserLocation');
+            } else {
+              console.error('🔗 FloatingWidget: onNavigate function not available');
+            }
+          }, 
+          icon: '🏠' 
+        },
+        { 
+          label: 'Book Services', 
+          action: () => {
+            console.log('🔗 FloatingWidget: User - Navigating to ServiceSelection');
+            if (onNavigate) {
+              onNavigate('ServiceSelection');
+            } else {
+              console.error('🔗 FloatingWidget: onNavigate function not available');
+            }
+          }, 
+          icon: '📅' 
+        },
+        { 
+          label: 'Profile', 
+          action: () => {
+            console.log('🔗 FloatingWidget: User - Navigating to UserProfile');
+            if (onNavigate) {
+              onNavigate('UserProfile');
+            } else {
+              console.error('🔗 FloatingWidget: onNavigate function not available');
+            }
+          }, 
+          icon: '👤' 
+        },
+        { 
+          label: 'Manage Account', 
+          action: () => {
+            console.log('🔗 FloatingWidget: User - Navigating to UserProfile with edit=true');
+            if (onNavigate) {
+              onNavigate('UserProfile', { edit: true });
+            } else {
+              console.error('🔗 FloatingWidget: onNavigate function not available');
+            }
+          }, 
+          icon: '⚙️' 
+        },
+      ];
+    } else if (userType === 'provider') {
+      return [
+        { 
+          label: 'Dashboard', 
+          action: () => {
+            console.log('🔗 FloatingWidget: Provider - Navigating to ProviderDashboard');
+            console.log('🔗 FloatingWidget: Provider - onNavigate function available:', !!onNavigate);
+            if (onNavigate) {
+              try {
+                onNavigate('ProviderDashboard');
+                console.log('🔗 FloatingWidget: Provider - Dashboard navigation successful');
+              } catch (error) {
+                console.error('🔗 FloatingWidget: Provider - Dashboard navigation error:', error);
+              }
+            } else {
+              console.error('🔗 FloatingWidget: Provider - onNavigate function not available');
+            }
+          }, 
+          icon: '📊' 
+        },
+        { 
+          label: 'Profile', 
+          action: () => {
+            console.log('🔗 FloatingWidget: Provider - Navigating to ProviderProfileSetup with isEditing=true');
+            if (onNavigate) {
+              try {
+                onNavigate('ProviderProfileSetup', { isEditing: true });
+                console.log('🔗 FloatingWidget: Provider - Profile navigation successful');
+              } catch (error) {
+                console.error('🔗 FloatingWidget: Provider - Profile navigation error:', error);
+              }
+            } else {
+              console.error('🔗 FloatingWidget: Provider - onNavigate function not available');
+            }
+          }, 
+          icon: '👤' 
+        },
+        { 
+          label: 'History', 
+          action: () => {
+            console.log('🔗 FloatingWidget: Provider - Navigating to ProviderHistory');
+            if (onNavigate) {
+              try {
+                onNavigate('ProviderHistory');
+                console.log('🔗 FloatingWidget: Provider - History navigation successful');
+              } catch (error) {
+                console.error('🔗 FloatingWidget: Provider - History navigation error:', error);
+              }
+            } else {
+              console.error('🔗 FloatingWidget: Provider - onNavigate function not available');
+            }
+          }, 
+          icon: '📋' 
+        },
+      ];
+    } else {
+      console.warn('🔧 FloatingWidget: Unknown userType:', userType);
+      return [];
+    }
+  }, [userType, onNavigate]);
+
+  console.log('🔧 FloatingWidget: Final menuItems length:', menuItems.length);
+  console.log('🔧 FloatingWidget: Menu items for userType', userType, ':', menuItems.map(item => item.label));
 
   const onGestureEvent = Animated.event(
     [{ nativeEvent: { translationX: translateX, translationY: translateY } }],
@@ -127,7 +245,22 @@ const FloatingWidget = ({
   };
 
   const handleMenuItemPress = (item) => {
-    item.action();
+    console.log('🔗 FloatingWidget: Menu item pressed:', item.label);
+    console.log('🔗 FloatingWidget: Current userType:', userType);
+    console.log('🔗 FloatingWidget: onNavigate available:', !!onNavigate);
+    
+    if (!onNavigate) {
+      console.error('🔗 FloatingWidget: onNavigate function not provided!');
+      return;
+    }
+    
+    try {
+      item.action();
+      console.log('🔗 FloatingWidget: Navigation action executed successfully for:', item.label);
+    } catch (error) {
+      console.error('🔗 FloatingWidget: Error executing navigation action for', item.label, ':', error);
+    }
+    
     toggleMenu();
   };
 

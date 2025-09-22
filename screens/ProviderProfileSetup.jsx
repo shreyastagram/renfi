@@ -116,8 +116,39 @@ const ProviderProfileSetup = ({ route, navigation }) => {
         setLatitude(existingProfile.location.latitude);
         setLongitude(existingProfile.location.longitude);
       }
+    } else if (isEditing && !existingProfile) {
+      // If editing but no existingProfile provided, load from storage
+      loadProviderDataFromStorage();
     }
   }, [isEditing, existingProfile, providerId]);
+
+  // Load provider data from storage when editing
+  const loadProviderDataFromStorage = async () => {
+    try {
+      console.log('🔧 Loading provider data from storage for editing...');
+      const storedProviderData = await providerStorage.getProviderData();
+      
+      if (storedProviderData) {
+        console.log('✅ Found stored provider data:', storedProviderData);
+        
+        setProviderName(storedProviderData.name || '');
+        setPhone(storedProviderData.phone || '');
+        setExperience(storedProviderData.experience || '');
+        setSelectedCategories(storedProviderData.serviceCategories || []);
+        setServiceTypes(storedProviderData.serviceTypes?.join(', ') || '');
+        
+        // Populate location data if available
+        if (storedProviderData.location) {
+          setLatitude(storedProviderData.location.latitude);
+          setLongitude(storedProviderData.location.longitude);
+        }
+      } else {
+        console.log('ℹ️ No stored provider data found, starting with empty form');
+      }
+    } catch (error) {
+      console.error('❌ Error loading provider data from storage:', error);
+    }
+  };
 
   // Get current GPS location
   const getCurrentGPSLocation = async () => {

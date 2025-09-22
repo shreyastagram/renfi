@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,12 +7,12 @@ import {
   FlatList,
   SafeAreaView,
   Alert,
-  Modal,
   ActivityIndicator,
 } from 'react-native';
 import { useApp } from '../context/AppContext';
 import socketService from '../utils/socket';
 import { formatDistance } from '../utils/locationUtils';
+import RequestStatusModal from './RequestStatusModal';
 
 const SERVICES = [
   {
@@ -83,16 +83,75 @@ const ServiceSelectionScreen = ({ navigation }) => {
   const [searchElapsedTime, setSearchElapsedTime] = React.useState(0);
   const [currentSearchPhase, setCurrentSearchPhase] = React.useState(1);
   const [searchTimer, setSearchTimer] = React.useState(null);
+  const [requestSentTime, setRequestSentTime] = React.useState(null);
+  const [isRequestInProgress, setIsRequestInProgress] = React.useState(false);
+  
+  // Refs to prevent race conditions
   const alertShownRef = useRef(false);
+  const modalShownRef = useRef(false);
+  const requestInProgressRef = useRef(false);
+  const currentRequestIdRef = useRef(null);
+  const requestStatusRef = useRef(requestStatus);
+  const searchTimerRef = useRef(searchTimer);
+
+  // Update ref when currentRequestId changes
+  useEffect(() => {
+    currentRequestIdRef.current = currentRequestId;
+  }, [currentRequestId]);
 
   useEffect(() => {
-    // Show modal if we have an active request
-    if (requestStatus === 'pending' || requestStatus === 'accepted' || requestStatus === 'rejected') {
+    requestStatusRef.current = requestStatus;
+  }, [requestStatus]);
+
+  useEffect(() => {
+    searchTimerRef.current = searchTimer;
+  }, [searchTimer]);
+
+  // Debounced modal show function
+  const showModalSafely = useCallback((shouldShow) => {
+    if (shouldShow && !modalShownRef.current) {
+      modalShownRef.current = true;
       setShowRequestModal(true);
+      console.log('✅ Modal shown safely');
+    } else if (!shouldShow && modalShownRef.current) {
+      modalShownRef.current = false;
+      setShowRequestModal(false);
+      console.log('✅ Modal hidden safely');
+    }
+  }, []);
+
+  // Clear all timers function
+  const clearAllTimers = useCallback(() => {
+    if (searchTimerRef.current) {
+      console.log('🛑 Clearing search timer');
+      clearInterval(searchTimerRef.current);
+      setSearchTimer(null);
+    }
+  }, []);
+
+  // Reset all search state
+  const resetSearchState = useCallback(() => {
+    setSearchElapsedTime(0);
+    setCurrentSearchPhase(1);
+    setProviderCount(0);
+    setSearchRadius(0);
+    setNearestDistance(null);
+    setSearchStartTime(null);
+    clearAllTimers();
+  }, [clearAllTimers]);
+
+  useEffect(() => {
+    // Only show modal based on request status changes, not on every render
+    const shouldShowModal = requestStatus === 'pending' || 
+                           requestStatus === 'accepted' || 
+                           requestStatus === 'rejected';
+    
+    if (shouldShowModal !== showRequestModal) {
+      showModalSafely(shouldShowModal);
     }
 
-    // Start search timer when request becomes pending
-    if (requestStatus === 'pending' && !searchTimer) {
+    // Start search timer when request becomes pending (only once)
+    if (requestStatus === 'pending' && !searchTimer && !searchStartTime) {
       console.log('🕒 Starting progressive search timer');
       const startTime = Date.now();
       setSearchStartTime(startTime);
@@ -102,19 +161,18 @@ const ServiceSelectionScreen = ({ navigation }) => {
         const elapsed = Math.floor((Date.now() - startTime) / 1000);
         setSearchElapsedTime(elapsed);
         
-        const newPhase = Math.floor(elapsed / 30) + 1; // Every 30 seconds = new phase
+        const newPhase = Math.floor(elapsed / 30) + 1;
         setCurrentSearchPhase(newPhase);
         
-        console.log(`⏱️ Search timer: ${elapsed}s, Phase: ${newPhase}, Expected radius: ${newPhase}km`);
+        console.log(`⏱️ Search timer: ${elapsed}s, Phase: ${newPhase}`);
         
-        // If we've been searching for 2 minutes (4 phases × 30s), timeout
+        // Timeout after 120 seconds
         if (elapsed >= 120) {
           console.log('⏰ Search timeout reached (120 seconds)');
           clearInterval(timer);
           setSearchTimer(null);
           if (requestStatus === 'pending') {
             setRequestStatus('rejected');
-            setShowRequestModal(true);
           }
         }
       }, 1000);
@@ -123,189 +181,148 @@ const ServiceSelectionScreen = ({ navigation }) => {
     }
 
     // Clean up timer when request is no longer pending
-    if (requestStatus !== 'pending' && searchTimer) {
-      console.log('🛑 Clearing search timer');
-      clearInterval(searchTimer);
-      setSearchTimer(null);
-      setSearchElapsedTime(0);
-      setCurrentSearchPhase(1);
+    if (requestStatus !== 'pending') {
+      clearAllTimers();
     }
 
-    // Set up socket listeners for provider responses
+    return () => {
+      // Cleanup on unmount or dependency change
+      clearAllTimers();
+    };
+  }, [requestStatus, searchTimer, searchStartTime, showRequestModal, showModalSafely, clearAllTimers]);
+
+  // Socket event listeners setup
+  useEffect(() => {
     const setupSocketListeners = () => {
       const socket = socketService.getSocket();
-      if (socket) {
-        console.log('🔧 Setting up provider response listeners in ServiceSelectionScreen');
+      if (!socket) return;
+
+      console.log('🔧 Setting up socket listeners');
+      
+      const handleProviderResponse = (data) => {
+        console.log('🎯 Provider response received:', data);
+        console.log('🎯 Current request ID:', currentRequestIdRef.current);
+        console.log('🎯 Response request ID:', data?.requestId);
         
-        const handleProviderResponse = (data) => {
-          console.log('🎯 Provider response received:', data);
-          console.log('🎯 Current request ID:', currentRequestId);
-          console.log('🎯 Response request ID:', data?.requestId);
-          console.log('🎯 Current request status:', requestStatus);
-          console.log('🎯 Alert already shown:', alertShownRef.current);
-          
-          if (!data || !data.requestId || data.requestId !== currentRequestId) {
-            console.log('❌ Request ID mismatch or missing data');
-            return;
-          }
+        // Strict validation
+        if (!data || !data.requestId || data.requestId !== currentRequestIdRef.current) {
+          console.log('❌ Request ID mismatch or missing data');
+          return;
+        }
 
-          if (requestStatus === 'accepted' || requestStatus === 'rejected') {
-            console.log('❌ Request already processed');
-            return;
-          }
+        if (requestStatusRef.current === 'accepted' || requestStatusRef.current === 'rejected') {
+          console.log('❌ Request already processed');
+          return;
+        }
 
-          if (alertShownRef.current) {
-            console.log('❌ Alert already shown');
-            return;
-          }
+        if (alertShownRef.current) {
+          console.log('❌ Alert already shown, ignoring duplicate');
+          return;
+        }
+        
+        if (data.response === 'accept') {
+          console.log('✅ Processing provider acceptance');
+          alertShownRef.current = true;
+          setRequestStatus('accepted');
+          setAcceptedProvider({
+            providerId: data.providerId,
+            estimatedTime: data.estimatedTimeFormatted || data.estimatedTime || '30 minutes', // 🔧 FIXED: Use formatted time
+            estimatedTimeRaw: data.estimatedTime, // Keep raw ISO for backend compatibility
+            estimatedDuration: data.estimatedDuration, // Also store duration
+            providerName: data.providerName || `Provider ${data.providerId}`,
+            providerPhone: data.providerPhone || 'Not available',
+            providerRating: data.providerRating || 'Not rated',
+            providerExperience: data.providerExperience || 'Not specified',
+            distance: data.distance || null,
+            timestamp: data.timestamp || new Date().toISOString()
+          });
+          clearAllTimers();
           
-          if (data.response === 'accept') {
-            console.log('✅ Processing provider acceptance');
-            alertShownRef.current = true;
-            setRequestStatus('accepted');
-            setAcceptedProvider({
-              providerId: data.providerId,
-              estimatedTime: data.estimatedTime || '30 minutes',
-              providerName: data.providerName || `Provider ${data.providerId}`,
-              providerPhone: data.providerPhone || 'Not available',
-              providerRating: data.providerRating || 'Not rated',
-              providerExperience: data.providerExperience || 'Not specified',
-              distance: data.distance || null, // Add distance information
-              timestamp: data.timestamp || new Date().toISOString()
-            });
-            setShowRequestModal(true);
-            console.log('✅ Provider acceptance processed successfully');
-            
-          } else if (data.response === 'reject') {
-            alertShownRef.current = true;
-            setRequestStatus('rejected');
-            setAcceptedProvider(null);
-            setShowRequestModal(true);
-            
-            // Auto-hide rejection after 5 seconds
-            setTimeout(() => {
-              setShowRequestModal(false);
+        } else if (data.response === 'reject') {
+          console.log('❌ Processing provider rejection');
+          alertShownRef.current = true;
+          setRequestStatus('rejected');
+          setAcceptedProvider(null);
+          clearAllTimers();
+          
+          // Auto-hide rejection after 5 seconds
+          setTimeout(() => {
+            if (requestStatusRef.current === 'rejected') {
+              showModalSafely(false);
               setRequestStatus('idle');
               alertShownRef.current = false;
-            }, 5000);
-          }
-        };
+              modalShownRef.current = false;
+            }
+          }, 5000);
+        }
+      };
         
-        // Listen for service request confirmation with proximity data
-        const handleServiceRequestConfirmed = (data) => {
-          console.log('📊 Service request confirmed with proximity data:', data);
-          console.log('🔍 DEBUGGING - Confirmation fields:');
-          console.log('  - providerCount:', data.providerCount);
-          console.log('  - searchRadius:', data.searchRadius);
-          console.log('  - nearestDistance:', data.nearestDistance);
-          console.log('  - message:', data.message);
-          console.log('📊 RAW CONFIRMATION DATA:', JSON.stringify(data, null, 2));
+      const handleServiceRequestConfirmed = (data) => {
+        console.log('📊 Service request confirmed:', data);
+        
+        if (data.requestId === currentRequestIdRef.current) {
+          setProviderCount(data.providerCount || 0);
+          setSearchRadius(data.searchRadius || 0);
+          setNearestDistance(data.nearestDistance);
+          // Don't set status here - let the main flow handle it
           
-          if (data.requestId === currentRequestId) {
-            setProviderCount(data.providerCount || 0);
-            setSearchRadius(data.searchRadius || 0);
-            setNearestDistance(data.nearestDistance);
-            setRequestStatus('pending');
-            
-            console.log(`Found ${data.providerCount} providers within ${data.searchRadius}km`);
-            if (data.nearestDistance) {
-              console.log(`Nearest provider: ${data.nearestDistance}km away`);
-            }
-            
-            // Enhanced user feedback based on proximity results
-            if (data.providerCount === 0) {
-              console.log('⚠️ No providers found in initial radius, backend will expand search');
-            } else if (data.searchRadius <= 1) {
-              console.log('🎯 Found providers within 1km - excellent proximity match!');
-            } else if (data.searchRadius <= 2) {
-              console.log('✅ Found providers within 2km - good proximity match');
-            } else {
-              console.log('📍 Found providers within expanded search radius');
-            }
-          }
-        };
+          console.log(`Found ${data.providerCount} providers within ${data.searchRadius}km`);
+        }
+      };
 
-        // 🔧 NEW: Listen for search phase updates (every 30 seconds)
-        const handleSearchPhaseUpdate = (data) => {
-          console.log('🔍 Search phase update received:', data);
+      const handleSearchPhaseUpdate = (data) => {
+        console.log('🔍 Search phase update:', data);
+        
+        if (data.requestId === currentRequestIdRef.current) {
+          setSearchRadius(data.searchRadius || 0);
+          setCurrentSearchPhase(data.searchPhase || 1);
+          setProviderCount(0);
           
-          if (data.requestId === currentRequestId) {
-            setSearchRadius(data.searchRadius || 0);
-            setCurrentSearchPhase(data.searchPhase || 1);
-            setProviderCount(0); // Reset provider count for new phase
-            
-            console.log(`🔄 Phase ${data.searchPhase}: Expanding search to ${data.searchRadius}km radius`);
-            console.log(`⏱️ Elapsed time: ${data.elapsedTime}s`);
-          }
-        };
+          console.log(`🔄 Phase ${data.searchPhase}: ${data.searchRadius}km radius`);
+        }
+      };
 
-        // 🔧 NEW: Listen for providers found notifications
-        const handleProvidersFound = (data) => {
-          console.log('🎯 Providers found update received:', data);
+      const handleProvidersFound = (data) => {
+        console.log('🎯 Providers found:', data);
+        
+        if (data.requestId === currentRequestIdRef.current) {
+          setProviderCount(data.providerCount || 0);
+          setSearchRadius(data.searchRadius || 0);
+          setNearestDistance(data.nearestDistance);
+          setCurrentSearchPhase(data.searchPhase || 1);
           
-          if (data.requestId === currentRequestId) {
-            setProviderCount(data.providerCount || 0);
-            setSearchRadius(data.searchRadius || 0);
-            setNearestDistance(data.nearestDistance);
-            setCurrentSearchPhase(data.searchPhase || 1);
-            
-            console.log(`✅ Found ${data.providerCount} providers in Phase ${data.searchPhase} (${data.searchRadius}km)`);
-            if (data.nearestDistance) {
-              console.log(`🎯 Nearest provider: ${data.nearestDistance}km away`);
-            }
-            
-            // Show success indicators based on search phase
-            if (data.searchPhase === 1) {
-              console.log('🏆 Excellent proximity match - found in 1km!');
-            } else if (data.searchPhase === 2) {
-              console.log('✨ Good proximity match - found in 2km');
-            } else {
-              console.log('📍 Providers found in expanded search area');
-            }
-          }
-        };
+          console.log(`✅ Found ${data.providerCount} providers`);
+        }
+      };
 
-        // 🔧 NEW: Listen for search timeout
-        const handleSearchTimeout = (data) => {
-          console.log('⏰ Search timeout received:', data);
+      const handleSearchTimeout = (data) => {
+        console.log('⏰ Search timeout:', data);
+        
+        if (data.requestId === currentRequestIdRef.current) {
+          console.log(`❌ Search timeout after ${data.elapsedTime}s`);
           
-          if (data.requestId === currentRequestId) {
-            console.log(`❌ Search timeout: No providers found within ${data.searchRadius}km after ${data.elapsedTime}s`);
-            
-            // Stop the local timer and update status
-            if (searchTimer) {
-              clearInterval(searchTimer);
-              setSearchTimer(null);
-            }
-            
-            setRequestStatus('rejected');
-            setProviderCount(0);
-            setSearchRadius(data.searchRadius || 4);
-            setCurrentSearchPhase(data.searchPhase || 4);
-            setShowRequestModal(true);
-          }
-        };
+          clearAllTimers();
+          setRequestStatus('rejected');
+          setProviderCount(0);
+          setSearchRadius(data.searchRadius || 4);
+          setCurrentSearchPhase(data.searchPhase || 4);
+        }
+      };
         
-        socketService.onProviderResponse(handleProviderResponse);
-        
-        // Add listeners for all events
-        socket.on('serviceRequestConfirmed', handleServiceRequestConfirmed);
-        socket.on('searchPhaseUpdate', handleSearchPhaseUpdate);
-        socket.on('providersFound', handleProvidersFound);
-        socket.on('searchTimeout', handleSearchTimeout);
-        
-        console.log('✅ All progressive search event listeners registered');
-      }
+      // Register all listeners
+      socketService.onProviderResponse(handleProviderResponse);
+      socket.on('serviceRequestConfirmed', handleServiceRequestConfirmed);
+      socket.on('searchPhaseUpdate', handleSearchPhaseUpdate);
+      socket.on('providersFound', handleProvidersFound);
+      socket.on('searchTimeout', handleSearchTimeout);
+      
+      console.log('✅ Socket listeners registered');
     };
 
     setupSocketListeners();
 
     return () => {
-      // Clean up search timer
-      if (searchTimer) {
-        clearInterval(searchTimer);
-      }
-      
+      console.log('🧹 Cleaning up socket listeners');
       socketService.removeAllListeners('providerResponse');
       const socket = socketService.getSocket();
       if (socket) {
@@ -313,29 +330,34 @@ const ServiceSelectionScreen = ({ navigation }) => {
         socket.off('searchPhaseUpdate');
         socket.off('providersFound');
         socket.off('searchTimeout');
-        console.log('🧹 All progressive search event listeners cleaned up');
       }
     };
-  }, [currentRequestId, requestStatus, searchTimer, searchStartTime]);
+  }, []);
 
-  const handleServiceSelect = (service) => {
-    console.log('Service selected:', service);
+  const handleServiceSelect = useCallback((service) => {
+    console.log('Service selected:', service.name);
     selectService(service);
-  };
+  }, [selectService]);
 
-  const handleSendRequest = () => {
+  const handleSendRequest = useCallback(() => {
     console.log('🚀 HandleSendRequest called');
-    console.log('🚀 Selected service:', selectedService?.name);
-    console.log('🚀 User location:', userLocation);
-    console.log('🚀 Socket connected:', isSocketConnected);
-    console.log('🚀 Current request status:', requestStatus);
+    console.log('🚀 Request in progress:', requestInProgressRef.current);
+    console.log('🚀 Current status:', requestStatus);
     
+    // Prevent duplicate requests
+    if (requestInProgressRef.current) {
+      console.log('⚠️ Request already in progress, ignoring');
+      return;
+    }
+
+    if (requestStatus === 'pending' || requestStatus === 'accepted') {
+      console.log('⚠️ Request already active, ignoring');
+      return;
+    }
+
+    // Validation
     if (!selectedService) {
-      Alert.alert(
-        'Service Required',
-        'Please select a service first.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Service Required', 'Please select a service first.');
       return;
     }
 
@@ -352,48 +374,53 @@ const ServiceSelectionScreen = ({ navigation }) => {
     }
 
     if (!isSocketConnected) {
-      Alert.alert(
-        'Connection Error',
-        'Please check your internet connection and try again.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Connection Error', 'Please check your internet connection and try again.');
       return;
     }
 
-    // Send the request and show dialog
+    // Set request in progress flag
+    requestInProgressRef.current = true;
+    setIsRequestInProgress(true);
+    
     console.log('🚀 About to call sendServiceRequest');
     const success = sendServiceRequest();
     console.log('🚀 SendServiceRequest returned:', success);
     
     if (success) {
-      console.log('✅ Request sent successfully, showing dialog');
-      setShowRequestModal(true);
+      console.log('✅ Request sent successfully');
+      setRequestSentTime(new Date());
+      // Reset flags
+      alertShownRef.current = false;
+      modalShownRef.current = false;
+      // Don't show modal here - let the status change trigger it
     } else {
       console.log('❌ Request failed to send');
-      Alert.alert(
-        'Request Failed',
-        'Unable to send your request. Please try again.',
-        [{ text: 'OK' }]
-      );
-    }
-  };
-
-  const handleCancelRequest = () => {
-    // Clear timer immediately when cancelling
-    if (searchTimer) {
-      console.log('🛑 Clearing search timer on cancel');
-      clearInterval(searchTimer);
-      setSearchTimer(null);
-      setSearchElapsedTime(0);
-      setCurrentSearchPhase(1);
+      Alert.alert('Request Failed', 'Unable to send your request. Please try again.');
     }
     
-    cancelRequest();
-    setShowRequestModal(false);
-    alertShownRef.current = false;
-  };
+    // Reset request in progress flag after a short delay
+    setTimeout(() => {
+      requestInProgressRef.current = false;
+      setIsRequestInProgress(false);
+    }, 1000);
+  }, [selectedService, userLocation, isSocketConnected, requestStatus, sendServiceRequest, navigation]);
 
-  const contactProvider = () => {
+  const handleCancelRequest = useCallback(() => {
+    console.log('🚀 Cancel request called');
+    
+    clearAllTimers();
+    resetSearchState();
+    setRequestSentTime(null);
+    
+    cancelRequest();
+    showModalSafely(false);
+    alertShownRef.current = false;
+    modalShownRef.current = false;
+    requestInProgressRef.current = false;
+    setIsRequestInProgress(false);
+  }, [clearAllTimers, resetSearchState, cancelRequest, showModalSafely]);
+
+  const contactProvider = useCallback(() => {
     if (acceptedProvider?.providerPhone && acceptedProvider.providerPhone !== 'Not available') {
       Alert.alert(
         'Contact Provider',
@@ -409,19 +436,22 @@ const ServiceSelectionScreen = ({ navigation }) => {
         ]
       );
     } else {
-      Alert.alert(
-        'Contact Info',
-        'Provider contact information is not available.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Contact Info', 'Provider contact information is not available.');
     }
-  };
+  }, [acceptedProvider]);
 
-  const startNewRequest = () => {
+  const startNewRequest = useCallback(() => {
+    console.log('🚀 Start new request called');
+    
     resetRequest();
-    setShowRequestModal(false);
+    resetSearchState();
+    setRequestSentTime(null);
+    showModalSafely(false);
     alertShownRef.current = false;
-  };
+    modalShownRef.current = false;
+    requestInProgressRef.current = false;
+    setIsRequestInProgress(false);
+  }, [resetRequest, resetSearchState, showModalSafely]);
 
   const renderServiceCard = ({ item }) => (
     <TouchableOpacity
@@ -469,7 +499,6 @@ const ServiceSelectionScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
         
-        {/* Location Status */}
         <View style={styles.statusContainer}>
           <Text style={styles.statusLabel}>
             📍 Location: {userLocation ? '✅ Set' : '❌ Not Set'}
@@ -488,7 +517,6 @@ const ServiceSelectionScreen = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
       />
 
-      {/* Selected Service Info */}
       {selectedService && (
         <View style={styles.selectedServiceContainer}>
           <View style={styles.selectedServiceInfo}>
@@ -504,20 +532,20 @@ const ServiceSelectionScreen = ({ navigation }) => {
         </View>
       )}
 
-      {/* Send Request Button */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={[
             styles.sendRequestButton,
             { 
-              opacity: (selectedService && userLocation && isSocketConnected) ? 1.0 : 0.5
+              opacity: (selectedService && userLocation && isSocketConnected && !isRequestInProgress) ? 1.0 : 0.5
             }
           ]}
           onPress={handleSendRequest}
-          disabled={!selectedService || !userLocation || !isSocketConnected}
+          disabled={!selectedService || !userLocation || !isSocketConnected || isRequestInProgress}
         >
           <Text style={styles.sendRequestButtonText}>
-            {!selectedService ? 'Select a Service First' :
+            {isRequestInProgress ? 'Sending Request...' :
+             !selectedService ? 'Select a Service First' :
              !userLocation ? 'Location Required' :
              !isSocketConnected ? 'Connection Required' :
              `🎯 Find Nearby ${selectedService.name}s`}
@@ -526,255 +554,23 @@ const ServiceSelectionScreen = ({ navigation }) => {
       </View>
 
       {/* Request Status Modal */}
-      <Modal
+      <RequestStatusModal
         visible={showRequestModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={requestStatus === 'pending' ? undefined : () => setShowRequestModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {/* Pending State */}
-            {requestStatus === 'pending' && (
-              <>
-                <View style={styles.modalIconContainer}>
-                  <ActivityIndicator size="large" color="#007AFF" />
-                </View>
-                <Text style={styles.modalTitle}>Finding Nearby Service Provider</Text>
-                <Text style={styles.modalSubtitle}>
-                  🎯 Searching for {selectedService?.name} providers within 1km radius for hyper-local service...
-                </Text>
-                
-                <View style={styles.requestDetails}>
-                  <Text style={styles.requestDetailTitle}>Request Details</Text>
-                  <View style={styles.requestDetailRow}>
-                    <Text style={styles.requestDetailIcon}>{selectedService?.icon}</Text>
-                    <View style={styles.requestDetailInfo}>
-                      <Text style={styles.requestDetailService}>{selectedService?.name}</Text>
-                      <Text style={styles.requestDetailDesc}>{selectedService?.description}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.requestDetailTime}>🕒 Requested: {new Date().toLocaleTimeString()}</Text>
-                  
-                  {/* Enhanced Progressive Search Information */}
-                  {requestStatus === 'pending' && (
-                    <View style={styles.progressiveSearchInfo}>
-                      <Text style={styles.progressiveSearchTitle}>🔍 Progressive Search Status</Text>
-                      
-                      {/* Search Phase Indicator */}
-                      <View style={styles.searchPhaseContainer}>
-                        <Text style={styles.searchPhaseText}>
-                          Phase {currentSearchPhase}/4 • {searchElapsedTime}s elapsed
-                        </Text>
-                        <Text style={styles.searchPhaseRadius}>
-                          {currentSearchPhase === 1 && "Searching within 1km radius..."}
-                          {currentSearchPhase === 2 && "Expanding to 2km radius..."}
-                          {currentSearchPhase === 3 && "Expanding to 3km radius..."}
-                          {currentSearchPhase >= 4 && "Final search within 4km radius..."}
-                        </Text>
-                        {/* Show real-time backend updates */}
-                        {searchRadius > 0 && searchRadius !== currentSearchPhase && (
-                          <Text style={styles.backendUpdateText}>
-                            🔄 Backend: Currently searching {searchRadius}km radius
-                          </Text>
-                        )}
-                      </View>
-                      
-                      {/* Phase Progress Bar */}
-                      <View style={styles.phaseProgressContainer}>
-                        {[1, 2, 3, 4].map(phase => (
-                          <View
-                            key={phase}
-                            style={[
-                              styles.phaseProgressDot,
-                              {
-                                backgroundColor: phase <= currentSearchPhase ? '#007AFF' : '#E0E0E0',
-                                transform: [{ scale: phase === currentSearchPhase ? 1.2 : 1 }]
-                              }
-                            ]}
-                          />
-                        ))}
-                      </View>
-                      
-                      {/* Timer Progress */}
-                      <View style={styles.timerContainer}>
-                        <View style={styles.timerBar}>
-                          <View
-                            style={[
-                              styles.timerFill,
-                              { width: `${Math.min((searchElapsedTime % 30) / 30 * 100, 100)}%` }
-                            ]}
-                          />
-                        </View>
-                        <Text style={styles.timerText}>
-                          Next expansion in {30 - (searchElapsedTime % 30)}s
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-
-                  {/* Proximity Information - Enhanced */}
-                  {(providerCount > 0 || searchRadius > 0) && (
-                    <View style={styles.proximityInfo}>
-                      <Text style={styles.proximityTitle}>📍 Provider Search Results</Text>
-                      {providerCount > 0 ? (
-                        <>
-                          <Text style={styles.proximityText}>
-                            ✅ Found {providerCount} provider{providerCount !== 1 ? 's' : ''} within {searchRadius}km
-                          </Text>
-                          {nearestDistance && (
-                            <Text style={styles.proximityText}>
-                              🎯 Nearest provider: {formatDistance(nearestDistance)}
-                            </Text>
-                          )}
-                          {/* Distance-based success indicators */}
-                          {searchRadius <= 1 && (
-                            <View style={styles.excellentProximityBadge}>
-                              <Text style={styles.excellentProximityText}>🏆 Excellent proximity match!</Text>
-                            </View>
-                          )}
-                          {searchRadius > 1 && searchRadius <= 2 && (
-                            <View style={styles.goodProximityBadge}>
-                              <Text style={styles.goodProximityText}>✨ Good proximity match</Text>
-                            </View>
-                          )}
-                          {searchRadius > 2 && (
-                            <View style={styles.expandedSearchBadge}>
-                              <Text style={styles.expandedSearchText}>🔍 Expanded search area</Text>
-                            </View>
-                          )}
-                        </>
-                      ) : searchRadius > 0 ? (
-                        <Text style={styles.proximityText}>
-                          🔍 Searching within {searchRadius}km radius...
-                        </Text>
-                      ) : null}
-                      
-                      {/* Search progress indicator */}
-                      <View style={styles.searchProgressContainer}>
-                        <Text style={styles.searchProgressText}>
-                          Search area: {searchRadius > 0 ? `${searchRadius}km` : `${currentSearchPhase}km (estimated)`} radius
-                        </Text>
-                        <View style={styles.searchProgressBar}>
-                          <View 
-                            style={[
-                              styles.searchProgressFill, 
-                              { width: `${Math.min((Math.max(searchRadius, currentSearchPhase) / 4) * 100, 100)}%` }
-                            ]} 
-                          />
-                        </View>
-                      </View>
-                    </View>
-                  )}
-                </View>
-
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={handleCancelRequest}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel Request</Text>
-                </TouchableOpacity>
-              </>
-            )}
-
-            {/* Accepted State */}
-            {requestStatus === 'accepted' && acceptedProvider && (
-              <>
-                <View style={styles.modalIconContainer}>
-                  <Text style={styles.successIcon}>✅</Text>
-                </View>
-                <Text style={styles.modalTitle}>Provider Found!</Text>
-                <Text style={styles.modalSubtitle}>
-                  Your {selectedService?.name} request has been accepted
-                </Text>
-
-                <View style={styles.providerCard}>
-                  <View style={styles.providerHeader}>
-                    <Text style={styles.providerTitle}>Provider Information</Text>
-                  </View>
-                  <View style={styles.providerDetails}>
-                    <View style={styles.providerRow}>
-                      <Text style={styles.providerLabel}>👤 Name:</Text>
-                      <Text style={styles.providerValue}>{acceptedProvider.providerName}</Text>
-                    </View>
-                    <View style={styles.providerRow}>
-                      <Text style={styles.providerLabel}>📞 Phone:</Text>
-                      <Text style={styles.providerValue}>{acceptedProvider.providerPhone}</Text>
-                    </View>
-                    <View style={styles.providerRow}>
-                      <Text style={styles.providerLabel}>⏱️ ETA:</Text>
-                      <Text style={styles.providerValue}>{acceptedProvider.estimatedTime}</Text>
-                    </View>
-                    {acceptedProvider.distance && (
-                      <View style={styles.providerRow}>
-                        <Text style={styles.providerLabel}>📍 Distance:</Text>
-                        <Text style={styles.providerValue}>{formatDistance(acceptedProvider.distance)}</Text>
-                      </View>
-                    )}
-                    {acceptedProvider.distance && (
-                      <View style={styles.providerRow}>
-                        <Text style={styles.providerLabel}>🚗 Travel Time:</Text>
-                        <Text style={styles.providerValue}>
-                          ~{Math.round((acceptedProvider.distance / 30) * 60)}min drive
-                        </Text>
-                      </View>
-                    )}
-                    <View style={styles.providerRow}>
-                      <Text style={styles.providerLabel}>⭐ Rating:</Text>
-                      <Text style={styles.providerValue}>
-                        {acceptedProvider.providerRating !== 'Not rated' ? 
-                          `${acceptedProvider.providerRating}/5` : 
-                          'Not rated yet'
-                        }
-                      </Text>
-                    </View>
-                    <View style={styles.providerRow}>
-                      <Text style={styles.providerLabel}>🔧 Experience:</Text>
-                      <Text style={styles.providerValue}>{acceptedProvider.providerExperience}</Text>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={styles.contactButton}
-                    onPress={contactProvider}
-                  >
-                    <Text style={styles.contactButtonText}>📞 Contact Provider</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity
-                    style={styles.newRequestButton}
-                    onPress={startNewRequest}
-                  >
-                    <Text style={styles.newRequestButtonText}>New Request</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
-
-            {/* Rejected State */}
-            {requestStatus === 'rejected' && (
-              <>
-                <View style={styles.modalIconContainer}>
-                  <Text style={styles.rejectedIcon}>❌</Text>
-                </View>
-                <Text style={styles.modalTitle}>No Providers Found</Text>
-                <Text style={styles.modalSubtitle}>
-                  Sorry, we couldn't find any {selectedService?.name} providers within our 4km search area after searching for 2 minutes. Please try again later or consider expanding your location range.
-                </Text>
-
-                <TouchableOpacity
-                  style={styles.tryAgainButton}
-                  onPress={startNewRequest}
-                >
-                  <Text style={styles.tryAgainButtonText}>Try Again</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
+        onClose={() => showModalSafely(false)}
+        requestStatus={requestStatus}
+        selectedService={selectedService}
+        requestSentTime={requestSentTime}
+        currentSearchPhase={currentSearchPhase}
+        searchElapsedTime={searchElapsedTime}
+        providerCount={providerCount}
+        searchRadius={searchRadius}
+        nearestDistance={nearestDistance}
+        formatDistance={formatDistance}
+        acceptedProvider={acceptedProvider}
+        handleCancelRequest={handleCancelRequest}
+        contactProvider={contactProvider}
+        startNewRequest={startNewRequest}
+      />
     </SafeAreaView>
   );
 };
@@ -947,340 +743,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#FFFFFF',
     fontWeight: 'bold',
-  },
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    margin: 20,
-    borderRadius: 20,
-    padding: 24,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
-    maxWidth: 350,
-    width: '90%',
-  },
-  modalIconContainer: {
-    marginBottom: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  successIcon: {
-    fontSize: 48,
-    color: '#4CAF50',
-  },
-  rejectedIcon: {
-    fontSize: 48,
-    color: '#FF6B6B',
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'center',
-    color: '#333',
-  },
-  modalSubtitle: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 22,
-  },
-  requestDetails: {
-    backgroundColor: '#F8F9FB',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#E8E9EB',
-  },
-  requestDetailTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
-    color: '#333',
-  },
-  requestDetailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  requestDetailIcon: {
-    fontSize: 24,
-    marginRight: 12,
-  },
-  requestDetailInfo: {
-    flex: 1,
-  },
-  requestDetailService: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 2,
-  },
-  requestDetailDesc: {
-    fontSize: 14,
-    color: '#666',
-  },
-  requestDetailTime: {
-    fontSize: 14,
-    color: '#666',
-    fontStyle: 'italic',
-  },
-  providerCard: {
-    backgroundColor: '#F0F8FF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#D0E7FF',
-  },
-  providerHeader: {
-    marginBottom: 16,
-  },
-  providerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#007AFF',
-  },
-  providerDetails: {
-    gap: 8,
-  },
-  providerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  providerLabel: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  providerValue: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '600',
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    gap: 12,
-  },
-  cancelButton: {
-    backgroundColor: '#6C757D',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    width: '100%',
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  contactButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-    flex: 1,
-  },
-  contactButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  newRequestButton: {
-    backgroundColor: '#28A745',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-    flex: 1,
-  },
-  newRequestButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  tryAgainButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    width: '100%',
-  },
-  tryAgainButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  proximityInfo: {
-    backgroundColor: '#E3F2FD',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: '#007AFF',
-  },
-  proximityTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#007AFF',
-    marginBottom: 6,
-  },
-  proximityText: {
-    fontSize: 13,
-    color: '#1565C0',
-    lineHeight: 18,
-    marginBottom: 2,
-  },
-  // Enhanced proximity badges for 1km radius feedback
-  excellentProximityBadge: {
-    backgroundColor: '#E8F5E8',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginTop: 4,
-    alignSelf: 'flex-start',
-  },
-  excellentProximityText: {
-    fontSize: 12,
-    color: '#2E7D32',
-    fontWeight: '600',
-  },
-  goodProximityBadge: {
-    backgroundColor: '#FFF3E0',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginTop: 4,
-    alignSelf: 'flex-start',
-  },
-  goodProximityText: {
-    fontSize: 12,
-    color: '#F57C00',
-    fontWeight: '600',
-  },
-  expandedSearchBadge: {
-    backgroundColor: '#F3E5F5',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginTop: 4,
-    alignSelf: 'flex-start',
-  },
-  expandedSearchText: {
-    fontSize: 12,
-    color: '#7B1FA2',
-    fontWeight: '600',
-  },
-  searchProgressContainer: {
-    marginTop: 8,
-  },
-  searchProgressText: {
-    fontSize: 11,
-    color: '#666',
-    marginBottom: 4,
-  },
-  searchProgressBar: {
-    height: 4,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  searchProgressFill: {
-    height: '100%',
-    backgroundColor: '#007AFF',
-    borderRadius: 2,
-  },
-  // Progressive search UI styles
-  progressiveSearchInfo: {
-    backgroundColor: '#F0F8FF',
-    borderRadius: 8,
-    padding: 16,
-    marginTop: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#007AFF',
-  },
-  progressiveSearchTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#007AFF',
-    marginBottom: 12,
-  },
-  searchPhaseContainer: {
-    marginBottom: 12,
-  },
-  searchPhaseText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1565C0',
-    marginBottom: 4,
-  },
-  searchPhaseRadius: {
-    fontSize: 12,
-    color: '#1976D2',
-    fontStyle: 'italic',
-  },
-  backendUpdateText: {
-    fontSize: 11,
-    color: '#FF6B35',
-    fontWeight: '600',
-    marginTop: 4,
-    fontStyle: 'italic',
-  },
-  phaseProgressContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-    paddingHorizontal: 8,
-  },
-  phaseProgressDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginHorizontal: 4,
-  },
-  timerContainer: {
-    marginTop: 8,
-  },
-  timerBar: {
-    height: 6,
-    backgroundColor: '#E3F2FD',
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 4,
-  },
-  timerFill: {
-    height: '100%',
-    backgroundColor: '#FF9800',
-    borderRadius: 3,
-  },
-  timerText: {
-    fontSize: 11,
-    color: '#666',
-    textAlign: 'center',
   },
 });
 

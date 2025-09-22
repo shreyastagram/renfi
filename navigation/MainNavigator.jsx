@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { useApp } from '../context/AppContext.js';
 import CustomHeader from '../components/CustomHeader.jsx';
 import FloatingWidget from '../components/FloatingWidget.jsx';
@@ -20,9 +21,36 @@ import ProviderProfileSetup from '../screens/ProviderProfileSetup.jsx';
 
 const Stack = createNativeStackNavigator();
 
+// Wrapper component that has access to navigation context
+const ScreenWrapper = ({ children, userType, userData, onLogout }) => {
+  const navigation = useNavigation();
+  
+  const handleNavigate = (screenName, params = {}) => {
+    console.log('🚀 ScreenWrapper: handleNavigate called with:', { screenName, params });
+    console.log('🚀 ScreenWrapper: userType:', userType);
+    try {
+      navigation.navigate(screenName, params);
+      console.log('🚀 ScreenWrapper: Navigation executed successfully to:', screenName);
+    } catch (error) {
+      console.error('🚀 ScreenWrapper: Navigation error:', error);
+    }
+  };
+
+  return (
+    <>
+      {children}
+      <FloatingWidget
+        onLogout={onLogout}
+        userType={userType}
+        userName={userData?.name || userData?.fullName}
+        onNavigate={handleNavigate}
+      />
+    </>
+  );
+};
+
 const MainNavigator = () => {
   const { userType, userData, logout } = useApp();
-  const navigationRef = React.useRef(null);
 
   // Debug: Add a useEffect to see when MainNavigator renders
   React.useEffect(() => {
@@ -31,12 +59,6 @@ const MainNavigator = () => {
 
   const handleLogout = () => {
     logout();
-  };
-
-  const handleNavigate = (screenName) => {
-    if (navigationRef.current) {
-      navigationRef.current.navigate(screenName);
-    }
   };
 
   const getInitialRouteName = () => {
@@ -87,34 +109,74 @@ const MainNavigator = () => {
             );
           }
         }}
-        ref={navigationRef}
       >
-        {userType === 'user' ? (
-          // User screens
-          <>
-            <Stack.Screen name="UserLocation" component={UserLocationScreen} />
-            <Stack.Screen name="ServiceSelection" component={ServiceSelectionScreen} />
-            <Stack.Screen name="BookServices" component={BookServicesScreen} />
-            <Stack.Screen name="UserProfile" component={UserProfileScreen} />
-            <Stack.Screen name="ManageAccount" component={ManageAccountScreen} />
-          </>
-        ) : (
-          // Provider screens
-          <>
-            <Stack.Screen name="ProviderDashboard" component={ProviderDashboard} />
-            <Stack.Screen name="ProviderProfile" component={ProviderProfileScreen} />
-            <Stack.Screen name="ProviderHistory" component={ProviderHistoryScreen} />
-            <Stack.Screen name="ProviderProfileSetup" component={ProviderProfileSetup} />
-          </>
-        )}
+        {/* ALL User screens - always registered */}
+        <Stack.Screen name="UserLocation">
+          {(props) => (
+            <ScreenWrapper userType={userType} userData={userData} onLogout={handleLogout}>
+              <UserLocationScreen {...props} />
+            </ScreenWrapper>
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="ServiceSelection">
+          {(props) => (
+            <ScreenWrapper userType={userType} userData={userData} onLogout={handleLogout}>
+              <ServiceSelectionScreen {...props} />
+            </ScreenWrapper>
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="BookServices">
+          {(props) => (
+            <ScreenWrapper userType={userType} userData={userData} onLogout={handleLogout}>
+              <BookServicesScreen {...props} />
+            </ScreenWrapper>
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="UserProfile">
+          {(props) => (
+            <ScreenWrapper userType={userType} userData={userData} onLogout={handleLogout}>
+              <UserProfileScreen {...props} />
+            </ScreenWrapper>
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="ManageAccount">
+          {(props) => (
+            <ScreenWrapper userType={userType} userData={userData} onLogout={handleLogout}>
+              <ManageAccountScreen {...props} />
+            </ScreenWrapper>
+          )}
+        </Stack.Screen>
+
+        {/* ALL Provider screens - always registered */}
+        <Stack.Screen name="ProviderDashboard">
+          {(props) => (
+            <ScreenWrapper userType={userType} userData={userData} onLogout={handleLogout}>
+              <ProviderDashboard {...props} />
+            </ScreenWrapper>
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="ProviderProfile">
+          {(props) => (
+            <ScreenWrapper userType={userType} userData={userData} onLogout={handleLogout}>
+              <ProviderProfileScreen {...props} />
+            </ScreenWrapper>
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="ProviderHistory">
+          {(props) => (
+            <ScreenWrapper userType={userType} userData={userData} onLogout={handleLogout}>
+              <ProviderHistoryScreen {...props} />
+            </ScreenWrapper>
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="ProviderProfileSetup">
+          {(props) => (
+            <ScreenWrapper userType={userType} userData={userData} onLogout={handleLogout}>
+              <ProviderProfileSetup {...props} />
+            </ScreenWrapper>
+          )}
+        </Stack.Screen>
       </Stack.Navigator>
-      
-      <FloatingWidget
-        onLogout={handleLogout}
-        userType={userType}
-        userName={userData?.name || userData?.fullName}
-        onNavigate={handleNavigate}
-      />
     </SafeAreaProvider>
   );
 };

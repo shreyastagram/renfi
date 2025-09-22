@@ -3,14 +3,24 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useApp } from '../context/AppContext.js';
 import AuthNavigator from './AuthNavigator.jsx';
 import MainNavigator from './MainNavigator.jsx';
+import WelcomeScreen from '../screens/WelcomeScreen.jsx';
 
 const RootNavigator = () => {
-  const { isAuthenticated, isAuthLoading, userType } = useApp();
+  const { isAuthenticated, isAuthLoading, userType, isWelcomeShown, setIsWelcomeShown } = useApp();
 
   // Debug logging
   React.useEffect(() => {
-    console.log('🚀 RootNavigator state - isAuthLoading:', isAuthLoading, 'isAuthenticated:', isAuthenticated, 'userType:', userType);
-  }, [isAuthLoading, isAuthenticated, userType]);
+    console.log('🚀 RootNavigator state - isAuthLoading:', isAuthLoading, 'isAuthenticated:', isAuthenticated, 'userType:', userType, 'isWelcomeShown:', isWelcomeShown);
+  }, [isAuthLoading, isAuthenticated, userType, isWelcomeShown]);
+
+  // Show welcome screen first if not shown yet
+  if (!isWelcomeShown) {
+    return (
+      <WelcomeScreen
+        onGetStarted={() => setIsWelcomeShown(true)}
+      />
+    );
+  }
 
   if (isAuthLoading) {
     return (

@@ -168,17 +168,27 @@ class SocketService extends SimpleEventEmitter {
         response, // 'accept' or 'reject'
         estimatedTime,
         timestamp: new Date().toISOString(),
+        // 🔧 NEW: Extract ETA fields to top level for backend compatibility
+        ...(providerData?.estimatedTimeFormatted && {
+          estimatedTimeFormatted: providerData.estimatedTimeFormatted,
+          estimatedDuration: providerData.estimatedDuration
+        }),
         // Include additional provider information
         ...(providerData && {
           providerName: providerData.providerName,
           providerPhone: providerData.providerPhone,
           providerRating: providerData.providerRating,
-          providerExperience: providerData.providerExperience
+          providerExperience: providerData.providerExperience,
+          serviceCategories: providerData.serviceCategories
         })
       };
       
       console.log('📤 SocketService: Emitting providerResponse with complete payload:');
       console.log(JSON.stringify(responsePayload, null, 2));
+      console.log('📤 SocketService: ETA fields specifically:');
+      console.log('  - estimatedTime:', responsePayload.estimatedTime);
+      console.log('  - estimatedTimeFormatted:', responsePayload.estimatedTimeFormatted);
+      console.log('  - estimatedDuration:', responsePayload.estimatedDuration);
       
       this.socket.emit('providerResponse', responsePayload);
       console.log('✅ SocketService: Provider response emitted successfully');

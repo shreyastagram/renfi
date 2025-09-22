@@ -8,7 +8,9 @@ import {
   ScrollView,
   Modal,
   TextInput,
+  Platform,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import socketService from '../utils/socket';
 import { providerStorage } from '../utils/providerStorage';
 import { formatDistance } from '../utils/locationUtils';
@@ -29,6 +31,62 @@ const calculateTravelTime = (distance) => {
   const timeInHours = distance / 30;
   const timeInMinutes = Math.round(timeInHours * 60);
   return timeInMinutes < 60 ? `${timeInMinutes}min` : `${Math.round(timeInHours * 10) / 10}h`;
+};
+
+// 🔧 NEW: Time utility functions for ETA selection with IST consistency
+const generateTimeSlots = () => {
+  const slots = [];
+  const now = new Date();
+  
+  // Generate time slots from current time + 15 minutes to 8 hours ahead
+  for (let i = 1; i <= 32; i++) { // 32 slots = 8 hours with 15-min intervals
+    const slotTime = new Date(now.getTime() + (i * 15 * 60 * 1000)); // Add i*15 minutes
+    
+    // 🔧 FIXED: Generate consistent IST display time
+    const istDisplayTime = slotTime.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+    
+    slots.push({
+      value: slotTime.toISOString(), // Keep ISO for backend consistency
+      label: istDisplayTime, // 🔧 FIXED: Use IST display format
+      time: slotTime
+    });
+  }
+  
+  return slots;
+};
+
+const formatETATime = (isoString) => {
+  const date = new Date(isoString);
+  
+  // 🔧 FIXED: Use consistent IST formatting
+  const istDisplayTime = date.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+  
+  return istDisplayTime;
+};
+
+const calculateDurationFromNow = (isoString) => {
+  const now = new Date();
+  const targetTime = new Date(isoString);
+  const diffMs = targetTime.getTime() - now.getTime();
+  const diffMinutes = Math.round(diffMs / (60 * 1000));
+  
+  if (diffMinutes < 60) {
+    return `${diffMinutes} min`;
+  } else {
+    const hours = Math.floor(diffMinutes / 60);
+    const remainingMinutes = diffMinutes % 60;
+    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  }
 };
 
 const getPriorityColor = (priority) => {
@@ -55,7 +113,7 @@ const ProviderDashboard = ({ navigation }) => {
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [incomingRequests, setIncomingRequests] = useState([]);
   const [selectedRequest, setSelectedRequest] = useState(null);
-  const [estimatedTime, setEstimatedTime] = useState('');
+  const [selectedETA, setSelectedETA] = useState(''); // 🔧 NEW: Store ISO string for selected ETA
   const [showResponseModal, setShowResponseModal] = useState(false);
   const [providerProfile, setProviderProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -64,6 +122,9 @@ const ProviderDashboard = ({ navigation }) => {
   const [isLocationTracking, setIsLocationTracking] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
   const [lastLocationUpdate, setLastLocationUpdate] = useState(null);
+
+  // 🔧 NEW: Generate available time slots
+  const timeSlots = generateTimeSlots();
 
   useEffect(() => {
     // Check socket connection
@@ -141,8 +202,38 @@ const ProviderDashboard = ({ navigation }) => {
 
   // 🔧 NEW: Live location tracking management
   useEffect(() => {
-    // Resume location tracking if it was active
-    liveLocationService.resumeTrackingIfNeeded();
+    const initializeProviderStatus = async () => {
+      // Resume location tracking if it was active
+      liveLocationService.resumeTrackingIfNeeded();
+      
+      // Check current tracking status and sync with UI state
+      const trackingStatus = liveLocationService.getTrackingStatus();
+      const wasTracking = trackingStatus.isTracking;
+      
+      console.log('🔄 Initializing provider status - tracking was:', wasTracking);
+      
+      // Sync frontend state with actual tracking status
+      setIsLocationTracking(wasTracking);
+      setIsOnline(wasTracking);
+      
+      if (trackingStatus.lastLocation) {
+        setLastLocationUpdate(trackingStatus.lastLocation.timestamp);
+      }
+      
+      // 🔧 CRITICAL: Notify backend of actual availability status on app load
+      const providerId = await providerStorage.getProviderId();
+      if (providerId) {
+        console.log(`📡 Syncing provider status with backend - Online: ${wasTracking}`);
+        socketService.getSocket()?.emit('providerStatusUpdate', {
+          providerId,
+          isAvailable: wasTracking,
+          timestamp: new Date().toISOString(),
+          reason: 'app_initialization'
+        });
+      }
+    };
+
+    initializeProviderStatus();
     
     // Set up location update listeners
     socketService.onLocationUpdateConfirmed((data) => {
@@ -184,13 +275,6 @@ const ProviderDashboard = ({ navigation }) => {
         [{ text: 'OK' }]
       );
     });
-
-    // Check current tracking status
-    const trackingStatus = liveLocationService.getTrackingStatus();
-    setIsLocationTracking(trackingStatus.isTracking);
-    if (trackingStatus.lastLocation) {
-      setLastLocationUpdate(trackingStatus.lastLocation.timestamp);
-    }
 
     return () => {
       // Clean up listeners but don't stop tracking
@@ -365,62 +449,57 @@ const ProviderDashboard = ({ navigation }) => {
       serviceCategories: providerProfile?.serviceCategories || []
     };
     
-    console.log('📤 ProviderDashboard: Sending response with REAL provider data:', providerData);
+    // 🔧 NEW: Format ETA data for backend
+    const etaData = estimatedTime ? {
+      estimatedTime: estimatedTime, // ISO string timestamp
+      estimatedTimeFormatted: formatETATime(estimatedTime), // Human readable "3:30 PM"
+      estimatedDuration: calculateDurationFromNow(estimatedTime) // "1h 30m from now"
+    } : null;
+    
+    console.log('📤 Sending response with ETA:', etaData?.estimatedTimeFormatted || 'No ETA selected');
     console.log('📤 ProviderDashboard: Final payload will be:', {
       requestId,
       response,
       providerId: providerData.providerId,
-      estimatedTime,
-      ...providerData
+      estimatedTimeFormatted: etaData?.estimatedTimeFormatted,
+      estimatedDuration: etaData?.estimatedDuration
     });
     
-    console.log('📤 ProviderDashboard: Calling socketService.respondToRequest');
     socketService.respondToRequest(
       requestId, 
       response, 
       providerData.providerId, 
-      estimatedTime,
-      providerData // Send real provider info
+      etaData ? etaData.estimatedTime : null, // 🔧 FIXED: Pass just the ISO string, not the full object
+      {
+        ...providerData,
+        // 🔧 NEW: Include ETA formatting in providerData for backend
+        ...(etaData && {
+          estimatedTimeFormatted: etaData.estimatedTimeFormatted,
+          estimatedDuration: etaData.estimatedDuration
+        })
+      }
     );
-    
-    console.log('📤 ProviderDashboard: Also emitting debug event to backend');
-    // Also emit a debug event to help troubleshoot
-    const socket = socketService.getSocket();
-    if (socket) {
-      socket.emit('providerResponseDebug', {
-        requestId,
-        response,
-        providerId: providerData.providerId,
-        estimatedTime,
-        providerData,
-        timestamp: new Date().toISOString(),
-        debugMessage: 'Direct emit from ProviderDashboard'
-      });
-      console.log('📤 ProviderDashboard: Debug event emitted successfully');
-    } else {
-      console.log('❌ ProviderDashboard: No socket available for debug event');
-    }
     
     // Remove from pending requests
     setIncomingRequests(prev => prev.filter(req => req.requestId !== requestId));
     
     Alert.alert(
-      'Response Sent',
-      `You have ${response}ed the service request.`,
+      '✅ Response Sent Successfully',
+      `You have ${response}ed the service request.${etaData ? `\n\n⏰ Completion Time: ${etaData.estimatedTimeFormatted}\n📅 Duration: ${etaData.estimatedDuration} from now` : ''}`,
       [{ text: 'OK' }],
     );
     
     setShowResponseModal(false);
     setSelectedRequest(null);
-    setEstimatedTime('');
+    setSelectedETA(''); // 🔧 CHANGED: Reset ETA instead of estimatedTime
   };
 
   const submitAcceptance = async () => {
-    if (!estimatedTime) {
-      Alert.alert('Error', 'Please provide estimated time');
+    if (!selectedETA) {
+      Alert.alert('Error', 'Please select an estimated completion time');
       return;
     }
-    await respondToRequest(selectedRequest.requestId, 'accept', estimatedTime);
+    await respondToRequest(selectedRequest.requestId, 'accept', selectedETA);
   };
 
   return (
@@ -651,26 +730,54 @@ const ProviderDashboard = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Accept Service Request</Text>
-            <Text style={styles.modalSubtitle}>Provide estimated completion time:</Text>
+            <Text style={styles.modalSubtitle}>Select estimated completion time:</Text>
             
-            <TextInput
-              style={styles.input}
-              placeholder="e.g., 30 minutes, 1 hour"
-              value={estimatedTime}
-              onChangeText={setEstimatedTime}
-            />
+            {/* 🔧 NEW: Clean Time Picker UI */}
+            <View style={styles.timePickerContainer}>
+              <Text style={styles.timePickerLabel}>⏰ When will you complete this service?</Text>
+              <View style={styles.pickerWrapper}>
+                <Picker
+                  selectedValue={selectedETA}
+                  onValueChange={(itemValue) => setSelectedETA(itemValue)}
+                  style={styles.timePicker}
+                  itemStyle={styles.pickerItem}
+                >
+                  <Picker.Item label="🕒 Select completion time..." value="" />
+                  {timeSlots.map((slot) => (
+                    <Picker.Item 
+                      key={slot.value} 
+                      label={`${slot.label} (${calculateDurationFromNow(slot.value)} from now)`}
+                      value={slot.value} 
+                    />
+                  ))}
+                </Picker>
+              </View>
+              
+              {selectedETA && (
+                <View style={styles.selectedTimePreview}>
+                  <Text style={styles.previewLabel}>✅ Selected ETA</Text>
+                  <Text style={styles.previewTime}>{formatETATime(selectedETA)}</Text>
+                  <Text style={styles.previewDuration}>Customer will see: "{formatETATime(selectedETA)}"</Text>
+                  <Text style={styles.previewSubtext}>Time until completion: {calculateDurationFromNow(selectedETA)}</Text>
+                </View>
+              )}
+            </View>
             
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.button, styles.cancelButton]}
-                onPress={() => setShowResponseModal(false)}
+                onPress={() => {
+                  setShowResponseModal(false);
+                  setSelectedETA(''); // Reset selection on cancel
+                }}
               >
                 <Text style={styles.buttonText}>Cancel</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
-                style={[styles.button, styles.confirmButton]}
+                style={[styles.button, styles.confirmButton, { opacity: selectedETA ? 1 : 0.5 }]}
                 onPress={submitAcceptance}
+                disabled={!selectedETA}
               >
                 <Text style={styles.buttonText}>Confirm Accept</Text>
               </TouchableOpacity>
@@ -1013,6 +1120,62 @@ const styles = StyleSheet.create({
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+  },
+  // 🔧 NEW: Time picker styles
+  timePickerContainer: {
+    marginBottom: 20,
+  },
+  timePickerLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  pickerWrapper: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    marginBottom: 15,
+  },
+  timePicker: {
+    height: 150,
+    width: '100%',
+  },
+  pickerItem: {
+    fontSize: 16,
+    height: 150,
+  },
+  selectedTimePreview: {
+    backgroundColor: '#E8F5E8',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    borderLeftWidth: 4,
+    borderLeftColor: '#4CAF50',
+  },
+  previewLabel: {
+    fontSize: 14,
+    color: '#2E7D32',
+    marginBottom: 4,
+  },
+  previewTime: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1B5E20',
+  },
+  previewDuration: {
+    fontSize: 12,
+    color: '#388E3C',
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
+  previewSubtext: {
+    fontSize: 11,
+    color: '#666',
+    marginTop: 4,
+    textAlign: 'center',
   },
   // 🔧 NEW: Live location status UI styles
   statusSection: {
