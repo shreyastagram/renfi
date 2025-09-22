@@ -8,7 +8,11 @@ export const userStorage = {
   // Save user ID
   saveUserId: async (userId) => {
     try {
-      await AsyncStorage.setItem(USER_ID_KEY, userId);
+      if (userId === undefined || userId === null) {
+        console.error('❌ Cannot save undefined or null user ID');
+        return;
+      }
+      await AsyncStorage.setItem(USER_ID_KEY, String(userId));
       console.log('✅ User ID saved:', userId);
     } catch (error) {
       console.error('❌ Failed to save user ID:', error);
@@ -30,7 +34,11 @@ export const userStorage = {
   // Save user authentication token
   saveUserToken: async (token) => {
     try {
-      await AsyncStorage.setItem(USER_TOKEN_KEY, token);
+      if (token === undefined || token === null) {
+        console.error('❌ Cannot save undefined or null token');
+        return;
+      }
+      await AsyncStorage.setItem(USER_TOKEN_KEY, String(token));
       console.log('✅ User token saved');
     } catch (error) {
       console.error('❌ Failed to save user token:', error);
@@ -52,6 +60,10 @@ export const userStorage = {
   // Save user profile data
   saveUserData: async (userData) => {
     try {
+      if (userData === undefined || userData === null) {
+        console.error('❌ Cannot save undefined or null user data');
+        return;
+      }
       await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(userData));
       console.log('✅ User data saved:', userData);
     } catch (error) {

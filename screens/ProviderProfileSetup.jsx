@@ -76,13 +76,32 @@ const ProviderProfileSetup = ({ route, navigation }) => {
   const [errors, setErrors] = useState({});
   const [showExperienceModal, setShowExperienceModal] = useState(false);
   
-  // Get providerId from route params (from login/signup)
-  const providerId = route?.params?.providerId;
+  // Get providerId from route params (from login/signup) or storage
+  const [providerId, setProviderId] = useState(route?.params?.providerId || null);
   const isEditing = route?.params?.isEditing || false;
   const existingProfile = route?.params?.existingProfile;
 
   useEffect(() => {
     console.log('ProviderProfileSetup initialized with:', { providerId, isEditing, existingProfile });
+    
+    // If providerId is not available from route params, get it from storage
+    const getProviderIdFromStorage = async () => {
+      if (!providerId) {
+        try {
+          const storedProviderId = await providerStorage.getProviderId();
+          console.log('📋 Retrieved provider ID from storage:', storedProviderId);
+          if (storedProviderId) {
+            setProviderId(storedProviderId);
+          } else {
+            console.error('❌ No provider ID found in storage or route params');
+          }
+        } catch (error) {
+          console.error('❌ Error getting provider ID from storage:', error);
+        }
+      }
+    };
+    
+    getProviderIdFromStorage();
     
     // If editing, populate existing data
     if (isEditing && existingProfile) {
@@ -98,7 +117,7 @@ const ProviderProfileSetup = ({ route, navigation }) => {
         setLongitude(existingProfile.location.longitude);
       }
     }
-  }, [isEditing, existingProfile]);
+  }, [isEditing, existingProfile, providerId]);
 
   // Get current GPS location
   const getCurrentGPSLocation = async () => {

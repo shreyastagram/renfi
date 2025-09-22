@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from 'reac
 import socketService from '../utils/socket';
 import { providerStorage } from '../utils/providerStorage';
 import { getCurrentLocation, isValidLocation, formatLocation } from '../utils/locationUtils';
+import { useApp } from '../context/AppContext';
 
 function validateEmailOrPhone(value) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -21,6 +22,8 @@ function validatePassword(value) {
 }
 
 const ProviderLoginSignup = ({ route, navigation }) => {
+  const { loginProvider } = useApp();
+  
   useEffect(() => {
     console.log('Navigated to ProviderLoginSignup page');
   }, []);
@@ -134,29 +137,14 @@ const ProviderLoginSignup = ({ route, navigation }) => {
       
       console.log('🔑 Using provider ID:', realProviderId);
       
-      // Store provider ID, token, and data
-      await providerStorage.saveProviderId(realProviderId);
-      if (providerData.token) {
-        await providerStorage.saveProviderToken(providerData.token);
-      }
-      if (providerData.data) {
-        await providerStorage.saveProviderData(providerData.data);
-      }
+      // Use the new authentication context
+      await loginProvider(providerData.data || providerData, providerData.token);
       
       // Connect to socket with real provider ID
       socketService.connect('provider', realProviderId);
       
-      // Check if profile is complete (has service categories)
-      if (providerData.data && providerData.data.serviceCategories && providerData.data.serviceCategories.length > 0) {
-        // Profile is complete, go to dashboard
-        navigation.replace('ProviderDashboard');
-      } else {
-        // Profile incomplete, redirect to setup
-        navigation.replace('ProviderProfileSetup', {
-          providerId: realProviderId,
-          isEditing: false
-        });
-      }
+      // Navigation will be handled automatically by RootNavigator
+      // The MainNavigator will determine initial route based on profile completeness
     } catch (err) {
       setSubmitError('Network error. Please try again.');
       setLoading(false);
@@ -210,17 +198,13 @@ const ProviderLoginSignup = ({ route, navigation }) => {
         await providerStorage.saveProviderToken(providerData.token);
       }
       if (providerData.data) {
-        await providerStorage.saveProviderData(providerData.data);
+        await loginProvider(providerData.data, providerData.token);
       }
       
       // Connect to socket with real provider ID
       socketService.connect('provider', realProviderId);
       
-      // New providers need to complete profile setup
-      navigation.replace('ProviderProfileSetup', {
-        providerId: realProviderId,
-        isEditing: false
-      });
+      // Navigation will be handled automatically by RootNavigator
     } catch (err) {
       setSubmitError('Network error. Please try again.');
       setLoading(false);

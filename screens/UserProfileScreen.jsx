@@ -10,14 +10,17 @@ import {
   RefreshControl,
   Modal,
   Linking,
+  TextInput,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import socketService from '../utils/socket';
 import { userStorage } from '../utils/userStorage';
 import { formatDistance } from '../utils/locationUtils';
 import { API_CONFIG } from '../utils/apiConfig';
+import { useApp } from '../context/AppContext';
 
 const UserProfileScreen = ({ navigation }) => {
+  const { logout } = useApp();
   const [userProfile, setUserProfile] = useState(null);
   const [serviceHistory, setServiceHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,9 +28,52 @@ const UserProfileScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    fullName: '',
+    phone: '',
+    address: '',
+    city: '',
+    pincode: ''
+  });
+  const [editErrors, setEditErrors] = useState({});
+  const [saveLoading, setSaveLoading] = useState(false);
 
   const [userId, setUserId] = useState(null);
   const [userToken, setUserToken] = useState(null);
+
+  // Validation functions
+  const validateFullName = (value) => {
+    if (!value) return 'Full name is required.';
+    if (value.length < 2) return 'Name must be at least 2 characters.';
+    return '';
+  };
+
+  const validatePhone = (value) => {
+    const phoneRegex = /^\+?\d{10,15}$/;
+    if (!value) return 'Phone number is required.';
+    if (!phoneRegex.test(value)) return 'Enter a valid phone number (10-15 digits).';
+    return '';
+  };
+
+  const validateAddress = (value) => {
+    if (!value) return 'Address is required.';
+    if (value.length < 5) return 'Address must be at least 5 characters.';
+    return '';
+  };
+
+  const validateCity = (value) => {
+    if (!value) return 'City is required.';
+    if (value.length < 2) return 'City must be at least 2 characters.';
+    return '';
+  };
+
+  const validatePincode = (value) => {
+    const pincodeRegex = /^\d{5,6}$/;
+    if (!value) return 'Pincode is required.';
+    if (!pincodeRegex.test(value)) return 'Enter a valid pincode (5-6 digits).';
+    return '';
+  };
 
   useEffect(() => {
     initializeUser();
@@ -42,7 +88,7 @@ const UserProfileScreen = ({ navigation }) => {
         
         if (!storedUserId || !storedToken) {
           Alert.alert('Session Expired', 'Please login again', [
-            { text: 'OK', onPress: () => navigation.replace('UserLoginSignup') }
+            { text: 'OK', onPress: () => logout() }
           ]);
           return;
         }
@@ -78,7 +124,7 @@ const UserProfileScreen = ({ navigation }) => {
       
       if (!storedUserId || !storedToken) {
         Alert.alert('Authentication Error', 'Please login again', [
-          { text: 'OK', onPress: () => navigation.replace('UserLoginSignup') }
+          { text: 'OK', onPress: () => logout() }
         ]);
         return;
       }
@@ -132,7 +178,7 @@ const UserProfileScreen = ({ navigation }) => {
       } else {
         if (response.status === 401) {
           Alert.alert('Session Expired', 'Please login again', [
-            { text: 'OK', onPress: () => navigation.replace('UserLoginSignup') }
+            { text: 'OK', onPress: () => logout() }
           ]);
           return;
         }
@@ -180,7 +226,7 @@ const UserProfileScreen = ({ navigation }) => {
         if (response.status === 401) {
           console.log('❌ 401 Unauthorized - Token might be invalid or expired');
           Alert.alert('Session Expired', 'Please login again', [
-            { text: 'OK', onPress: () => navigation.replace('UserLoginSignup') }
+            { text: 'OK', onPress: () => logout() }
           ]);
           return;
         }
@@ -330,6 +376,106 @@ const UserProfileScreen = ({ navigation }) => {
     }
   };
 
+  const startEditing = () => {
+    // Initialize edit form with current profile data
+    setEditForm({
+      fullName: userProfile?.name || '',
+      phone: userProfile?.phone || '',
+      address: userProfile?.address || '',
+      city: userProfile?.city || '',
+      pincode: userProfile?.pincode || ''
+    });
+    setEditErrors({});
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditForm({});
+    setEditErrors({});
+  };
+
+  const validateEditForm = () => {
+    const errors = {
+      fullName: validateFullName(editForm.fullName),
+      phone: validatePhone(editForm.phone),
+      address: validateAddress(editForm.address),
+      city: validateCity(editForm.city),
+      pincode: validatePincode(editForm.pincode)
+    };
+
+    setEditErrors(errors);
+    return !Object.values(errors).some(error => error !== '');
+  };
+
+  const saveProfile = async () => {
+    if (!validateEditForm()) {
+      Alert.alert('Validation Error', 'Please fix the errors in the form.');
+      return;
+    }
+
+    try {
+      setSaveLoading(true);
+      
+      const storedUserId = await userStorage.getUserId();
+      const storedToken = await userStorage.getUserToken();
+      
+      if (!storedUserId || !storedToken) {
+        Alert.alert('Authentication Error', 'Please login again');
+        return;
+      }
+
+      console.log('🔄 Updating user profile:', editForm);
+      
+      const response = await fetch(`http://10.0.2.2:5050/api/user/profile/${storedUserId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${storedToken}`
+        },
+        body: JSON.stringify(editForm)
+      });
+
+      const data = await response.json();
+      console.log('📡 Profile update response:', data);
+
+      if (response.ok) {
+        // Update local profile state
+        setUserProfile({
+          ...userProfile,
+          name: editForm.fullName,
+          phone: editForm.phone,
+          address: editForm.address,
+          city: editForm.city,
+          pincode: editForm.pincode
+        });
+
+        // Update stored user data
+        const storedUserData = await userStorage.getUserData();
+        const updatedUserData = {
+          ...storedUserData,
+          name: editForm.fullName,
+          fullName: editForm.fullName,
+          phone: editForm.phone,
+          address: editForm.address,
+          city: editForm.city,
+          pincode: editForm.pincode
+        };
+        await userStorage.saveUserData(updatedUserData);
+
+        setIsEditing(false);
+        Alert.alert('Success', 'Profile updated successfully!');
+      } else {
+        Alert.alert('Error', data.message || 'Failed to update profile');
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      Alert.alert('Network Error', 'Unable to connect to server. Please check your connection.');
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
   const openServiceDetails = (request) => {
     setSelectedRequest(request);
     setShowDetailsModal(true);
@@ -403,6 +549,12 @@ const UserProfileScreen = ({ navigation }) => {
             <Text style={styles.userEmail}>{userProfile?.email || 'No email'}</Text>
             <Text style={styles.userPhone}>{userProfile?.phone || 'No phone'}</Text>
           </View>
+          <TouchableOpacity 
+            style={styles.editButton}
+            onPress={startEditing}
+          >
+            <Text style={styles.editButtonText}>✏️</Text>
+          </TouchableOpacity>
         </View>
         
         <View style={styles.statsContainer}>
@@ -578,6 +730,132 @@ const UserProfileScreen = ({ navigation }) => {
           )}
         </View>
       </Modal>
+
+      {/* Edit Profile Modal */}
+      <Modal
+        visible={isEditing}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Edit Profile</Text>
+            <TouchableOpacity onPress={cancelEditing}>
+              <Text style={styles.closeButton}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalContent}>
+            <View style={styles.editForm}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Full Name</Text>
+                <TextInput
+                  style={[styles.editInput, editErrors.fullName ? styles.inputError : null]}
+                  value={editForm.fullName}
+                  onChangeText={(text) => {
+                    setEditForm({...editForm, fullName: text});
+                    if (editErrors.fullName) {
+                      setEditErrors({...editErrors, fullName: validateFullName(text)});
+                    }
+                  }}
+                  placeholder="Enter your full name"
+                />
+                {!!editErrors.fullName && <Text style={styles.errorText}>{editErrors.fullName}</Text>}
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Phone Number</Text>
+                <TextInput
+                  style={[styles.editInput, editErrors.phone ? styles.inputError : null]}
+                  value={editForm.phone}
+                  onChangeText={(text) => {
+                    setEditForm({...editForm, phone: text});
+                    if (editErrors.phone) {
+                      setEditErrors({...editErrors, phone: validatePhone(text)});
+                    }
+                  }}
+                  placeholder="Enter your phone number"
+                  keyboardType="phone-pad"
+                />
+                {!!editErrors.phone && <Text style={styles.errorText}>{editErrors.phone}</Text>}
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Home Address</Text>
+                <TextInput
+                  style={[styles.editInput, styles.textArea, editErrors.address ? styles.inputError : null]}
+                  value={editForm.address}
+                  onChangeText={(text) => {
+                    setEditForm({...editForm, address: text});
+                    if (editErrors.address) {
+                      setEditErrors({...editErrors, address: validateAddress(text)});
+                    }
+                  }}
+                  placeholder="Enter your home address"
+                  multiline
+                  numberOfLines={3}
+                />
+                {!!editErrors.address && <Text style={styles.errorText}>{editErrors.address}</Text>}
+              </View>
+
+              <View style={styles.row}>
+                <View style={styles.halfInputContainer}>
+                  <Text style={styles.inputLabel}>City</Text>
+                  <TextInput
+                    style={[styles.editInput, editErrors.city ? styles.inputError : null]}
+                    value={editForm.city}
+                    onChangeText={(text) => {
+                      setEditForm({...editForm, city: text});
+                      if (editErrors.city) {
+                        setEditErrors({...editErrors, city: validateCity(text)});
+                      }
+                    }}
+                    placeholder="City"
+                  />
+                  {!!editErrors.city && <Text style={styles.errorText}>{editErrors.city}</Text>}
+                </View>
+
+                <View style={styles.halfInputContainer}>
+                  <Text style={styles.inputLabel}>Pincode</Text>
+                  <TextInput
+                    style={[styles.editInput, editErrors.pincode ? styles.inputError : null]}
+                    value={editForm.pincode}
+                    onChangeText={(text) => {
+                      setEditForm({...editForm, pincode: text});
+                      if (editErrors.pincode) {
+                        setEditErrors({...editErrors, pincode: validatePincode(text)});
+                      }
+                    }}
+                    placeholder="Pincode"
+                    keyboardType="numeric"
+                    maxLength={6}
+                  />
+                  {!!editErrors.pincode && <Text style={styles.errorText}>{editErrors.pincode}</Text>}
+                </View>
+              </View>
+
+              <View style={styles.editButtonContainer}>
+                <TouchableOpacity 
+                  style={[styles.editActionButton, styles.cancelButton]}
+                  onPress={cancelEditing}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.editActionButton, styles.saveButton]}
+                  onPress={saveProfile}
+                  disabled={saveLoading}
+                >
+                  <Text style={styles.saveButtonText}>
+                    {saveLoading ? 'Saving...' : 'Save Changes'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -613,6 +891,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 20,
+  },
+  editButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+  },
+  editButtonText: {
+    fontSize: 18,
   },
   avatarContainer: {
     width: 60,
@@ -869,6 +1155,77 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginBottom: 4,
+  },
+  editForm: {
+    padding: 4,
+  },
+  inputContainer: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  editInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    backgroundColor: '#fff',
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  inputError: {
+    borderColor: '#ff4d4f',
+  },
+  errorText: {
+    color: '#ff4d4f',
+    fontSize: 14,
+    marginTop: 4,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  halfInputContainer: {
+    width: '48%',
+  },
+  editButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 30,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  editActionButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 8,
+  },
+  cancelButton: {
+    backgroundColor: '#f0f0f0',
+  },
+  saveButton: {
+    backgroundColor: '#007AFF',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
 });
 

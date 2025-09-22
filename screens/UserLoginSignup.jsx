@@ -24,7 +24,7 @@ function validatePassword(value) {
 
 
 const UserLoginSignup = ({ route, navigation }) => {
-  const { clearAppState } = useApp();
+  const { clearAppState, loginUser } = useApp();
   
   useEffect(() => {
     // Clear any previous app state when user comes to login
@@ -32,10 +32,18 @@ const UserLoginSignup = ({ route, navigation }) => {
   }, []);
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [pincode, setPincode] = useState('');
   const [emailOrPhoneError, setEmailOrPhoneError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [fullNameError, setFullNameError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [addressError, setAddressError] = useState('');
+  const [cityError, setCityError] = useState('');
+  const [pincodeError, setPincodeError] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,14 +55,57 @@ const UserLoginSignup = ({ route, navigation }) => {
     return '';
   };
 
+  const validateFullName = (value) => {
+    if (!value) return 'Full name is required.';
+    if (value.length < 2) return 'Name must be at least 2 characters.';
+    return '';
+  };
+
+  const validatePhone = (value) => {
+    const phoneRegex = /^\+?\d{10,15}$/;
+    if (!value) return 'Phone number is required.';
+    if (!phoneRegex.test(value)) return 'Enter a valid phone number (10-15 digits).';
+    return '';
+  };
+
+  const validateCity = (value) => {
+    if (!value) return 'City is required.';
+    if (value.length < 2) return 'City must be at least 2 characters.';
+    return '';
+  };
+
+  const validatePincode = (value) => {
+    const pincodeRegex = /^\d{5,6}$/;
+    if (!value) return 'Pincode is required.';
+    if (!pincodeRegex.test(value)) return 'Enter a valid pincode (5-6 digits).';
+    return '';
+  };
+
   const validateFields = () => {
     const emailOrPhoneErr = validateEmailOrPhone(emailOrPhone);
     const passwordErr = validatePassword(password);
-    const addressErr = mode === 'signup' ? validateAddress(address) : '';
-    setEmailOrPhoneError(emailOrPhoneErr);
-    setPasswordError(passwordErr);
-    setAddressError(addressErr);
-    return !emailOrPhoneErr && !passwordErr && !addressErr;
+    
+    if (mode === 'signup') {
+      const fullNameErr = validateFullName(fullName);
+      const phoneErr = validatePhone(phone);
+      const addressErr = validateAddress(address);
+      const cityErr = validateCity(city);
+      const pincodeErr = validatePincode(pincode);
+      
+      setFullNameError(fullNameErr);
+      setPhoneError(phoneErr);
+      setAddressError(addressErr);
+      setCityError(cityErr);
+      setPincodeError(pincodeErr);
+      setEmailOrPhoneError(emailOrPhoneErr);
+      setPasswordError(passwordErr);
+      
+      return !emailOrPhoneErr && !passwordErr && !fullNameErr && !phoneErr && !addressErr && !cityErr && !pincodeErr;
+    } else {
+      setEmailOrPhoneError(emailOrPhoneErr);
+      setPasswordError(passwordErr);
+      return !emailOrPhoneErr && !passwordErr;
+    }
   };
 
   const handleLogin = async () => {
@@ -96,9 +147,13 @@ const UserLoginSignup = ({ route, navigation }) => {
       if (userId && token) {
         console.log('✅ Saving user ID:', userId);
         console.log('✅ Saving token:', token ? 'Present' : 'Missing');
-        await userStorage.saveUserId(userId);
-        await userStorage.saveUserToken(token);
-        await userStorage.saveUserData(userData);
+        
+        // Use the new authentication context
+        await loginUser(userData, token);
+        
+        // ✅ CRITICAL FIX: Connect to socket with real user ID
+        socketService.connect('user', userId);
+        console.log('Connecting user to socket:', userId);
       } else {
         console.error('❌ Missing userId or token in response');
         console.error('User ID found:', userId);
@@ -111,14 +166,7 @@ const UserLoginSignup = ({ route, navigation }) => {
       setSubmitSuccess('Login successful!');
       setLoading(false);
       
-      // ✅ CRITICAL FIX: Connect to socket with real user ID
-      if (userId) {
-        socketService.connect('user', userId);
-        console.log('Connecting user to socket:', userId);
-      }
-      
-      // Navigate to UserLocation screen to start the proper flow
-      navigation.replace('UserLocation');
+      // Navigation will be handled automatically by RootNavigator
     } catch (err) {
       setSubmitError('Network error. Please try again.');
       setLoading(false);
@@ -141,7 +189,12 @@ const UserLoginSignup = ({ route, navigation }) => {
         body: JSON.stringify({
           email: emailOrPhone,
           password,
+          fullName,
+          phone,
           address,
+          city,
+          pincode,
+          emergencyContact: phone, // Use phone as emergency contact for now
         }),
       });
       if (!response.ok) {
@@ -165,9 +218,13 @@ const UserLoginSignup = ({ route, navigation }) => {
       if (userId && token) {
         console.log('✅ Saving user ID:', userId);
         console.log('✅ Saving token:', token ? 'Present' : 'Missing');
-        await userStorage.saveUserId(userId);
-        await userStorage.saveUserToken(token);
-        await userStorage.saveUserData(userData);
+        
+        // Use the new authentication context
+        await loginUser(userData, token);
+        
+        // ✅ CRITICAL FIX: Connect to socket with real user ID
+        socketService.connect('user', userId);
+        console.log('Connecting new user to socket:', userId);
       } else {
         console.error('❌ Missing userId or token in response');
         console.error('User ID found:', userId);
@@ -179,14 +236,7 @@ const UserLoginSignup = ({ route, navigation }) => {
       
       setSubmitSuccess('Signup successful!');
       
-      // ✅ CRITICAL FIX: Connect to socket with real user ID
-      if (userId) {
-        socketService.connect('user', userId);
-        console.log('Connecting new user to socket:', userId);
-      }
-      
-      // Navigate to UserLocation screen to start the proper flow
-      navigation.replace('UserLocation');
+      // Navigation will be handled automatically by RootNavigator
     } catch (err) {
       setSubmitError('Network error. Please try again.');
     }
@@ -227,16 +277,75 @@ const UserLoginSignup = ({ route, navigation }) => {
       {mode === 'signup' && (
         <>
           <TextInput
+            style={[styles.input, fullNameError ? styles.inputError : null]}
+            placeholder="Full Name"
+            value={fullName}
+            onChangeText={text => {
+              setFullName(text);
+              if (fullNameError) setFullNameError(validateFullName(text));
+            }}
+            onBlur={() => setFullNameError(validateFullName(fullName))}
+          />
+          {!!fullNameError && <Text style={styles.errorText}>{fullNameError}</Text>}
+          
+          <TextInput
+            style={[styles.input, phoneError ? styles.inputError : null]}
+            placeholder="Phone Number"
+            value={phone}
+            onChangeText={text => {
+              setPhone(text);
+              if (phoneError) setPhoneError(validatePhone(text));
+            }}
+            keyboardType="phone-pad"
+            onBlur={() => setPhoneError(validatePhone(phone))}
+          />
+          {!!phoneError && <Text style={styles.errorText}>{phoneError}</Text>}
+          
+          <TextInput
             style={[styles.input, addressError ? styles.inputError : null]}
-            placeholder="Address"
+            placeholder="Home Address"
             value={address}
             onChangeText={text => {
               setAddress(text);
               if (addressError) setAddressError(validateAddress(text));
             }}
+            multiline
+            numberOfLines={2}
             onBlur={() => setAddressError(validateAddress(address))}
           />
           {!!addressError && <Text style={styles.errorText}>{addressError}</Text>}
+          
+          <View style={styles.row}>
+            <View style={styles.halfInput}>
+              <TextInput
+                style={[styles.input, cityError ? styles.inputError : null]}
+                placeholder="City"
+                value={city}
+                onChangeText={text => {
+                  setCity(text);
+                  if (cityError) setCityError(validateCity(text));
+                }}
+                onBlur={() => setCityError(validateCity(city))}
+              />
+              {!!cityError && <Text style={styles.errorText}>{cityError}</Text>}
+            </View>
+            
+            <View style={styles.halfInput}>
+              <TextInput
+                style={[styles.input, pincodeError ? styles.inputError : null]}
+                placeholder="Pincode"
+                value={pincode}
+                onChangeText={text => {
+                  setPincode(text);
+                  if (pincodeError) setPincodeError(validatePincode(text));
+                }}
+                keyboardType="numeric"
+                maxLength={6}
+                onBlur={() => setPincodeError(validatePincode(pincode))}
+              />
+              {!!pincodeError && <Text style={styles.errorText}>{pincodeError}</Text>}
+            </View>
+          </View>
         </>
       )}
       {mode === 'signup' ? (
@@ -305,6 +414,15 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     alignSelf: 'flex-start',
     maxWidth: 350,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    maxWidth: 350,
+  },
+  halfInput: {
+    width: '48%',
   },
   submitErrorText: {
     color: '#ff4d4f',
