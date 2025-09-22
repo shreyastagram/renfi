@@ -14,6 +14,9 @@ export const useApp = () => {
 };
 
 export const AppProvider = ({ children }) => {
+  // Welcome screen state
+  const [isWelcomeShown, setIsWelcomeShown] = useState(false);
+  
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userType, setUserType] = useState(null); // 'user' or 'provider'
@@ -336,6 +339,10 @@ export const AppProvider = ({ children }) => {
   };
 
   const value = {
+    // Welcome screen state
+    isWelcomeShown,
+    setIsWelcomeShown,
+    
     // Authentication state and functions
     isAuthenticated,
     userType,

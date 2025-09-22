@@ -15,6 +15,32 @@ import socketService from '../utils/socket';
 import { providerStorage } from '../utils/providerStorage';
 import { formatDistance } from '../utils/locationUtils';
 
+// 🔧 NEW: Helper function to format estimated time for display
+const formatEstimatedTime = (timeData) => {
+  // If it's already a formatted string (like "10:27 pm"), return as is
+  if (typeof timeData === 'string' && !timeData.includes('T') && !timeData.includes('Z')) {
+    return timeData;
+  }
+  
+  // If it's an ISO string, format it to IST display time
+  if (typeof timeData === 'string' && (timeData.includes('T') || timeData.includes('Z'))) {
+    try {
+      const date = new Date(timeData);
+      return date.toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return timeData; // Return original if formatting fails
+    }
+  }
+  
+  return timeData || 'Not specified';
+};
+
 const ProviderHistoryScreen = ({ navigation }) => {
   const [acceptedRequests, setAcceptedRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -313,7 +339,7 @@ const ProviderHistoryScreen = ({ navigation }) => {
                 </Text>
                 {request.estimatedTime && (
                   <Text style={styles.estimatedTime}>
-                    ⏱️ {request.estimatedTime}
+                    ⏱️ {formatEstimatedTime(request.estimatedTime)}
                   </Text>
                 )}
               </View>
@@ -416,7 +442,7 @@ const ProviderHistoryScreen = ({ navigation }) => {
                 <View style={styles.modalSection}>
                   <Text style={styles.modalSectionTitle}>Service Details</Text>
                   <Text style={styles.modalInfo}>
-                    ⏱️ Estimated Time: {selectedRequest.estimatedTime}
+                    ⏱️ Estimated Completion Time: {formatEstimatedTime(selectedRequest.estimatedTime)}
                   </Text>
                 </View>
               )}
