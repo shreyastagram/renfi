@@ -8,7 +8,11 @@ export const providerStorage = {
   // Save provider ID
   saveProviderId: async (providerId) => {
     try {
-      await AsyncStorage.setItem(PROVIDER_ID_KEY, providerId);
+      if (providerId === undefined || providerId === null) {
+        console.error('❌ Cannot save undefined or null provider ID');
+        return;
+      }
+      await AsyncStorage.setItem(PROVIDER_ID_KEY, String(providerId));
       console.log('✅ Provider ID saved:', providerId);
     } catch (error) {
       console.error('❌ Failed to save provider ID:', error);
@@ -30,7 +34,11 @@ export const providerStorage = {
   // Save provider authentication token
   saveProviderToken: async (token) => {
     try {
-      await AsyncStorage.setItem(PROVIDER_TOKEN_KEY, token);
+      if (token === undefined || token === null) {
+        console.error('❌ Cannot save undefined or null provider token');
+        return;
+      }
+      await AsyncStorage.setItem(PROVIDER_TOKEN_KEY, String(token));
       console.log('✅ Provider token saved');
     } catch (error) {
       console.error('❌ Failed to save provider token:', error);
@@ -52,6 +60,10 @@ export const providerStorage = {
   // Save provider profile data
   saveProviderData: async (providerData) => {
     try {
+      if (providerData === undefined || providerData === null) {
+        console.error('❌ Cannot save undefined or null provider data');
+        return;
+      }
       await AsyncStorage.setItem(PROVIDER_DATA_KEY, JSON.stringify(providerData));
       console.log('✅ Provider data saved:', providerData);
     } catch (error) {

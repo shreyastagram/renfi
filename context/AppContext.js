@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import socketService from '../utils/socket';
+import { userStorage } from '../utils/userStorage';
+import { providerStorage } from '../utils/providerStorage';
 
 const AppContext = createContext();
 
@@ -12,6 +14,12 @@ export const useApp = () => {
 };
 
 export const AppProvider = ({ children }) => {
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userType, setUserType] = useState(null); // 'user' or 'provider'
+  const [userData, setUserData] = useState(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  
   // Location state
   const [userLocation, setUserLocation] = useState(null);
   const [isLocationLoading, setIsLocationLoading] = useState(false);
@@ -31,6 +39,162 @@ export const AppProvider = ({ children }) => {
 
   // Get real user ID from socket service or use dummy as fallback
   const userId = realUserId || socketService.getCurrentUserId() || 'dummyUser123';
+
+  // Check authentication status on app start
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      try {
+        setIsAuthLoading(true);
+        
+        // Check if user is logged in
+        const isUserLoggedIn = await userStorage.isUserLoggedIn();
+        const isProviderLoggedIn = await providerStorage.isProviderLoggedIn();
+        
+        if (isUserLoggedIn) {
+          const userData = await userStorage.getUserData();
+          const userId = await userStorage.getUserId();
+          setIsAuthenticated(true);
+          setUserType('user');
+          setUserData(userData);
+          
+          // Connect to socket with user ID
+          if (userId) {
+            console.log('🔌 Connecting user to socket:', userId);
+            socketService.connect('user', userId);
+          }
+          
+          console.log('✅ User authentication restored');
+        } else if (isProviderLoggedIn) {
+          const providerData = await providerStorage.getProviderData();
+          const providerId = await providerStorage.getProviderId();
+          setIsAuthenticated(true);
+          setUserType('provider');
+          setUserData(providerData);
+          
+          // Connect to socket with provider ID
+          if (providerId) {
+            console.log('🔌 Connecting provider to socket:', providerId);
+            socketService.connect('provider', providerId);
+          }
+          
+          console.log('✅ Provider authentication restored');
+        } else {
+          setIsAuthenticated(false);
+          setUserType(null);
+          setUserData(null);
+          console.log('❌ No authentication found');
+        }
+      } catch (error) {
+        console.error('❌ Error checking auth status:', error);
+        setIsAuthenticated(false);
+        setUserType(null);
+        setUserData(null);
+      } finally {
+        setIsAuthLoading(false);
+      }
+    };
+
+    checkAuthStatus();
+  }, []);
+
+  // Authentication functions
+  const loginUser = async (userData, token) => {
+    try {
+      // Extract user ID from different possible locations in userData
+      const userId = userData.userId || userData.data?._id || userData.user?._id || userData._id;
+      
+      console.log('LoginUser - Full userData:', userData);
+      console.log('LoginUser - Extracted userId:', userId);
+      console.log('LoginUser - Token:', token ? 'Present' : 'Missing');
+      
+      if (!userId) {
+        console.error('❌ No user ID found in userData:', Object.keys(userData));
+        throw new Error('User ID not found in login response');
+      }
+      
+      if (!token) {
+        console.error('❌ No token provided');
+        throw new Error('Authentication token not provided');
+      }
+      
+      // Extract actual user data (profile info)
+      const actualUserData = userData.data || userData.user || userData;
+      
+      await userStorage.saveUserData(actualUserData);
+      await userStorage.saveUserToken(token);
+      await userStorage.saveUserId(userId);
+      
+      setIsAuthenticated(true);
+      setUserType('user');
+      setUserData(actualUserData);
+      console.log('✅ User logged in successfully');
+    } catch (error) {
+      console.error('❌ Error saving user data:', error);
+      throw error; // Re-throw to let the calling function handle it
+    }
+  };
+
+  const loginProvider = async (providerData, token) => {
+    try {
+      // Extract provider ID from different possible locations
+      const providerId = providerData.providerId || providerData.data?._id || providerData.provider?._id || providerData._id || providerData.id;
+      
+      console.log('LoginProvider - Full providerData:', providerData);
+      console.log('LoginProvider - Extracted providerId:', providerId);
+      console.log('LoginProvider - Token:', token ? 'Present' : 'Missing');
+      
+      if (!providerId) {
+        console.error('❌ No provider ID found in providerData:', Object.keys(providerData));
+        throw new Error('Provider ID not found in login response');
+      }
+      
+      if (!token) {
+        console.error('❌ No token provided');
+        throw new Error('Authentication token not provided');
+      }
+      
+      // Extract actual provider data (profile info)
+      const actualProviderData = providerData.data || providerData.provider || providerData;
+      
+      await providerStorage.saveProviderData(actualProviderData);
+      await providerStorage.saveProviderToken(token);
+      await providerStorage.saveProviderId(providerId);
+      
+      setIsAuthenticated(true);
+      setUserType('provider');
+      setUserData(actualProviderData);
+      console.log('✅ Provider logged in successfully');
+    } catch (error) {
+      console.error('❌ Error saving provider data:', error);
+      throw error; // Re-throw to let the calling function handle it
+    }
+  };
+
+  const logout = async () => {
+    try {
+      // Clear storage based on user type
+      if (userType === 'user') {
+        await userStorage.clearUserData();
+      } else if (userType === 'provider') {
+        await providerStorage.clearProviderData();
+      }
+      
+      // Disconnect socket
+      if (socketService.getConnectionStatus()) {
+        socketService.disconnect();
+      }
+      
+      // Clear app state
+      setIsAuthenticated(false);
+      setUserType(null);
+      setUserData(null);
+      clearAppState();
+      
+      console.log('✅ Logged out successfully');
+    } catch (error) {
+      console.error('❌ Error during logout:', error);
+    }
+  };
 
   // Socket connection management
   useEffect(() => {
@@ -172,6 +336,15 @@ export const AppProvider = ({ children }) => {
   };
 
   const value = {
+    // Authentication state and functions
+    isAuthenticated,
+    userType,
+    userData,
+    isAuthLoading,
+    loginUser,
+    loginProvider,
+    logout,
+    
     // Location state and functions
     userLocation,
     setUserLocation,
