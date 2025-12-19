@@ -19,6 +19,9 @@ import ProviderDashboard from '../screens/ProviderDashboard.jsx';
 import ProviderHistoryScreen from '../screens/ProviderHistoryScreen.jsx';
 import ProviderProfileSetup from '../screens/ProviderProfileSetup.jsx';
 
+// Shared Screens
+import PhoneVerificationScreen from '../screens/PhoneVerificationScreen.jsx';
+
 const Stack = createNativeStackNavigator();
 
 // Wrapper component that has access to navigation context
@@ -173,6 +176,15 @@ const MainNavigator = () => {
           {(props) => (
             <ScreenWrapper userType={userType} userData={userData} onLogout={handleLogout}>
               <ProviderProfileSetup {...props} />
+            </ScreenWrapper>
+          )}
+        </Stack.Screen>
+
+        {/* Shared Screens - available to both user types */}
+        <Stack.Screen name="PhoneVerification">
+          {(props) => (
+            <ScreenWrapper userType={userType} userData={userData} onLogout={handleLogout}>
+              <PhoneVerificationScreen {...props} />
             </ScreenWrapper>
           )}
         </Stack.Screen>
