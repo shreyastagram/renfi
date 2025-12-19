@@ -18,6 +18,8 @@ import { userStorage } from '../utils/userStorage';
 import { formatDistance } from '../utils/locationUtils';
 import { API_CONFIG } from '../utils/apiConfig';
 import { useApp } from '../context/AppContext';
+import { getUserProfile as getJarbacProfile, getErrorMessage } from '../src/api/authApi';
+import tokenService from '../src/services/tokenService';
 
 // 🔧 NEW: Helper function to format estimated time for display
 const formatEstimatedTime = (timeData) => {
@@ -158,6 +160,37 @@ const UserProfileScreen = ({ navigation, route }) => {
 
   const initializeUser = async () => {
     try {
+      // First check JARBAC tokens
+      const hasJarbacTokens = await tokenService.isLoggedIn();
+      
+      if (hasJarbacTokens) {
+        console.log('🔐 JARBAC tokens found');
+        const jarbacUserData = await tokenService.getUserData();
+        const jarbacAccessToken = await tokenService.getAccessToken();
+        
+        if (jarbacUserData && jarbacAccessToken) {
+          const uid = jarbacUserData.userId;
+          setUserId(uid);
+          setUserToken(jarbacAccessToken);
+          
+          // Set initial profile from stored data
+          setUserProfile({
+            name: jarbacUserData.fullName || 'User',
+            email: jarbacUserData.email || '',
+            phone: jarbacUserData.phoneNumber || '',
+            role: jarbacUserData.role || 'USER',
+          });
+          console.log('📱 Loaded profile from JARBAC storage:', jarbacUserData);
+          
+          // Load full profile from server
+          loadUserProfile(uid, jarbacAccessToken);
+          loadServiceHistory(uid, jarbacAccessToken);
+          return;
+        }
+      }
+      
+      // Fall back to legacy storage
+      console.log('🔍 Checking legacy storage...');
       const storedUserId = await userStorage.getUserId();
       const storedToken = await userStorage.getUserToken();
       const storedUserData = await userStorage.getUserData();
@@ -181,7 +214,7 @@ const UserProfileScreen = ({ navigation, route }) => {
           emergencyContact: storedUserData.emergencyContact || '',
           address: storedUserData.address || ''
         });
-        console.log('📱 Loaded profile from storage:', storedUserData);
+        console.log('📱 Loaded profile from legacy storage:', storedUserData);
       }
       
       // Load data from server (will update with latest info if available)
@@ -201,9 +234,35 @@ const UserProfileScreen = ({ navigation, route }) => {
       }
       
       console.log('🔍 Loading profile for user:', uid);
-      console.log('🔑 Using token:', token ? `${token.substring(0, 20)}...` : 'null');
-      
       setLoading(true);
+      
+      // Try JARBAC profile API first
+      try {
+        console.log('🔐 Trying JARBAC profile API...');
+        const jarbacProfile = await getJarbacProfile();
+        
+        if (jarbacProfile) {
+          console.log('✅ JARBAC profile loaded:', jarbacProfile);
+          setUserProfile({
+            name: jarbacProfile.fullName || jarbacProfile.name || 'User',
+            email: jarbacProfile.email || '',
+            phone: jarbacProfile.phoneNumber || jarbacProfile.phone || '',
+            emergencyContact: jarbacProfile.emergencyContact || '',
+            address: jarbacProfile.address || '',
+            city: jarbacProfile.city || '',
+            pincode: jarbacProfile.pincode || '',
+            role: jarbacProfile.role || 'USER',
+          });
+          setLoading(false);
+          return; // Success with JARBAC, don't need Node.js
+        }
+      } catch (jarbacError) {
+        console.log('⚠️ JARBAC profile failed, trying Node.js:', jarbacError.message);
+        // Fall through to Node.js backend
+      }
+      
+      // Fall back to Node.js backend
+      console.log('📡 Trying Node.js profile API...');
       const response = await fetch(API_CONFIG.USER.PROFILE(uid), {
         headers: API_CONFIG.HEADERS.AUTH(token),
       });

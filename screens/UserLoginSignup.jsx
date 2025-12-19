@@ -1,13 +1,46 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+/**
+ * User Login/Signup Screen
+ * 
+ * Handles user authentication with multiple options:
+ * - Email + Password login
+ * - Phone + Password login  
+ * - OTP-based passwordless login (phone or email)
+ * - New user signup with verification flow
+ * 
+ * @version 2.0.0
+ */
+
+import React, { useEffect, useState, useRef } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TextInput, 
+  TouchableOpacity, 
+  ActivityIndicator,
+  Modal,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from 'react-native';
 import socketService from '../utils/socket';
-import { userStorage } from '../utils/userStorage';
 import { useApp } from '../context/AppContext';
+import client from '../src/api/client';
+import tokenService from '../src/services/tokenService';
+import { 
+  getErrorMessage, 
+  validatePassword as validatePasswordStrength,
+  sendPhoneLoginOtp,
+  verifyPhoneLoginOtp,
+  sendEmailLoginOtp,
+  verifyEmailLoginOtp,
+} from '../src/api/authApi';
+
+const { width } = Dimensions.get('window');
 
 function validateEmailOrPhone(value) {
-  // Simple email regex
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  // Simple phone regex (10-15 digits, allows + at start)
   const phoneRegex = /^\+?\d{10,15}$/;
   if (!value) return 'Email or phone number is required.';
   if (!emailRegex.test(value) && !phoneRegex.test(value)) {
@@ -18,18 +51,227 @@ function validateEmailOrPhone(value) {
 
 function validatePassword(value) {
   if (!value) return 'Password is required.';
-  if (value.length < 6) return 'Password must be at least 6 characters.';
+  const validation = validatePasswordStrength(value);
+  if (!validation.isValid) {
+    return validation.errors[0];
+  }
   return '';
 }
+
+function isEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+// OTP Input Component
+const OtpInput = ({ value, onChange, disabled, error }) => {
+  const inputRefs = useRef([]);
+  const [focusedIndex, setFocusedIndex] = useState(0);
+
+  const handleChange = (text, index) => {
+    const newOtp = value.split('');
+    newOtp[index] = text.slice(-1);
+    const newValue = newOtp.join('');
+    onChange(newValue);
+
+    if (text && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyPress = (e, index) => {
+    if (e.nativeEvent.key === 'Backspace' && !value[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  return (
+    <View style={styles.otpContainer}>
+      {[0, 1, 2, 3, 4, 5].map((index) => (
+        <TextInput
+          key={index}
+          ref={(ref) => (inputRefs.current[index] = ref)}
+          style={[
+            styles.otpInput,
+            focusedIndex === index && styles.otpInputFocused,
+            error && styles.otpInputError,
+            value[index] && styles.otpInputFilled,
+          ]}
+          value={value[index] || ''}
+          onChangeText={(text) => handleChange(text, index)}
+          onKeyPress={(e) => handleKeyPress(e, index)}
+          onFocus={() => setFocusedIndex(index)}
+          keyboardType="number-pad"
+          maxLength={1}
+          editable={!disabled}
+          selectTextOnFocus
+        />
+      ))}
+    </View>
+  );
+};
+
+// OTP Login Modal
+const OtpLoginModal = ({ visible, onClose, emailOrPhone, onLoginSuccess }) => {
+  const [step, setStep] = useState('send');
+  const [otp, setOtp] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [resendTimer, setResendTimer] = useState(0);
+  const [maskedContact, setMaskedContact] = useState('');
+  const isEmailLogin = isEmail(emailOrPhone);
+
+  useEffect(() => {
+    if (visible) {
+      setStep('send');
+      setOtp('');
+      setError('');
+      setResendTimer(0);
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    let interval;
+    if (resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [resendTimer]);
+
+  const handleSendOtp = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      if (isEmailLogin) {
+        const result = await sendEmailLoginOtp(emailOrPhone);
+        setMaskedContact(result.maskedEmail || emailOrPhone);
+      } else {
+        const result = await sendPhoneLoginOtp(emailOrPhone);
+        setMaskedContact(result.maskedPhone || emailOrPhone);
+      }
+      setStep('verify');
+      setResendTimer(60);
+    } catch (err) {
+      setError(err.message || getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otp.length !== 6) {
+      setError('Please enter 6-digit OTP');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      let response;
+      if (isEmailLogin) {
+        response = await verifyEmailLoginOtp(emailOrPhone, otp);
+      } else {
+        response = await verifyPhoneLoginOtp(emailOrPhone, otp);
+      }
+      
+      await tokenService.storeTokens(response.accessToken, response.refreshToken);
+      onLoginSuccess(response);
+    } catch (err) {
+      setError(err.message || getErrorMessage(err));
+      setOtp('');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Text style={styles.closeButtonText}>✕</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.modalTitle}>
+            {step === 'send' ? 'Login with OTP' : 'Enter OTP'}
+          </Text>
+
+          {step === 'send' ? (
+            <>
+              <Text style={styles.modalSubtitle}>
+                We'll send a one-time password to:
+              </Text>
+              <Text style={styles.contactText}>{emailOrPhone}</Text>
+              
+              <TouchableOpacity
+                style={[styles.sendOtpButton, loading && styles.buttonDisabled]}
+                onPress={handleSendOtp}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.sendOtpButtonText}>
+                    Send OTP to {isEmailLogin ? 'Email' : 'Phone'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={styles.modalSubtitle}>
+                OTP sent to {maskedContact}
+              </Text>
+
+              <OtpInput
+                value={otp}
+                onChange={setOtp}
+                disabled={loading}
+                error={!!error}
+              />
+
+              <TouchableOpacity
+                style={[styles.resendButton, resendTimer > 0 && styles.resendButtonDisabled]}
+                onPress={handleSendOtp}
+                disabled={resendTimer > 0 || loading}
+              >
+                <Text style={[styles.resendText, resendTimer > 0 && styles.resendTextDisabled]}>
+                  {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend OTP'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.verifyButton, (otp.length !== 6 || loading) && styles.buttonDisabled]}
+                onPress={handleVerifyOtp}
+                disabled={otp.length !== 6 || loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.verifyButtonText}>Verify & Login</Text>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
+
+          {!!error && <Text style={styles.modalErrorText}>{error}</Text>}
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 
 const UserLoginSignup = ({ route, navigation }) => {
   const { clearAppState, loginUser } = useApp();
   
   useEffect(() => {
-    // Clear any previous app state when user comes to login
     clearAppState();
   }, []);
+
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -47,6 +289,7 @@ const UserLoginSignup = ({ route, navigation }) => {
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
   const mode = route?.params?.mode || 'login';
 
   const validateAddress = (value) => {
@@ -108,6 +351,32 @@ const UserLoginSignup = ({ route, navigation }) => {
     }
   };
 
+  const completeLogin = async (response) => {
+    const userId = response.userId;
+    const token = response.accessToken;
+    
+    if (userId && token) {
+      console.log('✅ User ID:', userId);
+      console.log('✅ Token present');
+      
+      const userData = {
+        userId: userId,
+        _id: userId,
+        email: response.email,
+        fullName: response.fullName,
+        role: response.role,
+      };
+      
+      await loginUser(userData, token);
+      socketService.connect('user', String(userId));
+      console.log('Connecting user to socket:', userId);
+      return true;
+    } else {
+      console.error('❌ Missing userId or token in response');
+      return false;
+    }
+  };
+
   const handleLogin = async () => {
     setSubmitError('');
     setSubmitSuccess('');
@@ -117,59 +386,40 @@ const UserLoginSignup = ({ route, navigation }) => {
     }
     setLoading(true);
     try {
-      const response = await fetch('http://10.0.2.2:5050/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: emailOrPhone,
-          password,
-        }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        setSubmitError(errorData.message || 'Login failed.');
-        setLoading(false);
-        return;
-      }
+      const response = await client.login(emailOrPhone, password);
       
-      // Get user data from response
-      const userData = await response.json();
-      console.log('User login response:', userData); // Debug log
-      console.log('User ID from response:', userData.userId);
-      console.log('User ID from data:', userData.data?._id);
-      console.log('User ID from user:', userData.user?._id);
-      console.log('Response keys:', Object.keys(userData));
+      console.log('User login response:', response);
       
-      // Save authentication data - try different possible user ID fields
-      const userId = userData.userId || userData.data?._id || userData.user?._id || userData._id;
-      const token = userData.token;
-      
-      if (userId && token) {
-        console.log('✅ Saving user ID:', userId);
-        console.log('✅ Saving token:', token ? 'Present' : 'Missing');
-        
-        // Use the new authentication context
-        await loginUser(userData, token);
-        
-        // ✅ CRITICAL FIX: Connect to socket with real user ID
-        socketService.connect('user', userId);
-        console.log('Connecting user to socket:', userId);
+      if (await completeLogin(response)) {
+        setSubmitSuccess('Login successful!');
       } else {
-        console.error('❌ Missing userId or token in response');
-        console.error('User ID found:', userId);
-        console.error('Token found:', token ? 'Present' : 'Missing');
         setSubmitError('Login response missing required data');
-        setLoading(false);
-        return;
       }
-      
-      setSubmitSuccess('Login successful!');
       setLoading(false);
-      
-      // Navigation will be handled automatically by RootNavigator
     } catch (err) {
-      setSubmitError('Network error. Please try again.');
+      console.error('❌ Login error:', err);
+      setSubmitError(getErrorMessage(err));
       setLoading(false);
+    }
+  };
+
+  const handleOtpLogin = () => {
+    const err = validateEmailOrPhone(emailOrPhone);
+    if (err) {
+      setEmailOrPhoneError(err);
+      setSubmitError('Please enter your email or phone number first.');
+      return;
+    }
+    setShowOtpModal(true);
+  };
+
+  const handleOtpLoginSuccess = async (response) => {
+    setShowOtpModal(false);
+    
+    if (await completeLogin(response)) {
+      setSubmitSuccess('Login successful!');
+    } else {
+      setSubmitError('Login failed');
     }
   };
 
@@ -180,65 +430,60 @@ const UserLoginSignup = ({ route, navigation }) => {
       setSubmitError('Please fix the errors above.');
       return;
     }
-    setSubmitError('');
-    setSubmitSuccess('');
+    setLoading(true);
     try {
-  const response = await fetch('http://10.0.2.2:5050/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: emailOrPhone,
-          password,
-          fullName,
-          phone,
-          address,
-          city,
-          pincode,
-          emergencyContact: phone, // Use phone as emergency contact for now
-        }),
+      const response = await client.register({
+        email: emailOrPhone,
+        password: password,
+        fullName: fullName,
+        phoneNumber: phone,
+        role: 'USER',
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        setSubmitError(errorData.message || 'Signup failed.');
-        return;
-      }
       
-      // Get user data from response
-      const userData = await response.json();
-      console.log('User register response:', userData); // Debug log
-      console.log('User ID from response:', userData.userId);
-      console.log('User ID from data:', userData.data?._id);
-      console.log('User ID from user:', userData.user?._id);
-      console.log('Response keys:', Object.keys(userData));
+      console.log('User register response:', response);
       
-      // Save authentication data - try different possible user ID fields
-      const userId = userData.userId || userData.data?._id || userData.user?._id || userData._id;
-      const token = userData.token;
+      const userId = response.userId;
+      const token = response.accessToken;
       
       if (userId && token) {
-        console.log('✅ Saving user ID:', userId);
-        console.log('✅ Saving token:', token ? 'Present' : 'Missing');
+        // Build userData for verification screen
+        const userData = {
+          userId: userId,
+          _id: userId,
+          email: response.email || emailOrPhone,
+          fullName: response.fullName || fullName,
+          role: response.role,
+          phone: phone,
+          address: address,
+          city: city,
+          pincode: pincode,
+          accessToken: token,
+          refreshToken: response.refreshToken,
+        };
         
-        // Use the new authentication context
-        await loginUser(userData, token);
+        setLoading(false);
         
-        // ✅ CRITICAL FIX: Connect to socket with real user ID
-        socketService.connect('user', userId);
-        console.log('Connecting new user to socket:', userId);
+        // Navigate to verification screen
+        navigation.navigate('SignupVerification', {
+          phoneNumber: phone,
+          email: emailOrPhone,
+          userData: userData,
+          userType: 'USER',
+          onVerificationComplete: async (verifiedData) => {
+            await tokenService.storeTokens(token, response.refreshToken);
+            await loginUser(userData, token);
+            socketService.connect('user', String(userId));
+          },
+        });
       } else {
         console.error('❌ Missing userId or token in response');
-        console.error('User ID found:', userId);
-        console.error('Token found:', token ? 'Present' : 'Missing');
         setSubmitError('Signup response missing required data');
         setLoading(false);
-        return;
       }
-      
-      setSubmitSuccess('Signup successful!');
-      
-      // Navigation will be handled automatically by RootNavigator
     } catch (err) {
-      setSubmitError('Network error. Please try again.');
+      console.error('❌ Signup error:', err);
+      setSubmitError(getErrorMessage(err));
+      setLoading(false);
     }
   };
 
@@ -363,8 +608,30 @@ const UserLoginSignup = ({ route, navigation }) => {
       ) : (
         <>
           <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-            <Text style={styles.buttonText}>{loading ? 'Logging in...' : 'Login'}</Text>
+            <Text style={styles.buttonText}>{loading ? 'Logging in...' : 'Login with Password'}</Text>
           </TouchableOpacity>
+          
+          {/* Forgot Password */}
+          <TouchableOpacity 
+            style={styles.forgotPasswordButton} 
+            onPress={() => navigation.navigate('ForgotPassword')}
+            disabled={loading}
+          >
+            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+          </TouchableOpacity>
+          
+          {/* OTP Login Divider */}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OR</Text>
+            <View style={styles.dividerLine} />
+          </View>
+          
+          {/* OTP Login Button */}
+          <TouchableOpacity style={styles.otpButton} onPress={handleOtpLogin} disabled={loading}>
+            <Text style={styles.otpButtonText}>🔐 Login with OTP</Text>
+          </TouchableOpacity>
+          
           <View style={styles.linkContainer}>
             <Text style={styles.linkText}>Don't have an account?</Text>
             <TouchableOpacity onPress={() => navigation.replace('UserLoginSignup', { mode: 'signup' })} disabled={loading}>
@@ -374,7 +641,15 @@ const UserLoginSignup = ({ route, navigation }) => {
         </>
       )}
       {!!submitError && <Text style={styles.submitErrorText}>{submitError}</Text>}
-      {!!submitSuccess && <Text style={{ color: 'green', fontSize: 16, marginTop: 12, textAlign: 'center' }}>{submitSuccess}</Text>}
+      {!!submitSuccess && <Text style={styles.submitSuccessText}>{submitSuccess}</Text>}
+      
+      {/* OTP Login Modal */}
+      <OtpLoginModal
+        visible={showOtpModal}
+        onClose={() => setShowOtpModal(false)}
+        emailOrPhone={emailOrPhone}
+        onLoginSuccess={handleOtpLoginSuccess}
+      />
     </View>
   );
 };
@@ -430,6 +705,12 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: 'center',
   },
+  submitSuccessText: {
+    color: '#4CAF50',
+    fontSize: 16,
+    marginTop: 12,
+    textAlign: 'center',
+  },
   button: {
     backgroundColor: '#007AFF',
     paddingVertical: 14,
@@ -445,6 +726,51 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 350,
+    marginVertical: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#ddd',
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    color: '#888',
+    fontSize: 14,
+  },
+  otpButton: {
+    backgroundColor: '#fff',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#007AFF',
+    width: '100%',
+    maxWidth: 350,
+    alignItems: 'center',
+  },
+  otpButtonText: {
+    color: '#007AFF',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  forgotPasswordButton: {
+    marginTop: 12,
+    padding: 8,
+    alignSelf: 'flex-end',
+    maxWidth: 350,
+    width: '100%',
+  },
+  forgotPasswordText: {
+    color: '#007AFF',
+    fontSize: 14,
+    textAlign: 'right',
+  },
   linkContainer: {
     flexDirection: 'row',
     marginTop: 16,
@@ -459,6 +785,127 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontSize: 16,
     textDecorationLine: 'underline',
+  },
+  // OTP Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+    minHeight: 350,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    padding: 8,
+    zIndex: 1,
+  },
+  closeButtonText: {
+    fontSize: 24,
+    color: '#666',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  contactText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  sendOtpButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  sendOtpButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  otpContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 24,
+    paddingHorizontal: 8,
+  },
+  otpInput: {
+    width: (width - 96) / 6,
+    height: 56,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    backgroundColor: '#f9f9f9',
+  },
+  otpInputFocused: {
+    borderColor: '#007AFF',
+    backgroundColor: '#fff',
+  },
+  otpInputError: {
+    borderColor: '#ff4d4f',
+  },
+  otpInputFilled: {
+    backgroundColor: '#e8f4fd',
+    borderColor: '#007AFF',
+  },
+  resendButton: {
+    alignSelf: 'center',
+    padding: 12,
+  },
+  resendButtonDisabled: {
+    opacity: 0.5,
+  },
+  resendText: {
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: '500',
+  },
+  resendTextDisabled: {
+    color: '#999',
+  },
+  verifyButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  verifyButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  buttonDisabled: {
+    backgroundColor: '#b0d4ff',
+  },
+  modalErrorText: {
+    color: '#ff4d4f',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 16,
   },
 });
 

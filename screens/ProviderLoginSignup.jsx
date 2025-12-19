@@ -1,9 +1,45 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
+/**
+ * Provider Login/Signup Screen
+ * 
+ * Handles provider authentication with multiple options:
+ * - Email + Password login
+ * - Phone + Password login  
+ * - OTP-based passwordless login (phone or email)
+ * - New provider signup with verification flow
+ * 
+ * @version 2.0.0
+ */
+
+import React, { useEffect, useState, useRef } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TextInput, 
+  TouchableOpacity, 
+  Alert,
+  ActivityIndicator,
+  Modal,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from 'react-native';
 import socketService from '../utils/socket';
-import { providerStorage } from '../utils/providerStorage';
 import { getCurrentLocation, isValidLocation, formatLocation } from '../utils/locationUtils';
 import { useApp } from '../context/AppContext';
+import client from '../src/api/client';
+import tokenService from '../src/services/tokenService';
+import { 
+  getErrorMessage, 
+  validatePassword as validatePasswordStrength,
+  sendPhoneLoginOtp,
+  verifyPhoneLoginOtp,
+  sendEmailLoginOtp,
+  verifyEmailLoginOtp,
+} from '../src/api/authApi';
+
+const { width } = Dimensions.get('window');
 
 function validateEmailOrPhone(value) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -17,9 +53,218 @@ function validateEmailOrPhone(value) {
 
 function validatePassword(value) {
   if (!value) return 'Password is required.';
-  if (value.length < 6) return 'Password must be at least 6 characters.';
+  const validation = validatePasswordStrength(value);
+  if (!validation.isValid) {
+    return validation.errors[0];
+  }
   return '';
 }
+
+function isEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+// OTP Input Component
+const OtpInput = ({ value, onChange, disabled, error }) => {
+  const inputRefs = useRef([]);
+  const [focusedIndex, setFocusedIndex] = useState(0);
+
+  const handleChange = (text, index) => {
+    const newOtp = value.split('');
+    newOtp[index] = text.slice(-1);
+    const newValue = newOtp.join('');
+    onChange(newValue);
+
+    if (text && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyPress = (e, index) => {
+    if (e.nativeEvent.key === 'Backspace' && !value[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  return (
+    <View style={styles.otpContainer}>
+      {[0, 1, 2, 3, 4, 5].map((index) => (
+        <TextInput
+          key={index}
+          ref={(ref) => (inputRefs.current[index] = ref)}
+          style={[
+            styles.otpInput,
+            focusedIndex === index && styles.otpInputFocused,
+            error && styles.otpInputError,
+            value[index] && styles.otpInputFilled,
+          ]}
+          value={value[index] || ''}
+          onChangeText={(text) => handleChange(text, index)}
+          onKeyPress={(e) => handleKeyPress(e, index)}
+          onFocus={() => setFocusedIndex(index)}
+          keyboardType="number-pad"
+          maxLength={1}
+          editable={!disabled}
+          selectTextOnFocus
+        />
+      ))}
+    </View>
+  );
+};
+
+// OTP Login Modal
+const OtpLoginModal = ({ visible, onClose, emailOrPhone, onLoginSuccess }) => {
+  const [step, setStep] = useState('send');
+  const [otp, setOtp] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [resendTimer, setResendTimer] = useState(0);
+  const [maskedContact, setMaskedContact] = useState('');
+  const isEmailLogin = isEmail(emailOrPhone);
+
+  useEffect(() => {
+    if (visible) {
+      setStep('send');
+      setOtp('');
+      setError('');
+      setResendTimer(0);
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    let interval;
+    if (resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [resendTimer]);
+
+  const handleSendOtp = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      if (isEmailLogin) {
+        const result = await sendEmailLoginOtp(emailOrPhone);
+        setMaskedContact(result.maskedEmail || emailOrPhone);
+      } else {
+        const result = await sendPhoneLoginOtp(emailOrPhone);
+        setMaskedContact(result.maskedPhone || emailOrPhone);
+      }
+      setStep('verify');
+      setResendTimer(60);
+    } catch (err) {
+      setError(err.message || getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otp.length !== 6) {
+      setError('Please enter 6-digit OTP');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      let response;
+      if (isEmailLogin) {
+        response = await verifyEmailLoginOtp(emailOrPhone, otp);
+      } else {
+        response = await verifyPhoneLoginOtp(emailOrPhone, otp);
+      }
+      
+      await tokenService.storeTokens(response.accessToken, response.refreshToken);
+      onLoginSuccess(response);
+    } catch (err) {
+      setError(err.message || getErrorMessage(err));
+      setOtp('');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Text style={styles.closeButtonText}>✕</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.modalTitle}>
+            {step === 'send' ? 'Login with OTP' : 'Enter OTP'}
+          </Text>
+
+          {step === 'send' ? (
+            <>
+              <Text style={styles.modalSubtitle}>
+                We'll send a one-time password to:
+              </Text>
+              <Text style={styles.contactText}>{emailOrPhone}</Text>
+              
+              <TouchableOpacity
+                style={[styles.sendOtpButton, loading && styles.buttonDisabled]}
+                onPress={handleSendOtp}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.sendOtpButtonText}>
+                    Send OTP to {isEmailLogin ? 'Email' : 'Phone'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={styles.modalSubtitle}>
+                OTP sent to {maskedContact}
+              </Text>
+
+              <OtpInput
+                value={otp}
+                onChange={setOtp}
+                disabled={loading}
+                error={!!error}
+              />
+
+              <TouchableOpacity
+                style={[styles.resendButton, resendTimer > 0 && styles.resendButtonDisabled]}
+                onPress={handleSendOtp}
+                disabled={resendTimer > 0 || loading}
+              >
+                <Text style={[styles.resendText, resendTimer > 0 && styles.resendTextDisabled]}>
+                  {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend OTP'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.verifyButton, (otp.length !== 6 || loading) && styles.buttonDisabled]}
+                onPress={handleVerifyOtp}
+                disabled={otp.length !== 6 || loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.verifyButtonText}>Verify & Login</Text>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
+
+          {!!error && <Text style={styles.modalErrorText}>{error}</Text>}
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 const ProviderLoginSignup = ({ route, navigation }) => {
   const { loginProvider } = useApp();
@@ -27,19 +272,38 @@ const ProviderLoginSignup = ({ route, navigation }) => {
   useEffect(() => {
     console.log('Navigated to ProviderLoginSignup page');
   }, []);
+
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [emailOrPhoneError, setEmailOrPhoneError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [fullNameError, setFullNameError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [addressError, setAddressError] = useState('');
   const [locationError, setLocationError] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
   const mode = route?.params?.mode || 'login';
+
+  const validateFullName = (value) => {
+    if (!value) return 'Full name is required.';
+    if (value.length < 2) return 'Name must be at least 2 characters.';
+    return '';
+  };
+
+  const validatePhone = (value) => {
+    const phoneRegex = /^\+?\d{10,15}$/;
+    if (!value) return 'Phone number is required.';
+    if (!phoneRegex.test(value)) return 'Enter a valid phone number (10-15 digits).';
+    return '';
+  };
 
   const validateAddress = (value) => {
     if (!value) return 'Address is required.';
@@ -50,15 +314,26 @@ const ProviderLoginSignup = ({ route, navigation }) => {
   const validateFields = () => {
     const emailOrPhoneErr = validateEmailOrPhone(emailOrPhone);
     const passwordErr = validatePassword(password);
-    const addressErr = mode === 'signup' ? validateAddress(address) : '';
-    const locationErr = mode === 'signup' && (!latitude || !longitude) ? 'Location is required for service providers.' : '';
     
-    setEmailOrPhoneError(emailOrPhoneErr);
-    setPasswordError(passwordErr);
-    setAddressError(addressErr);
-    setLocationError(locationErr);
-    
-    return !emailOrPhoneErr && !passwordErr && !addressErr && !locationErr;
+    if (mode === 'signup') {
+      const fullNameErr = validateFullName(fullName);
+      const phoneErr = validatePhone(phone);
+      const addressErr = validateAddress(address);
+      const locationErr = (!latitude || !longitude) ? 'Location is required for service providers.' : '';
+      
+      setFullNameError(fullNameErr);
+      setPhoneError(phoneErr);
+      setAddressError(addressErr);
+      setLocationError(locationErr);
+      setEmailOrPhoneError(emailOrPhoneErr);
+      setPasswordError(passwordErr);
+      
+      return !emailOrPhoneErr && !passwordErr && !fullNameErr && !phoneErr && !addressErr && !locationErr;
+    } else {
+      setEmailOrPhoneError(emailOrPhoneErr);
+      setPasswordError(passwordErr);
+      return !emailOrPhoneErr && !passwordErr;
+    }
   };
 
   // Get current GPS location
@@ -73,13 +348,11 @@ const ProviderLoginSignup = ({ route, navigation }) => {
       setLongitude(location.longitude);
       console.log('📍 Provider location obtained:', formatLocation(location.latitude, location.longitude));
       
-      // Clear any previous errors
       setLocationError('');
     } catch (error) {
       console.error('❌ Location error:', error);
       setLocationError(error.message || 'Unable to get location. Please check permissions.');
       
-      // Show alert to user
       Alert.alert(
         'Location Required',
         error.message || 'We need your location to match you with nearby service requests. Please enable location permissions and try again.',
@@ -93,61 +366,74 @@ const ProviderLoginSignup = ({ route, navigation }) => {
     }
   };
 
+  const completeLogin = async (response) => {
+    const realProviderId = response.userId;
+    const token = response.accessToken;
+    
+    if (realProviderId && token) {
+      console.log('✅ Provider ID:', realProviderId);
+      console.log('✅ Token present');
+      
+      const providerData = {
+        providerId: realProviderId,
+        _id: realProviderId,
+        email: response.email,
+        fullName: response.fullName,
+        role: response.role,
+      };
+      
+      await loginProvider(providerData, token);
+      socketService.connect('provider', String(realProviderId));
+      console.log('Connecting provider to socket:', realProviderId);
+      return true;
+    } else {
+      console.error('❌ Missing providerId or token in response');
+      return false;
+    }
+  };
+
   const handleLogin = async () => {
     setSubmitError('');
     if (!validateFields()) {
       setSubmitError('Please fix the errors above.');
-      console.log('Login validation failed');
       return;
     }
     setLoading(true);
     try {
-      const response = await fetch('http://10.0.2.2:5050/auth/provider/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: emailOrPhone,
-          password,
-        }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        setSubmitError(errorData.message || 'Login failed.');
+      const response = await client.login(emailOrPhone, password);
+      
+      console.log('✅ Provider Login successful:', response);
+      
+      if (await completeLogin(response)) {
         setLoading(false);
-        return;
+      } else {
+        setSubmitError('Login response missing required data');
+        setLoading(false);
       }
-      
-      // Get provider data from response
-      const providerData = await response.json();
-      setLoading(false);
-      
-      console.log('✅ Provider Login successful:', providerData);
-      console.log('Provider ID from response:', providerData.providerId);
-      console.log('Provider ID from data:', providerData.data?._id);
-      console.log('Response keys:', Object.keys(providerData));
-      
-      // Extract real provider ID
-      const realProviderId = providerData.providerId || providerData.data?._id;
-      
-      if (!realProviderId) {
-        console.error('❌ No provider ID found in response');
-        setSubmitError('Failed to get provider ID from server.');
-        return;
-      }
-      
-      console.log('🔑 Using provider ID:', realProviderId);
-      
-      // Use the new authentication context
-      await loginProvider(providerData.data || providerData, providerData.token);
-      
-      // Connect to socket with real provider ID
-      socketService.connect('provider', realProviderId);
-      
-      // Navigation will be handled automatically by RootNavigator
-      // The MainNavigator will determine initial route based on profile completeness
     } catch (err) {
-      setSubmitError('Network error. Please try again.');
+      console.error('❌ Login error:', err);
+      setSubmitError(getErrorMessage(err));
       setLoading(false);
+    }
+  };
+
+  const handleOtpLogin = () => {
+    const err = validateEmailOrPhone(emailOrPhone);
+    if (err) {
+      setEmailOrPhoneError(err);
+      setSubmitError('Please enter your email or phone number first.');
+      return;
+    }
+    setShowOtpModal(true);
+  };
+
+  const handleOtpLoginSuccess = async (response) => {
+    setShowOtpModal(false);
+    
+    if (await completeLogin(response)) {
+      // Success - navigation handled by RootNavigator
+    } else {
+      setSubmitError('Login failed');
     }
   };
 
@@ -155,64 +441,65 @@ const ProviderLoginSignup = ({ route, navigation }) => {
     setSubmitError('');
     if (!validateFields()) {
       setSubmitError('Please fix the errors above.');
-      console.log('Signup validation failed');
       return;
     }
     setLoading(true);
     try {
-      const response = await fetch('http://10.0.2.2:5050/auth/provider/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: emailOrPhone,
-          password,
-          address,
+      const response = await client.register({
+        email: emailOrPhone,
+        password: password,
+        fullName: fullName,
+        phoneNumber: phone,
+        role: 'SERVICE_PROVIDER',
+      });
+      
+      console.log('✅ Provider Signup successful:', response);
+      
+      const realProviderId = response.userId;
+      const token = response.accessToken;
+      
+      if (realProviderId && token) {
+        // Build providerData for verification screen
+        const providerData = {
+          providerId: realProviderId,
+          _id: realProviderId,
+          email: response.email || emailOrPhone,
+          fullName: response.fullName || fullName,
+          role: response.role,
+          phone: phone,
+          address: address,
           lat: latitude,
           lng: longitude,
-        }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        setSubmitError(errorData.message || 'Signup failed.');
+          accessToken: token,
+          refreshToken: response.refreshToken,
+        };
+        
         setLoading(false);
-        return;
+        
+        // Navigate to verification screen
+        navigation.navigate('SignupVerification', {
+          phoneNumber: phone,
+          email: emailOrPhone,
+          userData: providerData,
+          userType: 'PROVIDER',
+          onVerificationComplete: async (verifiedData) => {
+            await tokenService.storeTokens(token, response.refreshToken);
+            await loginProvider(providerData, token);
+            socketService.connect('provider', String(realProviderId));
+          },
+        });
+      } else {
+        setSubmitError('Signup response missing required data');
+        setLoading(false);
       }
-      
-      // Get provider data from response
-      const providerData = await response.json();
-      setLoading(false);
-      
-      console.log('✅ Signup successful:', providerData);
-      
-      // Extract real provider ID
-      const realProviderId = providerData.providerId || providerData.data?._id;
-      
-      if (!realProviderId) {
-        setSubmitError('Failed to get provider ID from server.');
-        return;
-      }
-      
-      // Store provider ID, token, and data
-      await providerStorage.saveProviderId(realProviderId);
-      if (providerData.token) {
-        await providerStorage.saveProviderToken(providerData.token);
-      }
-      if (providerData.data) {
-        await loginProvider(providerData.data, providerData.token);
-      }
-      
-      // Connect to socket with real provider ID
-      socketService.connect('provider', realProviderId);
-      
-      // Navigation will be handled automatically by RootNavigator
     } catch (err) {
-      setSubmitError('Network error. Please try again.');
+      console.error('❌ Signup error:', err);
+      setSubmitError(getErrorMessage(err));
       setLoading(false);
     }
   };
 
   const goToLogin = () => {
-    console.log('Go to Login pressed');
     navigation.replace('ProviderLoginSignup', { mode: 'login' });
   };
 
@@ -246,6 +533,31 @@ const ProviderLoginSignup = ({ route, navigation }) => {
       {!!passwordError && <Text style={styles.errorText}>{passwordError}</Text>}
       {mode === 'signup' && (
         <>
+          <TextInput
+            style={[styles.input, fullNameError ? styles.inputError : null]}
+            placeholder="Full Name"
+            value={fullName}
+            onChangeText={text => {
+              setFullName(text);
+              if (fullNameError) setFullNameError(validateFullName(text));
+            }}
+            onBlur={() => setFullNameError(validateFullName(fullName))}
+          />
+          {!!fullNameError && <Text style={styles.errorText}>{fullNameError}</Text>}
+          
+          <TextInput
+            style={[styles.input, phoneError ? styles.inputError : null]}
+            placeholder="Phone Number (e.g., +911234567890)"
+            value={phone}
+            onChangeText={text => {
+              setPhone(text);
+              if (phoneError) setPhoneError(validatePhone(text));
+            }}
+            keyboardType="phone-pad"
+            onBlur={() => setPhoneError(validatePhone(phone))}
+          />
+          {!!phoneError && <Text style={styles.errorText}>{phoneError}</Text>}
+          
           <TextInput
             style={[styles.input, addressError ? styles.inputError : null]}
             placeholder="Address"
@@ -312,8 +624,30 @@ const ProviderLoginSignup = ({ route, navigation }) => {
       ) : (
         <>
           <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-            <Text style={styles.buttonText}>{loading ? 'Logging in...' : 'Login'}</Text>
+            <Text style={styles.buttonText}>{loading ? 'Logging in...' : 'Login with Password'}</Text>
           </TouchableOpacity>
+          
+          {/* Forgot Password */}
+          <TouchableOpacity 
+            style={styles.forgotPasswordButton} 
+            onPress={() => navigation.navigate('ForgotPassword')}
+            disabled={loading}
+          >
+            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+          </TouchableOpacity>
+          
+          {/* OTP Login Divider */}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OR</Text>
+            <View style={styles.dividerLine} />
+          </View>
+          
+          {/* OTP Login Button */}
+          <TouchableOpacity style={styles.otpButton} onPress={handleOtpLogin} disabled={loading}>
+            <Text style={styles.otpButtonText}>🔐 Login with OTP</Text>
+          </TouchableOpacity>
+          
           <View style={styles.linkContainer}>
             <Text style={styles.linkText}>Don't have an account?</Text>
             <TouchableOpacity onPress={() => navigation.replace('ProviderLoginSignup', { mode: 'signup' })} disabled={loading}>
@@ -323,6 +657,14 @@ const ProviderLoginSignup = ({ route, navigation }) => {
         </>
       )}
       {!!submitError && <Text style={styles.submitErrorText}>{submitError}</Text>}
+      
+      {/* OTP Login Modal */}
+      <OtpLoginModal
+        visible={showOtpModal}
+        onClose={() => setShowOtpModal(false)}
+        emailOrPhone={emailOrPhone}
+        onLoginSuccess={handleOtpLoginSuccess}
+      />
     </View>
   );
 };
@@ -455,6 +797,53 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  // OTP Login Styles
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 350,
+    marginVertical: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#ddd',
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    color: '#888',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  otpButton: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#007AFF',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 8,
+    width: '100%',
+    maxWidth: 350,
+    alignItems: 'center',
+  },
+  otpButtonText: {
+    color: '#007AFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  forgotPasswordButton: {
+    marginTop: 12,
+    padding: 8,
+    alignSelf: 'flex-end',
+    maxWidth: 350,
+    width: '100%',
+  },
+  forgotPasswordText: {
+    color: '#007AFF',
+    fontSize: 14,
+    textAlign: 'right',
   },
 });
 

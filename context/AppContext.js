@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import socketService from '../utils/socket';
 import { userStorage } from '../utils/userStorage';
 import { providerStorage } from '../utils/providerStorage';
+import client from '../src/api/client';
+import tokenService from '../src/services/tokenService';
 
 const AppContext = createContext();
 
@@ -49,43 +51,56 @@ export const AppProvider = ({ children }) => {
       try {
         setIsAuthLoading(true);
         
-        // Check if user is logged in
-        const isUserLoggedIn = await userStorage.isUserLoggedIn();
-        const isProviderLoggedIn = await providerStorage.isProviderLoggedIn();
+        // First check JARBAC tokens (secure keychain storage)
+        const hasJarbacTokens = await tokenService.isLoggedIn();
         
-        if (isUserLoggedIn) {
-          const userData = await userStorage.getUserData();
-          const userId = await userStorage.getUserId();
-          setIsAuthenticated(true);
-          setUserType('user');
-          setUserData(userData);
+        if (hasJarbacTokens) {
+          console.log('🔐 JARBAC tokens found, restoring session...');
           
-          // Connect to socket with user ID
-          if (userId) {
-            console.log('🔌 Connecting user to socket:', userId);
-            socketService.connect('user', userId);
+          // Get user data from secure storage
+          const jarbacUserData = await tokenService.getUserData();
+          
+          if (jarbacUserData && jarbacUserData.userId) {
+            const role = jarbacUserData.role;
+            const userId = jarbacUserData.userId;
+            
+            if (role === 'SERVICE_PROVIDER') {
+              setIsAuthenticated(true);
+              setUserType('provider');
+              setUserData({
+                providerId: userId,
+                _id: userId,
+                ...jarbacUserData,
+              });
+              
+              // Connect to socket
+              console.log('🔌 Connecting provider to socket:', userId);
+              socketService.connect('provider', String(userId));
+              console.log('✅ Provider authentication restored from JARBAC');
+            } else {
+              // USER role
+              setIsAuthenticated(true);
+              setUserType('user');
+              setUserData({
+                userId: userId,
+                _id: userId,
+                ...jarbacUserData,
+              });
+              
+              // Connect to socket
+              console.log('🔌 Connecting user to socket:', userId);
+              socketService.connect('user', String(userId));
+              console.log('✅ User authentication restored from JARBAC');
+            }
+          } else {
+            // Tokens exist but no user data, try to get from legacy storage
+            console.log('⚠️ JARBAC tokens found but no user data, checking legacy storage...');
+            await checkLegacyAuth();
           }
-          
-          console.log('✅ User authentication restored');
-        } else if (isProviderLoggedIn) {
-          const providerData = await providerStorage.getProviderData();
-          const providerId = await providerStorage.getProviderId();
-          setIsAuthenticated(true);
-          setUserType('provider');
-          setUserData(providerData);
-          
-          // Connect to socket with provider ID
-          if (providerId) {
-            console.log('🔌 Connecting provider to socket:', providerId);
-            socketService.connect('provider', providerId);
-          }
-          
-          console.log('✅ Provider authentication restored');
         } else {
-          setIsAuthenticated(false);
-          setUserType(null);
-          setUserData(null);
-          console.log('❌ No authentication found');
+          // No JARBAC tokens, check legacy storage for backward compatibility
+          console.log('🔍 No JARBAC tokens, checking legacy storage...');
+          await checkLegacyAuth();
         }
       } catch (error) {
         console.error('❌ Error checking auth status:', error);
@@ -94,6 +109,45 @@ export const AppProvider = ({ children }) => {
         setUserData(null);
       } finally {
         setIsAuthLoading(false);
+      }
+    };
+    
+    // Check legacy AsyncStorage for backward compatibility
+    const checkLegacyAuth = async () => {
+      const isUserLoggedIn = await userStorage.isUserLoggedIn();
+      const isProviderLoggedIn = await providerStorage.isProviderLoggedIn();
+      
+      if (isUserLoggedIn) {
+        const userData = await userStorage.getUserData();
+        const userId = await userStorage.getUserId();
+        setIsAuthenticated(true);
+        setUserType('user');
+        setUserData(userData);
+        
+        if (userId) {
+          console.log('🔌 Connecting user to socket:', userId);
+          socketService.connect('user', userId);
+        }
+        
+        console.log('✅ User authentication restored from legacy storage');
+      } else if (isProviderLoggedIn) {
+        const providerData = await providerStorage.getProviderData();
+        const providerId = await providerStorage.getProviderId();
+        setIsAuthenticated(true);
+        setUserType('provider');
+        setUserData(providerData);
+        
+        if (providerId) {
+          console.log('🔌 Connecting provider to socket:', providerId);
+          socketService.connect('provider', providerId);
+        }
+        
+        console.log('✅ Provider authentication restored from legacy storage');
+      } else {
+        setIsAuthenticated(false);
+        setUserType(null);
+        setUserData(null);
+        console.log('❌ No authentication found');
       }
     };
 
@@ -175,7 +229,16 @@ export const AppProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      // Clear storage based on user type
+      // Logout from JARBAC (clears tokens from Keychain and revokes on server)
+      try {
+        await client.logout();
+        console.log('✅ JARBAC logout successful');
+      } catch (jarbacError) {
+        console.warn('⚠️ JARBAC logout failed:', jarbacError.message);
+        // Continue with local cleanup even if JARBAC logout fails
+      }
+      
+      // Clear legacy storage based on user type
       if (userType === 'user') {
         await userStorage.clearUserData();
       } else if (userType === 'provider') {

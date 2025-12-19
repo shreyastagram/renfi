@@ -50,5 +50,16 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>fixhomi</string>
+			</array>
+			<key>CFBundleURLName</key>
+			<string>com.fixhomi.app</string>
+		</dict>
+	</array>
 </dict>
 </plist>
