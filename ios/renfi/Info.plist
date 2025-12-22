@@ -52,6 +52,16 @@
 	<false/>
 	<key>CFBundleURLTypes</key>
 	<array>
+		<!-- Google Sign-In URL Scheme -->
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.524781184814-381pquihbspvu31si5ea2ecreqs3d824</string>
+			</array>
+			<key>CFBundleURLName</key>
+			<string>com.fixhomi.google</string>
+		</dict>
+		<!-- FixHomi Deep Link URL Scheme -->
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>

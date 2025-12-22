@@ -15,7 +15,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
-import { authClient } from '../src/api/authApi';
+import { authClient } from '../src/api/client';
 
 const VerifyEmailScreen = ({ route, navigation }) => {
   const [status, setStatus] = useState('verifying'); // 'verifying', 'success', 'error'

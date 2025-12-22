@@ -339,6 +339,95 @@ export const login = async (email, password) => {
 };
 
 /**
+ * Login with phone number and password
+ * JARBAC Endpoint: POST /api/auth/login/phone
+ * 
+ * @param {string} phoneNumber - User's phone number (with country code)
+ * @param {string} password - User's password
+ * @returns {Promise<Object>} - Login response with tokens and user info
+ * @throws {Error} - Detailed error with context
+ */
+export const loginWithPhone = async (phoneNumber, password) => {
+  console.log('🔐 [Client] Attempting phone login for:', phoneNumber);
+  
+  // Input validation
+  if (!phoneNumber || !phoneNumber.trim()) {
+    const error = new Error('Phone number is required');
+    error.isValidationError = true;
+    throw error;
+  }
+  
+  if (!password) {
+    const error = new Error('Password is required');
+    error.isValidationError = true;
+    throw error;
+  }
+  
+  // Normalize phone number - add +91 if missing country code
+  let normalizedPhone = phoneNumber.trim().replace(/[\s\-\(\)]/g, '');
+  if (!normalizedPhone.startsWith('+')) {
+    if (/^\d{10}$/.test(normalizedPhone)) {
+      normalizedPhone = '+91' + normalizedPhone;
+    } else if (/^\d{11,15}$/.test(normalizedPhone)) {
+      normalizedPhone = '+' + normalizedPhone;
+    }
+  }
+  
+  try {
+    const response = await authClient.post('/api/auth/login/phone', { 
+      phoneNumber: normalizedPhone, 
+      password 
+    });
+    
+    // Validate response structure
+    if (!response.data?.accessToken || !response.data?.userId) {
+      console.error('❌ [Client] Invalid phone login response structure:', response.data);
+      throw new Error('Invalid server response. Please try again.');
+    }
+    
+    // Save auth state
+    await tokenService.saveAuthState(response.data);
+    
+    console.log('✅ [Client] Phone login successful for user:', response.data.userId);
+    console.log('📱 [Client] User phone:', response.data.phoneNumber);
+    console.log('👤 [Client] User role:', response.data.role);
+    
+    return response.data;
+    
+  } catch (error) {
+    // Add context to the error
+    console.error('❌ [Client] Phone login failed for:', phoneNumber);
+    console.error('❌ [Client] Error details:', {
+      status: error.response?.status,
+      message: error.response?.data?.message || error.message,
+      url: error.config?.url,
+    });
+    
+    // Re-throw for caller to handle
+    throw error;
+  }
+};
+
+/**
+ * Smart login - automatically detects email vs phone and uses appropriate endpoint
+ * 
+ * @param {string} identifier - Email or phone number
+ * @param {string} password - User's password
+ * @returns {Promise<Object>} - Login response with tokens and user info
+ */
+export const smartLogin = async (identifier, password) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  
+  if (emailRegex.test(identifier)) {
+    console.log('📧 [Client] Detected email login');
+    return login(identifier, password);
+  } else {
+    console.log('📱 [Client] Detected phone login');
+    return loginWithPhone(identifier, password);
+  }
+};
+
+/**
  * Register a new user
  * Production-grade registration with validation and detailed error handling
  * 
@@ -510,6 +599,8 @@ const client = {
   
   // Auth operations
   login,
+  loginWithPhone,
+  smartLogin,
   register,
   logout,
   refreshToken,
