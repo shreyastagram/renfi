@@ -4,6 +4,7 @@ import { userStorage } from '../utils/userStorage';
 import { providerStorage } from '../utils/providerStorage';
 import client from '../src/api/client';
 import tokenService from '../src/services/tokenService';
+import googleAuthService from '../src/services/googleAuthService';
 
 const AppContext = createContext();
 
@@ -227,8 +228,80 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Login with Google OAuth
+   * Handles the complete Google sign-in flow and stores auth state
+   * 
+   * @param {Object} googleResponse - Response from Google Sign-In
+   * @returns {Promise<void>}
+   */
+  const loginWithGoogle = async (googleResponse) => {
+    try {
+      console.log('🔐 [AppContext] Processing Google login...');
+      
+      const userId = googleResponse.userId;
+      const token = googleResponse.accessToken;
+      const role = googleResponse.role;
+      
+      if (!userId || !token) {
+        throw new Error('Invalid Google login response');
+      }
+      
+      // Prepare user data
+      const userData = {
+        userId: userId,
+        _id: userId,
+        email: googleResponse.email,
+        fullName: googleResponse.fullName,
+        role: role,
+        isGoogleUser: true,
+        googleUser: googleResponse.googleUser,
+      };
+      
+      // Store in appropriate storage based on role
+      if (role === 'SERVICE_PROVIDER') {
+        await providerStorage.saveProviderData(userData);
+        await providerStorage.saveProviderToken(token);
+        await providerStorage.saveProviderId(userId);
+        
+        setUserType('provider');
+        
+        // Connect to socket as provider
+        socketService.connect('provider', String(userId));
+      } else {
+        await userStorage.saveUserData(userData);
+        await userStorage.saveUserToken(token);
+        await userStorage.saveUserId(userId);
+        
+        setUserType('user');
+        
+        // Connect to socket as user
+        socketService.connect('user', String(userId));
+      }
+      
+      setIsAuthenticated(true);
+      setUserData(userData);
+      
+      console.log('✅ [AppContext] Google login successful');
+      console.log('👤 [AppContext] User type:', role === 'SERVICE_PROVIDER' ? 'provider' : 'user');
+      
+      return { isNewUser: googleResponse.isNewUser };
+    } catch (error) {
+      console.error('❌ [AppContext] Error during Google login:', error);
+      throw error;
+    }
+  };
+
   const logout = async () => {
     try {
+      // Sign out from Google if signed in
+      try {
+        await googleAuthService.signOut();
+        console.log('✅ Google sign-out successful');
+      } catch (googleError) {
+        console.warn('⚠️ Google sign-out failed:', googleError.message);
+      }
+      
       // Logout from JARBAC (clears tokens from Keychain and revokes on server)
       try {
         await client.logout();
@@ -413,6 +486,7 @@ export const AppProvider = ({ children }) => {
     isAuthLoading,
     loginUser,
     loginProvider,
+    loginWithGoogle,
     logout,
     
     // Location state and functions

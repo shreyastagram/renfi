@@ -153,6 +153,31 @@ export const isLoggedIn = async () => {
 // ============================================================================
 
 /**
+ * Decode a JWT token without verification
+ * Extracts the payload from the token
+ * 
+ * @param {string} token - JWT token to decode
+ * @returns {Object|null} - Decoded payload or null if invalid
+ */
+export const decodeToken = (token) => {
+  try {
+    if (!token) return null;
+    
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    
+    // Decode the payload (middle part)
+    const payload = parts[1];
+    const decoded = JSON.parse(atob(payload));
+    
+    return decoded;
+  } catch (error) {
+    console.error('❌ [TokenService] Error decoding token:', error);
+    return null;
+  }
+};
+
+/**
  * Save token expiry time
  * @param {number} expiresIn - Expiry time in seconds
  */
@@ -340,6 +365,9 @@ const tokenService = {
   getRefreshToken,
   clearTokens,
   isLoggedIn,
+  
+  // Token decoding
+  decodeToken,
   
   // Token expiry
   saveTokenExpiry,

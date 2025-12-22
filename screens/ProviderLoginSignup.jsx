@@ -5,9 +5,10 @@
  * - Email + Password login
  * - Phone + Password login  
  * - OTP-based passwordless login (phone or email)
+ * - Google Sign-In (OAuth2)
  * - New provider signup with verification flow
  * 
- * @version 2.0.0
+ * @version 2.1.0
  */
 
 import React, { useEffect, useState, useRef } from 'react';
@@ -30,6 +31,7 @@ import { getCurrentLocation, isValidLocation, formatLocation } from '../utils/lo
 import { useApp } from '../context/AppContext';
 import client from '../src/api/client';
 import tokenService from '../src/services/tokenService';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 import { 
   getErrorMessage, 
   validatePassword as validatePasswordStrength,
@@ -267,7 +269,7 @@ const OtpLoginModal = ({ visible, onClose, emailOrPhone, onLoginSuccess }) => {
 };
 
 const ProviderLoginSignup = ({ route, navigation }) => {
-  const { loginProvider } = useApp();
+  const { loginProvider, loginWithGoogle } = useApp();
   
   useEffect(() => {
     console.log('Navigated to ProviderLoginSignup page');
@@ -400,7 +402,8 @@ const ProviderLoginSignup = ({ route, navigation }) => {
     }
     setLoading(true);
     try {
-      const response = await client.login(emailOrPhone, password);
+      // Use smartLogin which automatically detects email vs phone
+      const response = await client.smartLogin(emailOrPhone, password);
       
       console.log('✅ Provider Login successful:', response);
       
@@ -648,6 +651,30 @@ const ProviderLoginSignup = ({ route, navigation }) => {
             <Text style={styles.otpButtonText}>🔐 Login with OTP</Text>
           </TouchableOpacity>
           
+          {/* Google Sign-In */}
+          <GoogleSignInButton
+            userType="provider"
+            title="Continue with Google"
+            style={styles.googleButton}
+            disabled={loading}
+            onSuccess={async (response) => {
+              try {
+                setLoading(true);
+                await loginWithGoogle(response);
+                setSubmitSuccess('Google login successful!');
+              } catch (error) {
+                setSubmitError(error.message || 'Google login failed');
+              } finally {
+                setLoading(false);
+              }
+            }}
+            onError={(error) => {
+              if (error.message !== 'Sign-in cancelled') {
+                setSubmitError(error.message || 'Google login failed');
+              }
+            }}
+          />
+          
           <View style={styles.linkContainer}>
             <Text style={styles.linkText}>Don't have an account?</Text>
             <TouchableOpacity onPress={() => navigation.replace('ProviderLoginSignup', { mode: 'signup' })} disabled={loading}>
@@ -832,6 +859,11 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  googleButton: {
+    marginTop: 12,
+    width: '100%',
+    maxWidth: 350,
   },
   forgotPasswordButton: {
     marginTop: 12,
