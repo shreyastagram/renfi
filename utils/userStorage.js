@@ -1,108 +1,131 @@
+/**
+ * User Storage - AsyncStorage wrapper for user data
+ * 
+ * Handles persistent storage of user data using AsyncStorage
+ * 
+ * @version 1.0.0
+ */
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const USER_ID_KEY = 'userId';
-const USER_DATA_KEY = 'userData';
-const USER_TOKEN_KEY = 'userToken';
+const STORAGE_KEYS = {
+  USER_DATA: '@fixhomi_user_data',
+  USER_TOKEN: '@fixhomi_user_token',
+  USER_ID: '@fixhomi_user_id',
+  IS_LOGGED_IN: '@fixhomi_user_logged_in',
+};
 
 export const userStorage = {
-  // Save user ID
-  saveUserId: async (userId) => {
-    try {
-      if (userId === undefined || userId === null) {
-        console.error('❌ Cannot save undefined or null user ID');
-        return;
-      }
-      await AsyncStorage.setItem(USER_ID_KEY, String(userId));
-      console.log('✅ User ID saved:', userId);
-    } catch (error) {
-      console.error('❌ Failed to save user ID:', error);
-    }
-  },
-
-  // Get user ID
-  getUserId: async () => {
-    try {
-      const userId = await AsyncStorage.getItem(USER_ID_KEY);
-      console.log('📱 Retrieved user ID:', userId);
-      return userId;
-    } catch (error) {
-      console.error('❌ Failed to get user ID:', error);
-      return null;
-    }
-  },
-
-  // Save user authentication token
-  saveUserToken: async (token) => {
-    try {
-      if (token === undefined || token === null) {
-        console.error('❌ Cannot save undefined or null token');
-        return;
-      }
-      await AsyncStorage.setItem(USER_TOKEN_KEY, String(token));
-      console.log('✅ User token saved');
-    } catch (error) {
-      console.error('❌ Failed to save user token:', error);
-    }
-  },
-
-  // Get user authentication token
-  getUserToken: async () => {
-    try {
-      const token = await AsyncStorage.getItem(USER_TOKEN_KEY);
-      console.log('📱 Retrieved user token:', token ? 'Present' : 'Not found');
-      return token;
-    } catch (error) {
-      console.error('❌ Failed to get user token:', error);
-      return null;
-    }
-  },
-
-  // Save user profile data
+  /**
+   * Save user data
+   */
   saveUserData: async (userData) => {
     try {
-      if (userData === undefined || userData === null) {
-        console.error('❌ Cannot save undefined or null user data');
-        return;
-      }
-      await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(userData));
-      console.log('✅ User data saved:', userData);
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.USER_DATA,
+        JSON.stringify(userData)
+      );
+      await AsyncStorage.setItem(STORAGE_KEYS.IS_LOGGED_IN, 'true');
+      console.log('✅ [UserStorage] User data saved');
     } catch (error) {
-      console.error('❌ Failed to save user data:', error);
+      console.error('❌ [UserStorage] Error saving user data:', error);
+      throw error;
     }
   },
 
-  // Get user profile data
+  /**
+   * Get user data
+   */
   getUserData: async () => {
     try {
-      const data = await AsyncStorage.getItem(USER_DATA_KEY);
-      const userData = data ? JSON.parse(data) : null;
-      console.log('📱 Retrieved user data:', userData);
-      return userData;
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.USER_DATA);
+      return data ? JSON.parse(data) : null;
     } catch (error) {
-      console.error('❌ Failed to get user data:', error);
+      console.error('❌ [UserStorage] Error getting user data:', error);
       return null;
     }
   },
 
-  // Clear all user data (for logout)
-  clearUserData: async () => {
+  /**
+   * Save user token
+   */
+  saveUserToken: async (token) => {
     try {
-      await AsyncStorage.multiRemove([USER_ID_KEY, USER_DATA_KEY, USER_TOKEN_KEY]);
-      console.log('✅ User data cleared');
+      await AsyncStorage.setItem(STORAGE_KEYS.USER_TOKEN, token);
+      console.log('✅ [UserStorage] User token saved');
     } catch (error) {
-      console.error('❌ Failed to clear user data:', error);
+      console.error('❌ [UserStorage] Error saving user token:', error);
+      throw error;
     }
   },
 
-  // Check if user is logged in
+  /**
+   * Get user token
+   */
+  getUserToken: async () => {
+    try {
+      return await AsyncStorage.getItem(STORAGE_KEYS.USER_TOKEN);
+    } catch (error) {
+      console.error('❌ [UserStorage] Error getting user token:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Save user ID
+   */
+  saveUserId: async (userId) => {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.USER_ID, String(userId));
+      console.log('✅ [UserStorage] User ID saved');
+    } catch (error) {
+      console.error('❌ [UserStorage] Error saving user ID:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get user ID
+   */
+  getUserId: async () => {
+    try {
+      return await AsyncStorage.getItem(STORAGE_KEYS.USER_ID);
+    } catch (error) {
+      console.error('❌ [UserStorage] Error getting user ID:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Check if user is logged in
+   */
   isUserLoggedIn: async () => {
     try {
-      const userId = await AsyncStorage.getItem(USER_ID_KEY);
-      const token = await AsyncStorage.getItem(USER_TOKEN_KEY);
-      return !!(userId && token);
+      const isLoggedIn = await AsyncStorage.getItem(STORAGE_KEYS.IS_LOGGED_IN);
+      return isLoggedIn === 'true';
     } catch (error) {
-      console.error('❌ Failed to check user login status:', error);
+      console.error('❌ [UserStorage] Error checking login status:', error);
       return false;
     }
-  }
+  },
+
+  /**
+   * Clear all user data (logout)
+   */
+  clearUserData: async () => {
+    try {
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.USER_DATA,
+        STORAGE_KEYS.USER_TOKEN,
+        STORAGE_KEYS.USER_ID,
+        STORAGE_KEYS.IS_LOGGED_IN,
+      ]);
+      console.log('✅ [UserStorage] User data cleared');
+    } catch (error) {
+      console.error('❌ [UserStorage] Error clearing user data:', error);
+      throw error;
+    }
+  },
 };
+
+export default userStorage;

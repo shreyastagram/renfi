@@ -428,89 +428,154 @@ export const smartLogin = async (identifier, password) => {
 };
 
 /**
- * Register a new user
- * Production-grade registration with validation and detailed error handling
+ * Register a new user via Node.js API
+ * 
+ * Flow: React Native → Node.js API → Java Auth + MongoDB
+ * 
+ * The Node.js backend will:
+ * 1. Validate input
+ * 2. Register user in Java Auth (PostgreSQL)
+ * 3. Create user profile in MongoDB
+ * 4. Return JWT tokens + user profile
  * 
  * @param {Object} userData - Registration data
  * @param {string} userData.email - User's email
- * @param {string} userData.password - User's password (min 8 chars, 1 upper, 1 lower, 1 digit, 1 special)
- * @param {string} userData.fullName - User's full name
- * @param {string} userData.phoneNumber - User's phone number (optional)
- * @param {string} userData.role - 'USER' or 'SERVICE_PROVIDER'
+ * @param {string} userData.password - User's password (min 8 chars)
+ * @param {string} userData.fullName - User's full name (min 2 chars)
+ * @param {string} userData.phone - User's phone number (optional, 10-15 digits)
+ * @param {Object} userData.location - User's location { lat, lng } (optional)
  * @returns {Promise<Object>} - Registration response with tokens and user info
  * @throws {Error} - Detailed error with context
  */
-export const register = async (userData) => {
-  console.log('📝 [Client] Attempting registration for:', userData.email);
+export const registerUser = async (userData) => {
+  console.log('📝 [Client] Attempting user registration via Node.js API for:', userData.email);
   
   // Input validation
   if (!userData.email || !userData.email.trim()) {
     const error = new Error('Email is required');
     error.isValidationError = true;
+    error.code = 'MISSING_REQUIRED_FIELDS';
     throw error;
   }
   
   if (!userData.password) {
     const error = new Error('Password is required');
     error.isValidationError = true;
+    error.code = 'MISSING_REQUIRED_FIELDS';
+    throw error;
+  }
+  
+  if (userData.password.length < 8) {
+    const error = new Error('Password must be at least 8 characters');
+    error.isValidationError = true;
+    error.code = 'WEAK_PASSWORD';
     throw error;
   }
   
   if (!userData.fullName || !userData.fullName.trim()) {
     const error = new Error('Full name is required');
     error.isValidationError = true;
+    error.code = 'MISSING_REQUIRED_FIELDS';
     throw error;
   }
   
-  // Validate role
-  const validRoles = ['USER', 'SERVICE_PROVIDER'];
-  const role = userData.role || 'USER';
-  if (!validRoles.includes(role)) {
-    const error = new Error(`Invalid role: ${role}. Must be USER or SERVICE_PROVIDER`);
+  if (userData.fullName.trim().length < 2) {
+    const error = new Error('Full name must be at least 2 characters');
     error.isValidationError = true;
+    error.code = 'INVALID_FULL_NAME';
     throw error;
   }
   
   try {
+    // Prepare request body for Node.js API (matches backend expectation)
     const requestBody = {
       email: userData.email.trim().toLowerCase(),
       password: userData.password,
       fullName: userData.fullName.trim(),
-      phoneNumber: userData.phoneNumber || userData.phone || null,
-      role: role,
+      phone: userData.phone ? userData.phone.trim() : undefined,
+      location: userData.location || undefined,
     };
     
-    console.log('📤 [Client] Registration request:', { ...requestBody, password: '***' });
+    console.log('📤 [Client] Registration request to Node.js API:', { 
+      ...requestBody, 
+      password: '***hidden***' 
+    });
     
-    const response = await authClient.post('/api/auth/register', requestBody);
+    // Use apiClient (Node.js backend) instead of authClient (Java Auth directly)
+    const response = await apiClient.post('/api/auth/register', requestBody);
+    
+    console.log('📥 [Client] Registration response:', {
+      success: response.data?.success,
+      code: response.data?.code,
+      userId: response.data?.userId,
+      javaUserId: response.data?.javaUserId,
+    });
     
     // Validate response structure
+    if (!response.data?.success) {
+      const error = new Error(response.data?.message || 'Registration failed');
+      error.code = response.data?.code;
+      error.details = response.data;
+      throw error;
+    }
+    
     if (!response.data?.accessToken || !response.data?.userId) {
       console.error('❌ [Client] Invalid register response structure:', response.data);
       throw new Error('Invalid server response. Please try again.');
     }
     
-    // Save auth state
+    // Save auth state (tokens + user data)
     await tokenService.saveAuthState(response.data);
     
-    console.log('✅ [Client] Registration successful for user:', response.data.userId);
-    console.log('📧 [Client] User email:', response.data.email);
-    console.log('👤 [Client] User role:', response.data.role);
+    console.log('✅ [Client] Registration successful!');
+    console.log('🆔 [Client] MongoDB User ID:', response.data.userId);
+    console.log('🆔 [Client] Java Auth User ID:', response.data.javaUserId);
+    console.log('📧 [Client] User email:', response.data.data?.email);
     
     return response.data;
     
   } catch (error) {
     // Add context to the error
     console.error('❌ [Client] Registration failed for:', userData.email);
+    
+    // Extract error details from response
+    const errorResponse = error.response?.data;
+    
+    if (errorResponse) {
+      console.error('❌ [Client] Error response:', {
+        success: errorResponse.success,
+        code: errorResponse.code,
+        message: errorResponse.message,
+        statusCode: errorResponse.statusCode,
+        missingFields: errorResponse.missingFields,
+        errors: errorResponse.errors,
+      });
+      
+      // Create enhanced error with backend details
+      const enhancedError = new Error(errorResponse.message || 'Registration failed');
+      enhancedError.code = errorResponse.code;
+      enhancedError.statusCode = errorResponse.statusCode;
+      enhancedError.missingFields = errorResponse.missingFields;
+      enhancedError.errors = errorResponse.errors;
+      enhancedError.hint = errorResponse.hint;
+      enhancedError.actions = errorResponse.actions;
+      enhancedError.response = error.response;
+      
+      throw enhancedError;
+    }
+    
+    // Network or other errors
     console.error('❌ [Client] Error details:', {
-      status: error.response?.status,
-      message: error.response?.data?.message || error.message,
+      message: error.message,
+      code: error.code,
     });
     
-    // Re-throw for caller to handle
     throw error;
   }
 };
+
+// Keep legacy register function for backward compatibility (redirects to registerUser)
+export const register = registerUser;
 
 /**
  * Logout and invalidate refresh token
@@ -602,6 +667,7 @@ const client = {
   loginWithPhone,
   smartLogin,
   register,
+  registerUser,  // New registration via Node.js API
   logout,
   refreshToken,
   googleMobileAuth,

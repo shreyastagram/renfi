@@ -1,108 +1,131 @@
+/**
+ * Provider Storage - AsyncStorage wrapper for provider data
+ * 
+ * Handles persistent storage of provider data using AsyncStorage
+ * 
+ * @version 1.0.0
+ */
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const PROVIDER_ID_KEY = 'providerId';
-const PROVIDER_DATA_KEY = 'providerData';
-const PROVIDER_TOKEN_KEY = 'providerToken';
+const STORAGE_KEYS = {
+  PROVIDER_DATA: '@fixhomi_provider_data',
+  PROVIDER_TOKEN: '@fixhomi_provider_token',
+  PROVIDER_ID: '@fixhomi_provider_id',
+  IS_LOGGED_IN: '@fixhomi_provider_logged_in',
+};
 
 export const providerStorage = {
-  // Save provider ID
-  saveProviderId: async (providerId) => {
-    try {
-      if (providerId === undefined || providerId === null) {
-        console.error('❌ Cannot save undefined or null provider ID');
-        return;
-      }
-      await AsyncStorage.setItem(PROVIDER_ID_KEY, String(providerId));
-      console.log('✅ Provider ID saved:', providerId);
-    } catch (error) {
-      console.error('❌ Failed to save provider ID:', error);
-    }
-  },
-
-  // Get provider ID
-  getProviderId: async () => {
-    try {
-      const providerId = await AsyncStorage.getItem(PROVIDER_ID_KEY);
-      console.log('📱 Retrieved provider ID:', providerId);
-      return providerId;
-    } catch (error) {
-      console.error('❌ Failed to get provider ID:', error);
-      return null;
-    }
-  },
-
-  // Save provider authentication token
-  saveProviderToken: async (token) => {
-    try {
-      if (token === undefined || token === null) {
-        console.error('❌ Cannot save undefined or null provider token');
-        return;
-      }
-      await AsyncStorage.setItem(PROVIDER_TOKEN_KEY, String(token));
-      console.log('✅ Provider token saved');
-    } catch (error) {
-      console.error('❌ Failed to save provider token:', error);
-    }
-  },
-
-  // Get provider authentication token
-  getProviderToken: async () => {
-    try {
-      const token = await AsyncStorage.getItem(PROVIDER_TOKEN_KEY);
-      console.log('📱 Retrieved provider token:', token ? 'Present' : 'Not found');
-      return token;
-    } catch (error) {
-      console.error('❌ Failed to get provider token:', error);
-      return null;
-    }
-  },
-
-  // Save provider profile data
+  /**
+   * Save provider data
+   */
   saveProviderData: async (providerData) => {
     try {
-      if (providerData === undefined || providerData === null) {
-        console.error('❌ Cannot save undefined or null provider data');
-        return;
-      }
-      await AsyncStorage.setItem(PROVIDER_DATA_KEY, JSON.stringify(providerData));
-      console.log('✅ Provider data saved:', providerData);
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.PROVIDER_DATA,
+        JSON.stringify(providerData)
+      );
+      await AsyncStorage.setItem(STORAGE_KEYS.IS_LOGGED_IN, 'true');
+      console.log('✅ [ProviderStorage] Provider data saved');
     } catch (error) {
-      console.error('❌ Failed to save provider data:', error);
+      console.error('❌ [ProviderStorage] Error saving provider data:', error);
+      throw error;
     }
   },
 
-  // Get provider profile data
+  /**
+   * Get provider data
+   */
   getProviderData: async () => {
     try {
-      const data = await AsyncStorage.getItem(PROVIDER_DATA_KEY);
-      const providerData = data ? JSON.parse(data) : null;
-      console.log('📱 Retrieved provider data:', providerData);
-      return providerData;
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.PROVIDER_DATA);
+      return data ? JSON.parse(data) : null;
     } catch (error) {
-      console.error('❌ Failed to get provider data:', error);
+      console.error('❌ [ProviderStorage] Error getting provider data:', error);
       return null;
     }
   },
 
-  // Clear all provider data (for logout)
-  clearProviderData: async () => {
+  /**
+   * Save provider token
+   */
+  saveProviderToken: async (token) => {
     try {
-      await AsyncStorage.multiRemove([PROVIDER_ID_KEY, PROVIDER_DATA_KEY, PROVIDER_TOKEN_KEY]);
-      console.log('✅ Provider data cleared');
+      await AsyncStorage.setItem(STORAGE_KEYS.PROVIDER_TOKEN, token);
+      console.log('✅ [ProviderStorage] Provider token saved');
     } catch (error) {
-      console.error('❌ Failed to clear provider data:', error);
+      console.error('❌ [ProviderStorage] Error saving provider token:', error);
+      throw error;
     }
   },
 
-  // Check if provider is logged in
+  /**
+   * Get provider token
+   */
+  getProviderToken: async () => {
+    try {
+      return await AsyncStorage.getItem(STORAGE_KEYS.PROVIDER_TOKEN);
+    } catch (error) {
+      console.error('❌ [ProviderStorage] Error getting provider token:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Save provider ID
+   */
+  saveProviderId: async (providerId) => {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.PROVIDER_ID, String(providerId));
+      console.log('✅ [ProviderStorage] Provider ID saved');
+    } catch (error) {
+      console.error('❌ [ProviderStorage] Error saving provider ID:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get provider ID
+   */
+  getProviderId: async () => {
+    try {
+      return await AsyncStorage.getItem(STORAGE_KEYS.PROVIDER_ID);
+    } catch (error) {
+      console.error('❌ [ProviderStorage] Error getting provider ID:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Check if provider is logged in
+   */
   isProviderLoggedIn: async () => {
     try {
-      const providerId = await AsyncStorage.getItem(PROVIDER_ID_KEY);
-      const token = await AsyncStorage.getItem(PROVIDER_TOKEN_KEY);
-      return !!(providerId && token);
+      const isLoggedIn = await AsyncStorage.getItem(STORAGE_KEYS.IS_LOGGED_IN);
+      return isLoggedIn === 'true';
     } catch (error) {
-      console.error('❌ Failed to check provider login status:', error);
+      console.error('❌ [ProviderStorage] Error checking login status:', error);
       return false;
     }
-  }
+  },
+
+  /**
+   * Clear all provider data (logout)
+   */
+  clearProviderData: async () => {
+    try {
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.PROVIDER_DATA,
+        STORAGE_KEYS.PROVIDER_TOKEN,
+        STORAGE_KEYS.PROVIDER_ID,
+        STORAGE_KEYS.IS_LOGGED_IN,
+      ]);
+      console.log('✅ [ProviderStorage] Provider data cleared');
+    } catch (error) {
+      console.error('❌ [ProviderStorage] Error clearing provider data:', error);
+      throw error;
+    }
+  },
 };
+
+export default providerStorage;

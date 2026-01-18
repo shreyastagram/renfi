@@ -1,178 +1,104 @@
 /**
- * API Configuration for FixHomi/Renfi Application
+ * API Configuration
  * 
- * This file configures two separate backend services:
- * 1. JARBAC (Java Auth) - Handles all authentication (login, register, tokens, OAuth)
- * 2. Node.js Backend - Handles business logic (services, providers, requests)
+ * Centralized configuration for all API endpoints
  * 
- * @version 2.0.0
- * @updated 2024-12-19
+ * @version 1.0.0
  */
 
-import { Platform } from 'react-native';
-
-// ============================================================================
-// JARBAC - Java Authentication Service (Port 8080)
-// Handles: Login, Register, Token Refresh, OAuth, OTP, Password Reset
-// ============================================================================
-
-const JARBAC_AUTH_URL = __DEV__
-  ? Platform.select({
-      ios: 'http://localhost:8080',
-      android: 'http://10.0.2.2:8080',
-      default: 'http://localhost:8080',
-    })
-  : 'https://auth.fixhomi.com'; // Production URL
-
-// ============================================================================
-// Node.js Backend Service (Port 5050)
-// Handles: Service Requests, Provider Management, User Profiles, History
-// ============================================================================
-
-const NODEJS_BASE_URL = __DEV__
-  ? Platform.select({
-      ios: 'http://localhost:5050',
-      android: 'http://10.0.2.2:5050',
-      default: 'http://localhost:5050',
-    })
-  : 'https://api.fixhomi.com'; // Production URL
-
-// For physical device testing, set your computer's IP here
-const PHYSICAL_DEVICE_IP = '192.168.1.100';
-const USE_PHYSICAL_DEVICE = false; // Set to true when testing on physical device
-
-// Override URLs for physical device testing
-const AUTH_BASE_URL = USE_PHYSICAL_DEVICE 
-  ? `http://${PHYSICAL_DEVICE_IP}:8080` 
-  : JARBAC_AUTH_URL;
-
-const BASE_URL = USE_PHYSICAL_DEVICE 
-  ? `http://${PHYSICAL_DEVICE_IP}:5050` 
-  : NODEJS_BASE_URL;
-
-// ============================================================================
-// API Configuration Export
-// ============================================================================
-
-export const API_CONFIG = {
-  // Base URLs
-  AUTH_BASE_URL,  // JARBAC Java Auth Service
-  BASE_URL,       // Node.js Business Logic Service
-  
-  // ========================================================================
-  // JARBAC Authentication Endpoints (Java - Port 8080)
-  // All authentication is now handled by JARBAC
-  // ========================================================================
-  JARBAC_AUTH: {
-    // Core Authentication
-    LOGIN: `${AUTH_BASE_URL}/api/auth/login`,
-    REGISTER: `${AUTH_BASE_URL}/api/auth/register`,
-    LOGOUT: `${AUTH_BASE_URL}/api/auth/logout`,
-    REFRESH: `${AUTH_BASE_URL}/api/auth/refresh`,
-    HEALTH: `${AUTH_BASE_URL}/api/auth/health`,
-    
-    // OAuth2 (Google Sign-In)
-    GOOGLE_MOBILE: `${AUTH_BASE_URL}/api/auth/oauth2/google/mobile`,
-    
-    // Phone OTP Verification
-    OTP_SEND: `${AUTH_BASE_URL}/api/auth/otp/send`,
-    OTP_VERIFY: `${AUTH_BASE_URL}/api/auth/otp/verify`,
-    
-    // Email Verification
-    EMAIL_SEND: `${AUTH_BASE_URL}/api/auth/email/send-verification`,
-    EMAIL_VERIFY: `${AUTH_BASE_URL}/api/auth/email/verify`,
-    
-    // Password Reset
-    FORGOT_PASSWORD: `${AUTH_BASE_URL}/api/auth/forgot-password`,
-    RESET_PASSWORD: `${AUTH_BASE_URL}/api/auth/reset-password`,
-    
-    // Token Validation
-    TOKEN_VALIDATE: `${AUTH_BASE_URL}/api/token/validate`,
-    TOKEN_ME: `${AUTH_BASE_URL}/api/token/me`,
-    
-    // User Profile (via JARBAC)
-    USER_ME: `${AUTH_BASE_URL}/api/users/me`,
-    CHANGE_PASSWORD: `${AUTH_BASE_URL}/api/users/change-password`,
+// Base URLs for different environments
+const ENVIRONMENTS = {
+  development: {
+    // Node.js Backend (handles user registration, business logic)
+    BASE_URL: 'http://localhost:5000',
+    // Java Auth Service (handles authentication)
+    AUTH_BASE_URL: 'http://localhost:8080',
   },
-  
-  // ========================================================================
-  // Node.js Backend Endpoints (Port 5050)
-  // Business logic - services, providers, requests
-  // ========================================================================
-  
-  // User Business Logic (NOT authentication)
-  USER: {
-    PROFILE: (userId) => `${BASE_URL}/api/user/profile/${userId}`,
-    SERVICE_HISTORY: (userId) => `${BASE_URL}/api/user/service-history/${userId}`,
-    UPDATE_PROFILE: (userId) => `${BASE_URL}/api/user/profile/${userId}`,
-  },
-  
-  // Provider Business Logic (NOT authentication)
-  PROVIDER: {
-    PROFILE: (providerId) => `${BASE_URL}/api/provider/profile/${providerId}`,
-    UPDATE_PROFILE: (providerId) => `${BASE_URL}/api/provider/profile/${providerId}`,
-    ACCEPTED_REQUESTS: (providerId) => `${BASE_URL}/api/provider/accepted-requests/${providerId}`,
-    COMPLETE_REQUEST: `${BASE_URL}/api/provider/complete-request`,
-    SERVICES: (providerId) => `${BASE_URL}/api/provider/services/${providerId}`,
-    AVAILABILITY: (providerId) => `${BASE_URL}/api/provider/availability/${providerId}`,
-  },
-  
-  // Service Request Endpoints
-  SERVICES: {
-    LIST: `${BASE_URL}/api/services`,
-    REQUEST: `${BASE_URL}/api/services/request`,
-    CANCEL: `${BASE_URL}/api/services/cancel`,
-    STATUS: (requestId) => `${BASE_URL}/api/services/status/${requestId}`,
-  },
-  
-  // ========================================================================
-  // Common Headers
-  // ========================================================================
-  HEADERS: {
-    JSON: {
-      'Content-Type': 'application/json',
-    },
-    AUTH: (token) => ({
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    }),
-    // For multipart form data (file uploads)
-    MULTIPART: (token) => ({
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'multipart/form-data',
-    }),
-  },
-  
-  // ========================================================================
-  // User Roles (from JARBAC)
-  // ========================================================================
-  ROLES: {
-    USER: 'USER',                    // Regular customer/homeowner
-    SERVICE_PROVIDER: 'SERVICE_PROVIDER', // Service provider
-    ADMIN: 'ADMIN',                  // Admin (not for mobile)
-  },
-  
-  // ========================================================================
-  // Legacy Endpoints (Deprecated - Will be removed)
-  // These are kept for backward compatibility during migration
-  // DO NOT USE FOR NEW CODE
-  // ========================================================================
-  /** @deprecated Use JARBAC_AUTH.LOGIN instead */
-  AUTH: {
-    USER_LOGIN: `${BASE_URL}/auth/login`,           // DEPRECATED
-    USER_REGISTER: `${BASE_URL}/auth/register`,     // DEPRECATED
-    PROVIDER_LOGIN: `${BASE_URL}/auth/provider/login`,     // DEPRECATED
-    PROVIDER_REGISTER: `${BASE_URL}/auth/provider/register`, // DEPRECATED
-    PROVIDER_PROFILE: `${BASE_URL}/auth/provider/profile`,   // DEPRECATED
+  production: {
+    BASE_URL: 'https://api.fixhomi.com',
+    AUTH_BASE_URL: 'https://auth.fixhomi.com',
   },
 };
 
-// ============================================================================
-// Development Logging
-// ============================================================================
-if (__DEV__) {
-  console.log('🔐 JARBAC Auth URL:', AUTH_BASE_URL);
-  console.log('🌐 Node.js API URL:', BASE_URL);
-  console.log('📱 Platform:', Platform.OS);
-  console.log('🔧 Physical Device Mode:', USE_PHYSICAL_DEVICE ? 'ON' : 'OFF');
-}
+// Current environment - change this for different deployments
+const CURRENT_ENV = 'development';
+
+export const API_CONFIG = {
+  // Node.js Backend URL (for user registration, business logic)
+  BASE_URL: ENVIRONMENTS[CURRENT_ENV].BASE_URL,
+  // Java Auth Service URL (for authentication tokens)
+  AUTH_BASE_URL: ENVIRONMENTS[CURRENT_ENV].AUTH_BASE_URL,
+  // Request timeout in milliseconds
+  TIMEOUT: 30000,
+};
+
+// API Endpoints for Node.js Backend
+export const ENDPOINTS = {
+  // User Auth (via Node.js -> Java Auth)
+  USER_REGISTER: '/api/auth/register',
+  USER_LOGIN: '/api/auth/login',
+  
+  // Provider Auth (via Node.js -> Java Auth)
+  PROVIDER_REGISTER: '/api/provider/auth/register',
+  PROVIDER_LOGIN: '/api/provider/auth/login',
+  
+  // Token Management
+  REFRESH_TOKEN: '/api/auth/refresh',
+  LOGOUT: '/api/auth/logout',
+  
+  // User Profile
+  USER_PROFILE: '/api/users/profile',
+  UPDATE_LOCATION: '/api/users/location',
+  
+  // Provider endpoints
+  PROVIDER_PROFILE: '/api/provider/profile',
+  
+  // Health check
+  HEALTH: '/api/health',
+};
+
+// Error codes from backend
+export const ERROR_CODES = {
+  // Registration errors
+  MISSING_REQUIRED_FIELDS: 'MISSING_REQUIRED_FIELDS',
+  INVALID_EMAIL_FORMAT: 'INVALID_EMAIL_FORMAT',
+  WEAK_PASSWORD: 'WEAK_PASSWORD',
+  PASSWORD_TOO_LONG: 'PASSWORD_TOO_LONG',
+  INVALID_FULL_NAME: 'INVALID_FULL_NAME',
+  FULL_NAME_TOO_LONG: 'FULL_NAME_TOO_LONG',
+  VALIDATION_FAILED: 'VALIDATION_FAILED',
+  EMAIL_ALREADY_EXISTS: 'EMAIL_ALREADY_EXISTS',
+  PHONE_ALREADY_EXISTS: 'PHONE_ALREADY_EXISTS',
+  AUTH_SERVICE_UNAVAILABLE: 'AUTH_SERVICE_UNAVAILABLE',
+  AUTH_SERVICE_ERROR: 'AUTH_SERVICE_ERROR',
+  MONGODB_SYNC_FAILED: 'MONGODB_SYNC_FAILED',
+  REGISTRATION_SUCCESS: 'REGISTRATION_SUCCESS',
+  USER_ALREADY_EXISTS: 'USER_ALREADY_EXISTS',
+  
+  // Login errors
+  MISSING_CREDENTIALS: 'MISSING_CREDENTIALS',
+  INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
+  USER_NOT_FOUND: 'USER_NOT_FOUND',
+  PROFILE_NOT_FOUND: 'PROFILE_NOT_FOUND',
+  LOGIN_SUCCESS: 'LOGIN_SUCCESS',
+  DATABASE_ERROR: 'DATABASE_ERROR',
+  
+  // General errors
+  INTERNAL_SERVER_ERROR: 'INTERNAL_SERVER_ERROR',
+};
+
+// User-friendly error messages
+export const ERROR_MESSAGES = {
+  [ERROR_CODES.MISSING_REQUIRED_FIELDS]: 'Please fill in all required fields',
+  [ERROR_CODES.INVALID_EMAIL_FORMAT]: 'Please enter a valid email address',
+  [ERROR_CODES.WEAK_PASSWORD]: 'Password must be at least 8 characters',
+  [ERROR_CODES.EMAIL_ALREADY_EXISTS]: 'An account with this email already exists. Try logging in instead.',
+  [ERROR_CODES.PHONE_ALREADY_EXISTS]: 'This phone number is already registered',
+  [ERROR_CODES.AUTH_SERVICE_UNAVAILABLE]: 'Service temporarily unavailable. Please try again later.',
+  [ERROR_CODES.INVALID_CREDENTIALS]: 'Invalid email or password',
+  [ERROR_CODES.USER_NOT_FOUND]: 'No account found with this email',
+  [ERROR_CODES.INTERNAL_SERVER_ERROR]: 'Something went wrong. Please try again.',
+  NETWORK_ERROR: 'Unable to connect. Please check your internet connection.',
+};
+
+export default API_CONFIG;
