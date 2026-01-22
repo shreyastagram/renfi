@@ -8,15 +8,19 @@
  */
 
 import { ENDPOINTS, getNodeBackendUrl } from '../config/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getTokens } from '../utils/storage';
 
 const API_BASE_URL = getNodeBackendUrl();
 
 /**
- * Get auth headers with JWT token
+ * Get auth headers with JWT token from secure storage (Keychain)
  */
 const getAuthHeaders = async () => {
-  const token = await AsyncStorage.getItem('token');
+  const tokens = await getTokens();
+  const token = tokens?.accessToken;
+  if (!token) {
+    console.warn('[AddressService] No auth token available');
+  }
   return {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${token}`

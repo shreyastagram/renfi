@@ -339,11 +339,14 @@ export const fetchFullProfile = async (userType, mongoId) => {
         emergencyContact: mongoData.emergencyContact || '',
         preferences: mongoData.preferences || {},
         stats: mongoData.stats || {},
+        profilePicture: mongoData.profilePicture || null,
       }),
       
       // Provider-specific fields (from MongoDB if available)
       ...(userType === 'provider' && {
         serviceCategories: mongoData.serviceCategories || [],
+        verifiedServiceCategories: mongoData.verifiedServiceCategories || [],
+        profilePicture: mongoData.profilePicture || null,
         serviceTypes: mongoData.serviceTypes || [],
         experience: mongoData.experience || '',
         rating: mongoData.rating || 0,

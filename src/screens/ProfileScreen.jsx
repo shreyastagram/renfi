@@ -23,19 +23,63 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { useApp } from '../context/AppContext';
 import { Icon } from '../components';
 import { updateUserProfile, updateProviderProfile } from '../services/profileService';
 import { SERVICE_CATEGORIES } from '../services/authService';
+import { NODE_BASE_URL } from '../config/api';
+import { getTokens } from '../utils/storage';
 import { 
   sendPhoneVerificationOtp,
   verifyPhoneOtp,
   sendEmailVerification,
 } from '../services/authService';
 import SavedAddresses from '../components/SavedAddresses';
+
+// Cloudinary config
+const CLOUDINARY_CLOUD_NAME = 'dj1aytbae';
+const CLOUDINARY_UPLOAD_PRESET = 'fixhomi_documents';
+
+// Service labels for proper display
+const SERVICE_LABELS = {
+  electrician: 'Electrician',
+  plumber: 'Plumber',
+  carpenter: 'Carpenter',
+  painter: 'Painter',
+  welder: 'Welder',
+  electronics_technician: 'Electronics Technician',
+  solar_repairing: 'Solar Installer',
+  salon: 'Salon',
+  driver: 'Driver',
+  mason_tiler: 'Mason & Tiler',
+  influencer: 'Influencer',
+  vehicle_cleaning: 'Vehicle Cleaning',
+  snake_catcher: 'Snake Catcher',
+  ambulance_services: 'Ambulance',
+  fire_brigade: 'Fire Brigade',
+  mortuary_van: 'Mortuary Van',
+  photographer: 'Photographer',
+  ac_repair: 'AC Repair',
+  cleaning: 'Cleaning',
+};
+
+/**
+ * Format service name
+ */
+const formatServiceName = (service) => {
+  if (SERVICE_LABELS[service]) return SERVICE_LABELS[service];
+  const category = SERVICE_CATEGORIES?.find(c => c.id === service);
+  if (category?.label) return category.label;
+  return service
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
 
 /**
  * Helper to extract error message from various error formats
@@ -113,9 +157,12 @@ const EditableField = ({ label, value, onChangeText, placeholder, editable = tru
 /**
  * Profile Screen Component
  */
-const ProfileScreen = ({ navigation }) => {
+const ProfileScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { user, profile, userType, refreshVerificationStatus, refreshProfile } = useApp();
+  
+  // Check if we should scroll to/open addresses section
+  const scrollToAddresses = route?.params?.scrollToAddresses;
 
   // State
   const [loading, setLoading] = useState(false);
@@ -132,9 +179,7 @@ const ProfileScreen = ({ navigation }) => {
     experience: '',
   });
   
-  // Provider service categories state
-  const [selectedCategories, setSelectedCategories] = useState([]);
-  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  // Provider service categories are now managed via Document Verification screen
 
   // Verification state
   const [verifyingPhone, setVerifyingPhone] = useState(false);
@@ -144,6 +189,21 @@ const ProfileScreen = ({ navigation }) => {
   
   // Saved Addresses state
   const [showAddressesModal, setShowAddressesModal] = useState(false);
+  
+  // Profile picture state
+  const [uploadingPicture, setUploadingPicture] = useState(false);
+  const [showImagePickerModal, setShowImagePickerModal] = useState(false);
+  
+  // Auto-open addresses modal if navigated with scrollToAddresses param
+  useEffect(() => {
+    if (scrollToAddresses) {
+      // Small delay to ensure screen is fully mounted
+      const timer = setTimeout(() => {
+        setShowAddressesModal(true);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [scrollToAddresses]);
 
   // Combined user data
   const displayData = { ...user, ...profile };
@@ -159,11 +219,7 @@ const ProfileScreen = ({ navigation }) => {
       pincode: displayData?.pincode || '',
       experience: displayData?.experience || '',
     });
-    // Initialize service categories for providers
-    if (isProvider && displayData?.serviceCategories) {
-      setSelectedCategories(displayData.serviceCategories);
-    }
-  }, [displayData?.fullName, displayData?.address, displayData?.city, displayData?.pincode, displayData?.experience, displayData?.serviceCategories, isProvider]);
+  }, [displayData?.fullName, displayData?.address, displayData?.city, displayData?.pincode, displayData?.experience]);
 
   /**
    * Handle refresh - fetch full profile from both Java Auth and MongoDB
@@ -195,9 +251,9 @@ const ProfileScreen = ({ navigation }) => {
       
       if (isProvider) {
         // For providers, update via provider profile endpoint
+        // Note: serviceCategories are managed via Document Verification, not editable here
         result = await updateProviderProfile(userId, {
           name: formData.fullName,
-          serviceCategories: selectedCategories,
           address: formData.address,
           city: formData.city,
           pincode: formData.pincode,
@@ -222,19 +278,6 @@ const ProfileScreen = ({ navigation }) => {
     } finally {
       setSaving(false);
     }
-  };
-
-  /**
-   * Toggle service category selection
-   */
-  const toggleCategory = (categoryId) => {
-    setSelectedCategories(prev => {
-      if (prev.includes(categoryId)) {
-        return prev.filter(id => id !== categoryId);
-      } else {
-        return [...prev, categoryId];
-      }
-    });
   };
 
   /**
@@ -320,6 +363,180 @@ const ProfileScreen = ({ navigation }) => {
     }
   };
 
+  /**
+   * Upload image to Cloudinary
+   */
+  const uploadToCloudinary = async (imageUri) => {
+    const formData = new FormData();
+    
+    // Fix Android URI
+    let uri = imageUri;
+    if (Platform.OS === 'android' && !uri.startsWith('file://')) {
+      uri = `file://${uri}`;
+    }
+    
+    formData.append('file', {
+      uri: uri,
+      type: 'image/jpeg',
+      name: `profile_${Date.now()}.jpg`,
+    });
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+    formData.append('folder', 'profile_pictures');
+
+    try {
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+        {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Accept': 'application/json',
+          },
+        }
+      );
+
+      const data = await response.json();
+      
+      if (data.secure_url) {
+        return { success: true, url: data.secure_url, publicId: data.public_id };
+      } else {
+        console.error('Cloudinary upload error:', data);
+        return { success: false, error: data.error?.message || 'Upload failed' };
+      }
+    } catch (error) {
+      console.error('Cloudinary upload error:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  /**
+   * Save profile picture to backend
+   */
+  const saveProfilePictureToBackend = async (url, publicId) => {
+    const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+    if (!userId) return { success: false, error: 'User ID not found' };
+
+    try {
+      const { accessToken } = await getTokens();
+      const endpoint = isProvider 
+        ? `${NODE_BASE_URL}/api/provider/profile-picture/${userId}`
+        : `${NODE_BASE_URL}/api/user/profile-picture/${userId}`;
+
+      const response = await fetch(endpoint, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ url, publicId }),
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Save profile picture error:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  /**
+   * Handle image selection from gallery
+   */
+  const handleSelectFromGallery = async () => {
+    setShowImagePickerModal(false);
+    
+    const options = {
+      mediaType: 'photo',
+      quality: 0.8,
+      maxWidth: 800,
+      maxHeight: 800,
+    };
+
+    try {
+      const result = await launchImageLibrary(options);
+      
+      if (result.didCancel) return;
+      if (result.errorCode) {
+        Alert.alert('Error', result.errorMessage || 'Failed to select image');
+        return;
+      }
+
+      const asset = result.assets?.[0];
+      if (asset?.uri) {
+        await uploadProfilePicture(asset.uri);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to select image');
+    }
+  };
+
+  /**
+   * Handle taking photo with camera
+   */
+  const handleTakePhoto = async () => {
+    setShowImagePickerModal(false);
+    
+    const options = {
+      mediaType: 'photo',
+      quality: 0.8,
+      maxWidth: 800,
+      maxHeight: 800,
+      cameraType: 'front',
+    };
+
+    try {
+      const result = await launchCamera(options);
+      
+      if (result.didCancel) return;
+      if (result.errorCode) {
+        Alert.alert('Error', result.errorMessage || 'Failed to take photo');
+        return;
+      }
+
+      const asset = result.assets?.[0];
+      if (asset?.uri) {
+        await uploadProfilePicture(asset.uri);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  /**
+   * Upload profile picture
+   */
+  const uploadProfilePicture = async (imageUri) => {
+    setUploadingPicture(true);
+    
+    try {
+      // Upload to Cloudinary
+      const uploadResult = await uploadToCloudinary(imageUri);
+      
+      if (!uploadResult.success) {
+        Alert.alert('Error', uploadResult.error || 'Failed to upload image');
+        return;
+      }
+
+      // Save to backend
+      const saveResult = await saveProfilePictureToBackend(uploadResult.url, uploadResult.publicId);
+      
+      if (saveResult.success) {
+        Alert.alert('Success', 'Profile picture updated!');
+        // Refresh profile
+        const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+        if (userId) {
+          await refreshProfile(userType, userId);
+        }
+      } else {
+        Alert.alert('Error', saveResult.message || 'Failed to save profile picture');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Something went wrong');
+    } finally {
+      setUploadingPicture(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -330,7 +547,7 @@ const ProfileScreen = ({ navigation }) => {
         <Text style={styles.headerTitle}>Profile</Text>
         {!isEditing ? (
           <TouchableOpacity style={styles.editButton} onPress={() => setIsEditing(true)}>
-            <Icon name="edit" size={20} color="#2563EB" />
+            <Icon name="edit" size={20} color="#2b76bc" />
             <Text style={styles.editButtonText}>Edit</Text>
           </TouchableOpacity>
         ) : (
@@ -356,22 +573,50 @@ const ProfileScreen = ({ navigation }) => {
           }
           showsVerticalScrollIndicator={false}
         >
-          {/* Profile Card */}
+          {/* Profile Card - Enhanced Layout */}
           <View style={styles.profileCard}>
-            <View style={[
-              styles.avatar,
-              isProvider && styles.avatarProvider,
-            ]}>
-              <Text style={styles.avatarText}>
-                {displayData?.fullName?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?'}
-              </Text>
-            </View>
-            <Text style={styles.profileName}>{displayData?.fullName || 'User'}</Text>
-            <View style={[styles.typeBadge, isProvider && styles.typeBadgeProvider]}>
-              <Icon name={isProvider ? 'provider' : 'user'} size={16} color={isProvider ? '#7C3AED' : '#2563EB'} />
-              <Text style={[styles.typeBadgeText, isProvider && styles.typeBadgeTextProvider]}>
-                {isProvider ? 'Service Provider' : 'User'}
-              </Text>
+            <View style={styles.profileTopRow}>
+              {/* Profile Picture */}
+              <TouchableOpacity 
+                style={styles.avatarContainer}
+                onPress={() => setShowImagePickerModal(true)}
+                disabled={uploadingPicture}
+              >
+                {displayData?.profilePicture?.url ? (
+                  <Image 
+                    source={{ uri: displayData.profilePicture.url }} 
+                    style={[styles.avatarImage, isProvider && styles.avatarImageProvider]}
+                  />
+                ) : (
+                  <View style={[
+                    styles.avatar,
+                    isProvider && styles.avatarProvider,
+                  ]}>
+                    <Text style={styles.avatarText}>
+                      {displayData?.fullName?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?'}
+                    </Text>
+                  </View>
+                )}
+                {/* Camera Icon Overlay */}
+                <View style={styles.cameraIconOverlay}>
+                  {uploadingPicture ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <MaterialIcon name="camera-alt" size={16} color="#FFFFFF" />
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              {/* Name and Type */}
+              <View style={styles.profileInfoColumn}>
+                <Text style={styles.profileName}>{displayData?.fullName || 'User'}</Text>
+                <View style={[styles.typeBadge, isProvider && styles.typeBadgeProvider]}>
+                  <Icon name={isProvider ? 'provider' : 'user'} size={14} color={isProvider ? '#f67c16' : '#2b76bc'} />
+                  <Text style={[styles.typeBadgeText, isProvider && styles.typeBadgeTextProvider]}>
+                    {isProvider ? 'Service Provider' : 'User'}
+                  </Text>
+                </View>
+              </View>
             </View>
 
             {/* Verification Status Summary */}
@@ -380,7 +625,7 @@ const ProfileScreen = ({ navigation }) => {
                 styles.verificationItem,
                 displayData?.isPhoneVerified && styles.verificationItemVerified,
               ]}>
-                <Icon name="phone" size={16} color={displayData?.isPhoneVerified ? '#10B981' : '#6B7280'} />
+                <Icon name="phone" size={16} color={displayData?.isPhoneVerified ? '#2b76bc' : '#6B7280'} />
                 <Text style={[
                   styles.verificationLabel,
                   displayData?.isPhoneVerified && styles.verificationLabelVerified
@@ -392,7 +637,7 @@ const ProfileScreen = ({ navigation }) => {
                 styles.verificationItem,
                 displayData?.isEmailVerified && styles.verificationItemVerified,
               ]}>
-                <Icon name="email" size={16} color={displayData?.isEmailVerified ? '#10B981' : '#6B7280'} />
+                <Icon name="email" size={16} color={displayData?.isEmailVerified ? '#2b76bc' : '#6B7280'} />
                 <Text style={[
                   styles.verificationLabel,
                   displayData?.isEmailVerified && styles.verificationLabelVerified
@@ -404,13 +649,48 @@ const ProfileScreen = ({ navigation }) => {
 
             {!isVerified && (
               <View style={styles.verifyWarning}>
-                <Icon name="warning" size={16} color="#F59E0B" />
+                <Icon name="warning" size={16} color="#f67c16" />
                 <Text style={styles.verifyWarningText}>
                   Please verify your phone and email to use all features
                 </Text>
               </View>
             )}
           </View>
+
+          {/* Image Picker Modal */}
+          <Modal
+            visible={showImagePickerModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowImagePickerModal(false)}
+          >
+            <TouchableOpacity 
+              style={styles.imagePickerOverlay}
+              activeOpacity={1}
+              onPress={() => setShowImagePickerModal(false)}
+            >
+              <View style={styles.imagePickerModal}>
+                <Text style={styles.imagePickerTitle}>Change Profile Picture</Text>
+                
+                <TouchableOpacity style={styles.imagePickerOption} onPress={handleTakePhoto}>
+                  <MaterialIcon name="camera-alt" size={24} color="#2b76bc" />
+                  <Text style={styles.imagePickerOptionText}>Take Photo</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity style={styles.imagePickerOption} onPress={handleSelectFromGallery}>
+                  <MaterialIcon name="photo-library" size={24} color="#2b76bc" />
+                  <Text style={styles.imagePickerOptionText}>Choose from Gallery</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.imagePickerOption, styles.imagePickerCancel]}
+                  onPress={() => setShowImagePickerModal(false)}
+                >
+                  <Text style={styles.imagePickerCancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </Modal>
 
           {/* Verification Section */}
           <View style={styles.section}>
@@ -498,48 +778,54 @@ const ProfileScreen = ({ navigation }) => {
                 </View>
               </View>
               
-              {/* Service Categories - Provider Only */}
+              {/* Service Categories - Provider Only (Read-only, managed via Document Verification) */}
               {isProvider && (
                 <View style={styles.categoriesSection}>
-                  <Text style={styles.fieldLabel}>Service Categories</Text>
-                  <Text style={styles.categoriesHint}>Select the services you provide</Text>
-                  
-                  <View style={styles.categoriesGrid}>
-                    {SERVICE_CATEGORIES.map((category) => {
-                      const isSelected = selectedCategories.includes(category.id);
-                      return (
-                        <TouchableOpacity
-                          key={category.id}
-                          style={[
-                            styles.categoryChip,
-                            isSelected && styles.categoryChipSelected,
-                          ]}
-                          onPress={() => toggleCategory(category.id)}
-                        >
-                          <Icon 
-                            name={isSelected ? 'check' : 'add'} 
-                            size={16} 
-                            color={isSelected ? '#FFFFFF' : '#6B7280'} 
-                          />
-                          <Text style={[
-                            styles.categoryChipText,
-                            isSelected && styles.categoryChipTextSelected,
-                          ]}>
-                            {category.label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
+                  <View style={styles.categoriesSectionHeader}>
+                    <Text style={styles.fieldLabel}>Verified Service Categories</Text>
+                    <View style={styles.verifiedBadgeSmall}>
+                      <Icon name="check_circle" size={14} color="#2b76bc" />
+                    </View>
                   </View>
+                  <Text style={styles.categoriesHint}>
+                    Service categories require approval via Request Service Approvals
+                  </Text>
                   
-                  {selectedCategories.length === 0 && (
+                  {(displayData?.verifiedServiceCategories?.length > 0) ? (
+                    <View style={styles.categoriesGrid}>
+                      {(displayData?.verifiedServiceCategories || []).map((catId) => {
+                        return (
+                          <View
+                            key={catId}
+                            style={[styles.categoryChip, styles.categoryChipVerified]}
+                          >
+                            <Icon name="verified" size={14} color="#2b76bc" />
+                            <Text style={[styles.categoryChipText, styles.categoryChipTextVerified]}>
+                              {formatServiceName(catId)}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  ) : (
                     <View style={styles.noCategoriesWarning}>
-                      <Icon name="warning" size={16} color="#F59E0B" />
-                      <Text style={styles.noCategoriesText}>
-                        Please select at least one service category
-                      </Text>
+                      <Icon name="info" size={16} color="#f67c16" />
+                      <Text style={styles.noCategoriesText}>No verified services yet</Text>
                     </View>
                   )}
+                  
+                  <TouchableOpacity
+                    style={styles.documentVerificationLink}
+                    onPress={() => navigation.navigate('DocumentVerification')}
+                  >
+                    <Icon name="document" size={18} color="#2b76bc" />
+                    <Text style={styles.documentVerificationLinkText}>
+                      {(displayData?.verifiedServiceCategories?.length > 0)
+                        ? 'Add More Services'
+                        : 'Get Verified for Services'}
+                    </Text>
+                    <Icon name="arrow-forward" size={16} color="#2b76bc" />
+                  </TouchableOpacity>
                 </View>
               )}
 
@@ -612,22 +898,74 @@ const ProfileScreen = ({ navigation }) => {
                         <Icon name="services" size={20} color="#6B7280" />
                       </View>
                       <View style={styles.infoContent}>
-                        <Text style={styles.infoLabel}>Service Categories</Text>
-                        {displayData?.serviceCategories?.length > 0 ? (
-                          <View style={styles.categoriesDisplayGrid}>
-                            {displayData.serviceCategories.map((catId) => {
-                              const category = SERVICE_CATEGORIES.find(c => c.id === catId);
-                              return (
-                                <View key={catId} style={styles.categoryDisplayChip}>
-                                  <Text style={styles.categoryDisplayText}>
-                                    {category?.label || catId}
+                        <Text style={styles.infoLabel}>Your Services</Text>
+                        
+                        {/* Verified Services */}
+                        {(displayData?.verifiedServiceCategories?.length > 0) && (
+                          <>
+                            <View style={styles.servicesLabelRow}>
+                              <Icon name="verified" size={12} color="#2b76bc" />
+                              <Text style={styles.servicesLabelVerified}>Verified</Text>
+                            </View>
+                            <View style={styles.categoriesDisplayGrid}>
+                              {displayData.verifiedServiceCategories.map((catId) => (
+                                <View key={`verified-${catId}`} style={styles.categoryDisplayChipVerified}>
+                                  <Icon name="check_circle" size={12} color="#2b76bc" />
+                                  <Text style={styles.categoryDisplayTextVerified}>
+                                    {formatServiceName(catId)}
                                   </Text>
                                 </View>
-                              );
-                            })}
-                          </View>
-                        ) : (
-                          <Text style={styles.infoValue}>No services set - tap Edit to add</Text>
+                              ))}
+                            </View>
+                          </>
+                        )}
+                        
+                        {/* Pending Services */}
+                        {(displayData?.serviceCategories?.filter(cat => 
+                          !(displayData?.verifiedServiceCategories || []).includes(cat)
+                        ).length > 0) && (
+                          <>
+                            <View style={[styles.servicesLabelRow, { marginTop: 8 }]}>
+                              <Icon name="clock" size={12} color="#f67c16" />
+                              <Text style={styles.servicesLabelPending}>Pending Approval</Text>
+                            </View>
+                            <View style={styles.categoriesDisplayGrid}>
+                              {displayData.serviceCategories
+                                .filter(cat => !(displayData?.verifiedServiceCategories || []).includes(cat))
+                                .map((catId) => (
+                                  <View key={`pending-${catId}`} style={styles.categoryDisplayChipPending}>
+                                    <Icon name="clock" size={12} color="#f67c16" />
+                                    <Text style={styles.categoryDisplayTextPending}>
+                                      {formatServiceName(catId)}
+                                    </Text>
+                                  </View>
+                                ))}
+                            </View>
+                          </>
+                        )}
+                        
+                        {/* No Services at all - show button */}
+                        {(!displayData?.verifiedServiceCategories?.length && 
+                          !displayData?.serviceCategories?.length) && (
+                          <TouchableOpacity
+                            style={styles.getVerifiedButton}
+                            onPress={() => navigation.navigate('DocumentVerification')}
+                          >
+                            <Icon name="document" size={16} color="#2b76bc" />
+                            <Text style={styles.getVerifiedButtonText}>Get Verified for Services</Text>
+                          </TouchableOpacity>
+                        )}
+                        
+                        {/* Add More Services Link */}
+                        {(displayData?.verifiedServiceCategories?.length > 0 || 
+                          displayData?.serviceCategories?.length > 0) && (
+                          <TouchableOpacity
+                            style={styles.addMoreServicesLink}
+                            onPress={() => navigation.navigate('DocumentVerification')}
+                          >
+                            <Icon name="add-circle" size={14} color="#2b76bc" />
+                            <Text style={styles.addMoreServicesText}>Add More Services</Text>
+                          </TouchableOpacity>
                         )}
                       </View>
                     </View>
@@ -657,7 +995,7 @@ const ProfileScreen = ({ navigation }) => {
                 activeOpacity={0.7}
               >
                 <View style={styles.addressesIconContainer}>
-                  <MaterialIcon name="location-on" size={24} color="#3B82F6" />
+                  <MaterialIcon name="location-on" size={24} color="#2b76bc" />
                 </View>
                 <View style={styles.addressesContent}>
                   <Text style={styles.addressesTitle}>Manage Addresses</Text>
@@ -746,7 +1084,7 @@ const styles = StyleSheet.create({
   },
   editButtonText: {
     fontSize: 15,
-    color: '#2563EB',
+    color: '#2b76bc',
     fontWeight: '600',
   },
   cancelButtonText: {
@@ -786,8 +1124,7 @@ const styles = StyleSheet.create({
   profileCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
+    padding: 20,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -795,17 +1132,51 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  profileTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  avatarContainer: {
+    position: 'relative',
+  },
   avatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#2b76bc',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: '#2b76bc',
+  },
+  avatarImageProvider: {
+    borderColor: '#f67c16',
+  },
+  cameraIconOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#2b76bc',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  profileInfoColumn: {
+    marginLeft: 16,
+    flex: 1,
   },
   avatarProvider: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#f67c16',
   },
   avatarText: {
     color: '#FFFFFF',
@@ -813,7 +1184,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   profileName: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
     color: '#1F2937',
     marginBottom: 8,
@@ -821,23 +1192,67 @@ const styles = StyleSheet.create({
   typeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#DBEAFE',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 16,
-    marginBottom: 16,
+    alignSelf: 'flex-start',
+    gap: 4,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
   typeBadgeProvider: {
-    backgroundColor: '#EDE9FE',
+    backgroundColor: '#FFF7ED',
   },
   typeBadgeText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#2563EB',
+    color: '#2b76bc',
   },
   typeBadgeTextProvider: {
-    color: '#7C3AED',
+    color: '#f67c16',
+  },
+  // Image Picker Modal
+  imagePickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  imagePickerModal: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  imagePickerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  imagePickerOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    gap: 16,
+  },
+  imagePickerOptionText: {
+    fontSize: 16,
+    color: '#1F2937',
+    fontWeight: '500',
+  },
+  imagePickerCancel: {
+    justifyContent: 'center',
+    borderBottomWidth: 0,
+    marginTop: 8,
+  },
+  imagePickerCancelText: {
+    fontSize: 16,
+    color: '#EF4444',
+    fontWeight: '600',
+    textAlign: 'center',
   },
   verificationSummary: {
     flexDirection: 'row',
@@ -847,14 +1262,14 @@ const styles = StyleSheet.create({
   verificationItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#F5F5F7',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
     gap: 6,
   },
   verificationItemVerified: {
-    backgroundColor: '#D1FAE5',
+    backgroundColor: '#EFF6FF',
   },
   verificationLabel: {
     fontSize: 13,
@@ -862,13 +1277,13 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   verificationLabelVerified: {
-    color: '#059669',
+    color: '#2b76bc',
   },
   verifyWarning: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#FFF7ED',
     padding: 12,
     borderRadius: 8,
     marginTop: 8,
@@ -876,7 +1291,7 @@ const styles = StyleSheet.create({
   verifyWarningText: {
     flex: 1,
     fontSize: 13,
-    color: '#92400E',
+    color: '#f67c16',
   },
 
   // Section
@@ -934,18 +1349,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#D1FAE5',
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
   },
   verifiedText: {
     fontSize: 12,
-    color: '#10B981',
+    color: '#2b76bc',
     fontWeight: '600',
   },
   verifyButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#f67c16',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
@@ -977,7 +1392,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   otpButton: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#f67c16',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 8,
@@ -1019,7 +1434,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#f67c16',
     height: 52,
     borderRadius: 12,
     marginTop: 12,
@@ -1036,6 +1451,15 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
+  },
+  categoriesSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  verifiedBadgeSmall: {
+    marginTop: -2,
   },
   categoriesHint: {
     fontSize: 13,
@@ -1058,9 +1482,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
+  categoryChipVerified: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#93C5FD',
+  },
+  categoryChipTextVerified: {
+    color: '#2b76bc',
+    fontWeight: '600',
+  },
   categoryChipSelected: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
+    backgroundColor: '#2b76bc',
+    borderColor: '#2b76bc',
   },
   categoryChipText: {
     fontSize: 14,
@@ -1070,23 +1502,49 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
   },
+  documentVerificationLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#93C5FD',
+  },
+  documentVerificationLinkText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#2b76bc',
+    fontWeight: '600',
+  },
   noCategoriesWarning: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#F3F4F6',
     padding: 12,
     borderRadius: 8,
-    marginTop: 12,
+    marginTop: 4,
   },
   noCategoriesText: {
     fontSize: 13,
-    color: '#B45309',
+    color: '#6B7280',
   },
   
   // Service Categories Display (View Mode)
   serviceCategoriesDisplay: {
     marginBottom: 0,
+  },
+  labelWithBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  verifiedBadgeTiny: {
+    marginLeft: 2,
   },
   categoriesDisplayGrid: {
     flexDirection: 'row',
@@ -1098,12 +1556,105 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 12,
-    backgroundColor: '#DBEAFE',
+    backgroundColor: '#EFF6FF',
   },
   categoryDisplayText: {
     fontSize: 12,
-    color: '#1D4ED8',
+    color: '#2b76bc',
     fontWeight: '500',
+  },
+  categoryDisplayChipVerified: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    backgroundColor: '#EFF6FF',
+    gap: 4,
+  },
+  categoryDisplayTextVerified: {
+    fontSize: 12,
+    color: '#2b76bc',
+    fontWeight: '600',
+  },
+  categoryDisplayChipPending: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    backgroundColor: '#FFF7ED',
+    gap: 4,
+  },
+  categoryDisplayTextPending: {
+    fontSize: 12,
+    color: '#f67c16',
+    fontWeight: '600',
+  },
+  servicesLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 6,
+    marginTop: 4,
+  },
+  servicesLabelVerified: {
+    fontSize: 11,
+    color: '#2b76bc',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  servicesLabelPending: {
+    fontSize: 11,
+    color: '#f67c16',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  addMoreServicesLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 12,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  addMoreServicesText: {
+    fontSize: 13,
+    color: '#2b76bc',
+    fontWeight: '600',
+  },
+  pendingServicesInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFF7ED',
+    borderRadius: 8,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  pendingServicesText: {
+    fontSize: 12,
+    color: '#f67c16',
+    fontWeight: '500',
+  },
+  getVerifiedButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 8,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  getVerifiedButtonText: {
+    fontSize: 13,
+    color: '#2b76bc',
+    fontWeight: '600',
   },
   
   // Saved Addresses Card

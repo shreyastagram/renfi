@@ -235,12 +235,24 @@ const CreateServiceRequestScreen = ({ navigation }) => {
     setIsCreating(true);
 
     try {
+      // Build full service address string for provider to see
+      const serviceAddress = location.address || location.shortAddress || [
+        location.addressLine1,
+        location.landmark,
+        location.city,
+        location.state,
+        location.pincode
+      ].filter(Boolean).join(', ') || '';
+
       const result = await createServiceRequest({
         userId,
         serviceType: selectedService,
         latitude: location.latitude,
         longitude: location.longitude,
         serviceDate,
+        serviceAddress,
+        isOtherLocation: !location.isCurrentLocation,
+        description: location.shortAddress || '',
       });
 
       if (result.success) {
@@ -435,7 +447,8 @@ const CreateServiceRequestScreen = ({ navigation }) => {
             setBookingProviderId(provider._id);
 
             try {
-              const result = await sendRequestToProvider(requestId, provider._id);
+              // Pass distance from provider object (from getNearbyProviders response)
+              const result = await sendRequestToProvider(requestId, provider._id, provider.distance);
 
               if (result.success) {
                 Alert.alert(

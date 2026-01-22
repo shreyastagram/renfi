@@ -4,14 +4,14 @@
  * User/Provider settings with:
  * - Notification preferences
  * - Location settings
- * - App preferences
+ * - App preferences (theme, language, haptics)
  * - Provider-specific settings (working hours, availability)
  * - Account actions (logout, delete)
  * 
- * @version 1.0.0
+ * @version 2.0.0 - Working notifications + more settings
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -21,11 +21,28 @@ import {
   Switch,
   Alert,
   ActivityIndicator,
+  TextInput,
+  Modal,
+  Linking,
+  Platform,
+  Vibration,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
-import { Icon } from '../components';
-import { updateProviderProfile, updateProviderOnlineStatus } from '../services/profileService';
+import { startLocationTracking, stopLocationTracking } from '../services/socketService';
+import { Icon, FixhomiLogo } from '../components';
+import { NODE_BASE_URL } from '../config/api';
+import { getTokens } from '../utils/storage';
+
+// Brand colors
+const BRAND = {
+  primary: '#f67c16',
+  secondary: '#2b76bc',
+  background: '#faf7f7',
+  white: '#FFFFFF',
+};
 
 /**
  * Settings Section Header
@@ -57,8 +74,8 @@ const ToggleRow = ({ iconName, title, subtitle, value, onValueChange, disabled, 
       value={value}
       onValueChange={onValueChange}
       disabled={disabled}
-      trackColor={{ false: '#E5E7EB', true: '#86EFAC' }}
-      thumbColor={value ? '#22C55E' : '#9CA3AF'}
+      trackColor={{ false: '#E5E7EB', true: BRAND.primary + '50' }}
+      thumbColor={value ? BRAND.primary : '#9CA3AF'}
     />
   </View>
 );
@@ -99,38 +116,176 @@ const WorkingHoursRow = ({ day, hours, onEdit }) => (
  */
 const SettingsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { user, profile, userType, logout, refreshProfile } = useApp();
+  const { user, profile, userType, logout, refreshProfile, updateProviderAvailability, updateProviderLocationTracking } = useApp();
   
   const displayData = { ...user, ...profile };
   const isProvider = userType === 'provider';
   const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
   
+  // Derive isAvailable from context (single source of truth)
+  const isAvailable = displayData?.isAvailable ?? displayData?.isOnline ?? true;
+  
+  // Derive locationTracking from context (single source of truth)
+  const locationTracking = displayData?.locationTracking?.enabled ?? false;
+  
   // State
   const [saving, setSaving] = useState(false);
+  const [isUpdatingAvailability, setIsUpdatingAvailability] = useState(false);
+  const [isUpdatingLocationTracking, setIsUpdatingLocationTracking] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState('granted');
   const [notifications, setNotifications] = useState({
     pushEnabled: true,
     emailEnabled: true,
     smsEnabled: false,
   });
   
+  // App preferences state
+  const [appPreferences, setAppPreferences] = useState({
+    hapticFeedback: true,
+    soundEffects: true,
+    autoRefresh: true,
+    showDistanceInKm: true,
+  });
+  
   // Provider-specific state
-  const [isAvailable, setIsAvailable] = useState(displayData?.isAvailable ?? true);
-  const [locationTracking, setLocationTracking] = useState(false);
   const [workingHours, setWorkingHours] = useState(displayData?.availability?.workingHours || {});
   
-  // Initialize from profile data - specifically check locationTracking.enabled
+  // Load saved preferences on mount
+  useEffect(() => {
+    loadPreferences();
+    checkNotificationPermission();
+  }, []);
+  
+  /**
+   * Load preferences from AsyncStorage
+   */
+  const loadPreferences = async () => {
+    try {
+      const savedPrefs = await AsyncStorage.getItem('app_preferences');
+      if (savedPrefs) {
+        setAppPreferences(JSON.parse(savedPrefs));
+      }
+      const savedNotifs = await AsyncStorage.getItem('notification_preferences');
+      if (savedNotifs) {
+        setNotifications(JSON.parse(savedNotifs));
+      }
+    } catch (error) {
+      console.log('Error loading preferences:', error);
+    }
+  };
+  
+  /**
+   * Save preferences to AsyncStorage
+   */
+  const savePreferences = async (key, value) => {
+    try {
+      await AsyncStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      console.log('Error saving preferences:', error);
+    }
+  };
+  
+  /**
+   * Check notification permission status
+   */
+  const checkNotificationPermission = async () => {
+    try {
+      const permission = Platform.OS === 'ios' 
+        ? PERMISSIONS.IOS.NOTIFICATIONS
+        : PERMISSIONS.ANDROID.POST_NOTIFICATIONS;
+      
+      const result = await check(permission);
+      setNotificationPermission(result);
+      
+      // If denied, update local state to match
+      if (result === RESULTS.DENIED || result === RESULTS.BLOCKED) {
+        setNotifications(prev => ({ ...prev, pushEnabled: false }));
+      }
+    } catch (error) {
+      console.log('Error checking notification permission:', error);
+    }
+  };
+  
+  /**
+   * Handle push notification toggle
+   */
+  const handlePushNotificationChange = async (value) => {
+    if (value) {
+      // User wants to enable - check/request permission
+      const permission = Platform.OS === 'ios' 
+        ? PERMISSIONS.IOS.NOTIFICATIONS
+        : PERMISSIONS.ANDROID.POST_NOTIFICATIONS;
+      
+      const currentStatus = await check(permission);
+      
+      if (currentStatus === RESULTS.BLOCKED) {
+        // Permission previously denied - need to go to settings
+        Alert.alert(
+          'Notifications Disabled',
+          'Push notifications are disabled in your device settings. Would you like to enable them?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => openSettings() },
+          ]
+        );
+        return;
+      }
+      
+      if (currentStatus === RESULTS.DENIED) {
+        // Request permission
+        const result = await request(permission);
+        if (result !== RESULTS.GRANTED) {
+          Alert.alert('Permission Required', 'Please enable notifications to receive updates about your service requests.');
+          return;
+        }
+      }
+      
+      setNotificationPermission(RESULTS.GRANTED);
+    }
+    
+    const newNotifications = { ...notifications, pushEnabled: value };
+    setNotifications(newNotifications);
+    savePreferences('notification_preferences', newNotifications);
+    
+    // Haptic feedback
+    if (appPreferences.hapticFeedback) {
+      Vibration.vibrate(10);
+    }
+  };
+  
+  /**
+   * Handle app preference changes
+   */
+  const handlePreferenceChange = (key, value) => {
+    const newPrefs = { ...appPreferences, [key]: value };
+    setAppPreferences(newPrefs);
+    savePreferences('app_preferences', newPrefs);
+    
+    // Haptic feedback when toggling haptics ON
+    if (key === 'hapticFeedback' && value) {
+      Vibration.vibrate(10);
+    }
+  };
+  
+  /**
+   * Handle email notification toggle
+   */
+  const handleEmailNotificationChange = (value) => {
+    const newNotifications = { ...notifications, emailEnabled: value };
+    setNotifications(newNotifications);
+    savePreferences('notification_preferences', newNotifications);
+    
+    if (appPreferences.hapticFeedback) {
+      Vibration.vibrate(10);
+    }
+  };
+  
+  // Initialize working hours from profile data
   useEffect(() => {
     if (displayData) {
-      setIsAvailable(displayData.isAvailable ?? displayData.isOnline ?? true);
-      // Check multiple possible paths for locationTracking
-      const trackingEnabled = displayData.locationTracking?.enabled ?? 
-                              displayData.locationTrackingEnabled ?? 
-                              false;
-      console.log('\ud83d\udccd [Settings] Initializing locationTracking from profile:', trackingEnabled);
-      setLocationTracking(trackingEnabled);
       setWorkingHours(displayData.availability?.workingHours || getDefaultWorkingHours());
     }
-  }, [displayData?.isAvailable, displayData?.isOnline, displayData?.locationTracking?.enabled, displayData?.availability]);
+  }, [displayData?.availability]);
   
   const getDefaultWorkingHours = () => ({
     monday: { start: '09:00', end: '18:00' },
@@ -143,21 +298,22 @@ const SettingsScreen = ({ navigation }) => {
   });
   
   /**
-   * Handle availability toggle
+   * Handle availability toggle (uses centralized state from AppContext)
    */
   const handleAvailabilityChange = async (value) => {
-    if (!userId) return;
+    if (!userId || isUpdatingAvailability) return;
     
-    setIsAvailable(value);
+    setIsUpdatingAvailability(true);
     try {
-      const result = await updateProviderOnlineStatus(userId, value);
+      const result = await updateProviderAvailability(value);
       if (!result.success) {
-        setIsAvailable(!value);
-        Alert.alert('Error', 'Failed to update availability');
+        Alert.alert('Error', result.message || 'Failed to update availability');
       }
     } catch (error) {
-      setIsAvailable(!value);
+      console.error('❌ [Settings] Error updating availability:', error);
       Alert.alert('Error', 'Failed to update availability');
+    } finally {
+      setIsUpdatingAvailability(false);
     }
   };
   
@@ -166,7 +322,7 @@ const SettingsScreen = ({ navigation }) => {
    */
   const showAvailabilityInfo = () => {
     Alert.alert(
-      '📍 Available for Work',
+      'Available for Work',
       'When enabled:\n\n' +
       '• Customers can find you in nearby provider searches\n' +
       '• You appear in the provider list for your service categories\n' +
@@ -184,7 +340,7 @@ const SettingsScreen = ({ navigation }) => {
    */
   const showLocationTrackingInfo = () => {
     Alert.alert(
-      '📡 Live Location Tracking',
+      'Live Location Tracking',
       'When enabled:\n\n' +
       '• Your real-time location is updated every 30 seconds\n' +
       '• Customers can see you approaching on the map\n' +
@@ -194,32 +350,39 @@ const SettingsScreen = ({ navigation }) => {
       '• Only your last known location is used\n' +
       '• Customers cannot track your arrival\n' +
       '• ETA may be less accurate\n\n' +
-      '⚠️ Battery Usage: Location tracking uses GPS which may affect battery life.',
+      'Note: Location tracking uses GPS which may affect battery life.',
       [{ text: 'Got it' }]
     );
   };
   
   /**
-   * Handle location tracking toggle
+   * Handle location tracking toggle (uses centralized state from AppContext)
+   * Also starts/stops actual GPS tracking
    */
   const handleLocationTrackingChange = async (value) => {
-    if (!userId) return;
+    if (!userId || isUpdatingLocationTracking) return;
     
-    setLocationTracking(value);
+    console.log('📡 [Settings] Updating location tracking to:', value);
+    setIsUpdatingLocationTracking(true);
     try {
-      const result = await updateProviderProfile(userId, {
-        locationTracking: { enabled: value },
-      });
-      if (result.success) {
-        // Refresh profile to ensure state sync
-        await refreshProfile(userType, userId);
+      const result = await updateProviderLocationTracking(value);
+      if (!result.success) {
+        Alert.alert('Error', result.error || 'Failed to update location tracking');
       } else {
-        setLocationTracking(!value);
-        Alert.alert('Error', 'Failed to update location tracking');
+        // Actually start/stop GPS tracking based on toggle
+        if (value) {
+          console.log('📍 [Settings] Starting location tracking for provider:', userId);
+          startLocationTracking(userId);
+        } else {
+          console.log('📍 [Settings] Stopping location tracking');
+          stopLocationTracking();
+        }
       }
     } catch (error) {
-      setLocationTracking(!value);
+      console.error('❌ [Settings] Error updating location tracking:', error);
       Alert.alert('Error', 'Failed to update location tracking');
+    } finally {
+      setIsUpdatingLocationTracking(false);
     }
   };
   
@@ -260,18 +423,54 @@ const SettingsScreen = ({ navigation }) => {
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete Account',
-      'Are you sure you want to delete your account? This action cannot be undone.',
+      'Are you sure you want to delete your account? This action cannot be undone. All your data will be permanently removed.',
       [
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Delete', 
           style: 'destructive',
-          onPress: () => {
-            Alert.alert('Coming Soon', 'Account deletion will be available in a future update.');
-          }
+          onPress: () => confirmDeleteAccount(),
         },
       ]
     );
+  };
+
+  const confirmDeleteAccount = async () => {
+    try {
+      setSaving(true);
+      const tokens = await getTokens();
+      const endpoint = isProvider 
+        ? `${NODE_BASE_URL}/api/provider/account/${userId}`
+        : `${NODE_BASE_URL}/api/user/account/${userId}`;
+      
+      const response = await fetch(endpoint, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tokens?.accessToken}`,
+        },
+        body: JSON.stringify({
+          confirmEmail: displayData?.email,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        Alert.alert(
+          'Account Deleted',
+          'Your account has been successfully deleted. We\'re sorry to see you go.',
+          [{ text: 'OK', onPress: () => logout() }]
+        );
+      } else {
+        Alert.alert('Error', result.message || 'Failed to delete account. Please try again.');
+      }
+    } catch (error) {
+      console.error('Delete account error:', error);
+      Alert.alert('Error', 'Failed to delete account. Please check your connection and try again.');
+    } finally {
+      setSaving(false);
+    }
   };
   
   return (
@@ -302,6 +501,7 @@ const SettingsScreen = ({ navigation }) => {
               value={isAvailable}
               onValueChange={handleAvailabilityChange}
               onInfoPress={showAvailabilityInfo}
+              disabled={isUpdatingAvailability}
             />
             
             <ToggleRow
@@ -311,49 +511,10 @@ const SettingsScreen = ({ navigation }) => {
               value={locationTracking}
               onValueChange={handleLocationTrackingChange}
               onInfoPress={showLocationTrackingInfo}
+              disabled={isUpdatingLocationTracking}
             />
           </View>
         )}
-        
-        {/* Provider Working Hours Section */}
-        {isProvider && (
-          <View style={styles.section}>
-            <SectionHeader title="Working Hours" />
-            <Text style={styles.workingHoursHint}>
-              Set your available hours for each day
-            </Text>
-            
-            {Object.entries(workingHours).map(([day, hours]) => (
-              <WorkingHoursRow
-                key={day}
-                day={day.charAt(0).toUpperCase() + day.slice(1)}
-                hours={hours}
-                onEdit={() => handleEditWorkingHours(day)}
-              />
-            ))}
-          </View>
-        )}
-        
-        {/* Notifications Section */}
-        <View style={styles.section}>
-          <SectionHeader title="Notifications" />
-          
-          <ToggleRow
-            iconName="notification"
-            title="Push Notifications"
-            subtitle="Receive alerts for new requests and updates"
-            value={notifications.pushEnabled}
-            onValueChange={(value) => setNotifications(prev => ({ ...prev, pushEnabled: value }))}
-          />
-          
-          <ToggleRow
-            iconName="email"
-            title="Email Notifications"
-            subtitle="Receive booking confirmations via email"
-            value={notifications.emailEnabled}
-            onValueChange={(value) => setNotifications(prev => ({ ...prev, emailEnabled: value }))}
-          />
-        </View>
         
         {/* Provider Verification Section */}
         {isProvider && (
@@ -362,21 +523,92 @@ const SettingsScreen = ({ navigation }) => {
             
             <ActionRow
               iconName="document"
-              title="Document Verification"
-              subtitle={displayData?.verification?.isVerified ? 'Verified ✓' : 'Verify your identity'}
-              onPress={() => {
-                Alert.alert('Coming Soon', 'Document verification (Aadhaar, PAN) will be available soon.');
-              }}
+              title="Request Service Approvals"
+              subtitle={
+                displayData?.documentVerification?.overallStatus === 'fully_verified'
+                  ? 'All services verified'
+                  : displayData?.documentVerification?.overallStatus === 'partially_verified'
+                  ? 'Some services verified'
+                  : displayData?.documentVerification?.overallStatus === 'pending'
+                  ? 'Under review (3-5 business days)'
+                  : 'Get verified to receive requests'
+              }
+              onPress={() => navigation.navigate('DocumentVerification')}
             />
             
             <View style={styles.verificationNote}>
               <Icon name="info" size={16} color="#6B7280" />
               <Text style={styles.verificationNoteText}>
-                Complete verification to get the verified badge and build trust with customers.
+                Complete service approval to receive service requests and get the verified badge on your profile.
               </Text>
             </View>
           </View>
         )}
+        
+        
+        {/* Notifications Section */}
+        <View style={styles.section}>
+          <SectionHeader title="Notifications" />
+          
+          <ToggleRow
+            iconName="notification"
+            title="Push Notifications"
+            subtitle={
+              notificationPermission === RESULTS.BLOCKED 
+                ? 'Disabled in system settings' 
+                : notifications.pushEnabled 
+                  ? 'Receive alerts for new requests' 
+                  : 'Enable to get important updates'
+            }
+            value={notifications.pushEnabled}
+            onValueChange={handlePushNotificationChange}
+          />
+          
+          <ToggleRow
+            iconName="email"
+            title="Email Notifications"
+            subtitle="Receive booking confirmations via email"
+            value={notifications.emailEnabled}
+            onValueChange={handleEmailNotificationChange}
+          />
+        </View>
+        
+        {/* App Preferences Section */}
+        <View style={styles.section}>
+          <SectionHeader title="Preferences" />
+          
+          <ToggleRow
+            iconName="settings"
+            title="Haptic Feedback"
+            subtitle="Vibration feedback for actions"
+            value={appPreferences.hapticFeedback}
+            onValueChange={(value) => handlePreferenceChange('hapticFeedback', value)}
+          />
+          
+          <ToggleRow
+            iconName="notification"
+            title="Sound Effects"
+            subtitle="Play sounds for notifications"
+            value={appPreferences.soundEffects}
+            onValueChange={(value) => handlePreferenceChange('soundEffects', value)}
+          />
+          
+          <ToggleRow
+            iconName="refresh"
+            title="Auto Refresh"
+            subtitle="Automatically update service list"
+            value={appPreferences.autoRefresh}
+            onValueChange={(value) => handlePreferenceChange('autoRefresh', value)}
+          />
+          
+          <ToggleRow
+            iconName="location"
+            title="Distance in Kilometers"
+            subtitle={appPreferences.showDistanceInKm ? 'Showing distance in km' : 'Showing distance in miles'}
+            value={appPreferences.showDistanceInKm}
+            onValueChange={(value) => handlePreferenceChange('showDistanceInKm', value)}
+          />
+        </View>
         
         {/* App Settings Section */}
         <View style={styles.section}>
@@ -386,20 +618,58 @@ const SettingsScreen = ({ navigation }) => {
             iconName="info"
             title="About FixHomi"
             subtitle="Version 1.0.0"
-            onPress={() => {}}
-            showArrow={false}
+            onPress={() => {
+              Alert.alert(
+                'About FixHomi',
+                'FixHomi - Your trusted home services partner.\n\nVersion 1.0.0\nBuild 2026.01.22\n\n© 2026 FixHomi. All rights reserved.',
+                [{ text: 'OK' }]
+              );
+            }}
+          />
+          
+          <ActionRow
+            iconName="star"
+            title="Rate FixHomi"
+            subtitle="Love the app? Rate us on the store"
+            onPress={() => {
+              Alert.alert(
+                'Rate FixHomi',
+                'Would you like to rate FixHomi on the app store?',
+                [
+                  { text: 'Later', style: 'cancel' },
+                  { 
+                    text: 'Rate Now', 
+                    onPress: () => {
+                      const storeUrl = Platform.OS === 'ios' 
+                        ? 'https://apps.apple.com/app/fixhomi'
+                        : 'https://play.google.com/store/apps/details?id=com.fixhomi';
+                      Linking.openURL(storeUrl).catch(() => {
+                        Alert.alert('Error', 'Could not open the app store.');
+                      });
+                    }
+                  },
+                ]
+              );
+            }}
+          />
+          
+          <ActionRow
+            iconName="help"
+            title="Help & Support"
+            subtitle="Get help with your account"
+            onPress={() => Linking.openURL('mailto:support@fixhomi.com')}
           />
           
           <ActionRow
             iconName="document"
             title="Privacy Policy"
-            onPress={() => Alert.alert('Privacy Policy', 'Will be available soon.')}
+            onPress={() => Linking.openURL('https://fixhomi.com/privacy')}
           />
           
           <ActionRow
             iconName="document"
             title="Terms of Service"
-            onPress={() => Alert.alert('Terms of Service', 'Will be available soon.')}
+            onPress={() => Linking.openURL('https://fixhomi.com/terms')}
           />
         </View>
         
@@ -434,6 +704,13 @@ const SettingsScreen = ({ navigation }) => {
               : 'N/A'
             }
           </Text>
+        </View>
+        
+        {/* Brand Footer */}
+        <View style={styles.brandFooter}>
+          <FixhomiLogo size={40} color={BRAND.primary} />
+          <Text style={styles.brandFooterText}>FixHomi</Text>
+          <Text style={styles.brandFooterTagline}>Fix Your Home, Anytime</Text>
         </View>
       </ScrollView>
     </View>
@@ -602,6 +879,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9CA3AF',
     marginTop: 4,
+  },
+  
+  // Brand Footer
+  brandFooter: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    paddingBottom: 48,
+    gap: 8,
+  },
+  brandFooterText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: BRAND.primary,
+    letterSpacing: 0.5,
+  },
+  brandFooterTagline: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
   },
 });
 

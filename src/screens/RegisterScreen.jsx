@@ -18,7 +18,7 @@ import {
   Platform,
   TouchableOpacity,
 } from 'react-native';
-import { Button, Input, Alert } from '../components';
+import { Button, Input, Alert, FixhomiLogo } from '../components';
 import { registerUser, getErrorMessage, AUTH_CODES } from '../services/authService';
 import { validateRegistrationForm } from '../utils/validation';
 import { useApp } from '../context/AppContext';
@@ -214,6 +214,8 @@ const RegisterScreen = ({ navigation }) => {
             <TouchableOpacity onPress={handleBack} style={styles.backButton}>
               <Text style={styles.backIcon}>←</Text>
             </TouchableOpacity>
+            <FixhomiLogo size={56} color="#f67c16" />
+            <Text style={styles.brandName}>FixHomi</Text>
             <Text style={styles.title}>Create Account</Text>
             <Text style={styles.subtitle}>
               Join FixHomi and get access to trusted home services
@@ -313,6 +315,7 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 24,
+    alignItems: 'center',
   },
   backButton: {
     marginBottom: 16,
@@ -323,8 +326,16 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#374151',
   },
+  brandName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#f67c16',
+    marginTop: 8,
+    marginBottom: 12,
+    letterSpacing: 0.5,
+  },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#111827',
     marginBottom: 8,

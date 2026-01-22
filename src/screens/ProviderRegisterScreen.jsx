@@ -24,7 +24,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
-import { Button, Input, Alert } from '../components';
+import { Button, Input, Alert, FixhomiLogo } from '../components';
 import { registerProvider, getErrorMessage, AUTH_CODES } from '../services/authService';
 import { validateProviderRegistrationForm } from '../utils/validation';
 import { useApp } from '../context/AppContext';
@@ -392,6 +392,8 @@ const ProviderRegisterScreen = ({ navigation }) => {
             <TouchableOpacity onPress={handleBack} style={styles.backButton}>
               <Text style={styles.backIcon}>←</Text>
             </TouchableOpacity>
+            <FixhomiLogo size={52} color="#f67c16" />
+            <Text style={styles.brandName}>FixHomi</Text>
             <Text style={styles.title}>Become a Provider</Text>
             <Text style={styles.subtitle}>
               Join FixHomi and start earning by providing home services
@@ -565,6 +567,7 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 24,
+    alignItems: 'center',
   },
   backButton: {
     marginBottom: 16,
@@ -575,8 +578,16 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#374151',
   },
+  brandName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#f67c16',
+    marginTop: 8,
+    marginBottom: 12,
+    letterSpacing: 0.5,
+  },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#111827',
     marginBottom: 8,

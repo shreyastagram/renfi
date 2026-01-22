@@ -28,6 +28,15 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import Geolocation from '@react-native-community/geolocation';
 import { addAddress, updateAddress } from '../services/addressService';
 
+// Brand colors - User side uses blue as accent
+const BRAND = {
+  primary: '#f67c16', // Orange
+  secondary: '#2b76bc', // Blue - user side accent
+  background: '#faf7f7',
+  white: '#FFFFFF',
+  neutral: '#6B7280',
+};
+
 // Mapbox Access Token
 const MAPBOX_ACCESS_TOKEN = 'MAPBOX_TOKEN_REMOVED';
 
@@ -82,7 +91,7 @@ const LabelChip = ({ icon, label, selected, onPress }) => (
     <MaterialIcon 
       name={icon} 
       size={18} 
-      color={selected ? '#FFFFFF' : '#6B7280'} 
+      color={selected ? BRAND.white : BRAND.neutral} 
     />
     <Text style={[styles.labelChipText, selected && styles.labelChipTextSelected]}>
       {label}
@@ -483,7 +492,7 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: BRAND.white,
   },
   header: {
     flexDirection: 'row',
@@ -500,7 +509,12 @@ const styles = StyleSheet.create({
     color: '#1F2937',
   },
   closeButton: {
-    padding: 4,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollView: {
     flex: 1,
@@ -510,49 +524,49 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
+    fontSize: 13,
+    fontWeight: '700',
+    color: BRAND.neutral,
     marginBottom: 12,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   labelContainer: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   labelChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
     backgroundColor: '#F3F4F6',
-    borderRadius: 20,
+    borderRadius: 24,
     borderWidth: 2,
     borderColor: 'transparent',
   },
   labelChipSelected: {
-    backgroundColor: '#3B82F6',
-    borderColor: '#3B82F6',
+    backgroundColor: BRAND.secondary,
+    borderColor: BRAND.secondary,
   },
   labelChipText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
+    color: BRAND.neutral,
   },
   labelChipTextSelected: {
-    color: '#FFFFFF',
+    color: BRAND.white,
   },
   locationButton: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 12,
+    backgroundColor: BRAND.secondary + '10',
+    borderRadius: 14,
     borderWidth: 2,
-    borderColor: '#BFDBFE',
+    borderColor: BRAND.secondary + '40',
     borderStyle: 'dashed',
   },
   locationButtonSuccess: {
@@ -564,10 +578,10 @@ const styles = StyleSheet.create({
     borderColor: '#FCA5A5',
   },
   locationButtonIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: BRAND.white,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -582,11 +596,11 @@ const styles = StyleSheet.create({
   },
   locationButtonSubtitle: {
     fontSize: 12,
-    color: '#6B7280',
+    color: BRAND.neutral,
     marginTop: 2,
   },
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: 18,
   },
   inputLabel: {
     fontSize: 14,
@@ -601,9 +615,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#1F2937',
     padding: 14,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    borderWidth: 1,
+    backgroundColor: BRAND.background,
+    borderRadius: 14,
+    borderWidth: 1.5,
     borderColor: '#E5E7EB',
   },
   inputMultiline: {
@@ -616,7 +630,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 12,
     color: '#EF4444',
-    marginTop: 4,
+    marginTop: 6,
   },
   row: {
     flexDirection: 'row',
@@ -627,26 +641,32 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 16,
+    paddingBottom: 32,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: BRAND.white,
   },
   saveButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 10,
     paddingVertical: 16,
-    backgroundColor: '#3B82F6',
-    borderRadius: 12,
+    backgroundColor: BRAND.secondary,
+    borderRadius: 14,
+    shadowColor: BRAND.secondary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
   saveButtonDisabled: {
-    opacity: 0.7,
+    opacity: 0.6,
   },
   saveButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: BRAND.white,
   },
 });
 

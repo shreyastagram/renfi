@@ -33,6 +33,15 @@ import {
 } from '../services/addressService';
 import AddressForm from './AddressForm';
 
+// Brand colors - User side uses blue as accent
+const BRAND = {
+  primary: '#f67c16', // Orange
+  secondary: '#2b76bc', // Blue - user side accent
+  background: '#faf7f7',
+  white: '#FFFFFF',
+  neutral: '#6B7280',
+};
+
 /**
  * Address Card Component
  */
@@ -53,11 +62,11 @@ const AddressCard = ({
       onPress={() => selectable ? onSelect?.(address) : onEdit?.(address)}
       activeOpacity={0.7}
     >
-      <View style={styles.addressIconContainer}>
+      <View style={[styles.addressIconContainer, isDefault && { backgroundColor: BRAND.secondary + '15' }]}>
         <MaterialIcon 
           name={labelInfo.icon} 
           size={24} 
-          color={isDefault ? '#3B82F6' : '#6B7280'} 
+          color={isDefault ? BRAND.secondary : BRAND.neutral} 
         />
       </View>
       
@@ -288,7 +297,7 @@ const SavedAddresses = ({
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3B82F6" />
+        <ActivityIndicator size="large" color={BRAND.secondary} />
         <Text style={styles.loadingText}>Loading addresses...</Text>
       </View>
     );
@@ -305,7 +314,7 @@ const SavedAddresses = ({
           )}
           <Text style={styles.headerTitle}>Saved Addresses</Text>
           <TouchableOpacity onPress={handleAddNew} style={styles.addIconButton}>
-            <MaterialIcon name="add" size={24} color="#3B82F6" />
+            <MaterialIcon name="add" size={24} color={BRAND.secondary} />
           </TouchableOpacity>
         </View>
       )}
@@ -323,7 +332,8 @@ const SavedAddresses = ({
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={handleRefresh}
-                colors={['#3B82F6']}
+                colors={[BRAND.secondary]}
+                tintColor={BRAND.secondary}
               />
             }
             showsVerticalScrollIndicator={false}
@@ -366,7 +376,7 @@ const SavedAddresses = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: BRAND.background,
   },
   header: {
     flexDirection: 'row',
@@ -374,7 +384,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: BRAND.white,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
@@ -384,43 +394,55 @@ const styles = StyleSheet.create({
     color: '#1F2937',
   },
   closeButton: {
-    padding: 4,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   addIconButton: {
-    padding: 4,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: BRAND.secondary + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: BRAND.background,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#6B7280',
+    color: BRAND.neutral,
   },
   listContainer: {
     padding: 16,
-    paddingBottom: 80,
+    paddingBottom: 100,
   },
   addressCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: BRAND.white,
+    borderRadius: 16,
     marginBottom: 12,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#E5E7EB',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowRadius: 8,
+    elevation: 2,
   },
   addressCardDefault: {
-    borderColor: '#3B82F6',
+    borderColor: BRAND.secondary,
     borderWidth: 2,
+    backgroundColor: BRAND.secondary + '08',
   },
   addressIconContainer: {
     width: 48,
@@ -429,7 +451,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   addressContent: {
     flex: 1,
@@ -437,7 +459,7 @@ const styles = StyleSheet.create({
   addressHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   addressLabel: {
     fontSize: 15,
@@ -445,36 +467,45 @@ const styles = StyleSheet.create({
     color: '#374151',
   },
   addressLabelDefault: {
-    color: '#3B82F6',
+    color: BRAND.secondary,
   },
   defaultBadge: {
     marginLeft: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    backgroundColor: '#DBEAFE',
-    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    backgroundColor: BRAND.secondary + '20',
+    borderRadius: 12,
   },
   defaultBadgeText: {
     fontSize: 10,
-    fontWeight: '600',
-    color: '#3B82F6',
+    fontWeight: '700',
+    color: BRAND.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   addressLine1: {
     fontSize: 14,
     color: '#1F2937',
-    marginBottom: 2,
+    marginBottom: 3,
+    lineHeight: 20,
   },
   addressDetails: {
     fontSize: 12,
-    color: '#6B7280',
+    color: BRAND.neutral,
+    lineHeight: 18,
   },
   addressActions: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   actionButton: {
-    padding: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyState: {
     flex: 1,
@@ -486,45 +517,50 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#374151',
-    marginTop: 16,
+    marginTop: 20,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: BRAND.neutral,
     textAlign: 'center',
     marginTop: 8,
-    lineHeight: 20,
+    lineHeight: 22,
   },
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 24,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    backgroundColor: '#3B82F6',
-    borderRadius: 12,
+    marginTop: 28,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    backgroundColor: BRAND.secondary,
+    borderRadius: 14,
+    shadowColor: BRAND.secondary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
   addButtonText: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: '700',
+    color: BRAND.white,
   },
   floatingButton: {
     position: 'absolute',
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#3B82F6',
+    bottom: 32,
+    right: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: BRAND.secondary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowColor: BRAND.secondary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 10,
   },
 });
 

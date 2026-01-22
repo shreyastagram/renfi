@@ -4,30 +4,49 @@
  * Centralized configuration for API endpoints and base URLs
  * Supports: Emulator, Physical Device (USB), Physical Device (WiFi)
  * 
- * @version 4.0.0
+ * Uses react-native-device-info for reliable emulator detection
+ * 
+ * @version 5.0.0
  */
 
 import { Platform, NativeModules } from 'react-native';
+import DeviceInfo from 'react-native-device-info';
 
 /**
- * Auto-detect if running on emulator or physical device
- * This works for both Android and iOS
+ * Synchronous emulator detection (fast, less reliable)
+ * This is used for initial config, then we verify with async check
  */
-const isEmulator = () => {
+const isEmulatorSync = () => {
   if (Platform.OS === 'android') {
-    // Android emulator detection
+    // Android emulator detection using PlatformConstants (sync)
     const { PlatformConstants } = NativeModules;
     const isAndroidEmulator = PlatformConstants?.Fingerprint?.includes('generic') ||
                               PlatformConstants?.Fingerprint?.includes('sdk') ||
                               PlatformConstants?.Model?.includes('sdk') ||
                               PlatformConstants?.Model?.includes('Emulator') ||
-                              PlatformConstants?.Model?.includes('Android SDK');
+                              PlatformConstants?.Model?.includes('Android SDK') ||
+                              PlatformConstants?.Brand === 'google' && PlatformConstants?.Model?.startsWith('sdk_gphone');
     return isAndroidEmulator;
   } else if (Platform.OS === 'ios') {
     // iOS simulator detection
     return Platform.isPad === false && Platform.isTV === false && !NativeModules.PlatformConstants?.interfaceIdiom;
   }
   return false;
+};
+
+/**
+ * Async emulator detection using react-native-device-info (more reliable)
+ * Call this to verify emulator status
+ */
+export const checkIsEmulator = async () => {
+  try {
+    const emulator = await DeviceInfo.isEmulator();
+    console.log(`📱 [API] Device Info: ${emulator ? 'Emulator' : 'Physical Device'}`);
+    return emulator;
+  } catch (error) {
+    console.log('[API] DeviceInfo check failed, using sync method');
+    return isEmulatorSync();
+  }
 };
 
 /**
@@ -59,8 +78,8 @@ const getDevServerHost = () => {
   // 2. Physical device with USB (adb reverse): Use localhost  
   // 3. Physical device on WiFi: Use machine IP
   
-  // Check if we're likely on an emulator
-  const emulator = isEmulator();
+  // Check if we're likely on an emulator (sync check for initial config)
+  const emulator = isEmulatorSync();
   
   if (emulator) {
     console.log('🔧 [API] Android Emulator detected - using 10.0.2.2');
@@ -104,11 +123,18 @@ const WIFI_JAVA_AUTH_BASE_URL = __DEV__
 if (__DEV__) {
   console.log('🔧 [API Config] Environment:', { 
     platform: Platform.OS,
-    isEmulator: isEmulator(),
+    isEmulator: isEmulatorSync(),
     primaryHost: DEV_HOST,
     fallbackHost: WIFI_HOST,
     nodeUrl: API_BASE_URL,
     javaUrl: JAVA_AUTH_BASE_URL,
+  });
+  
+  // Async verification with device-info
+  checkIsEmulator().then(isEmu => {
+    if (isEmu !== isEmulatorSync()) {
+      console.log('⚠️ [API Config] Emulator detection mismatch! Sync:', isEmulatorSync(), 'Async:', isEmu);
+    }
   });
 }
 
@@ -117,6 +143,20 @@ export const NODE_BASE_URL = API_BASE_URL;
 export const JAVA_BASE_URL = JAVA_AUTH_BASE_URL;
 export const WIFI_NODE_BASE_URL = WIFI_API_BASE_URL;
 export const WIFI_JAVA_BASE_URL = WIFI_JAVA_AUTH_BASE_URL;
+
+/**
+ * Get Node.js backend URL
+ * For services that need the base URL as a function
+ * @returns {string} Node.js backend base URL
+ */
+export const getNodeBackendUrl = () => API_BASE_URL;
+
+/**
+ * Get Java Auth backend URL  
+ * For services that need the base URL as a function
+ * @returns {string} Java Auth backend base URL
+ */
+export const getJavaBackendUrl = () => JAVA_AUTH_BASE_URL;
 
 /**
  * API Endpoints
@@ -218,8 +258,10 @@ export const ENDPOINTS = {
     SEND_TO_PROVIDER: '/api/traditional-services', // + /:id/send-to-provider
     // Provider accepts request (POST /:id/accept-provider)
     ACCEPT_PROVIDER: '/api/traditional-services', // + /:id/accept-provider
-    // Get provider's service requests (GET /provider/:providerId)
-    PROVIDER_REQUESTS: '/api/traditional-services/provider', // + /:providerId
+    // Get provider's service requests (GET /provider/:providerId/requests)
+    PROVIDER_REQUESTS: '/api/traditional-services/provider', // + /:providerId/requests
+    // Get provider details (GET /provider/:providerId/details)
+    PROVIDER_DETAILS: '/api/traditional-services/provider', // + /:providerId/details
     // Verify completion OTP (POST /:id/verify-otp)
     VERIFY_OTP: '/api/traditional-services', // + /:id/verify-otp
     // Resend OTP (POST /:id/resend-otp)

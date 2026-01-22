@@ -4,7 +4,7 @@
  * First screen shown to unauthenticated users
  * Allows selection between User and Provider roles
  * 
- * @version 1.0.0
+ * @version 1.1.0
  */
 
 import React from 'react';
@@ -15,7 +15,18 @@ import {
   SafeAreaView,
   TouchableOpacity,
 } from 'react-native';
+import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useApp } from '../context/AppContext';
+
+// Brand colors
+const COLORS = {
+  primary: '#f67c16',      // Orange - User theme
+  secondary: '#2b76bc',    // Blue - Provider theme
+  background: '#faf7f7',
+  white: '#FFFFFF',
+  textDark: '#111827',
+  textMuted: '#6B7280',
+};
 
 /**
  * UserTypeScreen Component
@@ -44,6 +55,9 @@ const UserTypeScreen = ({ navigation }) => {
       <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
+          <View style={styles.logoContainer}>
+            <MaterialIcon name="home-repair-service" size={40} color={COLORS.primary} />
+          </View>
           <Text style={styles.logo}>FixHomi</Text>
           <Text style={styles.title}>Welcome!</Text>
           <Text style={styles.subtitle}>
@@ -59,11 +73,16 @@ const UserTypeScreen = ({ navigation }) => {
             onPress={() => handleSelect('user')}
             activeOpacity={0.7}
           >
-            <Text style={styles.cardIcon}>👤</Text>
-            <Text style={styles.cardTitle}>I need services</Text>
-            <Text style={styles.cardDescription}>
-              Find and book home services from trusted professionals
-            </Text>
+            <View style={styles.iconContainer}>
+              <MaterialIcon name="person" size={36} color={COLORS.primary} />
+            </View>
+            <View style={styles.cardContent}>
+              <Text style={styles.cardTitle}>I need services</Text>
+              <Text style={styles.cardDescription}>
+                Find and book home services from trusted professionals
+              </Text>
+            </View>
+            <MaterialIcon name="chevron-right" size={24} color={COLORS.primary} />
           </TouchableOpacity>
 
           {/* Provider Card */}
@@ -72,12 +91,22 @@ const UserTypeScreen = ({ navigation }) => {
             onPress={() => handleSelect('provider')}
             activeOpacity={0.7}
           >
-            <Text style={styles.cardIcon}>🔧</Text>
-            <Text style={styles.cardTitle}>I provide services</Text>
-            <Text style={styles.cardDescription}>
-              Offer your skills and grow your business with FixHomi
-            </Text>
+            <View style={[styles.iconContainer, styles.iconContainerSecondary]}>
+              <MaterialIcon name="build" size={36} color={COLORS.secondary} />
+            </View>
+            <View style={styles.cardContent}>
+              <Text style={styles.cardTitle}>I provide services</Text>
+              <Text style={styles.cardDescription}>
+                Offer your skills and grow your business with FixHomi
+              </Text>
+            </View>
+            <MaterialIcon name="chevron-right" size={24} color={COLORS.secondary} />
           </TouchableOpacity>
+        </View>
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Your trusted home services partner</Text>
         </View>
       </View>
     </SafeAreaView>
@@ -87,7 +116,7 @@ const UserTypeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.background,
   },
   content: {
     flex: 1,
@@ -98,51 +127,91 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 40,
   },
+  logoContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: COLORS.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
   logo: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#2563EB',
-    marginBottom: 16,
+    color: COLORS.primary,
+    marginBottom: 8,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textDark,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#6B7280',
+    color: COLORS.textMuted,
     textAlign: 'center',
   },
   cardsContainer: {
     gap: 16,
   },
   card: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 12,
-    padding: 24,
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 20,
     borderWidth: 2,
-    borderColor: '#2563EB',
+    borderColor: COLORS.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
   cardSecondary: {
-    backgroundColor: '#F3F4F6',
-    borderColor: '#D1D5DB',
+    borderColor: COLORS.secondary,
   },
-  cardIcon: {
-    fontSize: 40,
-    marginBottom: 12,
+  iconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: `${COLORS.primary}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  iconContainerSecondary: {
+    backgroundColor: `${COLORS.secondary}15`,
+  },
+  cardContent: {
+    flex: 1,
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
-    marginBottom: 8,
+    color: COLORS.textDark,
+    marginBottom: 4,
   },
   cardDescription: {
     fontSize: 14,
-    color: '#6B7280',
+    color: COLORS.textMuted,
     lineHeight: 20,
+  },
+  footer: {
+    marginTop: 40,
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: 14,
+    color: COLORS.textMuted,
+    fontStyle: 'italic',
   },
 });
 

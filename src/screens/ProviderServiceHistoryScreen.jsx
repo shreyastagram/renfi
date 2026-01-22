@@ -32,6 +32,14 @@ import {
   SERVICE_TYPE_LABELS,
 } from '../services/traditionalServiceService';
 
+// Brand colors
+const BRAND = {
+  primary: '#f67c16', // Orange
+  secondary: '#2b76bc', // Blue
+  background: '#faf7f7',
+  white: '#FFFFFF',
+};
+
 // Status configuration
 const STATUS_CONFIG = {
   'in-progress': {
@@ -111,8 +119,8 @@ const StatsDashboard = ({ stats }) => (
         iconName="star"
         value={stats?.rating?.toFixed(1) || '0.0'}
         label="Rating"
-        color="#F59E0B"
-        bgColor="#FEF3C7"
+        color={BRAND.primary}
+        bgColor={BRAND.primary + '20'}
       />
     </View>
   </View>
@@ -206,7 +214,7 @@ const RequestCard = ({ request, onPress, onCall, onDirections }) => {
                 style={styles.quickActionBtn}
                 onPress={() => onDirections(request.location)}
               >
-                <Icon name="directions" size={18} color="#3B82F6" />
+                <Icon name="directions" size={18} color={BRAND.secondary} />
               </TouchableOpacity>
             )}
           </View>
@@ -265,7 +273,7 @@ const RequestCard = ({ request, onPress, onCall, onDirections }) => {
       {/* View Details */}
       <View style={styles.viewDetails}>
         <Text style={styles.viewDetailsText}>View Details</Text>
-        <Icon name="chevron-right" size={16} color="#3B82F6" />
+        <Icon name="chevron-right" size={16} color={BRAND.secondary} />
       </View>
     </TouchableOpacity>
   );
@@ -429,7 +437,7 @@ const ProviderServiceHistoryScreen = ({ navigation }) => {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
+          <ActivityIndicator size="large" color={BRAND.primary} />
           <Text style={styles.loadingText}>Loading history...</Text>
         </View>
       </View>
@@ -441,7 +449,12 @@ const ProviderServiceHistoryScreen = ({ navigation }) => {
       <View style={styles.header}>
         <MenuButton onPress={() => setIsDrawerOpen(true)} />
         <Text style={styles.headerTitle}>Service History</Text>
-        <AvatarButton name={displayData?.fullName} onPress={() => navigation.navigate('Profile')} />
+        <AvatarButton 
+          name={displayData?.fullName} 
+          profilePicture={displayData?.profilePicture}
+          onPress={() => navigation.navigate('Profile')} 
+          isProvider={true}
+        />
       </View>
 
       <FilterTabs activeFilter={activeFilter} onFilterChange={handleFilterChange} />
@@ -480,14 +493,14 @@ const ProviderServiceHistoryScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F5F5' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  container: { flex: 1, backgroundColor: BRAND.background },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: BRAND.white, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937' },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loadingText: { marginTop: 12, fontSize: 16, color: '#666' },
   listContent: { padding: 16, paddingBottom: 32 },
   // Stats
-  statsContainer: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  statsContainer: { backgroundColor: BRAND.white, borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
   statsTitle: { fontSize: 16, fontWeight: '600', color: '#1a1a1a', marginBottom: 12 },
   statsGrid: { flexDirection: 'row', justifyContent: 'space-between' },
   statsCard: { flex: 1, alignItems: 'center', padding: 12, borderRadius: 12, marginHorizontal: 4 },
@@ -495,14 +508,14 @@ const styles = StyleSheet.create({
   statsValue: { fontSize: 20, fontWeight: '700' },
   statsLabel: { fontSize: 11, color: '#666', marginTop: 2 },
   // Filter
-  filterContainer: { flexDirection: 'row', backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
+  filterContainer: { flexDirection: 'row', backgroundColor: BRAND.white, paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
   filterTab: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#F3F4F6', borderRadius: 20 },
-  filterTabActive: { backgroundColor: '#2563EB' },
+  filterTabActive: { backgroundColor: BRAND.primary },
   filterTabText: { fontSize: 14, fontWeight: '600', color: '#374151' },
-  filterTabTextActive: { color: '#fff' },
+  filterTabTextActive: { color: BRAND.white },
   // Request Card
   requestCard: {
-    backgroundColor: '#fff',
+    backgroundColor: BRAND.white,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -573,7 +586,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#E3F2FD',
+    backgroundColor: BRAND.secondary + '20',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -581,7 +594,7 @@ const styles = StyleSheet.create({
   customerInitial: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1976D2',
+    color: BRAND.secondary,
   },
   customerDetails: {
     flex: 1,
@@ -682,7 +695,7 @@ const styles = StyleSheet.create({
   },
   viewDetailsText: {
     fontSize: 14,
-    color: '#007AFF',
+    color: BRAND.secondary,
     fontWeight: '500',
   },
   viewDetails: {

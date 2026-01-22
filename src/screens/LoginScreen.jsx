@@ -18,7 +18,7 @@ import {
   Platform,
   TouchableOpacity,
 } from 'react-native';
-import { Button, Input, Alert } from '../components';
+import { Button, Input, Alert, FixhomiLogo } from '../components';
 import { loginWithEmail, getErrorMessage, AUTH_CODES } from '../services/authService';
 import { validateEmail, validatePassword } from '../utils/validation';
 import { useApp } from '../context/AppContext';
@@ -177,6 +177,8 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
         >
           {/* Header */}
           <View style={styles.header}>
+            <FixhomiLogo size={64} color="#f67c16" />
+            <Text style={styles.brandName}>FixHomi</Text>
             <Text style={styles.title}>Welcome Back</Text>
             <Text style={styles.subtitle}>
               Sign in to continue {userType === 'provider' ? 'as a service provider' : ''}
@@ -280,9 +282,18 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 32,
+    alignItems: 'center',
+  },
+  brandName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#f67c16',
+    marginTop: 8,
+    marginBottom: 16,
+    letterSpacing: 1,
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#1F2937',
     marginBottom: 8,

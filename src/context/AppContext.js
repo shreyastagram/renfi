@@ -18,7 +18,7 @@ import {
   getUserType 
 } from '../utils/storage';
 import { logout as apiLogout } from '../services/authService';
-import { fetchFullProfile, getCurrentUser } from '../services/profileService';
+import { fetchFullProfile, getCurrentUser, updateProviderOnlineStatus as apiUpdateOnlineStatus, updateProviderProfile as apiUpdateProviderProfile } from '../services/profileService';
 import { saveFcmTokenForUser, saveFcmTokenForProvider, setupForegroundMessageListener, setupTokenRefreshListener } from '../services/fcmService';
 
 /**
@@ -154,7 +154,99 @@ export const AppProvider = ({ children }) => {
   }, []);
 
   /**
-   * Check stored tokens and restore auth state
+   * Update provider availability (isAvailable/isOnline) - Single source of truth
+   * This function updates both the backend AND the local state
+   * Should be used by all screens that toggle availability
+   * 
+   * @param {boolean} isAvailable - New availability status
+   * @returns {Promise<Object>} Result with success status
+   */
+  const updateProviderAvailability = useCallback(async (isAvailable) => {
+    const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+    
+    if (!providerId) {
+      console.error('❌ [AppContext] Cannot update availability - no provider ID');
+      return { success: false, error: 'Provider ID not found' };
+    }
+    
+    console.log(`🔄 [AppContext] Updating provider availability: ${isAvailable}`);
+    
+    try {
+      // Call API to update
+      const result = await apiUpdateOnlineStatus(providerId, isAvailable);
+      
+      if (result.success) {
+        // Update both user and profile state immediately for instant UI feedback
+        setUser(prev => ({
+          ...prev,
+          isAvailable: isAvailable,
+          isOnline: isAvailable,
+        }));
+        
+        setProfile(prev => ({
+          ...prev,
+          isAvailable: isAvailable,
+          isOnline: isAvailable,
+        }));
+        
+        console.log('✅ [AppContext] Availability updated successfully');
+        return { success: true };
+      } else {
+        console.error('❌ [AppContext] API failed to update availability');
+        return { success: false, error: result.error?.message || 'Failed to update availability' };
+      }
+    } catch (error) {
+      console.error('❌ [AppContext] Error updating availability:', error);
+      return { success: false, error: error.message || 'Failed to update availability' };
+    }
+  }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id]);
+
+  /**   * Update provider location tracking - Single source of truth
+   * This function updates both the backend AND the local state
+   * Should be used by all screens that toggle location tracking
+   * 
+   * @param {boolean} enabled - New location tracking status
+   * @returns {Promise<Object>} Result with success status
+   */
+  const updateProviderLocationTracking = useCallback(async (enabled) => {
+    const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+    
+    if (!providerId) {
+      console.error('❌ [AppContext] Cannot update location tracking - no provider ID');
+      return { success: false, error: 'Provider ID not found' };
+    }
+    
+    console.log(`🔄 [AppContext] Updating provider location tracking: ${enabled}`);
+    
+    try {
+      // Call API to update
+      const result = await apiUpdateProviderProfile(providerId, {
+        locationTracking: { enabled },
+      });
+      
+      if (result.success) {
+        // Update profile state immediately for instant UI feedback
+        setProfile(prev => ({
+          ...prev,
+          locationTracking: {
+            ...(prev?.locationTracking || {}),
+            enabled: enabled,
+          },
+        }));
+        
+        console.log('✅ [AppContext] Location tracking updated successfully');
+        return { success: true };
+      } else {
+        console.error('❌ [AppContext] API failed to update location tracking');
+        return { success: false, error: result.error?.message || 'Failed to update location tracking' };
+      }
+    } catch (error) {
+      console.error('❌ [AppContext] Error updating location tracking:', error);
+      return { success: false, error: error.message || 'Failed to update location tracking' };
+    }
+  }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id]);
+
+  /**   * Check stored tokens and restore auth state
    */
   const initializeAuth = async () => {
     try {
@@ -359,6 +451,8 @@ export const AppProvider = ({ children }) => {
     // Profile actions
     refreshProfile,
     refreshVerificationStatus,
+    updateProviderAvailability,
+    updateProviderLocationTracking,
     
     // Re-initialize (useful for token refresh)
     initializeAuth,

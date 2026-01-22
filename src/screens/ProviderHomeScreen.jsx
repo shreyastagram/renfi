@@ -25,9 +25,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
-import { updateProviderOnlineStatus } from '../services/profileService';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
-import { Icon } from '../components';
+import { Icon, FixhomiLogo } from '../components';
 import { 
   initializeSocket, 
   disconnectSocket, 
@@ -35,8 +34,53 @@ import {
   stopLocationTracking,
   isConnected,
 } from '../services/socketService';
+import { getProviderRequests } from '../services/traditionalServiceService';
+import { NODE_BASE_URL } from '../config/api';
+import { getTokens } from '../utils/storage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Brand colors
+const BRAND = {
+  primary: '#f67c16', // Orange
+  secondary: '#2b76bc', // Blue
+  background: '#faf7f7',
+  white: '#FFFFFF',
+};
+
+// Service category labels
+const SERVICE_LABELS = {
+  electrician: 'Electrician',
+  plumber: 'Plumber',
+  carpenter: 'Carpenter',
+  painter: 'Painter',
+  welder: 'Welder',
+  electronics_technician: 'Electronics Technician',
+  solar_repairing: 'Solar Installer',
+  salon: 'Salon',
+  driver: 'Driver',
+  mason_tiler: 'Mason & Tiler',
+  influencer: 'Influencer',
+  vehicle_cleaning: 'Vehicle Cleaning',
+  snake_catcher: 'Snake Catcher',
+  ambulance_services: 'Ambulance',
+  fire_brigade: 'Fire Brigade',
+  mortuary_van: 'Mortuary Van',
+  photographer: 'Photographer',
+  ac_repair: 'AC Repair',
+  cleaning: 'Cleaning',
+};
+
+/**
+ * Format service name - removes underscores and capitalizes
+ */
+const formatServiceName = (service) => {
+  if (SERVICE_LABELS[service]) return SERVICE_LABELS[service];
+  return service
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
 
 /**
  * Stats Card Component
@@ -74,14 +118,12 @@ const ActionCard = ({ iconName, title, subtitle, onPress, color }) => (
  */
 const ProviderHomeScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { user, profile, logout } = useApp();
+  const { user, profile, logout, updateProviderAvailability } = useApp();
 
-  // State - initialize from profile data
+  // State - derive from profile/user for single source of truth
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [isAvailable, setIsAvailable] = useState(
-    user?.isAvailable ?? profile?.isAvailable ?? user?.isOnline ?? profile?.isOnline ?? true
-  );
   const [refreshing, setRefreshing] = useState(false);
+  const [isUpdatingAvailability, setIsUpdatingAvailability] = useState(false);
   const [stats, setStats] = useState({
     pending: 0,
     completed: 0,
@@ -89,22 +131,48 @@ const ProviderHomeScreen = ({ navigation }) => {
     rating: 0,
   });
 
-  // Combined user data
+  // Combined user data - single source of truth for availability
   const displayData = { ...user, ...profile };
+  const isAvailable = displayData?.isAvailable ?? displayData?.isOnline ?? true;
 
   /**
-   * Fetch provider stats
+   * Fetch provider stats from API
    */
   const fetchStats = useCallback(async () => {
-    // TODO: Implement actual API call
-    setStats({
-      pending: user?.stats?.pendingRequests || profile?.stats?.pendingRequests || 0,
-      completed: user?.stats?.completedRequests || profile?.stats?.completedRequests || 0,
-      earnings: 0, // Will be implemented
-      rating: user?.rating || profile?.rating || 0,
-    });
-  }, [user?.stats?.pendingRequests, user?.stats?.completedRequests, user?.rating, 
-      profile?.stats?.pendingRequests, profile?.stats?.completedRequests, profile?.rating]);
+    const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+    if (!providerId) return;
+
+    try {
+      // Fetch provider's requests to calculate stats
+      const result = await getProviderRequests(providerId, { limit: 500 });
+      
+      if (result.success && result.requests) {
+        // Ensure requests is an array
+        const requests = Array.isArray(result.requests) ? result.requests : [];
+        const pendingCount = requests.filter(r => 
+          r.status === 'pending' || r.status === 'accepted'
+        ).length;
+        const completedCount = requests.filter(r => r.status === 'completed').length;
+        const rating = user?.rating || profile?.rating || 0;
+
+        setStats({
+          pending: pendingCount,
+          completed: completedCount,
+          earnings: 0, // Will be implemented with earnings API
+          rating: rating,
+        });
+      }
+    } catch (error) {
+      console.error('[ProviderHome] Error fetching stats:', error);
+      // Fallback to profile data
+      setStats({
+        pending: 0,
+        completed: 0,
+        earnings: 0,
+        rating: user?.rating || profile?.rating || 0,
+      });
+    }
+  }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id, user?.rating, profile?.rating]);
 
   /**
    * Handle refresh
@@ -116,39 +184,32 @@ const ProviderHomeScreen = ({ navigation }) => {
   };
 
   /**
-   * Handle availability toggle
+   * Handle availability toggle - uses centralized state management
    */
   const handleAvailabilityToggle = async (value) => {
-    const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+    if (isUpdatingAvailability) return; // Prevent double-tap
     
-    if (!providerId) {
-      Alert.alert('Error', 'Provider ID not found. Please log in again.');
-      return;
-    }
-    
-    // Optimistic update
-    setIsAvailable(value);
+    setIsUpdatingAvailability(true);
     
     try {
-      const result = await updateProviderOnlineStatus(providerId, value);
+      const result = await updateProviderAvailability(value);
       
       if (!result.success) {
-        // Revert on failure
-        setIsAvailable(!value);
-        Alert.alert('Error', result.error?.message || 'Failed to update availability');
+        Alert.alert('Error', result.error || 'Failed to update availability');
       } else {
         // Start/stop location tracking based on availability
-        if (value) {
+        const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+        if (value && providerId) {
           startLocationTracking(providerId);
         } else {
           stopLocationTracking();
         }
       }
     } catch (error) {
-      // Revert on error
-      setIsAvailable(!value);
       console.error('Failed to update availability:', error);
       Alert.alert('Error', 'Failed to update availability. Please try again.');
+    } finally {
+      setIsUpdatingAvailability(false);
     }
   };
 
@@ -162,18 +223,11 @@ const ProviderHomeScreen = ({ navigation }) => {
     await logout();
   };
 
-  // Update isAvailable when profile data changes
-  useEffect(() => {
-    const profileAvailable = user?.isAvailable ?? profile?.isAvailable ?? user?.isOnline ?? profile?.isOnline;
-    if (profileAvailable !== undefined) {
-      setIsAvailable(profileAvailable);
-    }
-  }, [user?.isAvailable, profile?.isAvailable, user?.isOnline, profile?.isOnline]);
-
   // Initialize socket and location tracking
   useEffect(() => {
     const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
     const token = user?.accessToken || profile?.accessToken;
+    const locationTrackingEnabled = displayData?.locationTracking?.enabled ?? true; // Default to true for backward compatibility
     
     if (providerId) {
       // Initialize socket connection (if token available)
@@ -181,16 +235,21 @@ const ProviderHomeScreen = ({ navigation }) => {
         initializeSocket('provider', providerId, token);
       }
       
-      // Start location tracking immediately for providers
-      // This ensures location is updated even on first app open
-      startLocationTracking(providerId);
+      // Only start location tracking if enabled in settings
+      if (locationTrackingEnabled) {
+        console.log('📍 [ProviderHome] Starting location tracking (enabled in settings)');
+        startLocationTracking(providerId);
+      } else {
+        console.log('📍 [ProviderHome] Location tracking disabled in settings, not starting');
+        stopLocationTracking();
+      }
     }
     
     // Cleanup on unmount
     return () => {
       stopLocationTracking();
     };
-  }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id]);
+  }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id, displayData?.locationTracking?.enabled]);
 
   useEffect(() => {
     fetchStats();
@@ -207,15 +266,19 @@ const ProviderHomeScreen = ({ navigation }) => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <MenuButton onPress={() => setIsDrawerOpen(true)} style={styles.headerMenuButton} />
+          <MenuButton onPress={() => setIsDrawerOpen(true)} />
           
           <View style={styles.headerContent}>
-            <Text style={styles.greeting}>Hello, {displayData?.fullName?.split(' ')[0] || 'Provider'}!</Text>
-            <Text style={styles.subGreeting}>Ready to help customers today?</Text>
+            <View style={styles.brandRow}>
+              <FixhomiLogo size={24} color={BRAND.primary} />
+              <Text style={styles.brandName}>FixHomi</Text>
+            </View>
+            <Text style={styles.greeting}>Hello, {displayData?.fullName?.split(' ')[0] || 'Provider'}</Text>
           </View>
 
           <AvatarButton 
             name={displayData?.fullName} 
+            profilePicture={displayData?.profilePicture}
             onPress={() => navigation.navigate('Profile')}
             isProvider={true}
           />
@@ -237,33 +300,34 @@ const ProviderHomeScreen = ({ navigation }) => {
           <Switch
             value={isAvailable}
             onValueChange={handleAvailabilityToggle}
-            trackColor={{ false: '#E5E7EB', true: '#86EFAC' }}
-            thumbColor={isAvailable ? '#22C55E' : '#9CA3AF'}
+            trackColor={{ false: '#E5E7EB', true: BRAND.primary + '50' }}
+            thumbColor={isAvailable ? BRAND.primary : '#9CA3AF'}
+            disabled={isUpdatingAvailability}
           />
         </View>
 
-        {/* Stats Grid */}
+        {/* Stats Grid - Unified Brand Colors */}
         <View style={styles.statsGrid}>
           <StatsCard
             iconName="clipboard-list"
             value={stats.pending}
             label="Pending"
-            color="#F59E0B"
-            bgColor="#FEF3C7"
+            color={BRAND.primary}
+            bgColor="#FFF7ED"
           />
           <StatsCard
             iconName="check-circle"
             value={stats.completed}
             label="Completed"
-            color="#22C55E"
-            bgColor="#DCFCE7"
+            color={BRAND.secondary}
+            bgColor="#EFF6FF"
           />
           <StatsCard
             iconName="star"
             value={stats.rating.toFixed(1)}
             label="Rating"
-            color="#3B82F6"
-            bgColor="#DBEAFE"
+            color={BRAND.primary}
+            bgColor="#FFF7ED"
           />
         </View>
 
@@ -272,28 +336,47 @@ const ProviderHomeScreen = ({ navigation }) => {
         
         <ActionCard
           iconName="clipboard-list"
-          title="View Service Requests"
-          subtitle="See incoming customer requests"
-          onPress={() => navigation.navigate('ProviderRequests')}
-          color="#3B82F6"
+          title="My Jobs"
+          subtitle="View requests, active jobs & history"
+          onPress={() => navigation.navigate('ProviderJobs')}
+          color={BRAND.secondary}
         />
 
-        <ActionCard
-          iconName="history"
-          title="Service History"
-          subtitle="View your completed services"
-          onPress={() => navigation.navigate('ProviderServiceHistory')}
-          color="#8B5CF6"
-        />
-
-        {/* Service Categories */}
+        {/* Service Categories - Only show verified services */}
         <Text style={styles.sectionTitle}>Your Services</Text>
         <View style={styles.servicesContainer}>
-          {(displayData?.serviceCategories || ['plumber', 'electrician']).map((cat, index) => (
-            <View key={index} style={styles.serviceTag}>
-              <Text style={styles.serviceTagText}>{cat}</Text>
-            </View>
-          ))}
+          {/* Show Verified Services */}
+          {(displayData?.verifiedServiceCategories?.length > 0) && (
+            displayData.verifiedServiceCategories.map((cat, index) => (
+              <View key={`verified-${index}`} style={styles.serviceTag}>
+                <Icon name="verified" size={12} color={BRAND.secondary} />
+                <Text style={styles.serviceTagText}>{formatServiceName(cat)}</Text>
+              </View>
+            ))
+          )}
+          {/* Show Pending Services (in serviceCategories but not in verifiedServiceCategories) */}
+          {(displayData?.serviceCategories?.length > 0) && (
+            displayData.serviceCategories
+              .filter(cat => !(displayData?.verifiedServiceCategories || []).includes(cat))
+              .map((cat, index) => (
+                <View key={`pending-${index}`} style={[styles.serviceTag, styles.serviceTagPending]}>
+                  <Icon name="clock" size={12} color={BRAND.primary} />
+                  <Text style={[styles.serviceTagText, styles.serviceTagTextPending]}>{formatServiceName(cat)}</Text>
+                  <Text style={styles.pendingBadge}>Pending</Text>
+                </View>
+              ))
+          )}
+          {/* Show Add Services button only if no services at all */}
+          {(!displayData?.verifiedServiceCategories?.length && !displayData?.serviceCategories?.length) && (
+            <TouchableOpacity 
+              style={styles.noServicesCard}
+              onPress={() => navigation.navigate('DocumentVerification')}
+              activeOpacity={0.8}
+            >
+              <Icon name="add-circle" size={20} color={BRAND.primary} />
+              <Text style={styles.noServicesText}>Get verified for services</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Tips Section */}
@@ -325,7 +408,7 @@ const ProviderHomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: BRAND.background,
   },
   scrollView: {
     flex: 1,
@@ -339,41 +422,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 24,
-  },
-  menuButton: {
-    width: 44,
-    height: 44,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    marginRight: 14,
-  },
-  menuLine: {
-    width: 18,
-    height: 2,
-    backgroundColor: '#374151',
-    borderRadius: 1,
-    marginVertical: 1.5,
-  },
-  menuLineMiddle: {
-    width: 14,
+    gap: 12,
   },
   headerContent: {
     flex: 1,
+    marginLeft: 4,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  brandName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: BRAND.primary,
+    letterSpacing: 0.5,
   },
   greeting: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
     color: '#1F2937',
   },
   subGreeting: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#6B7280',
     marginTop: 2,
   },
@@ -396,7 +469,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: BRAND.white,
     borderRadius: 16,
     padding: 16,
     marginBottom: 20,
@@ -418,7 +491,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   availabilityDotOnline: {
-    backgroundColor: '#22C55E',
+    backgroundColor: BRAND.primary,
   },
   availabilityTitle: {
     fontSize: 16,
@@ -434,34 +507,36 @@ const styles = StyleSheet.create({
   // Stats Grid
   statsGrid: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
     marginBottom: 24,
   },
   statsCard: {
     flex: 1,
-    padding: 16,
-    borderRadius: 16,
+    padding: 12,
+    borderRadius: 14,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.04)',
   },
   statsIcon: {
     fontSize: 24,
     marginBottom: 8,
   },
   statsValue: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700',
   },
   statsLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#6B7280',
-    marginTop: 4,
+    marginTop: 2,
   },
 
   // Section Title
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#1F2937',
+    color: '#374151',
     marginBottom: 12,
   },
 
@@ -517,25 +592,66 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   serviceTag: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: BRAND.secondary + '30',
+  },
+  serviceTagPending: {
+    backgroundColor: '#FFF7ED',
+    borderColor: BRAND.primary + '30',
   },
   serviceTagText: {
-    fontSize: 13,
-    color: '#B45309',
+    fontSize: 12,
+    color: BRAND.secondary,
     fontWeight: '600',
-    textTransform: 'capitalize',
+  },
+  serviceTagTextPending: {
+    color: BRAND.primary,
+  },
+  pendingBadge: {
+    fontSize: 9,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    backgroundColor: BRAND.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 4,
+    textTransform: 'uppercase',
+  },
+  noServicesCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: BRAND.white,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: BRAND.primary + '40',
+    borderStyle: 'dashed',
+  },
+  noServicesText: {
+    fontSize: 13,
+    color: BRAND.primary,
+    fontWeight: '600',
   },
 
   // Tips Card
   tipsCard: {
     flexDirection: 'row',
-    backgroundColor: '#EFF6FF',
+    backgroundColor: BRAND.primary + '10',
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: BRAND.primary + '20',
   },
   tipsIcon: {
     fontSize: 24,
@@ -547,12 +663,12 @@ const styles = StyleSheet.create({
   tipsTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1E40AF',
+    color: BRAND.primary,
     marginBottom: 4,
   },
   tipsText: {
     fontSize: 13,
-    color: '#3B82F6',
+    color: '#6B7280',
     lineHeight: 18,
   },
 

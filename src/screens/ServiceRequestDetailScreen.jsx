@@ -11,7 +11,7 @@
  * @version 1.0.0
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -24,10 +24,15 @@ import {
   RefreshControl,
   Platform,
   TextInput,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { Icon, ServiceIcon, StatusIcon } from '../components';
+import Mapbox from '@rnmapbox/maps';
+
+// Initialize Mapbox
+Mapbox.setAccessToken('MAPBOX_TOKEN_REMOVED');
 import { 
   getRequestDetails,
   cancelRequest,
@@ -36,11 +41,22 @@ import {
   SERVICE_TYPE_LABELS,
 } from '../services/traditionalServiceService';
 
-// Status configuration
+// Brand colors
+const BRAND = {
+  primary: '#f67c16', // Orange
+  secondary: '#2b76bc', // Blue
+  background: '#faf7f7',
+  white: '#FFFFFF',
+  neutral: '#6B7280',
+  success: '#10B981',
+  danger: '#EF4444',
+};
+
+// Status configuration - unified brand palette
 const STATUS_CONFIG = {
   pending: {
     label: 'Pending',
-    color: '#F59E0B',
+    color: BRAND.primary,
     bgColor: '#FEF3C7',
     iconName: 'clock',
     description: 'Waiting for a provider to accept your request',
@@ -48,7 +64,7 @@ const STATUS_CONFIG = {
   },
   accepted: {
     label: 'Accepted',
-    color: '#3B82F6',
+    color: BRAND.secondary,
     bgColor: '#DBEAFE',
     iconName: 'check',
     description: 'A provider has accepted your request',
@@ -56,15 +72,15 @@ const STATUS_CONFIG = {
   },
   'in-progress': {
     label: 'In Progress',
-    color: '#8B5CF6',
-    bgColor: '#EDE9FE',
+    color: BRAND.secondary,
+    bgColor: '#DBEAFE',
     iconName: 'wrench',
     description: 'The service is currently being performed',
     step: 3,
   },
   completed: {
     label: 'Completed',
-    color: '#10B981',
+    color: BRAND.success,
     bgColor: '#D1FAE5',
     iconName: 'check-circle',
     description: 'The service has been successfully completed',
@@ -72,7 +88,7 @@ const STATUS_CONFIG = {
   },
   cancelled: {
     label: 'Cancelled',
-    color: '#EF4444',
+    color: BRAND.danger,
     bgColor: '#FEE2E2',
     iconName: 'close',
     description: 'This request was cancelled',
@@ -80,7 +96,7 @@ const STATUS_CONFIG = {
   },
   rejected: {
     label: 'Rejected',
-    color: '#6B7280',
+    color: BRAND.neutral,
     bgColor: '#F3F4F6',
     iconName: 'block',
     description: 'No providers were available for this request',
@@ -139,7 +155,7 @@ const StatusTimeline = ({ currentStatus }) => {
                 isCurrent && styles.timelineCircleCurrent,
               ]}>
                 {isCompleted ? (
-                  <Icon name="check" size={16} color="#FFFFFF" />
+                  <Icon name="check" size={16} color={BRAND.white} />
                 ) : (
                   <Text style={[
                     styles.timelineNumber,
@@ -217,7 +233,7 @@ const OtpDisplay = ({ otp, expiresAt, onResend }) => {
     <View style={styles.otpDisplayContainer}>
       <View style={styles.otpHeader}>
         <View style={styles.otpTitleRow}>
-          <Icon name="lock" size={20} color="#007AFF" />
+          <Icon name="lock" size={20} color={BRAND.secondary} />
           <Text style={styles.otpTitle}>Completion OTP</Text>
         </View>
         <Text style={styles.otpSubtitle}>Share this code with your provider</Text>
@@ -226,8 +242,8 @@ const OtpDisplay = ({ otp, expiresAt, onResend }) => {
       <TouchableOpacity style={styles.otpCodeBox} onPress={handleCopy} activeOpacity={0.7}>
         <Text style={styles.otpCode}>{otp}</Text>
         <View style={styles.otpCopyBadge}>
-          <Icon name={copied ? 'check' : 'copy'} size={14} color={copied ? '#10B981' : '#6B7280'} />
-          <Text style={[styles.otpCopyText, copied && { color: '#10B981' }]}>
+          <Icon name={copied ? 'check' : 'copy'} size={14} color={copied ? BRAND.success : BRAND.neutral} />
+          <Text style={[styles.otpCopyText, copied && { color: BRAND.success }]}>
             {copied ? 'Copied!' : 'Tap to copy'}
           </Text>
         </View>
@@ -306,6 +322,185 @@ const ProviderCard = ({ provider, onCall, onGetLocation }) => {
         )}
       </View>
     </View>
+  );
+};
+
+/**
+ * Location Map Preview Component
+ * Shows an interactive mini-map with the service location pinned
+ */
+const LocationMapPreview = ({ location, address }) => {
+  const [mapExpanded, setMapExpanded] = useState(false);
+  const [mapLoading, setMapLoading] = useState(true);
+  
+  // Check if we have valid coordinates
+  const hasCoordinates = location?.coordinates && 
+    Array.isArray(location.coordinates) && 
+    location.coordinates.length === 2;
+  
+  if (!hasCoordinates) {
+    // Fallback to address-only display if no coordinates
+    return (
+      <View style={styles.locationCard}>
+        <Text style={styles.sectionTitle}>Service Location</Text>
+        <View style={styles.locationContent}>
+          <Icon name="location" size={20} color="#EF4444" />
+          <Text style={styles.locationAddress}>{address}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const [lng, lat] = location.coordinates;
+  
+  const handleGetDirections = () => {
+    const label = encodeURIComponent(address || 'Service Location');
+    const url = Platform.select({
+      ios: `maps:0,0?q=${lat},${lng}(${label})`,
+      android: `geo:${lat},${lng}?q=${lat},${lng}(${label})`,
+    });
+    Linking.openURL(url).catch(() => {
+      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`);
+    });
+  };
+
+  return (
+    <>
+      <View style={styles.locationCard}>
+        <View style={styles.locationCardHeader}>
+          <Text style={styles.sectionTitle}>Service Location</Text>
+          <TouchableOpacity 
+            style={styles.expandMapButton}
+            onPress={() => setMapExpanded(true)}
+          >
+            <Icon name="zoom-in" size={16} color={BRAND.secondary} />
+            <Text style={styles.expandMapText}>Expand</Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Mini Map Preview */}
+        <TouchableOpacity 
+          style={styles.mapPreviewContainer}
+          onPress={() => setMapExpanded(true)}
+          activeOpacity={0.9}
+        >
+          {mapLoading && (
+            <View style={styles.mapLoadingOverlay}>
+              <ActivityIndicator size="small" color={BRAND.secondary} />
+            </View>
+          )}
+          <Mapbox.MapView
+            style={styles.mapPreview}
+            styleURL={Mapbox.StyleURL.Street}
+            scrollEnabled={false}
+            pitchEnabled={false}
+            rotateEnabled={false}
+            zoomEnabled={false}
+            onDidFinishLoadingMap={() => setMapLoading(false)}
+          >
+            <Mapbox.Camera
+              centerCoordinate={[lng, lat]}
+              zoomLevel={15}
+              animationDuration={0}
+            />
+            {/* Location Pin */}
+            <Mapbox.PointAnnotation
+              id="service-location"
+              coordinate={[lng, lat]}
+            >
+              <View style={styles.mapPinContainer}>
+                <View style={styles.mapPin}>
+                  <Icon name="location" size={20} color="#FFFFFF" />
+                </View>
+                <View style={styles.mapPinShadow} />
+              </View>
+            </Mapbox.PointAnnotation>
+          </Mapbox.MapView>
+          
+          {/* Overlay hint */}
+          <View style={styles.mapPreviewHint}>
+            <Icon name="touch" size={14} color="#FFFFFF" />
+            <Text style={styles.mapPreviewHintText}>Tap to view full map</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Address */}
+        <View style={styles.locationContent}>
+          <Icon name="location" size={18} color="#EF4444" />
+          <Text style={styles.locationAddress}>{address}</Text>
+        </View>
+        
+        {/* Get Directions Button */}
+        <TouchableOpacity
+          style={styles.directionsButton}
+          onPress={handleGetDirections}
+          activeOpacity={0.7}
+        >
+          <Icon name="directions" size={18} color="#FFFFFF" />
+          <Text style={styles.directionsButtonText}>Get Directions</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Fullscreen Map Modal */}
+      <Modal
+        visible={mapExpanded}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setMapExpanded(false)}
+      >
+        <View style={styles.fullMapContainer}>
+          <Mapbox.MapView
+            style={styles.fullMap}
+            styleURL={Mapbox.StyleURL.Street}
+          >
+            <Mapbox.Camera
+              centerCoordinate={[lng, lat]}
+              zoomLevel={16}
+              animationDuration={500}
+            />
+            {/* Location Pin */}
+            <Mapbox.PointAnnotation
+              id="service-location-full"
+              coordinate={[lng, lat]}
+            >
+              <View style={styles.fullMapPinContainer}>
+                <View style={styles.fullMapPin}>
+                  <Icon name="location" size={28} color="#FFFFFF" />
+                </View>
+                <View style={styles.fullMapPinShadow} />
+              </View>
+            </Mapbox.PointAnnotation>
+          </Mapbox.MapView>
+          
+          {/* Top Bar */}
+          <View style={styles.fullMapTopBar}>
+            <TouchableOpacity 
+              style={styles.fullMapCloseButton}
+              onPress={() => setMapExpanded(false)}
+            >
+              <Icon name="close" size={24} color="#1F2937" />
+            </TouchableOpacity>
+            <Text style={styles.fullMapTitle}>Service Location</Text>
+            <View style={{ width: 40 }} />
+          </View>
+          
+          {/* Bottom Card */}
+          <View style={styles.fullMapBottomCard}>
+            <View style={styles.fullMapAddressRow}>
+              <Icon name="location" size={20} color="#EF4444" />
+              <Text style={styles.fullMapAddress} numberOfLines={2}>{address}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.fullMapDirectionsButton}
+              onPress={handleGetDirections}
+            >
+              <Icon name="directions" size={20} color="#FFFFFF" />
+              <Text style={styles.fullMapDirectionsText}>Get Directions</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 };
 
@@ -435,38 +630,24 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   }, []);
 
   /**
-   * Handle get provider location - opens map with provider's location
+   * Handle get provider location - navigates to live tracking screen
    */
   const handleGetProviderLocation = useCallback(() => {
     const provider = request?.providerDetails;
     
-    if (!provider?.location) {
-      Alert.alert('Location Not Available', 'Provider location is not available at the moment.');
+    if (!provider) {
+      Alert.alert('Location Not Available', 'Provider information is not available at the moment.');
       return;
     }
 
-    const { latitude, longitude, lat, lng } = provider.location;
-    const providerLat = latitude || lat;
-    const providerLng = longitude || lng;
-
-    if (!providerLat || !providerLng) {
-      Alert.alert('Location Not Available', 'Provider has not shared their location yet.');
-      return;
-    }
-
-    const label = encodeURIComponent(`${provider.name || 'Provider'} Location`);
-    
-    // Open in native maps
-    const url = Platform.select({
-      ios: `maps:0,0?q=${providerLat},${providerLng}(${label})`,
-      android: `geo:${providerLat},${providerLng}?q=${providerLat},${providerLng}(${label})`,
+    // Navigate to LiveTrackingScreen
+    navigation.navigate('LiveTracking', {
+      requestId: request._id,
+      providerId: provider._id || provider.providerId,
+      providerName: provider.name,
+      serviceCategory: request.serviceCategory || request.category,
     });
-    
-    Linking.openURL(url).catch(() => {
-      // Fallback to Google Maps web
-      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${providerLat},${providerLng}`);
-    });
-  }, [request?.providerDetails]);
+  }, [request, navigation]);
 
   /**
    * Handle resend OTP
@@ -773,39 +954,12 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           )}
         </View>
 
-        {/* Location */}
+        {/* Location with Map Preview */}
         {request.location?.address && (
-          <View style={styles.locationCard}>
-            <Text style={styles.sectionTitle}>Service Location</Text>
-            <View style={styles.locationContent}>
-              <Icon name="location" size={20} color="#EF4444" />
-              <Text style={styles.locationAddress}>{request.location.address}</Text>
-            </View>
-            
-            {/* Get Directions Button */}
-            {request.location?.coordinates && (
-              <TouchableOpacity
-                style={styles.directionsButton}
-                onPress={() => {
-                  const [lng, lat] = request.location.coordinates;
-                  const label = encodeURIComponent(request.location.address || 'Service Location');
-                  // Open in Google Maps
-                  const url = Platform.select({
-                    ios: `maps:0,0?q=${lat},${lng}(${label})`,
-                    android: `geo:${lat},${lng}?q=${lat},${lng}(${label})`,
-                  });
-                  Linking.openURL(url).catch(() => {
-                    // Fallback to Google Maps web
-                    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`);
-                  });
-                }}
-                activeOpacity={0.7}
-              >
-                <Icon name="directions" size={18} color="#FFFFFF" />
-                <Text style={styles.directionsButtonText}>Get Directions</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          <LocationMapPreview 
+            location={request.location}
+            address={request.location.address}
+          />
         )}
 
         {/* Pricing (if available) */}
@@ -1049,7 +1203,7 @@ const styles = StyleSheet.create({
     zIndex: -1,
   },
   timelineConnectorActive: {
-    backgroundColor: '#10B981',
+    backgroundColor: BRAND.success,
   },
   timelineCircle: {
     width: 32,
@@ -1063,15 +1217,15 @@ const styles = StyleSheet.create({
   },
   timelineCircleActive: {
     backgroundColor: '#D1FAE5',
-    borderColor: '#10B981',
+    borderColor: BRAND.success,
   },
   timelineCircleCurrent: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
+    backgroundColor: BRAND.secondary,
+    borderColor: BRAND.secondary,
   },
   timelineCheck: {
     fontSize: 14,
-    color: '#10B981',
+    color: BRAND.success,
     fontWeight: '700',
   },
   timelineNumber: {
@@ -1080,7 +1234,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   timelineNumberActive: {
-    color: '#FFFFFF',
+    color: BRAND.white,
   },
   timelineLabel: {
     marginTop: 8,
@@ -1108,12 +1262,12 @@ const styles = StyleSheet.create({
 
   // OTP Display
   otpDisplayContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: BRAND.white,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     borderWidth: 2,
-    borderColor: '#2563EB',
+    borderColor: BRAND.secondary,
   },
   otpHeader: {
     marginBottom: 12,
@@ -1121,15 +1275,15 @@ const styles = StyleSheet.create({
   otpTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1E40AF',
+    color: BRAND.secondary,
     marginBottom: 4,
   },
   otpSubtitle: {
     fontSize: 13,
-    color: '#6B7280',
+    color: BRAND.neutral,
   },
   otpCodeBox: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: BRAND.secondary + '10',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
@@ -1138,19 +1292,19 @@ const styles = StyleSheet.create({
   otpCode: {
     fontSize: 32,
     fontWeight: '700',
-    color: '#2563EB',
+    color: BRAND.secondary,
     letterSpacing: 8,
     marginBottom: 8,
   },
   otpCopyBadge: {
-    backgroundColor: '#DBEAFE',
+    backgroundColor: BRAND.secondary + '20',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
   },
   otpCopyText: {
     fontSize: 12,
-    color: '#2563EB',
+    color: BRAND.secondary,
     fontWeight: '500',
   },
   otpExpiryContainer: {
@@ -1237,7 +1391,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#2563EB',
+    backgroundColor: BRAND.secondary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1245,7 +1399,7 @@ const styles = StyleSheet.create({
   providerInitial: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: BRAND.white,
   },
   providerInfo: {
     flex: 1,
@@ -1260,7 +1414,7 @@ const styles = StyleSheet.create({
   },
   providerRatingText: {
     fontSize: 13,
-    color: '#B45309',
+    color: BRAND.primary,
   },
   providerActionsRow: {
     flexDirection: 'row',
@@ -1273,7 +1427,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#10B981',
+    backgroundColor: BRAND.success,
     borderRadius: 8,
     padding: 12,
   },
@@ -1282,7 +1436,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   callButtonText: {
-    color: '#FFFFFF',
+    color: BRAND.white,
     fontWeight: '600',
     fontSize: 14,
   },
@@ -1292,12 +1446,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#3B82F6',
+    backgroundColor: BRAND.secondary,
     borderRadius: 8,
     padding: 12,
   },
   locationButtonText: {
-    color: '#FFFFFF',
+    color: BRAND.white,
     fontWeight: '600',
     fontSize: 14,
   },
@@ -1342,9 +1496,89 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
   },
+  locationCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  expandMapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 16,
+    gap: 4,
+  },
+  expandMapText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: BRAND.secondary,
+  },
+  mapPreviewContainer: {
+    height: 160,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 12,
+    backgroundColor: '#F3F4F6',
+  },
+  mapPreview: {
+    flex: 1,
+  },
+  mapLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  mapPinContainer: {
+    alignItems: 'center',
+  },
+  mapPin: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  mapPinShadow: {
+    width: 12,
+    height: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    marginTop: 2,
+  },
+  mapPreviewHint: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  mapPreviewHintText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#FFFFFF',
+  },
   locationContent: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    marginBottom: 12,
   },
   locationIcon: {
     fontSize: 20,
@@ -1355,6 +1589,110 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#374151',
     lineHeight: 22,
+    marginLeft: 8,
+  },
+
+  // Fullscreen Map Modal
+  fullMapContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  fullMap: {
+    flex: 1,
+  },
+  fullMapPinContainer: {
+    alignItems: 'center',
+  },
+  fullMapPin: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  fullMapPinShadow: {
+    width: 16,
+    height: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    marginTop: 4,
+  },
+  fullMapTopBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 50,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+  },
+  fullMapCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullMapTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  fullMapBottomCard: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    paddingTop: 20,
+    paddingBottom: 36,
+    paddingHorizontal: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  fullMapAddressRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    gap: 10,
+  },
+  fullMapAddress: {
+    flex: 1,
+    fontSize: 15,
+    color: '#374151',
+    lineHeight: 22,
+  },
+  fullMapDirectionsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: BRAND.secondary,
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  fullMapDirectionsText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 
   // Pricing Card
@@ -1393,7 +1731,7 @@ const styles = StyleSheet.create({
   priceValueFinal: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#10B981',
+    color: BRAND.success,
   },
 
   // Completed Banner
@@ -1434,12 +1772,12 @@ const styles = StyleSheet.create({
   cancelButtonWarning: {
     backgroundColor: '#FEF3C7',
     borderWidth: 1,
-    borderColor: '#F59E0B',
+    borderColor: BRAND.primary,
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#DC2626',
+    color: BRAND.danger,
   },
 
   // Customer Details (for provider view)
@@ -1452,7 +1790,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#10B981',
+    backgroundColor: BRAND.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1460,7 +1798,7 @@ const styles = StyleSheet.create({
   customerInitial: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: BRAND.white,
   },
   customerDetails: {
     flex: 1,
@@ -1472,7 +1810,7 @@ const styles = StyleSheet.create({
   },
   customerEmail: {
     fontSize: 14,
-    color: '#6B7280',
+    color: BRAND.neutral,
     marginTop: 2,
   },
   callCustomerButton: {
@@ -1480,12 +1818,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#10B981',
+    backgroundColor: BRAND.success,
     borderRadius: 12,
     paddingVertical: 12,
   },
   callCustomerButtonText: {
-    color: '#FFFFFF',
+    color: BRAND.white,
     fontSize: 14,
     fontWeight: '600',
   },

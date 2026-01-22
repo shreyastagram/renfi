@@ -18,7 +18,7 @@ import {
   Platform,
   TouchableOpacity,
 } from 'react-native';
-import { Button, Input, Alert } from '../components';
+import { Button, Input, Alert, FixhomiLogo } from '../components';
 import { 
   sendPhoneLoginOtp, 
   sendEmailLoginOtp, 
@@ -198,6 +198,8 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
         >
           {/* Header */}
           <View style={styles.header}>
+            <FixhomiLogo size={56} color="#f67c16" />
+            <Text style={styles.brandName}>FixHomi</Text>
             <Text style={styles.title}>Sign In with OTP</Text>
             <Text style={styles.subtitle}>
               We'll send a one-time password to your {method === 'phone' ? 'phone' : 'email'}
@@ -315,9 +317,18 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 24,
+    alignItems: 'center',
+  },
+  brandName: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#f67c16',
+    marginTop: 8,
+    marginBottom: 16,
+    letterSpacing: 1,
   },
   title: {
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: 'bold',
     color: '#1F2937',
     marginBottom: 8,

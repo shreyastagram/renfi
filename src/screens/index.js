@@ -36,10 +36,18 @@ export { default as ProviderHomeScreen } from './ProviderHomeScreen';
 export { default as CreateServiceRequestScreen } from './CreateServiceRequestScreen';
 export { default as UserServiceHistoryScreen } from './UserServiceHistoryScreen';
 export { default as ServiceRequestDetailScreen } from './ServiceRequestDetailScreen';
+export { default as LiveTrackingScreen } from './LiveTrackingScreen';
 
 // Service Requests - Provider
 export { default as ProviderRequestsScreen } from './ProviderRequestsScreen';
 export { default as ProviderServiceHistoryScreen } from './ProviderServiceHistoryScreen';
+export { default as ProviderJobsScreen } from './ProviderJobsScreen';
 
 // Settings
 export { default as SettingsScreen } from './SettingsScreen';
+
+// Document Verification
+export { default as DocumentVerificationScreen } from './DocumentVerificationScreen';
+
+// Service Approvals (RSAS)
+export { default as ServiceApprovalsScreen } from './ServiceApprovalsScreen';

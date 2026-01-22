@@ -7,7 +7,7 @@
  * - Select location on map
  * - Select from saved addresses (like Ola/Uber)
  * 
- * @version 3.0.0 - Mapbox Geocoding + Saved Addresses
+ * @version 5.0.0 - MapPickerModal Integration + Improved Location
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
@@ -30,11 +30,22 @@ import {
 import Geolocation from '@react-native-community/geolocation';
 import Icon from './Icon';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import MapPickerModal from './MapPickerModal';
+import { useApp } from '../context/AppContext';
+import { getSavedAddresses } from '../services/addressService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Mapbox Access Token (same as used in LocationMap)
 const MAPBOX_ACCESS_TOKEN = 'MAPBOX_TOKEN_REMOVED';
+
+// Brand colors
+const BRAND = {
+  primary: '#f67c16',
+  secondary: '#2b76bc',
+  background: '#faf7f7',
+  white: '#FFFFFF',
+};
 
 /**
  * Request location permission (Android)
@@ -232,6 +243,67 @@ const SearchResultItem = ({ result, onSelect }) => (
 );
 
 /**
+ * Saved Address Item (like Ola/Uber)
+ */
+const SavedAddressItem = ({ address, onSelect }) => {
+  const getTypeIcon = (type) => {
+    switch (type) {
+      case 'home': return 'home';
+      case 'work': return 'work';
+      default: return 'location';
+    }
+  };
+  
+  const getTypeColor = (type) => {
+    switch (type) {
+      case 'home': return '#3B82F6';
+      case 'work': return '#8B5CF6';
+      default: return '#6B7280';
+    }
+  };
+  
+  return (
+    <TouchableOpacity 
+      style={styles.savedAddressItem} 
+      onPress={() => onSelect({
+        latitude: address.location?.coordinates?.[1] || address.latitude,
+        longitude: address.location?.coordinates?.[0] || address.longitude,
+        address: address.fullAddress || address.address,
+        shortAddress: address.label || address.addressLine1,
+        addressLine1: address.addressLine1 || '',
+        city: address.city || '',
+        state: address.state || '',
+        pincode: address.pincode || '',
+        isCurrentLocation: false,
+        isSavedAddress: true,
+        savedAddressId: address._id,
+      })}
+    >
+      <View style={[styles.savedAddressIconContainer, { backgroundColor: `${getTypeColor(address.type)}15` }]}>
+        <MaterialIcon name={getTypeIcon(address.type)} size={22} color={getTypeColor(address.type)} />
+      </View>
+      <View style={styles.savedAddressContent}>
+        <View style={styles.savedAddressHeader}>
+          <Text style={styles.savedAddressLabel}>{address.label}</Text>
+          <View style={[styles.savedAddressTypeBadge, { backgroundColor: `${getTypeColor(address.type)}15` }]}>
+            <Text style={[styles.savedAddressTypeText, { color: getTypeColor(address.type) }]}>
+              {address.type?.charAt(0).toUpperCase() + address.type?.slice(1)}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.savedAddressText} numberOfLines={1}>
+          {address.addressLine1}
+        </Text>
+        <Text style={styles.savedAddressSubtext} numberOfLines={1}>
+          {[address.city, address.state].filter(Boolean).join(', ')}
+        </Text>
+      </View>
+      <MaterialIcon name="chevron-right" size={24} color="#D1D5DB" />
+    </TouchableOpacity>
+  );
+};
+
+/**
  * Location Picker Component
  * 
  * @param {Object} value - Selected location { latitude, longitude, address }
@@ -260,19 +332,53 @@ const LocationPicker = ({
     }
   }, [onChangeProp, onLocationChange]);
   
+  const { user, profile } = useApp();
+  
+  // Get user ID for saved addresses (supports various ID fields)
+  // Priority: mongoId > _id > id (covers both user and provider profiles)
+  const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id || profile?.id;
+  
+  // Debug logging for userId resolution
+  useEffect(() => {
+    console.log('📍 [LocationPicker] User ID resolution:', {
+      'user?.mongoId': user?.mongoId,
+      'profile?.mongoId': profile?.mongoId,
+      'user?._id': user?._id,
+      'profile?._id': profile?._id,
+      'profile?.id': profile?.id,
+      'resolved userId': userId,
+    });
+  }, [user, profile, userId]);
+  
   const [locationType, setLocationType] = useState('current'); // 'current' or 'other'
   const [showModal, setShowModal] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
   const [internalValue, setInternalValue] = useState(value);
   
+  // Saved addresses state
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [loadingSavedAddresses, setLoadingSavedAddresses] = useState(false);
+  
   // Use internal value if no value prop provided
   const displayValue = value || internalValue;
   
   const searchTimeoutRef = useRef(null);
   const locationWatchRef = useRef(null);
+  
+  /**
+   * Handle map picker location selection
+   */
+  const handleMapPickerSelect = useCallback((location) => {
+    setLocationType('other');
+    setInternalValue(location);
+    handleChange(location);
+    setShowMapPicker(false);
+    setShowModal(false);
+  }, [handleChange]);
   
   /**
    * Industry-grade location strategy (like Uber/Ola):
@@ -300,98 +406,109 @@ const LocationPicker = ({
     // Clear any existing watch
     if (locationWatchRef.current !== null) {
       Geolocation.clearWatch(locationWatchRef.current);
+      locationWatchRef.current = null;
     }
     
     let locationReceived = false;
     
-    // Use watchPosition for instant location (like Uber/Ola)
-    const watchId = Geolocation.watchPosition(
-      async (position) => {
-        const { latitude, longitude, accuracy } = position.coords;
-        console.log('📍 Location update:', latitude.toFixed(6), longitude.toFixed(6), 'accuracy:', accuracy?.toFixed(0) || 'unknown', 'm');
-        
-        // Accept first location immediately
-        if (!locationReceived) {
-          locationReceived = true;
-          const locationData = await reverseGeocode(latitude, longitude);
-          locationData.isCurrentLocation = true;
-          locationData.accuracy = accuracy;
-          setInternalValue(locationData);
-          handleChange(locationData);
-          setGettingLocation(false);
-          
-          // Stop watching once we have a location
-          Geolocation.clearWatch(watchId);
-          locationWatchRef.current = null;
-        }
-      },
-      (error) => {
-        console.warn('📍 Location watch error:', error.message);
-        
-        if (!locationReceived) {
-          // Fallback to provided currentLocation or show error
-          if (currentLocation) {
-            const locationData = {
-              latitude: currentLocation.latitude,
-              longitude: currentLocation.longitude,
-              address: 'Current location',
-              shortAddress: 'My location',
-              isCurrentLocation: true,
-            };
-            setInternalValue(locationData);
-            handleChange(locationData);
-          } else if (error.code === 1) {
-            Alert.alert(
-              'Permission Denied',
-              'Please enable location access in your device settings.',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Open Settings', onPress: () => Linking.openSettings() },
-              ]
-            );
-          } else {
-            showLocationSettingsAlert();
+    /**
+     * Multi-strategy location fetching (like Uber/Ola):
+     * 1. First try getCurrentPosition with high accuracy (quick if GPS is warm)
+     * 2. If that times out, try with low accuracy (faster network-based)
+     * 3. If all fail, use context currentLocation as fallback
+     */
+    const handleLocationSuccess = async (position) => {
+      if (locationReceived) return;
+      locationReceived = true;
+      
+      const { latitude, longitude, accuracy } = position.coords;
+      console.log('📍 Location success:', latitude.toFixed(6), longitude.toFixed(6), 'accuracy:', accuracy?.toFixed(0) || 'unknown', 'm');
+      
+      try {
+        const locationData = await reverseGeocode(latitude, longitude);
+        locationData.isCurrentLocation = true;
+        locationData.accuracy = accuracy;
+        setInternalValue(locationData);
+        handleChange(locationData);
+      } catch (err) {
+        // Even if geocoding fails, use the coordinates
+        const locationData = {
+          latitude,
+          longitude,
+          address: 'Current location',
+          shortAddress: 'My location',
+          isCurrentLocation: true,
+        };
+        setInternalValue(locationData);
+        handleChange(locationData);
+      }
+      setGettingLocation(false);
+    };
+    
+    const handleLocationError = (error, isHighAccuracy = true) => {
+      console.warn('📍 Location error:', error.message, 'code:', error.code, 'highAccuracy:', isHighAccuracy);
+      
+      // If high accuracy failed, try low accuracy
+      if (isHighAccuracy && !locationReceived) {
+        console.log('📍 Trying low accuracy location...');
+        Geolocation.getCurrentPosition(
+          handleLocationSuccess,
+          (lowAccErr) => {
+            console.warn('📍 Low accuracy also failed:', lowAccErr.message);
+            fallbackToContext();
+          },
+          {
+            enableHighAccuracy: false,
+            timeout: 8000,
+            maximumAge: 60000, // Accept cached location up to 1 minute old
           }
-          setGettingLocation(false);
-        }
-        
-        Geolocation.clearWatch(watchId);
-        locationWatchRef.current = null;
-      },
+        );
+        return;
+      }
+      
+      fallbackToContext();
+    };
+    
+    const fallbackToContext = () => {
+      if (locationReceived) return;
+      locationReceived = true;
+      
+      if (currentLocation?.latitude && currentLocation?.longitude) {
+        console.log('📍 Using context location as fallback');
+        const locationData = {
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+          address: 'Current location',
+          shortAddress: 'My location',
+          isCurrentLocation: true,
+        };
+        setInternalValue(locationData);
+        handleChange(locationData);
+        setGettingLocation(false);
+      } else {
+        setGettingLocation(false);
+        Alert.alert(
+          'Location Unavailable',
+          'Could not determine your location. Please ensure GPS is enabled or search for your location manually.',
+          [
+            { text: 'Search Manually', onPress: () => setShowModal(true) },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          ]
+        );
+      }
+    };
+    
+    // Start with high accuracy (fast if GPS is ready)
+    console.log('📍 Trying high accuracy location...');
+    Geolocation.getCurrentPosition(
+      handleLocationSuccess,
+      (error) => handleLocationError(error, true),
       {
         enableHighAccuracy: true,
-        distanceFilter: 10,
-        interval: 1000,
-        fastestInterval: 500,
-        timeout: 15000,
-        maximumAge: 1000, // Use cached location for instant result
+        timeout: 8000,
+        maximumAge: 5000, // Accept cached location up to 5 seconds old
       }
     );
-    
-    locationWatchRef.current = watchId;
-    
-    // Safety timeout
-    setTimeout(() => {
-      if (!locationReceived && locationWatchRef.current !== null) {
-        Geolocation.clearWatch(locationWatchRef.current);
-        locationWatchRef.current = null;
-        setGettingLocation(false);
-        
-        if (currentLocation) {
-          const locationData = {
-            latitude: currentLocation.latitude,
-            longitude: currentLocation.longitude,
-            address: 'Current location',
-            shortAddress: 'My location',
-            isCurrentLocation: true,
-          };
-          setInternalValue(locationData);
-          handleChange(locationData);
-        } else {
-          Alert.alert('Location Timeout', 'Unable to get your location. Please try again or enter an address manually.');
-        }
-      }
-    }, 10000);
   }, [currentLocation, handleChange]);
   
   // Cleanup on unmount
@@ -403,6 +520,47 @@ const LocationPicker = ({
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     };
   }, []);
+  
+  // Fetch saved addresses when modal opens
+  const fetchSavedAddresses = useCallback(async () => {
+    console.log('📍 [LocationPicker] fetchSavedAddresses called, userId:', userId);
+    
+    // Note: We don't check token here because addressService gets it from Keychain internally
+    if (!userId) {
+      console.log('📍 [LocationPicker] No userId, skipping saved addresses fetch');
+      return;
+    }
+    
+    setLoadingSavedAddresses(true);
+    try {
+      console.log('📍 [LocationPicker] Fetching saved addresses for userId:', userId);
+      const result = await getSavedAddresses(userId);
+      console.log('📍 [LocationPicker] getSavedAddresses result:', JSON.stringify(result, null, 2));
+      
+      if (result.success && result.addresses) {
+        setSavedAddresses(result.addresses);
+        console.log('📍 [LocationPicker] Loaded', result.addresses.length, 'saved addresses');
+      } else {
+        console.log('📍 [LocationPicker] No saved addresses found or error:', result.error);
+        // Also check if addresses are in a different field
+        if (result.data) {
+          console.log('📍 [LocationPicker] Found addresses in result.data instead');
+          setSavedAddresses(result.data);
+        }
+      }
+    } catch (error) {
+      console.error('📍 [LocationPicker] Failed to fetch saved addresses:', error);
+    } finally {
+      setLoadingSavedAddresses(false);
+    }
+  }, [userId]);
+  
+  // Fetch when modal opens
+  useEffect(() => {
+    if (showModal) {
+      fetchSavedAddresses();
+    }
+  }, [showModal, fetchSavedAddresses]);
   
   // Handle search query change with debounce
   const handleSearchChange = useCallback((text) => {
@@ -558,27 +716,24 @@ const LocationPicker = ({
             style={styles.chooseOnMapButton}
             onPress={() => {
               setShowModal(false);
-              // Show map picker alert - in a full implementation, this would open a map screen
-              Alert.alert(
-                'Choose on Map',
-                'Map picker feature coming soon! For now, please search for your location above.',
-                [{ text: 'OK' }]
-              );
+              // Open the map picker modal
+              setTimeout(() => setShowMapPicker(true), 300);
             }}
           >
-            <Icon name="map" size={20} color="#8B5CF6" />
-            <Text style={styles.chooseOnMapText}>Choose location on map</Text>
+            <Icon name="map" size={20} color={BRAND.primary} />
+            <Text style={[styles.chooseOnMapText, { color: BRAND.primary }]}>Choose location on map</Text>
           </TouchableOpacity>
           
-          {/* Search Results */}
+          {/* Search Results or Saved Addresses */}
           {searching ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#3B82F6" />
               <Text style={styles.loadingText}>Searching...</Text>
             </View>
           ) : (
-            <ScrollView style={styles.resultsContainer}>
-              {searchResults.map((result, index) => (
+            <ScrollView style={styles.resultsContainer} showsVerticalScrollIndicator={false}>
+              {/* Show search results if there are any */}
+              {searchResults.length > 0 && searchResults.map((result, index) => (
                 <SearchResultItem
                   key={index}
                   result={result}
@@ -597,10 +752,57 @@ const LocationPicker = ({
               {searchQuery.length < 3 && searchQuery.length > 0 && (
                 <Text style={styles.hintText}>Type at least 3 characters to search</Text>
               )}
+              
+              {/* Show saved addresses when not searching */}
+              {searchQuery.length === 0 && savedAddresses.length > 0 && (
+                <View style={styles.savedAddressesSection}>
+                  <View style={styles.savedAddressesHeader}>
+                    <MaterialIcon name="bookmark" size={20} color="#3B82F6" />
+                    <Text style={styles.savedAddressesTitle}>Saved Addresses</Text>
+                  </View>
+                  {savedAddresses.map((address) => (
+                    <SavedAddressItem
+                      key={address._id}
+                      address={address}
+                      onSelect={(loc) => {
+                        handleSelectResult(loc);
+                      }}
+                    />
+                  ))}
+                </View>
+              )}
+              
+              {/* Loading saved addresses */}
+              {searchQuery.length === 0 && loadingSavedAddresses && (
+                <View style={styles.savedAddressesLoading}>
+                  <ActivityIndicator size="small" color="#3B82F6" />
+                  <Text style={styles.savedAddressesLoadingText}>Loading saved addresses...</Text>
+                </View>
+              )}
+              
+              {/* No saved addresses */}
+              {searchQuery.length === 0 && !loadingSavedAddresses && savedAddresses.length === 0 && (
+                <View style={styles.noSavedAddresses}>
+                  <MaterialIcon name="bookmark-border" size={40} color="#D1D5DB" />
+                  <Text style={styles.noSavedAddressesText}>No saved addresses</Text>
+                  <Text style={styles.noSavedAddressesSubtext}>
+                    Save addresses from your profile for quick access
+                  </Text>
+                </View>
+              )}
             </ScrollView>
           )}
         </KeyboardAvoidingView>
       </Modal>
+      
+      {/* Map Picker Modal */}
+      <MapPickerModal
+        visible={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+        onLocationSelect={handleMapPickerSelect}
+        initialLocation={displayValue || currentLocation}
+        title="Choose Location"
+      />
     </View>
   );
 };
@@ -828,6 +1030,100 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
     paddingVertical: 20,
+  },
+  // Saved Addresses Section (like Ola/Uber)
+  savedAddressesSection: {
+    marginTop: 16,
+  },
+  savedAddressesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  savedAddressesTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  savedAddressItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 10,
+  },
+  savedAddressIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  savedAddressContent: {
+    flex: 1,
+  },
+  savedAddressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  savedAddressLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  savedAddressTypeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  savedAddressTypeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  savedAddressText: {
+    fontSize: 14,
+    color: '#374151',
+  },
+  savedAddressSubtext: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  savedAddressesLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 20,
+  },
+  savedAddressesLoadingText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  noSavedAddresses: {
+    alignItems: 'center',
+    paddingVertical: 30,
+  },
+  noSavedAddressesText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginTop: 12,
+  },
+  noSavedAddressesSubtext: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 4,
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
 });
 

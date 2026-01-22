@@ -21,6 +21,14 @@ import {
 import { Button } from '../components';
 import { useApp } from '../context/AppContext';
 
+// Brand colors
+const BRAND = {
+  primary: '#f67c16',
+  secondary: '#2b76bc',
+  background: '#faf7f7',
+  white: '#FFFFFF',
+};
+
 /**
  * HomeScreen Component
  */
@@ -380,15 +388,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   providerBadge: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#FFF7ED',
   },
   badgeText: {
     fontSize: 14,
-    color: '#2563EB',
+    color: BRAND.secondary,
     fontWeight: '500',
   },
   providerBadgeText: {
-    color: '#B45309',
+    color: BRAND.primary,
   },
   loadingIndicator: {
     marginLeft: 12,
@@ -433,31 +441,31 @@ const styles = StyleSheet.create({
   verifiedContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#D1FAE5',
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
   verifiedIcon: {
-    color: '#059669',
+    color: BRAND.secondary,
     fontSize: 12,
     fontWeight: 'bold',
     marginRight: 4,
   },
   verifiedText: {
     fontSize: 12,
-    color: '#059669',
+    color: BRAND.secondary,
     fontWeight: '500',
   },
   verifyButton: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#FFF7ED',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
   },
   verifyButtonText: {
     fontSize: 12,
-    color: '#2563EB',
+    color: BRAND.primary,
     fontWeight: '600',
   },
   tagsContainer: {
@@ -497,7 +505,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusOnline: {
-    backgroundColor: '#D1FAE5',
+    backgroundColor: '#EFF6FF',
   },
   statusOffline: {
     backgroundColor: '#F3F4F6',
@@ -507,7 +515,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   statusTextOnline: {
-    color: '#059669',
+    color: BRAND.secondary,
   },
   statusTextOffline: {
     color: '#6B7280',
@@ -530,7 +538,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   verificationCard: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#FFF7ED',
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -538,12 +546,12 @@ const styles = StyleSheet.create({
   verificationTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#92400E',
+    color: BRAND.primary,
     marginBottom: 4,
   },
   verificationText: {
     fontSize: 13,
-    color: '#B45309',
+    color: '#6B7280',
     lineHeight: 20,
   },
   placeholderCard: {
@@ -570,7 +578,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   verifiedCard: {
-    backgroundColor: '#D1FAE5',
+    backgroundColor: '#EFF6FF',
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -583,9 +591,9 @@ const styles = StyleSheet.create({
   verifiedCardTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#059669',
+    color: BRAND.secondary,
   },
-  // Service Request Card Styles
+  // Service Request Card Styles - Brand Colors
   serviceCard: {
     backgroundColor: '#EFF6FF',
     borderRadius: 16,
@@ -593,7 +601,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: BRAND.secondary + '30',
   },
   serviceCardIcon: {
     fontSize: 48,
@@ -602,24 +610,24 @@ const styles = StyleSheet.create({
   serviceCardTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1E40AF',
+    color: BRAND.secondary,
     marginBottom: 8,
   },
   serviceCardText: {
     fontSize: 14,
-    color: '#3B82F6',
+    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 16,
   },
   requestServiceButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: BRAND.secondary,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
   },
@@ -628,15 +636,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  // Provider Dashboard Card Styles
+  // Provider Dashboard Card Styles - Brand Colors
   providerDashboardCard: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#FFF7ED',
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#FCD34D',
+    borderColor: BRAND.primary + '30',
   },
   providerDashboardIcon: {
     fontSize: 48,
@@ -645,24 +653,24 @@ const styles = StyleSheet.create({
   providerDashboardTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#92400E',
+    color: BRAND.primary,
     marginBottom: 8,
   },
   providerDashboardText: {
     fontSize: 14,
-    color: '#B45309',
+    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 16,
   },
   viewRequestsButton: {
-    backgroundColor: '#F59E0B',
+    backgroundColor: BRAND.primary,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
-    shadowColor: '#F59E0B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
   },
@@ -673,18 +681,18 @@ const styles = StyleSheet.create({
   },
   verifiedCardText: {
     fontSize: 13,
-    color: '#047857',
+    color: BRAND.secondary,
     textAlign: 'center',
   },
-  // User Service History Card Styles
+  // User Service History Card Styles - Brand Colors
   historyCard: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#FAFAFA',
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#86EFAC',
+    borderColor: '#E5E7EB',
   },
   historyCardIcon: {
     fontSize: 48,
@@ -693,24 +701,24 @@ const styles = StyleSheet.create({
   historyCardTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#166534',
+    color: '#374151',
     marginBottom: 8,
   },
   historyCardText: {
     fontSize: 14,
-    color: '#15803D',
+    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 16,
   },
   viewHistoryButton: {
-    backgroundColor: '#22C55E',
+    backgroundColor: '#374151',
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
-    shadowColor: '#22C55E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
   },

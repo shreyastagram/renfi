@@ -505,9 +505,10 @@ export const getUserRequests = async (userId, filters = {}) => {
  * 
  * @param {string} requestId - Service request MongoDB _id
  * @param {string} providerId - Provider's MongoDB _id
+ * @param {number} distance - Distance in meters from provider to request location (optional)
  * @returns {Promise<Object>} Result of sending request
  */
-export const sendRequestToProvider = async (requestId, providerId) => {
+export const sendRequestToProvider = async (requestId, providerId, distance = null) => {
   try {
     if (!requestId) {
       throw new Error('Request ID is required');
@@ -516,16 +517,21 @@ export const sendRequestToProvider = async (requestId, providerId) => {
       throw new Error('Provider ID is required');
     }
 
-    console.log('[TraditionalService] Sending request to provider:', { requestId, providerId });
+    console.log('[TraditionalService] Sending request to provider:', { requestId, providerId, distance });
 
     const url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.SEND_TO_PROVIDER}/${requestId}/send-to-provider`;
+    
+    const requestBody = { providerId };
+    if (distance) {
+      requestBody.distance = distance;
+    }
     
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ providerId }),
+      body: JSON.stringify(requestBody),
     });
 
     const data = await response.json();
@@ -643,7 +649,7 @@ export const getProviderRequests = async (providerId, options = {}) => {
       sortOrder = 'desc',
     } = options;
 
-    let url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.PROVIDER_REQUESTS}/${providerId}`;
+    let url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.PROVIDER_REQUESTS}/${providerId}/requests`;
     
     // Add query params
     const queryParams = new URLSearchParams();
@@ -799,6 +805,110 @@ export const resendCompletionOtp = async (requestId) => {
   }
 };
 
+/**
+ * Submit rating for a completed service
+ * @param {string} requestId - Service request ID
+ * @param {string} userId - User's MongoDB ID
+ * @param {number} rating - Rating from 1-5
+ * @param {string} review - Optional review text
+ */
+export const submitRating = async (requestId, userId, rating, review = '') => {
+  try {
+    console.log('[TraditionalService] Submitting rating:', { requestId, userId, rating });
+
+    const response = await fetch(`${NODE_BASE_URL}/api/traditional-service/${requestId}/rate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, rating, review }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[TraditionalService] Rating submission failed:', data);
+      return {
+        success: false,
+        error: data.error || data.message || 'Failed to submit rating',
+        code: data.code,
+      };
+    }
+
+    console.log('[TraditionalService] Rating submitted successfully:', data);
+
+    return {
+      success: true,
+      message: data.message || 'Rating submitted successfully',
+      data: data.data,
+    };
+  } catch (error) {
+    console.error('[TraditionalService] Rating error:', error.message);
+    return {
+      success: false,
+      error: error.message || 'Failed to submit rating',
+    };
+  }
+};
+
+/**
+ * Get provider details by ID
+ * @param {string} providerId - Provider's MongoDB ID
+ */
+export const getProviderDetails = async (providerId) => {
+  try {
+    console.log('[TraditionalService] Fetching provider details:', providerId);
+
+    const response = await fetch(`${NODE_BASE_URL}/api/traditional-services/provider/${providerId}/details`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    // Get response text first to check if it's valid JSON
+    const responseText = await response.text();
+    
+    // Check if response starts with HTML (error page)
+    if (responseText.trim().startsWith('<') || responseText.trim().startsWith('<!')) {
+      console.error('[TraditionalService] Server returned HTML instead of JSON');
+      return {
+        success: false,
+        error: 'Server is currently unavailable. Please try again later.',
+      };
+    }
+
+    // Try to parse as JSON
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('[TraditionalService] JSON parse error:', parseError.message);
+      return {
+        success: false,
+        error: 'Invalid response from server. Please try again.',
+      };
+    }
+
+    if (!response.ok) {
+      console.error('[TraditionalService] Get provider details failed:', data);
+      return {
+        success: false,
+        error: data.error || 'Failed to get provider details',
+      };
+    }
+
+    console.log('[TraditionalService] Provider details fetched:', data.data?.name);
+
+    return {
+      success: true,
+      provider: data.data,
+    };
+  } catch (error) {
+    console.error('[TraditionalService] Get provider details error:', error.message);
+    return {
+      success: false,
+      error: error.message || 'Failed to get provider details',
+    };
+  }
+};
+
 export default {
   createServiceRequest,
   getNearbyProviders,
@@ -811,6 +921,8 @@ export default {
   getProviderRequests,
   verifyCompletionOtp,
   resendCompletionOtp,
+  submitRating,
+  getProviderDetails,
   SERVICE_TYPES,
   SERVICE_TYPE_LABELS,
   REQUEST_STATUS,

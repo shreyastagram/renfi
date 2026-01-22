@@ -3,7 +3,7 @@
  * 
  * Export all reusable components
  * 
- * @version 3.2.0
+ * @version 3.5.0 - Added SplashScreen
  */
 
 // UI Components
@@ -14,8 +14,16 @@ export { default as Icon, ServiceIcon, StatusIcon } from './Icon';
 export { default as DateTimePicker } from './DateTimePicker';
 export { default as LocationPicker } from './LocationPicker';
 
+// Branding Components
+export { default as FixhomiLogo, FixhomiLogoWithText, FixhomiMarker, FixhomiLoader } from './FixhomiLogo';
+export { default as SplashScreen } from './SplashScreen';
+
 // Navigation Components
 export { MenuButton, AvatarButton, DrawerMenu } from './DrawerMenu';
 
 // Map Components
 export { default as LocationMap } from './MapView/LocationMap';
+
+// Modals
+export { default as RatingModal } from './RatingModal';
+export { default as ProviderDetailsModal } from './ProviderDetailsModal';

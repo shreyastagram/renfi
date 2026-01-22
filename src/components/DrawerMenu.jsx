@@ -1,10 +1,10 @@
 /**
  * Shared Drawer Menu Component
  * 
- * Uber/Ola style hamburger drawer menu
+ * Industry-grade drawer menu with FixHomi branding
  * Used across all screens in the app
  * 
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 import React, { useEffect, useRef } from 'react';
@@ -18,11 +18,23 @@ import {
   Dimensions,
   Linking,
   Alert,
+  Image,
+  ScrollView,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from './Icon';
+import FixhomiLogo from './FixhomiLogo';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Brand colors
+const BRAND = {
+  primary: '#f67c16', // Orange
+  secondary: '#2b76bc', // Blue
+  background: '#faf7f7',
+  white: '#FFFFFF',
+};
 
 /**
  * Get user initials from name
@@ -50,21 +62,32 @@ export const MenuButton = ({ onPress, style }) => (
 );
 
 /**
- * Avatar Button (User initials - navigates to profile)
+ * Avatar Button (Shows profile picture or user initials - navigates to profile)
  */
-export const AvatarButton = ({ name, onPress, style, isProvider }) => (
-  <TouchableOpacity 
-    style={[
-      styles.avatarButton, 
-      isProvider && styles.avatarButtonProvider,
-      style
-    ]} 
-    onPress={onPress}
-    activeOpacity={0.8}
-  >
-    <Text style={styles.avatarText}>{getInitials(name)}</Text>
-  </TouchableOpacity>
-);
+export const AvatarButton = ({ name, onPress, style, isProvider, profilePicture }) => {
+  const hasProfilePicture = profilePicture?.url;
+  
+  return (
+    <TouchableOpacity 
+      style={[
+        styles.avatarButton, 
+        isProvider && styles.avatarButtonProvider,
+        style
+      ]} 
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      {hasProfilePicture ? (
+        <Image 
+          source={{ uri: profilePicture.url }} 
+          style={styles.avatarImage}
+        />
+      ) : (
+        <Text style={styles.avatarText}>{getInitials(name)}</Text>
+      )}
+    </TouchableOpacity>
+  );
+};
 
 /**
  * Drawer Menu Component
@@ -84,28 +107,32 @@ export const DrawerMenu = ({
 
   useEffect(() => {
     if (visible) {
+      // Smooth spring animation for opening
       Animated.parallel([
-        Animated.timing(slideAnim, {
+        Animated.spring(slideAnim, {
           toValue: 0,
-          duration: 250,
+          friction: 20,
+          tension: 65,
           useNativeDriver: true,
         }),
         Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 250,
+          duration: 200,
           useNativeDriver: true,
         }),
       ]).start();
     } else {
+      // Smooth spring animation for closing
       Animated.parallel([
-        Animated.timing(slideAnim, {
+        Animated.spring(slideAnim, {
           toValue: -SCREEN_WIDTH * 0.8,
-          duration: 200,
+          friction: 22,
+          tension: 70,
           useNativeDriver: true,
         }),
         Animated.timing(fadeAnim, {
           toValue: 0,
-          duration: 200,
+          duration: 180,
           useNativeDriver: true,
         }),
       ]).start();
@@ -200,15 +227,15 @@ export const DrawerMenu = ({
           styles.drawer,
           { 
             transform: [{ translateX: slideAnim }],
-            paddingTop: insets.top,
           },
         ]}
       >
-        {/* Profile Header */}
+        {/* Profile Header - extends behind safe area */}
         <TouchableOpacity 
           style={[
             styles.header,
             isProvider && styles.headerProvider,
+            { paddingTop: insets.top + 24 },
           ]}
           onPress={handleProfilePress}
           activeOpacity={0.9}
@@ -241,8 +268,14 @@ export const DrawerMenu = ({
           <Icon name="chevron-right" size={24} color="rgba(255,255,255,0.7)" />
         </TouchableOpacity>
 
-        {/* Menu Items */}
-        <View style={styles.menuContent}>
+        {/* Menu Items with Smooth Scroll */}
+        <ScrollView 
+          style={styles.menuContent}
+          contentContainerStyle={styles.menuScrollContent}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+          alwaysBounceVertical={false}
+        >
           {menuItems.map((item) => {
             if (item.type === 'divider') {
               return <View key={item.id} style={styles.divider} />;
@@ -270,10 +303,13 @@ export const DrawerMenu = ({
               </TouchableOpacity>
             );
           })}
-        </View>
+        </ScrollView>
 
-        {/* Footer */}
-        <Text style={styles.version}>FixHomi v1.0.0</Text>
+        {/* Footer with FixHomi branding */}
+        <View style={styles.footer}>
+          <FixhomiLogo size={28} color="#9CA3AF" />
+          <Text style={styles.version}>FixHomi v1.0.0</Text>
+        </View>
       </Animated.View>
     </Modal>
   );
@@ -309,7 +345,7 @@ const styles = StyleSheet.create({
   avatarButton: {
     width: 40,
     height: 40,
-    backgroundColor: '#2563EB',
+    backgroundColor: BRAND.secondary,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
@@ -320,27 +356,37 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   avatarButtonProvider: {
-    backgroundColor: '#F59E0B',
+    backgroundColor: BRAND.primary,
   },
   avatarText: {
-    color: '#FFFFFF',
+    color: BRAND.white,
     fontSize: 16,
     fontWeight: '700',
+  },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
 
   // Drawer
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   drawer: {
     position: 'absolute',
     left: 0,
     top: 0,
     bottom: 0,
-    width: SCREEN_WIDTH * 0.8,
-    maxWidth: 320,
-    backgroundColor: '#FFFFFF',
+    width: SCREEN_WIDTH * 0.82,
+    maxWidth: 340,
+    backgroundColor: BRAND.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 24,
   },
 
   // Header
@@ -350,10 +396,10 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 24,
     paddingBottom: 24,
-    backgroundColor: '#2563EB',
+    backgroundColor: BRAND.secondary,
   },
   headerProvider: {
-    backgroundColor: '#F59E0B',
+    backgroundColor: BRAND.primary,
   },
   avatar: {
     width: 56,
@@ -364,7 +410,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarInitials: {
-    color: '#FFFFFF',
+    color: BRAND.white,
     fontSize: 22,
     fontWeight: '700',
   },
@@ -373,7 +419,7 @@ const styles = StyleSheet.create({
     marginLeft: 14,
   },
   userName: {
-    color: '#FFFFFF',
+    color: BRAND.white,
     fontSize: 18,
     fontWeight: '700',
   },
@@ -399,7 +445,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.25)',
   },
   badgeText: {
-    color: '#FFFFFF',
+    color: BRAND.white,
     fontSize: 11,
     fontWeight: '600',
   },
@@ -415,7 +461,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   headerArrow: {
-    color: '#FFFFFF',
+    color: BRAND.white,
     fontSize: 28,
     opacity: 0.7,
   },
@@ -423,7 +469,10 @@ const styles = StyleSheet.create({
   // Menu Content
   menuContent: {
     flex: 1,
+  },
+  menuScrollContent: {
     paddingTop: 8,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 12,
   },
   menuItem: {
     flexDirection: 'row',
@@ -456,11 +505,16 @@ const styles = StyleSheet.create({
   },
 
   // Footer
+  footer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    gap: 8,
+  },
   version: {
     textAlign: 'center',
     color: '#9CA3AF',
     fontSize: 12,
-    paddingBottom: 24,
   },
 });
 

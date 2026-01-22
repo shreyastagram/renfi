@@ -277,12 +277,21 @@ const LocationMap = forwardRef(({
     return coords;
   };
 
-  // Initial center
-  const initialCenter = initialRegion 
-    ? [initialRegion.longitude, initialRegion.latitude]
-    : userLocation 
-      ? [userLocation.longitude, userLocation.latitude]
-      : [DEFAULT_LOCATION.longitude, DEFAULT_LOCATION.latitude];
+  // Initial center - validate coordinates are valid numbers to prevent Mapbox Camera errors
+  const getValidCenter = () => {
+    if (initialRegion && 
+        typeof initialRegion.longitude === 'number' && !isNaN(initialRegion.longitude) &&
+        typeof initialRegion.latitude === 'number' && !isNaN(initialRegion.latitude)) {
+      return [initialRegion.longitude, initialRegion.latitude];
+    }
+    if (userLocation && 
+        typeof userLocation.longitude === 'number' && !isNaN(userLocation.longitude) &&
+        typeof userLocation.latitude === 'number' && !isNaN(userLocation.latitude)) {
+      return [userLocation.longitude, userLocation.latitude];
+    }
+    return [DEFAULT_LOCATION.longitude, DEFAULT_LOCATION.latitude];
+  };
+  const initialCenter = getValidCenter();
 
   if (isLoading) {
     return (

@@ -6,8 +6,9 @@
  * - Provider live location for active requests
  * - Call provider / Get directions
  * - OTP display for accepted requests
+ * - Rating system for completed services
  * 
- * @version 2.0.0
+ * @version 2.1.0 - Added rating system
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -23,51 +24,75 @@ import {
   Linking,
   Platform,
   Clipboard,
+  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
-import { Icon, ServiceIcon, StatusIcon } from '../components';
+import { Icon, ServiceIcon, StatusIcon, RatingModal, FixhomiLogo } from '../components';
 import { 
   getUserRequests, 
   cancelRequest,
+  submitRating,
   SERVICE_TYPE_LABELS,
 } from '../services/traditionalServiceService';
 import { subscribeToRequest, unsubscribeFromRequest } from '../services/socketService';
 
+// Brand colors - User side uses blue as accent
+const BRAND = {
+  primary: '#f67c16', // Orange
+  secondary: '#2b76bc', // Blue - user side accent
+  background: '#faf7f7',
+  white: '#FFFFFF',
+  neutral: '#6B7280',
+};
+
 const STATUS_CONFIG = {
-  pending: { label: 'Pending', color: '#F59E0B', bgColor: '#FEF3C7', iconName: 'pending' },
-  accepted: { label: 'Accepted', color: '#3B82F6', bgColor: '#DBEAFE', iconName: 'accepted' },
-  'in-progress': { label: 'In Progress', color: '#8B5CF6', bgColor: '#EDE9FE', iconName: 'in_progress' },
+  pending: { label: 'Pending', color: BRAND.primary, bgColor: '#FEF3C7', iconName: 'pending' },
+  accepted: { label: 'Accepted', color: BRAND.secondary, bgColor: '#DBEAFE', iconName: 'accepted' },
+  'in-progress': { label: 'In Progress', color: BRAND.secondary, bgColor: '#DBEAFE', iconName: 'in_progress' },
   completed: { label: 'Completed', color: '#10B981', bgColor: '#D1FAE5', iconName: 'completed' },
   cancelled: { label: 'Cancelled', color: '#EF4444', bgColor: '#FEE2E2', iconName: 'cancelled' },
+  expired: { label: 'Expired', color: BRAND.neutral, bgColor: '#F3F4F6', iconName: 'cancelled' },
 };
 
 const FILTER_TABS = [
-  { key: 'all', label: 'All' },
-  { key: 'pending', label: 'Pending' },
-  { key: 'accepted', label: 'Active' },
-  { key: 'completed', label: 'Completed' },
+  { key: 'all', label: 'All', icon: 'list' },
+  { key: 'pending', label: 'Pending', icon: 'clock' },
+  { key: 'accepted', label: 'Active', icon: 'location' },
+  { key: 'completed', label: 'Done', icon: 'check_circle' },
+  { key: 'cancelled', label: 'Cancelled', icon: 'close_circle' },
 ];
 
 const FilterTabs = ({ activeFilter, onFilterChange }) => (
   <View style={styles.filterContainer}>
-    {FILTER_TABS.map((tab) => (
-      <TouchableOpacity
-        key={tab.key}
-        style={[styles.filterTab, activeFilter === tab.key && styles.filterTabActive]}
-        onPress={() => onFilterChange(tab.key)}
-      >
-        <Text style={[styles.filterTabText, activeFilter === tab.key && styles.filterTabTextActive]}>{tab.label}</Text>
-      </TouchableOpacity>
-    ))}
+    <ScrollView 
+      horizontal 
+      showsHorizontalScrollIndicator={false} 
+      contentContainerStyle={styles.filterScroll}
+      bounces={false}
+    >
+      {FILTER_TABS.map((tab) => (
+        <TouchableOpacity
+          key={tab.key}
+          style={[styles.filterTab, activeFilter === tab.key && styles.filterTabActive]}
+          onPress={() => onFilterChange(tab.key)}
+          activeOpacity={0.7}
+        >
+          <Icon name={tab.icon} size={14} color={activeFilter === tab.key ? BRAND.white : BRAND.neutral} />
+          <Text style={[styles.filterTabText, activeFilter === tab.key && styles.filterTabTextActive]}>{tab.label}</Text>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
   </View>
 );
 
-const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvider, onDirections }) => {
+const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvider, onDirections, onRate }) => {
   const status = STATUS_CONFIG[request.status] || STATUS_CONFIG.pending;
   const isActive = ['accepted', 'in-progress'].includes(request.status);
+  const isCompleted = request.status === 'completed';
   const hasProvider = request.providerDetails && request.assignedProviderId;
+  const hasRated = request.ratings?.userRating > 0;
   
   const handleCopyOtp = () => {
     if (request.completionOtp) {
@@ -82,7 +107,7 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
       <View style={styles.cardHeader}>
         <View style={styles.serviceInfo}>
           <View style={styles.serviceIconContainer}>
-            <ServiceIcon serviceType={request.serviceType} size={24} color="#2563EB" />
+            <ServiceIcon serviceType={request.serviceType} size={24} color={BRAND.secondary} />
           </View>
           <View>
             <Text style={styles.serviceType}>{SERVICE_TYPE_LABELS[request.serviceType] || request.serviceType}</Text>
@@ -129,13 +154,13 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
             )}
             {isActive && (
               <TouchableOpacity style={[styles.actionBtn, styles.actionBtnPrimary]} onPress={() => onTrackProvider(request)}>
-                <Icon name="location" size={16} color="#FFFFFF" />
+                <Icon name="location" size={16} color={BRAND.white} />
                 <Text style={[styles.actionBtnText, styles.actionBtnTextPrimary]}>Track</Text>
               </TouchableOpacity>
             )}
             {request.location?.coordinates && (
               <TouchableOpacity style={styles.actionBtn} onPress={() => onDirections(request.location)}>
-                <Icon name="directions" size={18} color="#2563EB" />
+                <Icon name="directions" size={18} color={BRAND.secondary} />
               </TouchableOpacity>
             )}
           </View>
@@ -166,6 +191,23 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
           <Text style={styles.cancelBtnText}>Cancel Request</Text>
         </TouchableOpacity>
       )}
+
+      {/* Rating Section for Completed Requests */}
+      {isCompleted && hasProvider && (
+        hasRated ? (
+          <View style={styles.ratedSection}>
+            <Icon name="star" size={16} color="#F59E0B" />
+            <Text style={styles.ratedText}>
+              You rated this service {request.ratings.userRating} stars
+            </Text>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.rateBtn} onPress={() => onRate(request)}>
+            <Icon name="star" size={16} color="#FFFFFF" />
+            <Text style={styles.rateBtnText}>Rate Service</Text>
+          </TouchableOpacity>
+        )
+      )}
     </TouchableOpacity>
   );
 };
@@ -179,6 +221,10 @@ const UserServiceHistoryScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [requests, setRequests] = useState([]);
   const [activeFilter, setActiveFilter] = useState('all');
+  
+  // Rating modal state
+  const [ratingModalVisible, setRatingModalVisible] = useState(false);
+  const [requestToRate, setRequestToRate] = useState(null);
 
   const displayData = { ...user, ...profile };
   const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
@@ -208,10 +254,21 @@ const UserServiceHistoryScreen = ({ navigation }) => {
   };
 
   const handleTrackProvider = (request) => {
-    // Navigate to a tracking screen or show modal with live location
-    navigation.navigate('ServiceRequestDetail', { 
-      requestId: request.requestId,
-      showTracking: true,
+    // Get service location from request
+    const serviceLocation = request.location?.coordinates || request.location;
+    const serviceCoords = serviceLocation ? {
+      latitude: serviceLocation.latitude || serviceLocation.lat || (serviceLocation[1]),
+      longitude: serviceLocation.longitude || serviceLocation.lng || (serviceLocation[0]),
+    } : null;
+    
+    // Navigate to live tracking screen with service location
+    navigation.navigate('LiveTracking', { 
+      requestId: request.requestId || request._id,
+      providerId: request.assignedProviderId || request.providerId,
+      providerName: request.providerDetails?.name || request.providerName,
+      serviceCategory: request.serviceType || request.serviceCategory || request.category,
+      serviceLocation: serviceCoords, // Pass the service location where work needs to be done
+      serviceAddress: request.serviceAddress || request.address || request.location?.address,
     });
   };
 
@@ -245,11 +302,60 @@ const UserServiceHistoryScreen = ({ navigation }) => {
     });
   };
 
-  const filteredRequests = activeFilter === 'all' 
-    ? requests 
-    : requests.filter(r => activeFilter === 'accepted' 
-        ? ['accepted', 'in-progress'].includes(r.status) 
-        : r.status === activeFilter);
+  /**
+   * Open rating modal for a completed service
+   */
+  const handleOpenRating = (request) => {
+    setRequestToRate(request);
+    setRatingModalVisible(true);
+  };
+
+  /**
+   * Submit rating and update local state
+   */
+  const handleSubmitRating = async (rating, review) => {
+    if (!requestToRate) return;
+    
+    const result = await submitRating(
+      requestToRate._id,
+      userId,
+      rating,
+      review
+    );
+    
+    if (result.success) {
+      // Update local state to reflect the rating
+      setRequests(prev => prev.map(r => 
+        r._id === requestToRate._id 
+          ? { 
+              ...r, 
+              ratings: { 
+                ...r.ratings, 
+                userRating: rating, 
+                userReview: review,
+                ratedAt: new Date().toISOString()
+              } 
+            } 
+          : r
+      ));
+    }
+    
+    return result;
+  };
+
+  // Filter requests based on active filter
+  const filteredRequests = (() => {
+    switch (activeFilter) {
+      case 'all':
+        return requests;
+      case 'accepted':
+        return requests.filter(r => ['accepted', 'in-progress'].includes(r.status));
+      case 'cancelled':
+        return requests.filter(r => ['cancelled', 'expired'].includes(r.status));
+      default:
+        return requests.filter(r => r.status === activeFilter);
+    }
+  })();
 
   if (loading) {
     return (
@@ -260,7 +366,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
           <View style={styles.headerPlaceholder} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563EB" />
+          <ActivityIndicator size="large" color={BRAND.secondary} />
         </View>
       </View>
     );
@@ -272,7 +378,11 @@ const UserServiceHistoryScreen = ({ navigation }) => {
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <MenuButton onPress={() => setIsDrawerOpen(true)} />
         <Text style={styles.headerTitle}>Service History</Text>
-        <AvatarButton name={displayData?.fullName} onPress={() => navigation.navigate('Profile')} />
+        <AvatarButton 
+          name={displayData?.fullName} 
+          profilePicture={displayData?.profilePicture}
+          onPress={() => navigation.navigate('Profile')} 
+        />
       </View>
 
       <FilterTabs activeFilter={activeFilter} onFilterChange={setActiveFilter} />
@@ -289,13 +399,14 @@ const UserServiceHistoryScreen = ({ navigation }) => {
             onCallProvider={handleCallProvider}
             onTrackProvider={handleTrackProvider}
             onDirections={handleDirections}
+            onRate={handleOpenRating}
           />
         )}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Icon name="history" size={48} color="#9CA3AF" />
-            <Text style={styles.emptyText}>No requests found</Text>
-            <Text style={styles.emptySubtext}>Your service history will appear here</Text>
+            <FixhomiLogo size={64} color="#D1D5DB" />
+            <Text style={styles.emptyText}>No requests yet</Text>
+            <Text style={styles.emptySubtext}>Book a service to get started with FixHomi</Text>
           </View>
         }
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -311,26 +422,39 @@ const UserServiceHistoryScreen = ({ navigation }) => {
         onLogout={logout}
         isVerified={displayData?.isPhoneVerified && displayData?.isEmailVerified}
       />
+
+      {/* Rating Modal */}
+      <RatingModal
+        visible={ratingModalVisible}
+        providerName={requestToRate?.providerDetails?.name}
+        serviceName={SERVICE_TYPE_LABELS[requestToRate?.serviceType] || requestToRate?.serviceType}
+        onClose={() => {
+          setRatingModalVisible(false);
+          setRequestToRate(null);
+        }}
+        onSubmit={handleSubmitRating}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F5F5' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  container: { flex: 1, backgroundColor: BRAND.background },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: BRAND.white, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937' },
   headerPlaceholder: { width: 40 },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  filterContainer: { flexDirection: 'row', backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  filterTab: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#F3F4F6', borderRadius: 20 },
-  filterTabActive: { backgroundColor: '#2563EB' },
-  filterTabText: { fontSize: 14, fontWeight: '600', color: '#374151' },
-  filterTabTextActive: { color: '#fff' },
+  filterContainer: { backgroundColor: BRAND.white, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  filterScroll: { paddingHorizontal: 16, gap: 8 },
+  filterTab: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#F3F4F6', borderRadius: 20, gap: 6 },
+  filterTabActive: { backgroundColor: BRAND.secondary },
+  filterTabText: { fontSize: 13, fontWeight: '600', color: BRAND.neutral },
+  filterTabTextActive: { color: BRAND.white },
   listContent: { padding: 16, paddingBottom: 32 },
-  requestCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  requestCard: { backgroundColor: BRAND.white, borderRadius: 16, padding: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   serviceInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  serviceIconContainer: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center' },
+  serviceIconContainer: { width: 44, height: 44, borderRadius: 22, backgroundColor: BRAND.secondary + '20', alignItems: 'center', justifyContent: 'center' },
   serviceType: { fontSize: 16, fontWeight: '700', color: '#1F2937' },
   requestId: { fontSize: 12, color: '#6B7280', marginTop: 2 },
   statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, gap: 4 },
@@ -339,26 +463,48 @@ const styles = StyleSheet.create({
   dateLabel: { fontSize: 13, color: '#6B7280' },
   providerSection: { backgroundColor: '#F9FAFB', borderRadius: 12, padding: 12, marginBottom: 12 },
   providerInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  providerAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#2563EB', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  providerInitial: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  providerAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: BRAND.secondary, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  providerInitial: { fontSize: 16, fontWeight: '700', color: BRAND.white },
   providerDetails: { flex: 1 },
   providerName: { fontSize: 15, fontWeight: '600', color: '#1F2937' },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  providerRating: { fontSize: 12, color: '#F59E0B', fontWeight: '600' },
+  providerRating: { fontSize: 12, color: BRAND.primary, fontWeight: '600' },
   actionButtons: { flexDirection: 'row', gap: 8 },
   actionBtn: { flex: 1, flexDirection: 'row', backgroundColor: '#E5E7EB', paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  actionBtnPrimary: { backgroundColor: '#2563EB' },
+  actionBtnPrimary: { backgroundColor: BRAND.primary },
   actionBtnText: { fontSize: 13, fontWeight: '600', color: '#374151' },
-  actionBtnTextPrimary: { color: '#fff' },
+  actionBtnTextPrimary: { color: BRAND.white },
   otpSection: { backgroundColor: '#EDE9FE', borderRadius: 12, padding: 12, marginBottom: 12 },
   otpLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   otpLabel: { fontSize: 13, color: '#7C3AED', fontWeight: '600' },
-  otpBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderRadius: 8, padding: 12 },
+  otpBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: BRAND.white, borderRadius: 8, padding: 12 },
   otpValue: { fontSize: 22, fontWeight: '700', color: '#1F2937', letterSpacing: 4 },
   otpCopyBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   otpCopy: { fontSize: 13, color: '#7C3AED', fontWeight: '600' },
   cancelBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FEE2E2', paddingVertical: 12, borderRadius: 10 },
   cancelBtnText: { fontSize: 14, fontWeight: '600', color: '#EF4444' },
+  rateBtn: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    gap: 8, 
+    backgroundColor: '#F59E0B', 
+    paddingVertical: 12, 
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  rateBtnText: { fontSize: 14, fontWeight: '600', color: BRAND.white },
+  ratedSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FEF3C7',
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  ratedText: { fontSize: 13, fontWeight: '600', color: '#92400E' },
   emptyContainer: { alignItems: 'center', paddingVertical: 60 },
   emptyText: { fontSize: 16, fontWeight: '600', color: '#374151', marginTop: 12 },
   emptySubtext: { fontSize: 14, color: '#6B7280', marginTop: 4 },
