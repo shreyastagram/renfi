@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "752028559781",
+    "project_id": "fixhomi-f6382",
+    "storage_bucket": "fixhomi-f6382.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:752028559781:android:ee871f692ef507d6c5604c",
+        "android_client_info": {
+          "package_name": "com.renfi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDI0pkxJD0gd3vyAdiOP4muAE1rsoQq0D0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

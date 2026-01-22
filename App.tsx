@@ -2,33 +2,15 @@ import React, { useEffect, useRef } from 'react';
 import { Linking } from 'react-native';
 import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { AppProvider } from './context/AppContext.js';
-import RootNavigator from './navigation/RootNavigator.jsx';
+import { AppProvider } from './src/context/AppContext';
+import RootNavigator, { linking as navLinking } from './navigation/RootNavigator';
 
 // Navigation reference for deep linking
 const navigationRef = React.createRef<NavigationContainerRef<any>>();
 
 // Deep linking configuration
 const linking = {
-  prefixes: ['fixhomi://', 'https://fixhomi.com'],
-  config: {
-    screens: {
-      // These screens need to be accessible via deep link
-      // The path parsing handles the token parameter
-      ResetPassword: {
-        path: 'reset-password',
-        parse: {
-          token: (token: string) => token,
-        },
-      },
-      VerifyEmail: {
-        path: 'verify-email', 
-        parse: {
-          token: (token: string) => token,
-        },
-      },
-    },
-  },
+  ...navLinking,
   // Custom function to handle deep links
   async getInitialURL() {
     // Check if app was opened via deep link

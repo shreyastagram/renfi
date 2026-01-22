@@ -1,0 +1,817 @@
+/**
+ * Traditional Service API Service
+ * Handles service request creation, provider booking, and request management
+ * @version 2.0.0
+ * 
+ * Backend API Reference:
+ * - POST /api/traditional-service/create - Create service request
+ * - POST /api/traditional-service/:id/providers - Get nearby providers
+ * - GET /api/traditional-service/:id - Get request details
+ * - PUT /api/traditional-service/:id/cancel - Cancel request
+ * - GET /api/traditional-service/user/:userId - Get user's requests
+ * - POST /api/traditional-service/:id/send-to-provider - Send request to provider (book)
+ * - POST /api/traditional-service/:id/accept-provider - Provider accepts request
+ * - GET /api/traditional-service/provider/:providerId - Get provider's requests
+ */
+
+import { NODE_BASE_URL, API_ENDPOINTS } from '../config/api';
+
+// Allowed service types (matches backend enum)
+export const SERVICE_TYPES = {
+  ELECTRICIAN: 'electrician',
+  PLUMBER: 'plumber',
+  ELECTRONICS_TECHNICIAN: 'electronics_technician',
+  CARPENTER: 'carpenter',
+  PAINTER: 'painter',
+  SOLAR_REPAIRING: 'solar_repairing',
+  WELDER: 'welder',
+  SALON: 'salon',
+  VEHICLE_CLEANING: 'vehicle_cleaning',
+  MASON_TILER: 'mason_tiler',
+  DRIVER: 'driver',
+  AC_REPAIR: 'ac_repair',
+  CLEANING: 'cleaning',
+};
+
+// Service type display names for UI
+export const SERVICE_TYPE_LABELS = {
+  electrician: 'Electrician',
+  plumber: 'Plumber',
+  electronics_technician: 'Electronics Technician',
+  carpenter: 'Carpenter',
+  painter: 'Painter',
+  solar_repairing: 'Solar Repairing',
+  welder: 'Welder',
+  salon: 'Salon',
+  vehicle_cleaning: 'Vehicle Cleaning',
+  mason_tiler: 'Mason & Tiler',
+  driver: 'Driver',
+  ac_repair: 'AC Repair',
+  cleaning: 'Cleaning',
+};
+
+// Request status enum
+export const REQUEST_STATUS = {
+  PENDING: 'pending',
+  ACCEPTED: 'accepted',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+  REJECTED: 'rejected',
+};
+
+/**
+ * Transform frontend location format to backend GeoJSON format
+ * @param {number} latitude - Latitude coordinate
+ * @param {number} longitude - Longitude coordinate
+ * @returns {Object} GeoJSON Point object
+ */
+const toGeoJSON = (latitude, longitude) => ({
+  type: 'Point',
+  coordinates: [longitude, latitude], // GeoJSON uses [lng, lat] order
+});
+
+/**
+ * Create a new service request
+ * 
+ * Backend expects:
+ * {
+ *   userId: string (MongoDB _id),
+ *   serviceType: string (from enum),
+ *   location: { type: "Point", coordinates: [lng, lat] },
+ *   serviceDate: Date
+ * }
+ * 
+ * @param {Object} params - Request parameters
+ * @param {string} params.userId - User's MongoDB _id
+ * @param {string} params.serviceType - Type of service (from SERVICE_TYPES)
+ * @param {number} params.latitude - Service location latitude
+ * @param {number} params.longitude - Service location longitude
+ * @param {Date|string} params.serviceDate - Preferred service date (ISO string or Date object)
+ * @param {string} params.serviceTime - Preferred service time (HH:mm format)
+ * @param {string} params.serviceAddress - Human-readable address
+ * @param {boolean} params.isOtherLocation - Whether booking is for a different location
+ * @param {string} params.description - Optional description
+ * @returns {Promise<Object>} Created service request
+ */
+export const createServiceRequest = async ({
+  userId,
+  serviceType,
+  latitude,
+  longitude,
+  serviceDate,
+  serviceTime,
+  serviceAddress,
+  isOtherLocation = false,
+  description = '',
+}) => {
+  try {
+    // Validate required fields
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+    if (!serviceType) {
+      throw new Error('Service type is required');
+    }
+    if (!Object.values(SERVICE_TYPES).includes(serviceType)) {
+      throw new Error(`Invalid service type: ${serviceType}`);
+    }
+    if (latitude === null || latitude === undefined || longitude === null || longitude === undefined) {
+      throw new Error('Location coordinates are required');
+    }
+    if (!serviceDate) {
+      throw new Error('Service date is required');
+    }
+
+    // Validate coordinates are numbers
+    const lat = parseFloat(latitude);
+    const lng = parseFloat(longitude);
+    if (isNaN(lat) || isNaN(lng)) {
+      throw new Error('Invalid coordinates format');
+    }
+
+    // Validate coordinate ranges
+    if (lat < -90 || lat > 90) {
+      throw new Error('Latitude must be between -90 and 90');
+    }
+    if (lng < -180 || lng > 180) {
+      throw new Error('Longitude must be between -180 and 180');
+    }
+
+    // Prepare request body
+    const requestBody = {
+      userId,
+      serviceType,
+      location: toGeoJSON(lat, lng),
+      serviceDate: new Date(serviceDate).toISOString(),
+      serviceTime: serviceTime || null,
+      serviceAddress: serviceAddress || '',
+      isOtherLocation: isOtherLocation || false,
+      description: description || '',
+    };
+
+    console.log('[TraditionalService] Creating request:', {
+      userId,
+      serviceType,
+      location: `[${lng}, ${lat}]`,
+      serviceDate: requestBody.serviceDate,
+      serviceTime: requestBody.serviceTime,
+      isOtherLocation: requestBody.isOtherLocation,
+    });
+
+    const url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.CREATE}`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[TraditionalService] Create failed:', data);
+      throw new Error(data.message || data.error || 'Failed to create service request');
+    }
+
+    // Backend returns { success, message, data: service }
+    const serviceRequest = data.data || data.request || data;
+
+    console.log('[TraditionalService] Request created successfully:', {
+      requestId: serviceRequest._id,
+      status: serviceRequest.status,
+    });
+
+    return {
+      success: true,
+      request: serviceRequest,
+      message: data.message || 'Service request created successfully',
+    };
+  } catch (error) {
+    console.error('[TraditionalService] Create error:', error.message);
+    return {
+      success: false,
+      error: error.message || 'Failed to create service request',
+    };
+  }
+};
+
+/**
+ * Get nearby providers for a service request
+ * Uses progressive distance search (5km -> 10km)
+ * 
+ * @param {string} requestId - Service request MongoDB _id
+ * @param {number} [limit=20] - Maximum providers to return
+ * @returns {Promise<Object>} Nearby providers list
+ */
+export const getNearbyProviders = async (requestId, limit = 20) => {
+  try {
+    if (!requestId) {
+      throw new Error('Request ID is required');
+    }
+
+    console.log('[TraditionalService] Fetching nearby providers for request:', requestId);
+
+    const url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.NEARBY_PROVIDERS}/${requestId}/providers`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ limit }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[TraditionalService] Get providers failed:', data);
+      // Backend returns error in { error: { code, message } } format
+      const errorMessage = data.error?.message || data.message || data.error || 'Failed to fetch nearby providers';
+      throw new Error(errorMessage);
+    }
+
+    console.log('[TraditionalService] Providers found:', {
+      count: data.providers?.length || 0,
+      searchRadius: data.searchRadius,
+      progressiveSearch: data.progressiveSearch,
+    });
+
+    // Backend returns { message, providers, count, searchRadius, progressiveSearch, searchDetails }
+    return {
+      success: true,
+      providers: data.providers || [],
+      count: data.count || 0,
+      searchRadius: data.searchRadius || 0,
+      progressiveSearch: data.progressiveSearch || false,
+      searchDetails: data.searchDetails || null,
+      message: data.message || 'Providers fetched successfully',
+    };
+  } catch (error) {
+    console.error('[TraditionalService] Get providers error:', error.message);
+    return {
+      success: false,
+      error: error.message || 'Failed to fetch nearby providers',
+      providers: [],
+      count: 0,
+    };
+  }
+};
+
+/**
+ * Get service request details by ID
+ * 
+ * @param {string} requestId - Service request MongoDB _id
+ * @returns {Promise<Object>} Request details
+ */
+export const getRequestDetails = async (requestId) => {
+  try {
+    if (!requestId) {
+      throw new Error('Request ID is required');
+    }
+
+    console.log('[TraditionalService] Fetching request details:', requestId);
+
+    const url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.GET_REQUEST}/${requestId}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[TraditionalService] Get details failed:', data);
+      throw new Error(data.message || data.error || 'Failed to fetch request details');
+    }
+
+    console.log('[TraditionalService] Request details fetched:', {
+      requestId: data.request?._id || data._id,
+      status: data.request?.status || data.status,
+    });
+
+    return {
+      success: true,
+      request: data.request || data,
+      message: data.message || 'Request details fetched successfully',
+    };
+  } catch (error) {
+    console.error('[TraditionalService] Get details error:', error.message);
+    return {
+      success: false,
+      error: error.message || 'Failed to fetch request details',
+    };
+  }
+};
+
+/**
+ * Cancel a service request
+ * 
+ * Backend expects: POST /:id/cancel
+ * Body: { userId, reason, cancelledBy }
+ * 
+ * @param {string} requestId - Service request MongoDB _id
+ * @param {string} userId - User's MongoDB _id (required)
+ * @param {string} [reason] - Optional cancellation reason
+ * @returns {Promise<Object>} Cancellation result
+ */
+export const cancelRequest = async (requestId, userId, reason = '') => {
+  try {
+    if (!requestId) {
+      throw new Error('Request ID is required');
+    }
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+
+    console.log('[TraditionalService] Cancelling request:', requestId);
+
+    const url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.CANCEL}/${requestId}/cancel`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        userId,
+        reason: reason || 'User cancelled',
+        cancelledBy: 'user'
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[TraditionalService] Cancel failed:', data);
+      // Handle nested error format from backend
+      const errorMessage = data.error?.message || data.message || data.error || 'Failed to cancel request';
+      throw new Error(errorMessage);
+    }
+
+    console.log('[TraditionalService] Request cancelled successfully');
+
+    return {
+      success: true,
+      request: data.data || data.request || data,
+      message: data.message || 'Request cancelled successfully',
+    };
+  } catch (error) {
+    console.error('[TraditionalService] Cancel error:', error.message);
+    return {
+      success: false,
+      error: error.message || 'Failed to cancel request',
+    };
+  }
+};
+
+/**
+ * Provider cancels a request they accepted
+ * 
+ * Backend expects: POST /:id/provider-cancel
+ * Body: { providerId, reason }
+ * 
+ * @param {string} requestId - Service request MongoDB _id
+ * @param {string} providerId - Provider's MongoDB _id (required)
+ * @param {string} [reason] - Optional cancellation reason
+ * @returns {Promise<Object>} Cancellation result
+ */
+export const providerCancelRequest = async (requestId, providerId, reason = '') => {
+  try {
+    if (!requestId) {
+      throw new Error('Request ID is required');
+    }
+    if (!providerId) {
+      throw new Error('Provider ID is required');
+    }
+
+    console.log('[TraditionalService] Provider cancelling request:', requestId);
+
+    const url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.CANCEL}/${requestId}/provider-cancel`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        providerId,
+        reason: reason || 'Provider cancelled',
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[TraditionalService] Provider cancel failed:', data);
+      const errorMessage = data.error?.message || data.message || data.error || 'Failed to cancel request';
+      throw new Error(errorMessage);
+    }
+
+    console.log('[TraditionalService] Request cancelled by provider successfully');
+
+    return {
+      success: true,
+      data: data.data || data,
+      message: data.message || 'Request cancelled successfully',
+    };
+  } catch (error) {
+    console.error('[TraditionalService] Provider cancel error:', error.message);
+    return {
+      success: false,
+      error: error.message || 'Failed to cancel request',
+    };
+  }
+};
+
+/**
+ * Get all service requests for a user
+ * 
+ * @param {string} userId - User's MongoDB _id
+ * @param {Object} [filters] - Optional filters
+ * @param {string} [filters.status] - Filter by status
+ * @returns {Promise<Object>} User's service requests
+ */
+export const getUserRequests = async (userId, filters = {}) => {
+  try {
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+
+    console.log('[TraditionalService] Fetching user requests:', userId);
+
+    let url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.USER_REQUESTS}/${userId}`;
+    
+    // Add query params if filters provided
+    const queryParams = new URLSearchParams();
+    if (filters.status) {
+      queryParams.append('status', filters.status);
+    }
+    if (queryParams.toString()) {
+      url += `?${queryParams.toString()}`;
+    }
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[TraditionalService] Get user requests failed:', data);
+      throw new Error(data.message || data.error || 'Failed to fetch user requests');
+    }
+
+    // Backend returns: { success, data, pagination, stats }
+    const requestsData = data.data || data.requests || [];
+
+    console.log('[TraditionalService] User requests fetched:', {
+      count: requestsData.length || 0,
+      hasStats: !!data.stats,
+      hasPagination: !!data.pagination,
+    });
+
+    return {
+      success: true,
+      requests: requestsData,
+      stats: data.stats || null,
+      pagination: data.pagination || null,
+      count: data.pagination?.totalRequests || requestsData.length || 0,
+      message: data.message || 'Requests fetched successfully',
+    };
+  } catch (error) {
+    console.error('[TraditionalService] Get user requests error:', error.message);
+    return {
+      success: false,
+      error: error.message || 'Failed to fetch user requests',
+      requests: [],
+      stats: null,
+      pagination: null,
+      count: 0,
+    };
+  }
+};
+
+/**
+ * Send request to a specific provider (book provider)
+ * This notifies the provider about the service request
+ * 
+ * @param {string} requestId - Service request MongoDB _id
+ * @param {string} providerId - Provider's MongoDB _id
+ * @returns {Promise<Object>} Result of sending request
+ */
+export const sendRequestToProvider = async (requestId, providerId) => {
+  try {
+    if (!requestId) {
+      throw new Error('Request ID is required');
+    }
+    if (!providerId) {
+      throw new Error('Provider ID is required');
+    }
+
+    console.log('[TraditionalService] Sending request to provider:', { requestId, providerId });
+
+    const url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.SEND_TO_PROVIDER}/${requestId}/send-to-provider`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ providerId }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[TraditionalService] Send to provider failed:', data);
+      const errorMessage = data.error?.message || data.message || 'Failed to send request to provider';
+      throw new Error(errorMessage);
+    }
+
+    console.log('[TraditionalService] Request sent to provider successfully:', {
+      requestId: data.data?.requestId,
+      providerId: data.data?.providerId,
+      providerName: data.data?.providerName,
+    });
+
+    return {
+      success: true,
+      data: data.data,
+      message: data.message || 'Request sent to provider successfully',
+      notificationSent: data.meta?.notificationDelivered || false,
+    };
+  } catch (error) {
+    console.error('[TraditionalService] Send to provider error:', error.message);
+    return {
+      success: false,
+      error: error.message || 'Failed to send request to provider',
+    };
+  }
+};
+
+/**
+ * Provider accepts a service request
+ * 
+ * @param {string} requestId - Service request MongoDB _id
+ * @param {string} providerId - Provider's MongoDB _id
+ * @param {string} [userEmail] - User's email for OTP delivery
+ * @returns {Promise<Object>} Result of accepting request
+ */
+export const acceptRequestAsProvider = async (requestId, providerId, userEmail = '') => {
+  try {
+    if (!requestId) {
+      throw new Error('Request ID is required');
+    }
+    if (!providerId) {
+      throw new Error('Provider ID is required');
+    }
+
+    console.log('[TraditionalService] Provider accepting request:', { requestId, providerId });
+
+    const url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.ACCEPT_PROVIDER}/${requestId}/accept-provider`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ providerId, userEmail }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[TraditionalService] Accept request failed:', data);
+      const errorMessage = data.error?.message || data.message || 'Failed to accept request';
+      throw new Error(errorMessage);
+    }
+
+    console.log('[TraditionalService] Request accepted successfully:', {
+      requestId: data.data?.requestId,
+      providerId: data.data?.providerId,
+      status: data.data?.status,
+    });
+
+    return {
+      success: true,
+      data: data.data,
+      message: data.message || 'Request accepted successfully',
+      warning: data.warning || null,
+    };
+  } catch (error) {
+    console.error('[TraditionalService] Accept request error:', error.message);
+    return {
+      success: false,
+      error: error.message || 'Failed to accept request',
+    };
+  }
+};
+
+/**
+ * Get provider's service requests (incoming requests sent to them)
+ * 
+ * @param {string} providerId - Provider's MongoDB _id
+ * @param {Object} [options] - Query options
+ * @param {string} [options.status] - Filter by status
+ * @param {number} [options.page=1] - Page number
+ * @param {number} [options.limit=10] - Items per page
+ * @param {string} [options.sortBy='createdAt'] - Sort field
+ * @param {string} [options.sortOrder='desc'] - Sort order
+ * @returns {Promise<Object>} Provider's service requests
+ */
+export const getProviderRequests = async (providerId, options = {}) => {
+  try {
+    if (!providerId) {
+      throw new Error('Provider ID is required');
+    }
+
+    console.log('[TraditionalService] Fetching provider requests:', providerId);
+
+    const {
+      status,
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = options;
+
+    let url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.PROVIDER_REQUESTS}/${providerId}`;
+    
+    // Add query params
+    const queryParams = new URLSearchParams();
+    if (status) queryParams.append('status', status);
+    queryParams.append('page', page.toString());
+    queryParams.append('limit', limit.toString());
+    queryParams.append('sortBy', sortBy);
+    queryParams.append('sortOrder', sortOrder);
+    
+    url += `?${queryParams.toString()}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[TraditionalService] Get provider requests failed:', data);
+      throw new Error(data.message || data.error || 'Failed to fetch provider requests');
+    }
+
+    console.log('[TraditionalService] Provider requests fetched:', {
+      count: data.data?.length || 0,
+      stats: data.stats,
+    });
+
+    return {
+      success: true,
+      requests: data.data || [],
+      pagination: data.pagination || null,
+      stats: data.stats || null,
+      message: data.message || 'Requests fetched successfully',
+    };
+  } catch (error) {
+    console.error('[TraditionalService] Get provider requests error:', error.message);
+    return {
+      success: false,
+      error: error.message || 'Failed to fetch provider requests',
+      requests: [],
+    };
+  }
+};
+
+/**
+ * Verify completion OTP to mark service as complete
+ * Used by provider to complete the service after getting OTP from user
+ * 
+ * @param {string} requestId - Service request MongoDB _id
+ * @param {string} otp - 6-digit OTP from user
+ * @returns {Promise<Object>} Verification result
+ */
+export const verifyCompletionOtp = async (requestId, otp) => {
+  try {
+    if (!requestId) {
+      throw new Error('Request ID is required');
+    }
+    if (!otp) {
+      throw new Error('OTP is required');
+    }
+
+    console.log('[TraditionalService] Verifying completion OTP:', { requestId, otp: '******' });
+
+    const url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.VERIFY_OTP}/${requestId}/verify-otp`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ otp }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[TraditionalService] OTP verification failed:', data);
+      const errorMessage = data.error?.message || data.message || data.error || 'Failed to verify OTP';
+      return {
+        success: false,
+        code: data.code || 'VERIFICATION_FAILED',
+        error: errorMessage,
+      };
+    }
+
+    console.log('[TraditionalService] OTP verified successfully, service completed');
+
+    return {
+      success: true,
+      data: data.data,
+      message: data.message || 'Service completed successfully',
+      details: data.details || null,
+    };
+  } catch (error) {
+    console.error('[TraditionalService] OTP verification error:', error.message);
+    return {
+      success: false,
+      error: error.message || 'Failed to verify OTP',
+    };
+  }
+};
+
+/**
+ * Resend completion OTP to user's email
+ * 
+ * @param {string} requestId - Service request MongoDB _id
+ * @returns {Promise<Object>} Result of resending OTP with new OTP code
+ */
+export const resendCompletionOtp = async (requestId) => {
+  try {
+    if (!requestId) {
+      throw new Error('Request ID is required');
+    }
+
+    console.log('[TraditionalService] Resending completion OTP:', requestId);
+
+    const url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.RESEND_OTP}/${requestId}/resend-otp`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await response.json();
+
+    // Handle 207 (partial success) as success since OTP was generated
+    if (!response.ok && response.status !== 207) {
+      console.error('[TraditionalService] Resend OTP failed:', data);
+      const errorMessage = data.error?.message || data.message || data.error || 'Failed to resend OTP';
+      throw new Error(errorMessage);
+    }
+
+    console.log('[TraditionalService] OTP resent successfully:', data);
+
+    return {
+      success: true,
+      message: data.message || 'OTP sent successfully',
+      otp: data.data?.completionOtp || null,
+      expiresAt: data.data?.otpExpiresAt || null,
+      warning: data.warning || false,
+    };
+  } catch (error) {
+    console.error('[TraditionalService] Resend OTP error:', error.message);
+    return {
+      success: false,
+      error: error.message || 'Failed to resend OTP',
+    };
+  }
+};
+
+export default {
+  createServiceRequest,
+  getNearbyProviders,
+  getRequestDetails,
+  cancelRequest,
+  providerCancelRequest,
+  getUserRequests,
+  sendRequestToProvider,
+  acceptRequestAsProvider,
+  getProviderRequests,
+  verifyCompletionOtp,
+  resendCompletionOtp,
+  SERVICE_TYPES,
+  SERVICE_TYPE_LABELS,
+  REQUEST_STATUS,
+};
