@@ -3,7 +3,7 @@
  * 
  * Export all screen components
  * 
- * @version 4.0.0
+ * @version 5.0.0
  */
 
 // Onboarding & User Type Selection
@@ -21,6 +21,11 @@ export { default as ProviderRegisterScreen } from './ProviderRegisterScreen';
 // OTP-based Login
 export { default as OTPLoginScreen } from './OTPLoginScreen';
 export { default as OTPVerifyScreen } from './OTPVerifyScreen';
+
+// Password Management
+export { default as ForgotPasswordScreen } from './ForgotPasswordScreen';
+export { default as ResetPasswordScreen } from './ResetPasswordScreen';
+export { default as ChangePasswordScreen } from './ChangePasswordScreen';
 
 // Account Verification & Profile
 export { default as VerificationScreen } from './VerificationScreen';
@@ -45,6 +50,7 @@ export { default as ProviderJobsScreen } from './ProviderJobsScreen';
 
 // Settings
 export { default as SettingsScreen } from './SettingsScreen';
+export { default as AccountSecurityScreen } from './AccountSecurityScreen';
 
 // Document Verification
 export { default as DocumentVerificationScreen } from './DocumentVerificationScreen';

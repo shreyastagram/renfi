@@ -139,6 +139,14 @@ const SettingsScreen = ({ navigation }) => {
     smsEnabled: false,
   });
   
+  // OTP-based account deletion state
+  const [deleteOtpModalVisible, setDeleteOtpModalVisible] = useState(false);
+  const [deleteOtp, setDeleteOtp] = useState('');
+  const [deleteReason, setDeleteReason] = useState('');
+  const [maskedPhone, setMaskedPhone] = useState('');
+  const [isRequestingOtp, setIsRequestingOtp] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  
   // App preferences state
   const [appPreferences, setAppPreferences] = useState({
     hapticFeedback: true,
@@ -418,59 +426,111 @@ const SettingsScreen = ({ navigation }) => {
   };
   
   /**
-   * Handle account deletion
+   * Handle account deletion - Step 1: Request OTP
    */
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete Account',
-      'Are you sure you want to delete your account? This action cannot be undone. All your data will be permanently removed.',
+      'Are you sure you want to delete your account? This action cannot be undone. All your data will be permanently removed.\n\nAn OTP will be sent to your registered phone number for verification.',
       [
         { text: 'Cancel', style: 'cancel' },
         { 
-          text: 'Delete', 
+          text: 'Continue', 
           style: 'destructive',
-          onPress: () => confirmDeleteAccount(),
+          onPress: () => requestDeleteOtp(),
         },
       ]
     );
   };
 
-  const confirmDeleteAccount = async () => {
+  /**
+   * Request OTP for account deletion via Java Auth service
+   */
+  const requestDeleteOtp = async () => {
     try {
-      setSaving(true);
+      setIsRequestingOtp(true);
       const tokens = await getTokens();
-      const endpoint = isProvider 
-        ? `${NODE_BASE_URL}/api/provider/account/${userId}`
-        : `${NODE_BASE_URL}/api/user/account/${userId}`;
       
-      const response = await fetch(endpoint, {
+      // Call Java Auth endpoint to request deletion OTP
+      const response = await fetch(`${NODE_BASE_URL}/api/auth/delete-account/request-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tokens?.accessToken}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        // OTP sent successfully - show OTP input modal
+        setMaskedPhone(result.maskedPhone || '******');
+        setDeleteOtpModalVisible(true);
+      } else {
+        Alert.alert('Error', result.message || 'Failed to send OTP. Please try again.');
+      }
+    } catch (error) {
+      console.error('Request delete OTP error:', error);
+      Alert.alert('Error', 'Failed to send OTP. Please check your connection and try again.');
+    } finally {
+      setIsRequestingOtp(false);
+    }
+  };
+
+  /**
+   * Confirm account deletion with OTP - Step 2
+   */
+  const confirmDeleteWithOtp = async () => {
+    if (deleteOtp.length !== 6) {
+      Alert.alert('Invalid OTP', 'Please enter the 6-digit OTP sent to your phone.');
+      return;
+    }
+
+    try {
+      setIsDeletingAccount(true);
+      const tokens = await getTokens();
+      
+      // Call Java Auth endpoint to delete account with OTP verification
+      const response = await fetch(`${NODE_BASE_URL}/api/auth/account`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${tokens?.accessToken}`,
         },
         body: JSON.stringify({
-          confirmEmail: displayData?.email,
+          otp: deleteOtp,
+          reason: deleteReason || 'User requested deletion',
         }),
       });
 
       const result = await response.json();
 
-      if (result.success) {
+      if (response.ok && result.success) {
+        setDeleteOtpModalVisible(false);
+        setDeleteOtp('');
+        setDeleteReason('');
         Alert.alert(
           'Account Deleted',
           'Your account has been successfully deleted. We\'re sorry to see you go.',
           [{ text: 'OK', onPress: () => logout() }]
         );
       } else {
-        Alert.alert('Error', result.message || 'Failed to delete account. Please try again.');
+        Alert.alert('Error', result.message || 'Invalid OTP or deletion failed. Please try again.');
       }
     } catch (error) {
       console.error('Delete account error:', error);
       Alert.alert('Error', 'Failed to delete account. Please check your connection and try again.');
     } finally {
-      setSaving(false);
+      setIsDeletingAccount(false);
     }
+  };
+
+  /**
+   * Resend deletion OTP
+   */
+  const resendDeleteOtp = async () => {
+    setDeleteOtp('');
+    await requestDeleteOtp();
   };
   
   return (
@@ -672,6 +732,25 @@ const SettingsScreen = ({ navigation }) => {
             onPress={() => Linking.openURL('https://fixhomi.com/terms')}
           />
         </View>
+
+        {/* Security Section */}
+        <View style={styles.section}>
+          <SectionHeader title="Security" />
+          
+          <ActionRow
+            iconName="lock"
+            title="Change Password"
+            subtitle="Update your account password"
+            onPress={() => navigation.navigate('ChangePassword')}
+          />
+          
+          <ActionRow
+            iconName="shield"
+            title="Account Security"
+            subtitle="Manage sessions and trusted devices"
+            onPress={() => navigation.navigate('AccountSecurity')}
+          />
+        </View>
         
         {/* Account Actions Section */}
         <View style={styles.section}>
@@ -713,6 +792,87 @@ const SettingsScreen = ({ navigation }) => {
           <Text style={styles.brandFooterTagline}>Fix Your Home, Anytime</Text>
         </View>
       </ScrollView>
+      
+      {/* Delete Account OTP Modal */}
+      <Modal
+        visible={deleteOtpModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          setDeleteOtpModalVisible(false);
+          setDeleteOtp('');
+          setDeleteReason('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Verify Account Deletion</Text>
+            <Text style={styles.modalSubtitle}>
+              Enter the 6-digit OTP sent to {maskedPhone}
+            </Text>
+            
+            <TextInput
+              style={styles.otpInput}
+              placeholder="Enter 6-digit OTP"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="number-pad"
+              maxLength={6}
+              value={deleteOtp}
+              onChangeText={setDeleteOtp}
+              autoFocus
+            />
+            
+            <TextInput
+              style={styles.reasonInput}
+              placeholder="Reason for leaving (optional)"
+              placeholderTextColor="#9CA3AF"
+              value={deleteReason}
+              onChangeText={setDeleteReason}
+              multiline
+              numberOfLines={2}
+            />
+            
+            <TouchableOpacity 
+              style={styles.resendButton}
+              onPress={resendDeleteOtp}
+              disabled={isRequestingOtp}
+            >
+              <Text style={styles.resendButtonText}>
+                {isRequestingOtp ? 'Sending...' : 'Resend OTP'}
+              </Text>
+            </TouchableOpacity>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setDeleteOtpModalVisible(false);
+                  setDeleteOtp('');
+                  setDeleteReason('');
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.modalButton, 
+                  styles.deleteButton,
+                  (isDeletingAccount || deleteOtp.length !== 6) && styles.disabledButton
+                ]}
+                onPress={confirmDeleteWithOtp}
+                disabled={isDeletingAccount || deleteOtp.length !== 6}
+              >
+                {isDeletingAccount ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.deleteButtonText}>Delete Account</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -898,6 +1058,95 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9CA3AF',
     fontStyle: 'italic',
+  },
+  
+  // Delete Account OTP Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F2937',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  otpInput: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 24,
+    fontWeight: '600',
+    textAlign: 'center',
+    letterSpacing: 8,
+    color: '#1F2937',
+    marginBottom: 16,
+  },
+  reasonInput: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 14,
+    color: '#1F2937',
+    marginBottom: 16,
+    minHeight: 60,
+    textAlignVertical: 'top',
+  },
+  resendButton: {
+    alignSelf: 'center',
+    marginBottom: 24,
+  },
+  resendButtonText: {
+    fontSize: 14,
+    color: BRAND.primary,
+    fontWeight: '600',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#F3F4F6',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  deleteButton: {
+    backgroundColor: '#EF4444',
+  },
+  deleteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
 });
 

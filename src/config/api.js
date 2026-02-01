@@ -169,6 +169,16 @@ export const ENDPOINTS = {
   AUTH: {
     REGISTER: '/api/auth/register',
     PROVIDER_REGISTER: '/api/auth/provider/register',
+    // Session management (Java Auth)
+    SESSIONS: '/api/auth/sessions',
+    REVOKE_ALL: '/api/auth/sessions/revoke-all',
+    // Token operations
+    VALIDATE: '/api/auth/validate',
+    REFRESH: '/api/auth/refresh',
+    // Health check
+    HEALTH: '/actuator/health',
+    // Device trust
+    TRUST_DEVICE: '/api/auth/devices/trust',
   },
   
   // Login endpoints (direct to Java Auth)
@@ -206,10 +216,18 @@ export const ENDPOINTS = {
   // Password reset (direct to Java Auth)
   PASSWORD: {
     FORGOT: '/api/auth/forgot-password',
+    FORGOT_PHONE: '/api/auth/forgot-password/phone',
+    FORGOT_PHONE_VERIFY: '/api/auth/forgot-password/phone/verify',
     RESET: '/api/auth/reset-password',
     VALIDATE_TOKEN: '/api/auth/reset-password/validate',
+    CHANGE: '/api/users/change-password',
   },
-  
+
+  // Google OAuth (direct to Java Auth)
+  OAUTH: {
+    GOOGLE_MOBILE: '/api/auth/oauth2/google/mobile',
+  },
+
   // Profile endpoints
   PROFILE: {
     // Java Auth - Get current user with verification status (requires access token)
@@ -286,13 +304,22 @@ export const API_CONFIG = {
 };
 
 /**
- * Deep link configuration for email verification
+ * Deep link configuration for authentication flows
+ * 
+ * Supported deep links:
+ * - fixhomi://auth/email-verify?token=xxx  - Email verification
+ * - fixhomi://auth/reset-password?token=xxx - Password reset
  */
 export const DEEP_LINK_CONFIG = {
   SCHEME: 'fixhomi',
   HOST: 'auth',
+  // Email verification
   EMAIL_VERIFY_PATH: 'email-verify',
-  // Full deep link: fixhomi://auth/email-verify?token=xxx
+  // Password reset
+  RESET_PASSWORD_PATH: 'reset-password',
+  // Full deep links:
+  // - fixhomi://auth/email-verify?token=xxx
+  // - fixhomi://auth/reset-password?token=xxx
 };
 
 export default API_CONFIG;

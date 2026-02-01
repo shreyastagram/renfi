@@ -46,6 +46,9 @@ export const AUTH_CODES = {
   OTP_VERIFIED: 'OTP_VERIFIED',
   VERIFICATION_SENT: 'VERIFICATION_SENT',
   LOGOUT_SUCCESS: 'LOGOUT_SUCCESS',
+  PASSWORD_RESET_SENT: 'PASSWORD_RESET_SENT',
+  PASSWORD_RESET_SUCCESS: 'PASSWORD_RESET_SUCCESS',
+  PASSWORD_CHANGED: 'PASSWORD_CHANGED',
   
   // User existence
   USER_ALREADY_EXISTS: 'USER_ALREADY_EXISTS',
@@ -81,6 +84,12 @@ export const AUTH_CODES = {
   TOKEN_EXPIRED: 'TOKEN_EXPIRED',
   INVALID_TOKEN: 'INVALID_TOKEN',
   REFRESH_TOKEN_EXPIRED: 'REFRESH_TOKEN_EXPIRED',
+  RESET_TOKEN_EXPIRED: 'RESET_TOKEN_EXPIRED',
+  RESET_TOKEN_INVALID: 'RESET_TOKEN_INVALID',
+  
+  // Password errors
+  INVALID_CURRENT_PASSWORD: 'INVALID_CURRENT_PASSWORD',
+  SAME_PASSWORD: 'SAME_PASSWORD',
   
   // Conflict errors
   EMAIL_ALREADY_EXISTS: 'EMAIL_ALREADY_EXISTS',
@@ -522,6 +531,263 @@ export const verifyEmailToken = async (token) => {
   }
 };
 
+// ==================== PASSWORD MANAGEMENT ====================
+
+/**
+ * Request password reset email
+ * Sends an email with a reset link to the user
+ * 
+ * Flow:
+ * 1. User enters their email on Forgot Password screen
+ * 2. Backend sends email with reset link containing token
+ * 3. User clicks link, opens Reset Password screen
+ * 4. User enters new password
+ * 5. Token is validated and password is reset
+ * 
+ * @param {string} email - User's email address
+ * @returns {Promise<Object>} Response with masked email
+ */
+export const forgotPassword = async (email) => {
+  try {
+    console.log('🔑 [AuthService] Requesting password reset for:', email);
+    
+    const response = await authClient.post(ENDPOINTS.PASSWORD.FORGOT, {
+      email: email.trim().toLowerCase(),
+    });
+    
+    console.log('✅ [AuthService] Password reset email sent');
+    
+    return {
+      success: true,
+      data: response.data,
+      maskedEmail: response.data.maskedEmail || email.replace(/(.{2})(.*)(@.*)/, '$1***$3'),
+    };
+  } catch (error) {
+    const parsedError = parseApiError(error);
+    console.error('❌ [AuthService] Forgot password failed:', parsedError);
+    
+    return {
+      success: false,
+      error: parsedError,
+    };
+  }
+};
+
+/**
+ * Validate password reset token
+ * Checks if the reset token from email link is still valid
+ * 
+ * @param {string} token - Reset token from email link
+ * @returns {Promise<Object>} Validation response
+ */
+export const validateResetToken = async (token) => {
+  try {
+    console.log('🔍 [AuthService] Validating reset token');
+    
+    const response = await authClient.get(ENDPOINTS.PASSWORD.VALIDATE_TOKEN, {
+      params: { token },
+    });
+    
+    console.log('✅ [AuthService] Reset token is valid');
+    
+    return {
+      success: true,
+      data: response.data,
+      isValid: true,
+    };
+  } catch (error) {
+    const parsedError = parseApiError(error);
+    console.error('❌ [AuthService] Reset token validation failed:', parsedError);
+    
+    return {
+      success: false,
+      error: parsedError,
+      isValid: false,
+    };
+  }
+};
+
+/**
+ * Reset password using token from email
+ * Completes the forgot password flow
+ * 
+ * IMPORTANT: After successful reset:
+ * - All refresh tokens are revoked
+ * - User must login with new password
+ * 
+ * @param {string} token - Reset token from email link
+ * @param {string} newPassword - New password (min 8 characters)
+ * @returns {Promise<Object>} Reset response
+ */
+export const resetPassword = async (token, newPassword) => {
+  try {
+    console.log('🔐 [AuthService] Resetting password');
+    
+    const response = await authClient.post(ENDPOINTS.PASSWORD.RESET, {
+      token,
+      newPassword,
+    });
+    
+    console.log('✅ [AuthService] Password reset successful');
+    
+    return {
+      success: true,
+      data: response.data,
+      message: 'Password reset successfully. Please login with your new password.',
+    };
+  } catch (error) {
+    const parsedError = parseApiError(error);
+    console.error('❌ [AuthService] Password reset failed:', parsedError);
+    
+    return {
+      success: false,
+      error: parsedError,
+    };
+  }
+};
+
+// ==================== OTP-BASED PASSWORD RESET ====================
+
+/**
+ * Request password reset OTP via phone
+ * Sends OTP to the phone number associated with the account
+ * 
+ * Flow:
+ * 1. User enters their phone number on Forgot Password screen
+ * 2. Backend sends OTP to the phone via SMS
+ * 3. User receives OTP and enters it along with new password
+ * 4. OTP is verified and password is reset
+ * 
+ * @param {string} phoneNumber - User's phone number (with or without country code)
+ * @returns {Promise<Object>} Response with masked phone number
+ */
+export const forgotPasswordPhone = async (phoneNumber) => {
+  try {
+    console.log('🔑 [AuthService] Requesting password reset OTP for phone');
+    
+    const response = await authClient.post(ENDPOINTS.PASSWORD.FORGOT_PHONE, {
+      phoneNumber: phoneNumber.trim(),
+    });
+    
+    console.log('✅ [AuthService] Password reset OTP sent');
+    
+    return {
+      success: true,
+      data: response.data,
+      maskedPhone: response.data.maskedPhone || response.data.data,
+    };
+  } catch (error) {
+    const parsedError = parseApiError(error);
+    console.error('❌ [AuthService] Forgot password phone failed:', parsedError);
+    
+    return {
+      success: false,
+      error: parsedError,
+    };
+  }
+};
+
+/**
+ * Verify OTP and reset password
+ * Completes the OTP-based password reset flow
+ * 
+ * @param {string} phoneNumber - User's phone number
+ * @param {string} otp - OTP received via SMS
+ * @param {string} newPassword - New password (min 8 characters, with special char, number, etc.)
+ * @returns {Promise<Object>} Reset response
+ */
+export const verifyOtpAndResetPassword = async (phoneNumber, otp, newPassword) => {
+  try {
+    console.log('🔐 [AuthService] Verifying OTP and resetting password');
+    
+    const response = await authClient.post(ENDPOINTS.PASSWORD.FORGOT_PHONE_VERIFY, {
+      phoneNumber: phoneNumber.trim(),
+      otp: otp.trim(),
+      newPassword,
+    });
+    
+    console.log('✅ [AuthService] OTP password reset successful');
+    
+    return {
+      success: true,
+      data: response.data,
+      message: 'Password reset successfully. Please login with your new password.',
+    };
+  } catch (error) {
+    const parsedError = parseApiError(error);
+    console.error('❌ [AuthService] OTP password reset failed:', parsedError);
+    
+    return {
+      success: false,
+      error: parsedError,
+    };
+  }
+};
+
+/**
+ * Change or set password for authenticated user
+ * Requires user to be logged in with valid access token
+ * 
+ * For OAuth users (no existing password), currentPassword can be empty string.
+ * For users with existing password, currentPassword is required.
+ * 
+ * @param {string} currentPassword - User's current password (empty for OAuth users)
+ * @param {string} newPassword - New password (min 8 characters)
+ * @returns {Promise<Object>} Change password response
+ */
+export const changePassword = async (currentPassword, newPassword) => {
+  try {
+    const isSettingPassword = !currentPassword;
+    console.log(`🔐 [AuthService] ${isSettingPassword ? 'Setting' : 'Changing'} password`);
+    
+    const response = await authClient.post(ENDPOINTS.PASSWORD.CHANGE, {
+      currentPassword: currentPassword || '',
+      newPassword,
+    });
+    
+    console.log(`✅ [AuthService] Password ${isSettingPassword ? 'set' : 'changed'} successfully`);
+    
+    return {
+      success: true,
+      data: response.data,
+      message: `Password ${isSettingPassword ? 'set' : 'changed'} successfully.`,
+    };
+  } catch (error) {
+    const parsedError = parseApiError(error);
+    console.error('❌ [AuthService] Password change failed:', parsedError);
+    
+    // Specific error handling
+    if (parsedError.code === 'INVALID_CURRENT_PASSWORD' || 
+        error.response?.data?.message?.includes('current password')) {
+      return {
+        success: false,
+        error: {
+          ...parsedError,
+          code: 'INVALID_CURRENT_PASSWORD',
+          message: 'Current password is incorrect.',
+        },
+      };
+    }
+    
+    if (parsedError.code === 'SAME_PASSWORD' || 
+        error.response?.data?.message?.includes('different')) {
+      return {
+        success: false,
+        error: {
+          ...parsedError,
+          code: 'SAME_PASSWORD',
+          message: 'New password must be different from current password.',
+        },
+      };
+    }
+    
+    return {
+      success: false,
+      error: parsedError,
+    };
+  }
+};
+
 // ==================== LOGOUT & TOKEN MANAGEMENT ====================
 
 /**
@@ -628,6 +894,12 @@ export const getErrorMessage = (code, defaultMessage) => {
     [AUTH_CODES.TOKEN_EXPIRED]: 'Your session has expired. Please login again.',
     [AUTH_CODES.INVALID_TOKEN]: 'Invalid verification token.',
     [AUTH_CODES.REFRESH_TOKEN_EXPIRED]: 'Your session has expired. Please login again.',
+    [AUTH_CODES.RESET_TOKEN_EXPIRED]: 'Reset link has expired. Please request a new one.',
+    [AUTH_CODES.RESET_TOKEN_INVALID]: 'Invalid reset link. Please request a new one.',
+    
+    // Password errors
+    [AUTH_CODES.INVALID_CURRENT_PASSWORD]: 'Current password is incorrect.',
+    [AUTH_CODES.SAME_PASSWORD]: 'New password must be different from current password.',
     
     // Server errors
     [AUTH_CODES.AUTH_SERVICE_UNAVAILABLE]: 'Service is temporarily unavailable. Please try again later.',
@@ -658,6 +930,14 @@ export default {
   verifyPhoneOtp,
   sendEmailVerification,
   verifyEmailToken,
+  
+  // Password Management
+  forgotPassword,
+  forgotPasswordPhone,
+  verifyOtpAndResetPassword,
+  validateResetToken,
+  resetPassword,
+  changePassword,
   
   // Logout & Tokens
   logout,

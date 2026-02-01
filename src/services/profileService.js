@@ -11,6 +11,7 @@
 
 import apiClient, { authClient, parseApiError } from './apiClient';
 import { ENDPOINTS } from '../config/api';
+import { syncGoogleProviderToMongoDB, syncGoogleUserToMongoDB } from './googleAuthService';
 
 // ==================== JAVA AUTH PROFILE ====================
 
@@ -286,17 +287,6 @@ export const fetchFullProfile = async (userType, mongoId) => {
     // Fetch from Java Auth (verification status) - always works with our tokens
     const javaAuthResult = await getCurrentUser();
     
-    // Fetch from MongoDB based on user type
-    // Note: User profile may fail auth if JWT secrets don't match
-    let mongoResult = { success: false, data: {} };
-    if (userType === 'provider') {
-      // Provider profile endpoint has no auth middleware
-      mongoResult = await getProviderProfile(mongoId);
-    } else if (mongoId) {
-      // User profile requires auth - may fail if JWT secrets don't match
-      mongoResult = await getUserProfile(mongoId);
-    }
-    
     // As long as Java Auth worked, we have core profile data
     if (!javaAuthResult.success) {
       return {
@@ -308,8 +298,49 @@ export const fetchFullProfile = async (userType, mongoId) => {
       };
     }
     
-    // Combine data - Java Auth for core data, MongoDB for extended business data
     const javaAuthData = javaAuthResult.data || {};
+    
+    // Fetch from MongoDB based on user type
+    // Note: User profile may fail auth if JWT secrets don't match
+    let mongoResult = { success: false, data: {} };
+    if (userType === 'provider') {
+      // Provider profile endpoint has no auth middleware
+      mongoResult = await getProviderProfile(mongoId);
+      
+      // AUTO-SYNC: If provider not found in MongoDB, create it from Java Auth data
+      if (!mongoResult.success && mongoResult.error?.code === 'ERR_BAD_REQUEST') {
+        console.log('🔄 [ProfileService] Provider not found in MongoDB - auto-syncing...');
+        
+        try {
+          const syncResult = await syncGoogleProviderToMongoDB({
+            javaUserId: javaAuthData.userId,
+            email: javaAuthData.email,
+            name: javaAuthData.fullName,
+            phone: javaAuthData.phoneNumber || '',
+            address: '',
+            city: '',
+            pincode: '',
+          });
+          
+          if (syncResult.success) {
+            console.log('✅ [ProfileService] Provider auto-synced to MongoDB');
+            mongoResult = {
+              success: true,
+              data: syncResult.data?.data || syncResult.data || {},
+            };
+          } else {
+            console.warn('⚠️ [ProfileService] Provider auto-sync failed:', syncResult.error);
+          }
+        } catch (syncError) {
+          console.warn('⚠️ [ProfileService] Provider auto-sync error:', syncError.message);
+        }
+      }
+    } else if (mongoId) {
+      // User profile requires auth - may fail if JWT secrets don't match
+      mongoResult = await getUserProfile(mongoId);
+    }
+    
+    // Combine data - Java Auth for core data, MongoDB for extended business data
     const mongoData = mongoResult.success ? (mongoResult.data || {}) : {};
     
     const combinedProfile = {

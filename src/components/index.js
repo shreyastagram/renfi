@@ -27,3 +27,4 @@ export { default as LocationMap } from './MapView/LocationMap';
 // Modals
 export { default as RatingModal } from './RatingModal';
 export { default as ProviderDetailsModal } from './ProviderDetailsModal';
+export { default as AadhaarVerificationModal } from './AadhaarVerificationModal';

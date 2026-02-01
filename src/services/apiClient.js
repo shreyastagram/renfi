@@ -9,11 +9,12 @@
 
 import axios from 'axios';
 import { API_CONFIG } from '../config/api';
-import { getTokens, storeTokens, clearTokens } from '../utils/storage';
+import { getTokens, storeTokens, clearTokens, isTokenExpired } from '../utils/storage';
 
 // Track if we're currently refreshing tokens to avoid infinite loops
 let isRefreshing = false;
 let refreshSubscribers = [];
+let refreshPromise = null;
 
 /**
  * Subscribe to token refresh
@@ -28,6 +29,76 @@ const subscribeTokenRefresh = (callback) => {
 const onTokenRefreshed = (accessToken) => {
   refreshSubscribers.forEach((callback) => callback(accessToken));
   refreshSubscribers = [];
+};
+
+/**
+ * Proactively refresh token if expired or about to expire
+ * This is called before making requests to ensure we have a valid token
+ * @returns {Promise<string|null>} New access token or null if refresh fails
+ */
+const proactiveTokenRefresh = async () => {
+  // Check if token is expired or expiring soon (5 minute buffer)
+  const expired = await isTokenExpired(5 * 60 * 1000);
+  
+  if (!expired) {
+    const tokens = await getTokens();
+    return tokens?.accessToken || null;
+  }
+  
+  console.log('🔄 [API] Token expired/expiring, proactive refresh needed');
+  
+  // If already refreshing, wait for the existing refresh to complete
+  if (isRefreshing && refreshPromise) {
+    console.log('🔄 [API] Waiting for existing refresh...');
+    return refreshPromise;
+  }
+  
+  isRefreshing = true;
+  
+  refreshPromise = (async () => {
+    try {
+      const tokens = await getTokens();
+      if (!tokens?.refreshToken) {
+        console.log('❌ [API] No refresh token available');
+        await clearTokens();
+        if (global.onAuthExpired) {
+          global.onAuthExpired();
+        }
+        return null;
+      }
+      
+      console.log('🔄 [API] Refreshing tokens proactively...');
+      
+      const response = await axios.post(
+        `${API_CONFIG.JAVA_AUTH_URL}/api/auth/refresh`,
+        { refreshToken: tokens.refreshToken },
+        { headers: API_CONFIG.HEADERS }
+      );
+      
+      const { accessToken, refreshToken: newRefreshToken, expiresIn } = response.data;
+      await storeTokens(accessToken, newRefreshToken, expiresIn || 86400);
+      
+      console.log('✅ [API] Proactive token refresh successful');
+      onTokenRefreshed(accessToken);
+      
+      return accessToken;
+    } catch (error) {
+      console.error('❌ [API] Proactive token refresh failed:', error.message);
+      
+      // Clear tokens and notify app
+      await clearTokens();
+      if (global.onAuthExpired) {
+        global.onAuthExpired();
+      }
+      
+      return null;
+    } finally {
+      isRefreshing = false;
+      refreshPromise = null;
+    }
+  })();
+  
+  return refreshPromise;
 };
 
 /**
@@ -49,12 +120,28 @@ export const authClient = axios.create({
 });
 
 /**
- * Add auth header to config
+ * Add auth header to config with proactive token refresh
  */
 const addAuthHeader = async (config) => {
-  const tokens = await getTokens();
-  if (tokens?.accessToken) {
-    config.headers.Authorization = `Bearer ${tokens.accessToken}`;
+  // Skip token check for auth endpoints that don't need tokens
+  const skipRefreshUrls = ['/refresh', '/login', '/register', '/forgot-password', '/reset-password', '/oauth2', '/google'];
+  const shouldSkip = skipRefreshUrls.some(url => config.url?.includes(url));
+  
+  if (shouldSkip) {
+    // For login/register, just add existing token if available (optional)
+    const tokens = await getTokens();
+    if (tokens?.accessToken) {
+      config.headers.Authorization = `Bearer ${tokens.accessToken}`;
+    }
+    return config;
+  }
+  
+  // For protected endpoints, do proactive token refresh
+  const accessToken = await proactiveTokenRefresh();
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  } else {
+    console.warn('⚠️ [API] No valid token available for request');
   }
   return config;
 };
@@ -122,44 +209,51 @@ const handleResponseError = async (error, client) => {
     
     if (!isRefreshing) {
       isRefreshing = true;
-      
-      try {
-        const tokens = await getTokens();
-        if (tokens?.refreshToken) {
-          console.log('🔄 [API] Attempting token refresh...');
-          
-          const response = await axios.post(
-            `${API_CONFIG.JAVA_AUTH_URL}/api/auth/refresh`,
-            { refreshToken: tokens.refreshToken },
-            { headers: API_CONFIG.HEADERS }
-          );
-          
-          const { accessToken, refreshToken: newRefreshToken } = response.data;
-          await storeTokens(accessToken, newRefreshToken);
-          
-          console.log('✅ [API] Token refresh successful');
+      refreshPromise = (async () => {
+        try {
+          const tokens = await getTokens();
+          if (tokens?.refreshToken) {
+            console.log('🔄 [API] Attempting token refresh (401 handler)...');
+            
+            const response = await axios.post(
+              `${API_CONFIG.JAVA_AUTH_URL}/api/auth/refresh`,
+              { refreshToken: tokens.refreshToken },
+              { headers: API_CONFIG.HEADERS }
+            );
+            
+            const { accessToken, refreshToken: newRefreshToken, expiresIn } = response.data;
+            await storeTokens(accessToken, newRefreshToken, expiresIn || 86400);
+            
+            console.log('✅ [API] Token refresh successful');
+            isRefreshing = false;
+            refreshPromise = null;
+            onTokenRefreshed(accessToken);
+            
+            // Retry original request with new token
+            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+            return client(originalRequest);
+          } else {
+            throw new Error('No refresh token available');
+          }
+        } catch (refreshError) {
+          console.error('❌ [API] Token refresh failed:', refreshError.message);
           isRefreshing = false;
-          onTokenRefreshed(accessToken);
+          refreshPromise = null;
           
-          // Retry original request with new token
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-          return client(originalRequest);
+          // Clear tokens and force re-login
+          await clearTokens();
+          
+          // Emit event for app to handle logout
+          // This will be caught by the AppContext
+          if (global.onAuthExpired) {
+            global.onAuthExpired();
+          }
+          
+          return Promise.reject(refreshError);
         }
-      } catch (refreshError) {
-        console.error('❌ [API] Token refresh failed:', refreshError.message);
-        isRefreshing = false;
-        
-        // Clear tokens and force re-login
-        await clearTokens();
-        
-        // Emit event for app to handle logout
-        // This will be caught by the AppContext
-        if (global.onAuthExpired) {
-          global.onAuthExpired();
-        }
-        
-        return Promise.reject(refreshError);
-      }
+      })();
+      
+      return refreshPromise;
     } else {
       // Wait for refresh to complete
       return new Promise((resolve) => {
@@ -247,6 +341,54 @@ export const parseApiError = (error) => {
       errors: null,
       hint: null,
     };
+  }
+};
+
+/**
+ * Validate and refresh tokens on app startup
+ * Call this from AppContext during initialization
+ * @returns {Promise<{valid: boolean, accessToken: string|null}>}
+ */
+export const validateAndRefreshTokens = async () => {
+  console.log('🔄 [API] Validating tokens on startup...');
+  
+  const tokens = await getTokens();
+  
+  if (!tokens?.refreshToken) {
+    console.log('❌ [API] No refresh token found');
+    return { valid: false, accessToken: null };
+  }
+  
+  // Check if access token is expired
+  const expired = await isTokenExpired(0); // No buffer for startup check
+  
+  if (!expired && tokens.accessToken) {
+    console.log('✅ [API] Access token is still valid');
+    return { valid: true, accessToken: tokens.accessToken };
+  }
+  
+  // Token is expired or expiring, try to refresh
+  console.log('🔄 [API] Access token expired, refreshing...');
+  
+  try {
+    const response = await axios.post(
+      `${API_CONFIG.JAVA_AUTH_URL}/api/auth/refresh`,
+      { refreshToken: tokens.refreshToken },
+      { headers: API_CONFIG.HEADERS }
+    );
+    
+    const { accessToken, refreshToken: newRefreshToken, expiresIn } = response.data;
+    await storeTokens(accessToken, newRefreshToken, expiresIn || 86400);
+    
+    console.log('✅ [API] Token refresh successful on startup');
+    return { valid: true, accessToken };
+  } catch (error) {
+    console.error('❌ [API] Token refresh failed on startup:', error.message);
+    
+    // Clear invalid tokens
+    await clearTokens();
+    
+    return { valid: false, accessToken: null };
   }
 };
 

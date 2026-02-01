@@ -3,8 +3,9 @@
  * 
  * User login form with email/password authentication
  * Direct call to Java Auth service
+ * Supports Google OAuth Sign-In
  * 
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 import React, { useState, useCallback } from 'react';
@@ -17,9 +18,18 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { Button, Input, Alert, FixhomiLogo } from '../components';
 import { loginWithEmail, getErrorMessage, AUTH_CODES } from '../services/authService';
+import { 
+  signInWithGoogleAsUser,
+  signInWithGoogleAsProvider,
+  syncGoogleUserToMongoDB,
+  syncGoogleProviderToMongoDB,
+  GOOGLE_AUTH_CODES,
+  getGoogleAuthErrorMessage,
+} from '../services/googleAuthService';
 import { validateEmail, validatePassword } from '../utils/validation';
 import { useApp } from '../context/AppContext';
 
@@ -39,6 +49,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
 
   // UI state
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [alertMessage, setAlertMessage] = useState(null);
   const [alertType, setAlertType] = useState('error');
@@ -164,6 +175,121 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
     }
   };
 
+  /**
+   * Handle Google Sign-In
+   * Uses userType prop to determine if signing in as USER or SERVICE_PROVIDER
+   */
+  const handleGoogleSignIn = async () => {
+    try {
+      setGoogleLoading(true);
+      clearAlert();
+
+      const isProvider = userType === 'provider';
+      console.log(`🔐 [LoginScreen] Starting Google Sign-In as ${isProvider ? 'PROVIDER' : 'USER'}`);
+      
+      // Call appropriate sign-in method based on user type
+      const result = isProvider 
+        ? await signInWithGoogleAsProvider()
+        : await signInWithGoogleAsUser();
+
+      if (result.success) {
+        showAlert('Login successful!', 'success');
+        
+        const { accessToken, refreshToken, user, isNewUser } = result.data;
+        
+        // ✅ CRITICAL: Always sync Google users to MongoDB
+        // Java Auth creates user in PostgreSQL, but we need them in MongoDB too
+        // This handles: new users, returning users after DB clear, cross-device login
+        if (user) {
+          console.log(`🔄 [LoginScreen] Syncing Google ${isProvider ? 'provider' : 'user'} to MongoDB...`);
+          
+          const syncData = {
+            javaUserId: user.userId,
+            email: user.email,
+            fullName: user.fullName,
+            googleId: user.googleId,
+            profilePicture: user.profilePicture,
+          };
+          
+          try {
+            if (isProvider) {
+              // For providers, sync basic data - they can add more in ProfileScreen
+              await syncGoogleProviderToMongoDB({
+                ...syncData,
+                name: user.fullName,
+                address: '', // Will be updated in ProfileScreen
+              });
+            } else {
+              await syncGoogleUserToMongoDB(syncData);
+            }
+            console.log('✅ [LoginScreen] MongoDB sync completed');
+          } catch (syncError) {
+            console.warn('⚠️ [LoginScreen] MongoDB sync failed, continuing...', syncError);
+            // Don't block login - auth middleware auto-sync will handle it
+          }
+        }
+        
+        // Add userType to auth data
+        // Include javaUserId as the unified ID for MongoDB queries
+        const authData = {
+          accessToken: accessToken,
+          refreshToken: refreshToken,
+          userId: user.userId,
+          javaUserId: user.userId,
+          mongoId: user.userId, // Same as javaUserId in unified system
+          email: user.email,
+          fullName: user.fullName,
+          role: user.role,
+          userType: userType,
+          isNewUser: isNewUser,
+          authMethod: 'google',
+        };
+        
+        // For new providers, they may need to complete their profile
+        // The handleAuthSuccess should handle this navigation
+        const authProcessed = await handleAuthSuccess(authData);
+        
+        if (!authProcessed) {
+          showAlert('Login successful but failed to save session.', 'warning');
+        }
+      } else {
+        const { error } = result;
+        
+        // Don't show error for cancelled sign-in
+        if (error.isCancelled) {
+          console.log('🔵 [LoginScreen] Google Sign-In cancelled by user');
+          return;
+        }
+        
+        // Handle role conflict - email registered as different type
+        if (error.code === GOOGLE_AUTH_CODES.ROLE_CONFLICT) {
+          const roleMessage = isProvider
+            ? 'This email is already registered as a User. Each email can only be used for one account type.'
+            : 'This email is already registered as a Service Provider. Please login from the Provider app.';
+          showAlert(roleMessage, 'warning');
+          return;
+        }
+        
+        // Handle account exists with password
+        if (error.code === GOOGLE_AUTH_CODES.ACCOUNT_EXISTS_WITH_PASSWORD) {
+          showAlert(
+            'An account with this email already exists. Please login with your password.',
+            'info'
+          );
+          return;
+        }
+        
+        const errorMessage = getGoogleAuthErrorMessage(error.code, error.message);
+        showAlert(errorMessage, 'error');
+      }
+    } catch (error) {
+      console.error('❌ [LoginScreen] Google Sign-In error:', error);
+      showAlert('Google Sign-In failed. Please try again.', 'error');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -217,7 +343,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
               secureTextEntry={!showPassword}
               autoCapitalize="none"
               error={errors.password}
-              editable={!loading}
+              editable={!loading && !googleLoading}
               rightIcon={showPassword ? 'eye-off' : 'eye'}
               onRightIconPress={() => setShowPassword(!showPassword)}
             />
@@ -226,7 +352,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
             <TouchableOpacity 
               style={styles.forgotPassword}
               onPress={() => navigation?.navigate?.('ForgotPassword')}
-              disabled={loading}
+              disabled={loading || googleLoading}
             >
               <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
             </TouchableOpacity>
@@ -235,22 +361,45 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
               title={loading ? 'Signing In...' : 'Sign In'}
               onPress={handleLogin}
               loading={loading}
-              disabled={loading}
+              disabled={loading || googleLoading}
               style={styles.submitButton}
             />
 
-            {/* OTP Login Option */}
+            {/* Social Login Divider */}
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
+              <Text style={styles.dividerText}>or continue with</Text>
               <View style={styles.dividerLine} />
             </View>
 
+            {/* Google Sign-In Button */}
+            <TouchableOpacity
+              style={[
+                styles.googleButton,
+                (loading || googleLoading) && styles.googleButtonDisabled
+              ]}
+              onPress={handleGoogleSignIn}
+              disabled={loading || googleLoading}
+              activeOpacity={0.7}
+            >
+              {googleLoading ? (
+                <Text style={styles.googleButtonText}>Signing in...</Text>
+              ) : (
+                <>
+                  <View style={styles.googleIconContainer}>
+                    <Text style={styles.googleIcon}>G</Text>
+                  </View>
+                  <Text style={styles.googleButtonText}>Continue with Google</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* OTP Login Option */}
             <Button
               title="Sign In with OTP"
               onPress={onSwitchToOtp}
               variant="outline"
-              disabled={loading}
+              disabled={loading || googleLoading}
               style={styles.otpButton}
             />
           </View>
@@ -335,6 +484,46 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     color: '#9CA3AF',
     fontSize: 14,
+  },
+  // Google Button Styles
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  googleButtonDisabled: {
+    opacity: 0.6,
+  },
+  googleIconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#4285F4',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  googleIcon: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  googleButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
   },
   otpButton: {
     marginBottom: 8,

@@ -32,6 +32,7 @@ import {
   ProviderHomeScreen,
   ProfileScreen,
   SettingsScreen,
+  AccountSecurityScreen,
   VerificationScreen,
   EmailVerifyHandlerScreen,
   CreateServiceRequestScreen,
@@ -43,6 +44,9 @@ import {
   DocumentVerificationScreen,
   ServiceApprovalsScreen,
   LiveTrackingScreen,
+  ForgotPasswordScreen,
+  ResetPasswordScreen,
+  ChangePasswordScreen,
 } from '../src/screens';
 
 const Stack = createNativeStackNavigator();
@@ -98,6 +102,21 @@ export const linking = {
         path: 'auth/email-verify',
         parse: {
           token: (token) => token,
+        },
+      },
+      // Password Reset deep link handler
+      ResetPassword: {
+        path: 'auth/reset-password',
+        parse: {
+          token: (token) => token,
+        },
+      },
+      // Aadhaar/DigiLocker verification callback handler
+      AadhaarVerification: {
+        path: 'aadhaar-verification',
+        parse: {
+          status: (status) => status,
+          message: (message) => decodeURIComponent(message || ''),
         },
       },
     },
@@ -338,6 +357,16 @@ const AuthNavigator = () => {
       <Stack.Screen name="UserType" component={UserTypeScreen} />
       <Stack.Screen name="UserAuth" component={UserAuthScreen} />
       <Stack.Screen name="ProviderAuth" component={ProviderAuthScreen} />
+      <Stack.Screen 
+        name="ForgotPassword" 
+        component={ForgotPasswordScreen}
+        options={{ animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen 
+        name="ResetPassword" 
+        component={ResetPasswordScreen}
+        options={{ animation: 'slide_from_bottom' }}
+      />
     </Stack.Navigator>
   );
 };
@@ -397,6 +426,16 @@ const UserMainNavigator = () => {
         name="EmailVerifyHandler" 
         component={EmailVerifyHandlerScreen}
         options={{ animation: 'fade' }}
+      />
+      <Stack.Screen 
+        name="ChangePassword" 
+        component={ChangePasswordScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen 
+        name="AccountSecurity" 
+        component={AccountSecurityScreen}
+        options={{ animation: 'slide_from_right' }}
       />
     </Stack.Navigator>
   );
@@ -461,6 +500,16 @@ const ProviderMainNavigator = () => {
         name="EmailVerifyHandler" 
         component={EmailVerifyHandlerScreen}
         options={{ animation: 'fade' }}
+      />
+      <Stack.Screen 
+        name="ChangePassword" 
+        component={ChangePasswordScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen 
+        name="AccountSecurity" 
+        component={AccountSecurityScreen}
+        options={{ animation: 'slide_from_right' }}
       />
     </Stack.Navigator>
   );

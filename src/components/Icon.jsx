@@ -66,6 +66,8 @@ const ICON_MAP = {
   verified: { family: 'Ionicons', name: 'checkmark-circle', color: '#10B981' },
   unverified: { family: 'Ionicons', name: 'alert-circle', color: '#F59E0B' },
   warning: { family: 'Ionicons', name: 'warning', color: '#F59E0B' },
+  verified_user: { family: 'MaterialIcons', name: 'verified-user', color: '#10B981' },
+  shield: { family: 'MaterialIcons', name: 'shield', color: '#3B82F6' },
   
   // Actions
   call: { family: 'Feather', name: 'phone-call', color: '#10B981' },

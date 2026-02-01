@@ -29,7 +29,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { useApp } from '../context/AppContext';
-import { Icon } from '../components';
+import { Icon, AadhaarVerificationModal } from '../components';
 import { updateUserProfile, updateProviderProfile } from '../services/profileService';
 import { SERVICE_CATEGORIES } from '../services/authService';
 import { NODE_BASE_URL } from '../config/api';
@@ -39,6 +39,7 @@ import {
   verifyPhoneOtp,
   sendEmailVerification,
 } from '../services/authService';
+import { getAadhaarStatus } from '../services/aadhaarService';
 import SavedAddresses from '../components/SavedAddresses';
 
 // Cloudinary config
@@ -173,6 +174,7 @@ const ProfileScreen = ({ navigation, route }) => {
   // Edit form state
   const [formData, setFormData] = useState({
     fullName: '',
+    phone: '', // Added phone number to editable fields
     address: '',
     city: '',
     pincode: '',
@@ -194,6 +196,10 @@ const ProfileScreen = ({ navigation, route }) => {
   const [uploadingPicture, setUploadingPicture] = useState(false);
   const [showImagePickerModal, setShowImagePickerModal] = useState(false);
   
+  // Aadhaar verification state (providers only)
+  const [showAadhaarModal, setShowAadhaarModal] = useState(false);
+  const [isAadhaarVerified, setIsAadhaarVerified] = useState(false);
+  
   // Auto-open addresses modal if navigated with scrollToAddresses param
   useEffect(() => {
     if (scrollToAddresses) {
@@ -214,12 +220,30 @@ const ProfileScreen = ({ navigation, route }) => {
   useEffect(() => {
     setFormData({
       fullName: displayData?.fullName || '',
+      phone: displayData?.phone || displayData?.phoneNumber || '',
       address: displayData?.address || '',
       city: displayData?.city || '',
       pincode: displayData?.pincode || '',
       experience: displayData?.experience || '',
     });
-  }, [displayData?.fullName, displayData?.address, displayData?.city, displayData?.pincode, displayData?.experience]);
+  }, [displayData?.fullName, displayData?.phone, displayData?.phoneNumber, displayData?.address, displayData?.city, displayData?.pincode, displayData?.experience]);
+
+  // Fetch Aadhaar verification status for providers
+  useEffect(() => {
+    const fetchAadhaarStatus = async () => {
+      if (isProvider) {
+        try {
+          const result = await getAadhaarStatus();
+          if (result.success) {
+            setIsAadhaarVerified(result.aadhaar?.isVerified || false);
+          }
+        } catch (error) {
+          console.log('Error fetching Aadhaar status:', error);
+        }
+      }
+    };
+    fetchAadhaarStatus();
+  }, [isProvider]);
 
   /**
    * Handle refresh - fetch full profile from both Java Auth and MongoDB
@@ -231,6 +255,19 @@ const ProfileScreen = ({ navigation, route }) => {
       await refreshProfile(userType, userId);
     }
     await refreshVerificationStatus();
+    
+    // Refresh Aadhaar status for providers
+    if (isProvider) {
+      try {
+        const result = await getAadhaarStatus();
+        if (result.success) {
+          setIsAadhaarVerified(result.aadhaar?.isVerified || false);
+        }
+      } catch (error) {
+        console.log('Error refreshing Aadhaar status:', error);
+      }
+    }
+    
     setRefreshing(false);
   };
 
@@ -254,13 +291,14 @@ const ProfileScreen = ({ navigation, route }) => {
         // Note: serviceCategories are managed via Document Verification, not editable here
         result = await updateProviderProfile(userId, {
           name: formData.fullName,
+          phone: formData.phone, // Include phone number
           address: formData.address,
           city: formData.city,
           pincode: formData.pincode,
           experience: formData.experience,
         });
       } else {
-        // For users, use user profile endpoint
+        // For users, use user profile endpoint (formData includes phone)
         result = await updateUserProfile(userId, formData);
       }
       
@@ -645,6 +683,21 @@ const ProfileScreen = ({ navigation, route }) => {
                   {displayData?.isEmailVerified ? 'Email ✓' : 'Email'}
                 </Text>
               </View>
+              {/* Aadhaar badge for providers */}
+              {isProvider && (
+                <View style={[
+                  styles.verificationItem,
+                  isAadhaarVerified && styles.verificationItemVerified,
+                ]}>
+                  <Icon name="verified_user" size={16} color={isAadhaarVerified ? '#2b76bc' : '#6B7280'} />
+                  <Text style={[
+                    styles.verificationLabel,
+                    isAadhaarVerified && styles.verificationLabelVerified
+                  ]}>
+                    {isAadhaarVerified ? 'KYC ✓' : 'KYC'}
+                  </Text>
+                </View>
+              )}
             </View>
 
             {!isVerified && (
@@ -738,7 +791,39 @@ const ProfileScreen = ({ navigation, route }) => {
               onVerify={handleEmailVerify}
               isLoading={verifyingEmail}
             />
+            
+            {/* Aadhaar Verification - Providers Only */}
+            {isProvider && (
+              <InfoRow
+                iconName="verified_user"
+                label="Aadhaar (KYC)"
+                value={isAadhaarVerified ? 'Identity Verified' : 'Not Verified'}
+                verified={isAadhaarVerified}
+                onVerify={() => setShowAadhaarModal(true)}
+                isLoading={false}
+              />
+            )}
+            
+            {/* Provider Aadhaar verification notice */}
+            {isProvider && !isAadhaarVerified && (
+              <View style={styles.aadhaarNotice}>
+                <Icon name="warning" size={16} color="#f67c16" />
+                <Text style={styles.aadhaarNoticeText}>
+                  Verify your Aadhaar to receive service requests
+                </Text>
+              </View>
+            )}
           </View>
+          
+          {/* Aadhaar Verification Modal */}
+          <AadhaarVerificationModal
+            visible={showAadhaarModal}
+            onClose={() => setShowAadhaarModal(false)}
+            onVerified={() => {
+              setIsAadhaarVerified(true);
+              setShowAadhaarModal(false);
+            }}
+          />
 
           {/* Edit Mode - Personal Information */}
           {isEditing ? (
@@ -750,6 +835,13 @@ const ProfileScreen = ({ navigation, route }) => {
                 value={formData.fullName}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, fullName: text }))}
                 placeholder="Enter your full name"
+              />
+
+              <EditableField
+                label="Phone Number"
+                value={formData.phone}
+                onChangeText={(text) => setFormData(prev => ({ ...prev, phone: text }))}
+                placeholder="Enter your phone number (e.g., +91XXXXXXXXXX)"
               />
 
               <EditableField
@@ -1292,6 +1384,22 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     color: '#f67c16',
+  },
+  aadhaarNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFF7ED',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#f67c16',
+  },
+  aadhaarNoticeText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#78350F',
   },
 
   // Section

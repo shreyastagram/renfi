@@ -15,11 +15,15 @@ import {
   getTokens, 
   clearAllData,
   storeUserType,
-  getUserType 
+  getUserType,
+  isTokenExpired 
 } from '../utils/storage';
 import { logout as apiLogout } from '../services/authService';
 import { fetchFullProfile, getCurrentUser, updateProviderOnlineStatus as apiUpdateOnlineStatus, updateProviderProfile as apiUpdateProviderProfile } from '../services/profileService';
 import { saveFcmTokenForUser, saveFcmTokenForProvider, setupForegroundMessageListener, setupTokenRefreshListener } from '../services/fcmService';
+import { validateAndRefreshTokens } from '../services/apiClient';
+import { performFullSync, processSyncQueue, isSyncDue, updateProfileWithSync, SYNC_STATUS } from '../services/profileSyncService';
+import { checkAuthHealth, addAuthStateListener, getDeviceInfo, AUTH_HEALTH } from '../services/authInfraService';
 
 /**
  * App Context
@@ -38,6 +42,8 @@ export const AppProvider = ({ children }) => {
   const [userType, setUserTypeState] = useState(null); // 'user' or 'provider'
   const [profile, setProfile] = useState(null); // Full profile data
   const [isProfileLoading, setIsProfileLoading] = useState(false);
+  const [authHealth, setAuthHealth] = useState(null); // Auth service health status
+  const [activeSessions, setActiveSessions] = useState([]); // Multi-device sessions
 
   /**
    * Initialize auth state on app load
@@ -48,8 +54,17 @@ export const AppProvider = ({ children }) => {
     // Set up global handler for auth expiry (called from apiClient)
     global.onAuthExpired = handleAuthExpired;
     
+    // Subscribe to auth state changes from authInfraService
+    const unsubscribeAuthState = addAuthStateListener((state, data) => {
+      console.log('📢 [AppContext] Auth state notification:', state, data);
+      if (state === 'LOGGED_OUT') {
+        handleAuthExpired();
+      }
+    });
+    
     return () => {
       global.onAuthExpired = null;
+      unsubscribeAuthState();
     };
   }, []);
 
@@ -63,7 +78,91 @@ export const AppProvider = ({ children }) => {
     setUserTypeState(null);
     setProfile(null);
     setIsAuthenticated(false);
+    setAuthHealth(null);
+    setActiveSessions([]);
   }, []);
+
+  /**
+   * Check auth health status
+   * @returns {Promise<Object>} Auth health status
+   */
+  const checkHealth = useCallback(async () => {
+    try {
+      console.log('🏥 [AppContext] Checking auth health...');
+      const health = await checkAuthHealth();
+      setAuthHealth(health);
+      return health;
+    } catch (error) {
+      console.error('❌ [AppContext] Health check failed:', error);
+      return { status: AUTH_HEALTH.SERVICE_ERROR, healthy: false };
+    }
+  }, []);
+
+  /**
+   * Perform profile sync if needed
+   * Called on app resume or periodically
+   * @returns {Promise<Object>} Sync result
+   */
+  const syncProfileIfNeeded = useCallback(async () => {
+    try {
+      // Check if sync is due based on time
+      const syncNeeded = await isSyncDue();
+      if (!syncNeeded) {
+        console.log('⏭️ [AppContext] Sync not due yet');
+        return { skipped: true };
+      }
+
+      // Process any pending sync items first
+      const queueResult = await processSyncQueue();
+      
+      // Perform full sync if we have user data
+      if (user?.mongoId && userType) {
+        const syncResult = await performFullSync({
+          type: userType,
+          mongoId: user.mongoId,
+        });
+        
+        if (syncResult.success && syncResult.data) {
+          setProfile(syncResult.data);
+        }
+        
+        return syncResult;
+      }
+      
+      return { queueResult };
+    } catch (error) {
+      console.error('❌ [AppContext] Profile sync failed:', error);
+      return { success: false, error: error.message };
+    }
+  }, [user?.mongoId, userType]);
+
+  /**
+   * Update profile with automatic sync to both databases
+   * @param {Object} updates - Profile updates
+   * @returns {Promise<Object>} Update result
+   */
+  const updateProfileWithAutoSync = useCallback(async (updates) => {
+    if (!user?.mongoId || !userType) {
+      return { success: false, error: 'No user session' };
+    }
+    
+    const result = await updateProfileWithSync({
+      type: userType,
+      mongoId: user.mongoId,
+      updates,
+    });
+    
+    if (result.success && result.data) {
+      setProfile(prev => ({ ...prev, ...result.data }));
+      setUser(prev => ({
+        ...prev,
+        fullName: updates.name || updates.fullName || prev?.fullName,
+        phone: updates.phone || updates.phoneNumber || prev?.phone,
+      }));
+    }
+    
+    return result;
+  }, [user?.mongoId, userType]);
 
   /**
    * Refresh profile data from APIs
@@ -247,35 +346,60 @@ export const AppProvider = ({ children }) => {
   }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id]);
 
   /**   * Check stored tokens and restore auth state
+   * Now with proactive token validation and refresh
    */
   const initializeAuth = async () => {
     try {
       console.log('🔄 [AppContext] Initializing auth state...');
       
-      const [tokens, storedUserData, storedUserType] = await Promise.all([
-        getTokens(),
+      const [storedUserData, storedUserType] = await Promise.all([
         getUserData(),
         getUserType(),
       ]);
 
-      if (tokens?.accessToken && storedUserData) {
-        console.log('✅ [AppContext] Found stored session');
-        setUser(storedUserData);
-        setUserTypeState(storedUserType);
-        setIsAuthenticated(true);
-        
-        // Fetch fresh profile data in background
-        if (storedUserData.mongoId) {
-          refreshProfile(storedUserType, storedUserData.mongoId);
-        } else {
-          // At least refresh verification status
-          refreshVerificationStatus();
-        }
-      } else {
+      // Check if we have stored user data
+      if (!storedUserData) {
         console.log('ℹ️ [AppContext] No stored session found');
+        setIsAuthLoading(false);
+        return;
+      }
+
+      // Validate and refresh tokens BEFORE setting auth state
+      console.log('🔐 [AppContext] Validating stored tokens...');
+      const tokenResult = await validateAndRefreshTokens();
+      
+      if (!tokenResult.valid) {
+        console.log('❌ [AppContext] Tokens invalid or expired, clearing session...');
+        await clearAllData();
+        setUser(null);
+        setUserTypeState(null);
+        setProfile(null);
+        setIsAuthenticated(false);
+        setIsAuthLoading(false);
+        return;
+      }
+
+      // Tokens are valid, restore session
+      console.log('✅ [AppContext] Tokens valid, restoring session');
+      setUser(storedUserData);
+      setUserTypeState(storedUserType);
+      setIsAuthenticated(true);
+      
+      // Fetch fresh profile data in background
+      if (storedUserData.mongoId) {
+        refreshProfile(storedUserType, storedUserData.mongoId);
+      } else {
+        // At least refresh verification status
+        refreshVerificationStatus();
       }
     } catch (error) {
       console.error('❌ [AppContext] Auth initialization failed:', error);
+      // On error, clear potentially corrupted state
+      await clearAllData();
+      setUser(null);
+      setUserTypeState(null);
+      setProfile(null);
+      setIsAuthenticated(false);
     } finally {
       setIsAuthLoading(false);
     }
@@ -289,8 +413,10 @@ export const AppProvider = ({ children }) => {
     try {
       console.log('🔐 [AppContext] Processing auth success...', authData);
       
-      // Store tokens securely
-      await storeTokens(authData.accessToken, authData.refreshToken);
+      // Store tokens securely with expiry time
+      // expiresIn is in seconds (default 24 hours = 86400)
+      const expiresIn = authData.expiresIn || 86400;
+      await storeTokens(authData.accessToken, authData.refreshToken, expiresIn);
       
       // Determine user type
       const isProvider = authData.userType === 'provider' || authData.role === 'SERVICE_PROVIDER' || authData.providerId;
@@ -443,6 +569,10 @@ export const AppProvider = ({ children }) => {
     profile,
     isProfileLoading,
     
+    // Auth infrastructure state (Phase 4)
+    authHealth,
+    activeSessions,
+    
     // Auth actions
     handleAuthSuccess,
     selectUserType,
@@ -453,6 +583,13 @@ export const AppProvider = ({ children }) => {
     refreshVerificationStatus,
     updateProviderAvailability,
     updateProviderLocationTracking,
+    
+    // Profile sync actions (Phase 3)
+    syncProfileIfNeeded,
+    updateProfileWithAutoSync,
+    
+    // Auth health actions (Phase 4)
+    checkHealth,
     
     // Re-initialize (useful for token refresh)
     initializeAuth,

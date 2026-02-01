@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Linking, View } from 'react-native';
-import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, NavigationContainerRef, ParamListBase } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import type { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
 import { AppProvider } from './src/context/AppContext';
 import { LocationProvider } from './src/context/LocationContext';
 import RootNavigator, { linking as navLinking } from './navigation/RootNavigator';
@@ -10,23 +11,24 @@ import {
   setupNotificationOpenedHandler, 
   getAppInitialNotification 
 } from './src/services/fcmService';
+import { configureGoogleSignIn } from './src/services/googleAuthService';
 
 // Navigation reference for deep linking and notification handling
-export const navigationRef = React.createRef<NavigationContainerRef<any>>();
+export const navigationRef = React.createRef<NavigationContainerRef<ParamListBase>>();
 
 /**
  * Navigate to a screen (can be called from anywhere)
  */
 export const navigate = (name: string, params?: object) => {
   if (navigationRef.current?.isReady()) {
-    navigationRef.current?.navigate(name as never, params as never);
+    (navigationRef.current as any)?.navigate(name, params);
   } else {
     console.warn('[Navigation] Navigator not ready yet');
   }
 };
 
-// Deep linking configuration
-const linking = {
+// Deep linking configuration - using any to avoid complex nested type issues
+const linking: any = {
   ...navLinking,
   // Custom function to handle deep links
   async getInitialURL() {
@@ -70,7 +72,7 @@ const handleNotificationData = (remoteMessage: any) => {
       if (requestId) {
         navigate('ServiceRequestDetail', { 
           requestId, 
-          distance: distance ? parseFloat(distance) : undefined,
+          distance: distance ? parseFloat(String(distance)) : undefined,
           fromNotification: true 
         });
       } else {
@@ -128,8 +130,11 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
+    // Configure Google Sign-In on app start
+    configureGoogleSignIn();
+    
     // Set up notification opened handler (when app is in background)
-    const unsubscribe = setupNotificationOpenedHandler((remoteMessage) => {
+    const unsubscribe = setupNotificationOpenedHandler((remoteMessage: any) => {
       console.log('📩 [FCM] App opened via notification tap');
       handleNotificationData(remoteMessage);
     });

@@ -16,21 +16,31 @@ const STORAGE_KEYS = {
   REFRESH_TOKEN: 'refreshToken',
   USER_DATA: 'userData',
   USER_TYPE: 'userType',
+  TOKEN_EXPIRY: 'tokenExpiry',
 };
 
 /**
  * Securely store authentication tokens
  * @param {string} accessToken - JWT access token
  * @param {string} refreshToken - Refresh token
+ * @param {number} expiresIn - Token expiry in seconds (optional, default 24 hours)
  */
-export const storeTokens = async (accessToken, refreshToken) => {
+export const storeTokens = async (accessToken, refreshToken, expiresIn = 86400) => {
   try {
+    // Calculate absolute expiry time
+    const expiryTime = Date.now() + (expiresIn * 1000);
+    
     // Store tokens securely in keychain
     await Keychain.setGenericPassword(
       'auth_tokens',
-      JSON.stringify({ accessToken, refreshToken }),
+      JSON.stringify({ accessToken, refreshToken, expiryTime }),
       { service: 'fixhomi_auth' }
     );
+    
+    // Also store expiry in AsyncStorage for quick access
+    await AsyncStorage.setItem(STORAGE_KEYS.TOKEN_EXPIRY, expiryTime.toString());
+    
+    console.log('✅ [Storage] Tokens stored, expires at:', new Date(expiryTime).toISOString());
     return true;
   } catch (error) {
     console.error('❌ [Storage] Failed to store tokens:', error);
@@ -56,11 +66,52 @@ export const getTokens = async () => {
 };
 
 /**
+ * Check if the access token is expired or about to expire
+ * @param {number} bufferMs - Buffer time in milliseconds (default: 5 minutes)
+ * @returns {boolean} True if expired or about to expire
+ */
+export const isTokenExpired = async (bufferMs = 5 * 60 * 1000) => {
+  try {
+    const tokens = await getTokens();
+    if (!tokens?.expiryTime) {
+      // No expiry stored, assume expired to force refresh
+      console.log('⚠️ [Storage] No token expiry found, assuming expired');
+      return true;
+    }
+    
+    const isExpired = Date.now() + bufferMs >= tokens.expiryTime;
+    if (isExpired) {
+      console.log('⏰ [Storage] Token expired or expiring soon');
+    }
+    return isExpired;
+  } catch (error) {
+    console.error('❌ [Storage] Failed to check token expiry:', error);
+    return true; // Assume expired on error
+  }
+};
+
+/**
+ * Get token expiry time
+ * @returns {number|null} Expiry timestamp or null
+ */
+export const getTokenExpiry = async () => {
+  try {
+    const tokens = await getTokens();
+    return tokens?.expiryTime || null;
+  } catch (error) {
+    console.error('❌ [Storage] Failed to get token expiry:', error);
+    return null;
+  }
+};
+
+/**
  * Clear stored authentication tokens
  */
 export const clearTokens = async () => {
   try {
     await Keychain.resetGenericPassword({ service: 'fixhomi_auth' });
+    await AsyncStorage.removeItem(STORAGE_KEYS.TOKEN_EXPIRY);
+    console.log('✅ [Storage] Tokens cleared');
     return true;
   } catch (error) {
     console.error('❌ [Storage] Failed to clear tokens:', error);
@@ -144,6 +195,8 @@ export default {
   storeTokens,
   getTokens,
   clearTokens,
+  isTokenExpired,
+  getTokenExpiry,
   storeUserData,
   getUserData,
   storeUserType,

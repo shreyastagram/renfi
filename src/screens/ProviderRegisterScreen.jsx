@@ -6,8 +6,9 @@
  * Optional: phone, city, pincode, serviceCategories, experience, location
  * 
  * Now captures real GPS coordinates for provider location
+ * Supports Google OAuth Sign-In for quick registration
  * 
- * @version 2.0.0
+ * @version 3.1.0
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -22,12 +23,19 @@ import {
   TouchableOpacity,
   PermissionsAndroid,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 import { Button, Input, Alert, FixhomiLogo } from '../components';
 import { registerProvider, getErrorMessage, AUTH_CODES } from '../services/authService';
 import { validateProviderRegistrationForm } from '../utils/validation';
 import { useApp } from '../context/AppContext';
+import {
+  signInWithGoogleAsProvider,
+  syncGoogleProviderToMongoDB,
+  GOOGLE_AUTH_CODES,
+  getGoogleAuthErrorMessage,
+} from '../services/googleAuthService';
 
 /**
  * ProviderRegisterScreen Component
@@ -50,15 +58,41 @@ const ProviderRegisterScreen = ({ navigation }) => {
 
   // UI state
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [alertMessage, setAlertMessage] = useState(null);
   const [alertType, setAlertType] = useState('error');
+
+  // Account exists modal state
+  const [showAccountExistsModal, setShowAccountExistsModal] = useState(false);
+  const [existingEmail, setExistingEmail] = useState('');
 
   // Location state
   const [location, setLocation] = useState(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState(null);
   const [watchId, setWatchId] = useState(null);
+
+  /**
+   * Navigate to login with pre-filled email
+   */
+  const handleGoToLogin = useCallback(() => {
+    setShowAccountExistsModal(false);
+    navigation.navigate('ProviderAuthScreen', { 
+      initialTab: 'login',
+      prefillEmail: existingEmail 
+    });
+  }, [navigation, existingEmail]);
+
+  /**
+   * Navigate to forgot password with pre-filled email
+   */
+  const handleForgotPassword = useCallback(() => {
+    setShowAccountExistsModal(false);
+    navigation.navigate('ForgotPasswordScreen', { 
+      prefillEmail: existingEmail 
+    });
+  }, [navigation, existingEmail]);
 
   /**
    * Request location permission (Android)
@@ -312,8 +346,10 @@ const ProviderRegisterScreen = ({ navigation }) => {
         // Handle specific error codes
         switch (error.code) {
           case AUTH_CODES.EMAIL_ALREADY_EXISTS:
+            // Industry-grade UX: Show modal with login/reset options
+            setExistingEmail(formData.email);
+            setShowAccountExistsModal(true);
             setErrors({ email: 'This email is already registered' });
-            showAlert(getErrorMessage(error.code, error.message), 'error');
             break;
             
           case AUTH_CODES.PHONE_ALREADY_EXISTS:
@@ -373,6 +409,115 @@ const ProviderRegisterScreen = ({ navigation }) => {
    */
   const handleBack = () => {
     navigation.goBack();
+  };
+
+  /**
+   * Handle Google Sign-In for provider registration
+   * Creates account with SERVICE_PROVIDER role
+   * Note: Provider will need to complete their profile (address, services) after Google sign-in
+   */
+  const handleGoogleSignIn = async () => {
+    try {
+      setGoogleLoading(true);
+      clearAlert();
+
+      console.log('🔐 [ProviderRegisterScreen] Starting Google Sign-In as SERVICE_PROVIDER');
+      
+      const result = await signInWithGoogleAsProvider();
+
+      if (result.success) {
+        const { accessToken, refreshToken, user, isNewUser } = result.data;
+
+        // For new providers via Google, we need their address (required field)
+        // We'll sync with the form data if available, otherwise use defaults
+        if (isNewUser && user) {
+          console.log('🆕 [ProviderRegisterScreen] New provider - syncing to MongoDB...');
+          
+          // Use form data if filled, otherwise use Google data
+          const syncResult = await syncGoogleProviderToMongoDB({
+            javaUserId: user.id || user.userId,
+            email: user.email,
+            name: formData.name?.trim() || user.fullName || user.name || user.email.split('@')[0],
+            address: formData.address?.trim() || 'Please update your address',
+            googleId: user.googleId,
+            profilePicture: user.profilePicture,
+            phone: formData.phone?.trim() || undefined,
+            city: formData.city?.trim() || undefined,
+            pincode: formData.pincode?.trim() || undefined,
+            latitude: location?.latitude,
+            longitude: location?.longitude,
+          });
+
+          if (!syncResult.success) {
+            console.warn('⚠️ [ProviderRegisterScreen] MongoDB sync failed, but auth succeeded');
+          } else {
+            // If address was defaulted, show warning
+            if (!formData.address?.trim()) {
+              showAlert('Please update your address in Profile settings.', 'info');
+            }
+          }
+        }
+
+        showAlert('Registration successful!', 'success');
+        
+        // Process auth with explicit ID extraction
+        // The unified ID system means javaUserId = mongoId
+        const authData = {
+          accessToken,
+          refreshToken,
+          userId: user.id || user.userId,
+          javaUserId: user.id || user.userId,
+          mongoId: user.id || user.userId, // Same in unified system  
+          providerId: user.id || user.userId, // For provider profile fetching
+          email: user.email,
+          fullName: user.fullName || user.name,
+          role: user.role,
+          userType: 'provider',
+          isNewUser,
+          authMethod: 'google',
+        };
+        
+        const authProcessed = await handleAuthSuccess(authData);
+        
+        if (!authProcessed) {
+          showAlert('Registration successful but failed to save session.', 'warning');
+        }
+      } else {
+        const { error } = result;
+        
+        // Don't show error for cancelled sign-in
+        if (error.isCancelled) {
+          console.log('🔵 [ProviderRegisterScreen] Google Sign-In cancelled by user');
+          return;
+        }
+        
+        // Handle role conflict
+        if (error.code === GOOGLE_AUTH_CODES.ROLE_CONFLICT) {
+          showAlert(
+            'This email is already registered as a User. Each email can only be used for one account type.',
+            'warning'
+          );
+          return;
+        }
+        
+        // Handle account exists with password
+        if (error.code === GOOGLE_AUTH_CODES.ACCOUNT_EXISTS_WITH_PASSWORD) {
+          showAlert(
+            'An account with this email already exists. Please login with your password.',
+            'info'
+          );
+          return;
+        }
+        
+        const errorMessage = getGoogleAuthErrorMessage(error.code, error.message);
+        showAlert(errorMessage, 'error');
+      }
+    } catch (error) {
+      console.error('❌ [ProviderRegisterScreen] Google Sign-In error:', error);
+      showAlert('Google Sign-In failed. Please try again.', 'error');
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   return (
@@ -530,8 +675,42 @@ const ProviderRegisterScreen = ({ navigation }) => {
               title={loading ? 'Creating Account...' : 'Create Provider Account'}
               onPress={handleRegister}
               loading={loading}
+              disabled={loading || googleLoading}
               style={styles.submitButton}
             />
+
+            {/* Social Login Divider */}
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or register with</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Google Sign-In Button */}
+            <TouchableOpacity
+              style={[
+                styles.googleButton,
+                (loading || googleLoading) && styles.googleButtonDisabled
+              ]}
+              onPress={handleGoogleSignIn}
+              disabled={loading || googleLoading}
+              activeOpacity={0.7}
+            >
+              {googleLoading ? (
+                <Text style={styles.googleButtonText}>Signing up...</Text>
+              ) : (
+                <>
+                  <View style={styles.googleIconContainer}>
+                    <Text style={styles.googleIcon}>G</Text>
+                  </View>
+                  <Text style={styles.googleButtonText}>Continue with Google</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <Text style={styles.googleNote}>
+              💡 You can fill in Name, Address, and Location above before using Google Sign-In
+            </Text>
           </View>
 
           {/* Footer */}
@@ -545,6 +724,51 @@ const ProviderRegisterScreen = ({ navigation }) => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Account Already Exists Modal */}
+      <Modal
+        visible={showAccountExistsModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowAccountExistsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalIcon}>👋</Text>
+            <Text style={styles.modalTitle}>Welcome Back!</Text>
+            <Text style={styles.modalEmail}>{existingEmail}</Text>
+            <Text style={styles.modalMessage}>
+              An account with this email already exists. Would you like to log in instead?
+            </Text>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.modalPrimaryButton}
+                onPress={handleGoToLogin}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalPrimaryButtonText}>Log In to My Account</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.modalSecondaryButton}
+                onPress={handleForgotPassword}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalSecondaryButtonText}>I Forgot My Password</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.modalDismissButton}
+                onPress={() => setShowAccountExistsModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalDismissText}>Use a Different Email</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -702,6 +926,63 @@ const styles = StyleSheet.create({
   submitButton: {
     marginTop: 8,
   },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E7EB',
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    color: '#9CA3AF',
+    fontSize: 14,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    marginBottom: 8,
+  },
+  googleButtonDisabled: {
+    opacity: 0.6,
+  },
+  googleIconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#4285F4',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  googleIcon: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  googleButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  googleNote: {
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 8,
+    fontStyle: 'italic',
+  },
   footer: {
     paddingVertical: 24,
   },
@@ -714,6 +995,86 @@ const styles = StyleSheet.create({
   link: {
     color: '#2563EB',
     fontWeight: '500',
+  },
+  // Account Exists Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalIcon: {
+    fontSize: 48,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalEmail: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 8,
+    fontStyle: 'italic',
+  },
+  modalMessage: {
+    fontSize: 15,
+    color: '#4B5563',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalButtons: {
+    gap: 12,
+  },
+  modalPrimaryButton: {
+    backgroundColor: '#059669',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  modalPrimaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalSecondaryButton: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  modalSecondaryButtonText: {
+    color: '#374151',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalDismissButton: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  modalDismissText: {
+    color: '#9CA3AF',
+    fontSize: 14,
   },
 });
 
