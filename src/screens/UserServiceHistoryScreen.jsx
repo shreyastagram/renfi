@@ -25,6 +25,7 @@ import {
   Platform,
   Clipboard,
   ScrollView,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
@@ -37,6 +38,7 @@ import {
   SERVICE_TYPE_LABELS,
 } from '../services/traditionalServiceService';
 import { subscribeToRequest, unsubscribeFromRequest } from '../services/socketService';
+import { NODE_BASE_URL } from '../config/api';
 
 // Brand colors - User side uses blue as accent
 const BRAND = {
@@ -91,8 +93,14 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
   const status = STATUS_CONFIG[request.status] || STATUS_CONFIG.pending;
   const isActive = ['accepted', 'in-progress'].includes(request.status);
   const isCompleted = request.status === 'completed';
-  const hasProvider = request.providerDetails && request.assignedProviderId;
+  const hasProvider = request.providerDetails && (request.assignedProviderId || request.providerId);
   const hasRated = request.ratings?.userRating > 0;
+  const isEventService = request.isEventService;
+  const isEmergencyService = request.isEmergencyService;
+  
+  // Get provider profile picture
+  const providerProfilePicture = request.providerDetails?.profilePicture || 
+    (typeof request.providerDetails?.profilePicture === 'string' ? request.providerDetails?.profilePicture : request.providerDetails?.profilePicture?.url);
   
   const handleCopyOtp = () => {
     if (request.completionOtp) {
@@ -103,6 +111,14 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
 
   return (
     <TouchableOpacity style={styles.requestCard} onPress={onPress} activeOpacity={0.8}>
+      {/* Event Service Badge */}
+      {isEventService && (
+        <View style={styles.eventBadge}>
+          <Icon name="camera" size={12} color="#7C3AED" />
+          <Text style={styles.eventBadgeText}>Event Service</Text>
+        </View>
+      )}
+      
       {/* Header */}
       <View style={styles.cardHeader}>
         <View style={styles.serviceInfo}>
@@ -111,7 +127,7 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
           </View>
           <View>
             <Text style={styles.serviceType}>{SERVICE_TYPE_LABELS[request.serviceType] || request.serviceType}</Text>
-            <Text style={styles.requestId}>#{request.requestId}</Text>
+            <Text style={styles.requestId}>#{request.requestId || request._id?.slice(-8)}</Text>
           </View>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: status.bgColor }]}>
@@ -120,26 +136,43 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
         </View>
       </View>
 
-      {/* Date */}
+      {/* Date - show event date for event services */}
       <View style={styles.dateRow}>
         <Icon name="calendar" size={14} color="#6B7280" />
-        <Text style={styles.dateLabel}>{new Date(request.serviceDate || request.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</Text>
+        <Text style={styles.dateLabel}>
+          {isEventService && request.eventDate 
+            ? `Event: ${new Date(request.eventDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}`
+            : new Date(request.serviceDate || request.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+          }
+        </Text>
       </View>
 
-      {/* Provider Info */}
+      {/* Provider Info - Enhanced with profile picture */}
       {hasProvider && (
         <View style={styles.providerSection}>
           <View style={styles.providerInfo}>
-            <View style={styles.providerAvatar}>
-              <Text style={styles.providerInitial}>{request.providerDetails.name?.charAt(0).toUpperCase() || 'P'}</Text>
-            </View>
+            {providerProfilePicture ? (
+              <Image 
+                source={{ uri: providerProfilePicture }} 
+                style={styles.providerAvatarImage}
+              />
+            ) : (
+              <View style={styles.providerAvatar}>
+                <Text style={styles.providerInitial}>{request.providerDetails.name?.charAt(0).toUpperCase() || 'P'}</Text>
+              </View>
+            )}
             <View style={styles.providerDetails}>
               <Text style={styles.providerName}>{request.providerDetails.name}</Text>
               {request.providerDetails.rating > 0 && (
                 <View style={styles.ratingRow}>
                   <Icon name="star" size={12} color="#F59E0B" />
-                  <Text style={styles.providerRating}>{request.providerDetails.rating.toFixed(1)}</Text>
+                  <Text style={styles.providerRating}>{Number(request.providerDetails.rating).toFixed(1)}</Text>
                 </View>
+              )}
+              {isEventService && request.providerDetails.specializations?.length > 0 && (
+                <Text style={styles.providerSpecialization} numberOfLines={1}>
+                  {request.providerDetails.specializations.slice(0, 2).join(' • ')}
+                </Text>
               )}
             </View>
           </View>
@@ -152,13 +185,13 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
                 <Text style={styles.actionBtnText}>Call</Text>
               </TouchableOpacity>
             )}
-            {isActive && (
+            {isActive && !isEventService && (
               <TouchableOpacity style={[styles.actionBtn, styles.actionBtnPrimary]} onPress={() => onTrackProvider(request)}>
                 <Icon name="location" size={16} color={BRAND.white} />
                 <Text style={[styles.actionBtnText, styles.actionBtnTextPrimary]}>Track</Text>
               </TouchableOpacity>
             )}
-            {request.location?.coordinates && (
+            {request.location?.coordinates && !isEventService && (
               <TouchableOpacity style={styles.actionBtn} onPress={() => onDirections(request.location)}>
                 <Icon name="directions" size={18} color={BRAND.secondary} />
               </TouchableOpacity>
@@ -232,8 +265,63 @@ const UserServiceHistoryScreen = ({ navigation }) => {
   const fetchRequests = useCallback(async () => {
     if (!userId) { setLoading(false); return; }
     try {
-      const result = await getUserRequests(userId, { limit: 100 });
-      if (result.success) setRequests(result.requests || []);
+      // Fetch traditional, event, and emergency services in parallel
+      const [traditionalResult, eventResult, emergencyResult] = await Promise.all([
+        getUserRequests(userId, { limit: 100 }),
+        fetch(`${NODE_BASE_URL}/api/event-services/user/${userId}`).then(r => r.json()).catch(() => ({ data: [] })),
+        fetch(`${NODE_BASE_URL}/api/emergency-services/user/${userId}`).then(r => r.json()).catch(() => ({ requests: [] })),
+      ]);
+      
+      // Event services now come with providerDetails from backend
+      const eventBookings = (eventResult.data || []).map(booking => ({
+        ...booking,
+        _id: booking._id,
+        requestId: booking.serviceId || booking._id,
+        serviceType: booking.serviceType,
+        status: booking.status,
+        createdAt: booking.createdAt,
+        isEventService: true, // Flag to identify event services
+        // Backend now returns providerDetails with full info
+        providerDetails: booking.providerDetails || (booking.providerId ? { 
+          _id: booking.providerId,
+          name: booking.providerName || 'Provider',
+        } : null),
+        assignedProviderId: booking.providerId,
+        providerId: booking.providerId,
+        completionOtp: booking.completionOtp,
+        eventDate: booking.eventDate,
+      }));
+      
+      // Emergency services
+      const emergencyData = emergencyResult.requests || emergencyResult.data || [];
+      const emergencyBookings = emergencyData.map(booking => ({
+        ...booking,
+        _id: booking._id,
+        requestId: booking.requestId || booking._id,
+        serviceType: booking.serviceType,
+        status: booking.status,
+        createdAt: booking.createdAt,
+        isEmergencyService: true, // Flag to identify emergency services
+        providerDetails: booking.providerDetails || (booking.providerId ? {
+          _id: booking.providerId,
+          name: booking.providerInfo?.name || 'Provider',
+          phone: booking.providerInfo?.phone,
+        } : null),
+        assignedProviderId: booking.providerId,
+        providerId: booking.providerId,
+        completionOtp: booking.completionOtp,
+        location: booking.location,
+        notes: booking.notes,
+      }));
+      
+      // Combine and sort by date
+      const allRequests = [
+        ...(traditionalResult.success ? traditionalResult.requests : []),
+        ...eventBookings,
+        ...emergencyBookings,
+      ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      setRequests(allRequests);
     } catch (error) {
       console.error('Error fetching requests:', error);
     } finally {
@@ -285,12 +373,43 @@ const UserServiceHistoryScreen = ({ navigation }) => {
   };
 
   const handleCancel = async (request) => {
-    Alert.alert('Cancel Request?', 'Are you sure?', [
+    Alert.alert('Cancel Request?', 'Are you sure you want to cancel this booking?', [
       { text: 'No', style: 'cancel' },
-      { text: 'Yes', style: 'destructive', onPress: async () => {
-        const result = await cancelRequest(request._id, userId, 'Cancelled by user');
-        if (result.success) { Alert.alert('Cancelled'); onRefresh(); }
-        else Alert.alert('Error', result.error || 'Failed to cancel');
+      { text: 'Yes, Cancel', style: 'destructive', onPress: async () => {
+        try {
+          let result;
+          
+          // Check if this is an event service booking
+          if (request.isEventService) {
+            console.log('[UserHistory] Cancelling event service:', {
+              requestId: request._id,
+              userId: userId,
+              storedUserId: request.userId, // The userId stored in the booking
+            });
+            
+            // Use event service cancel endpoint
+            const response = await fetch(`${NODE_BASE_URL}/api/event-services/${request._id}/cancel`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, reason: 'Cancelled by user' }),
+            });
+            result = await response.json();
+            console.log('[UserHistory] Cancel response:', result);
+          } else {
+            // Use traditional service cancel
+            result = await cancelRequest(request._id, userId, 'Cancelled by user');
+          }
+          
+          if (result.success) { 
+            Alert.alert('Cancelled', 'Your booking has been cancelled successfully.'); 
+            onRefresh(); 
+          } else {
+            Alert.alert('Error', result.error || 'Failed to cancel');
+          }
+        } catch (error) {
+          console.error('Cancel error:', error);
+          Alert.alert('Error', 'Failed to cancel booking');
+        }
       }},
     ]);
   };
@@ -508,6 +627,37 @@ const styles = StyleSheet.create({
   emptyContainer: { alignItems: 'center', paddingVertical: 60 },
   emptyText: { fontSize: 16, fontWeight: '600', color: '#374151', marginTop: 12 },
   emptySubtext: { fontSize: 14, color: '#6B7280', marginTop: 4 },
+  // Event service badge
+  eventBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F3E8FF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    marginBottom: 10,
+  },
+  eventBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#7C3AED',
+  },
+  // Provider avatar image
+  providerAvatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+    borderWidth: 2,
+    borderColor: BRAND.secondary,
+  },
+  providerSpecialization: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 2,
+  },
 });
 
 export default UserServiceHistoryScreen;

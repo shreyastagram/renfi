@@ -258,21 +258,31 @@ const CreateServiceRequestScreen = ({ navigation }) => {
       if (result.success) {
         setCreatedRequest(result.request);
         
-        // Show success prompt with option to fetch providers
+        // Show success prompt - user MUST select a provider or cancel
         Alert.alert(
           '✅ Request Created!',
-          'Your service request has been created successfully. Would you like to find nearby providers?',
+          'Your service request has been created. Please find a provider to complete the booking.',
           [
             {
-              text: 'Later',
-              style: 'cancel',
-              onPress: () => navigation.goBack(),
+              text: 'Cancel Request',
+              style: 'destructive',
+              onPress: async () => {
+                // Cancel the request since user is not booking a provider
+                try {
+                  await cancelRequest(result.request._id, userId, 'User cancelled before booking provider');
+                  console.log('[CreateRequest] Request cancelled - user did not book provider');
+                } catch (err) {
+                  console.error('[CreateRequest] Failed to cancel:', err);
+                }
+                navigation.goBack();
+              },
             },
             {
               text: 'Find Providers',
               onPress: () => handleFetchProviders(result.request._id),
             },
-          ]
+          ],
+          { cancelable: false } // Force user to make a choice
         );
       } else {
         Alert.alert('Error', result.error || 'Failed to create request');
@@ -619,18 +629,55 @@ const CreateServiceRequestScreen = ({ navigation }) => {
     );
   };
 
+  /**
+   * Handle closing the providers modal
+   * If no provider was selected, cancel the request
+   */
+  const handleCloseProvidersModal = async () => {
+    // If request exists but no provider was sent to, cancel it
+    if (createdRequest && !createdRequest.lastSentProviderId) {
+      Alert.alert(
+        'Cancel Request?',
+        'No provider was selected. The request will be cancelled.',
+        [
+          {
+            text: 'Keep Looking',
+            style: 'cancel',
+          },
+          {
+            text: 'Cancel Request',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await cancelRequest(createdRequest._id, userId, 'User cancelled - no provider selected');
+                console.log('[CreateRequest] Request cancelled - modal closed without booking');
+              } catch (err) {
+                console.error('[CreateRequest] Failed to cancel:', err);
+              }
+              setShowProvidersModal(false);
+              setCreatedRequest(null);
+              navigation.goBack();
+            },
+          },
+        ]
+      );
+    } else {
+      setShowProvidersModal(false);
+    }
+  };
+
   const renderProvidersModal = () => (
     <Modal
       visible={showProvidersModal}
       animationType="slide"
-      onRequestClose={() => setShowProvidersModal(false)}
+      onRequestClose={handleCloseProvidersModal}
     >
       <View style={styles.modalContainer}>
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>Nearby Providers</Text>
           <TouchableOpacity
             style={styles.closeButton}
-            onPress={() => setShowProvidersModal(false)}
+            onPress={handleCloseProvidersModal}
           >
             <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>

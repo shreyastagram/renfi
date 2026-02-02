@@ -31,6 +31,7 @@ import {
   Platform,
   PermissionsAndroid,
   Modal,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
@@ -45,6 +46,7 @@ import {
   sendRequestToProvider,
   cancelRequest,
   getProviderDetails,
+  retryProviderSearch,
 } from '../services/traditionalServiceService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -102,19 +104,31 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking }) => (
     activeOpacity={0.7}
   >
     <View style={styles.providerInfo}>
-      <View style={styles.providerAvatar}>
-        <Text style={styles.providerInitial}>{provider.name?.charAt(0)?.toUpperCase() || 'P'}</Text>
-      </View>
+      {/* Profile Picture or Avatar */}
+      {provider.profilePicture?.url ? (
+        <Image 
+          source={{ uri: provider.profilePicture.url }} 
+          style={styles.providerAvatarImage} 
+        />
+      ) : (
+        <View style={styles.providerAvatar}>
+          <Text style={styles.providerInitial}>{provider.name?.charAt(0)?.toUpperCase() || 'P'}</Text>
+        </View>
+      )}
       <View style={styles.providerDetails}>
         <View style={styles.providerNameRow}>
           <Text style={styles.providerName}>{provider.name}</Text>
-          {provider.verified && (
+          {(provider.verified || provider.verification?.isVerified) && (
             <MaterialIcon name="verified" size={16} color="#2563EB" style={styles.verifiedBadge} />
           )}
         </View>
         <View style={styles.providerDistanceRow}>
           <Icon name="location" size={14} color="#6B7280" />
-          <Text style={styles.providerDistance}>{provider.distance || 'Nearby'}</Text>
+          <Text style={styles.providerDistance}>
+            {provider.distanceKm ? `${provider.distanceKm} km away` : 
+             typeof provider.distance === 'number' ? `${(provider.distance / 1000).toFixed(2)} km away` : 
+             'Nearby'}
+          </Text>
         </View>
         {(provider.rating > 0 || provider.ratings?.average > 0) && (
           <View style={styles.providerRatingRow}>
@@ -192,7 +206,6 @@ const UserHomeScreen = ({ navigation }) => {
   // Provider details modal state
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [providerDetailsVisible, setProviderDetailsVisible] = useState(false);
-  const [loadingProviderDetails, setLoadingProviderDetails] = useState(false);
   
   // Permission states (use global for location, local for notifications)
   const [locationPermission, setLocationPermission] = useState(globalLocationPermission);
@@ -507,10 +520,14 @@ const UserHomeScreen = ({ navigation }) => {
         serviceAddress: serviceLocation?.isCurrentLocation === false ? serviceLocation.address : null,
         isOtherLocation: serviceLocation?.isCurrentLocation === false,
         description: serviceDescription || null,
+        isInstant: selectedDateTime.isInstant || false, // Pass instant flag
       });
       if (result.success) {
         setCreatedRequest(result.request);
-        Alert.alert('Request Created', 'Find nearby providers now?', [
+        const alertMessage = selectedDateTime.isInstant 
+          ? 'Instant request created! Find nearby available providers now?'
+          : 'Request created! Find nearby providers now?';
+        Alert.alert('Request Created', alertMessage, [
           { text: 'Later', onPress: resetFlow },
           { text: 'Find Providers', onPress: () => fetchProviders(result.request._id) },
         ]);
@@ -543,6 +560,31 @@ const UserHomeScreen = ({ navigation }) => {
     }
   };
 
+  /**
+   * Retry search for providers (clears rejected list)
+   */
+  const handleRetrySearch = async () => {
+    if (!createdRequest?._id || !userId) return;
+    
+    setFetchingProviders(true);
+    try {
+      const result = await retryProviderSearch(createdRequest._id, userId);
+      if (result.success) {
+        setProviders(result.providers || []);
+        setSearchRadius(result.searchRadius || 0);
+        if (!result.providers?.length) {
+          Alert.alert('No Providers Found', 'No more providers available in your area. Try again later.');
+        }
+      } else {
+        Alert.alert('Error', result.error || 'Failed to retry search');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Something went wrong');
+    } finally {
+      setFetchingProviders(false);
+    }
+  };
+
   const handleCallProvider = (phone) => {
     if (!phone) { Alert.alert('Error', 'Phone number not available'); return; }
     Linking.openURL(`tel:${phone.replace(/\s+/g, '')}`);
@@ -550,29 +592,18 @@ const UserHomeScreen = ({ navigation }) => {
 
   /**
    * Open provider details modal
+   * The modal handles its own loading and fetching
    */
-  const handleViewProviderDetails = async (provider) => {
-    // First show modal with basic info
+  const handleViewProviderDetails = (provider) => {
+    // Store provider for booking reference and open modal
+    // Modal will fetch full details using providerId
+    console.log('[UserHomeScreen] Opening provider details:', {
+      _id: provider._id,
+      id: provider.id,
+      name: provider.name
+    });
     setSelectedProvider(provider);
     setProviderDetailsVisible(true);
-    
-    // Then fetch full details in background
-    setLoadingProviderDetails(true);
-    try {
-      const result = await getProviderDetails(provider._id);
-      if (result.success && result.provider) {
-        setSelectedProvider(prev => ({
-          ...prev,
-          ...result.provider,
-          recentReviews: result.recentReviews || [],
-          stats: result.stats || {},
-        }));
-      }
-    } catch (error) {
-      console.error('[UserHomeScreen] Error fetching provider details:', error);
-    } finally {
-      setLoadingProviderDetails(false);
-    }
   };
 
   /**
@@ -751,7 +782,7 @@ const UserHomeScreen = ({ navigation }) => {
                     <Text style={styles.emptySubtext}>We're searching for providers to fix your home</Text>
                     <TouchableOpacity 
                       style={styles.retryButton} 
-                      onPress={() => createdRequest?._id && fetchProviders(createdRequest._id)}
+                      onPress={handleRetrySearch}
                     >
                       <Icon name="refresh" size={20} color="#FFFFFF" />
                       <Text style={styles.retryButtonText}>Retry Search</Text>
@@ -778,6 +809,39 @@ const UserHomeScreen = ({ navigation }) => {
               <Text style={styles.welcomeText}>Hello, {displayData?.fullName?.split(' ')[0] || 'there'}!</Text>
               <Text style={styles.welcomeSubtext}>What service do you need?</Text>
             </View>
+            
+            {/* Quick Access Buttons - Using MaterialIcon instead of emoji */}
+            <View style={styles.quickAccessRow}>
+              <TouchableOpacity 
+                style={[styles.quickAccessCard, styles.quickAccessEmergency]} 
+                onPress={() => navigation.navigate('EmergencyServices')}
+              >
+                <View style={styles.quickAccessIconContainer}>
+                  <Icon name="warning" size={24} color="#DC2626" />
+                </View>
+                <Text style={styles.quickAccessLabel}>Emergency</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.quickAccessCard, styles.quickAccessEvent]} 
+                onPress={() => navigation.navigate('EventServices')}
+              >
+                <View style={styles.quickAccessIconContainer}>
+                  <Icon name="camera" size={24} color="#7C3AED" />
+                </View>
+                <Text style={styles.quickAccessLabel}>Events</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.quickAccessCard, styles.quickAccessFavorites]} 
+                onPress={() => navigation.navigate('Favorites')}
+              >
+                <View style={styles.quickAccessIconContainer}>
+                  <Icon name="heart" size={24} color="#F59E0B" />
+                </View>
+                <Text style={styles.quickAccessLabel}>Favorites</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={styles.servicesSectionTitle}>Traditional Services</Text>
             <View style={styles.servicesGrid}>
               {SERVICE_CATEGORIES.map((service) => (
                 <ServiceCard key={service.id} service={service} onPress={handleServiceSelect} />
@@ -895,8 +959,7 @@ const UserHomeScreen = ({ navigation }) => {
       {/* Provider Details Modal */}
       <ProviderDetailsModal
         visible={providerDetailsVisible}
-        provider={selectedProvider}
-        loading={loadingProviderDetails}
+        providerId={selectedProvider?._id || selectedProvider?.id}
         onClose={() => {
           setProviderDetailsVisible(false);
           setSelectedProvider(null);
@@ -942,6 +1005,64 @@ const styles = StyleSheet.create({
   welcomeSection: { marginBottom: 16 },
   welcomeText: { fontSize: 22, fontWeight: '700', color: '#1F2937' },
   welcomeSubtext: { fontSize: 15, color: '#6B7280', marginTop: 4 },
+  
+  // Quick Access Row
+  quickAccessRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    marginBottom: 20,
+    gap: 10,
+  },
+  quickAccessCard: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  quickAccessEmergency: {
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  quickAccessEvent: {
+    backgroundColor: '#E0E7FF',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  quickAccessFavorites: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  quickAccessIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  quickAccessLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  
+  servicesSectionTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 12,
+  },
+  
   servicesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
   serviceCard: { 
     width: (SCREEN_WIDTH - 52) / 3, 
@@ -998,6 +1119,7 @@ const styles = StyleSheet.create({
   providerCard: { backgroundColor: '#F9FAFB', borderRadius: 14, padding: 14, marginBottom: 12 },
   providerInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   providerAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: BRAND.secondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  providerAvatarImage: { width: 48, height: 48, borderRadius: 24, marginRight: 12 },
   providerInitial: { fontSize: 20, fontWeight: '700', color: BRAND.white },
   providerDetails: { flex: 1 },
   providerNameRow: { flexDirection: 'row', alignItems: 'center' },

@@ -136,32 +136,39 @@ const ProviderHomeScreen = ({ navigation }) => {
   const isAvailable = displayData?.isAvailable ?? displayData?.isOnline ?? true;
 
   /**
-   * Fetch provider stats from API
+   * Fetch provider stats from API - includes traditional and event services
    */
   const fetchStats = useCallback(async () => {
     const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
     if (!providerId) return;
 
     try {
-      // Fetch provider's requests to calculate stats
-      const result = await getProviderRequests(providerId, { limit: 500 });
+      // Fetch traditional and event services in parallel
+      const [traditionalResult, eventResult] = await Promise.all([
+        getProviderRequests(providerId, { limit: 500 }),
+        fetch(`${NODE_BASE_URL}/api/event-services/provider/${providerId}`)
+          .then(r => r.json())
+          .catch(() => ({ data: [] }))
+      ]);
       
-      if (result.success && result.requests) {
-        // Ensure requests is an array
-        const requests = Array.isArray(result.requests) ? result.requests : [];
-        const pendingCount = requests.filter(r => 
-          r.status === 'pending' || r.status === 'accepted'
-        ).length;
-        const completedCount = requests.filter(r => r.status === 'completed').length;
-        const rating = user?.rating || profile?.rating || 0;
+      // Combine all requests
+      const traditionalRequests = traditionalResult.success && Array.isArray(traditionalResult.requests) 
+        ? traditionalResult.requests : [];
+      const eventRequests = Array.isArray(eventResult.data) ? eventResult.data : [];
+      const allRequests = [...traditionalRequests, ...eventRequests];
+      
+      const pendingCount = allRequests.filter(r => 
+        r.status === 'pending' || r.status === 'accepted'
+      ).length;
+      const completedCount = allRequests.filter(r => r.status === 'completed').length;
+      const rating = user?.rating || profile?.rating || 0;
 
-        setStats({
-          pending: pendingCount,
-          completed: completedCount,
-          earnings: 0, // Will be implemented with earnings API
-          rating: rating,
-        });
-      }
+      setStats({
+        pending: pendingCount,
+        completed: completedCount,
+        earnings: 0, // Will be implemented with earnings API
+        rating: rating,
+      });
     } catch (error) {
       console.error('[ProviderHome] Error fetching stats:', error);
       // Fallback to profile data

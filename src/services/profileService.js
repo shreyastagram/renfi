@@ -390,6 +390,11 @@ export const fetchFullProfile = async (userType, mongoId) => {
         locationTracking: mongoData.locationTracking || { enabled: false },
         currentLocation: mongoData.currentLocation || {},
         stats: mongoData.stats || {},
+        // Portfolio fields for Photographers/Influencers
+        bio: mongoData.bio || '',
+        portfolioLinks: mongoData.portfolioLinks || {},
+        specializations: mongoData.specializations || [],
+        portfolioGallery: mongoData.portfolioGallery || [],
       }),
       
       // Timestamps

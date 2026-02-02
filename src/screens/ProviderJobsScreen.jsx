@@ -28,10 +28,12 @@ import {
   Linking,
   Animated,
   ScrollView,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, ServiceIcon, StatusIcon, FixhomiLogo } from '../components';
 import { useApp } from '../context/AppContext';
+import { NODE_BASE_URL } from '../config/api';
 import {
   getProviderRequests,
   acceptRequestAsProvider,
@@ -63,6 +65,7 @@ const STATUS_CONFIG = {
   'in-progress': { label: 'In Progress', color: BRAND.secondary, bgColor: '#EFF6FF', iconName: 'wrench' },
   completed: { label: 'Completed', color: BRAND.secondary, bgColor: '#EFF6FF', iconName: 'check-circle' },
   cancelled: { label: 'Cancelled', color: '#6B7280', bgColor: '#F5F5F7', iconName: 'close' },
+  rejected: { label: 'Rejected', color: '#EF4444', bgColor: '#FEE2E2', iconName: 'close-circle' },
   expired: { label: 'Expired', color: '#6B7280', bgColor: '#F5F5F7', iconName: 'clock' },
 };
 
@@ -119,7 +122,7 @@ const TabBar = ({ activeTab, onTabChange, stats }) => (
 /**
  * Job Card Component
  */
-const JobCard = ({ job, onAccept, onComplete, onCancel, onCall, onDirections, onViewDetails, isAccepting }) => {
+const JobCard = ({ job, onAccept, onReject, onComplete, onCancel, onCall, onDirections, onViewDetails, isAccepting, isRejecting }) => {
   const status = STATUS_CONFIG[job.status] || STATUS_CONFIG.pending;
   const serviceDate = new Date(job.serviceDate || job.createdAt);
   const isPending = job.status === 'pending';
@@ -152,17 +155,31 @@ const JobCard = ({ job, onAccept, onComplete, onCancel, onCall, onDirections, on
       {job.userDetails && (
         <View style={styles.customerSection}>
           <View style={styles.customerInfo}>
-            <View style={styles.customerAvatar}>
-              <Text style={styles.customerInitial}>
-                {job.userDetails.name?.charAt(0).toUpperCase() || 'C'}
-              </Text>
-            </View>
+            {job.userDetails.profilePicture?.url ? (
+              <Image 
+                source={{ uri: job.userDetails.profilePicture.url }} 
+                style={styles.customerAvatarImage} 
+              />
+            ) : (
+              <View style={styles.customerAvatar}>
+                <Text style={styles.customerInitial}>
+                  {job.userDetails.name?.charAt(0).toUpperCase() || 'C'}
+                </Text>
+              </View>
+            )}
             <View style={styles.customerDetails}>
               <Text style={styles.customerName}>{job.userDetails.name || 'Customer'}</Text>
               {job.userDetails.phone && (
                 <Text style={styles.customerPhone}>{job.userDetails.phone}</Text>
               )}
             </View>
+            {/* Distance Badge */}
+            {job.distanceToService && (
+              <View style={styles.distanceBadge}>
+                <Icon name="location" size={12} color="#2563EB" />
+                <Text style={styles.distanceText}>{job.distanceToService.formatted}</Text>
+              </View>
+            )}
           </View>
           
           {/* Quick Actions */}
@@ -225,20 +242,36 @@ const JobCard = ({ job, onAccept, onComplete, onCancel, onCall, onDirections, on
 
       {/* Actions based on status */}
       {isPending && (
-        <TouchableOpacity
-          style={[styles.acceptBtn, isAccepting && styles.acceptBtnDisabled]}
-          onPress={() => onAccept(job)}
-          disabled={isAccepting}
-        >
-          {isAccepting ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <>
-              <Icon name="check" size={18} color="#fff" />
-              <Text style={styles.acceptBtnText}>Accept Request</Text>
-            </>
-          )}
-        </TouchableOpacity>
+        <View style={styles.pendingActions}>
+          <TouchableOpacity
+            style={[styles.rejectBtn, isRejecting && styles.rejectBtnDisabled]}
+            onPress={() => onReject(job)}
+            disabled={isRejecting || isAccepting}
+          >
+            {isRejecting ? (
+              <ActivityIndicator color="#EF4444" size="small" />
+            ) : (
+              <>
+                <Icon name="close" size={18} color="#EF4444" />
+                <Text style={styles.rejectBtnText}>Reject</Text>
+              </>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.acceptBtn, isAccepting && styles.acceptBtnDisabled]}
+            onPress={() => onAccept(job)}
+            disabled={isAccepting || isRejecting}
+          >
+            {isAccepting ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                <Icon name="check" size={18} color="#fff" />
+                <Text style={styles.acceptBtnText}>Accept</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
       )}
 
       {isActive && (
@@ -362,6 +395,7 @@ const ProviderJobsScreen = ({ navigation, route }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [acceptingId, setAcceptingId] = useState(null);
+  const [rejectingId, setRejectingId] = useState(null);
   
   // OTP Modal state
   const [otpModalVisible, setOtpModalVisible] = useState(false);
@@ -394,14 +428,15 @@ const ProviderJobsScreen = ({ navigation, route }) => {
       case 'history':
         return jobs.filter(j => j.status === 'completed');
       case 'cancelled':
-        return jobs.filter(j => ['cancelled', 'expired'].includes(j.status));
+        // Include rejected status in cancelled tab
+        return jobs.filter(j => ['cancelled', 'expired', 'rejected'].includes(j.status));
       default:
         return jobs;
     }
   }, [jobs, activeTab]);
   
   /**
-   * Fetch all jobs
+   * Fetch all jobs - includes traditional, event, and emergency services
    */
   const fetchJobs = useCallback(async (showLoading = true) => {
     if (!providerId) {
@@ -411,19 +446,89 @@ const ProviderJobsScreen = ({ navigation, route }) => {
     
     if (showLoading) setIsLoading(true);
     
+    console.log('[ProviderJobs] Fetching jobs for providerId:', providerId);
+    
     try {
-      const result = await getProviderRequests(providerId, {
-        page: 1,
-        limit: 100,
-        sortBy: 'createdAt',
-        sortOrder: 'desc',
+      // Fetch traditional, event, and emergency services in parallel
+      const [traditionalResult, eventResult, emergencyResult] = await Promise.all([
+        getProviderRequests(providerId, {
+          page: 1,
+          limit: 100,
+          sortBy: 'createdAt',
+          sortOrder: 'desc',
+        }),
+        fetch(`${NODE_BASE_URL}/api/event-services/provider/${providerId}`)
+          .then(r => r.json())
+          .catch(() => ({ data: [] })),
+        fetch(`${NODE_BASE_URL}/api/emergency-services/provider/${providerId}`)
+          .then(r => r.json())
+          .catch(() => ({ data: [] })),
+      ]);
+      
+      console.log('[ProviderJobs] Event services result:', eventResult);
+      console.log('[ProviderJobs] Emergency services result:', emergencyResult);
+      
+      // Format event services to match traditional service structure
+      const eventBookings = (eventResult.data || []).map(booking => {
+        // Handle both old 'location' and new 'eventLocation' fields
+        const eventLoc = booking.eventLocation || booking.location || {};
+        const normalizedLocation = {
+          address: eventLoc.address || '',
+          // Handle both array format [lng, lat] and object format { longitude, latitude }
+          coordinates: eventLoc.coordinates 
+            ? (Array.isArray(eventLoc.coordinates) 
+                ? eventLoc.coordinates 
+                : [eventLoc.coordinates.longitude, eventLoc.coordinates.latitude])
+            : null,
+          landmark: eventLoc.landmark || '',
+        };
+        
+        return {
+          ...booking,
+          _id: booking._id,
+          requestId: booking.serviceId || booking._id,
+          serviceType: booking.serviceType,
+          status: booking.status,
+          createdAt: booking.createdAt,
+          isEventService: true, // Flag to identify event services
+          userName: booking.userDetails?.name || booking.userName || 'Customer',
+          userPhone: booking.userDetails?.phone || booking.userPhone,
+          eventDate: booking.eventDate,
+          completionOtp: booking.completionOtp,
+          // Normalized location for display and directions
+          location: normalizedLocation,
+          serviceAddress: normalizedLocation.address,
+        };
       });
       
-      if (result.success) {
-        setAllJobs(result.requests || []);
-      } else {
-        console.error('[ProviderJobs] Fetch failed:', result.error);
-      }
+      // Format emergency services to match traditional service structure
+      // Backend returns { requests: [...] } or { data: [...] }
+      const emergencyData = emergencyResult.requests || emergencyResult.data || [];
+      const emergencyBookings = emergencyData.map(booking => ({
+        ...booking,
+        _id: booking._id,
+        requestId: booking.requestId || booking._id,
+        serviceType: booking.serviceType,
+        status: booking.status,
+        createdAt: booking.createdAt,
+        isEmergencyService: true, // Flag to identify emergency services
+        userName: booking.userDetails?.name || 'Customer',
+        userPhone: booking.userDetails?.phone,
+        location: booking.location,
+        completionOtp: booking.completionOtp,
+        notes: booking.notes,
+      }));
+      
+      // Combine and sort all jobs by date
+      const allRequests = [
+        ...(traditionalResult.success ? traditionalResult.requests : []),
+        ...eventBookings,
+        ...emergencyBookings,
+      ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      console.log('[ProviderJobs] Total jobs:', allRequests.length, '(Traditional:', traditionalResult.requests?.length || 0, ', Event:', eventBookings.length, ', Emergency:', emergencyBookings.length, ')');
+      
+      setAllJobs(allRequests);
     } catch (error) {
       console.error('[ProviderJobs] Error:', error);
     } finally {
@@ -453,12 +558,16 @@ const ProviderJobsScreen = ({ navigation, route }) => {
   };
   
   /**
-   * Accept a request
+   * Accept a request - handles traditional, event, and emergency services
    */
   const handleAccept = async (job) => {
+    const isEvent = job.isEventService;
+    const isEmergency = job.isEmergencyService;
+    const serviceLabel = SERVICE_TYPE_LABELS[job.serviceType] || job.serviceType;
+    
     Alert.alert(
       'Accept Request',
-      `Accept this ${SERVICE_TYPE_LABELS[job.serviceType] || job.serviceType} request?`,
+      `Accept this ${serviceLabel} request?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -466,11 +575,41 @@ const ProviderJobsScreen = ({ navigation, route }) => {
           onPress: async () => {
             setAcceptingId(job._id);
             try {
-              const result = await acceptRequestAsProvider(
-                job._id,
-                providerId,
-                job.userDetails?.email || ''
-              );
+              let result;
+              
+              if (isEmergency) {
+                // Use emergency service accept endpoint
+                const response = await fetch(`${NODE_BASE_URL}/api/emergency-services/${job._id}/accept`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    providerId,
+                    userEmail: job.userDetails?.email || '',
+                    estimatedArrival: 15,
+                  }),
+                });
+                result = await response.json();
+                result.success = result.success || response.ok;
+              } else if (isEvent) {
+                // Use event service accept endpoint
+                const response = await fetch(`${NODE_BASE_URL}/api/event-services/${job._id}/accept`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    providerId,
+                    userEmail: job.userDetails?.email || job.userEmail || '',
+                  }),
+                });
+                result = await response.json();
+                result.success = result.success || result.statusCode === 200;
+              } else {
+                // Use traditional service accept
+                result = await acceptRequestAsProvider(
+                  job._id,
+                  providerId,
+                  job.userDetails?.email || ''
+                );
+              }
               
               if (result.success) {
                 Alert.alert('Request Accepted', 'You have accepted this request. The customer has been notified.');
@@ -480,9 +619,78 @@ const ProviderJobsScreen = ({ navigation, route }) => {
                 Alert.alert('Error', result.error || 'Failed to accept request');
               }
             } catch (error) {
+              console.error('[ProviderJobs] Accept error:', error);
               Alert.alert('Error', 'Something went wrong');
             } finally {
               setAcceptingId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+  
+  /**
+   * Reject a pending request - handles traditional, event, and emergency services
+   */
+  const handleReject = async (job) => {
+    const isEvent = job.isEventService;
+    const isEmergency = job.isEmergencyService;
+    const serviceLabel = SERVICE_TYPE_LABELS[job.serviceType] || job.serviceType;
+    
+    Alert.alert(
+      'Reject Request',
+      `Are you sure you want to reject this ${serviceLabel} request? The customer will be notified.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reject',
+          style: 'destructive',
+          onPress: async () => {
+            setRejectingId(job._id);
+            try {
+              let result;
+              
+              if (isEmergency) {
+                // Use emergency service provider-reject endpoint
+                const response = await fetch(`${NODE_BASE_URL}/api/emergency-services/${job._id}/provider-reject`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ providerId }),
+                });
+                result = await response.json();
+                result.success = result.success || response.ok;
+              } else if (isEvent) {
+                // Use event service reject endpoint
+                const response = await fetch(`${NODE_BASE_URL}/api/event-services/${job._id}/reject`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ providerId }),
+                });
+                result = await response.json();
+                result.success = result.success || result.statusCode === 200 || response.ok;
+              } else {
+                // Use traditional service provider-reject endpoint
+                const response = await fetch(`${NODE_BASE_URL}/api/traditional-services/${job._id}/provider-reject`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ providerId }),
+                });
+                result = await response.json();
+                result.success = result.success || response.ok;
+              }
+              
+              if (result.success) {
+                Alert.alert('Request Rejected', 'You have rejected this request. The customer has been notified.');
+                fetchJobs(false);
+              } else {
+                Alert.alert('Error', result.error || result.message || 'Failed to reject request');
+              }
+            } catch (error) {
+              console.error('[ProviderJobs] Reject error:', error);
+              Alert.alert('Error', 'Something went wrong');
+            } finally {
+              setRejectingId(null);
             }
           },
         },
@@ -500,7 +708,7 @@ const ProviderJobsScreen = ({ navigation, route }) => {
   };
   
   /**
-   * Verify OTP and complete
+   * Verify OTP and complete - handles traditional, event, and emergency services
    */
   const handleVerifyOtp = async (otp) => {
     if (!selectedJob) return;
@@ -509,7 +717,30 @@ const ProviderJobsScreen = ({ navigation, route }) => {
     setOtpError('');
     
     try {
-      const result = await verifyCompletionOtp(selectedJob._id, otp);
+      let result;
+      
+      if (selectedJob.isEmergencyService) {
+        // Use emergency service verify endpoint
+        const response = await fetch(`${NODE_BASE_URL}/api/emergency-services/${selectedJob._id}/verify-otp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ otp }),
+        });
+        result = await response.json();
+        result.success = result.success || response.ok;
+      } else if (selectedJob.isEventService) {
+        // Use event service verify endpoint
+        const response = await fetch(`${NODE_BASE_URL}/api/event-services/${selectedJob._id}/verify-otp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ otp }),
+        });
+        result = await response.json();
+        result.success = result.success || result.statusCode === 200;
+      } else {
+        // Use traditional service verify
+        result = await verifyCompletionOtp(selectedJob._id, otp);
+      }
       
       if (result.success) {
         setOtpModalVisible(false);
@@ -526,7 +757,7 @@ const ProviderJobsScreen = ({ navigation, route }) => {
   };
   
   /**
-   * Cancel a job
+   * Cancel a job - handles traditional, event, and emergency services
    */
   const handleCancel = (job) => {
     Alert.alert(
@@ -539,7 +770,37 @@ const ProviderJobsScreen = ({ navigation, route }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const result = await providerCancelRequest(job._id, providerId, 'Provider cancelled');
+              let result;
+              
+              if (job.isEmergencyService) {
+                // Use emergency service cancel endpoint
+                const response = await fetch(`${NODE_BASE_URL}/api/emergency-services/${job._id}/cancel`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
+                    reason: 'Provider cancelled',
+                    cancelledBy: 'provider'
+                  }),
+                });
+                result = await response.json();
+                result.success = result.success || response.ok;
+              } else if (job.isEventService) {
+                // Use event service reject endpoint (provider rejection)
+                const response = await fetch(`${NODE_BASE_URL}/api/event-services/${job._id}/reject`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
+                    providerId,
+                    reason: 'Provider cancelled' 
+                  }),
+                });
+                result = await response.json();
+                result.success = result.success || result.statusCode === 200;
+              } else {
+                // Use traditional service cancel
+                result = await providerCancelRequest(job._id, providerId, 'Provider cancelled');
+              }
+              
               if (result.success) {
                 Alert.alert('Cancelled', 'The job has been cancelled.');
                 fetchJobs(false);
@@ -582,10 +843,15 @@ const ProviderJobsScreen = ({ navigation, route }) => {
   };
   
   /**
-   * View job details
+   * View job details - pass full job data for event and emergency services
    */
   const handleViewDetails = (job) => {
-    navigation.navigate('ServiceRequestDetail', { requestId: job._id });
+    navigation.navigate('ServiceRequestDetail', { 
+      requestId: job._id,
+      request: (job.isEventService || job.isEmergencyService) ? job : undefined, // Pass full data for event/emergency services
+      isEventService: job.isEventService,
+      isEmergencyService: job.isEmergencyService,
+    });
   };
   
   /**
@@ -595,12 +861,14 @@ const ProviderJobsScreen = ({ navigation, route }) => {
     <JobCard
       job={item}
       onAccept={handleAccept}
+      onReject={handleReject}
       onComplete={handleComplete}
       onCancel={handleCancel}
       onCall={handleCall}
       onDirections={handleDirections}
       onViewDetails={handleViewDetails}
       isAccepting={acceptingId === item._id}
+      isRejecting={rejectingId === item._id}
     />
   );
   
@@ -841,6 +1109,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  customerAvatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
   customerInitial: {
     fontSize: 16,
     fontWeight: '600',
@@ -848,6 +1121,7 @@ const styles = StyleSheet.create({
   },
   customerDetails: {
     marginLeft: 10,
+    flex: 1,
   },
   customerName: {
     fontSize: 15,
@@ -858,6 +1132,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6B7280',
     marginTop: 2,
+  },
+  distanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+    marginLeft: 8,
+  },
+  distanceText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#2563EB',
   },
   quickActions: {
     flexDirection: 'row',
@@ -923,6 +1212,7 @@ const styles = StyleSheet.create({
   },
   // Accept Button - Brand orange
   acceptBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -936,6 +1226,32 @@ const styles = StyleSheet.create({
   },
   acceptBtnText: {
     color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Pending Actions - Reject and Accept side by side
+  pendingActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  // Reject Button
+  rejectBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FEE2E2',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#EF4444',
+    gap: 8,
+  },
+  rejectBtnDisabled: {
+    opacity: 0.5,
+  },
+  rejectBtnText: {
+    color: '#EF4444',
     fontSize: 16,
     fontWeight: '600',
   },

@@ -25,6 +25,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
 } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 
@@ -102,6 +103,7 @@ const RatingModal = ({
   onClose,
   onSubmit,
   providerName,
+  providerProfilePicture,
   serviceName,
   requestId,
   loading = false,
@@ -181,11 +183,18 @@ const RatingModal = ({
           >
             {/* Provider Info */}
             <View style={styles.providerInfo}>
-              <View style={styles.providerAvatar}>
-                <Text style={styles.providerInitial}>
-                  {providerName?.charAt(0)?.toUpperCase() || 'P'}
-                </Text>
-              </View>
+              {providerProfilePicture?.url ? (
+                <Image
+                  source={{ uri: providerProfilePicture.url }}
+                  style={styles.providerImage}
+                />
+              ) : (
+                <View style={styles.providerAvatar}>
+                  <Text style={styles.providerInitial}>
+                    {providerName?.charAt(0)?.toUpperCase() || 'P'}
+                  </Text>
+                </View>
+              )}
               <View style={styles.providerDetails}>
                 <Text style={styles.providerName}>{providerName || 'Provider'}</Text>
                 <Text style={styles.serviceName}>{serviceName || 'Service'}</Text>
@@ -305,6 +314,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
+  },
+  providerImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    marginRight: 16,
+    backgroundColor: '#E5E7EB',
   },
   providerInitial: {
     fontSize: 24,

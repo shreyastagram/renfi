@@ -119,25 +119,65 @@ const ProviderDetailsModal = ({
   const [error, setError] = useState(null);
 
   const fetchDetails = useCallback(async () => {
-    if (!providerId) return;
+    if (!providerId) {
+      console.error('[ProviderDetailsModal] No provider ID provided');
+      setError('Provider ID is missing');
+      setLoading(false);
+      return;
+    }
     
+    console.log('[ProviderDetailsModal] Fetching details for providerId:', providerId);
     setLoading(true);
     setError(null);
 
-    const result = await getProviderDetails(providerId);
-    
-    if (result.success) {
-      setProvider(result.provider);
-    } else {
-      setError(result.error || 'Failed to load provider details');
+    try {
+      const result = await getProviderDetails(providerId);
+      console.log('[ProviderDetailsModal] API Result:', JSON.stringify({
+        success: result.success,
+        hasProvider: !!result.provider,
+        providerKeys: result.provider ? Object.keys(result.provider) : [],
+        providerName: result.provider?.name,
+        profilePicture: result.provider?.profilePicture,
+        error: result.error
+      }, null, 2));
+      
+      if (result.success && result.provider) {
+        console.log('[ProviderDetailsModal] Provider loaded successfully:', {
+          id: result.provider.id,
+          name: result.provider.name,
+          rating: result.provider.rating,
+          experience: result.provider.experience,
+          memberSince: result.provider.memberSince,
+          hasProfilePicture: !!result.provider.profilePicture?.url,
+          reviewCount: result.provider.ratings?.total,
+          servicesCount: result.provider.verifiedServiceCategories?.length
+        });
+        setProvider(result.provider);
+      } else {
+        console.error('[ProviderDetailsModal] Failed to load:', result.error);
+        setError(result.error || 'Failed to load provider details');
+      }
+    } catch (err) {
+      console.error('[ProviderDetailsModal] Exception:', err);
+      setError(err.message || 'Failed to load provider details');
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   }, [providerId]);
 
   useEffect(() => {
     if (visible && providerId) {
       fetchDetails();
+    } else if (visible && !providerId) {
+      setError('Provider ID is missing');
+      setLoading(false);
+    }
+    
+    // Reset state when modal closes
+    if (!visible) {
+      setProvider(null);
+      setError(null);
+      setLoading(true);
     }
   }, [visible, providerId, fetchDetails]);
 
@@ -152,6 +192,20 @@ const ProviderDetailsModal = ({
       onBook(provider);
       onClose();
     }
+  };
+
+  const handleOpenLink = (url) => {
+    if (!url) return;
+    
+    // Ensure URL has protocol
+    let finalUrl = url;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      finalUrl = 'https://' + url;
+    }
+    
+    Linking.openURL(finalUrl).catch((err) => {
+      console.error('Failed to open URL:', err);
+    });
   };
 
   const renderStars = (rating) => {
@@ -245,6 +299,13 @@ const ProviderDetailsModal = ({
                     </View>
                   )}
 
+                  {provider.memberSince && (
+                    <View style={styles.experienceRow}>
+                      <MaterialIcon name="calendar-today" size={14} color="#6B7280" />
+                      <Text style={styles.experienceText}>Member since {provider.memberSince}</Text>
+                    </View>
+                  )}
+
                   <View style={styles.locationRow}>
                     <MaterialIcon name="location-on" size={14} color="#6B7280" />
                     <Text style={styles.locationText}>
@@ -322,6 +383,138 @@ const ProviderDetailsModal = ({
                   ))}
                 </View>
               )}
+
+              {/* Bio Section */}
+              {provider.bio && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>About</Text>
+                  <View style={styles.bioContainer}>
+                    <Text style={styles.bioText}>{provider.bio}</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Specializations Section */}
+              {provider.specializations?.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Specializations</Text>
+                  <View style={styles.specializationsGrid}>
+                    {provider.specializations.map((spec, index) => (
+                      <View key={index} style={styles.specializationChip}>
+                        <MaterialIcon name="auto-awesome" size={14} color="#7C3AED" />
+                        <Text style={styles.specializationChipText}>{spec}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {/* Portfolio Links Section */}
+              {provider.portfolioLinks && Object.keys(provider.portfolioLinks).filter(k => provider.portfolioLinks[k]).length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Portfolio & Social Media</Text>
+                  <View style={styles.portfolioLinksGrid}>
+                    {provider.portfolioLinks.website && (
+                      <TouchableOpacity 
+                        style={styles.portfolioLinkCard}
+                        onPress={() => handleOpenLink(provider.portfolioLinks.website)}
+                      >
+                        <View style={[styles.portfolioLinkIcon, { backgroundColor: '#E0F2FE' }]}>
+                          <MaterialIcon name="language" size={22} color="#0284C7" />
+                        </View>
+                        <Text style={styles.portfolioLinkLabel}>Website</Text>
+                      </TouchableOpacity>
+                    )}
+                    {provider.portfolioLinks.instagram && (
+                      <TouchableOpacity 
+                        style={styles.portfolioLinkCard}
+                        onPress={() => handleOpenLink(provider.portfolioLinks.instagram)}
+                      >
+                        <View style={[styles.portfolioLinkIcon, { backgroundColor: '#FCE7F3' }]}>
+                          <MaterialIcon name="camera-alt" size={22} color="#DB2777" />
+                        </View>
+                        <Text style={styles.portfolioLinkLabel}>Instagram</Text>
+                      </TouchableOpacity>
+                    )}
+                    {provider.portfolioLinks.youtube && (
+                      <TouchableOpacity 
+                        style={styles.portfolioLinkCard}
+                        onPress={() => handleOpenLink(provider.portfolioLinks.youtube)}
+                      >
+                        <View style={[styles.portfolioLinkIcon, { backgroundColor: '#FEE2E2' }]}>
+                          <MaterialIcon name="play-circle-filled" size={22} color="#DC2626" />
+                        </View>
+                        <Text style={styles.portfolioLinkLabel}>YouTube</Text>
+                      </TouchableOpacity>
+                    )}
+                    {provider.portfolioLinks.facebook && (
+                      <TouchableOpacity 
+                        style={styles.portfolioLinkCard}
+                        onPress={() => handleOpenLink(provider.portfolioLinks.facebook)}
+                      >
+                        <View style={[styles.portfolioLinkIcon, { backgroundColor: '#DBEAFE' }]}>
+                          <MaterialIcon name="facebook" size={22} color="#2563EB" />
+                        </View>
+                        <Text style={styles.portfolioLinkLabel}>Facebook</Text>
+                      </TouchableOpacity>
+                    )}
+                    {provider.portfolioLinks.tiktok && (
+                      <TouchableOpacity 
+                        style={styles.portfolioLinkCard}
+                        onPress={() => handleOpenLink(provider.portfolioLinks.tiktok)}
+                      >
+                        <View style={[styles.portfolioLinkIcon, { backgroundColor: '#F3E8FF' }]}>
+                          <MaterialIcon name="music-note" size={22} color="#7C3AED" />
+                        </View>
+                        <Text style={styles.portfolioLinkLabel}>TikTok</Text>
+                      </TouchableOpacity>
+                    )}
+                    {provider.portfolioLinks.twitter && (
+                      <TouchableOpacity 
+                        style={styles.portfolioLinkCard}
+                        onPress={() => handleOpenLink(provider.portfolioLinks.twitter)}
+                      >
+                        <View style={[styles.portfolioLinkIcon, { backgroundColor: '#E0F7FA' }]}>
+                          <MaterialIcon name="alternate-email" size={22} color="#0EA5E9" />
+                        </View>
+                        <Text style={styles.portfolioLinkLabel}>Twitter</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              )}
+
+              {/* Portfolio Gallery Section */}
+              {provider.portfolioGallery?.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Portfolio Gallery</Text>
+                  <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.galleryScrollView}
+                    contentContainerStyle={styles.galleryContent}
+                  >
+                    {provider.portfolioGallery.map((image, index) => (
+                      <TouchableOpacity 
+                        key={index} 
+                        style={styles.galleryImageContainer}
+                        onPress={() => handleOpenLink(image.url || image)}
+                      >
+                        <Image 
+                          source={{ uri: image.url || image }} 
+                          style={styles.galleryImage}
+                          resizeMode="cover"
+                        />
+                        {image.caption && (
+                          <Text style={styles.galleryCaption} numberOfLines={1}>
+                            {image.caption}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
             </ScrollView>
           ) : null}
 
@@ -355,6 +548,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '95%',
+    minHeight: '60%',
   },
   header: {
     flexDirection: 'row',
@@ -660,6 +854,86 @@ const styles = StyleSheet.create({
   reviewDate: {
     fontSize: 11,
     color: '#9CA3AF',
+  },
+  // Bio styles
+  bioContainer: {
+    backgroundColor: BRAND.background,
+    borderRadius: 12,
+    padding: 16,
+  },
+  bioText: {
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 22,
+  },
+  // Specializations styles
+  specializationsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  specializationChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3E8FF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+  specializationChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#7C3AED',
+  },
+  // Portfolio links styles
+  portfolioLinksGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  portfolioLinkCard: {
+    alignItems: 'center',
+    width: (SCREEN_WIDTH - 80) / 4,
+  },
+  portfolioLinkIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  portfolioLinkLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  // Portfolio gallery styles
+  galleryScrollView: {
+    marginHorizontal: -16,
+  },
+  galleryContent: {
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  galleryImageContainer: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: BRAND.background,
+    marginRight: 12,
+  },
+  galleryImage: {
+    width: 160,
+    height: 160,
+    borderRadius: 12,
+  },
+  galleryCaption: {
+    fontSize: 12,
+    color: '#6B7280',
+    padding: 8,
+    maxWidth: 160,
   },
   actionButtons: {
     flexDirection: 'row',

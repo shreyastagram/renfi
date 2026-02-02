@@ -35,16 +35,63 @@ const linking: any = {
     // Check if app was opened via deep link
     const url = await Linking.getInitialURL();
     console.log('🔗 [DeepLink] Initial URL:', url);
+    
+    // Handle email verification deep link
+    if (url?.includes('email-verified')) {
+      handleEmailVerifiedDeepLink(url);
+    }
+    
     return url;
   },
   // Subscribe to incoming deep links while app is open
   subscribe(listener: (url: string) => void) {
     const subscription = Linking.addEventListener('url', ({ url }) => {
       console.log('🔗 [DeepLink] Incoming URL:', url);
+      
+      // Handle email verification deep link
+      if (url?.includes('email-verified')) {
+        handleEmailVerifiedDeepLink(url);
+      }
+      
       listener(url);
     });
     return () => subscription.remove();
   },
+};
+
+/**
+ * Handle email verified deep link - show alert and refresh user state
+ */
+const handleEmailVerifiedDeepLink = (url: string) => {
+  try {
+    // Parse URL parameters manually since React Native URLSearchParams is limited
+    const getParam = (paramName: string): string | null => {
+      const match = url.match(new RegExp(`[?&]${paramName}=([^&]*)`));
+      return match ? decodeURIComponent(match[1]) : null;
+    };
+    
+    const status = getParam('status');
+    const email = getParam('email');
+    const message = getParam('message');
+    
+    console.log('📧 [EmailVerified] Status:', status, 'Email:', email);
+    
+    if (status === 'success') {
+      Alert.alert(
+        '✅ Email Verified!',
+        `Your email ${email || ''} has been successfully verified. You now have full access to all features.`,
+        [{ text: 'OK', style: 'default' }]
+      );
+    } else if (status === 'error') {
+      Alert.alert(
+        '❌ Verification Failed',
+        message || 'The verification link may have expired. Please request a new verification email from Settings.',
+        [{ text: 'OK', style: 'default' }]
+      );
+    }
+  } catch (err) {
+    console.error('📧 [EmailVerified] Error parsing deep link:', err);
+  }
 };
 
 /**

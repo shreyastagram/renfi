@@ -24,6 +24,7 @@ import {
   Modal,
   Platform,
   Linking,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, ServiceIcon, StatusIcon } from '../components';
@@ -371,11 +372,18 @@ const ProviderRequestsScreen = ({ navigation }) => {
         {/* User Details */}
         {request.userDetails && (
           <View style={styles.userSection}>
-            <View style={styles.userAvatar}>
-              <Text style={styles.userInitial}>
-                {request.userDetails.name?.charAt(0)?.toUpperCase() || 'U'}
-              </Text>
-            </View>
+            {request.userDetails.profilePicture?.url ? (
+              <Image 
+                source={{ uri: request.userDetails.profilePicture.url }} 
+                style={styles.userAvatarImage} 
+              />
+            ) : (
+              <View style={styles.userAvatar}>
+                <Text style={styles.userInitial}>
+                  {request.userDetails.name?.charAt(0)?.toUpperCase() || 'U'}
+                </Text>
+              </View>
+            )}
             <View style={styles.userInfo}>
               <Text style={styles.userName}>{request.userDetails.name || 'Customer'}</Text>
               {request.userDetails.phone && (
@@ -385,6 +393,13 @@ const ProviderRequestsScreen = ({ navigation }) => {
                 </View>
               )}
             </View>
+            {/* Distance Badge */}
+            {request.distanceToService && (
+              <View style={styles.distanceBadge}>
+                <Icon name="location" size={14} color="#2563EB" />
+                <Text style={styles.distanceText}>{request.distanceToService.formatted}</Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -852,6 +867,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  userAvatarImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
   userInitial: {
     fontSize: 18,
     fontWeight: '600',
@@ -870,6 +890,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 2,
+  },
+  distanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  distanceText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2563EB',
   },
   detailsSection: {
     marginBottom: 12,

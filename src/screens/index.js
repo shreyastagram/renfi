@@ -3,7 +3,7 @@
  * 
  * Export all screen components
  * 
- * @version 5.0.0
+ * @version 6.0.0
  */
 
 // Onboarding & User Type Selection
@@ -57,3 +57,15 @@ export { default as DocumentVerificationScreen } from './DocumentVerificationScr
 
 // Service Approvals (RSAS)
 export { default as ServiceApprovalsScreen } from './ServiceApprovalsScreen';
+
+// Emergency Services
+export { default as EmergencyServicesScreen } from './EmergencyServicesScreen';
+
+// Event Services (Photographer, Influencer)
+export { default as EventServicesScreen } from './EventServicesScreen';
+
+// Favorites
+export { default as FavoritesScreen } from './FavoritesScreen';
+
+// Portfolio Management (Photographer/Influencer)
+export { default as PortfolioEditScreen } from './PortfolioEditScreen';

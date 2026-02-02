@@ -91,12 +91,15 @@ const LiveTrackingScreen = ({ navigation, route }) => {
   
   const cameraRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const mapReadyRef = useRef(false);
+  const initialCameraSetRef = useRef(false);
   
   // State - Use serviceLocation as destination (where provider needs to go)
   const [providerLocation, setProviderLocation] = useState(null);
   const [destinationLocation, setDestinationLocation] = useState(passedServiceLocation || initialUserLocation || null);
   const [userLocation, setUserLocation] = useState(null); // User's actual current location for context
   const [isLoading, setIsLoading] = useState(true);
+  const [isMapReady, setIsMapReady] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [providerData, setProviderData] = useState(null);
   const [isOnline, setIsOnline] = useState(false);
@@ -107,6 +110,20 @@ const LiveTrackingScreen = ({ navigation, route }) => {
   const [routeDuration, setRouteDuration] = useState(null);
   const [routeDistance, setRouteDistance] = useState(null);
   const [isFetchingRoute, setIsFetchingRoute] = useState(false);
+  
+  // ✅ PRODUCTION: Calculate initial camera center immediately (no jumps)
+  const getInitialCenter = useCallback(() => {
+    if (passedServiceLocation?.longitude && passedServiceLocation?.latitude) {
+      return [passedServiceLocation.longitude, passedServiceLocation.latitude];
+    }
+    if (initialUserLocation?.longitude && initialUserLocation?.latitude) {
+      return [initialUserLocation.longitude, initialUserLocation.latitude];
+    }
+    // Fallback to Mumbai only if no location data
+    return [72.8777, 19.0760];
+  }, [passedServiceLocation, initialUserLocation]);
+  
+  const [initialCenter] = useState(getInitialCenter);
 
   /**
    * Fetch driving route from Mapbox Directions API
@@ -238,34 +255,56 @@ const LiveTrackingScreen = ({ navigation, route }) => {
 
   /**
    * Center map to show provider, destination, and optionally user location
+   * ✅ PRODUCTION: Smooth animation, proper padding, no jarring jumps
    */
-  const centerMap = useCallback(() => {
-    if (!providerLocation || !cameraRef.current) return;
+  const centerMap = useCallback((animate = true) => {
+    if (!cameraRef.current || !mapReadyRef.current) return;
     
     // Collect all available locations for bounds calculation
-    const locations = [providerLocation];
+    const locations = [];
+    if (providerLocation) locations.push(providerLocation);
     if (destinationLocation) locations.push(destinationLocation);
-    if (userLocation) locations.push(userLocation);
+    if (userLocation && !destinationLocation) locations.push(userLocation); // Only show user if no destination
+    
+    if (locations.length === 0) return;
     
     if (locations.length > 1) {
-      // Calculate bounds to show all markers
+      // Calculate bounds to show all markers with padding
       const lngs = locations.map(loc => loc.longitude);
       const lats = locations.map(loc => loc.latitude);
       
+      // Add padding for markers (0.005 degrees ≈ 500m)
       const bounds = {
-        ne: [Math.max(...lngs) + 0.01, Math.max(...lats) + 0.01],
-        sw: [Math.min(...lngs) - 0.01, Math.min(...lats) - 0.01],
+        ne: [Math.max(...lngs) + 0.008, Math.max(...lats) + 0.008],
+        sw: [Math.min(...lngs) - 0.008, Math.min(...lats) - 0.008],
       };
-      cameraRef.current?.fitBounds(bounds.ne, bounds.sw, 80, 1000);
+      
+      cameraRef.current?.fitBounds(bounds.ne, bounds.sw, [100, 100, 180, 100], animate ? 800 : 0);
     } else {
-      // Just show provider
+      // Just show single location
+      const loc = locations[0];
       cameraRef.current?.setCamera({
-        centerCoordinate: [providerLocation.longitude, providerLocation.latitude],
+        centerCoordinate: [loc.longitude, loc.latitude],
         zoomLevel: 15,
-        animationDuration: 1000,
+        animationDuration: animate ? 600 : 0,
+        animationMode: 'easeTo',
       });
     }
   }, [providerLocation, destinationLocation, userLocation]);
+  
+  /**
+   * Handle map ready - set initial camera position smoothly
+   */
+  const handleMapReady = useCallback(() => {
+    mapReadyRef.current = true;
+    setIsMapReady(true);
+    
+    // If we already have provider location, fit bounds after a short delay
+    if (providerLocation && !initialCameraSetRef.current) {
+      initialCameraSetRef.current = true;
+      setTimeout(() => centerMap(true), 300);
+    }
+  }, [providerLocation, centerMap]);
 
   /**
    * Start pulse animation for live indicator
@@ -304,10 +343,13 @@ const LiveTrackingScreen = ({ navigation, route }) => {
 
   /**
    * Center map when locations are available
+   * ✅ PRODUCTION: Only animate once after first provider location fetch
    */
   useEffect(() => {
-    if (providerLocation) {
-      setTimeout(centerMap, 500);
+    if (providerLocation && mapReadyRef.current && !initialCameraSetRef.current) {
+      initialCameraSetRef.current = true;
+      // Smooth delay for initial animation
+      requestAnimationFrame(() => centerMap(true));
     }
   }, [providerLocation, centerMap]);
 
@@ -342,6 +384,14 @@ const LiveTrackingScreen = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
+      {/* Map Loading Overlay - Shows while map is initializing */}
+      {!isMapReady && (
+        <View style={styles.mapLoadingOverlay}>
+          <ActivityIndicator size="large" color={BRAND.primary} />
+          <Text style={styles.mapLoadingText}>Loading map...</Text>
+        </View>
+      )}
+      
       {/* Map */}
       <Mapbox.MapView
         style={styles.map}
@@ -350,15 +400,24 @@ const LiveTrackingScreen = ({ navigation, route }) => {
         attributionEnabled={false}
         compassEnabled={true}
         scaleBarEnabled={false}
+        onDidFinishLoadingMap={handleMapReady}
       >
+        {/* ✅ PRODUCTION: Use initial center from service location to avoid jumps */}
         <Mapbox.Camera
           ref={cameraRef}
-          centerCoordinate={providerLocation ? [providerLocation.longitude, providerLocation.latitude] : [72.8777, 19.0760]}
-          zoomLevel={14}
+          defaultSettings={{
+            centerCoordinate: initialCenter,
+            zoomLevel: 14,
+          }}
+          animationMode="flyTo"
+          animationDuration={0}
         />
 
-        {/* User's Current Location Marker (Blue) */}
-        {userLocation && (
+        {/* User's Current Location Marker (Blue) - Only show if user is at different location than destination */}
+        {userLocation && (!destinationLocation || (
+          Math.abs(userLocation.latitude - destinationLocation.latitude) > 0.001 ||
+          Math.abs(userLocation.longitude - destinationLocation.longitude) > 0.001
+        )) && (
           <Mapbox.PointAnnotation
             id="user-marker"
             coordinate={[userLocation.longitude, userLocation.latitude]}
@@ -408,32 +467,28 @@ const LiveTrackingScreen = ({ navigation, route }) => {
               },
             }}
           >
-            {/* Main route line */}
+            {/* Route outline for better visibility - draw first (below main line) */}
+            <Mapbox.LineLayer
+              id="routeLineOutline"
+              style={{
+                lineColor: '#c45a00', // Darker orange outline
+                lineWidth: 8,
+                lineCap: 'round',
+                lineJoin: 'round',
+                lineOpacity: 0.5,
+              }}
+            />
+            {/* Main route line - solid orange */}
             <Mapbox.LineLayer
               id="routeLine"
               style={{
-                lineColor: routeCoordinates ? BRAND.secondary : BRAND.primary,
-                lineWidth: routeCoordinates ? 5 : 3,
+                lineColor: BRAND.primary, // Always orange (#f67c16)
+                lineWidth: 5,
                 lineCap: 'round',
                 lineJoin: 'round',
-                lineOpacity: 0.85,
-                ...(routeCoordinates ? {} : { lineDasharray: [2, 2] }),
+                lineOpacity: 1,
               }}
             />
-            {/* Route outline for better visibility */}
-            {routeCoordinates && (
-              <Mapbox.LineLayer
-                id="routeLineOutline"
-                belowLayerID="routeLine"
-                style={{
-                  lineColor: '#1e5a8f',
-                  lineWidth: 7,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                  lineOpacity: 0.4,
-                }}
-              />
-            )}
           </Mapbox.ShapeSource>
         )}
       </Mapbox.MapView>
@@ -561,6 +616,20 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  // ✅ PRODUCTION: Map loading overlay
+  mapLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+  },
+  mapLoadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
   },
   header: {
     position: 'absolute',

@@ -33,6 +33,13 @@ const ICON_MAP = {
   salon: { family: 'MaterialCommunityIcons', name: 'content-cut', color: '#F472B6' },
   vehicle_cleaning: { family: 'MaterialCommunityIcons', name: 'car-wash', color: '#0EA5E9' },
   mason_tiler: { family: 'MaterialCommunityIcons', name: 'wall', color: '#78716C' },
+  // Event Services
+  photographer: { family: 'MaterialCommunityIcons', name: 'camera', color: '#8B5CF6' },
+  influencer: { family: 'MaterialCommunityIcons', name: 'account-star', color: '#EC4899' },
+  // Emergency Services
+  snake_catcher: { family: 'MaterialCommunityIcons', name: 'snake', color: '#10B981' },
+  private_ambulance: { family: 'MaterialCommunityIcons', name: 'ambulance', color: '#EF4444' },
+  mortuary_van: { family: 'MaterialCommunityIcons', name: 'car-emergency', color: '#6B7280' },
   
   // Navigation & Actions
   back: { family: 'Ionicons', name: 'arrow-back' },
@@ -74,6 +81,9 @@ const ICON_MAP = {
   directions: { family: 'MaterialIcons', name: 'directions', color: '#3B82F6' },
   track: { family: 'MaterialCommunityIcons', name: 'map-marker-radius', color: '#8B5CF6' },
   navigate: { family: 'MaterialCommunityIcons', name: 'navigation', color: '#3B82F6' },
+  chatbox: { family: 'Ionicons', name: 'chatbox-outline', color: '#F67C16' },
+  sms: { family: 'MaterialCommunityIcons', name: 'message-text-outline', color: '#F67C16' },
+  chat: { family: 'Ionicons', name: 'chatbubble-outline', color: '#3B82F6' },
   
   // Misc
   calendar: { family: 'Feather', name: 'calendar' },

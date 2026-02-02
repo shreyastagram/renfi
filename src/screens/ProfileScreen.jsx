@@ -1072,6 +1072,98 @@ const ProfileScreen = ({ navigation, route }) => {
                     label="Experience"
                     value={displayData?.experience || 'Not set'}
                   />
+                  
+                  {/* Portfolio Section - Only for Photographer/Influencer */}
+                  {(displayData?.verifiedServiceCategories?.includes('photographer') || 
+                    displayData?.verifiedServiceCategories?.includes('influencer')) && (
+                    <View style={styles.portfolioSection}>
+                      <View style={styles.portfolioHeader}>
+                        <View style={styles.portfolioIconContainer}>
+                          <MaterialIcon name="collections" size={20} color="#7C3AED" />
+                        </View>
+                        <View style={styles.portfolioTitleContainer}>
+                          <Text style={styles.portfolioTitle}>Portfolio & Social Links</Text>
+                          <Text style={styles.portfolioSubtitle}>
+                            Showcase your work to attract more clients
+                          </Text>
+                        </View>
+                      </View>
+                      
+                      <TouchableOpacity 
+                        style={styles.portfolioEditButton}
+                        onPress={() => navigation.navigate('PortfolioEdit')}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.portfolioEditContent}>
+                          {/* Show current portfolio status */}
+                          {(displayData?.portfolioLinks?.instagram || 
+                            displayData?.portfolioLinks?.youtube ||
+                            displayData?.portfolioLinks?.website) ? (
+                            <View style={styles.portfolioLinksPreview}>
+                              {displayData.portfolioLinks.instagram && (
+                                <View style={styles.portfolioLinkBadge}>
+                                  <MaterialIcon name="camera-alt" size={14} color="#DB2777" />
+                                </View>
+                              )}
+                              {displayData.portfolioLinks.youtube && (
+                                <View style={styles.portfolioLinkBadge}>
+                                  <MaterialIcon name="play-circle-filled" size={14} color="#DC2626" />
+                                </View>
+                              )}
+                              {displayData.portfolioLinks.website && (
+                                <View style={styles.portfolioLinkBadge}>
+                                  <MaterialIcon name="language" size={14} color="#0284C7" />
+                                </View>
+                              )}
+                              {displayData.portfolioLinks.facebook && (
+                                <View style={styles.portfolioLinkBadge}>
+                                  <MaterialIcon name="facebook" size={14} color="#2563EB" />
+                                </View>
+                              )}
+                              {displayData.portfolioLinks.tiktok && (
+                                <View style={styles.portfolioLinkBadge}>
+                                  <MaterialIcon name="music-note" size={14} color="#7C3AED" />
+                                </View>
+                              )}
+                              <Text style={styles.portfolioEditText}>Edit Links</Text>
+                            </View>
+                          ) : (
+                            <Text style={styles.portfolioAddText}>Add your portfolio links</Text>
+                          )}
+                        </View>
+                        <MaterialIcon name="chevron-right" size={20} color="#9CA3AF" />
+                      </TouchableOpacity>
+                      
+                      {/* Bio Preview */}
+                      {displayData?.bio && (
+                        <View style={styles.bioPreview}>
+                          <Text style={styles.bioPreviewLabel}>Bio</Text>
+                          <Text style={styles.bioPreviewText} numberOfLines={2}>
+                            {displayData.bio}
+                          </Text>
+                        </View>
+                      )}
+                      
+                      {/* Specializations Preview */}
+                      {displayData?.specializations?.length > 0 && (
+                        <View style={styles.specializationsPreview}>
+                          <Text style={styles.specializationsLabel}>Specializations</Text>
+                          <View style={styles.specializationsChips}>
+                            {displayData.specializations.slice(0, 3).map((spec, index) => (
+                              <View key={index} style={styles.specializationChip}>
+                                <Text style={styles.specializationChipText}>{spec}</Text>
+                              </View>
+                            ))}
+                            {displayData.specializations.length > 3 && (
+                              <Text style={styles.moreSpecializations}>
+                                +{displayData.specializations.length - 3} more
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                  )}
                 </>
               )}
             </View>
@@ -1093,6 +1185,29 @@ const ProfileScreen = ({ navigation, route }) => {
                   <Text style={styles.addressesTitle}>Manage Addresses</Text>
                   <Text style={styles.addressesSubtitle}>
                     Add, edit or delete your saved addresses
+                  </Text>
+                </View>
+                <MaterialIcon name="chevron-right" size={24} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Favorites Section - For Users */}
+          {!isProvider && (
+            <View style={styles.section}>
+              <SectionHeader title="My Favorites" />
+              <TouchableOpacity 
+                style={styles.addressesCard}
+                onPress={() => navigation.navigate('Favorites')}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.addressesIconContainer, { backgroundColor: '#FEF3C7' }]}>
+                  <MaterialIcon name="favorite" size={24} color="#F59E0B" />
+                </View>
+                <View style={styles.addressesContent}>
+                  <Text style={styles.addressesTitle}>Saved Providers</Text>
+                  <Text style={styles.addressesSubtitle}>
+                    View and manage your favorite service providers
                   </Text>
                 </View>
                 <MaterialIcon name="chevron-right" size={24} color="#9CA3AF" />
@@ -1796,6 +1911,131 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6B7280',
     marginTop: 2,
+  },
+  
+  // Portfolio Section Styles
+  portfolioSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  portfolioHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  portfolioIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F3E8FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  portfolioTitleContainer: {
+    flex: 1,
+  },
+  portfolioTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  portfolioSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  portfolioEditButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FAFAFA',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  portfolioEditContent: {
+    flex: 1,
+  },
+  portfolioLinksPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  portfolioLinkBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  portfolioEditText: {
+    fontSize: 13,
+    color: '#7C3AED',
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  portfolioAddText: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  bioPreview: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+  },
+  bioPreviewLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  bioPreviewText: {
+    fontSize: 13,
+    color: '#374151',
+    lineHeight: 18,
+  },
+  specializationsPreview: {
+    marginTop: 12,
+  },
+  specializationsLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  specializationsChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    alignItems: 'center',
+  },
+  specializationChip: {
+    backgroundColor: '#F3E8FF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  specializationChipText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#7C3AED',
+  },
+  moreSpecializations: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontWeight: '500',
   },
 });
 

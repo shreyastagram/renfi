@@ -48,6 +48,13 @@ export const SERVICE_TYPE_LABELS = {
   driver: 'Driver',
   ac_repair: 'AC Repair',
   cleaning: 'Cleaning',
+  // Event services
+  photographer: 'Photographer',
+  influencer: 'Influencer',
+  // Emergency services
+  snake_catcher: 'Snake Catcher',
+  private_ambulance: 'Private Ambulance',
+  mortuary_van: 'Mortuary Van',
 };
 
 // Request status enum
@@ -253,6 +260,66 @@ export const getNearbyProviders = async (requestId, limit = 20) => {
     return {
       success: false,
       error: error.message || 'Failed to fetch nearby providers',
+      providers: [],
+      count: 0,
+    };
+  }
+};
+
+/**
+ * Retry search for providers after rejecting all
+ * Clears the rejected providers list and re-fetches nearby providers
+ * 
+ * @param {string} requestId - Service request MongoDB _id
+ * @param {string} userId - User's MongoDB _id (required)
+ * @returns {Promise<Object>} Updated providers list
+ */
+export const retryProviderSearch = async (requestId, userId) => {
+  try {
+    if (!requestId) {
+      throw new Error('Request ID is required');
+    }
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+
+    console.log('[TraditionalService] Retrying provider search for request:', requestId);
+
+    const url = `${NODE_BASE_URL}/api/traditional-services/${requestId}/retry-search`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ userId }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[TraditionalService] Retry search failed:', data);
+      const errorMessage = data.error?.message || data.message || data.error || 'Failed to retry search';
+      throw new Error(errorMessage);
+    }
+
+    console.log('[TraditionalService] Retry search successful:', {
+      count: data.providers?.length || 0,
+      searchRadius: data.searchRadius,
+    });
+
+    return {
+      success: true,
+      providers: data.providers || [],
+      count: data.count || 0,
+      searchRadius: data.searchRadius || 0,
+      message: data.message || 'Search retried successfully',
+    };
+  } catch (error) {
+    console.error('[TraditionalService] Retry search error:', error.message);
+    return {
+      success: false,
+      error: error.message || 'Failed to retry search',
       providers: [],
       count: 0,
     };
@@ -816,7 +883,7 @@ export const submitRating = async (requestId, userId, rating, review = '') => {
   try {
     console.log('[TraditionalService] Submitting rating:', { requestId, userId, rating });
 
-    const response = await fetch(`${NODE_BASE_URL}/api/traditional-service/${requestId}/rate`, {
+    const response = await fetch(`${NODE_BASE_URL}/api/traditional-services/${requestId}/rate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, rating, review }),

@@ -25,10 +25,12 @@ import {
   Platform,
   TextInput,
   Modal,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
-import { Icon, ServiceIcon, StatusIcon } from '../components';
+import { Icon, ServiceIcon, StatusIcon, RatingModal } from '../components';
+import { NODE_BASE_URL } from '../config/api';
 import Mapbox from '@rnmapbox/maps';
 
 // Initialize Mapbox
@@ -38,6 +40,7 @@ import {
   cancelRequest,
   resendCompletionOtp,
   verifyCompletionOtp,
+  submitRating,
   SERVICE_TYPE_LABELS,
 } from '../services/traditionalServiceService';
 
@@ -59,7 +62,8 @@ const STATUS_CONFIG = {
     color: BRAND.primary,
     bgColor: '#FEF3C7',
     iconName: 'clock',
-    description: 'Waiting for a provider to accept your request',
+    userDescription: 'Waiting for a provider to accept your request',
+    providerDescription: 'Customer is waiting for you to accept this request',
     step: 1,
   },
   accepted: {
@@ -67,7 +71,8 @@ const STATUS_CONFIG = {
     color: BRAND.secondary,
     bgColor: '#DBEAFE',
     iconName: 'check',
-    description: 'A provider has accepted your request',
+    userDescription: 'A provider has accepted your request',
+    providerDescription: 'You have accepted this request',
     step: 2,
   },
   'in-progress': {
@@ -75,7 +80,8 @@ const STATUS_CONFIG = {
     color: BRAND.secondary,
     bgColor: '#DBEAFE',
     iconName: 'wrench',
-    description: 'The service is currently being performed',
+    userDescription: 'The service is currently being performed',
+    providerDescription: 'You are currently working on this service',
     step: 3,
   },
   completed: {
@@ -83,7 +89,8 @@ const STATUS_CONFIG = {
     color: BRAND.success,
     bgColor: '#D1FAE5',
     iconName: 'check-circle',
-    description: 'The service has been successfully completed',
+    userDescription: 'The service has been successfully completed',
+    providerDescription: 'You have completed this service',
     step: 4,
   },
   cancelled: {
@@ -91,7 +98,8 @@ const STATUS_CONFIG = {
     color: BRAND.danger,
     bgColor: '#FEE2E2',
     iconName: 'close',
-    description: 'This request was cancelled',
+    userDescription: 'This request was cancelled',
+    providerDescription: 'This request was cancelled',
     step: 0,
   },
   rejected: {
@@ -99,15 +107,24 @@ const STATUS_CONFIG = {
     color: BRAND.neutral,
     bgColor: '#F3F4F6',
     iconName: 'block',
-    description: 'No providers were available for this request',
+    userDescription: 'No providers were available for this request',
+    providerDescription: 'This request was rejected',
     step: 0,
   },
 };
 
 /**
+ * Get status description based on user type
+ */
+const getStatusDescription = (status, isProvider) => {
+  const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+  return isProvider ? config.providerDescription : config.userDescription;
+};
+
+/**
  * Status Timeline Component
  */
-const StatusTimeline = ({ currentStatus }) => {
+const StatusTimeline = ({ currentStatus, isProvider = false }) => {
   const status = STATUS_CONFIG[currentStatus] || STATUS_CONFIG.pending;
   const isCancelled = currentStatus === 'cancelled' || currentStatus === 'rejected';
   
@@ -123,7 +140,7 @@ const StatusTimeline = ({ currentStatus }) => {
       <View style={styles.timelineContainer}>
         <View style={styles.cancelledTimeline}>
           <StatusIcon status={currentStatus} size={24} />
-          <Text style={styles.cancelledText}>{status.description}</Text>
+          <Text style={styles.cancelledText}>{getStatusDescription(currentStatus, isProvider)}</Text>
         </View>
       </View>
     );
@@ -333,13 +350,20 @@ const LocationMapPreview = ({ location, address }) => {
   const [mapExpanded, setMapExpanded] = useState(false);
   const [mapLoading, setMapLoading] = useState(true);
   
-  // Check if we have valid coordinates
-  const hasCoordinates = location?.coordinates && 
+  // Check if we have valid coordinates (must be numbers, not null/undefined)
+  const hasValidCoordinates = location?.coordinates && 
     Array.isArray(location.coordinates) && 
-    location.coordinates.length === 2;
+    location.coordinates.length === 2 &&
+    typeof location.coordinates[0] === 'number' &&
+    typeof location.coordinates[1] === 'number' &&
+    !isNaN(location.coordinates[0]) &&
+    !isNaN(location.coordinates[1]);
   
-  if (!hasCoordinates) {
-    // Fallback to address-only display if no coordinates
+  if (!hasValidCoordinates) {
+    // Fallback to address-only display if no valid coordinates
+    if (!address) {
+      return null; // Don't render anything if no address and no coordinates
+    }
     return (
       <View style={styles.locationCard}>
         <Text style={styles.sectionTitle}>Service Location</Text>
@@ -510,12 +534,17 @@ const LocationMapPreview = ({ location, address }) => {
 const ServiceRequestDetailScreen = ({ navigation, route }) => {
   const { user, profile, userType } = useApp();
   const initialRequest = route.params?.request;
+  const isEventService = route.params?.isEventService || initialRequest?.isEventService;
+  const isEmergencyService = route.params?.isEmergencyService || initialRequest?.isEmergencyService;
   
   // State
   const [request, setRequest] = useState(initialRequest);
   const [loading, setLoading] = useState(!initialRequest);
   const [refreshing, setRefreshing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  
+  // Rating modal state
+  const [ratingModalVisible, setRatingModalVisible] = useState(false);
   
   // Provider OTP entry state
   const [enteredOtp, setEnteredOtp] = useState('');
@@ -533,9 +562,18 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   }, [user, profile]);
 
   /**
-   * Fetch request details
+   * Fetch request details - for traditional services only
+   * Event and emergency services pass data directly via route params
    */
   const fetchDetails = useCallback(async () => {
+    // For event/emergency services, use the data passed via route params
+    if ((isEventService || isEmergencyService) && initialRequest) {
+      setRequest(initialRequest);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+    
     // Use requestId from route params (could be TRD-xxx format or MongoDB _id)
     const lookupId = route.params?.requestId || request?._id || request?.requestId;
     
@@ -555,14 +593,21 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [request?._id, request?.requestId, route.params?.requestId]);
+  }, [request?._id, request?.requestId, route.params?.requestId, isEventService, isEmergencyService, initialRequest]);
 
   // Initial fetch if needed
   useEffect(() => {
+    // For event/emergency services, just use the passed data
+    if ((isEventService || isEmergencyService) && initialRequest) {
+      setRequest(initialRequest);
+      setLoading(false);
+      return;
+    }
+    
     if (!initialRequest || !initialRequest.providerDetails) {
       fetchDetails();
     }
-  }, []);
+  }, [isEventService, isEmergencyService]);
 
   /**
    * Handle refresh
@@ -573,7 +618,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   }, [fetchDetails]);
 
   /**
-   * Handle cancel request
+   * Handle cancel request - supports traditional, event, and emergency services
    */
   const handleCancel = useCallback(() => {
     const isAccepted = ['accepted', 'in-progress'].includes(request?.status);
@@ -594,36 +639,83 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           onPress: async () => {
             setCancelling(true);
             const userId = getUserId();
-            const result = await cancelRequest(request._id, userId, 'Cancelled by user');
-            setCancelling(false);
             
-            if (result.success) {
-              const successMsg = result.details?.wasAccepted 
-                ? 'Your request has been cancelled and the provider has been notified.'
-                : 'Your request has been cancelled.';
-              Alert.alert('Cancelled', successMsg, [
-                { text: 'OK', onPress: () => navigation.goBack() }
-              ]);
-            } else {
-              Alert.alert('Error', result.error || 'Failed to cancel request');
+            try {
+              let result;
+              
+              // Determine which cancel endpoint to use based on service type
+              if (isEventService || request?.isEventService) {
+                // Event service cancel
+                const response = await fetch(`${NODE_BASE_URL}/api/event-services/${request._id}/cancel`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ userId, reason: 'Cancelled by user' }),
+                });
+                const data = await response.json();
+                result = {
+                  success: response.ok && data.statusCode !== 500,
+                  error: data.error || data.message,
+                };
+              } else if (isEmergencyService || request?.isEmergencyService) {
+                // Emergency service cancel
+                const response = await fetch(`${NODE_BASE_URL}/api/emergency-services/${request._id}/cancel`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ userId, reason: 'Cancelled by user' }),
+                });
+                const data = await response.json();
+                result = {
+                  success: response.ok && data.statusCode !== 500,
+                  error: data.error || data.message,
+                };
+              } else {
+                // Traditional service cancel (existing function)
+                result = await cancelRequest(request._id, userId, 'Cancelled by user');
+              }
+              
+              setCancelling(false);
+              
+              if (result.success) {
+                const successMsg = result.details?.wasAccepted 
+                  ? 'Your request has been cancelled and the provider has been notified.'
+                  : 'Your request has been cancelled.';
+                Alert.alert('Cancelled', successMsg, [
+                  { text: 'OK', onPress: () => navigation.goBack() }
+                ]);
+              } else {
+                Alert.alert('Error', result.error || 'Failed to cancel request');
+              }
+            } catch (error) {
+              setCancelling(false);
+              console.error('[Cancel] Error:', error);
+              Alert.alert('Error', 'Failed to cancel request. Please try again.');
             }
           },
         },
       ]
     );
-  }, [request, getUserId, navigation]);
+  }, [request, getUserId, navigation, isEventService, isEmergencyService]);
 
   /**
    * Handle phone call (works for both provider calling customer and vice versa)
    */
   const handleCall = useCallback((phone) => {
-    const phoneUrl = `tel:${phone}`;
+    if (!phone || phone.trim() === '') {
+      Alert.alert('Error', 'No phone number available');
+      return;
+    }
+    
+    // Clean phone number - remove spaces, dashes, parentheses
+    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+    const phoneUrl = `tel:${cleanPhone}`;
+    
     Linking.canOpenURL(phoneUrl)
       .then((supported) => {
         if (supported) {
           Linking.openURL(phoneUrl);
         } else {
-          Alert.alert('Error', 'Unable to make phone call');
+          // This happens on emulators or devices without phone capability
+          Alert.alert('Error', `Unable to make phone call. Phone: ${phone}`);
         }
       })
       .catch((err) => console.error('Call error:', err));
@@ -640,12 +732,21 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
       return;
     }
 
-    // Navigate to LiveTrackingScreen
+    // Extract service location from request for destination marker
+    let serviceLocation = null;
+    if (request?.location?.coordinates && Array.isArray(request.location.coordinates) && request.location.coordinates.length === 2) {
+      const [lng, lat] = request.location.coordinates;
+      serviceLocation = { latitude: lat, longitude: lng };
+    }
+
+    // Navigate to LiveTrackingScreen with service location
     navigation.navigate('LiveTracking', {
       requestId: request._id,
       providerId: provider._id || provider.providerId,
       providerName: provider.name,
-      serviceCategory: request.serviceCategory || request.category,
+      serviceCategory: request.serviceCategory || request.category || request.serviceType,
+      serviceLocation: serviceLocation, // ✅ Pass service location as destination
+      serviceAddress: request.serviceAddress || request.address || '', // ✅ Pass service address
     });
   }, [request, navigation]);
 
@@ -709,6 +810,50 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
       setVerifyingOtp(false);
     }
   }, [request?._id, enteredOtp, handleRefresh]);
+
+  /**
+   * Handle rating submission
+   * @param {string} requestId - Request ID from RatingModal
+   * @param {number} rating - Rating value 1-5
+   * @param {string} review - Optional review text
+   */
+  const handleSubmitRating = useCallback(async (requestId, rating, review) => {
+    const userId = getUserId();
+    if (!requestId || !userId) {
+      return { success: false, error: 'Missing request or user information' };
+    }
+    
+    // Validate rating is a number
+    if (!rating || typeof rating !== 'number' || rating < 1 || rating > 5) {
+      return { success: false, error: 'Please select a valid rating (1-5 stars)' };
+    }
+
+    try {
+      const result = await submitRating(requestId, userId, Math.round(rating), review || '');
+      
+      if (result.success) {
+        // Update local state to reflect the rating
+        setRequest(prev => ({
+          ...prev,
+          ratings: {
+            ...prev.ratings,
+            userRating: rating,
+            userReview: review,
+            ratedAt: new Date().toISOString()
+          }
+        }));
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('[Rating] Error:', error);
+      return { success: false, error: error.message || 'Failed to submit rating' };
+    }
+  }, [getUserId]);
+
+  // Check if user has already rated this service
+  const hasRated = request?.ratings?.userRating > 0;
+  const canRate = !isProvider && request?.status === 'completed' && !hasRated;
 
   // Loading state
   if (loading) {
@@ -795,12 +940,12 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         {/* Status Description */}
         <View style={[styles.statusDescriptionBox, { backgroundColor: status.bgColor }]}>
           <Text style={[styles.statusDescription, { color: status.color }]}>
-            {status.description}
+            {getStatusDescription(request.status, isProvider)}
           </Text>
         </View>
 
         {/* Status Timeline */}
-        <StatusTimeline currentStatus={request.status} />
+        <StatusTimeline currentStatus={request.status} isProvider={isProvider} />
 
         {/* OTP Section (for accepted/in-progress) - User sees OTP to share */}
         {showOtp && (
@@ -857,36 +1002,113 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           <ProviderCard 
             provider={request.providerDetails}
             onCall={handleCall}
-            onGetLocation={['accepted', 'in-progress'].includes(request.status) ? handleGetProviderLocation : null}
+            onGetLocation={
+              // Only show track location for traditional services (not event services)
+              !request.isEventService && ['accepted', 'in-progress'].includes(request.status) 
+                ? handleGetProviderLocation 
+                : null
+            }
           />
         )}
 
-        {/* User/Customer Details - Only show for providers */}
+        {/* User/Customer Details - Only show for providers (Industry-grade) */}
         {isProvider && request.userDetails && (
-          <View style={styles.detailsCard}>
-            <Text style={styles.sectionTitle}>Customer Details</Text>
-            <View style={styles.customerInfoRow}>
-              <View style={styles.customerAvatar}>
-                <Text style={styles.customerInitial}>
-                  {request.userDetails.name?.charAt(0).toUpperCase() || 'C'}
-                </Text>
-              </View>
-              <View style={styles.customerDetails}>
-                <Text style={styles.customerName}>{request.userDetails.name || 'Customer'}</Text>
-                {request.userDetails.email && (
-                  <Text style={styles.customerEmail}>{request.userDetails.email}</Text>
+          <View style={styles.customerCard}>
+            {/* Customer Header */}
+            <View style={styles.customerHeader}>
+              <Text style={styles.sectionTitle}>Customer Details</Text>
+              {request.userDetails.isRepeatCustomer && (
+                <View style={styles.repeatCustomerBadge}>
+                  <Icon name="heart" size={12} color={BRAND.primary} />
+                  <Text style={styles.repeatCustomerText}>Repeat Customer</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Customer Profile */}
+            <View style={styles.customerProfileSection}>
+              {request.userDetails.profilePicture?.url ? (
+                <Image
+                  source={{ uri: request.userDetails.profilePicture.url }}
+                  style={styles.customerProfileImage}
+                />
+              ) : (
+                <View style={styles.customerAvatar}>
+                  <Text style={styles.customerInitial}>
+                    {request.userDetails.name?.charAt(0).toUpperCase() || 'C'}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.customerMainInfo}>
+                <View style={styles.customerNameRow}>
+                  <Text style={styles.customerName}>{request.userDetails.name || 'Customer'}</Text>
+                  {request.userDetails.isVerified && (
+                    <Icon name="verified" size={16} color="#10B981" />
+                  )}
+                </View>
+                {request.userDetails.memberSince && (
+                  <Text style={styles.customerMemberSince}>
+                    Member since {request.userDetails.memberSince}
+                  </Text>
+                )}
+                {request.userDetails.previousServicesWithProvider > 0 && (
+                  <Text style={styles.customerPreviousServices}>
+                    {request.userDetails.previousServicesWithProvider} previous service{request.userDetails.previousServicesWithProvider > 1 ? 's' : ''} with you
+                  </Text>
                 )}
               </View>
             </View>
-            {request.userDetails.phone && (
-              <TouchableOpacity 
-                style={styles.callCustomerButton}
-                onPress={() => handleCall(request.userDetails.phone)}
-              >
-                <Icon name="phone" size={18} color="#FFFFFF" />
-                <Text style={styles.callCustomerButtonText}>Call Customer</Text>
-              </TouchableOpacity>
+
+            {/* Customer Contact Info */}
+            <View style={styles.customerContactInfo}>
+              {request.userDetails.email && (
+                <View style={styles.customerContactRow}>
+                  <Icon name="mail" size={16} color="#6B7280" />
+                  <Text style={styles.customerContactText}>{request.userDetails.email}</Text>
+                </View>
+              )}
+              {(request.userDetails.address || request.userDetails.city) && (
+                <View style={styles.customerContactRow}>
+                  <Icon name="location" size={16} color="#6B7280" />
+                  <Text style={styles.customerContactText}>
+                    {[request.userDetails.address, request.userDetails.city].filter(Boolean).join(', ')}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Service Location (from request) */}
+            {request.location?.address && (
+              <View style={styles.serviceLocationSection}>
+                <Text style={styles.serviceLocationTitle}>Service Location</Text>
+                <View style={styles.serviceLocationRow}>
+                  <Icon name="pin" size={16} color={BRAND.primary} />
+                  <Text style={styles.serviceLocationText}>{request.location.address}</Text>
+                </View>
+              </View>
             )}
+
+            {/* Action Buttons */}
+            <View style={styles.customerActionButtons}>
+              {request.userDetails.phone && (
+                <TouchableOpacity 
+                  style={styles.callCustomerButton}
+                  onPress={() => handleCall(request.userDetails.phone)}
+                >
+                  <Icon name="phone" size={18} color="#FFFFFF" />
+                  <Text style={styles.callCustomerButtonText}>Call Customer</Text>
+                </TouchableOpacity>
+              )}
+              {request.userDetails.phone && (
+                <TouchableOpacity 
+                  style={styles.messageCustomerButton}
+                  onPress={() => Linking.openURL(`sms:${request.userDetails.phone}`)}
+                >
+                  <Icon name="chatbox" size={18} color={BRAND.primary} />
+                  <Text style={styles.messageCustomerButtonText}>Message</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         )}
 
@@ -996,6 +1218,49 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           </View>
         )}
 
+        {/* Rating Section for Completed Services */}
+        {request.status === 'completed' && !isProvider && (
+          <View style={styles.ratingSection}>
+            {hasRated ? (
+              // Show existing rating
+              <View style={styles.ratedContainer}>
+                <View style={styles.ratedHeader}>
+                  <Icon name="star" size={24} color="#F59E0B" />
+                  <Text style={styles.ratedTitle}>You rated this service</Text>
+                </View>
+                <View style={styles.ratedStars}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Icon
+                      key={star}
+                      name="star"
+                      size={28}
+                      color={star <= (request.ratings?.userRating || 0) ? '#F59E0B' : '#E5E7EB'}
+                    />
+                  ))}
+                </View>
+                {request.ratings?.userReview && (
+                  <Text style={styles.ratedReview}>"{request.ratings.userReview}"</Text>
+                )}
+              </View>
+            ) : (
+              // Show rating prompt
+              <View style={styles.ratingPrompt}>
+                <Text style={styles.ratingPromptTitle}>How was your experience?</Text>
+                <Text style={styles.ratingPromptText}>
+                  Help other users by rating this provider
+                </Text>
+                <TouchableOpacity
+                  style={styles.rateButton}
+                  onPress={() => setRatingModalVisible(true)}
+                >
+                  <Icon name="star" size={20} color="#FFFFFF" />
+                  <Text style={styles.rateButtonText}>Rate Provider</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Action Buttons - Allow cancel for users only (not providers) */}
         {canCancel && (
           <TouchableOpacity
@@ -1033,6 +1298,17 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Rating Modal */}
+      <RatingModal
+        visible={ratingModalVisible}
+        providerName={request?.providerDetails?.name || request?.assignedProviderDetails?.name}
+        providerProfilePicture={request?.providerDetails?.profilePicture || request?.assignedProviderDetails?.profilePicture}
+        serviceName={SERVICE_TYPE_LABELS[request?.serviceType] || request?.serviceType}
+        requestId={request?._id}
+        onClose={() => setRatingModalVisible(false)}
+        onSubmit={handleSubmitRating}
+      />
     </View>
   );
 };
@@ -1758,6 +2034,75 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
+  // Rating Section
+  ratingSection: {
+    backgroundColor: BRAND.white,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  ratedContainer: {
+    alignItems: 'center',
+  },
+  ratedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  ratedTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  ratedStars: {
+    flexDirection: 'row',
+    gap: 4,
+    marginBottom: 12,
+  },
+  ratedReview: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingHorizontal: 16,
+  },
+  ratingPrompt: {
+    alignItems: 'center',
+  },
+  ratingPromptTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  ratingPromptText: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  rateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#F59E0B',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+  },
+  rateButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: BRAND.white,
+  },
+
   // Cancel Button
   cancelButton: {
     flexDirection: 'row',
@@ -1780,50 +2125,177 @@ const styles = StyleSheet.create({
     color: BRAND.danger,
   },
 
-  // Customer Details (for provider view)
+  // Customer Details (for provider view) - Industry Grade
+  customerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  customerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  repeatCustomerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3E7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  repeatCustomerText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: BRAND.primary,
+  },
+  customerProfileSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  customerProfileImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    marginRight: 16,
+    backgroundColor: '#E5E7EB',
+  },
   customerInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
   },
   customerAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: BRAND.primary,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: BRAND.secondary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   customerInitial: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '700',
     color: BRAND.white,
+  },
+  customerMainInfo: {
+    flex: 1,
+  },
+  customerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   customerDetails: {
     flex: 1,
   },
   customerName: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: '#111827',
+  },
+  customerMemberSince: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 4,
+  },
+  customerPreviousServices: {
+    fontSize: 12,
+    color: BRAND.primary,
+    fontWeight: '500',
+    marginTop: 2,
   },
   customerEmail: {
     fontSize: 14,
     color: BRAND.neutral,
     marginTop: 2,
   },
+  customerContactInfo: {
+    marginBottom: 16,
+  },
+  customerContactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 6,
+  },
+  customerContactText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#374151',
+  },
+  serviceLocationSection: {
+    backgroundColor: '#FEF9F4',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  serviceLocationTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  serviceLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  serviceLocationText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 20,
+  },
+  customerActionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
   callCustomerButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     backgroundColor: BRAND.success,
     borderRadius: 12,
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
   callCustomerButtonText: {
     color: BRAND.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  messageCustomerButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FEF3E7',
+    borderRadius: 12,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: BRAND.primary,
+  },
+  messageCustomerButtonText: {
+    color: BRAND.primary,
     fontSize: 14,
     fontWeight: '600',
   },

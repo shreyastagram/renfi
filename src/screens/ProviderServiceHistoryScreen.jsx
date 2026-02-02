@@ -31,6 +31,7 @@ import {
   getProviderRequests,
   SERVICE_TYPE_LABELS,
 } from '../services/traditionalServiceService';
+import { NODE_BASE_URL } from '../config/api';
 
 // Brand colors
 const BRAND = {
@@ -328,34 +329,73 @@ const ProviderServiceHistoryScreen = ({ navigation }) => {
   // Get provider ID
   const displayData = { ...user, ...profile };
   const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+  
+  console.log('[ProviderHistory] Provider ID resolution:', {
+    'user?.mongoId': user?.mongoId,
+    'profile?.mongoId': profile?.mongoId,
+    'user?._id': user?._id,
+    'profile?._id': profile?._id,
+    'resolved providerId': providerId,
+  });
 
   /**
-   * Fetch service history
+   * Fetch service history - includes both traditional and event services
    */
   const fetchHistory = useCallback(async () => {
     if (!providerId) {
       setLoading(false);
       return;
     }
+    
+    console.log('[ProviderHistory] Fetching event services for providerId:', providerId);
 
     try {
-      const result = await getProviderRequests(providerId, {
-        limit: 100,
-        status: activeFilter !== 'all' ? activeFilter : undefined,
-      });
+      // Fetch both traditional services and event services
+      const [traditionalResult, eventResult] = await Promise.all([
+        getProviderRequests(providerId, {
+          limit: 100,
+          status: activeFilter !== 'all' ? activeFilter : undefined,
+        }),
+        fetch(`${NODE_BASE_URL}/api/event-services/provider/${providerId}`).then(r => r.json()).catch(() => ({ data: [] })),
+      ]);
+      
+      console.log('[ProviderHistory] Event services result:', eventResult);
 
-      if (result.success) {
-        setRequests(result.requests || []);
-        
-        // Calculate stats
-        const allRequests = result.requests || [];
-        setStats({
-          total: allRequests.length,
-          active: allRequests.filter(r => ['accepted', 'in-progress'].includes(r.status)).length,
-          completed: allRequests.filter(r => r.status === 'completed').length,
-          rating: user?.rating || profile?.rating || 0,
-        });
-      }
+      // Format event services to match traditional service structure
+      const eventBookings = (eventResult.data || []).map(booking => ({
+        ...booking,
+        _id: booking._id,
+        requestId: booking.serviceId || booking._id,
+        serviceType: booking.serviceType,
+        status: booking.status,
+        createdAt: booking.createdAt,
+        isEventService: true, // Flag to identify event services
+        userName: booking.userName || 'Customer',
+        userPhone: booking.userPhone,
+        eventDate: booking.eventDate,
+        completionOtp: booking.completionOtp,
+      }));
+      
+      // Filter event bookings if filter is active
+      const filteredEventBookings = activeFilter === 'all' 
+        ? eventBookings 
+        : eventBookings.filter(b => b.status === activeFilter);
+
+      // Combine and sort by date
+      const allRequests = [
+        ...(traditionalResult.success ? traditionalResult.requests : []),
+        ...filteredEventBookings,
+      ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      setRequests(allRequests);
+      
+      // Calculate stats from combined requests
+      setStats({
+        total: allRequests.length,
+        active: allRequests.filter(r => ['accepted', 'in-progress'].includes(r.status)).length,
+        completed: allRequests.filter(r => r.status === 'completed').length,
+        rating: user?.rating || profile?.rating || 0,
+      });
     } catch (error) {
       console.error('Error fetching history:', error);
     } finally {

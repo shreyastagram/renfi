@@ -25,10 +25,19 @@ import Icon from './Icon';
 
 /**
  * Quick date options generator
+ * Includes "Instant" option for immediate service
  */
 const generateQuickDateOptions = () => {
   const options = [];
   const now = new Date();
+  
+  // Add "Instant" option first - for immediate service
+  options.push({
+    date: new Date(), // Current time
+    label: 'Instant',
+    shortLabel: '⚡ Now',
+    isInstant: true,
+  });
   
   for (let i = 0; i < 14; i++) {
     const date = new Date(now);
@@ -44,6 +53,7 @@ const generateQuickDateOptions = () => {
       date,
       label,
       shortLabel: i <= 1 ? label : date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }),
+      isInstant: false,
     });
   }
   
@@ -96,6 +106,8 @@ const DateChip = ({ option, selected, onPress, disabled }) => (
       styles.dateChip,
       selected && styles.dateChipSelected,
       disabled && styles.dateChipDisabled,
+      option.isInstant && styles.dateChipInstant,
+      option.isInstant && selected && styles.dateChipInstantSelected,
     ]}
     onPress={() => !disabled && onPress(option)}
     disabled={disabled}
@@ -105,6 +117,8 @@ const DateChip = ({ option, selected, onPress, disabled }) => (
       styles.dateChipText,
       selected && styles.dateChipTextSelected,
       disabled && styles.dateChipTextDisabled,
+      option.isInstant && styles.dateChipTextInstant,
+      option.isInstant && selected && styles.dateChipTextInstantSelected,
     ]}>
       {option.shortLabel}
     </Text>
@@ -177,19 +191,24 @@ const DateTimePickerComponent = ({
   
   const value = valueProp || internalValue;
   
+  // Track if instant is selected
+  const [isInstantSelected, setIsInstantSelected] = useState(false);
+  
   // Handle change - support both onChange and onDateTimeChange
-  const handleValueChange = useCallback((newValue) => {
+  const handleValueChange = useCallback((newValue, isInstant = false) => {
     setInternalValue(newValue);
+    setIsInstantSelected(isInstant);
     
     if (onChangeProp) {
       onChangeProp(newValue);
     }
     
     if (onDateTimeChange) {
-      // Legacy format: { date, time }
+      // Legacy format: { date, time, isInstant }
       onDateTimeChange({
         date: newValue,
         time: newValue,
+        isInstant: isInstant,
       });
     }
   }, [onChangeProp, onDateTimeChange]);
@@ -231,6 +250,13 @@ const DateTimePickerComponent = ({
   }, [value, handleValueChange]);
   
   const handleQuickDateSelect = useCallback((option) => {
+    // Handle "Instant" selection - use current time
+    if (option.isInstant) {
+      const now = new Date();
+      handleValueChange(now, true); // Pass isInstant flag
+      return;
+    }
+    
     const newDate = new Date(option.date);
     if (value) {
       newDate.setHours(value.getHours());
@@ -248,14 +274,14 @@ const DateTimePickerComponent = ({
         newDate.setMinutes(0);
       }
     }
-    handleValueChange(newDate);
+    handleValueChange(newDate, false);
   }, [value, handleValueChange]);
   
   const handleTimeSlotSelect = useCallback((slot) => {
     const newDate = new Date(value || new Date());
     newDate.setHours(slot.hour);
     newDate.setMinutes(slot.minute);
-    handleValueChange(newDate);
+    handleValueChange(newDate, false); // Not instant when selecting specific time
     setShowModal(false);
   }, [value, handleValueChange]);
   
@@ -263,6 +289,11 @@ const DateTimePickerComponent = ({
   
   const formatDisplayValue = () => {
     if (!value) return placeholder;
+    
+    // Show "Instant Service - Now" when instant is selected
+    if (isInstantSelected) {
+      return '⚡ Instant Service - ASAP';
+    }
     
     const dateStr = value.toLocaleDateString('en-US', {
       weekday: 'short',
@@ -293,11 +324,11 @@ const DateTimePickerComponent = ({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.quickDatesScroll}
         >
-          {quickDates.slice(0, 7).map((option, index) => (
+          {quickDates.slice(0, 8).map((option, index) => (
             <DateChip
               key={index}
               option={option}
-              selected={value && value.toDateString() === option.date.toDateString()}
+              selected={option.isInstant ? isInstantSelected : (!isInstantSelected && value && value.toDateString() === option.date.toDateString())}
               onPress={handleQuickDateSelect}
             />
           ))}
@@ -311,8 +342,8 @@ const DateTimePickerComponent = ({
         </ScrollView>
       </View>
       
-      {/* Time Selection */}
-      {showTime && value && (
+      {/* Time Selection - Hide when instant is selected */}
+      {showTime && value && !isInstantSelected && (
         <View style={styles.timeSection}>
           <Text style={styles.timeSectionTitle}>
             <Icon name="clock" size={16} color="#6B7280" /> Select Time
@@ -456,6 +487,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7EB',
     opacity: 0.5,
   },
+  dateChipInstant: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+  },
+  dateChipInstantSelected: {
+    backgroundColor: '#F59E0B',
+    borderColor: '#F59E0B',
+  },
   dateChipText: {
     fontSize: 13,
     fontWeight: '600',
@@ -466,6 +505,13 @@ const styles = StyleSheet.create({
   },
   dateChipTextDisabled: {
     color: '#9CA3AF',
+  },
+  dateChipTextInstant: {
+    color: '#B45309',
+    fontWeight: '700',
+  },
+  dateChipTextInstantSelected: {
+    color: '#FFFFFF',
   },
   moreDatesButton: {
     flexDirection: 'row',

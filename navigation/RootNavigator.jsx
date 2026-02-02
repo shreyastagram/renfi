@@ -9,7 +9,7 @@
  * User: Bottom Tab Navigation (Home, History, Settings, Profile)
  * Provider: Bottom Tab Navigation (Home, Jobs, Settings, Profile)
  * 
- * @version 7.0.0 - Production Grade with Provider Tab Navigation
+ * @version 8.0.0 - Added Emergency, Event, Favorites screens
  */
 
 import React from 'react';
@@ -47,6 +47,10 @@ import {
   ForgotPasswordScreen,
   ResetPasswordScreen,
   ChangePasswordScreen,
+  EmergencyServicesScreen,
+  EventServicesScreen,
+  FavoritesScreen,
+  PortfolioEditScreen,
 } from '../src/screens';
 
 const Stack = createNativeStackNavigator();
@@ -89,19 +93,22 @@ export const linking = {
           Verification: 'verification/:type?',
           CreateServiceRequest: 'create-service-request',
           ProviderRequests: 'provider-requests',
-          EmailVerifyHandler: {
-            path: 'auth/email-verify',
-            parse: {
-              token: (token) => token,
-            },
-          },
         },
       },
-      // Direct deep link handlers
+      // Direct deep link handlers (accessible regardless of auth state)
       EmailVerifyHandler: {
         path: 'auth/email-verify',
         parse: {
           token: (token) => token,
+        },
+      },
+      // Email verified callback from web page
+      EmailVerified: {
+        path: 'email-verified',
+        parse: {
+          email: (email) => decodeURIComponent(email || ''),
+          status: (status) => status,
+          message: (message) => decodeURIComponent(message || ''),
         },
       },
       // Password Reset deep link handler
@@ -437,6 +444,26 @@ const UserMainNavigator = () => {
         component={AccountSecurityScreen}
         options={{ animation: 'slide_from_right' }}
       />
+      <Stack.Screen 
+        name="EmergencyServices" 
+        component={EmergencyServicesScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen 
+        name="EventServices" 
+        component={EventServicesScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen 
+        name="Favorites" 
+        component={FavoritesScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen 
+        name="PortfolioEdit" 
+        component={PortfolioEditScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
     </Stack.Navigator>
   );
 };
@@ -509,6 +536,11 @@ const ProviderMainNavigator = () => {
       <Stack.Screen 
         name="AccountSecurity" 
         component={AccountSecurityScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen 
+        name="PortfolioEdit" 
+        component={PortfolioEditScreen}
         options={{ animation: 'slide_from_right' }}
       />
     </Stack.Navigator>
