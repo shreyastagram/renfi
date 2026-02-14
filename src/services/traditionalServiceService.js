@@ -976,6 +976,108 @@ export const getProviderDetails = async (providerId) => {
   }
 };
 
+/**
+ * Submit a rating for a completed event service (photographer, influencer, etc.)
+ * @param {string} requestId - The event service request ID
+ * @param {string} userId - The user's ID
+ * @param {number} rating - Rating value (1-5)
+ * @param {string} review - Optional review text
+ */
+export const submitEventRating = async (requestId, userId, rating, review = '') => {
+  try {
+    console.log('[EventService] Submitting rating:', { requestId, userId, rating });
+
+    const response = await fetch(`${NODE_BASE_URL}/api/event-services/${requestId}/rate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, rating, review }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[EventService] Rating submission failed:', data);
+      return {
+        success: false,
+        error: data.error || data.message || 'Failed to submit rating',
+        code: data.code,
+      };
+    }
+
+    console.log('[EventService] Rating submitted successfully:', data);
+
+    return {
+      success: true,
+      message: data.message || 'Rating submitted successfully',
+      data: data.data,
+    };
+  } catch (error) {
+    console.error('[EventService] Rating error:', error.message);
+    return {
+      success: false,
+      error: error.message || 'Failed to submit rating',
+    };
+  }
+};
+
+/**
+ * Verify completion OTP for event services (photographer, influencer, etc.)
+ * Provider enters the OTP to mark the event service as completed.
+ * 
+ * @param {string} requestId - Event service MongoDB _id
+ * @param {string} otp - 6-digit OTP from user
+ * @returns {Promise<Object>} Verification result
+ */
+export const verifyEventCompletionOtp = async (requestId, otp) => {
+  try {
+    if (!requestId) {
+      throw new Error('Request ID is required');
+    }
+    if (!otp) {
+      throw new Error('OTP is required');
+    }
+
+    console.log('[EventService] Verifying completion OTP:', { requestId, otp: '******' });
+
+    const url = `${NODE_BASE_URL}/api/event-services/${requestId}/verify-otp`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ otp }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[EventService] OTP verification failed:', data);
+      const errorMessage = data.error?.message || data.message || data.error || 'Failed to verify OTP';
+      return {
+        success: false,
+        code: data.code || 'VERIFICATION_FAILED',
+        error: errorMessage,
+      };
+    }
+
+    console.log('[EventService] OTP verified successfully, service completed');
+
+    return {
+      success: true,
+      data: data.data,
+      message: data.message || 'Service completed successfully',
+      details: data.details || null,
+    };
+  } catch (error) {
+    console.error('[EventService] OTP verification error:', error.message);
+    return {
+      success: false,
+      error: error.message || 'Failed to verify OTP',
+    };
+  }
+};
+
 export default {
   createServiceRequest,
   getNearbyProviders,
@@ -987,8 +1089,10 @@ export default {
   acceptRequestAsProvider,
   getProviderRequests,
   verifyCompletionOtp,
+  verifyEventCompletionOtp,
   resendCompletionOtp,
   submitRating,
+  submitEventRating,
   getProviderDetails,
   SERVICE_TYPES,
   SERVICE_TYPE_LABELS,

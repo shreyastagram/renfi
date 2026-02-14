@@ -1215,6 +1215,29 @@ const ProfileScreen = ({ navigation, route }) => {
             </View>
           )}
 
+          {/* Premium Subscription Section - Providers Only */}
+          {isProvider && (
+            <View style={styles.section}>
+              <SectionHeader title="Premium Subscription" />
+              <TouchableOpacity 
+                style={styles.addressesCard}
+                onPress={() => navigation.navigate('Subscription')}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.addressesIconContainer, { backgroundColor: '#FEF3C7' }]}>
+                  <MaterialIcon name="workspace-premium" size={24} color="#F59E0B" />
+                </View>
+                <View style={styles.addressesContent}>
+                  <Text style={styles.addressesTitle}>Go Premium</Text>
+                  <Text style={styles.addressesSubtitle}>
+                    Get priority listing & reach more customers
+                  </Text>
+                </View>
+                <MaterialIcon name="chevron-right" size={24} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Account Info */}
           <View style={styles.section}>
             <SectionHeader title="Account" />

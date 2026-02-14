@@ -34,6 +34,7 @@ import { useApp } from '../context/AppContext';
 import { useLocation } from '../context/LocationContext';
 import { NODE_BASE_URL } from '../config/api';
 import { addToFavorites, checkIsFavorite } from '../services/favoritesService';
+import { initiateCall } from '../services/callService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -223,7 +224,7 @@ const EventProviderCard = ({ provider, onViewDetails, onContact }) => {
  * Provider Details Modal - Production Grade
  * Shows comprehensive provider information for event services
  */
-const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, sending }) => {
+const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContactProvider, sending }) => {
   if (!provider) return null;
   
   const openLink = (urlInput) => {
@@ -453,16 +454,16 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, sending }
               </View>
             )}
             
-            {/* Contact Info */}
-            {provider.phone && (
+            {/* Contact - masked call */}
+            {provider && (
               <View style={styles.detailsSection}>
                 <Text style={styles.sectionTitle}>Contact</Text>
                 <TouchableOpacity 
                   style={styles.phoneButton}
-                  onPress={() => Linking.openURL(`tel:${provider.phone}`)}
+                  onPress={() => onContactProvider(provider)}
                 >
                   <MaterialIcon name="phone" size={20} color={BRAND.success} />
-                  <Text style={styles.phoneText}>{provider.phone}</Text>
+                  <Text style={styles.phoneText}>Call Provider</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -472,7 +473,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, sending }
           <View style={styles.detailsActions}>
             <TouchableOpacity 
               style={styles.callProviderBtn}
-              onPress={() => provider.phone && Linking.openURL(`tel:${provider.phone}`)}
+              onPress={() => provider && onContactProvider(provider)}
             >
               <MaterialIcon name="phone" size={22} color={BRAND.success} />
               <Text style={styles.callProviderText}>Call</Text>
@@ -592,21 +593,46 @@ const EventServicesScreen = ({ navigation }) => {
   };
   
   /**
-   * Handle contact provider
+   * Handle contact provider (Exotel masked call)
    */
-  const handleContactProvider = (provider) => {
-    if (provider.phone) {
-      Alert.alert(
-        'Contact Provider',
-        `Call ${provider.name}?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Call', onPress: () => Linking.openURL(`tel:${provider.phone}`) },
-        ]
-      );
-    } else {
-      Alert.alert('Error', 'Provider contact not available');
+  const handleContactProvider = async (provider) => {
+    if (!provider?._id) {
+      Alert.alert('Error', 'Provider information not available');
+      return;
     }
+
+    Alert.alert(
+      'Contact Provider',
+      `Call ${provider.name}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Call',
+          onPress: async () => {
+            try {
+              const result = await initiateCall({
+                receiverId: provider._id,
+                callerType: 'user',
+                serviceType: 'event',
+              });
+
+              if (result.success) {
+                Alert.alert(
+                  'Connecting Call',
+                  'You will receive a call shortly. Once you pick up, we will connect you to the provider.',
+                  [{ text: 'OK' }]
+                );
+              } else {
+                Alert.alert('Call Failed', result.error || 'Unable to connect. Please try again.');
+              }
+            } catch (error) {
+              console.error('[EventServices] Call error:', error);
+              Alert.alert('Error', 'Something went wrong. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
   
   /**
@@ -873,6 +899,7 @@ const EventServicesScreen = ({ navigation }) => {
         provider={selectedProvider}
         onClose={() => setShowDetails(false)}
         onBookNow={handleOpenBooking}
+        onContactProvider={handleContactProvider}
         sending={sendingRequest}
       />
 

@@ -31,6 +31,7 @@ import {
   getProviderRequests,
   SERVICE_TYPE_LABELS,
 } from '../services/traditionalServiceService';
+import { initiateCall } from '../services/callService';
 import { NODE_BASE_URL } from '../config/api';
 
 // Brand colors
@@ -189,36 +190,30 @@ const RequestCard = ({ request, onPress, onCall, onDirections }) => {
               <Text style={styles.customerName}>
                 {request.userDetails.name || 'Customer'}
               </Text>
-              {request.userDetails.phone && (
-                <View style={styles.customerPhoneRow}>
-                  <Icon name="phone" size={14} color="#6B7280" />
-                  <Text style={styles.customerPhone}>
-                    {request.userDetails.phone}
-                  </Text>
-                </View>
-              )}
             </View>
           </View>
           
-          {/* Quick Actions */}
-          <View style={styles.quickActions}>
-            {request.userDetails.phone && (
-              <TouchableOpacity
-                style={styles.quickActionBtn}
-                onPress={() => onCall(request.userDetails.phone)}
-              >
-                <Icon name="phone" size={18} color="#10B981" />
-              </TouchableOpacity>
-            )}
-            {request.location?.coordinates && (
-              <TouchableOpacity
-                style={styles.quickActionBtn}
-                onPress={() => onDirections(request.location)}
-              >
-                <Icon name="directions" size={18} color={BRAND.secondary} />
-              </TouchableOpacity>
-            )}
-          </View>
+          {/* Quick Actions - Only for active requests */}
+          {['pending', 'accepted', 'in-progress'].includes(request.status) && (
+            <View style={styles.quickActions}>
+              {request.userDetails && (
+                <TouchableOpacity
+                  style={styles.quickActionBtn}
+                  onPress={() => onCall(request)}
+                >
+                  <Icon name="phone" size={18} color="#10B981" />
+                </TouchableOpacity>
+              )}
+              {['accepted', 'in-progress'].includes(request.status) && request.location?.coordinates && (
+                <TouchableOpacity
+                  style={styles.quickActionBtn}
+                  onPress={() => onDirections(request.location)}
+                >
+                  <Icon name="directions" size={18} color={BRAND.secondary} />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </View>
       )}
 
@@ -420,11 +415,36 @@ const ProviderServiceHistoryScreen = ({ navigation }) => {
   };
 
   /**
-   * Handle call customer
+   * Handle call customer (Exotel masked call)
    */
-  const handleCall = (phone) => {
-    const cleanPhone = phone.replace(/\s+/g, '');
-    Linking.openURL(`tel:${cleanPhone}`);
+  const handleCall = async (request) => {
+    const userId = request.userId || request.userDetails?._id;
+    if (!userId) {
+      Alert.alert('Error', 'Customer information not available');
+      return;
+    }
+
+    try {
+      const result = await initiateCall({
+        receiverId: userId,
+        callerType: 'provider',
+        serviceRequestId: request._id || null,
+        serviceType: request.isEventService ? 'event' : 'traditional',
+      });
+
+      if (result.success) {
+        Alert.alert(
+          'Connecting Call',
+          'You will receive a call shortly. Once you pick up, we will connect you to the customer.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Call Failed', result.error || 'Unable to connect. Please try again.');
+      }
+    } catch (error) {
+      console.error('[ProviderServiceHistory] Call error:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
   };
 
   /**

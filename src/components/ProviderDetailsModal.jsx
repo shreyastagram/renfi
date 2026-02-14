@@ -182,8 +182,9 @@ const ProviderDetailsModal = ({
   }, [visible, providerId, fetchDetails]);
 
   const handleCall = () => {
-    if (provider?.phone) {
-      Linking.openURL(`tel:${provider.phone.replace(/\s+/g, '')}`);
+    // Delegate to parent's masked call handler (Exotel)
+    if (onCall && provider) {
+      onCall(provider.phone);
     }
   };
 

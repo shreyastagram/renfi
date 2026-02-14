@@ -36,11 +36,12 @@ import {
   getStaticEmergencyNumbers,
   createEmergencyRequest,
   getNearbyEmergencyProviders,
-  acceptEmergencyRequest,
+  assignEmergencyProvider,
   rejectEmergencyProvider,
   cancelEmergencyRequest,
 } from '../services/emergencyServicesService';
 import { addToFavorites } from '../services/favoritesService';
+import { initiateCall } from '../services/callService';
 
 // Brand colors
 const BRAND = {
@@ -128,7 +129,7 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite }
         style={styles.callButton} 
         onPress={(e) => {
           e.stopPropagation();
-          onCall(provider.phone);
+          onCall(provider);
         }}
       >
         <MaterialIcon name="phone" size={22} color="#FFFFFF" />
@@ -300,8 +301,14 @@ const EmergencyServicesScreen = ({ navigation }) => {
     const providersResult = await getNearbyEmergencyProviders(createResult.data._id);
     setIsLoading(false);
     
-    if (providersResult.success) {
-      setProviders(providersResult.data?.providers || []);
+    console.log('[EmergencyScreen] Providers result:', {
+      success: providersResult.success,
+      providersCount: providersResult.providers?.length,
+      providers: providersResult.providers
+    });
+    
+    if (providersResult.success && providersResult.providers?.length > 0) {
+      setProviders(providersResult.providers);
       setStep('providers');
     } else {
       Alert.alert('No Providers', providersResult.error || 'No providers available nearby');
@@ -309,32 +316,57 @@ const EmergencyServicesScreen = ({ navigation }) => {
   };
 
   /**
-   * Handle calling provider
+   * Handle calling provider (Exotel masked call)
    */
-  const handleCallProvider = (phone) => {
-    if (!phone) {
-      Alert.alert('Error', 'Provider phone number not available');
+  const handleCallProvider = async (provider) => {
+    if (!provider?._id) {
+      Alert.alert('Error', 'Provider information not available');
       return;
     }
-    Linking.openURL(`tel:${phone}`);
+
+    try {
+      const result = await initiateCall({
+        receiverId: provider._id,
+        callerType: 'user',
+        serviceRequestId: createdRequest?._id || null,
+        serviceType: 'emergency',
+      });
+
+      if (result.success) {
+        Alert.alert(
+          'Connecting Call',
+          'You will receive a call shortly. Once you pick up, we will connect you to the provider.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Call Failed', result.error || 'Unable to connect. Please try again.');
+      }
+    } catch (error) {
+      console.error('[EmergencyServices] Call error:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
   };
 
   /**
-   * Handle booking provider
+   * Handle booking provider - User selects a provider
+   * This assigns the provider to the request (awaiting_confirmation status)
+   * Provider must still accept the request
    */
   const handleBookProvider = async (provider) => {
     if (!createdRequest) return;
     
     setBookingProvider(provider._id);
     
-    const result = await acceptEmergencyRequest(createdRequest._id, provider._id);
+    // Use assignEmergencyProvider - this sets status to 'awaiting_confirmation'
+    // Provider will see this in their Requests tab and must confirm
+    const result = await assignEmergencyProvider(createdRequest._id, provider._id);
     
     setBookingProvider(null);
     
     if (result.success) {
       Alert.alert(
         'Request Sent!',
-        `Your request has been sent to ${provider.name}. They will contact you soon.`,
+        `Your request has been sent to ${provider.name}. They will review and confirm shortly.`,
         [
           {
             text: 'OK',
@@ -388,8 +420,8 @@ const EmergencyServicesScreen = ({ navigation }) => {
     setRefreshing(false);
     
     if (result.success) {
-      setProviders(result.data?.providers || []);
-      if ((result.data?.providers || []).length === 0) {
+      setProviders(result.providers || []);
+      if ((result.providers || []).length === 0) {
         Alert.alert('No Providers', 'No more providers available in your area.');
       }
     } else {

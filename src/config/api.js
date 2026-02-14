@@ -6,11 +6,23 @@
  * 
  * Uses react-native-device-info for reliable emulator detection
  * 
- * @version 5.0.0
+ * ENVIRONMENT SWITCHING:
+ * - Import USE_PRODUCTION_API from './environment' and toggle to switch
+ * - true  = Railway hosted backend (for Razorpay, webhooks)
+ * - false = Local development server
+ * 
+ * @version 6.0.0
  */
 
 import { Platform, NativeModules } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
+import { 
+  USE_PRODUCTION_NODE_API,
+  USE_PRODUCTION_JAVA_AUTH, 
+  PRODUCTION_CONFIG, 
+  LOCAL_CONFIG,
+  getEnvironmentName 
+} from './environment';
 
 /**
  * Synchronous emulator detection (fast, less reliable)
@@ -101,31 +113,37 @@ const getWiFiHost = () => LOCAL_MACHINE_IP;
 const DEV_HOST = getDevServerHost();
 const WIFI_HOST = getWiFiHost();
 
-// Primary API URLs (using adb reverse / emulator)
-const API_BASE_URL = __DEV__ 
-  ? `http://${DEV_HOST}:5001`
-  : 'https://your-production-api.com';
+// ============================================
+// PRIMARY API URLS - Environment Aware (Separate toggles)
+// ============================================
 
-const JAVA_AUTH_BASE_URL = __DEV__
-  ? `http://${DEV_HOST}:8080`
-  : 'https://your-production-auth-api.com';
+// Node.js Backend URL - controlled by USE_PRODUCTION_NODE_API
+const API_BASE_URL = USE_PRODUCTION_NODE_API
+  ? PRODUCTION_CONFIG.NODE_API_URL
+  : (__DEV__ ? `http://${DEV_HOST}:5001` : PRODUCTION_CONFIG.NODE_API_URL);
 
-// Fallback API URLs (for WiFi connection)
-const WIFI_API_BASE_URL = __DEV__ 
-  ? `http://${WIFI_HOST}:5001`
-  : 'https://your-production-api.com';
+// Java Auth URL - controlled by USE_PRODUCTION_JAVA_AUTH
+const JAVA_AUTH_BASE_URL = USE_PRODUCTION_JAVA_AUTH
+  ? PRODUCTION_CONFIG.JAVA_AUTH_URL
+  : (__DEV__ ? `http://${DEV_HOST}:8080` : PRODUCTION_CONFIG.JAVA_AUTH_URL);
 
-const WIFI_JAVA_AUTH_BASE_URL = __DEV__
-  ? `http://${WIFI_HOST}:8080`
-  : 'https://your-production-auth-api.com';
+// Fallback API URLs (for WiFi connection - only used when not in production mode)
+const WIFI_API_BASE_URL = USE_PRODUCTION_NODE_API
+  ? PRODUCTION_CONFIG.NODE_API_URL
+  : (__DEV__ ? `http://${WIFI_HOST}:5001` : PRODUCTION_CONFIG.NODE_API_URL);
+
+const WIFI_JAVA_AUTH_BASE_URL = USE_PRODUCTION_JAVA_AUTH
+  ? PRODUCTION_CONFIG.JAVA_AUTH_URL
+  : (__DEV__ ? `http://${WIFI_HOST}:8080` : PRODUCTION_CONFIG.JAVA_AUTH_URL);
 
 // Log configuration in dev mode
 if (__DEV__) {
-  console.log('🔧 [API Config] Environment:', { 
+  console.log('🔧 [API Config] Environment:', getEnvironmentName());
+  console.log('🔧 [API Config] Settings:', { 
+    useProductionNode: USE_PRODUCTION_NODE_API,
+    useProductionJava: USE_PRODUCTION_JAVA_AUTH,
     platform: Platform.OS,
     isEmulator: isEmulatorSync(),
-    primaryHost: DEV_HOST,
-    fallbackHost: WIFI_HOST,
     nodeUrl: API_BASE_URL,
     javaUrl: JAVA_AUTH_BASE_URL,
   });
@@ -284,6 +302,15 @@ export const ENDPOINTS = {
     VERIFY_OTP: '/api/traditional-services', // + /:id/verify-otp
     // Resend OTP (POST /:id/resend-otp)
     RESEND_OTP: '/api/traditional-services', // + /:id/resend-otp
+  },
+
+  // Call Masking endpoints (Exotel integration)
+  CALLS: {
+    INITIATE: '/api/calls/initiate',
+    STATUS: '/api/calls/status', // + /:callId
+    CONTACTED: '/api/calls/contacted', // + /:providerId
+    CONTACTED_PROVIDERS: '/api/calls/contacted-providers', // + /:serviceRequestId
+    HISTORY: '/api/calls/history',
   },
 };
 

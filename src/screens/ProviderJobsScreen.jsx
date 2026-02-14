@@ -41,6 +41,7 @@ import {
   providerCancelRequest,
   SERVICE_TYPE_LABELS,
 } from '../services/traditionalServiceService';
+import { initiateCall } from '../services/callService';
 
 // Tab configuration - sleek with proper icons
 const TABS = [
@@ -61,8 +62,11 @@ const BRAND = {
 // Status colors - unified brand palette
 const STATUS_CONFIG = {
   pending: { label: 'Pending', color: BRAND.primary, bgColor: '#FFF7ED', iconName: 'clock' },
+  awaiting_confirmation: { label: 'Awaiting Your Confirmation', color: BRAND.primary, bgColor: '#FFF7ED', iconName: 'clock' },
   accepted: { label: 'Accepted', color: BRAND.secondary, bgColor: '#EFF6FF', iconName: 'check' },
   'in-progress': { label: 'In Progress', color: BRAND.secondary, bgColor: '#EFF6FF', iconName: 'wrench' },
+  in_transit: { label: 'On The Way', color: BRAND.secondary, bgColor: '#EFF6FF', iconName: 'truck-fast' },
+  arrived: { label: 'Arrived', color: BRAND.secondary, bgColor: '#EFF6FF', iconName: 'map-marker-check' },
   completed: { label: 'Completed', color: BRAND.secondary, bgColor: '#EFF6FF', iconName: 'check-circle' },
   cancelled: { label: 'Cancelled', color: '#6B7280', bgColor: '#F5F5F7', iconName: 'close' },
   rejected: { label: 'Rejected', color: '#EF4444', bgColor: '#FEE2E2', iconName: 'close-circle' },
@@ -125,7 +129,8 @@ const TabBar = ({ activeTab, onTabChange, stats }) => (
 const JobCard = ({ job, onAccept, onReject, onComplete, onCancel, onCall, onDirections, onViewDetails, isAccepting, isRejecting }) => {
   const status = STATUS_CONFIG[job.status] || STATUS_CONFIG.pending;
   const serviceDate = new Date(job.serviceDate || job.createdAt);
-  const isPending = job.status === 'pending';
+  // Show accept/reject for both 'pending' (traditional) and 'awaiting_confirmation' (emergency assigned)
+  const isPending = job.status === 'pending' || job.status === 'awaiting_confirmation';
   const isActive = ['accepted', 'in-progress'].includes(job.status);
   
   return (
@@ -185,10 +190,10 @@ const JobCard = ({ job, onAccept, onReject, onComplete, onCancel, onCall, onDire
           {/* Quick Actions */}
           {(isActive || job.status === 'completed') && (
             <View style={styles.quickActions}>
-              {job.userDetails.phone && (
+              {job.userDetails && (
                 <TouchableOpacity
                   style={styles.quickActionBtn}
-                  onPress={() => onCall(job.userDetails.phone)}
+                  onPress={() => onCall(job)}
                 >
                   <Icon name="phone" size={18} color="#10B981" />
                 </TouchableOpacity>
@@ -207,12 +212,22 @@ const JobCard = ({ job, onAccept, onReject, onComplete, onCancel, onCall, onDire
       )}
 
       {/* Location */}
-      {(job.serviceAddress || job.location?.address) && (
+      {(job.serviceAddress || job.location?.address || job.location?.latitude) && (
         <View style={styles.locationRow}>
           <Icon name="location" size={16} color="#EF4444" />
           <Text style={styles.locationText} numberOfLines={2}>
-            {job.serviceAddress || job.location?.address}
+            {job.serviceAddress || job.location?.address || 
+              (job.location?.latitude ? `📍 ${job.location.latitude.toFixed(4)}, ${job.location.longitude.toFixed(4)}` : 'Location available')}
           </Text>
+          {/* Show directions button for emergency services with coordinates */}
+          {job.isEmergencyService && job.location?.latitude && (
+            <TouchableOpacity 
+              style={styles.directionsButton}
+              onPress={() => onDirections(job)}
+            >
+              <Icon name="directions" size={16} color="#3B82F6" />
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -411,8 +426,9 @@ const ProviderJobsScreen = ({ navigation, route }) => {
   
   const stats = useMemo(() => {
     return {
-      pending: jobs.filter(j => j.status === 'pending').length,
-      active: jobs.filter(j => ['accepted', 'in-progress'].includes(j.status)).length,
+      // Include 'awaiting_confirmation' as pending (for emergency services)
+      pending: jobs.filter(j => j.status === 'pending' || j.status === 'awaiting_confirmation').length,
+      active: jobs.filter(j => ['accepted', 'in-progress', 'in_transit', 'arrived'].includes(j.status)).length,
       completed: jobs.filter(j => j.status === 'completed').length,
       total: jobs.length,
     };
@@ -422,9 +438,11 @@ const ProviderJobsScreen = ({ navigation, route }) => {
   const filteredJobs = useMemo(() => {
     switch (activeTab) {
       case 'requests':
-        return jobs.filter(j => j.status === 'pending');
+        // Include 'awaiting_confirmation' as pending requests (for emergency services)
+        return jobs.filter(j => j.status === 'pending' || j.status === 'awaiting_confirmation');
       case 'active':
-        return jobs.filter(j => ['accepted', 'in-progress'].includes(j.status));
+        // Include all active statuses including emergency-specific ones
+        return jobs.filter(j => ['accepted', 'in-progress', 'in_transit', 'arrived'].includes(j.status));
       case 'history':
         return jobs.filter(j => j.status === 'completed');
       case 'cancelled':
@@ -466,7 +484,8 @@ const ProviderJobsScreen = ({ navigation, route }) => {
       ]);
       
       console.log('[ProviderJobs] Event services result:', eventResult);
-      console.log('[ProviderJobs] Emergency services result:', emergencyResult);
+      console.log('[ProviderJobs] Emergency services result:', JSON.stringify(emergencyResult));
+      console.log('[ProviderJobs] Emergency data extracted:', emergencyResult.requests || emergencyResult.data || []);
       
       // Format event services to match traditional service structure
       const eventBookings = (eventResult.data || []).map(booking => {
@@ -504,20 +523,35 @@ const ProviderJobsScreen = ({ navigation, route }) => {
       // Format emergency services to match traditional service structure
       // Backend returns { requests: [...] } or { data: [...] }
       const emergencyData = emergencyResult.requests || emergencyResult.data || [];
-      const emergencyBookings = emergencyData.map(booking => ({
-        ...booking,
-        _id: booking._id,
-        requestId: booking.requestId || booking._id,
-        serviceType: booking.serviceType,
-        status: booking.status,
-        createdAt: booking.createdAt,
-        isEmergencyService: true, // Flag to identify emergency services
-        userName: booking.userDetails?.name || 'Customer',
-        userPhone: booking.userDetails?.phone,
-        location: booking.location,
-        completionOtp: booking.completionOtp,
-        notes: booking.notes,
-      }));
+      const emergencyBookings = emergencyData.map(booking => {
+        // Normalize location for emergency services
+        const emergencyLocation = booking.location || {};
+        const locationAddress = emergencyLocation.address || emergencyLocation.landmark || '';
+        
+        return {
+          ...booking,
+          _id: booking._id,
+          requestId: booking.requestId || booking._id,
+          serviceType: booking.serviceType,
+          status: booking.status,
+          createdAt: booking.createdAt,
+          isEmergencyService: true, // Flag to identify emergency services
+          userName: booking.userDetails?.name || 'Customer',
+          userPhone: booking.userDetails?.phone,
+          location: {
+            ...emergencyLocation,
+            address: locationAddress,
+            // Add coordinates array for directions button
+            coordinates: emergencyLocation.latitude && emergencyLocation.longitude 
+              ? [emergencyLocation.longitude, emergencyLocation.latitude] 
+              : null
+          },
+          serviceAddress: locationAddress || `Lat: ${emergencyLocation.latitude?.toFixed(4)}, Lng: ${emergencyLocation.longitude?.toFixed(4)}`,
+          completionOtp: booking.completionOtp,
+          notes: booking.notes,
+          description: booking.notes, // Map notes to description for display
+        };
+      });
       
       // Combine and sort all jobs by date
       const allRequests = [
@@ -817,19 +851,55 @@ const ProviderJobsScreen = ({ navigation, route }) => {
   };
   
   /**
-   * Call customer
+   * Call customer (Exotel masked call)
    */
-  const handleCall = (phone) => {
-    Linking.openURL(`tel:${phone}`);
+  const handleCall = async (job) => {
+    const userId = job.userId || job.userDetails?._id;
+    if (!userId) {
+      Alert.alert('Error', 'Customer information not available');
+      return;
+    }
+
+    try {
+      const result = await initiateCall({
+        receiverId: userId,
+        callerType: 'provider',
+        serviceRequestId: job._id || null,
+        serviceType: 'traditional',
+      });
+
+      if (result.success) {
+        Alert.alert(
+          'Connecting Call',
+          'You will receive a call shortly. Once you pick up, we will connect you to the customer.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Call Failed', result.error || 'Unable to connect. Please try again.');
+      }
+    } catch (error) {
+      console.error('[ProviderJobs] Call error:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
   };
   
   /**
    * Get directions
    */
   const handleDirections = (job) => {
-    if (!job.location?.coordinates) return;
+    let lat, lng;
     
-    const [lng, lat] = job.location.coordinates;
+    // Handle different location formats
+    if (job.location?.coordinates && Array.isArray(job.location.coordinates)) {
+      [lng, lat] = job.location.coordinates;
+    } else if (job.location?.latitude && job.location?.longitude) {
+      lat = job.location.latitude;
+      lng = job.location.longitude;
+    } else {
+      Alert.alert('Location Error', 'Location coordinates not available');
+      return;
+    }
+    
     const label = encodeURIComponent(job.serviceAddress || job.location?.address || 'Service Location');
     
     const url = Platform.select({
@@ -1177,6 +1247,12 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginLeft: 6,
     lineHeight: 18,
+  },
+  directionsButton: {
+    padding: 6,
+    marginLeft: 8,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 6,
   },
   // Info Row
   infoRow: {

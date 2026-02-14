@@ -19,6 +19,7 @@ import {
   Platform,
   Image,
   Animated,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Mapbox from '@rnmapbox/maps';
@@ -27,6 +28,7 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { Icon, FixhomiLogo } from '../components';
 import { NODE_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
+import { initiateCall } from '../services/callService';
 
 // Initialize Mapbox
 const MAPBOX_ACCESS_TOKEN = 'MAPBOX_TOKEN_REMOVED';
@@ -373,14 +375,33 @@ const LiveTrackingScreen = ({ navigation, route }) => {
   }, [providerLocation, providerName]);
 
   /**
-   * Call provider
+   * Call provider (Exotel masked call)
    */
-  const callProvider = useCallback(() => {
-    const phone = providerData?.phone;
-    if (phone) {
-      Linking.openURL(`tel:${phone}`);
+  const callProvider = useCallback(async () => {
+    if (!providerId) return;
+
+    try {
+      const result = await initiateCall({
+        receiverId: providerId,
+        callerType: 'user',
+        serviceRequestId: requestId || null,
+        serviceType: 'traditional',
+      });
+
+      if (result.success) {
+        Alert.alert(
+          'Connecting Call',
+          'You will receive a call shortly. Once you pick up, we will connect you to the provider.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Call Failed', result.error || 'Unable to connect. Please try again.');
+      }
+    } catch (error) {
+      console.error('[LiveTracking] Call error:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
     }
-  }, [providerData]);
+  }, [providerId, requestId]);
 
   return (
     <View style={styles.container}>

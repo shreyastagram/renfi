@@ -38,6 +38,7 @@ import {
   SERVICE_TYPE_LABELS,
 } from '../services/traditionalServiceService';
 import { subscribeToRequest, unsubscribeFromRequest } from '../services/socketService';
+import { initiateCall } from '../services/callService';
 import { NODE_BASE_URL } from '../config/api';
 
 // Brand colors - User side uses blue as accent
@@ -177,26 +178,28 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
             </View>
           </View>
           
-          {/* Action Buttons */}
-          <View style={styles.actionButtons}>
-            {request.providerDetails.phone && (
-              <TouchableOpacity style={styles.actionBtn} onPress={() => onCallProvider(request.providerDetails.phone)}>
-                <Icon name="phone" size={16} color="#10B981" />
-                <Text style={styles.actionBtnText}>Call</Text>
-              </TouchableOpacity>
-            )}
-            {isActive && !isEventService && (
-              <TouchableOpacity style={[styles.actionBtn, styles.actionBtnPrimary]} onPress={() => onTrackProvider(request)}>
-                <Icon name="location" size={16} color={BRAND.white} />
-                <Text style={[styles.actionBtnText, styles.actionBtnTextPrimary]}>Track</Text>
-              </TouchableOpacity>
-            )}
-            {request.location?.coordinates && !isEventService && (
-              <TouchableOpacity style={styles.actionBtn} onPress={() => onDirections(request.location)}>
-                <Icon name="directions" size={18} color={BRAND.secondary} />
-              </TouchableOpacity>
-            )}
-          </View>
+          {/* Action Buttons - Only for active requests (pending/accepted/in-progress) */}
+          {(isActive || request.status === 'pending') && (
+            <View style={styles.actionButtons}>
+              {hasProvider && (
+                <TouchableOpacity style={styles.actionBtn} onPress={() => onCallProvider(request)}>
+                  <Icon name="phone" size={16} color="#10B981" />
+                  <Text style={styles.actionBtnText}>Call</Text>
+                </TouchableOpacity>
+              )}
+              {isActive && !isEventService && (
+                <TouchableOpacity style={[styles.actionBtn, styles.actionBtnPrimary]} onPress={() => onTrackProvider(request)}>
+                  <Icon name="location" size={16} color={BRAND.white} />
+                  <Text style={[styles.actionBtnText, styles.actionBtnTextPrimary]}>Track</Text>
+                </TouchableOpacity>
+              )}
+              {isActive && request.location?.coordinates && !isEventService && (
+                <TouchableOpacity style={styles.actionBtn} onPress={() => onDirections(request.location)}>
+                  <Icon name="directions" size={18} color={BRAND.secondary} />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </View>
       )}
 
@@ -337,8 +340,34 @@ const UserServiceHistoryScreen = ({ navigation }) => {
     setRefreshing(false);
   };
 
-  const handleCallProvider = (phone) => {
-    Linking.openURL(`tel:${phone.replace(/\s+/g, '')}`);
+  const handleCallProvider = async (request) => {
+    const providerId = request.assignedProviderId || request.providerId || request.providerDetails?._id;
+    if (!providerId) {
+      Alert.alert('Error', 'Provider information not available');
+      return;
+    }
+
+    try {
+      const result = await initiateCall({
+        receiverId: providerId,
+        callerType: 'user',
+        serviceRequestId: request._id || null,
+        serviceType: request.isEmergencyService ? 'emergency' : request.isEventService ? 'event' : 'traditional',
+      });
+
+      if (result.success) {
+        Alert.alert(
+          'Connecting Call',
+          'You will receive a call shortly. Once you pick up, we will connect you to the provider.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Call Failed', result.error || 'Unable to connect. Please try again.');
+      }
+    } catch (error) {
+      console.error('[UserServiceHistory] Call error:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
   };
 
   const handleTrackProvider = (request) => {
@@ -379,14 +408,21 @@ const UserServiceHistoryScreen = ({ navigation }) => {
         try {
           let result;
           
-          // Check if this is an event service booking
-          if (request.isEventService) {
-            console.log('[UserHistory] Cancelling event service:', {
-              requestId: request._id,
-              userId: userId,
-              storedUserId: request.userId, // The userId stored in the booking
-            });
-            
+          // Detect service types from request's serviceType field
+          const EVENT_SERVICE_TYPES = ['photographer', 'influencer'];
+          const EMERGENCY_SERVICE_TYPES = ['snake_catcher', 'private_ambulance', 'mortuary_van', 'fire_brigade', 'police', 'hospital'];
+          
+          const isEventServiceRequest = request.isEventService || EVENT_SERVICE_TYPES.includes(request?.serviceType);
+          const isEmergencyServiceRequest = request.isEmergencyService || EMERGENCY_SERVICE_TYPES.includes(request?.serviceType);
+          
+          console.log('[UserHistory] Cancel service type detection:', { 
+            serviceType: request?.serviceType, 
+            isEventService: isEventServiceRequest, 
+            isEmergencyService: isEmergencyServiceRequest 
+          });
+          
+          if (isEventServiceRequest) {
+            console.log('[UserHistory] Cancelling event service:', request._id);
             // Use event service cancel endpoint
             const response = await fetch(`${NODE_BASE_URL}/api/event-services/${request._id}/cancel`, {
               method: 'POST',
@@ -394,8 +430,19 @@ const UserServiceHistoryScreen = ({ navigation }) => {
               body: JSON.stringify({ userId, reason: 'Cancelled by user' }),
             });
             result = await response.json();
-            console.log('[UserHistory] Cancel response:', result);
+            result.success = response.ok && result.statusCode !== 500;
+          } else if (isEmergencyServiceRequest) {
+            console.log('[UserHistory] Cancelling emergency service:', request._id);
+            // Use emergency service cancel endpoint
+            const response = await fetch(`${NODE_BASE_URL}/api/emergency-services/${request._id}/cancel`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, reason: 'Cancelled by user' }),
+            });
+            result = await response.json();
+            result.success = response.ok && result.statusCode !== 500;
           } else {
+            console.log('[UserHistory] Cancelling traditional service:', request._id);
             // Use traditional service cancel
             result = await cancelRequest(request._id, userId, 'Cancelled by user');
           }
@@ -432,7 +479,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
   /**
    * Submit rating and update local state
    */
-  const handleSubmitRating = async (rating, review) => {
+  const handleSubmitRating = async (requestId, rating, review) => {
     if (!requestToRate) return;
     
     const result = await submitRating(

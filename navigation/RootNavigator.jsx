@@ -51,6 +51,7 @@ import {
   EventServicesScreen,
   FavoritesScreen,
   PortfolioEditScreen,
+  SubscriptionScreen,
 } from '../src/screens';
 
 const Stack = createNativeStackNavigator();
@@ -541,6 +542,11 @@ const ProviderMainNavigator = () => {
       <Stack.Screen 
         name="PortfolioEdit" 
         component={PortfolioEditScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen 
+        name="Subscription" 
+        component={SubscriptionScreen}
         options={{ animation: 'slide_from_right' }}
       />
     </Stack.Navigator>

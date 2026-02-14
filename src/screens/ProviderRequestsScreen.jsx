@@ -386,12 +386,6 @@ const ProviderRequestsScreen = ({ navigation }) => {
             )}
             <View style={styles.userInfo}>
               <Text style={styles.userName}>{request.userDetails.name || 'Customer'}</Text>
-              {request.userDetails.phone && (
-                <View style={styles.userPhoneRow}>
-                  <Icon name="phone" size={14} color="#6B7280" />
-                  <Text style={styles.userPhone}>{request.userDetails.phone}</Text>
-                </View>
-              )}
             </View>
             {/* Distance Badge */}
             {request.distanceToService && (

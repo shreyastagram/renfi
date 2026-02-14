@@ -34,9 +34,17 @@ export const initiateVerification = async () => {
   try {
     const { accessToken } = await getTokens();
     
+    console.log('\n========== AADHAAR INITIATION DEBUG (FRONTEND) ==========');
+    console.log('[AadhaarService] NODE_BASE_URL:', NODE_BASE_URL);
+    console.log('[AadhaarService] Access Token present:', !!accessToken);
+    console.log('[AadhaarService] Full URL:', `${NODE_BASE_URL}/api/aadhaar/initiate`);
+    
     if (!accessToken) {
+      console.log('[AadhaarService] ERROR: No access token!');
       return { success: false, error: 'Not authenticated' };
     }
+    
+    console.log('[AadhaarService] Making POST request to initiate...');
     
     const response = await fetch(`${NODE_BASE_URL}/api/aadhaar/initiate`, {
       method: 'POST',
@@ -47,9 +55,16 @@ export const initiateVerification = async () => {
       body: JSON.stringify({}),
     });
     
+    console.log('[AadhaarService] Response Status:', response.status);
+    console.log('[AadhaarService] Response OK:', response.ok);
+    
     const data = await response.json();
     
+    console.log('[AadhaarService] Response Data:', JSON.stringify(data, null, 2));
+    console.log('=========================================================\n');
+    
     if (data.success) {
+      console.log('[AadhaarService] SUCCESS! Verification URL:', data.verificationUrl);
       return {
         success: true,
         verificationUrl: data.verificationUrl,
@@ -59,14 +74,25 @@ export const initiateVerification = async () => {
       };
     }
     
+    // Log error details for debugging
+    console.log('[AadhaarService] FAILED!');
+    console.log('[AadhaarService] Error:', data.error);
+    console.log('[AadhaarService] Code:', data.code);
+    console.log('[AadhaarService] Details:', data.details);
+    
     return {
       success: false,
       error: data.error || 'Failed to initiate verification',
       code: data.code,
+      details: data.details,
     };
     
   } catch (error) {
-    console.error('Initiate verification error:', error);
+    console.error('\n========== AADHAAR INITIATION ERROR (FRONTEND) ==========');
+    console.error('[AadhaarService] Error Type:', error.name);
+    console.error('[AadhaarService] Error Message:', error.message);
+    console.error('[AadhaarService] Full Error:', error);
+    console.error('=========================================================\n');
     return { 
       success: false, 
       error: 'Network error. Please check your connection and try again.' 
@@ -78,23 +104,33 @@ export const initiateVerification = async () => {
  * Open DigiLocker verification URL
  * Opens the URL in the device's default browser
  * 
+ * NOTE: On Android 11+ (API 30+), Linking.canOpenURL() returns false for URLs
+ * unless the app declares <queries> in AndroidManifest.xml. Since all devices
+ * can open HTTPS URLs in a browser, we just try to open directly.
+ * 
  * @param {string} verificationUrl - URL from initiateVerification
  * @returns {Promise<boolean>} - Whether URL was opened successfully
  */
 export const openVerificationUrl = async (verificationUrl) => {
   try {
-    const canOpen = await Linking.canOpenURL(verificationUrl);
+    console.log('[AadhaarService] Opening verification URL:', verificationUrl);
     
-    if (canOpen) {
-      await Linking.openURL(verificationUrl);
-      return true;
+    if (!verificationUrl || typeof verificationUrl !== 'string') {
+      console.error('[AadhaarService] Invalid verification URL:', verificationUrl);
+      return false;
     }
     
-    console.error('Cannot open verification URL:', verificationUrl);
-    return false;
+    // Directly try to open the URL - don't use canOpenURL() as it fails on Android 11+
+    // All Android devices can open HTTPS URLs in the default browser
+    await Linking.openURL(verificationUrl);
+    console.log('[AadhaarService] URL opened successfully');
+    return true;
     
   } catch (error) {
-    console.error('Open verification URL error:', error);
+    console.error('[AadhaarService] Failed to open verification URL:', error.message);
+    
+    // If direct open fails, show user the URL (fallback)
+    console.log('[AadhaarService] URL that failed to open:', verificationUrl);
     return false;
   }
 };

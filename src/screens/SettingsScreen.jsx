@@ -126,6 +126,7 @@ const SettingsScreen = ({ navigation }) => {
   const isAvailable = displayData?.isAvailable ?? displayData?.isOnline ?? true;
   
   // Derive locationTracking from context (single source of truth)
+  // Don't default to false - wait for profile to load to show accurate state
   const locationTracking = displayData?.locationTracking?.enabled ?? false;
   
   // State
@@ -163,6 +164,16 @@ const SettingsScreen = ({ navigation }) => {
     loadPreferences();
     checkNotificationPermission();
   }, []);
+  
+  // Auto-sync location tracking on mount for providers
+  // This ensures GPS tracking matches the persisted setting when app reopens
+  useEffect(() => {
+    if (isProvider && userId && locationTracking) {
+      console.log('📍 [Settings] Auto-starting location tracking (persisted setting is enabled)');
+      startLocationTracking(userId);
+    }
+    // Note: We don't stop tracking here if disabled, as ProviderHomeScreen handles that
+  }, [isProvider, userId, locationTracking]);
   
   /**
    * Load preferences from AsyncStorage

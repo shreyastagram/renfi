@@ -40,9 +40,13 @@ import {
   cancelRequest,
   resendCompletionOtp,
   verifyCompletionOtp,
+  verifyEventCompletionOtp,
   submitRating,
+  submitEventRating,
   SERVICE_TYPE_LABELS,
 } from '../services/traditionalServiceService';
+import { addToFavorites, removeFromFavorites, checkIsFavorite } from '../services/favoritesService';
+import { initiateCall } from '../services/callService';
 
 // Brand colors
 const BRAND = {
@@ -292,7 +296,7 @@ const OtpDisplay = ({ otp, expiresAt, onResend }) => {
 /**
  * Provider Card Component
  */
-const ProviderCard = ({ provider, onCall, onGetLocation }) => {
+const ProviderCard = ({ provider, onCall, onGetLocation, showActions }) => {
   if (!provider) return null;
 
   return (
@@ -317,27 +321,27 @@ const ProviderCard = ({ provider, onCall, onGetLocation }) => {
         </View>
       </View>
 
-      <View style={styles.providerActionsRow}>
-        {provider.phone && (
+      {showActions && (
+        <View style={styles.providerActionsRow}>
           <TouchableOpacity 
             style={styles.callButton}
-            onPress={() => onCall(provider.phone)}
+            onPress={onCall}
           >
             <Icon name="phone" size={18} color="#FFFFFF" />
             <Text style={styles.callButtonText}>Call</Text>
           </TouchableOpacity>
-        )}
-        
-        {onGetLocation && (
-          <TouchableOpacity 
-            style={styles.locationButton}
-            onPress={onGetLocation}
-          >
-            <Icon name="location" size={18} color="#FFFFFF" />
-            <Text style={styles.locationButtonText}>Track Location</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+          
+          {onGetLocation && (
+            <TouchableOpacity 
+              style={styles.locationButton}
+              onPress={onGetLocation}
+            >
+              <Icon name="location" size={18} color="#FFFFFF" />
+              <Text style={styles.locationButtonText}>Track Location</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
     </View>
   );
 };
@@ -534,8 +538,18 @@ const LocationMapPreview = ({ location, address }) => {
 const ServiceRequestDetailScreen = ({ navigation, route }) => {
   const { user, profile, userType } = useApp();
   const initialRequest = route.params?.request;
-  const isEventService = route.params?.isEventService || initialRequest?.isEventService;
-  const isEmergencyService = route.params?.isEmergencyService || initialRequest?.isEmergencyService;
+  
+  // Detect event service by checking if serviceType is photographer or influencer
+  const EVENT_SERVICE_TYPES = ['photographer', 'influencer'];
+  const isEventService = route.params?.isEventService || 
+    initialRequest?.isEventService || 
+    EVENT_SERVICE_TYPES.includes(initialRequest?.serviceType);
+  
+  // Detect emergency service by checking if serviceType is an emergency type
+  const EMERGENCY_SERVICE_TYPES = ['snake_catcher', 'private_ambulance', 'mortuary_van', 'fire_brigade', 'police', 'hospital'];
+  const isEmergencyService = route.params?.isEmergencyService || 
+    initialRequest?.isEmergencyService || 
+    EMERGENCY_SERVICE_TYPES.includes(initialRequest?.serviceType);
   
   // State
   const [request, setRequest] = useState(initialRequest);
@@ -545,6 +559,10 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   
   // Rating modal state
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
+  
+  // Favorites state
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [togglingFavorite, setTogglingFavorite] = useState(false);
   
   // Provider OTP entry state
   const [enteredOtp, setEnteredOtp] = useState('');
@@ -643,9 +661,23 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             try {
               let result;
               
+              // Detect service types from request's serviceType field
+              const EVENT_SERVICE_TYPES = ['photographer', 'influencer'];
+              const EMERGENCY_SERVICE_TYPES = ['snake_catcher', 'private_ambulance', 'mortuary_van', 'fire_brigade', 'police', 'hospital'];
+              
+              const isEventServiceRequest = isEventService || request?.isEventService || EVENT_SERVICE_TYPES.includes(request?.serviceType);
+              const isEmergencyServiceRequest = isEmergencyService || request?.isEmergencyService || EMERGENCY_SERVICE_TYPES.includes(request?.serviceType);
+              
+              console.log('[Cancel] Service type detection:', { 
+                serviceType: request?.serviceType, 
+                isEventService: isEventServiceRequest, 
+                isEmergencyService: isEmergencyServiceRequest 
+              });
+              
               // Determine which cancel endpoint to use based on service type
-              if (isEventService || request?.isEventService) {
+              if (isEventServiceRequest) {
                 // Event service cancel
+                console.log('[Cancel] Using event-services endpoint');
                 const response = await fetch(`${NODE_BASE_URL}/api/event-services/${request._id}/cancel`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -656,8 +688,9 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                   success: response.ok && data.statusCode !== 500,
                   error: data.error || data.message,
                 };
-              } else if (isEmergencyService || request?.isEmergencyService) {
+              } else if (isEmergencyServiceRequest) {
                 // Emergency service cancel
+                console.log('[Cancel] Using emergency-services endpoint');
                 const response = await fetch(`${NODE_BASE_URL}/api/emergency-services/${request._id}/cancel`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -670,6 +703,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                 };
               } else {
                 // Traditional service cancel (existing function)
+                console.log('[Cancel] Using traditional-services endpoint');
                 result = await cancelRequest(request._id, userId, 'Cancelled by user');
               }
               
@@ -697,38 +731,63 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   }, [request, getUserId, navigation, isEventService, isEmergencyService]);
 
   /**
-   * Handle phone call (works for both provider calling customer and vice versa)
+   * Handle phone call via Exotel masked calling
+   * Works for both user calling provider and provider calling user
    */
-  const handleCall = useCallback((phone) => {
-    if (!phone || phone.trim() === '') {
-      Alert.alert('Error', 'No phone number available');
+  const handleCall = useCallback(async () => {
+    const callerIsProvider = isProvider;
+    let receiverId;
+    
+    if (callerIsProvider) {
+      // Provider calling the user
+      receiverId = request?.userId || request?.userDetails?._id;
+    } else {
+      // User calling the provider
+      receiverId = request?.assignedProviderId || request?.providerId || request?.providerDetails?._id;
+    }
+    
+    if (!receiverId) {
+      Alert.alert('Error', 'Contact information not available');
       return;
     }
     
-    // Clean phone number - remove spaces, dashes, parentheses
-    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
-    const phoneUrl = `tel:${cleanPhone}`;
-    
-    Linking.canOpenURL(phoneUrl)
-      .then((supported) => {
-        if (supported) {
-          Linking.openURL(phoneUrl);
-        } else {
-          // This happens on emulators or devices without phone capability
-          Alert.alert('Error', `Unable to make phone call. Phone: ${phone}`);
-        }
-      })
-      .catch((err) => console.error('Call error:', err));
-  }, []);
+    try {
+      const serviceType = request?.isEmergencyService ? 'emergency' 
+        : request?.isEventService ? 'event' 
+        : 'traditional';
+      
+      const result = await initiateCall({
+        receiverId,
+        callerType: callerIsProvider ? 'provider' : 'user',
+        serviceRequestId: request?._id || null,
+        serviceType,
+      });
+
+      if (result.success) {
+        Alert.alert(
+          'Connecting Call',
+          'You will receive a call shortly. Once you pick up, we will connect you.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Call Failed', result.error || 'Unable to connect. Please try again.');
+      }
+    } catch (error) {
+      console.error('[ServiceDetail] Call error:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
+  }, [isProvider, request]);
 
   /**
    * Handle get provider location - navigates to live tracking screen
    */
   const handleGetProviderLocation = useCallback(() => {
-    const provider = request?.providerDetails;
+    const providerDetails = request?.providerDetails;
+    // Get providerId from request - emergency services store it at request.providerId
+    const providerIdValue = request?.providerId || request?.assignedProviderId || providerDetails?._id || providerDetails?.providerId;
     
-    if (!provider) {
-      Alert.alert('Location Not Available', 'Provider information is not available at the moment.');
+    if (!providerIdValue) {
+      Alert.alert('Location Not Available', 'Provider ID is not available at the moment.');
       return;
     }
 
@@ -737,16 +796,21 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     if (request?.location?.coordinates && Array.isArray(request.location.coordinates) && request.location.coordinates.length === 2) {
       const [lng, lat] = request.location.coordinates;
       serviceLocation = { latitude: lat, longitude: lng };
+    } else if (request?.location?.latitude && request?.location?.longitude) {
+      serviceLocation = { 
+        latitude: request.location.latitude, 
+        longitude: request.location.longitude 
+      };
     }
 
     // Navigate to LiveTrackingScreen with service location
     navigation.navigate('LiveTracking', {
       requestId: request._id,
-      providerId: provider._id || provider.providerId,
-      providerName: provider.name,
+      providerId: providerIdValue,
+      providerName: providerDetails?.name || 'Provider',
       serviceCategory: request.serviceCategory || request.category || request.serviceType,
       serviceLocation: serviceLocation, // ✅ Pass service location as destination
-      serviceAddress: request.serviceAddress || request.address || '', // ✅ Pass service address
+      serviceAddress: request.serviceAddress || request.address || request.location?.address || '', // ✅ Pass service address
     });
   }, [request, navigation]);
 
@@ -789,7 +853,40 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
 
     setVerifyingOtp(true);
     try {
-      const result = await verifyCompletionOtp(request._id, enteredOtp);
+      // Detect event service by serviceType (photographer, influencer)
+      const EVENT_SERVICE_TYPES = ['photographer', 'influencer'];
+      const EMERGENCY_SERVICE_TYPES = ['snake_catcher', 'private_ambulance', 'mortuary_van', 'fire_brigade', 'police', 'hospital'];
+      
+      const isEventServiceRequest = isEventService || request?.isEventService || EVENT_SERVICE_TYPES.includes(request?.serviceType);
+      const isEmergencyServiceRequest = isEmergencyService || request?.isEmergencyService || EMERGENCY_SERVICE_TYPES.includes(request?.serviceType);
+      
+      console.log('[VerifyOTP] Service type detection:', { 
+        serviceType: request?.serviceType, 
+        isEventService: isEventServiceRequest, 
+        isEmergencyService: isEmergencyServiceRequest 
+      });
+      
+      let result;
+      
+      if (isEmergencyServiceRequest) {
+        // Use emergency service verify endpoint
+        console.log('[VerifyOTP] Using emergency-service endpoint');
+        const response = await fetch(`${NODE_BASE_URL}/api/emergency-services/${request._id}/verify-otp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ otp: enteredOtp }),
+        });
+        result = await response.json();
+        result.success = result.success || response.ok;
+      } else if (isEventServiceRequest) {
+        // Use event service verify endpoint
+        console.log('[VerifyOTP] Using event-service endpoint');
+        result = await verifyEventCompletionOtp(request._id, enteredOtp);
+      } else {
+        // Use traditional service verify
+        console.log('[VerifyOTP] Using traditional-service endpoint');
+        result = await verifyCompletionOtp(request._id, enteredOtp);
+      }
       
       if (result.success) {
         Alert.alert(
@@ -809,7 +906,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     } finally {
       setVerifyingOtp(false);
     }
-  }, [request?._id, enteredOtp, handleRefresh]);
+  }, [request?._id, enteredOtp, handleRefresh, isEventService, isEmergencyService, request?.isEventService, request?.isEmergencyService]);
 
   /**
    * Handle rating submission
@@ -829,7 +926,15 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     }
 
     try {
-      const result = await submitRating(requestId, userId, Math.round(rating), review || '');
+      // Detect event service by serviceType (photographer, influencer)
+      const EVENT_SERVICE_TYPES = ['photographer', 'influencer'];
+      const isEventServiceRequest = isEventService || request?.isEventService || EVENT_SERVICE_TYPES.includes(request?.serviceType);
+      
+      // Use the correct rating function based on service type
+      const ratingFn = isEventServiceRequest ? submitEventRating : submitRating;
+      console.log('[Rating] Using endpoint for:', isEventServiceRequest ? 'event-service' : 'traditional-service', 'serviceType:', request?.serviceType);
+      
+      const result = await ratingFn(requestId, userId, Math.round(rating), review || '');
       
       if (result.success) {
         // Update local state to reflect the rating
@@ -849,7 +954,70 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
       console.error('[Rating] Error:', error);
       return { success: false, error: error.message || 'Failed to submit rating' };
     }
-  }, [getUserId]);
+  }, [getUserId, isEventService, request?.isEventService]);
+
+  /**
+   * Check if provider is favorited on mount
+   */
+  useEffect(() => {
+    const checkFavoriteStatus = async () => {
+      if (!request?.providerId && !request?.assignedProviderDetails?._id) return;
+      const userId = getUserId();
+      if (!userId) return;
+      
+      const providerId = request?.providerId || request?.assignedProviderDetails?._id;
+      const result = await checkIsFavorite(userId, providerId, request?.serviceType);
+      if (result.success) {
+        setIsFavorited(result.isFavorite);
+      }
+    };
+    
+    if (request?.status === 'completed' && !isProvider) {
+      checkFavoriteStatus();
+    }
+  }, [request?.providerId, request?.assignedProviderDetails?._id, request?.status, request?.serviceType, getUserId, isProvider]);
+
+  /**
+   * Toggle favorite status for provider
+   */
+  const handleToggleFavorite = useCallback(async () => {
+    const userId = getUserId();
+    const providerId = request?.providerId || request?.assignedProviderDetails?._id;
+    
+    if (!userId || !providerId) {
+      Alert.alert('Error', 'Unable to update favorites. Please try again.');
+      return;
+    }
+
+    setTogglingFavorite(true);
+    try {
+      let result;
+      if (isFavorited) {
+        result = await removeFromFavorites(userId, providerId, request?.serviceType);
+      } else {
+        const providerName = request?.providerDetails?.name || request?.assignedProviderDetails?.name || 'Provider';
+        result = await addToFavorites(userId, providerId, request?.serviceType, `Saved from ${SERVICE_TYPE_LABELS[request?.serviceType] || request?.serviceType} service`);
+      }
+
+      if (result.success) {
+        setIsFavorited(!isFavorited);
+        Alert.alert(
+          isFavorited ? 'Removed from Favorites' : 'Added to Favorites',
+          isFavorited 
+            ? 'Provider has been removed from your favorites.'
+            : 'Provider has been added to your favorites. They will appear at the top when you search for this service.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', result.error || 'Failed to update favorites');
+      }
+    } catch (error) {
+      console.error('[Favorites] Toggle error:', error);
+      Alert.alert('Error', 'Failed to update favorites');
+    } finally {
+      setTogglingFavorite(false);
+    }
+  }, [getUserId, request, isFavorited]);
 
   // Check if user has already rated this service
   const hasRated = request?.ratings?.userRating > 0;
@@ -1002,6 +1170,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           <ProviderCard 
             provider={request.providerDetails}
             onCall={handleCall}
+            showActions={['pending', 'accepted', 'in-progress'].includes(request.status)}
             onGetLocation={
               // Only show track location for traditional services (not event services)
               !request.isEventService && ['accepted', 'in-progress'].includes(request.status) 
@@ -1088,27 +1257,18 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               </View>
             )}
 
-            {/* Action Buttons */}
-            <View style={styles.customerActionButtons}>
-              {request.userDetails.phone && (
+            {/* Action Buttons - Only for active requests */}
+            {['pending', 'accepted', 'in-progress'].includes(request.status) && (
+              <View style={styles.customerActionButtons}>
                 <TouchableOpacity 
                   style={styles.callCustomerButton}
-                  onPress={() => handleCall(request.userDetails.phone)}
+                  onPress={handleCall}
                 >
                   <Icon name="phone" size={18} color="#FFFFFF" />
                   <Text style={styles.callCustomerButtonText}>Call Customer</Text>
                 </TouchableOpacity>
-              )}
-              {request.userDetails.phone && (
-                <TouchableOpacity 
-                  style={styles.messageCustomerButton}
-                  onPress={() => Linking.openURL(`sms:${request.userDetails.phone}`)}
-                >
-                  <Icon name="chatbox" size={18} color={BRAND.primary} />
-                  <Text style={styles.messageCustomerButtonText}>Message</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+              </View>
+            )}
           </View>
         )}
 
@@ -1176,8 +1336,8 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           )}
         </View>
 
-        {/* Location with Map Preview */}
-        {request.location?.address && (
+        {/* Location with Map Preview - Only show for active requests */}
+        {request.location?.address && ['pending', 'accepted', 'in-progress'].includes(request.status) && (
           <LocationMapPreview 
             location={request.location}
             address={request.location.address}
@@ -1259,6 +1419,36 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               </View>
             )}
           </View>
+        )}
+
+        {/* Add to Favorites Button for Completed Services */}
+        {request.status === 'completed' && !isProvider && (request?.providerId || request?.assignedProviderDetails?._id) && (
+          <TouchableOpacity
+            style={[
+              styles.favoriteButton,
+              isFavorited && styles.favoriteButtonActive
+            ]}
+            onPress={handleToggleFavorite}
+            disabled={togglingFavorite}
+          >
+            {togglingFavorite ? (
+              <ActivityIndicator color={isFavorited ? '#DC2626' : '#F59E0B'} size="small" />
+            ) : (
+              <>
+                <Icon 
+                  name={isFavorited ? 'favorite' : 'favorite-border'} 
+                  size={20} 
+                  color={isFavorited ? '#DC2626' : '#F59E0B'} 
+                />
+                <Text style={[
+                  styles.favoriteButtonText,
+                  isFavorited && styles.favoriteButtonTextActive
+                ]}>
+                  {isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
         )}
 
         {/* Action Buttons - Allow cancel for users only (not providers) */}
@@ -2101,6 +2291,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: BRAND.white,
+  },
+
+  // Favorites Button
+  favoriteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  favoriteButtonActive: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#DC2626',
+  },
+  favoriteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#92400E',
+  },
+  favoriteButtonTextActive: {
+    color: '#DC2626',
   },
 
   // Cancel Button

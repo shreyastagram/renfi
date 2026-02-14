@@ -234,7 +234,8 @@ const ProviderHomeScreen = ({ navigation }) => {
   useEffect(() => {
     const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
     const token = user?.accessToken || profile?.accessToken;
-    const locationTrackingEnabled = displayData?.locationTracking?.enabled ?? true; // Default to true for backward compatibility
+    // Use the persisted setting from profile - only start if explicitly enabled
+    const locationTrackingEnabled = displayData?.locationTracking?.enabled === true;
     
     if (providerId) {
       // Initialize socket connection (if token available)
@@ -242,13 +243,13 @@ const ProviderHomeScreen = ({ navigation }) => {
         initializeSocket('provider', providerId, token);
       }
       
-      // Only start location tracking if enabled in settings
+      // Only start location tracking if enabled in settings (persisted in database)
       if (locationTrackingEnabled) {
         console.log('📍 [ProviderHome] Starting location tracking (enabled in settings)');
         startLocationTracking(providerId);
       } else {
-        console.log('📍 [ProviderHome] Location tracking disabled in settings, not starting');
-        stopLocationTracking();
+        console.log('📍 [ProviderHome] Location tracking not enabled in settings');
+        // Don't call stopLocationTracking here on initial mount - only on explicit toggle off
       }
     }
     

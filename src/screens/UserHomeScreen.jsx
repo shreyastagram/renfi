@@ -33,6 +33,7 @@ import {
   Modal,
   Image,
 } from 'react-native';
+import RazorpayCheckout from 'react-native-razorpay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -48,6 +49,7 @@ import {
   getProviderDetails,
   retryProviderSearch,
 } from '../services/traditionalServiceService';
+import { initiateCall } from '../services/callService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -97,7 +99,7 @@ const ServiceCard = ({ service, onPress }) => (
   </TouchableOpacity>
 );
 
-const ProviderCard = ({ provider, onCall, onBook, onPress, booking }) => (
+const ProviderCard = ({ provider, onCall, onBook, onPress, booking, contacted, calling }) => (
   <TouchableOpacity 
     style={styles.providerCard} 
     onPress={onPress}
@@ -120,6 +122,12 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking }) => (
           <Text style={styles.providerName}>{provider.name}</Text>
           {(provider.verified || provider.verification?.isVerified) && (
             <MaterialIcon name="verified" size={16} color="#2563EB" style={styles.verifiedBadge} />
+          )}
+          {contacted && (
+            <View style={styles.contactedBadge}>
+              <MaterialIcon name="call-made" size={10} color="#FFFFFF" />
+              <Text style={styles.contactedBadgeText}>Contacted</Text>
+            </View>
           )}
         </View>
         <View style={styles.providerDistanceRow}>
@@ -152,13 +160,18 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking }) => (
     </View>
     <View style={styles.providerActions}>
       <TouchableOpacity 
-        style={styles.callButton} 
+        style={[styles.callButton, calling && styles.callButtonCalling]} 
         onPress={(e) => {
           e.stopPropagation();
-          onCall(provider.phone);
+          onCall(provider);
         }}
+        disabled={calling}
       >
-        <Icon name="phone" size={22} color="#FFFFFF" />
+        {calling ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        ) : (
+          <Icon name="phone" size={22} color="#FFFFFF" />
+        )}
       </TouchableOpacity>
       <TouchableOpacity 
         style={[styles.bookButton, booking && styles.bookButtonLoading]} 
@@ -585,9 +598,51 @@ const UserHomeScreen = ({ navigation }) => {
     }
   };
 
-  const handleCallProvider = (phone) => {
-    if (!phone) { Alert.alert('Error', 'Phone number not available'); return; }
-    Linking.openURL(`tel:${phone.replace(/\s+/g, '')}`);
+  // Call masking state
+  const [callingProviderId, setCallingProviderId] = useState(null);
+  const [contactedProviderIds, setContactedProviderIds] = useState(new Set());
+
+  /**
+   * Initiate a masked call to a provider via Exotel.
+   * User's phone rings first, then the provider is connected.
+   * No real phone numbers are exposed to either party.
+   */
+  const handleCallProvider = async (provider) => {
+    if (!provider?._id) {
+      Alert.alert('Error', 'Provider information not available');
+      return;
+    }
+
+    // Prevent double-tap
+    if (callingProviderId) return;
+
+    setCallingProviderId(provider._id);
+
+    try {
+      const result = await initiateCall({
+        receiverId: provider._id,
+        callerType: 'user',
+        serviceRequestId: createdRequest?._id || null,
+        serviceType: createdRequest ? 'traditional' : 'pre_booking',
+      });
+
+      if (result.success) {
+        // Mark provider as contacted
+        setContactedProviderIds(prev => new Set(prev).add(provider._id));
+        Alert.alert(
+          'Connecting Call',
+          'You will receive a call shortly. Once you pick up, we will connect you to the provider.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Call Failed', result.error || 'Unable to connect the call. Please try again.');
+      }
+    } catch (error) {
+      console.error('[UserHomeScreen] Call error:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    } finally {
+      setCallingProviderId(null);
+    }
   };
 
   /**
@@ -772,7 +827,9 @@ const UserHomeScreen = ({ navigation }) => {
                     onCall={handleCallProvider} 
                     onBook={handleBookProvider}
                     onPress={() => handleViewProviderDetails(item)}
-                    booking={bookingProvider === item._id} 
+                    booking={bookingProvider === item._id}
+                    contacted={contactedProviderIds.has(item._id)}
+                    calling={callingProviderId === item._id}
                   />
                 )}
                 ListEmptyComponent={
@@ -969,7 +1026,12 @@ const UserHomeScreen = ({ navigation }) => {
             handleBookFromDetails(selectedProvider);
           }
         }}
-        onCall={(phone) => handleCallProvider(phone)}
+        onCall={(phone) => {
+          // Called from ProviderDetailsModal - wrap in provider-like object
+          if (selectedProvider) {
+            handleCallProvider(selectedProvider);
+          }
+        }}
       />
     </View>
   );
@@ -1131,8 +1193,11 @@ const styles = StyleSheet.create({
   providerRating: { fontSize: 13, color: BRAND.primary, fontWeight: '600' },
   providerRatingCount: { fontSize: 12, color: '#6B7280', fontWeight: '400' },
   viewDetailsIcon: { padding: 4 },
+  contactedBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#10B981', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 6, gap: 2 },
+  contactedBadgeText: { fontSize: 10, fontWeight: '600', color: '#FFFFFF' },
   providerActions: { flexDirection: 'row', gap: 10 },
   callButton: { width: 48, height: 44, backgroundColor: '#10B981', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  callButtonCalling: { backgroundColor: '#6B7280' },
   bookButton: { flex: 1, height: 44, backgroundColor: BRAND.primary, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   bookButtonLoading: { backgroundColor: BRAND.primary + '80' },
   bookButtonText: { fontSize: 15, fontWeight: '600', color: BRAND.white },

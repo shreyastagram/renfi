@@ -69,3 +69,6 @@ export { default as FavoritesScreen } from './FavoritesScreen';
 
 // Portfolio Management (Photographer/Influencer)
 export { default as PortfolioEditScreen } from './PortfolioEditScreen';
+
+// Premium Subscription (Provider only)
+export { default as SubscriptionScreen } from './SubscriptionScreen';

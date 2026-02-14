@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useApp } from '../context/AppContext';
 import { getFavorites, removeFromFavorites } from '../services/favoritesService';
+import { initiateCall } from '../services/callService';
 
 // Brand colors
 const BRAND = {
@@ -134,7 +135,7 @@ const ProviderCard = ({ provider, onCall, onRemove, onBook }) => (
     <View style={styles.providerActions}>
       <TouchableOpacity 
         style={styles.callButton}
-        onPress={() => onCall(provider.phone)}
+        onPress={() => onCall(provider)}
       >
         <MaterialIcon name="phone" size={18} color={BRAND.white} />
         <Text style={styles.callButtonText}>Call</Text>
@@ -199,8 +200,14 @@ const FavoritesScreen = ({ navigation }) => {
     
     const result = await getFavorites(userId);
     
+    console.log('[Favorites] Fetch result:', { 
+      success: result.success, 
+      count: result.count,
+      favoritesCount: result.favorites?.length 
+    });
+    
     if (result.success) {
-      const favs = result.data?.favorites || result.data || [];
+      const favs = result.favorites || [];
       setFavorites(favs);
       
       // Organize by category for section list
@@ -236,14 +243,34 @@ const FavoritesScreen = ({ navigation }) => {
   }, [fetchFavorites]);
   
   /**
-   * Handle call provider
+   * Handle call provider (Exotel masked call)
    */
-  const handleCallProvider = (phone) => {
-    if (!phone) {
-      Alert.alert('Error', 'Provider phone number not available');
+  const handleCallProvider = async (provider) => {
+    if (!provider?._id) {
+      Alert.alert('Error', 'Provider information not available');
       return;
     }
-    Linking.openURL(`tel:${phone}`);
+
+    try {
+      const result = await initiateCall({
+        receiverId: provider._id,
+        callerType: 'user',
+        serviceType: 'pre_booking',
+      });
+
+      if (result.success) {
+        Alert.alert(
+          'Connecting Call',
+          'You will receive a call shortly. Once you pick up, we will connect you to the provider.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Call Failed', result.error || 'Unable to connect. Please try again.');
+      }
+    } catch (error) {
+      console.error('[Favorites] Call error:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
   };
   
   /**

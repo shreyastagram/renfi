@@ -183,7 +183,50 @@ export const getNearbyEmergencyProviders = async (requestId, limit = 10) => {
 };
 
 /**
- * Provider accepts emergency request
+ * User assigns/selects a provider for the emergency request
+ * This is called when the USER selects a provider from the list
+ * The request goes to "awaiting_confirmation" - provider must still accept
+ * @param {string} requestId - Request ID
+ * @param {string} providerId - Provider ID
+ * @param {string} userEmail - User email (optional)
+ * @returns {Promise<Object>}
+ */
+export const assignEmergencyProvider = async (requestId, providerId, userEmail) => {
+  try {
+    const response = await fetch(`${API_BASE}/${requestId}/assign-provider`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        providerId,
+        userEmail
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to assign provider');
+    }
+
+    return {
+      success: true,
+      data: data.data,
+      message: data.message
+    };
+  } catch (error) {
+    console.error('[EmergencyService] Assign provider error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to assign provider'
+    };
+  }
+};
+
+/**
+ * Provider accepts/confirms emergency request assigned to them
+ * This is called when the PROVIDER confirms the request
  * @param {string} requestId - Request ID
  * @param {string} providerId - Provider ID
  * @param {number} estimatedArrival - Estimated arrival time in minutes
@@ -513,6 +556,7 @@ export default {
   getStaticEmergencyNumbers,
   createEmergencyRequest,
   getNearbyEmergencyProviders,
+  assignEmergencyProvider,
   acceptEmergencyRequest,
   rejectEmergencyProvider,
   getProviderLocation,
