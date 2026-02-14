@@ -36,8 +36,8 @@ import { getSavedAddresses } from '../services/addressService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Mapbox Access Token (same as used in LocationMap)
-const MAPBOX_ACCESS_TOKEN = 'MAPBOX_TOKEN_REMOVED';
+// Mapbox Access Token (from .env via centralized config)
+import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
 
 // Brand colors
 const BRAND = {

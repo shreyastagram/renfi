@@ -19,8 +19,10 @@ import {
 import Mapbox from '@rnmapbox/maps';
 import Geolocation from '@react-native-community/geolocation';
 
-// Initialize Mapbox with public token
-Mapbox.setAccessToken('MAPBOX_TOKEN_REMOVED');
+import { initializeMapbox } from '../../config/mapbox';
+
+// Initialize Mapbox from .env
+initializeMapbox();
 
 // Default location (India - Mumbai)
 const DEFAULT_LOCATION = {

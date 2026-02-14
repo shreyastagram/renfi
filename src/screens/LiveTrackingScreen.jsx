@@ -29,10 +29,10 @@ import { Icon, FixhomiLogo } from '../components';
 import { NODE_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
 import { initiateCall } from '../services/callService';
+import { MAPBOX_ACCESS_TOKEN, initializeMapbox } from '../config/mapbox';
 
-// Initialize Mapbox
-const MAPBOX_ACCESS_TOKEN = 'MAPBOX_TOKEN_REMOVED';
-Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
+// Initialize Mapbox from .env
+initializeMapbox();
 
 // Brand colors
 const BRAND = {

@@ -25,8 +25,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Mapbox Access Token
-const MAPBOX_ACCESS_TOKEN = 'MAPBOX_TOKEN_REMOVED';
+// Mapbox Access Token (from .env via centralized config)
+import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
 
 // Brand colors
 const BRAND = {

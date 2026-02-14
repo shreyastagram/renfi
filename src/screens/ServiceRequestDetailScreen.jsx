@@ -32,9 +32,10 @@ import { useApp } from '../context/AppContext';
 import { Icon, ServiceIcon, StatusIcon, RatingModal } from '../components';
 import { NODE_BASE_URL } from '../config/api';
 import Mapbox from '@rnmapbox/maps';
+import { initializeMapbox } from '../config/mapbox';
 
-// Initialize Mapbox
-Mapbox.setAccessToken('MAPBOX_TOKEN_REMOVED');
+// Initialize Mapbox from .env
+initializeMapbox();
 import { 
   getRequestDetails,
   cancelRequest,

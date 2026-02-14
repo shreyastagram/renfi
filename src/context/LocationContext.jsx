@@ -16,8 +16,8 @@ import { Platform, PermissionsAndroid, Alert, Linking, AppState } from 'react-na
 import Geolocation from '@react-native-community/geolocation';
 import DeviceInfo from 'react-native-device-info';
 
-// Mapbox Access Token for reverse geocoding
-const MAPBOX_ACCESS_TOKEN = 'MAPBOX_TOKEN_REMOVED';
+// Mapbox Access Token (from .env via centralized config)
+import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
 
 // Location update interval (30 seconds)
 const LOCATION_UPDATE_INTERVAL = 30000;

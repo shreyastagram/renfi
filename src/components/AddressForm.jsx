@@ -37,8 +37,8 @@ const BRAND = {
   neutral: '#6B7280',
 };
 
-// Mapbox Access Token
-const MAPBOX_ACCESS_TOKEN = 'MAPBOX_TOKEN_REMOVED';
+// Mapbox Access Token (from .env via centralized config)
+import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
 
 /**
  * Reverse geocode coordinates using Mapbox
