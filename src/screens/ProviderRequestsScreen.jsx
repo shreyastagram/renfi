@@ -148,16 +148,23 @@ const ProviderRequestsScreen = ({ navigation }) => {
               );
 
               if (result.success) {
+                // Immediately update local state so UI reflects accepted status
+                setRequests(prev => prev.map(r => 
+                  r._id === request._id ? { ...r, status: 'accepted' } : r
+                ));
+                setAcceptingRequestId(null); // Stop spinner before alert
+                
                 Alert.alert(
                   '🎉 Request Accepted!',
                   `You have successfully accepted this request.\n\n${result.warning ? result.warning.message : 'The customer has been notified.'}`,
                   [
                     {
                       text: 'OK',
-                      onPress: () => fetchRequests(false),
+                      onPress: () => fetchRequests(false), // Refresh in background for latest data
                     },
                   ]
                 );
+                return; // Skip finally's setAcceptingRequestId since we already cleared it
               } else {
                 Alert.alert('Error', result.error || 'Failed to accept request');
               }
@@ -200,13 +207,19 @@ const ProviderRequestsScreen = ({ navigation }) => {
 
       if (result.success) {
         setOtpModalVisible(false);
+        // Immediately update local state so UI reflects completion without manual refresh
+        setRequests(prev => prev.map(r => 
+          r._id === selectedRequest._id 
+            ? { ...r, status: 'completed', completedAt: new Date().toISOString() } 
+            : r
+        ));
         Alert.alert(
           '🎉 Service Completed!',
           'The service has been marked as complete. Great job!',
           [
             {
               text: 'OK',
-              onPress: () => fetchRequests(false),
+              onPress: () => fetchRequests(false), // Full sync from server
             },
           ]
         );
@@ -386,6 +399,34 @@ const ProviderRequestsScreen = ({ navigation }) => {
             )}
             <View style={styles.userInfo}>
               <Text style={styles.userName}>{request.userDetails.name || 'Customer'}</Text>
+              {/* Phone visible only for active requests — hidden after completion/cancellation */}
+              {['pending', 'accepted', 'in-progress'].includes(request.status) && (request.userDetails.phone || request.userDetails.verifiedPhone) && (
+                <TouchableOpacity
+                  style={styles.userPhoneRow}
+                  onPress={() => {
+                    const phone = request.userDetails.phone || request.userDetails.verifiedPhone;
+                    if (phone) {
+                      const cleanPhone = phone.replace(/[\s\-()]/g, '');
+                      Alert.alert(
+                        '📞 Call Customer',
+                        `Call ${request.userDetails.name || 'Customer'} at ${phone}?`,
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Call Now',
+                            onPress: () => Linking.openURL(`tel:${cleanPhone}`).catch(() => {
+                              Alert.alert('Error', 'Unable to make phone calls on this device');
+                            }),
+                          },
+                        ]
+                      );
+                    }
+                  }}
+                >
+                  <Icon name="phone" size={14} color="#2563EB" />
+                  <Text style={styles.userPhone}>{request.userDetails.phone || request.userDetails.verifiedPhone}</Text>
+                </TouchableOpacity>
+              )}
             </View>
             {/* Distance Badge */}
             {request.distanceToService && (
@@ -397,8 +438,8 @@ const ProviderRequestsScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* Location & Directions */}
-        {request.location?.address && (
+        {/* Location & Directions — hidden after completion/cancellation */}
+        {['pending', 'accepted', 'in-progress'].includes(request.status) && request.location?.address && (
           <View style={styles.locationSection}>
             <View style={styles.locationRow}>
               <Icon name="location" size={16} color="#EF4444" />
@@ -881,9 +922,10 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   userPhone: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
+    fontSize: 13,
+    color: '#2563EB',
+    marginLeft: 4,
+    fontWeight: '500',
   },
   distanceBadge: {
     flexDirection: 'row',

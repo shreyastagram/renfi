@@ -112,6 +112,7 @@ const ProviderDetailsModal = ({
   providerId,
   onCall,
   onBook,
+  hasContacted = false,
 }) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
@@ -182,13 +183,17 @@ const ProviderDetailsModal = ({
   }, [visible, providerId, fetchDetails]);
 
   const handleCall = () => {
-    // Delegate to parent's masked call handler (Exotel)
+    // Direct phone call to provider - check both phone and verifiedPhone
     if (onCall && provider) {
-      onCall(provider.phone);
+      onCall(provider.phone || provider.verifiedPhone);
     }
   };
 
   const handleBook = () => {
+    if (!hasContacted) {
+      Alert.alert('Call First', 'Please call the provider to discuss your requirement before sending a booking request.', [{ text: 'OK' }]);
+      return;
+    }
     if (onBook && provider) {
       onBook(provider);
       onClose();
@@ -526,9 +531,12 @@ const ProviderDetailsModal = ({
                 <MaterialIcon name="phone" size={22} color={BRAND.success} />
                 <Text style={styles.callButtonText}>Call</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.bookButton} onPress={handleBook}>
+              <TouchableOpacity 
+                style={[styles.bookButton, !hasContacted && { opacity: 0.5 }]} 
+                onPress={handleBook}
+              >
                 <MaterialIcon name="send" size={20} color={BRAND.white} />
-                <Text style={styles.bookButtonText}>Send Request</Text>
+                <Text style={styles.bookButtonText}>{hasContacted ? 'Send Request' : 'Call First'}</Text>
               </TouchableOpacity>
             </View>
           )}

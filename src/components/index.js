@@ -28,3 +28,6 @@ export { default as LocationMap } from './MapView/LocationMap';
 export { default as RatingModal } from './RatingModal';
 export { default as ProviderDetailsModal } from './ProviderDetailsModal';
 export { default as AadhaarVerificationModal } from './AadhaarVerificationModal';
+
+// Global Overlays
+export { default as GlobalBanner } from './GlobalBanner';

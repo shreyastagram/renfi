@@ -390,10 +390,13 @@ const CreateServiceRequestScreen = ({ navigation }) => {
     );
   };
 
+  // Track which providers have been contacted (called)
+  const [contactedProviderIds, setContactedProviderIds] = useState(new Set());
+
   /**
-   * Handle calling the provider
+   * Handle calling the provider — marks provider as contacted
    */
-  const handleCallProvider = (phone, providerName) => {
+  const handleCallProvider = (phone, providerName, providerId) => {
     if (!phone) {
       Alert.alert('Error', 'Phone number not available');
       return;
@@ -401,7 +404,7 @@ const CreateServiceRequestScreen = ({ navigation }) => {
 
     // Format phone number for dialing
     const phoneNumber = phone.replace(/\s/g, '');
-    const url = Platform.OS === 'ios' ? `tel:${phoneNumber}` : `tel:${phoneNumber}`;
+    const url = `tel:${phoneNumber}`;
 
     Alert.alert(
       '📞 Call Provider',
@@ -411,6 +414,10 @@ const CreateServiceRequestScreen = ({ navigation }) => {
         {
           text: 'Call Now',
           onPress: () => {
+            // Mark as contacted before opening dialer
+            if (providerId) {
+              setContactedProviderIds(prev => new Set(prev).add(providerId));
+            }
             Linking.canOpenURL(url)
               .then((supported) => {
                 if (supported) {
@@ -442,6 +449,12 @@ const CreateServiceRequestScreen = ({ navigation }) => {
 
     if (!provider?._id) {
       Alert.alert('Error', 'Provider information not found');
+      return;
+    }
+
+    // Require contact before booking
+    if (!contactedProviderIds.has(provider._id)) {
+      Alert.alert('Call First', 'Please call the provider to discuss your requirement before booking.', [{ text: 'OK' }]);
       return;
     }
 
@@ -595,35 +608,43 @@ const CreateServiceRequestScreen = ({ navigation }) => {
         {/* Action Buttons */}
         <View style={styles.providerActions}>
           {/* Call Button */}
-          {provider.phone && (
+          {(provider.phone || provider.verifiedPhone) && (
             <TouchableOpacity
               style={styles.callButton}
-              onPress={() => handleCallProvider(provider.phone, provider.name)}
+              onPress={() => handleCallProvider(provider.phone || provider.verifiedPhone, provider.name, provider._id)}
             >
-              <Text style={styles.callButtonText}>📞 Call</Text>
+              <Text style={styles.callButtonText}>
+                {contactedProviderIds.has(provider._id) ? '✅ Called' : '📞 Call'}
+              </Text>
             </TouchableOpacity>
           )}
 
-          {/* Book Button */}
-          <TouchableOpacity
-            style={[
-              styles.bookButton,
-              isBooking && styles.bookButtonDisabled,
-            ]}
-            onPress={() => handleBookProvider(provider)}
-            disabled={isBooking}
-          >
-            {isBooking ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.bookButtonText}>📋 Book Provider</Text>
-            )}
-          </TouchableOpacity>
+          {/* Book Button — only enabled after contacting */}
+          {contactedProviderIds.has(provider._id) ? (
+            <TouchableOpacity
+              style={[
+                styles.bookButton,
+                isBooking && styles.bookButtonDisabled,
+              ]}
+              onPress={() => handleBookProvider(provider)}
+              disabled={isBooking}
+            >
+              {isBooking ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.bookButtonText}>📋 Book Provider</Text>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <View style={[styles.bookButton, { backgroundColor: '#E5E7EB' }]}>
+              <Text style={[styles.bookButtonText, { color: '#999' }]}>Call first to book</Text>
+            </View>
+          )}
         </View>
 
         {/* Instructions */}
         <Text style={styles.providerInstructions}>
-          💡 Call to discuss, then tap "Book Provider" to send request
+          💡 Call to discuss your issue, then book the provider
         </Text>
       </View>
     );

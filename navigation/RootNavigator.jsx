@@ -52,6 +52,7 @@ import {
   FavoritesScreen,
   PortfolioEditScreen,
   SubscriptionScreen,
+  VerificationDashboardScreen,
 } from '../src/screens';
 
 const Stack = createNativeStackNavigator();
@@ -178,10 +179,6 @@ const TabIcon = ({ focused, iconFamily, iconName, label, isProvider = false }) =
  * Shared Tab Bar Styles - Production Grade
  */
 const getTabBarStyle = (insets, isProvider = false) => ({
-  position: 'absolute',
-  bottom: 0,
-  left: 0,
-  right: 0,
   height: 65 + (Platform.OS === 'ios' ? insets.bottom : 0),
   paddingTop: 10,
   paddingBottom: Platform.OS === 'ios' ? insets.bottom : 12,
@@ -204,6 +201,8 @@ const UserTabNavigator = () => {
   
   return (
     <Tab.Navigator
+      initialRouteName="HomeTab"
+      backBehavior="initialRoute"
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
@@ -280,6 +279,8 @@ const ProviderTabNavigator = () => {
   
   return (
     <Tab.Navigator
+      initialRouteName="HomeTab"
+      backBehavior="initialRoute"
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
@@ -547,6 +548,11 @@ const ProviderMainNavigator = () => {
       <Stack.Screen 
         name="Subscription" 
         component={SubscriptionScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen 
+        name="VerificationDashboard" 
+        component={VerificationDashboardScreen}
         options={{ animation: 'slide_from_right' }}
       />
     </Stack.Navigator>

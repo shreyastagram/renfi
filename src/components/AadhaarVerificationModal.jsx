@@ -35,6 +35,7 @@ import {
   AppState,
 } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import { useApp } from '../context/AppContext';
 import { 
   initiateVerification, 
   openVerificationUrl, 
@@ -45,6 +46,7 @@ import {
 // Steps in the verification flow
 const STEPS = {
   INTRO: 'intro',
+  NAME_CONFIRM: 'name_confirm',
   VERIFYING: 'verifying',
   POLLING: 'polling',
   VERIFIED: 'verified',
@@ -52,6 +54,7 @@ const STEPS = {
 };
 
 const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
+  const { profile } = useApp();
   const [step, setStep] = useState(STEPS.INTRO);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -60,6 +63,9 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
   
   const appStateRef = useRef(AppState.currentState);
   const pollingRef = useRef(null);
+  
+  // Get provider name from context — profile uses fullName (merged from mongoData.name)
+  const providerName = profile?.fullName || profile?.name || '';
   
   // Reset state when modal opens
   useEffect(() => {
@@ -116,6 +122,19 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
             onVerified?.();
             onClose();
           }, 1500);
+        } else if (status === 'name_mismatch') {
+          const aadhaarName = params.get('aadhaarName') || '';
+          const message = params.get('message') || 'Name does not match your Aadhaar card';
+          setError(
+            `${message}\n\nName on Aadhaar: "${aadhaarName}"\n\nPlease update your name in Profile to match your Aadhaar card exactly, then try again.`
+          );
+          setStep(STEPS.ERROR);
+        } else if (status === 'name_retrieval_failed') {
+          const message = params.get('message') || 'Could not retrieve name from DigiLocker';
+          setError(
+            `${message}\n\nThis may be a temporary issue with DigiLocker. Please wait a moment and try again.`
+          );
+          setStep(STEPS.ERROR);
         } else if (status === 'failed' || status === 'error') {
           setError(params.get('message') || 'Verification failed');
           setStep(STEPS.ERROR);
@@ -168,6 +187,21 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
           onVerified?.();
           onClose();
         }, 1500);
+      } else if (result.status === 'name_mismatch') {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+        const aadhaarName = result.aadhaarName || '';
+        setError(
+          `Name mismatch detected!\n\nName on Aadhaar: "${aadhaarName}"\n\nPlease update your name in your Profile to match your Aadhaar card exactly, then try again.`
+        );
+        setStep(STEPS.ERROR);
+      } else if (result.status === 'name_retrieval_failed') {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+        setError(
+          result.message || 'Could not retrieve your name from DigiLocker. This may be a temporary issue — please try again.'
+        );
+        setStep(STEPS.ERROR);
       } else if (result.status === 'failed' || result.status === 'expired') {
         clearInterval(pollingRef.current);
         pollingRef.current = null;
@@ -177,8 +211,21 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
     }, 3000); // Poll every 3 seconds
   };
   
-  // Handle start verification
+  // Handle start verification — show name confirmation first
   const handleStartVerification = async () => {
+    // Check if provider has a name set
+    if (!providerName || providerName.trim().length < 2) {
+      setError('Please set your full name (as it appears on your Aadhaar card) in your Profile before starting verification.');
+      setStep(STEPS.ERROR);
+      return;
+    }
+    
+    // Show the name confirmation step
+    setStep(STEPS.NAME_CONFIRM);
+  };
+  
+  // Handle confirmed name — actually initiate verification
+  const handleNameConfirmed = async () => {
     setLoading(true);
     setError('');
     
@@ -198,7 +245,12 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
           setStep(STEPS.ERROR);
         }
       } else {
-        setError(result.error || 'Failed to start verification');
+        // Handle NAME_REQUIRED — provider must set their name first
+        if (result.code === 'NAME_REQUIRED') {
+          setError('Please set your full name (as it appears on your Aadhaar card) in your Profile before starting verification.');
+        } else {
+          setError(result.error || 'Failed to start verification');
+        }
         setStep(STEPS.ERROR);
       }
     } catch (err) {
@@ -233,6 +285,17 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
         onVerified?.();
         onClose();
       }, 1500);
+    } else if (result.status === 'name_mismatch') {
+      const aadhaarName = result.aadhaarName || '';
+      setError(
+        `Name mismatch!\n\nName on Aadhaar: "${aadhaarName}"\n\nUpdate your profile name to match your Aadhaar card, then try again.`
+      );
+      setStep(STEPS.ERROR);
+    } else if (result.status === 'name_retrieval_failed') {
+      setError(
+        result.message || 'Could not retrieve your name from DigiLocker. Please try again.'
+      );
+      setStep(STEPS.ERROR);
     } else if (result.status === 'pending') {
       Alert.alert(
         'Verification Pending',
@@ -280,6 +343,14 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
         </Text>
       </View>
       
+      <View style={styles.nameWarningNote}>
+        <MaterialIcon name="warning" size={16} color="#D97706" />
+        <Text style={styles.nameWarningText}>
+          Important: Your profile name must match your Aadhaar card exactly. 
+          Verification will be rejected if names don't match.
+        </Text>
+      </View>
+      
       <TouchableOpacity
         style={[styles.button, loading && styles.buttonDisabled]}
         onPress={handleStartVerification}
@@ -295,6 +366,59 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
         )}
       </TouchableOpacity>
     </>
+  );
+  
+  // Render name confirmation step — user must confirm their name before proceeding
+  const renderNameConfirmStep = () => (
+    <View style={styles.nameConfirmContainer}>
+      <View style={styles.nameConfirmIconRow}>
+        <MaterialIcon name="person" size={48} color="#2b76bc" />
+      </View>
+      <Text style={styles.nameConfirmTitle}>Confirm Your Name</Text>
+      <Text style={styles.nameConfirmDescription}>
+        Your profile name will be matched against the name on your Aadhaar card. 
+        Verification will fail if names don't match.
+      </Text>
+      
+      <View style={styles.nameDisplayBox}>
+        <Text style={styles.nameDisplayLabel}>Your Profile Name</Text>
+        <Text style={styles.nameDisplayValue}>{providerName}</Text>
+      </View>
+      
+      <Text style={styles.nameConfirmQuestion}>
+        Does this name match your Aadhaar card exactly?
+      </Text>
+      
+      <TouchableOpacity
+        style={[styles.button, loading && styles.buttonDisabled]}
+        onPress={handleNameConfirmed}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color="#FFFFFF" size="small" />
+        ) : (
+          <>
+            <MaterialIcon name="check" size={20} color="#FFFFFF" style={styles.buttonIcon} />
+            <Text style={styles.buttonText}>Yes, Name Matches — Proceed</Text>
+          </>
+        )}
+      </TouchableOpacity>
+      
+      <TouchableOpacity
+        style={styles.nameUpdateButton}
+        onPress={() => {
+          onClose();
+          Alert.alert(
+            'Update Your Name',
+            'Please go to your Profile and update your name to match your Aadhaar card exactly (including spelling and middle name), then return here to verify.',
+            [{ text: 'OK' }]
+          );
+        }}
+      >
+        <MaterialIcon name="edit" size={18} color="#EF4444" style={{ marginRight: 6 }} />
+        <Text style={styles.nameUpdateButtonText}>No, I Need to Update My Name</Text>
+      </TouchableOpacity>
+    </View>
   );
   
   // Render verifying step (waiting for user to return from browser)
@@ -394,20 +518,21 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
           style={styles.backdrop} 
           activeOpacity={1} 
           onPress={() => {
-            if (step === STEPS.INTRO || step === STEPS.ERROR) {
+            if (step === STEPS.INTRO || step === STEPS.ERROR || step === STEPS.NAME_CONFIRM) {
               onClose();
             }
           }}
         />
         
         <View style={styles.modal}>
-          {(step === STEPS.INTRO || step === STEPS.ERROR) && (
+          {(step === STEPS.INTRO || step === STEPS.ERROR || step === STEPS.NAME_CONFIRM) && (
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <MaterialIcon name="close" size={24} color="#6B7280" />
             </TouchableOpacity>
           )}
           
           {step === STEPS.INTRO && renderIntroStep()}
+          {step === STEPS.NAME_CONFIRM && renderNameConfirmStep()}
           {step === STEPS.VERIFYING && renderVerifyingStep()}
           {step === STEPS.POLLING && renderPollingStep()}
           {step === STEPS.ERROR && renderErrorStep()}
@@ -586,6 +711,92 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',
+  },
+  nameWarningNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+  },
+  nameWarningText: {
+    color: '#92400E',
+    fontSize: 13,
+    marginLeft: 8,
+    flex: 1,
+    lineHeight: 18,
+  },
+  nameConfirmContainer: {
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  nameConfirmIconRow: {
+    marginBottom: 16,
+  },
+  nameConfirmTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  nameConfirmDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+    paddingHorizontal: 8,
+  },
+  nameDisplayBox: {
+    backgroundColor: '#F0F9FF',
+    borderRadius: 12,
+    padding: 16,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#2b76bc',
+  },
+  nameDisplayLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  nameDisplayValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1F2937',
+    textAlign: 'center',
+  },
+  nameConfirmQuestion: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  nameUpdateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  nameUpdateButtonText: {
+    color: '#EF4444',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

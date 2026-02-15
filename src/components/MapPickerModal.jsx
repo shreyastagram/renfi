@@ -19,9 +19,9 @@ import {
   Platform,
   Animated,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Mapbox from '@rnmapbox/maps';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -128,6 +128,11 @@ const MapPickerModal = ({
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [isMapMoving, setIsMapMoving] = useState(false);
   
+  // Use a ref to track center during drag — avoids re-renders that cause jitter
+  const centerRef = useRef(getValidInitialLocation());
+  // Debounce timer for geocoding
+  const geocodeTimer = useRef(null);
+  
   // Animation for pin bounce
   const pinBounce = useRef(new Animated.Value(0)).current;
   
@@ -136,12 +141,16 @@ const MapPickerModal = ({
     if (visible) {
       const startLocation = initialLocation || DEFAULT_LOCATION;
       setCenterLocation(startLocation);
+      centerRef.current = startLocation;
       setSelectedAddress(null);
       setIsMapMoving(false);
       
       // Initial geocode
       handleRegionChange(startLocation.latitude, startLocation.longitude);
     }
+    return () => {
+      if (geocodeTimer.current) clearTimeout(geocodeTimer.current);
+    };
   }, [visible, initialLocation]);
   
   // Animate pin when map is moving
@@ -165,9 +174,11 @@ const MapPickerModal = ({
   
   /**
    * Handle map region change (when user drags the map)
+   * Only called on idle — does reverse geocoding
    */
   const handleRegionChange = useCallback(async (latitude, longitude) => {
     setCenterLocation({ latitude, longitude });
+    centerRef.current = { latitude, longitude };
     setIsLoading(true);
     
     try {
@@ -181,25 +192,33 @@ const MapPickerModal = ({
   }, []);
   
   /**
-   * Handle map camera change
+   * Handle map camera change — only update ref, NOT state
+   * This prevents re-renders during pan gestures which cause jitter
    */
   const onCameraChanged = useCallback((event) => {
     const { center } = event.properties;
     if (center) {
-      setCenterLocation({
+      centerRef.current = {
         latitude: center[1],
         longitude: center[0],
-      });
+      };
     }
   }, []);
   
   /**
    * Handle map region did change (user stopped dragging)
+   * Read from ref (always fresh) instead of stale state closure
    */
   const onMapIdle = useCallback(() => {
     setIsMapMoving(false);
-    handleRegionChange(centerLocation.latitude, centerLocation.longitude);
-  }, [centerLocation, handleRegionChange]);
+    // Clear any pending geocode
+    if (geocodeTimer.current) clearTimeout(geocodeTimer.current);
+    // Small debounce to avoid rapid successive geocode calls
+    geocodeTimer.current = setTimeout(() => {
+      const loc = centerRef.current;
+      handleRegionChange(loc.latitude, loc.longitude);
+    }, 150);
+  }, [handleRegionChange]);
   
   /**
    * Handle confirm location

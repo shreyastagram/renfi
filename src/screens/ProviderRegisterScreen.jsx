@@ -16,7 +16,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -25,6 +24,7 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Geolocation from '@react-native-community/geolocation';
 import { Button, Input, Alert, FixhomiLogo } from '../components';
 import { registerProvider, getErrorMessage, AUTH_CODES } from '../services/authService';

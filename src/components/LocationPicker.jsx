@@ -266,9 +266,9 @@ const SavedAddressItem = ({ address, onSelect }) => {
     <TouchableOpacity 
       style={styles.savedAddressItem} 
       onPress={() => onSelect({
-        latitude: address.location?.coordinates?.[1] || address.latitude,
-        longitude: address.location?.coordinates?.[0] || address.longitude,
-        address: address.fullAddress || address.address,
+        latitude: address.location?.coordinates?.[1] || address.location?.latitude || address.latitude,
+        longitude: address.location?.coordinates?.[0] || address.location?.longitude || address.longitude,
+        address: address.fullAddress || address.formattedAddress || address.address || `${address.addressLine1}, ${address.city}`,
         shortAddress: address.label || address.addressLine1,
         addressLine1: address.addressLine1 || '',
         city: address.city || '',

@@ -9,7 +9,7 @@
  * @version 1.0.0
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ import {
   Platform,
   Modal,
   Image,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -40,6 +41,7 @@ import {
   sendEmailVerification,
 } from '../services/authService';
 import { getAadhaarStatus } from '../services/aadhaarService';
+import { getVerificationDashboard } from '../services/verificationService';
 import SavedAddresses from '../components/SavedAddresses';
 
 // Cloudinary config
@@ -141,17 +143,28 @@ const InfoRow = ({ label, value, iconName, verified, onVerify, isLoading }) => (
 /**
  * Editable Field
  */
-const EditableField = ({ label, value, onChangeText, placeholder, editable = true }) => (
+const EditableField = ({ label, value, onChangeText, placeholder, editable = true, locked = false, lockMessage }) => (
   <View style={styles.fieldContainer}>
-    <Text style={styles.fieldLabel}>{label}</Text>
+    <View style={styles.fieldLabelRow}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      {locked && (
+        <View style={styles.lockedBadge}>
+          <MaterialIcon name="lock" size={12} color="#6B7280" />
+          <Text style={styles.lockedBadgeText}>Locked</Text>
+        </View>
+      )}
+    </View>
     <TextInput
-      style={[styles.fieldInput, !editable && styles.fieldInputDisabled]}
+      style={[styles.fieldInput, (!editable || locked) && styles.fieldInputDisabled]}
       value={value}
       onChangeText={onChangeText}
       placeholder={placeholder}
       placeholderTextColor="#9CA3AF"
-      editable={editable}
+      editable={editable && !locked}
     />
+    {locked && lockMessage && (
+      <Text style={styles.fieldLockMessage}>{lockMessage}</Text>
+    )}
   </View>
 );
 
@@ -187,7 +200,13 @@ const ProfileScreen = ({ navigation, route }) => {
   const [verifyingPhone, setVerifyingPhone] = useState(false);
   const [verifyingEmail, setVerifyingEmail] = useState(false);
   const [phoneOtpSent, setPhoneOtpSent] = useState(false);
-  const [phoneOtp, setPhoneOtp] = useState('');
+  const [phoneOtp, setPhoneOtp] = useState(Array(6).fill(''));
+  const [otpFocusedIndex, setOtpFocusedIndex] = useState(-1);
+  
+  // OTP input refs & animations
+  const otpInputRefs = useRef([]);
+  const otpScaleAnims = useRef(Array(6).fill(null).map(() => new Animated.Value(1))).current;
+  const otpShakeAnim = useRef(new Animated.Value(0)).current;
   
   // Saved Addresses state
   const [showAddressesModal, setShowAddressesModal] = useState(false);
@@ -199,6 +218,15 @@ const ProfileScreen = ({ navigation, route }) => {
   // Aadhaar verification state (providers only)
   const [showAadhaarModal, setShowAadhaarModal] = useState(false);
   const [isAadhaarVerified, setIsAadhaarVerified] = useState(false);
+  const [isNameLocked, setIsNameLocked] = useState(false);
+  const [aadhaarName, setAadhaarName] = useState(null);
+  
+  // Premium subscription state (providers only)
+  const [isPremiumActive, setIsPremiumActive] = useState(false);
+  const [premiumDaysLeft, setPremiumDaysLeft] = useState(0);
+  
+  // Track original phone to detect changes
+  const [originalPhone, setOriginalPhone] = useState('');
   
   // Auto-open addresses modal if navigated with scrollToAddresses param
   useEffect(() => {
@@ -218,31 +246,49 @@ const ProfileScreen = ({ navigation, route }) => {
 
   // Initialize form data
   useEffect(() => {
+    const phoneValue = displayData?.phone || displayData?.phoneNumber || '';
     setFormData({
       fullName: displayData?.fullName || '',
-      phone: displayData?.phone || displayData?.phoneNumber || '',
+      phone: phoneValue,
       address: displayData?.address || '',
       city: displayData?.city || '',
       pincode: displayData?.pincode || '',
       experience: displayData?.experience || '',
     });
+    setOriginalPhone(phoneValue);
   }, [displayData?.fullName, displayData?.phone, displayData?.phoneNumber, displayData?.address, displayData?.city, displayData?.pincode, displayData?.experience]);
 
-  // Fetch Aadhaar verification status for providers
+  // Fetch Aadhaar verification status and premium status for providers
   useEffect(() => {
-    const fetchAadhaarStatus = async () => {
+    const fetchProviderStatus = async () => {
       if (isProvider) {
         try {
           const result = await getAadhaarStatus();
           if (result.success) {
             setIsAadhaarVerified(result.aadhaar?.isVerified || false);
+            setIsNameLocked(result.aadhaar?.isNameLocked || false);
+            setAadhaarName(result.aadhaar?.aadhaarName || null);
           }
         } catch (error) {
           console.log('Error fetching Aadhaar status:', error);
         }
+        // Fetch premium status from verification dashboard
+        try {
+          const pid = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+          if (pid) {
+            const dashResult = await getVerificationDashboard(pid);
+            if (dashResult.success && dashResult.data) {
+              setIsPremiumActive(dashResult.data.isPremiumActive || false);
+              const premStep = dashResult.data.steps?.find(s => s.id === 'premium');
+              setPremiumDaysLeft(premStep?.daysRemaining || 0);
+            }
+          }
+        } catch (error) {
+          console.log('Error fetching premium status:', error);
+        }
       }
     };
-    fetchAadhaarStatus();
+    fetchProviderStatus();
   }, [isProvider]);
 
   /**
@@ -262,9 +308,25 @@ const ProfileScreen = ({ navigation, route }) => {
         const result = await getAadhaarStatus();
         if (result.success) {
           setIsAadhaarVerified(result.aadhaar?.isVerified || false);
+          setIsNameLocked(result.aadhaar?.isNameLocked || false);
+          setAadhaarName(result.aadhaar?.aadhaarName || null);
         }
       } catch (error) {
         console.log('Error refreshing Aadhaar status:', error);
+      }
+      // Refresh premium status
+      try {
+        const pid = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+        if (pid) {
+          const dashResult = await getVerificationDashboard(pid);
+          if (dashResult.success && dashResult.data) {
+            setIsPremiumActive(dashResult.data.isPremiumActive || false);
+            const premStep = dashResult.data.steps?.find(s => s.id === 'premium');
+            setPremiumDaysLeft(premStep?.daysRemaining || 0);
+          }
+        }
+      } catch (error) {
+        console.log('Error refreshing premium status:', error);
       }
     }
     
@@ -282,6 +344,37 @@ const ProfileScreen = ({ navigation, route }) => {
       return;
     }
 
+    // Detect if phone number is being changed (for providers)
+    const normalizePhone = (p) => (p || '').replace(/[\s\-+]/g, '').replace(/^91/, '').slice(-10);
+    const phoneChanged = isProvider && 
+      normalizePhone(formData.phone) !== normalizePhone(originalPhone) && 
+      originalPhone.length > 0;
+    
+    // Warn user if phone is being changed — verification will reset
+    if (phoneChanged) {
+      return new Promise((resolve) => {
+        Alert.alert(
+          'Phone Number Change',
+          'Changing your phone number will reset your phone verification. You will need to re-verify with OTP.\n\nDo you want to continue?',
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => { setSaving(false); resolve(); } },
+            { 
+              text: 'Continue', 
+              style: 'destructive',
+              onPress: () => { performSave(userId); resolve(); }
+            },
+          ]
+        );
+      });
+    }
+
+    await performSave(userId);
+  };
+
+  /**
+   * Perform the actual profile save
+   */
+  const performSave = async (userId) => {
     setSaving(true);
     try {
       let result;
@@ -309,7 +402,17 @@ const ProfileScreen = ({ navigation, route }) => {
         await refreshProfile(userType, userId);
         await refreshVerificationStatus();
       } else {
-        Alert.alert('Error', getErrorMessage(result.error, 'Failed to update profile'));
+        // Handle specific error codes from backend
+        const errorCode = result.error?.code || result.error?.response?.data?.code;
+        if (errorCode === 'NAME_LOCKED') {
+          Alert.alert(
+            'Name Locked',
+            'Your name has been locked after Aadhaar verification and cannot be changed. This ensures your profile matches your verified identity.',
+            [{ text: 'OK' }]
+          );
+        } else {
+          Alert.alert('Error', getErrorMessage(result.error, 'Failed to update profile'));
+        }
       }
     } catch (error) {
       Alert.alert('Error', 'Something went wrong');
@@ -348,7 +451,15 @@ const ProfileScreen = ({ navigation, route }) => {
    * Handle phone OTP verification
    */
   const handleVerifyPhoneOtp = async () => {
-    if (phoneOtp.length !== 6) {
+    const otpCode = phoneOtp.join('');
+    if (otpCode.length !== 6) {
+      // Shake animation
+      Animated.sequence([
+        Animated.timing(otpShakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+        Animated.timing(otpShakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+        Animated.timing(otpShakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+        Animated.timing(otpShakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+      ]).start();
       Alert.alert('Error', 'Please enter a valid 6-digit OTP');
       return;
     }
@@ -356,14 +467,23 @@ const ProfileScreen = ({ navigation, route }) => {
     setVerifyingPhone(true);
     try {
       // Java Auth only needs OTP - phone is extracted from JWT token
-      const result = await verifyPhoneOtp(phoneOtp);
+      const result = await verifyPhoneOtp(otpCode);
       
       if (result.success) {
         Alert.alert('Success', 'Phone number verified successfully!');
         setPhoneOtpSent(false);
-        setPhoneOtp('');
+        setPhoneOtp(Array(6).fill(''));
         await refreshVerificationStatus();
       } else {
+        // Shake on error
+        Animated.sequence([
+          Animated.timing(otpShakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+          Animated.timing(otpShakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+          Animated.timing(otpShakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+          Animated.timing(otpShakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+        ]).start();
+        setPhoneOtp(Array(6).fill(''));
+        otpInputRefs.current[0]?.focus();
         Alert.alert('Error', getErrorMessage(result.error, 'Invalid OTP'));
       }
     } catch (error) {
@@ -372,6 +492,48 @@ const ProfileScreen = ({ navigation, route }) => {
       setVerifyingPhone(false);
     }
   };
+  
+  /**
+   * Handle OTP input change for individual boxes
+   */
+  const handleProfileOtpChange = useCallback((value, index) => {
+    const digit = value.replace(/[^0-9]/g, '');
+    
+    if (digit.length <= 1) {
+      const newOtp = [...phoneOtp];
+      newOtp[index] = digit;
+      setPhoneOtp(newOtp);
+      
+      // Pulse animation
+      if (digit) {
+        Animated.sequence([
+          Animated.timing(otpScaleAnims[index], { toValue: 1.15, duration: 80, useNativeDriver: true }),
+          Animated.spring(otpScaleAnims[index], { toValue: 1, friction: 3, useNativeDriver: true }),
+        ]).start();
+        
+        if (index < 5) otpInputRefs.current[index + 1]?.focus();
+      }
+    } else if (digit.length > 1) {
+      // Handle paste
+      const digits = digit.slice(0, 6).split('');
+      const newOtp = [...phoneOtp];
+      digits.forEach((d, i) => {
+        if (index + i < 6) newOtp[index + i] = d;
+      });
+      setPhoneOtp(newOtp);
+      const lastIndex = Math.min(index + digits.length - 1, 5);
+      otpInputRefs.current[lastIndex]?.focus();
+    }
+  }, [phoneOtp]);
+  
+  /**
+   * Handle OTP key press for backspace navigation
+   */
+  const handleProfileOtpKeyPress = useCallback((event, index) => {
+    if (event.nativeEvent.key === 'Backspace' && !phoneOtp[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+    }
+  }, [phoneOtp]);
 
   /**
    * Handle email verification
@@ -577,23 +739,23 @@ const ProfileScreen = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Header — Elevated with subtle gradient feel */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Icon name="arrow_back" size={24} color="#1F2937" />
+          <Icon name="arrow_back" size={22} color="#1F2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>
         {!isEditing ? (
           <TouchableOpacity style={styles.editButton} onPress={() => setIsEditing(true)}>
-            <Icon name="edit" size={20} color="#2b76bc" />
+            <MaterialIcon name="edit" size={18} color="#2b76bc" />
             <Text style={styles.editButtonText}>Edit</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity 
-            style={styles.editButton} 
+            style={[styles.editButton, styles.editButtonCancel]} 
             onPress={() => setIsEditing(false)}
           >
-            <Icon name="close" size={20} color="#EF4444" />
+            <MaterialIcon name="close" size={18} color="#EF4444" />
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
         )}
@@ -647,7 +809,15 @@ const ProfileScreen = ({ navigation, route }) => {
 
               {/* Name and Type */}
               <View style={styles.profileInfoColumn}>
-                <Text style={styles.profileName}>{displayData?.fullName || 'User'}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.profileName}>{displayData?.fullName || 'User'}</Text>
+                  {isProvider && isPremiumActive && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12 }}>
+                      <MaterialIcon name="workspace-premium" size={14} color="#F59E0B" />
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#D97706', marginLeft: 3 }}>PRO</Text>
+                    </View>
+                  )}
+                </View>
                 <View style={[styles.typeBadge, isProvider && styles.typeBadgeProvider]}>
                   <Icon name={isProvider ? 'provider' : 'user'} size={14} color={isProvider ? '#f67c16' : '#2b76bc'} />
                   <Text style={[styles.typeBadgeText, isProvider && styles.typeBadgeTextProvider]}>
@@ -758,26 +928,64 @@ const ProfileScreen = ({ navigation, route }) => {
               isLoading={verifyingPhone && !phoneOtpSent}
             />
 
-            {/* Phone OTP Input */}
+            {/* Phone OTP Input — Modern 6-box design */}
             {phoneOtpSent && (
-              <View style={styles.otpSection}>
-                <TextInput
-                  style={styles.otpInput}
-                  value={phoneOtp}
-                  onChangeText={setPhoneOtp}
-                  placeholder="Enter 6-digit OTP"
-                  keyboardType="number-pad"
-                  maxLength={6}
-                />
+              <View style={styles.otpSectionModern}>
+                <Text style={styles.otpSectionLabel}>Enter the 6-digit code</Text>
+                <Animated.View style={[
+                  styles.otpBoxesRow,
+                  { transform: [{ translateX: otpShakeAnim }] }
+                ]}>
+                  {phoneOtp.map((digit, index) => {
+                    const isFocused = otpFocusedIndex === index;
+                    const isFilled = !!digit;
+                    
+                    return (
+                      <Animated.View
+                        key={index}
+                        style={[
+                          styles.otpBoxWrapper,
+                          isFilled && styles.otpBoxWrapperFilled,
+                          isFocused && styles.otpBoxWrapperFocused,
+                          { transform: [{ scale: otpScaleAnims[index] }] },
+                        ]}
+                      >
+                        <TextInput
+                          ref={(ref) => (otpInputRefs.current[index] = ref)}
+                          style={[
+                            styles.otpBoxInput,
+                            isFilled && styles.otpBoxInputFilled,
+                            isFocused && styles.otpBoxInputFocused,
+                          ]}
+                          value={digit}
+                          onChangeText={(value) => handleProfileOtpChange(value, index)}
+                          onKeyPress={(event) => handleProfileOtpKeyPress(event, index)}
+                          onFocus={() => setOtpFocusedIndex(index)}
+                          onBlur={() => setOtpFocusedIndex(-1)}
+                          keyboardType="number-pad"
+                          maxLength={index === 0 ? 6 : 1}
+                          selectTextOnFocus
+                        />
+                      </Animated.View>
+                    );
+                  })}
+                </Animated.View>
                 <TouchableOpacity 
-                  style={styles.otpButton}
+                  style={[
+                    styles.otpVerifyButton,
+                    (verifyingPhone || phoneOtp.join('').length !== 6) && styles.otpVerifyButtonDisabled,
+                  ]}
                   onPress={handleVerifyPhoneOtp}
                   disabled={verifyingPhone}
+                  activeOpacity={0.8}
                 >
                   {verifyingPhone ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
-                    <Text style={styles.otpButtonText}>Verify</Text>
+                    <View style={styles.otpVerifyButtonContent}>
+                      <MaterialIcon name="verified" size={18} color="#FFFFFF" />
+                      <Text style={styles.otpVerifyButtonText}>Verify</Text>
+                    </View>
                   )}
                 </TouchableOpacity>
               </View>
@@ -797,11 +1005,23 @@ const ProfileScreen = ({ navigation, route }) => {
               <InfoRow
                 iconName="verified_user"
                 label="Aadhaar (KYC)"
-                value={isAadhaarVerified ? 'Identity Verified' : 'Not Verified'}
+                value={isAadhaarVerified 
+                  ? `Verified${aadhaarName ? ` as ${aadhaarName}` : ''}` 
+                  : 'Not Verified'}
                 verified={isAadhaarVerified}
                 onVerify={() => setShowAadhaarModal(true)}
                 isLoading={false}
               />
+            )}
+            
+            {/* Name locked notice after Aadhaar */}
+            {isProvider && isNameLocked && (
+              <View style={styles.nameLockNotice}>
+                <MaterialIcon name="lock" size={14} color="#2b76bc" />
+                <Text style={styles.nameLockNoticeText}>
+                  Name locked after Aadhaar verification
+                </Text>
+              </View>
             )}
             
             {/* Provider Aadhaar verification notice */}
@@ -835,6 +1055,8 @@ const ProfileScreen = ({ navigation, route }) => {
                 value={formData.fullName}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, fullName: text }))}
                 placeholder="Enter your full name"
+                locked={isProvider && isNameLocked}
+                lockMessage={isNameLocked ? `Verified as "${aadhaarName || formData.fullName}" via Aadhaar` : undefined}
               />
 
               <EditableField
@@ -843,6 +1065,16 @@ const ProfileScreen = ({ navigation, route }) => {
                 onChangeText={(text) => setFormData(prev => ({ ...prev, phone: text }))}
                 placeholder="Enter your phone number (e.g., +91XXXXXXXXXX)"
               />
+              
+              {/* Phone change warning */}
+              {isProvider && formData.phone !== originalPhone && originalPhone.length > 0 && (
+                <View style={styles.phoneChangeWarning}>
+                  <MaterialIcon name="warning" size={16} color="#F59E0B" />
+                  <Text style={styles.phoneChangeWarningText}>
+                    Changing your phone number will reset your phone verification. You'll need to re-verify via OTP.
+                  </Text>
+                </View>
+              )}
 
               <EditableField
                 label="Address"
@@ -1224,13 +1456,18 @@ const ProfileScreen = ({ navigation, route }) => {
                 onPress={() => navigation.navigate('Subscription')}
                 activeOpacity={0.7}
               >
-                <View style={[styles.addressesIconContainer, { backgroundColor: '#FEF3C7' }]}>
-                  <MaterialIcon name="workspace-premium" size={24} color="#F59E0B" />
+                <View style={[styles.addressesIconContainer, { backgroundColor: isPremiumActive ? '#ECFDF5' : '#FEF3C7' }]}>
+                  <MaterialIcon name="workspace-premium" size={24} color={isPremiumActive ? '#10B981' : '#F59E0B'} />
                 </View>
                 <View style={styles.addressesContent}>
-                  <Text style={styles.addressesTitle}>Go Premium</Text>
+                  <Text style={styles.addressesTitle}>
+                    {isPremiumActive ? 'Premium Active' : 'Go Premium'}
+                  </Text>
                   <Text style={styles.addressesSubtitle}>
-                    Get priority listing & reach more customers
+                    {isPremiumActive
+                      ? `${premiumDaysLeft} day${premiumDaysLeft !== 1 ? 's' : ''} remaining · Visible in all searches`
+                      : 'Get priority listing & reach more customers'
+                    }
                   </Text>
                 </View>
                 <MaterialIcon name="chevron-right" size={24} color="#9CA3AF" />
@@ -1280,47 +1517,58 @@ const ProfileScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F1F5F9',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 2,
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.3,
   },
   editButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 10,
+  },
+  editButtonCancel: {
+    backgroundColor: '#FEF2F2',
   },
   editButtonText: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#2b76bc',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   cancelButtonText: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#EF4444',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   content: {
     flex: 1,
@@ -1338,29 +1586,33 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   readOnlySection: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F1F5F9',
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     marginTop: 8,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   readOnlyNote: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#64748B',
     textAlign: 'center',
   },
 
-  // Profile Card
+  // Profile Card — Modern elevated design
   profileCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 20,
+    padding: 22,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   profileTopRow: {
     flexDirection: 'row',
@@ -1371,17 +1623,17 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 84,
+    height: 84,
+    borderRadius: 28,
     backgroundColor: '#2b76bc',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 84,
+    height: 84,
+    borderRadius: 28,
     borderWidth: 3,
     borderColor: '#2b76bc',
   },
@@ -1390,19 +1642,24 @@ const styles = StyleSheet.create({
   },
   cameraIconOverlay: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    bottom: -2,
+    right: -2,
+    width: 30,
+    height: 30,
+    borderRadius: 10,
     backgroundColor: '#2b76bc',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
   },
   profileInfoColumn: {
-    marginLeft: 16,
+    marginLeft: 18,
     flex: 1,
   },
   avatarProvider: {
@@ -1411,67 +1668,71 @@ const styles = StyleSheet.create({
   avatarText: {
     color: '#FFFFFF',
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   profileName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1F2937',
+    fontSize: 21,
+    fontWeight: '800',
+    color: '#0F172A',
     marginBottom: 8,
+    letterSpacing: -0.3,
   },
   typeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: 4,
+    gap: 5,
     backgroundColor: '#EFF6FF',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
   },
   typeBadgeProvider: {
     backgroundColor: '#FFF7ED',
+    borderColor: '#FED7AA',
   },
   typeBadgeText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#2b76bc',
   },
   typeBadgeTextProvider: {
     color: '#f67c16',
   },
-  // Image Picker Modal
+  // Image Picker Modal — Bottom sheet style
   imagePickerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(15,23,42,0.5)',
     justifyContent: 'flex-end',
   },
   imagePickerModal: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 24,
     paddingBottom: 40,
   },
   imagePickerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#0F172A',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 22,
   },
   imagePickerOption: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: '#F1F5F9',
     gap: 16,
   },
   imagePickerOptionText: {
     fontSize: 16,
-    color: '#1F2937',
-    fontWeight: '500',
+    color: '#0F172A',
+    fontWeight: '600',
   },
   imagePickerCancel: {
     justifyContent: 'center',
@@ -1481,30 +1742,34 @@ const styles = StyleSheet.create({
   imagePickerCancelText: {
     fontSize: 16,
     color: '#EF4444',
-    fontWeight: '600',
+    fontWeight: '700',
     textAlign: 'center',
   },
   verificationSummary: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
     marginBottom: 8,
+    flexWrap: 'wrap',
   },
   verificationItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F7',
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
     gap: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   verificationItemVerified: {
     backgroundColor: '#EFF6FF',
+    borderColor: '#DBEAFE',
   },
   verificationLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6B7280',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#94A3B8',
   },
   verificationLabelVerified: {
     color: '#2b76bc',
@@ -1514,181 +1779,333 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     backgroundColor: '#FFF7ED',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
+    padding: 14,
+    borderRadius: 12,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
   },
   verifyWarningText: {
     flex: 1,
     fontSize: 13,
-    color: '#f67c16',
+    color: '#C2410C',
+    fontWeight: '500',
+    lineHeight: 18,
   },
   aadhaarNotice: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     backgroundColor: '#FFF7ED',
-    padding: 12,
-    borderRadius: 8,
+    padding: 14,
+    borderRadius: 12,
     marginTop: 12,
-    borderLeftWidth: 3,
+    borderLeftWidth: 4,
     borderLeftColor: '#f67c16',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
   },
   aadhaarNoticeText: {
     flex: 1,
     fontSize: 13,
-    color: '#78350F',
+    color: '#9A3412',
+    fontWeight: '500',
+    lineHeight: 18,
   },
 
-  // Section
+  // Section — Elevated card design
   section: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    padding: 18,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   sectionHeader: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 12,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#94A3B8',
+    marginBottom: 14,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
 
-  // Info Row
+  // Info Row — Better spacing and visual weight
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: '#F1F5F9',
   },
   infoIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F3F4F6',
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   infoContent: {
     flex: 1,
   },
   infoLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 2,
+    fontSize: 11,
+    color: '#94A3B8',
+    marginBottom: 3,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   infoValue: {
     fontSize: 16,
-    color: '#1F2937',
-    fontWeight: '500',
+    color: '#0F172A',
+    fontWeight: '600',
   },
   verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     backgroundColor: '#EFF6FF',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
   },
   verifiedText: {
     fontSize: 12,
     color: '#2b76bc',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   verifyButton: {
     backgroundColor: '#f67c16',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-    minWidth: 70,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 10,
+    minWidth: 75,
     alignItems: 'center',
+    shadowColor: '#f67c16',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
   verifyButtonText: {
     fontSize: 13,
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: '700',
   },
 
-  // OTP Section
-  otpSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    gap: 12,
-  },
-  otpInput: {
-    flex: 1,
-    height: 44,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 16,
-    letterSpacing: 4,
-    textAlign: 'center',
-  },
-  otpButton: {
-    backgroundColor: '#f67c16',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  otpButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-
-  // Editable Field
-  fieldContainer: {
-    marginBottom: 16,
-  },
-  fieldLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
+  // OTP Section — Modern 6-box design
+  otpSectionModern: {
+    paddingVertical: 16,
+    paddingHorizontal: 4,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    marginTop: -4,
     marginBottom: 8,
-  },
-  fieldInput: {
-    height: 48,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    fontSize: 16,
-    color: '#1F2937',
+    borderColor: '#E2E8F0',
+  },
+  otpSectionLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: 14,
+  },
+  otpBoxesRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 14,
+    paddingHorizontal: 4,
+  },
+  otpBoxWrapper: {
+    width: 44,
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  fieldInputDisabled: {
-    backgroundColor: '#F3F4F6',
-    color: '#6B7280',
+  otpBoxWrapperFilled: {
+    borderColor: '#2b76bc',
+    backgroundColor: '#EFF6FF',
+    shadowColor: '#2b76bc',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 1,
   },
-
-  // Save Button
-  saveButton: {
+  otpBoxWrapperFocused: {
+    borderColor: '#f67c16',
+    backgroundColor: '#FFFBF5',
+    shadowColor: '#f67c16',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  otpBoxInput: {
+    width: '100%',
+    height: '100%',
+    fontSize: 22,
+    fontWeight: '800',
+    textAlign: 'center',
+    color: '#1E293B',
+    padding: 0,
+  },
+  otpBoxInputFilled: {
+    color: '#2b76bc',
+  },
+  otpBoxInputFocused: {
+    color: '#f67c16',
+  },
+  otpVerifyButton: {
+    backgroundColor: '#f67c16',
+    borderRadius: 12,
+    paddingVertical: 13,
+    marginHorizontal: 12,
+    shadowColor: '#f67c16',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  otpVerifyButtonDisabled: {
+    backgroundColor: '#CBD5E1',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  otpVerifyButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#f67c16',
-    height: 52,
+  },
+  otpVerifyButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  // Editable Field — Cleaner inputs
+  fieldContainer: {
+    marginBottom: 18,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#374151',
+    marginBottom: 8,
+    letterSpacing: 0.1,
+  },
+  fieldInput: {
+    height: 50,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
     borderRadius: 12,
-    marginTop: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#0F172A',
+    backgroundColor: '#FAFBFC',
+    fontWeight: '500',
+  },
+  fieldInputDisabled: {
+    backgroundColor: '#F1F5F9',
+    color: '#94A3B8',
+  },
+  fieldLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  lockedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    gap: 4,
+  },
+  lockedBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  fieldLockMessage: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  phoneChangeWarning: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FEF3C7',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    marginTop: -8,
+    gap: 8,
+  },
+  phoneChangeWarningText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#92400E',
+    lineHeight: 18,
+  },
+  nameLockNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginTop: -4,
+    marginBottom: 8,
+    marginLeft: 44,
+    gap: 6,
+  },
+  nameLockNoticeText: {
+    fontSize: 12,
+    color: '#2b76bc',
+    fontWeight: '500',
+  },
+
+  // Save Button — Premium look
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#f67c16',
+    height: 54,
+    borderRadius: 14,
+    marginTop: 16,
+    shadowColor: '#f67c16',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 5,
   },
   saveButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   
   // Service Categories Styles
@@ -1903,37 +2320,37 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   
-  // Saved Addresses Card
+  // Saved Addresses Card — Modern actionable card
   addressesCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    backgroundColor: '#FAFBFC',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
   },
   addressesIconContainer: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 16,
     backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   addressesContent: {
     flex: 1,
   },
   addressesTitle: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontWeight: '700',
+    color: '#0F172A',
   },
   addressesSubtitle: {
     fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
+    color: '#64748B',
+    marginTop: 3,
   },
   
   // Portfolio Section Styles

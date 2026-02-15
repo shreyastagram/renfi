@@ -19,6 +19,7 @@ import {
   isTokenExpired 
 } from '../utils/storage';
 import { logout as apiLogout } from '../services/authService';
+import { syncPhoneToMongoDB } from '../services/authService';
 import { fetchFullProfile, getCurrentUser, updateProviderOnlineStatus as apiUpdateOnlineStatus, updateProviderProfile as apiUpdateProviderProfile } from '../services/profileService';
 import { saveFcmTokenForUser, saveFcmTokenForProvider, setupForegroundMessageListener, setupTokenRefreshListener } from '../services/fcmService';
 import { validateAndRefreshTokens } from '../services/apiClient';
@@ -153,7 +154,13 @@ export const AppProvider = ({ children }) => {
     });
     
     if (result.success && result.data) {
-      setProfile(prev => ({ ...prev, ...result.data }));
+      // Preserve verification fields from previous state — sync result (MongoDB) doesn't include them
+      setProfile(prev => ({
+        ...prev,
+        ...result.data,
+        isEmailVerified: result.data.isEmailVerified ?? prev?.isEmailVerified,
+        isPhoneVerified: result.data.isPhoneVerified ?? prev?.isPhoneVerified,
+      }));
       setUser(prev => ({
         ...prev,
         fullName: updates.name || updates.fullName || prev?.fullName,
@@ -177,13 +184,18 @@ export const AppProvider = ({ children }) => {
       const result = await fetchFullProfile(type, mongoId);
       
       if (result.success) {
-        setProfile(result.data);
+        // Preserve verification fields — they come from Java Auth and must not be lost
+        setProfile(prev => ({
+          ...result.data,
+          isEmailVerified: result.data.isEmailVerified ?? prev?.isEmailVerified ?? false,
+          isPhoneVerified: result.data.isPhoneVerified ?? prev?.isPhoneVerified ?? false,
+        }));
         
         // Update user state with verification status
         setUser(prev => ({
           ...prev,
-          isEmailVerified: result.data.isEmailVerified,
-          isPhoneVerified: result.data.isPhoneVerified,
+          isEmailVerified: result.data.isEmailVerified ?? prev?.isEmailVerified ?? false,
+          isPhoneVerified: result.data.isPhoneVerified ?? prev?.isPhoneVerified ?? false,
         }));
         
         console.log('✅ [AppContext] Profile refreshed');
@@ -238,6 +250,28 @@ export const AppProvider = ({ children }) => {
           isActive: data.isActive ?? true,
           role: data.role || prev?.role,
         }));
+
+        // === SYNC PHONE TO MONGODB ===
+        // After OTP verification, Java Auth has the latest phone data
+        // but MongoDB still has the old/empty data. Sync it now.
+        const mongoId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+        if (mongoId && data.phoneNumber) {
+          console.log('📱 [AppContext] Syncing verified phone to MongoDB...');
+          syncPhoneToMongoDB({
+            mongoId,
+            userType: userType || 'provider',
+            phoneNumber: data.phoneNumber,
+            isPhoneVerified: data.isPhoneVerified,
+          }).then(syncResult => {
+            if (syncResult.success) {
+              console.log('✅ [AppContext] Phone synced to MongoDB');
+            } else {
+              console.warn('⚠️ [AppContext] Phone sync to MongoDB failed:', syncResult.error);
+            }
+          }).catch(err => {
+            console.warn('⚠️ [AppContext] Phone sync error:', err.message);
+          });
+        }
         
         console.log('✅ [AppContext] Verification status updated');
         return { isEmailVerified: data.isEmailVerified, isPhoneVerified: data.isPhoneVerified };

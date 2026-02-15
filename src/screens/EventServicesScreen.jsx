@@ -34,7 +34,7 @@ import { useApp } from '../context/AppContext';
 import { useLocation } from '../context/LocationContext';
 import { NODE_BASE_URL } from '../config/api';
 import { addToFavorites, checkIsFavorite } from '../services/favoritesService';
-import { initiateCall } from '../services/callService';
+import MapPickerModal from '../components/MapPickerModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -206,14 +206,14 @@ const EventProviderCard = ({ provider, onViewDetails, onContact }) => {
         style={styles.viewButton}
         onPress={() => onViewDetails(provider)}
       >
-        <Text style={styles.viewButtonText}>View Portfolio</Text>
+        <Text style={styles.viewButtonText}>View Details</Text>
       </TouchableOpacity>
       <TouchableOpacity 
         style={styles.contactButton}
         onPress={() => onContact(provider)}
       >
-        <MaterialIcon name="chat" size={18} color={BRAND.white} />
-        <Text style={styles.contactButtonText}>Contact</Text>
+        <MaterialIcon name="phone" size={18} color={BRAND.white} />
+        <Text style={styles.contactButtonText}>Call</Text>
       </TouchableOpacity>
     </View>
   </TouchableOpacity>
@@ -224,7 +224,7 @@ const EventProviderCard = ({ provider, onViewDetails, onContact }) => {
  * Provider Details Modal - Production Grade
  * Shows comprehensive provider information for event services
  */
-const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContactProvider, sending }) => {
+const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContactProvider, sending, hasContacted }) => {
   if (!provider) return null;
   
   const openLink = (urlInput) => {
@@ -479,8 +479,14 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
               <Text style={styles.callProviderText}>Call</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={styles.sendRequestButton}
-              onPress={() => onBookNow(provider)}
+              style={[styles.sendRequestButton, !hasContacted && { opacity: 0.5 }]}
+              onPress={() => {
+                if (!hasContacted) {
+                  Alert.alert('Call First', 'Please call the provider to discuss your requirements before booking.', [{ text: 'OK' }]);
+                  return;
+                }
+                onBookNow(provider);
+              }}
               disabled={sending}
             >
               {sending ? (
@@ -488,7 +494,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
               ) : (
                 <>
                   <MaterialIcon name="event" size={20} color="#FFFFFF" />
-                  <Text style={styles.sendRequestText}>Book Now</Text>
+                  <Text style={styles.sendRequestText}>{hasContacted ? 'Book Now' : 'Call First'}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -522,6 +528,11 @@ const EventServicesScreen = ({ navigation }) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [eventDescription, setEventDescription] = useState('');
   const [eventVenue, setEventVenue] = useState('');
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [venueCoords, setVenueCoords] = useState(null); // { latitude, longitude }
+  
+  // Track which providers the user has called (call-before-book enforcement)
+  const [contactedProviderIds, setContactedProviderIds] = useState(new Set());
   
   // Get user location from context
   const { selectedLocation } = useLocation();
@@ -593,13 +604,19 @@ const EventServicesScreen = ({ navigation }) => {
   };
   
   /**
-   * Handle contact provider (Exotel masked call)
+   * Handle contact provider (direct phone call)
    */
   const handleContactProvider = async (provider) => {
-    if (!provider?._id) {
-      Alert.alert('Error', 'Provider information not available');
+    const phone = provider?.phone || provider?.verifiedPhone;
+    if (!phone) {
+      Alert.alert('Error', 'Provider phone number not available');
       return;
     }
+
+    // Clean phone number — ensure it starts with country code
+    const cleanPhone = phone.replace(/[\s\-()]/g, '');
+    const phoneNumber = cleanPhone.startsWith('+') ? cleanPhone : 
+                        cleanPhone.startsWith('91') ? `+${cleanPhone}` : `+91${cleanPhone}`;
 
     Alert.alert(
       'Contact Provider',
@@ -608,27 +625,12 @@ const EventServicesScreen = ({ navigation }) => {
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Call',
-          onPress: async () => {
-            try {
-              const result = await initiateCall({
-                receiverId: provider._id,
-                callerType: 'user',
-                serviceType: 'event',
-              });
-
-              if (result.success) {
-                Alert.alert(
-                  'Connecting Call',
-                  'You will receive a call shortly. Once you pick up, we will connect you to the provider.',
-                  [{ text: 'OK' }]
-                );
-              } else {
-                Alert.alert('Call Failed', result.error || 'Unable to connect. Please try again.');
-              }
-            } catch (error) {
-              console.error('[EventServices] Call error:', error);
-              Alert.alert('Error', 'Something went wrong. Please try again.');
-            }
+          onPress: () => {
+            // Track that user has contacted this provider
+            setContactedProviderIds(prev => new Set(prev).add(provider._id));
+            Linking.openURL(`tel:${phoneNumber}`).catch(() => {
+              Alert.alert('Error', 'Unable to make a call. Please check your phone settings.');
+            });
           },
         },
       ]
@@ -639,11 +641,21 @@ const EventServicesScreen = ({ navigation }) => {
    * Open booking modal - Production-grade booking flow
    */
   const handleOpenBooking = (provider) => {
+    // Enforce call-before-book: user must call provider first
+    if (!contactedProviderIds.has(provider._id)) {
+      Alert.alert(
+        'Call First',
+        'Please call the provider to discuss your requirements before booking.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
     setSelectedProvider(provider);
     setShowDetails(false);
     setEventDate(new Date());
     setEventDescription('');
     setEventVenue('');
+    setVenueCoords(null);
     setShowBookingModal(true);
   };
   
@@ -663,20 +675,23 @@ const EventServicesScreen = ({ navigation }) => {
     }
     
     if (!eventVenue.trim()) {
-      Alert.alert('Error', 'Please enter the event venue/address');
+      Alert.alert('Error', 'Please select the event venue using the map');
       return;
     }
     
     setSendingRequest(true);
     
     try {
-      // Build location data from user's input and current location
+      // Build location data from map-picked venue coordinates
       const locationData = {
         address: eventVenue.trim(),
-        coordinates: selectedLocation?.coordinates ? [
+        coordinates: venueCoords ? [
+          venueCoords.longitude,
+          venueCoords.latitude
+        ] : (selectedLocation?.coordinates ? [
           selectedLocation.coordinates.longitude,
           selectedLocation.coordinates.latitude
-        ] : null,
+        ] : null),
         landmark: '',
       };
       
@@ -806,6 +821,7 @@ const EventServicesScreen = ({ navigation }) => {
             setStep('select');
             setSelectedService(null);
             setProviders([]);
+            setContactedProviderIds(new Set()); // Reset per search session
           }
         }}
       >
@@ -901,6 +917,7 @@ const EventServicesScreen = ({ navigation }) => {
         onBookNow={handleOpenBooking}
         onContactProvider={handleContactProvider}
         sending={sendingRequest}
+        hasContacted={selectedProvider ? contactedProviderIds.has(selectedProvider._id) : false}
       />
 
       {/* Booking Modal - Date Selection & Confirmation */}
@@ -1000,30 +1017,84 @@ const EventServicesScreen = ({ navigation }) => {
                 />
               </View>
 
-              {/* Event Venue/Location */}
+              {/* Event Venue/Location - Map Picker */}
               <View style={styles.bookingSection}>
                 <Text style={styles.bookingSectionTitle}>
                   <MaterialIcon name="location-on" size={16} color={BRAND.primary} /> Event Venue *
                 </Text>
-                <TextInput
-                  style={styles.eventVenueInput}
-                  placeholder="Enter event address (e.g., Hotel Grand, MG Road, Mumbai)"
-                  placeholderTextColor="#9CA3AF"
-                  value={eventVenue}
-                  onChangeText={setEventVenue}
-                  multiline
-                  numberOfLines={2}
-                  textAlignVertical="top"
-                />
-                {selectedLocation?.address && (
-                  <TouchableOpacity 
-                    style={styles.useCurrentLocationBtn}
-                    onPress={() => setEventVenue(selectedLocation.address)}
+                
+                {/* Selected venue display */}
+                {eventVenue ? (
+                  <TouchableOpacity
+                    style={styles.venueSelectedCard}
+                    onPress={() => setShowMapPicker(true)}
+                    activeOpacity={0.7}
                   >
-                    <MaterialIcon name="my-location" size={16} color={BRAND.secondary} />
-                    <Text style={styles.useCurrentLocationText}>Use current location</Text>
+                    <View style={styles.venueSelectedRow}>
+                      <View style={styles.venueIconWrap}>
+                        <MaterialIcon name="place" size={24} color={BRAND.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.venueSelectedAddress} numberOfLines={2}>
+                          {eventVenue}
+                        </Text>
+                        {venueCoords && (
+                          <Text style={styles.venueCoordsText}>
+                            {venueCoords.latitude.toFixed(4)}, {venueCoords.longitude.toFixed(4)}
+                          </Text>
+                        )}
+                      </View>
+                      <MaterialIcon name="edit" size={18} color="#9CA3AF" />
+                    </View>
                   </TouchableOpacity>
+                ) : (
+                  <View style={styles.venueButtonsRow}>
+                    {/* Pick on Map */}
+                    <TouchableOpacity
+                      style={styles.venueMapButton}
+                      onPress={() => setShowMapPicker(true)}
+                    >
+                      <MaterialIcon name="map" size={22} color={BRAND.white} />
+                      <Text style={styles.venueMapButtonText}>Pick on Map</Text>
+                    </TouchableOpacity>
+                    
+                    {/* Use Current Location */}
+                    {selectedLocation?.coordinates && (
+                      <TouchableOpacity
+                        style={styles.venueCurrentButton}
+                        onPress={() => {
+                          setEventVenue(selectedLocation.address || 'Current Location');
+                          setVenueCoords({
+                            latitude: selectedLocation.coordinates.latitude,
+                            longitude: selectedLocation.coordinates.longitude,
+                          });
+                        }}
+                      >
+                        <MaterialIcon name="my-location" size={22} color={BRAND.secondary} />
+                        <Text style={styles.venueCurrentButtonText}>Current Location</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 )}
+                
+                {/* MapPickerModal */}
+                <MapPickerModal
+                  visible={showMapPicker}
+                  onClose={() => setShowMapPicker(false)}
+                  onLocationSelect={(location) => {
+                    setEventVenue(location.address || location.shortAddress || 'Selected Location');
+                    setVenueCoords({
+                      latitude: location.latitude,
+                      longitude: location.longitude,
+                    });
+                    setShowMapPicker(false);
+                  }}
+                  initialLocation={venueCoords || (selectedLocation?.coordinates ? {
+                    latitude: selectedLocation.coordinates.latitude,
+                    longitude: selectedLocation.coordinates.longitude,
+                  } : null)}
+                  title="Select Event Venue"
+                />
               </View>
 
               {/* Summary */}
@@ -1789,6 +1860,73 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#1F2937',
     minHeight: 60,
+  },
+  venueButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  venueMapButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: BRAND.primary,
+    borderRadius: 14,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  venueMapButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: BRAND.white,
+  },
+  venueCurrentButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EFF6FF',
+    borderRadius: 14,
+    paddingVertical: 14,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  venueCurrentButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: BRAND.secondary,
+  },
+  venueSelectedCard: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  venueSelectedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  venueIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  venueSelectedAddress: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    lineHeight: 20,
+  },
+  venueCoordsText: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 2,
   },
   useCurrentLocationBtn: {
     flexDirection: 'row',

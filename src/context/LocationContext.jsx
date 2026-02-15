@@ -389,6 +389,10 @@ export const LocationProvider = ({ children }) => {
    */
   useEffect(() => {
     const init = async () => {
+      // Small delay to ensure Android Activity is fully attached
+      // Prevents: "Tried to use permissions API while not attached to an Activity"
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       // Fetch location immediately
       await fetchLocation(true);
       
@@ -438,9 +442,10 @@ export const LocationProvider = ({ children }) => {
     requestPermission,
     openLocationSettings,
     
-    // Formatted display
+    // Formatted display — prefer short address, never show raw coordinates
     displayAddress: locationAddress?.shortAddress || 
-      (currentLocation ? `${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)}` : 'Getting location...'),
+      locationAddress?.city ||
+      (currentLocation ? 'Location detected ✓' : 'Getting location...'),
   };
   
   return (

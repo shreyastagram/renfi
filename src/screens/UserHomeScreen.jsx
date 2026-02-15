@@ -49,7 +49,7 @@ import {
   getProviderDetails,
   retryProviderSearch,
 } from '../services/traditionalServiceService';
-import { initiateCall } from '../services/callService';
+// Direct phone dialing - Exotel call masking removed
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -173,16 +173,22 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, contacted, c
           <Icon name="phone" size={22} color="#FFFFFF" />
         )}
       </TouchableOpacity>
-      <TouchableOpacity 
-        style={[styles.bookButton, booking && styles.bookButtonLoading]} 
-        onPress={(e) => {
-          e.stopPropagation();
-          onBook(provider);
-        }} 
-        disabled={booking}
-      >
-        {booking ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.bookButtonText}>Send Request</Text>}
-      </TouchableOpacity>
+      {contacted ? (
+        <TouchableOpacity 
+          style={[styles.bookButton, booking && styles.bookButtonLoading]} 
+          onPress={(e) => {
+            e.stopPropagation();
+            onBook(provider);
+          }} 
+          disabled={booking}
+        >
+          {booking ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.bookButtonText}>Send Request</Text>}
+        </TouchableOpacity>
+      ) : (
+        <View style={[styles.bookButton, { backgroundColor: '#E5E7EB' }]}>
+          <Text style={[styles.bookButtonText, { color: '#9CA3AF', fontSize: 13 }]}>Call first to book</Text>
+        </View>
+      )}
     </View>
   </TouchableOpacity>
 );
@@ -239,8 +245,8 @@ const UserHomeScreen = ({ navigation }) => {
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        // More sensitive to vertical movement for better drag from top
-        return Math.abs(gestureState.dy) > 5;
+        // Very sensitive to vertical movement for easy drag
+        return Math.abs(gestureState.dy) > 3;
       },
       onPanResponderGrant: () => {
         // Store current height when gesture starts
@@ -263,26 +269,24 @@ const UserHomeScreen = ({ navigation }) => {
         
         let targetHeight = SHEET_MID_HEIGHT;
         
-        // Lower velocity threshold for easier swiping
-        if (Math.abs(velocity) > 0.3) {
+        // Very low velocity threshold for easier swiping in both directions
+        if (Math.abs(velocity) > 0.15) {
           if (velocity < 0) {
             // Swiping up fast
             targetHeight = SHEET_MAX_HEIGHT;
           } else {
-            // Swiping down fast - easier to go down from max
-            if (currentHeightRef.current >= SHEET_MAX_HEIGHT * 0.9) {
-              // From near max, go to mid
+            // Swiping down — always step down one level
+            if (currentHeightRef.current >= SHEET_MAX_HEIGHT * 0.7) {
               targetHeight = SHEET_MID_HEIGHT;
             } else {
-              // From mid, go to min
               targetHeight = SHEET_MIN_HEIGHT;
             }
           }
-        } else if (Math.abs(dragDistance) > 50) {
-          // Even slow drags of 50px should trigger state change
+        } else if (Math.abs(dragDistance) > 30) {
+          // Even very small drags (30px) should trigger state change
           if (dragDistance > 0) {
-            // Dragging down
-            if (currentHeightRef.current >= SHEET_MAX_HEIGHT * 0.9) {
+            // Dragging down — step down one level
+            if (currentHeightRef.current >= SHEET_MAX_HEIGHT * 0.7) {
               targetHeight = SHEET_MID_HEIGHT;
             } else {
               targetHeight = SHEET_MIN_HEIGHT;
@@ -517,7 +521,13 @@ const UserHomeScreen = ({ navigation }) => {
       : currentLocation;
     
     if (!locationToUse) {
-      Alert.alert('Error', 'Please select a location for the service');
+      Alert.alert('Location Required', 'Please wait for your location to be detected, or select a saved address.');
+      return;
+    }
+    
+    // Validate location has actual coordinates (not just loading/partial)
+    if (!locationToUse.latitude || !locationToUse.longitude) {
+      Alert.alert('Location Incomplete', 'Your location is still being detected. Please wait a moment and try again.');
       return;
     }
 
@@ -598,51 +608,39 @@ const UserHomeScreen = ({ navigation }) => {
     }
   };
 
-  // Call masking state
+  // Direct call state
   const [callingProviderId, setCallingProviderId] = useState(null);
   const [contactedProviderIds, setContactedProviderIds] = useState(new Set());
 
   /**
-   * Initiate a masked call to a provider via Exotel.
-   * User's phone rings first, then the provider is connected.
-   * No real phone numbers are exposed to either party.
+   * Direct phone call to provider - opens native dialer
    */
-  const handleCallProvider = async (provider) => {
-    if (!provider?._id) {
-      Alert.alert('Error', 'Provider information not available');
+  const handleCallProvider = (provider) => {
+    const phone = provider?.phone || provider?.verifiedPhone;
+    if (!phone) {
+      Alert.alert('Phone Unavailable', 'This provider has not added their phone number yet. Try another provider.');
       return;
     }
 
-    // Prevent double-tap
-    if (callingProviderId) return;
+    const phoneNumber = phone.replace(/\s/g, '');
+    const url = `tel:${phoneNumber}`;
 
-    setCallingProviderId(provider._id);
-
-    try {
-      const result = await initiateCall({
-        receiverId: provider._id,
-        callerType: 'user',
-        serviceRequestId: createdRequest?._id || null,
-        serviceType: createdRequest ? 'traditional' : 'pre_booking',
-      });
-
-      if (result.success) {
-        // Mark provider as contacted
-        setContactedProviderIds(prev => new Set(prev).add(provider._id));
-        Alert.alert(
-          'Connecting Call',
-          'You will receive a call shortly. Once you pick up, we will connect you to the provider.',
-          [{ text: 'OK' }]
-        );
-      } else {
-        Alert.alert('Call Failed', result.error || 'Unable to connect the call. Please try again.');
-      }
-    } catch (error) {
-      console.error('[UserHomeScreen] Call error:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
-    } finally {
-      setCallingProviderId(null);
-    }
+    Alert.alert(
+      '📞 Call Provider',
+      `Call ${provider.name || 'Provider'} at ${phone}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Call Now',
+          onPress: () => {
+            setContactedProviderIds(prev => new Set(prev).add(provider._id));
+            Linking.openURL(url).catch(() => {
+              Alert.alert('Error', 'Unable to make phone calls on this device');
+            });
+          },
+        },
+      ]
+    );
   };
 
   /**
@@ -671,6 +669,10 @@ const UserHomeScreen = ({ navigation }) => {
 
   const handleBookProvider = async (provider) => {
     if (!createdRequest?._id) { Alert.alert('Error', 'Request not found'); return; }
+    if (!contactedProviderIds.has(provider._id)) {
+      Alert.alert('Call First', 'Please call the provider to discuss your requirement before sending a booking request.', [{ text: 'OK' }]);
+      return;
+    }
     setBookingProvider(provider._id);
     try {
       // Pass distance from provider object (from getNearbyProviders response)
@@ -695,6 +697,9 @@ const UserHomeScreen = ({ navigation }) => {
     setServiceDescription('');
     setCreatedRequest(null);
     setProviders([]);
+    setProviderDetailsVisible(false);
+    setSelectedProvider(null);
+    setContactedProviderIds(new Set()); // Reset per search session — don't carry over from previous bookings
     animateSheetTo(SHEET_MID_HEIGHT);
   };
 
@@ -773,10 +778,25 @@ const UserHomeScreen = ({ navigation }) => {
             
             {/* Create Request Button */}
             <View style={styles.createButtonContainer}>
+              {/* Location status hint — only show while actually waiting for first location */}
+              {!currentLocation && !serviceLocation && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 8, gap: 6 }}>
+                  <ActivityIndicator size="small" color="#6B7280" />
+                  <Text style={{ fontSize: 12, color: '#6B7280' }}>Detecting your location...</Text>
+                </View>
+              )}
+              {currentLocation && !serviceLocation && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 8, gap: 6 }}>
+                  <MaterialIcon name="check-circle" size={16} color="#10B981" />
+                  <Text style={{ fontSize: 12, color: '#10B981', fontWeight: '500' }}>
+                    {displayAddress || 'Location detected'}
+                  </Text>
+                </View>
+              )}
               <TouchableOpacity 
-                style={[styles.createButton, !selectedDateTime && styles.createButtonDisabled]} 
+                style={[styles.createButton, (!selectedDateTime || (!currentLocation && !serviceLocation)) && styles.createButtonDisabled]} 
                 onPress={handleCreateRequest} 
-                disabled={!selectedDateTime || creatingRequest}
+                disabled={!selectedDateTime || creatingRequest || (!currentLocation && !serviceLocation)}
               >
                 {creatingRequest ? (
                   <ActivityIndicator color="#fff" />
@@ -809,6 +829,13 @@ const UserHomeScreen = ({ navigation }) => {
                 <View style={styles.radiusRow}>
                   <Icon name="location" size={14} color="#6B7280" />
                   <Text style={styles.radiusText}>Within {(searchRadius / 1000).toFixed(1)}km</Text>
+                </View>
+              )}
+              {/* Contact-first tip */}
+              {!fetchingProviders && providers.length > 0 && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', borderRadius: 8, padding: 10, marginTop: 8, gap: 8 }}>
+                  <MaterialIcon name="info-outline" size={18} color="#D97706" />
+                  <Text style={{ flex: 1, fontSize: 12, color: '#92400E', lineHeight: 17 }}>Call and discuss your issue first, then send a booking request.</Text>
                 </View>
               )}
             </View>
@@ -1032,6 +1059,7 @@ const UserHomeScreen = ({ navigation }) => {
             handleCallProvider(selectedProvider);
           }
         }}
+        hasContacted={selectedProvider ? contactedProviderIds.has(selectedProvider._id) : false}
       />
     </View>
   );
@@ -1056,8 +1084,8 @@ const styles = StyleSheet.create({
   },
   topBarSpacer: { flex: 1 },
   bottomSheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: BRAND.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 8 },
-  sheetHandle: { alignItems: 'center', paddingTop: 12, paddingBottom: 12, minHeight: 32 },
-  sheetHandleBar: { width: 40, height: 4, backgroundColor: '#E5E7EB', borderRadius: 2 },
+  sheetHandle: { alignItems: 'center', paddingTop: 10, paddingBottom: 10, minHeight: 44 },
+  sheetHandleBar: { width: 48, height: 5, backgroundColor: '#C5C8CE', borderRadius: 3 },
   sheetContent: { flex: 1, paddingHorizontal: 16 },
   backRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 6 },
   backText: { fontSize: 16, color: BRAND.secondary, fontWeight: '600' },

@@ -27,6 +27,7 @@ import {
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import Geolocation from '@react-native-community/geolocation';
 import { addAddress, updateAddress } from '../services/addressService';
+import MapPickerModal from './MapPickerModal';
 
 // Brand colors - User side uses blue as accent
 const BRAND = {
@@ -162,13 +163,28 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
   // UI state
   const [saving, setSaving] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
+  const [locationName, setLocationName] = useState('');
   const [errors, setErrors] = useState({});
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  
+  // On edit, reverse geocode existing coordinates to show name
+  useEffect(() => {
+    if (latitude && longitude && !locationName) {
+      reverseGeocode(latitude, longitude).then(data => {
+        if (data) {
+          setLocationName(data.formattedAddress || data.addressLine1 || '');
+        }
+      });
+    }
+  }, []);
   
   /**
-   * Get current location and auto-fill address
+   * Get current location with 2-stage approach (fast cached → accurate)
+   * Matches the Uber/Ola pattern used in LocationContext
    */
   const handleUseCurrentLocation = useCallback(async () => {
     setGettingLocation(true);
+    setErrors(prev => ({ ...prev, location: null }));
     
     // Request permission on Android
     if (Platform.OS === 'android') {
@@ -195,38 +211,107 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
       }
     }
     
+    // Helper to apply location + auto-fill address
+    const applyLocation = async (lat, lng) => {
+      setLatitude(lat);
+      setLongitude(lng);
+      
+      const addressData = await reverseGeocode(lat, lng);
+      if (addressData) {
+        setLocationName(addressData.formattedAddress || addressData.addressLine1 || '');
+        if (!addressLine1) setAddressLine1(addressData.addressLine1);
+        if (!city) setCity(addressData.city);
+        if (!state) setState(addressData.state);
+        if (!pincode) setPincode(addressData.pincode);
+      } else {
+        setLocationName(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+      }
+      
+      setGettingLocation(false);
+      setErrors(prev => ({ ...prev, location: null }));
+    };
+    
+    let resolved = false;
+    
+    // STAGE 1: Try cached GPS (fast — accepts up to 2 min old data)
     Geolocation.getCurrentPosition(
-      async (position) => {
+      (position) => {
+        resolved = true;
         const { latitude: lat, longitude: lng } = position.coords;
-        setLatitude(lat);
-        setLongitude(lng);
+        console.log('[AddressForm] Fast cached location:', lat, lng);
+        applyLocation(lat, lng);
         
-        // Auto-fill address from coordinates
-        const addressData = await reverseGeocode(lat, lng);
-        if (addressData) {
-          if (!addressLine1) setAddressLine1(addressData.addressLine1);
-          if (!city) setCity(addressData.city);
-          if (!state) setState(addressData.state);
-          if (!pincode) setPincode(addressData.pincode);
+        // STAGE 2: Refine in background if accuracy > 100m
+        if (position.coords.accuracy > 100) {
+          Geolocation.getCurrentPosition(
+            (better) => applyLocation(better.coords.latitude, better.coords.longitude),
+            () => {},
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+          );
         }
-        
-        setGettingLocation(false);
-        setErrors(prev => ({ ...prev, location: null }));
       },
-      (error) => {
-        console.error('Location error:', error);
-        setGettingLocation(false);
-        Alert.alert(
-          'Location Error',
-          'Unable to get your location. Please try again or enter coordinates manually.'
+      () => {
+        // No cache — STAGE 2: Get fresh GPS with high accuracy
+        console.log('[AddressForm] No cache, trying fresh GPS...');
+        Geolocation.getCurrentPosition(
+          (position) => {
+            resolved = true;
+            applyLocation(position.coords.latitude, position.coords.longitude);
+          },
+          (error) => {
+            if (!resolved) {
+              resolved = true;
+              console.error('[AddressForm] GPS error:', error);
+              setGettingLocation(false);
+              Alert.alert(
+                'Location Error',
+                'Could not detect your location. Make sure GPS is enabled and try again.',
+                [{ text: 'OK' }]
+              );
+            }
+          },
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
         );
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 10000,
-      }
+      { enableHighAccuracy: false, timeout: 3000, maximumAge: 120000 }
     );
+    
+    // Safety timeout
+    setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        setGettingLocation(false);
+      }
+    }, 20000);
+  }, [addressLine1, city, state, pincode]);
+  
+  /**
+   * Clear the current location so user can re-pick
+   */
+  const handleClearLocation = useCallback(() => {
+    setLatitude(null);
+    setLongitude(null);
+    setLocationName('');
+  }, []);
+
+  /**
+   * Handle location selected from MapPickerModal
+   */
+  const handleMapPickerSelect = useCallback((location) => {
+    if (!location) return;
+    
+    setLatitude(location.latitude);
+    setLongitude(location.longitude);
+    setLocationName(location.address || location.shortAddress || 'Selected Location');
+    
+    // Auto-fill address fields from reverse geocoded data
+    if (location.addressLine1 && !addressLine1) setAddressLine1(location.addressLine1);
+    if (location.city && !city) setCity(location.city);
+    if (location.state && !state) setState(location.state);
+    if (location.pincode && !pincode) setPincode(location.pincode);
+    
+    setErrors(prev => ({ ...prev, location: null }));
+    setShowMapPicker(false);
   }, [addressLine1, city, state, pincode]);
   
   /**
@@ -366,42 +451,102 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
           />
         )}
         
-        {/* Location Button */}
+        {/* Location Section */}
         <Text style={styles.sectionTitle}>Location</Text>
-        <TouchableOpacity
-          style={[
-            styles.locationButton,
-            (latitude && longitude) && styles.locationButtonSuccess,
-            errors.location && styles.locationButtonError,
-          ]}
-          onPress={handleUseCurrentLocation}
-          disabled={gettingLocation}
-        >
-          {gettingLocation ? (
-            <ActivityIndicator size="small" color="#3B82F6" />
-          ) : (
+        
+        {(latitude && longitude) ? (
+          /* Location is set — show confirmation with place name and change/clear options */
+          <View style={[styles.locationButton, styles.locationButtonSuccess]}>
             <View style={styles.locationButtonIcon}>
-              <MaterialIcon 
-                name="my-location" 
-                size={22} 
-                color={(latitude && longitude) ? '#10B981' : '#3B82F6'} 
-              />
+              <MaterialIcon name="check-circle" size={22} color="#10B981" />
             </View>
-          )}
-          <View style={styles.locationButtonContent}>
-            <Text style={styles.locationButtonTitle}>
-              {(latitude && longitude) ? 'Location Set' : 'Use Current Location'}
-            </Text>
-            <Text style={styles.locationButtonSubtitle}>
-              {(latitude && longitude) 
-                ? `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
-                : 'Tap to detect your GPS location'}
-            </Text>
+            <View style={styles.locationButtonContent}>
+              <Text style={styles.locationButtonTitle}>Location Set</Text>
+              <Text style={[styles.locationButtonSubtitle, { color: '#374151' }]} numberOfLines={2}>
+                {locationName || 'Location detected'}
+              </Text>
+            </View>
+            <TouchableOpacity 
+              onPress={handleClearLocation}
+              style={{ padding: 8, backgroundColor: '#FEE2E2', borderRadius: 8 }}
+            >
+              <MaterialIcon name="close" size={18} color="#EF4444" />
+            </TouchableOpacity>
           </View>
-          {(latitude && longitude) && (
-            <MaterialIcon name="check-circle" size={24} color="#10B981" />
-          )}
-        </TouchableOpacity>
+        ) : (
+          /* No location — show two options: GPS + Map Picker */
+          <View>
+            <TouchableOpacity
+              style={[
+                styles.locationButton,
+                errors.location && styles.locationButtonError,
+              ]}
+              onPress={handleUseCurrentLocation}
+              disabled={gettingLocation}
+            >
+              {gettingLocation ? (
+                <ActivityIndicator size="small" color="#3B82F6" />
+              ) : (
+                <View style={styles.locationButtonIcon}>
+                  <MaterialIcon name="my-location" size={22} color="#3B82F6" />
+                </View>
+              )}
+              <View style={styles.locationButtonContent}>
+                <Text style={styles.locationButtonTitle}>Use Current Location</Text>
+                <Text style={styles.locationButtonSubtitle}>
+                  Tap to detect your GPS location
+                </Text>
+              </View>
+            </TouchableOpacity>
+            
+            {/* Pick from Map Button */}
+            <TouchableOpacity
+              style={styles.mapPickerButton}
+              onPress={() => setShowMapPicker(true)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.locationButtonIcon, { backgroundColor: '#FFF7ED' }]}>
+                <MaterialIcon name="map" size={22} color={BRAND.primary} />
+              </View>
+              <View style={styles.locationButtonContent}>
+                <Text style={styles.locationButtonTitle}>Choose on Map</Text>
+                <Text style={styles.locationButtonSubtitle}>
+                  Pick a location by moving the map
+                </Text>
+              </View>
+              <MaterialIcon name="chevron-right" size={22} color="#9CA3AF" />
+            </TouchableOpacity>
+          </View>
+        )}
+        {/* Always show option to re-detect or pick from map after location is set */}
+        {(latitude && longitude) && (
+          <View style={styles.locationActionsRow}>
+            <TouchableOpacity
+              style={styles.locationActionChip}
+              onPress={handleUseCurrentLocation}
+              disabled={gettingLocation}
+            >
+              {gettingLocation ? (
+                <ActivityIndicator size="small" color="#3B82F6" />
+              ) : (
+                <MaterialIcon name="my-location" size={16} color="#3B82F6" />
+              )}
+              <Text style={[styles.locationActionText, { color: '#3B82F6' }]}>
+                {gettingLocation ? 'Detecting...' : 'Re-detect GPS'}
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.locationActionChip, { backgroundColor: '#FFF7ED' }]}
+              onPress={() => setShowMapPicker(true)}
+            >
+              <MaterialIcon name="map" size={16} color={BRAND.primary} />
+              <Text style={[styles.locationActionText, { color: BRAND.primary }]}>
+                Pick on Map
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
         {errors.location && (
           <Text style={styles.errorText}>{errors.location}</Text>
         )}
@@ -485,6 +630,15 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
           )}
         </TouchableOpacity>
       </View>
+      
+      {/* Map Picker Modal */}
+      <MapPickerModal
+        visible={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+        onLocationSelect={handleMapPickerSelect}
+        initialLocation={(latitude && longitude) ? { latitude, longitude } : null}
+        title="Pick Address Location"
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -598,6 +752,35 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: BRAND.neutral,
     marginTop: 2,
+  },
+  mapPickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: BRAND.primary + '08',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: BRAND.primary + '30',
+    marginTop: 10,
+  },
+  locationActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+  },
+  locationActionChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    padding: 10,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 10,
+  },
+  locationActionText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   inputContainer: {
     marginBottom: 18,

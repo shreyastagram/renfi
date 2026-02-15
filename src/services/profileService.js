@@ -390,6 +390,10 @@ export const fetchFullProfile = async (userType, mongoId) => {
         locationTracking: mongoData.locationTracking || { enabled: false },
         currentLocation: mongoData.currentLocation || {},
         stats: mongoData.stats || {},
+        // Name lock + phone verification tracking
+        nameLockedAt: mongoData.nameLockedAt || null,
+        verifiedPhone: mongoData.verifiedPhone || null,
+        aadhaarVerification: mongoData.aadhaarVerification || {},
         // Portfolio fields for Photographers/Influencers
         bio: mongoData.bio || '',
         portfolioLinks: mongoData.portfolioLinks || {},
@@ -486,6 +490,19 @@ export const updateProviderProfile = async (providerId, updates) => {
     };
   } catch (error) {
     console.error('❌ [ProfileService] Update provider profile failed:', error.message);
+    
+    // Handle specific error codes from backend
+    const errorCode = error.response?.data?.code;
+    if (errorCode === 'NAME_LOCKED') {
+      return {
+        success: false,
+        error: { 
+          message: error.response.data.error || 'Name is locked after Aadhaar verification',
+          code: 'NAME_LOCKED',
+        },
+      };
+    }
+    
     const parsedError = parseApiError(error);
     return {
       success: false,

@@ -31,7 +31,7 @@ import {
   getProviderRequests,
   SERVICE_TYPE_LABELS,
 } from '../services/traditionalServiceService';
-import { initiateCall } from '../services/callService';
+// Direct phone dialing - Exotel call masking removed
 import { NODE_BASE_URL } from '../config/api';
 
 // Brand colors
@@ -415,36 +415,35 @@ const ProviderServiceHistoryScreen = ({ navigation }) => {
   };
 
   /**
-   * Handle call customer (Exotel masked call)
+   * Handle call customer - direct phone dialing
    */
-  const handleCall = async (request) => {
-    const userId = request.userId || request.userDetails?._id;
-    if (!userId) {
-      Alert.alert('Error', 'Customer information not available');
+  const handleCall = (request) => {
+    const phone = request.userDetails?.phone || request.userDetails?.verifiedPhone || request.userPhone;
+    const customerName = request.userDetails?.name || request.userName || 'Customer';
+    
+    if (!phone) {
+      Alert.alert('Error', 'Customer phone number not available');
       return;
     }
 
-    try {
-      const result = await initiateCall({
-        receiverId: userId,
-        callerType: 'provider',
-        serviceRequestId: request._id || null,
-        serviceType: request.isEventService ? 'event' : 'traditional',
-      });
+    const phoneNumber = phone.replace(/\s/g, '');
+    const url = `tel:${phoneNumber}`;
 
-      if (result.success) {
-        Alert.alert(
-          'Connecting Call',
-          'You will receive a call shortly. Once you pick up, we will connect you to the customer.',
-          [{ text: 'OK' }]
-        );
-      } else {
-        Alert.alert('Call Failed', result.error || 'Unable to connect. Please try again.');
-      }
-    } catch (error) {
-      console.error('[ProviderServiceHistory] Call error:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
-    }
+    Alert.alert(
+      '📞 Call Customer',
+      `Call ${customerName} at ${phone}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Call Now',
+          onPress: () => {
+            Linking.openURL(url).catch(() => {
+              Alert.alert('Error', 'Unable to make phone calls on this device');
+            });
+          },
+        },
+      ]
+    );
   };
 
   /**

@@ -33,7 +33,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
 import { startLocationTracking, stopLocationTracking } from '../services/socketService';
 import { Icon, FixhomiLogo } from '../components';
-import { NODE_BASE_URL } from '../config/api';
+import { NODE_BASE_URL, JAVA_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
 
 // Brand colors
@@ -158,6 +158,8 @@ const SettingsScreen = ({ navigation }) => {
   
   // Provider-specific state
   const [workingHours, setWorkingHours] = useState(displayData?.availability?.workingHours || {});
+  const [emergencyServicesEnabled, setEmergencyServicesEnabled] = useState(displayData?.emergencyServicesEnabled || false);
+  const [isUpdatingEmergency, setIsUpdatingEmergency] = useState(false);
   
   // Load saved preferences on mount
   useEffect(() => {
@@ -303,8 +305,9 @@ const SettingsScreen = ({ navigation }) => {
   useEffect(() => {
     if (displayData) {
       setWorkingHours(displayData.availability?.workingHours || getDefaultWorkingHours());
+      setEmergencyServicesEnabled(displayData.emergencyServicesEnabled || false);
     }
-  }, [displayData?.availability]);
+  }, [displayData?.availability, displayData?.emergencyServicesEnabled]);
   
   const getDefaultWorkingHours = () => ({
     monday: { start: '09:00', end: '18:00' },
@@ -406,6 +409,65 @@ const SettingsScreen = ({ navigation }) => {
   };
   
   /**
+   * Handle emergency hours toggle (12 AM – 6 AM availability)
+   */
+  const handleEmergencyServicesChange = async (value) => {
+    if (!userId || isUpdatingEmergency) return;
+
+    setIsUpdatingEmergency(true);
+    try {
+      const tokens = await getTokens();
+      const response = await fetch(`${NODE_BASE_URL}/api/provider/${userId}/emergency-services`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tokens?.accessToken}`,
+        },
+        body: JSON.stringify({ enabled: value }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setEmergencyServicesEnabled(value);
+        Alert.alert(
+          value ? 'Emergency Hours Enabled' : 'Emergency Hours Disabled',
+          value
+            ? 'You will now appear in search results during midnight hours (12 AM – 6 AM IST).'
+            : 'You will no longer appear in midnight hour searches.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', result.message || 'Failed to update emergency services setting');
+      }
+    } catch (error) {
+      console.error('❌ [Settings] Error updating emergency services:', error);
+      Alert.alert('Error', 'Failed to update emergency hours setting. Please check your connection.');
+    } finally {
+      setIsUpdatingEmergency(false);
+    }
+  };
+
+  /**
+   * Show info about emergency hours toggle
+   */
+  const showEmergencyServicesInfo = () => {
+    Alert.alert(
+      'Emergency Hours (12 AM – 6 AM)',
+      'This toggle controls your availability during midnight hours.\n\n' +
+      'When enabled:\n\n' +
+      '• You will appear in search results between 12 AM and 6 AM IST\n' +
+      '• Customers in need of urgent help can find and contact you\n' +
+      '• Only providers who opt in are shown during these hours\n\n' +
+      'When disabled:\n\n' +
+      '• You will not appear in searches during 12 AM – 6 AM IST\n' +
+      '• Your regular daytime availability is not affected\n\n' +
+      'Note: This applies to all service types. Event services are not affected by emergency hours.',
+      [{ text: 'Got it' }]
+    );
+  };
+
+  /**
    * Handle working hours edit
    */
   const handleEditWorkingHours = (day) => {
@@ -462,8 +524,8 @@ const SettingsScreen = ({ navigation }) => {
       setIsRequestingOtp(true);
       const tokens = await getTokens();
       
-      // Call Java Auth endpoint to request deletion OTP
-      const response = await fetch(`${NODE_BASE_URL}/api/auth/delete-account/request-otp`, {
+      // Call Java Auth directly (not via Node.js proxy) for reliable connectivity
+      const response = await fetch(`${JAVA_BASE_URL}/api/users/delete-account/request-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -473,9 +535,11 @@ const SettingsScreen = ({ navigation }) => {
 
       const result = await response.json();
 
-      if (response.ok && result.success) {
+      if (response.ok) {
         // OTP sent successfully - show OTP input modal
-        setMaskedPhone(result.maskedPhone || '******');
+        // Java Auth returns { message: "OTP sent to ******7890..." }
+        const phoneMask = result.message?.match(/\*{4,}\d{4}/)?.[0] || '******';
+        setMaskedPhone(result.maskedPhone || phoneMask);
         setDeleteOtpModalVisible(true);
       } else {
         Alert.alert('Error', result.message || 'Failed to send OTP. Please try again.');
@@ -501,8 +565,8 @@ const SettingsScreen = ({ navigation }) => {
       setIsDeletingAccount(true);
       const tokens = await getTokens();
       
-      // Call Java Auth endpoint to delete account with OTP verification
-      const response = await fetch(`${NODE_BASE_URL}/api/auth/account`, {
+      // Call Java Auth directly to verify OTP and delete auth account
+      const response = await fetch(`${JAVA_BASE_URL}/api/users/account`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -516,7 +580,23 @@ const SettingsScreen = ({ navigation }) => {
 
       const result = await response.json();
 
-      if (response.ok && result.success) {
+      // Attempt MongoDB cleanup via Node.js (non-blocking)
+      if (response.ok) {
+        try {
+          await fetch(`${NODE_BASE_URL}/api/auth/cleanup-account`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${tokens?.accessToken}`,
+            },
+            body: JSON.stringify({ reason: deleteReason || 'User requested deletion' }),
+          });
+        } catch (cleanupErr) {
+          console.warn('[Settings] MongoDB cleanup call failed (non-critical):', cleanupErr.message);
+        }
+      }
+
+      if (response.ok) {
         setDeleteOtpModalVisible(false);
         setDeleteOtp('');
         setDeleteReason('');
@@ -584,6 +664,16 @@ const SettingsScreen = ({ navigation }) => {
               onInfoPress={showLocationTrackingInfo}
               disabled={isUpdatingLocationTracking}
             />
+            
+            <ToggleRow
+              iconName="notification"
+              title="Emergency Hours (12–6 AM)"
+              subtitle={emergencyServicesEnabled ? 'You are searchable during midnight hours (12 AM – 6 AM IST)' : 'Toggle ON to be available during midnight hours'}
+              value={emergencyServicesEnabled}
+              onValueChange={handleEmergencyServicesChange}
+              onInfoPress={showEmergencyServicesInfo}
+              disabled={isUpdatingEmergency}
+            />
           </View>
         )}
         
@@ -591,6 +681,13 @@ const SettingsScreen = ({ navigation }) => {
         {isProvider && (
           <View style={styles.section}>
             <SectionHeader title="Verification" />
+            
+            <ActionRow
+              iconName="verified"
+              title="Verification Dashboard"
+              subtitle="View your 5-step verification progress"
+              onPress={() => navigation.navigate('VerificationDashboard')}
+            />
             
             <ActionRow
               iconName="document"
@@ -607,10 +704,17 @@ const SettingsScreen = ({ navigation }) => {
               onPress={() => navigation.navigate('DocumentVerification')}
             />
             
+            <ActionRow
+              iconName="star"
+              title="Premium Subscription"
+              subtitle={displayData?.isPremium ? 'Active — visible in Traditional & Event searches' : 'Subscribe to appear in search results'}
+              onPress={() => navigation.navigate('Subscription')}
+            />
+            
             <View style={styles.verificationNote}>
               <Icon name="info" size={16} color="#6B7280" />
               <Text style={styles.verificationNoteText}>
-                Complete service approval to receive service requests and get the verified badge on your profile.
+                Complete phone, email, Aadhaar verification and get service approval to appear in customer searches. Premium is required for Traditional & Event services.
               </Text>
             </View>
           </View>

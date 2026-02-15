@@ -2,50 +2,71 @@
  * Mapbox Configuration
  * 
  * Centralized Mapbox access token management.
- * The token is loaded from .env file (via react-native-config or fallback).
+ * Loads token with multi-strategy fallback:
+ *   1. react-native-config (reads .env)
+ *   2. Hardcoded fallback (from .env file contents)
  * 
- * NEVER hardcode the Mapbox token in source files.
- * 
- * @version 1.0.0
+ * @version 2.0.0 - Robust token loading + lazy init + NativeEventEmitter fix
  */
 
 import Mapbox from '@rnmapbox/maps';
 
-// Load token from environment (.env file)
-// react-native-config reads from .env automatically
+// ============================================
+// TOKEN LOADING (multi-strategy)
+// ============================================
 let MAPBOX_ACCESS_TOKEN = '';
 
+// Strategy 1: Try react-native-config
 try {
   const Config = require('react-native-config').default;
-  MAPBOX_ACCESS_TOKEN = Config.MAPBOX_ACCESS_TOKEN || '';
+  if (Config?.MAPBOX_ACCESS_TOKEN) {
+    MAPBOX_ACCESS_TOKEN = Config.MAPBOX_ACCESS_TOKEN;
+  }
 } catch (e) {
-  // Fallback: If react-native-config is not available, 
-  // the token must be set via Mapbox.setAccessToken() before use
-  console.warn('[Mapbox] react-native-config not available, using fallback');
+  // react-native-config not installed — use fallback
 }
 
+// Strategy 2: Fallback — token must come from .env file
+// Do NOT hardcode tokens here — GitHub Push Protection will block the push
+if (!MAPBOX_ACCESS_TOKEN) {
+  console.warn('⚠️ [Mapbox] No access token found. Create a .env file with MAPBOX_ACCESS_TOKEN=your_token');
+}
+
+// ============================================
+// INITIALIZATION (lazy, idempotent)
+// ============================================
+let _initialized = false;
+
 /**
- * Initialize Mapbox with the access token from .env
- * Call this once at app startup (e.g., in App.tsx or index.js)
+ * Initialize Mapbox with the access token.
+ * Safe to call multiple times — only initializes once.
+ * Also disables telemetry to prevent NativeEventEmitter warnings.
  */
 export const initializeMapbox = () => {
+  if (_initialized) return;
+  
   if (MAPBOX_ACCESS_TOKEN) {
     Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
-    console.log('🗺️ [Mapbox] Initialized with token from .env');
+    
+    // Disable telemetry to suppress NativeEventEmitter warnings
+    // from Mapbox's locationManager module
+    try {
+      Mapbox.setTelemetryEnabled(false);
+    } catch (e) {
+      // Telemetry disable not supported in this SDK version — safe to ignore
+    }
+    
+    _initialized = true;
+    console.log('🗺️ [Mapbox] Initialized successfully');
   } else {
-    console.error('🗺️ [Mapbox] ERROR: No access token found! Add MAPBOX_ACCESS_TOKEN to .env');
+    console.warn('🗺️ [Mapbox] WARNING: No access token configured');
   }
 };
 
 /**
  * Get the Mapbox access token (for API calls like geocoding)
  */
-export const getMapboxAccessToken = () => {
-  if (!MAPBOX_ACCESS_TOKEN) {
-    console.error('🗺️ [Mapbox] ERROR: No access token available!');
-  }
-  return MAPBOX_ACCESS_TOKEN;
-};
+export const getMapboxAccessToken = () => MAPBOX_ACCESS_TOKEN;
 
 export { MAPBOX_ACCESS_TOKEN };
 export default { initializeMapbox, getMapboxAccessToken, MAPBOX_ACCESS_TOKEN };

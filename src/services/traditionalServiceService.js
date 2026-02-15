@@ -873,26 +873,40 @@ export const resendCompletionOtp = async (requestId) => {
 };
 
 /**
- * Submit rating for a completed service
- * @param {string} requestId - Service request ID
- * @param {string} userId - User's MongoDB ID
+ * Submit rating for a completed service — CENTRALIZED
+ * Works for ALL service types (traditional, event, emergency).
+ * The backend auto-detects the service type from the request ID.
+ *
+ * @param {string} requestId - Service request MongoDB _id or requestId
+ * @param {string} userId - User's ID
  * @param {number} rating - Rating from 1-5
  * @param {string} review - Optional review text
  */
-export const submitRating = async (requestId, userId, rating, review = '') => {
+/**
+ * Submit a provider rating (centralized — provider-level, not service-level).
+ * @param {string} requestId  - The service request _id or requestId (used for verification & dedup)
+ * @param {string} userId     - The user submitting the rating
+ * @param {number} rating     - 1-5 stars
+ * @param {string} review     - Optional review text
+ * @param {string} providerId - The provider being rated (optional, resolved server-side if omitted)
+ */
+export const submitRating = async (requestId, userId, rating, review = '', providerId = null) => {
   try {
-    console.log('[TraditionalService] Submitting rating:', { requestId, userId, rating });
+    console.log('[Rating] Submitting:', { requestId, userId, rating, providerId });
 
-    const response = await fetch(`${NODE_BASE_URL}/api/traditional-services/${requestId}/rate`, {
+    const body = { userId, rating: Math.round(rating), review };
+    if (providerId) body.providerId = providerId;
+
+    const response = await fetch(`${NODE_BASE_URL}/api/ratings/${requestId}/rate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, rating, review }),
+      body: JSON.stringify(body),
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('[TraditionalService] Rating submission failed:', data);
+      console.error('[Rating] Failed:', data);
       return {
         success: false,
         error: data.error || data.message || 'Failed to submit rating',
@@ -900,7 +914,7 @@ export const submitRating = async (requestId, userId, rating, review = '') => {
       };
     }
 
-    console.log('[TraditionalService] Rating submitted successfully:', data);
+    console.log('[Rating] Success:', data);
 
     return {
       success: true,
@@ -908,11 +922,31 @@ export const submitRating = async (requestId, userId, rating, review = '') => {
       data: data.data,
     };
   } catch (error) {
-    console.error('[TraditionalService] Rating error:', error.message);
+    console.error('[Rating] Error:', error.message);
     return {
       success: false,
       error: error.message || 'Failed to submit rating',
     };
+  }
+};
+
+// Alias for backward compatibility
+export const submitEventRating = submitRating;
+
+/**
+ * Check if a service request has already been rated.
+ * @param {string} serviceRequestId - The service request _id
+ * @returns {{ rated: boolean, rating?: { rating, review, date } }}
+ */
+export const checkRatingStatus = async (serviceRequestId) => {
+  try {
+    const response = await fetch(`${NODE_BASE_URL}/api/ratings/check/${serviceRequestId}`);
+    const data = await response.json();
+    if (!response.ok) return { rated: false };
+    return data.data || { rated: false };
+  } catch (error) {
+    console.warn('[Rating] checkRatingStatus error:', error.message);
+    return { rated: false };
   }
 };
 
@@ -972,50 +1006,6 @@ export const getProviderDetails = async (providerId) => {
     return {
       success: false,
       error: error.message || 'Failed to get provider details',
-    };
-  }
-};
-
-/**
- * Submit a rating for a completed event service (photographer, influencer, etc.)
- * @param {string} requestId - The event service request ID
- * @param {string} userId - The user's ID
- * @param {number} rating - Rating value (1-5)
- * @param {string} review - Optional review text
- */
-export const submitEventRating = async (requestId, userId, rating, review = '') => {
-  try {
-    console.log('[EventService] Submitting rating:', { requestId, userId, rating });
-
-    const response = await fetch(`${NODE_BASE_URL}/api/event-services/${requestId}/rate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, rating, review }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error('[EventService] Rating submission failed:', data);
-      return {
-        success: false,
-        error: data.error || data.message || 'Failed to submit rating',
-        code: data.code,
-      };
-    }
-
-    console.log('[EventService] Rating submitted successfully:', data);
-
-    return {
-      success: true,
-      message: data.message || 'Rating submitted successfully',
-      data: data.data,
-    };
-  } catch (error) {
-    console.error('[EventService] Rating error:', error.message);
-    return {
-      success: false,
-      error: error.message || 'Failed to submit rating',
     };
   }
 };
@@ -1093,6 +1083,7 @@ export default {
   resendCompletionOtp,
   submitRating,
   submitEventRating,
+  checkRatingStatus,
   getProviderDetails,
   SERVICE_TYPES,
   SERVICE_TYPE_LABELS,

@@ -72,3 +72,6 @@ export { default as PortfolioEditScreen } from './PortfolioEditScreen';
 
 // Premium Subscription (Provider only)
 export { default as SubscriptionScreen } from './SubscriptionScreen';
+
+// Verification Dashboard (Provider only)
+export { default as VerificationDashboardScreen } from './VerificationDashboardScreen';

@@ -35,6 +35,7 @@ import {
   isConnected,
 } from '../services/socketService';
 import { getProviderRequests } from '../services/traditionalServiceService';
+import { getVerificationDashboard } from '../services/verificationService';
 import { NODE_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
 
@@ -114,6 +115,98 @@ const ActionCard = ({ iconName, title, subtitle, onPress, color }) => (
 );
 
 /**
+ * Verification Status Card — shows progress on ProviderHomeScreen
+ */
+const VerificationStatusCard = ({ dashboard, onPress }) => {
+  if (!dashboard) return null;
+
+  const steps = dashboard.steps || [];
+  const completed = steps.filter(s => s.completed).length;
+  const total = steps.length;
+  const isFullyVerified = dashboard.isFullyVerified;
+  const isPremium = dashboard.isPremiumActive || false;
+  const premiumStep = steps.find(s => s.id === 'premium');
+  const daysRemaining = premiumStep?.daysRemaining || 0;
+  const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  // Identity steps = all except premium (phone, email, aadhaar, service_approval)
+  const identitySteps = steps.filter(s => s.id !== 'premium');
+  const identityCompleted = identitySteps.filter(s => s.completed).length;
+  const identityTotal = identitySteps.length;
+  const identityDone = identityCompleted === identityTotal && identityTotal > 0;
+
+  // Check if provider has emergency service categories
+  const capabilities = dashboard.capabilities || {};
+  const hasEmergencyCategory = capabilities.hasEmergencyCategory || false;
+
+  // Fully ready = identity verified AND (premium active OR has emergency category)
+  const isFullyReady = identityDone && isPremium;
+
+  // Determine card color and messaging based on actual search visibility
+  const cardBg = isFullyReady ? '#ECFDF5' : identityDone ? (hasEmergencyCategory ? '#EFF6FF' : '#FFF7ED') : '#FFF7ED';
+  const cardBorder = isFullyReady ? '#10B98130' : identityDone ? (hasEmergencyCategory ? BRAND.secondary + '30' : BRAND.primary + '30') : BRAND.primary + '30';
+  const accentColor = isFullyReady ? '#10B981' : identityDone ? (hasEmergencyCategory ? BRAND.secondary : BRAND.primary) : BRAND.primary;
+
+  // Build title and subtitle based on actual status
+  let title, subtitle;
+  if (isFullyReady) {
+    title = '✅ Fully Verified & Active';
+    subtitle = `Premium active · ${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining · Visible in all searches`;
+  } else if (identityDone && !isPremium && hasEmergencyCategory) {
+    title = `✅ Identity Verified · ${percentage}%`;
+    subtitle = '🆓 Visible in Emergency searches (free) · Subscribe to Premium for Traditional & Event';
+  } else if (identityDone && !isPremium) {
+    title = `✅ Identity Verified · ${percentage}%`;
+    subtitle = '⚠️ Not visible in searches · Subscribe to Premium to appear in results';
+  } else {
+    title = `Verification: ${completed}/${total} complete`;
+    subtitle = 'Complete all steps to appear in customer searches';
+  }
+
+  return (
+    <TouchableOpacity 
+      style={[styles.verificationCard, { backgroundColor: cardBg, borderColor: cardBorder }]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.verificationCardContent}>
+        {/* Progress indicator */}
+        <View style={[styles.verificationProgress, { borderColor: accentColor + '40' }]}>
+          <Text style={[styles.verificationPercent, { color: accentColor }]}>
+            {percentage}%
+          </Text>
+        </View>
+
+        <View style={styles.verificationTextContent}>
+          <Text style={styles.verificationCardTitle}>
+            {title}
+          </Text>
+          <Text style={[styles.verificationCardSubtitle, identityDone && !isPremium && hasEmergencyCategory && { color: BRAND.secondary }, identityDone && !isPremium && !hasEmergencyCategory && { color: BRAND.primary }]}>
+            {subtitle}
+          </Text>
+        </View>
+
+        <Icon name="chevron-right" size={20} color={accentColor} />
+      </View>
+
+      {/* Mini step indicators */}
+      <View style={styles.verificationStepDots}>
+        {steps.map((step, i) => (
+          <View
+            key={step.id}
+            style={[
+              styles.verificationDot,
+              step.completed ? styles.verificationDotComplete : styles.verificationDotPending,
+              step.id === 'premium' && !step.completed && identityDone && styles.verificationDotPremium,
+            ]}
+          />
+        ))}
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+/**
  * Provider Home Screen Component
  */
 const ProviderHomeScreen = ({ navigation }) => {
@@ -130,6 +223,7 @@ const ProviderHomeScreen = ({ navigation }) => {
     earnings: 0,
     rating: 0,
   });
+  const [verificationDashboard, setVerificationDashboard] = useState(null);
 
   // Combined user data - single source of truth for availability
   const displayData = { ...user, ...profile };
@@ -143,19 +237,24 @@ const ProviderHomeScreen = ({ navigation }) => {
     if (!providerId) return;
 
     try {
-      // Fetch traditional and event services in parallel
-      const [traditionalResult, eventResult] = await Promise.all([
+      // Fetch traditional, event, and emergency services in parallel
+      const [traditionalResult, eventResult, emergencyResult] = await Promise.all([
         getProviderRequests(providerId, { limit: 500 }),
         fetch(`${NODE_BASE_URL}/api/event-services/provider/${providerId}`)
           .then(r => r.json())
-          .catch(() => ({ data: [] }))
+          .catch(() => ({ data: [] })),
+        fetch(`${NODE_BASE_URL}/api/emergency-services/provider/${providerId}`)
+          .then(r => r.json())
+          .catch(() => ({ requests: [] }))
       ]);
       
-      // Combine all requests
+      // Combine all requests from all three categories
       const traditionalRequests = traditionalResult.success && Array.isArray(traditionalResult.requests) 
         ? traditionalResult.requests : [];
       const eventRequests = Array.isArray(eventResult.data) ? eventResult.data : [];
-      const allRequests = [...traditionalRequests, ...eventRequests];
+      const emergencyRequests = Array.isArray(emergencyResult.requests) ? emergencyResult.requests 
+        : Array.isArray(emergencyResult.data) ? emergencyResult.data : [];
+      const allRequests = [...traditionalRequests, ...eventRequests, ...emergencyRequests];
       
       const pendingCount = allRequests.filter(r => 
         r.status === 'pending' || r.status === 'accepted'
@@ -182,11 +281,28 @@ const ProviderHomeScreen = ({ navigation }) => {
   }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id, user?.rating, profile?.rating]);
 
   /**
+   * Fetch verification dashboard data
+   */
+  const fetchVerificationData = useCallback(async () => {
+    const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+    if (!providerId) return;
+
+    try {
+      const result = await getVerificationDashboard(providerId);
+      if (result.success) {
+        setVerificationDashboard(result.data);
+      }
+    } catch (error) {
+      console.log('[ProviderHome] Verification dashboard fetch error:', error.message);
+    }
+  }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id]);
+
+  /**
    * Handle refresh
    */
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchStats();
+    await Promise.all([fetchStats(), fetchVerificationData()]);
     setRefreshing(false);
   };
 
@@ -234,8 +350,10 @@ const ProviderHomeScreen = ({ navigation }) => {
   useEffect(() => {
     const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
     const token = user?.accessToken || profile?.accessToken;
-    // Use the persisted setting from profile - only start if explicitly enabled
+    // Use the persisted setting from profile
     const locationTrackingEnabled = displayData?.locationTracking?.enabled === true;
+    // Check if provider has valid location set (null lat/lng = never reported)
+    const hasLocation = displayData?.location?.latitude != null && displayData?.location?.longitude != null;
     
     if (providerId) {
       // Initialize socket connection (if token available)
@@ -243,9 +361,15 @@ const ProviderHomeScreen = ({ navigation }) => {
         initializeSocket('provider', providerId, token);
       }
       
-      // Only start location tracking if enabled in settings (persisted in database)
-      if (locationTrackingEnabled) {
-        console.log('📍 [ProviderHome] Starting location tracking (enabled in settings)');
+      // Start location tracking if:
+      // 1. Explicitly enabled in settings, OR
+      // 2. Provider has NO location yet (first time — must report location to appear in searches)
+      if (locationTrackingEnabled || !hasLocation) {
+        if (!hasLocation) {
+          console.log('📍 [ProviderHome] No location set yet — auto-starting tracking so provider appears in searches');
+        } else {
+          console.log('📍 [ProviderHome] Starting location tracking (enabled in settings)');
+        }
         startLocationTracking(providerId);
       } else {
         console.log('📍 [ProviderHome] Location tracking not enabled in settings');
@@ -257,11 +381,20 @@ const ProviderHomeScreen = ({ navigation }) => {
     return () => {
       stopLocationTracking();
     };
-  }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id, displayData?.locationTracking?.enabled]);
+  }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id, displayData?.locationTracking?.enabled, displayData?.location?.latitude]);
 
   useEffect(() => {
     fetchStats();
-  }, [fetchStats]);
+    fetchVerificationData();
+  }, [fetchStats, fetchVerificationData]);
+
+  // Refresh verification data when screen regains focus (e.g., returning from Subscription/VerificationDashboard)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchVerificationData();
+    });
+    return unsubscribe;
+  }, [navigation, fetchVerificationData]);
 
   return (
     <View style={styles.container}>
@@ -313,6 +446,12 @@ const ProviderHomeScreen = ({ navigation }) => {
             disabled={isUpdatingAvailability}
           />
         </View>
+
+        {/* Verification Status Card */}
+        <VerificationStatusCard
+          dashboard={verificationDashboard}
+          onPress={() => navigation.navigate('VerificationDashboard')}
+        />
 
         {/* Stats Grid - Unified Brand Colors */}
         <View style={styles.statsGrid}>
@@ -510,6 +649,65 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6B7280',
     marginTop: 2,
+  },
+
+  // Verification Status Card
+  verificationCard: {
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 20,
+    borderWidth: 1,
+  },
+  verificationCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  verificationProgress: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    marginRight: 12,
+  },
+  verificationPercent: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  verificationTextContent: {
+    flex: 1,
+  },
+  verificationCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  verificationCardSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  verificationStepDots: {
+    flexDirection: 'row',
+    marginTop: 10,
+    gap: 6,
+  },
+  verificationDot: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+  },
+  verificationDotComplete: {
+    backgroundColor: '#10B981',
+  },
+  verificationDotPending: {
+    backgroundColor: '#E5E7EB',
+  },
+  verificationDotPremium: {
+    backgroundColor: BRAND.secondary + '60',
   },
 
   // Stats Grid

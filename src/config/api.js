@@ -187,6 +187,8 @@ export const ENDPOINTS = {
   AUTH: {
     REGISTER: '/api/auth/register',
     PROVIDER_REGISTER: '/api/auth/provider/register',
+    // Phone sync (Node.js - sync phone from Java Auth to MongoDB after OTP verification)
+    SYNC_PHONE: '/api/auth/sync-phone',
     // Session management (Java Auth)
     SESSIONS: '/api/auth/sessions',
     REVOKE_ALL: '/api/auth/sessions/revoke-all',

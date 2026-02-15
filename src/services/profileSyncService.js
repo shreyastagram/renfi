@@ -233,7 +233,7 @@ export const syncProviderToMongoDB = async (providerId, updates) => {
       delete mongoUpdates.phoneNumber;
     }
     
-    const response = await apiClient.put(`${ENDPOINTS.PROVIDER.UPDATE}/${providerId}`, mongoUpdates);
+    const response = await apiClient.put(`${ENDPOINTS.PROFILE.UPDATE_PROVIDER}/${providerId}`, mongoUpdates);
     
     console.log('✅ [ProfileSync] Synced provider to MongoDB:', response.data);
     

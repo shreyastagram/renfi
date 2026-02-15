@@ -1,18 +1,17 @@
 /**
- * Provider Jobs Screen (Unified)
+ * Provider Jobs Screen (Unified) — v2.0 Revamp
  * 
- * Combines Incoming Requests and Service History into one screen
- * with tab navigation for better UX.
+ * Compact, professional-grade My Jobs screen with:
+ * - Tight card layout — no wasted space
+ * - Fixed icons (no more ? glyphs)
+ * - Location visible before accepting/rejecting
+ * - View on Map button for all trackable categories
+ * - Inline header stats, tab badges
  * 
- * Tabs:
- * - Requests: Incoming pending requests to accept
- * - Active: Currently accepted/in-progress jobs
- * - History: Completed and cancelled jobs
- * 
- * @version 1.0.0
+ * @version 2.0.0
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -26,11 +25,13 @@ import {
   Modal,
   Platform,
   Linking,
-  Animated,
   ScrollView,
   Image,
+  AppState,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useIsFocused } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Icon, ServiceIcon, StatusIcon, FixhomiLogo } from '../components';
 import { useApp } from '../context/AppContext';
 import { NODE_BASE_URL } from '../config/api';
@@ -41,7 +42,10 @@ import {
   providerCancelRequest,
   SERVICE_TYPE_LABELS,
 } from '../services/traditionalServiceService';
-import { initiateCall } from '../services/callService';
+import { addEventListener as addSocketListener } from '../services/socketService';
+import { setupForegroundMessageListener } from '../services/fcmService';
+import { STATIC_NUMBER_SERVICES } from '../services/emergencyServicesService';
+// Direct phone dialing - Exotel call masking removed
 
 // Tab configuration - sleek with proper icons
 const TABS = [
@@ -55,37 +59,32 @@ const TABS = [
 const BRAND = {
   primary: '#f67c16', // Orange
   secondary: '#2b76bc', // Blue
-  background: '#faf7f7',
+  background: '#F5F5F7',
   white: '#FFFFFF',
+  success: '#10B981',
+  danger: '#EF4444',
+  text: '#1F2937',
+  textSecondary: '#6B7280',
+  textMuted: '#9CA3AF',
+  border: '#E5E7EB',
 };
 
-// Status colors - unified brand palette
+// Status colors — unified brand palette
 const STATUS_CONFIG = {
   pending: { label: 'Pending', color: BRAND.primary, bgColor: '#FFF7ED', iconName: 'clock' },
-  awaiting_confirmation: { label: 'Awaiting Your Confirmation', color: BRAND.primary, bgColor: '#FFF7ED', iconName: 'clock' },
+  awaiting_confirmation: { label: 'Awaiting', color: BRAND.primary, bgColor: '#FFF7ED', iconName: 'clock' },
   accepted: { label: 'Accepted', color: BRAND.secondary, bgColor: '#EFF6FF', iconName: 'check' },
-  'in-progress': { label: 'In Progress', color: BRAND.secondary, bgColor: '#EFF6FF', iconName: 'wrench' },
+  'in-progress': { label: 'In Progress', color: BRAND.secondary, bgColor: '#EFF6FF', iconName: 'in-progress' },
   in_transit: { label: 'On The Way', color: BRAND.secondary, bgColor: '#EFF6FF', iconName: 'truck-fast' },
   arrived: { label: 'Arrived', color: BRAND.secondary, bgColor: '#EFF6FF', iconName: 'map-marker-check' },
-  completed: { label: 'Completed', color: BRAND.secondary, bgColor: '#EFF6FF', iconName: 'check-circle' },
-  cancelled: { label: 'Cancelled', color: '#6B7280', bgColor: '#F5F5F7', iconName: 'close' },
-  rejected: { label: 'Rejected', color: '#EF4444', bgColor: '#FEE2E2', iconName: 'close-circle' },
-  expired: { label: 'Expired', color: '#6B7280', bgColor: '#F5F5F7', iconName: 'clock' },
+  completed: { label: 'Completed', color: BRAND.success, bgColor: '#ECFDF5', iconName: 'check-circle' },
+  cancelled: { label: 'Cancelled', color: BRAND.textSecondary, bgColor: '#F3F4F6', iconName: 'close' },
+  rejected: { label: 'Rejected', color: BRAND.danger, bgColor: '#FEE2E2', iconName: 'close-circle' },
+  expired: { label: 'Expired', color: BRAND.textSecondary, bgColor: '#F3F4F6', iconName: 'clock' },
 };
 
 /**
- * Stats Card Component - Brand themed
- */
-const StatsCard = ({ iconName, value, label, color, bgColor }) => (
-  <View style={[styles.statsCard, { backgroundColor: bgColor }]}>
-    <Icon name={iconName} size={18} color={color} />
-    <Text style={[styles.statsValue, { color }]}>{value}</Text>
-    <Text style={styles.statsLabel}>{label}</Text>
-  </View>
-);
-
-/**
- * Tab Bar Component - Sleek compact design
+ * Tab Bar Component — Compact pill style
  */
 const TabBar = ({ activeTab, onTabChange, stats }) => (
   <View style={styles.tabBar}>
@@ -105,13 +104,13 @@ const TabBar = ({ activeTab, onTabChange, stats }) => (
             onPress={() => onTabChange(tab.key)}
             activeOpacity={0.7}
           >
-            <Icon name={tab.icon} size={16} color={isActive ? BRAND.white : '#6B7280'} />
+            <Icon name={tab.icon} size={14} color={isActive ? BRAND.white : BRAND.textSecondary} />
             <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
               {tab.label}
             </Text>
             {tab.badge && badgeCount > 0 && (
               <View style={[styles.tabBadge, isActive && styles.tabBadgeActive]}>
-                <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
+                <Text style={styles.tabBadgeText}>
                   {badgeCount > 99 ? '99+' : badgeCount}
                 </Text>
               </View>
@@ -124,185 +123,181 @@ const TabBar = ({ activeTab, onTabChange, stats }) => (
 );
 
 /**
- * Job Card Component
+ * Compact Job Card — v2.0
+ * Tight layout, location always visible for pending, professional grade
  */
 const JobCard = ({ job, onAccept, onReject, onComplete, onCancel, onCall, onDirections, onViewDetails, isAccepting, isRejecting }) => {
   const status = STATUS_CONFIG[job.status] || STATUS_CONFIG.pending;
   const serviceDate = new Date(job.serviceDate || job.createdAt);
-  // Show accept/reject for both 'pending' (traditional) and 'awaiting_confirmation' (emergency assigned)
   const isPending = job.status === 'pending' || job.status === 'awaiting_confirmation';
   const isActive = ['accepted', 'in-progress'].includes(job.status);
+  const isCancelled = ['cancelled', 'rejected', 'expired'].includes(job.status);
+  const hasLocation = job.location?.coordinates || job.location?.latitude;
+  const isLocationTrackable = !STATIC_NUMBER_SERVICES.includes(job.serviceType);
+  const serviceAddress = job.serviceAddress || job.location?.address || 
+    (job.location?.latitude ? `${job.location.latitude.toFixed(4)}, ${job.location.longitude.toFixed(4)}` : null);
   
   return (
     <TouchableOpacity 
-      style={styles.jobCard} 
+      style={[styles.jobCard, isPending && styles.jobCardPending]}
       onPress={() => onViewDetails(job)}
       activeOpacity={0.7}
     >
-      {/* Header */}
-      <View style={styles.cardHeader}>
-        <View style={styles.serviceTypeContainer}>
-          <ServiceIcon serviceType={job.serviceType} size={32} />
-          <View style={styles.serviceTypeInfo}>
-            <Text style={styles.serviceType}>
-              {SERVICE_TYPE_LABELS[job.serviceType] || job.serviceType}
-            </Text>
-            <Text style={styles.requestId}>#{job.requestId}</Text>
-          </View>
+      {/* Row 1: Service + Status — Single tight row */}
+      <View style={styles.cardRow1}>
+        <View style={styles.serviceChip}>
+          <ServiceIcon serviceType={job.serviceType} size={18} />
+          <Text style={styles.serviceLabel} numberOfLines={1}>
+            {SERVICE_TYPE_LABELS[job.serviceType] || job.serviceType}
+          </Text>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: status.bgColor }]}>
-          <StatusIcon status={job.status} size={14} />
-          <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
+        <View style={[styles.statusPill, { backgroundColor: status.bgColor }]}>
+          <View style={[styles.statusDot, { backgroundColor: status.color }]} />
+          <Text style={[styles.statusLabel, { color: status.color }]}>{status.label}</Text>
         </View>
       </View>
 
-      {/* Customer Info */}
+      {/* Rejection / Cancellation Reason — compact strip */}
+      {isCancelled && (job.rejectReason || job.cancellationReason || job.cancelReason) && (
+        <View style={styles.reasonStrip}>
+          <Icon name="info" size={12} color="#92400E" />
+          <Text style={styles.reasonStripText} numberOfLines={1}>
+            {job.cancelledBy === 'user' ? 'User: ' : job.cancelledBy === 'provider' ? 'You: ' : ''}
+            {job.rejectReason || job.cancellationReason || job.cancelReason}
+          </Text>
+        </View>
+      )}
+
+      {/* Row 2: Customer + Quick Actions */}
       {job.userDetails && (
-        <View style={styles.customerSection}>
-          <View style={styles.customerInfo}>
+        <View style={styles.cardRow2}>
+          <View style={styles.customerChip}>
             {job.userDetails.profilePicture?.url ? (
-              <Image 
-                source={{ uri: job.userDetails.profilePicture.url }} 
-                style={styles.customerAvatarImage} 
-              />
+              <Image source={{ uri: job.userDetails.profilePicture.url }} style={styles.customerThumb} />
             ) : (
-              <View style={styles.customerAvatar}>
-                <Text style={styles.customerInitial}>
+              <View style={styles.customerThumbPlaceholder}>
+                <Text style={styles.customerThumbInitial}>
                   {job.userDetails.name?.charAt(0).toUpperCase() || 'C'}
                 </Text>
               </View>
             )}
-            <View style={styles.customerDetails}>
-              <Text style={styles.customerName}>{job.userDetails.name || 'Customer'}</Text>
-              {job.userDetails.phone && (
+            <View style={styles.customerMeta}>
+              <Text style={styles.customerName} numberOfLines={1}>{job.userDetails.name || 'Customer'}</Text>
+              {isActive && job.userDetails.phone && (
                 <Text style={styles.customerPhone}>{job.userDetails.phone}</Text>
               )}
             </View>
-            {/* Distance Badge */}
-            {job.distanceToService && (
-              <View style={styles.distanceBadge}>
-                <Icon name="location" size={12} color="#2563EB" />
-                <Text style={styles.distanceText}>{job.distanceToService.formatted}</Text>
-              </View>
-            )}
           </View>
           
-          {/* Quick Actions */}
-          {(isActive || job.status === 'completed') && (
+          {/* Quick Actions — Call & Directions for active jobs */}
+          {isActive && (
             <View style={styles.quickActions}>
-              {job.userDetails && (
-                <TouchableOpacity
-                  style={styles.quickActionBtn}
-                  onPress={() => onCall(job)}
-                >
-                  <Icon name="phone" size={18} color="#10B981" />
+              <TouchableOpacity style={styles.quickActionBtn} onPress={() => onCall(job)}>
+                <Icon name="phone" size={15} color={BRAND.success} />
+              </TouchableOpacity>
+              {hasLocation && isLocationTrackable && (
+                <TouchableOpacity style={styles.quickActionBtn} onPress={() => onDirections(job)}>
+                  <Icon name="directions" size={15} color={BRAND.secondary} />
                 </TouchableOpacity>
               )}
-              {job.location?.coordinates && (
-                <TouchableOpacity
-                  style={styles.quickActionBtn}
-                  onPress={() => onDirections(job)}
-                >
-                  <Icon name="directions" size={18} color="#3B82F6" />
-                </TouchableOpacity>
-              )}
+            </View>
+          )}
+          
+          {/* Distance badge for non-active */}
+          {!isActive && job.distanceToService && (
+            <View style={styles.distancePill}>
+              <Icon name="location" size={10} color={BRAND.secondary} />
+              <Text style={styles.distancePillText}>{job.distanceToService.formatted}</Text>
             </View>
           )}
         </View>
       )}
 
-      {/* Location */}
-      {(job.serviceAddress || job.location?.address || job.location?.latitude) && (
-        <View style={styles.locationRow}>
-          <Icon name="location" size={16} color="#EF4444" />
-          <Text style={styles.locationText} numberOfLines={2}>
-            {job.serviceAddress || job.location?.address || 
-              (job.location?.latitude ? `📍 ${job.location.latitude.toFixed(4)}, ${job.location.longitude.toFixed(4)}` : 'Location available')}
-          </Text>
-          {/* Show directions button for emergency services with coordinates */}
-          {job.isEmergencyService && job.location?.latitude && (
-            <TouchableOpacity 
-              style={styles.directionsButton}
-              onPress={() => onDirections(job)}
-            >
-              <Icon name="directions" size={16} color="#3B82F6" />
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      {/* Date & Distance */}
-      <View style={styles.infoRow}>
-        <View style={styles.infoItem}>
-          <Icon name="calendar" size={14} color="#6B7280" />
-          <Text style={styles.infoText}>
-            {serviceDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-          </Text>
-        </View>
-        {job.distance && (
-          <View style={styles.infoItem}>
-            <Icon name="location" size={14} color="#6B7280" />
-            <Text style={styles.infoText}>{(job.distance / 1000).toFixed(1)} km</Text>
+      {/* Row 3: Location + Date — Compact info strip */}
+      <View style={styles.cardInfoStrip}>
+        {serviceAddress && (
+          <View style={styles.infoChip}>
+            <Icon name="location" size={12} color={BRAND.danger} />
+            <Text style={styles.infoChipText} numberOfLines={1}>{serviceAddress}</Text>
           </View>
         )}
+        <View style={styles.infoChipRight}>
+          <Icon name="calendar" size={11} color={BRAND.textMuted} />
+          <Text style={styles.infoChipDate}>
+            {serviceDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+          </Text>
+          {job.distance && (
+            <>
+              <Text style={styles.infoDot}>·</Text>
+              <Text style={styles.infoChipDate}>{(job.distance / 1000).toFixed(1)} km</Text>
+            </>
+          )}
+        </View>
       </View>
 
-      {/* Description */}
+      {/* Description — Only if present, single line */}
       {job.description && (
-        <View style={styles.descriptionContainer}>
-          <Text style={styles.descriptionLabel}>Notes:</Text>
-          <Text style={styles.descriptionText} numberOfLines={2}>{job.description}</Text>
-        </View>
+        <Text style={styles.descriptionInline} numberOfLines={1}>
+          📝 {job.description}
+        </Text>
       )}
 
-      {/* Actions based on status */}
+      {/* PENDING: View on Map + Accept/Reject */}
       {isPending && (
-        <View style={styles.pendingActions}>
-          <TouchableOpacity
-            style={[styles.rejectBtn, isRejecting && styles.rejectBtnDisabled]}
-            onPress={() => onReject(job)}
-            disabled={isRejecting || isAccepting}
-          >
-            {isRejecting ? (
-              <ActivityIndicator color="#EF4444" size="small" />
-            ) : (
-              <>
-                <Icon name="close" size={18} color="#EF4444" />
-                <Text style={styles.rejectBtnText}>Reject</Text>
-              </>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.acceptBtn, isAccepting && styles.acceptBtnDisabled]}
-            onPress={() => onAccept(job)}
-            disabled={isAccepting || isRejecting}
-          >
-            {isAccepting ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <>
-                <Icon name="check" size={18} color="#fff" />
-                <Text style={styles.acceptBtnText}>Accept</Text>
-              </>
-            )}
-          </TouchableOpacity>
+        <View style={styles.pendingSection}>
+          {hasLocation && isLocationTrackable && (
+            <TouchableOpacity
+              style={styles.viewMapBtn}
+              onPress={() => onDirections(job)}
+              activeOpacity={0.7}
+            >
+              <Icon name="navigate" size={14} color={BRAND.secondary} />
+              <Text style={styles.viewMapBtnText}>View on Map</Text>
+              <Icon name="open-in-new" size={12} color={BRAND.secondary} style={{ marginLeft: 'auto' }} />
+            </TouchableOpacity>
+          )}
+          <View style={styles.pendingActionRow}>
+            <TouchableOpacity
+              style={[styles.rejectBtn, isRejecting && styles.btnDisabled]}
+              onPress={() => onReject(job)}
+              disabled={isRejecting || isAccepting}
+            >
+              {isRejecting ? (
+                <ActivityIndicator color={BRAND.danger} size="small" />
+              ) : (
+                <>
+                  <Icon name="close" size={15} color={BRAND.danger} />
+                  <Text style={styles.rejectBtnText}>Reject</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.acceptBtn, isAccepting && styles.btnDisabled]}
+              onPress={() => onAccept(job)}
+              disabled={isAccepting || isRejecting}
+            >
+              {isAccepting ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <Icon name="check" size={15} color="#fff" />
+                  <Text style={styles.acceptBtnText}>Accept</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 
+      {/* ACTIVE: Complete + Cancel */}
       {isActive && (
         <View style={styles.activeActions}>
-          <TouchableOpacity
-            style={styles.completeBtn}
-            onPress={() => onComplete(job)}
-          >
-            <Icon name="check-circle" size={18} color="#fff" />
+          <TouchableOpacity style={styles.completeBtn} onPress={() => onComplete(job)}>
+            <Icon name="check-circle" size={15} color="#fff" />
             <Text style={styles.completeBtnText}>Complete</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.cancelBtn}
-            onPress={() => onCancel(job)}
-          >
-            <Icon name="close" size={18} color="#EF4444" />
+          <TouchableOpacity style={styles.cancelBtn} onPress={() => onCancel(job)}>
+            <Icon name="close" size={15} color={BRAND.danger} />
           </TouchableOpacity>
         </View>
       )}
@@ -311,27 +306,20 @@ const JobCard = ({ job, onAccept, onReject, onComplete, onCancel, onCall, onDire
 };
 
 /**
- * Empty State Component
+ * Empty State Component — Compact
  */
 const EmptyState = ({ tab }) => {
-  const getMessage = () => {
-    switch (tab) {
-      case 'requests':
-        return { title: 'No New Requests', text: 'Stay online to receive requests from nearby customers!' };
-      case 'active':
-        return { title: 'No Active Jobs', text: 'Accept requests to see your active jobs here.' };
-      case 'history':
-        return { title: 'No History Yet', text: 'Your completed and cancelled jobs will appear here.' };
-      default:
-        return { title: 'No Jobs', text: 'No jobs to display.' };
-    }
+  const messages = {
+    requests: { title: 'No New Requests', text: 'Stay online to receive requests from nearby customers!' },
+    active: { title: 'No Active Jobs', text: 'Accept requests to see your active jobs here.' },
+    history: { title: 'No History Yet', text: 'Your completed jobs will appear here.' },
+    cancelled: { title: 'No Cancelled Jobs', text: 'Cancelled and rejected jobs show here.' },
   };
-  
-  const content = getMessage();
+  const content = messages[tab] || messages.requests;
   
   return (
     <View style={styles.emptyContainer}>
-      <FixhomiLogo size={64} color="#D1D5DB" />
+      <FixhomiLogo size={48} color="#D1D5DB" />
       <Text style={styles.emptyTitle}>{content.title}</Text>
       <Text style={styles.emptyText}>{content.text}</Text>
     </View>
@@ -339,16 +327,10 @@ const EmptyState = ({ tab }) => {
 };
 
 /**
- * OTP Verification Modal
+ * OTP Verification Modal — Compact
  */
 const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
   const [otp, setOtp] = useState('');
-  
-  const handleVerify = () => {
-    if (otp.length === 6) {
-      onVerify(otp);
-    }
-  };
   
   return (
     <Modal visible={visible} transparent animationType="slide">
@@ -357,19 +339,20 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>🔐 Enter Completion OTP</Text>
             <TouchableOpacity onPress={onClose} style={styles.modalClose}>
-              <Icon name="close" size={24} color="#6B7280" />
+              <Icon name="close" size={22} color={BRAND.textSecondary} />
             </TouchableOpacity>
           </View>
           
           <Text style={styles.modalSubtitle}>
-            Ask the customer for the 6-digit OTP they received to complete this service.
+            Ask the customer for the 6-digit OTP to complete this service.
           </Text>
           
           <TextInput
             style={styles.otpInput}
             value={otp}
             onChangeText={setOtp}
-            placeholder="Enter 6-digit OTP"
+            placeholder="000000"
+            placeholderTextColor="#D1D5DB"
             keyboardType="number-pad"
             maxLength={6}
             autoFocus
@@ -379,7 +362,7 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
           
           <TouchableOpacity
             style={[styles.verifyBtn, otp.length !== 6 && styles.verifyBtnDisabled]}
-            onPress={handleVerify}
+            onPress={() => { if (otp.length === 6) onVerify(otp); }}
             disabled={otp.length !== 6 || isVerifying}
           >
             {isVerifying ? (
@@ -400,6 +383,7 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
 const ProviderJobsScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { user, profile } = useApp();
+  const isFocused = useIsFocused();
   
   // Determine initial tab from route params (for notification deep linking)
   const initialTab = route?.params?.tab || 'requests';
@@ -412,6 +396,9 @@ const ProviderJobsScreen = ({ navigation, route }) => {
   const [acceptingId, setAcceptingId] = useState(null);
   const [rejectingId, setRejectingId] = useState(null);
   
+  // Auto-refresh setting
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  
   // OTP Modal state
   const [otpModalVisible, setOtpModalVisible] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
@@ -420,6 +407,78 @@ const ProviderJobsScreen = ({ navigation, route }) => {
   
   // Provider ID
   const providerId = user?.mongoId || user?.javaUserId || profile?.mongoId || profile?._id;
+  
+  // Load auto-refresh preference
+  useEffect(() => {
+    const loadPref = async () => {
+      try {
+        const saved = await AsyncStorage.getItem('app_preferences');
+        if (saved) {
+          const prefs = JSON.parse(saved);
+          setAutoRefreshEnabled(prefs.autoRefresh !== false);
+        }
+      } catch (e) { /* default true */ }
+    };
+    loadPref();
+  }, []);
+  
+  // Auto-refresh on screen focus (when returning from detail screen)
+  useEffect(() => {
+    if (isFocused && autoRefreshEnabled && !isLoading) {
+      console.log('[ProviderJobs] Screen focused — auto-refreshing');
+      fetchJobs(false);
+    }
+  }, [isFocused]);
+  
+  // Periodic auto-refresh every 30s when screen is focused and autoRefresh is on
+  useEffect(() => {
+    if (!isFocused || !autoRefreshEnabled) return;
+    
+    const interval = setInterval(() => {
+      console.log('[ProviderJobs] Periodic auto-refresh');
+      fetchJobs(false);
+    }, 30000); // 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [isFocused, autoRefreshEnabled, fetchJobs]);
+  
+  // AppState listener — refresh when app comes to foreground
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && autoRefreshEnabled && isFocused) {
+        console.log('[ProviderJobs] App foregrounded — auto-refreshing');
+        fetchJobs(false);
+      }
+    });
+    return () => sub.remove();
+  }, [autoRefreshEnabled, isFocused, fetchJobs]);
+  
+  // Socket listener — refresh on real-time events
+  useEffect(() => {
+    const cleanups = [
+      addSocketListener('new:request', (data) => {
+        console.log('[ProviderJobs] Socket: new request received');
+        if (autoRefreshEnabled) fetchJobs(false);
+      }),
+      addSocketListener('request:cancelled', () => {
+        if (autoRefreshEnabled) fetchJobs(false);
+      }),
+      addSocketListener('request:status', () => {
+        if (autoRefreshEnabled) fetchJobs(false);
+      }),
+    ];
+    return () => cleanups.forEach(fn => fn());
+  }, [autoRefreshEnabled, fetchJobs]);
+  
+  // FCM foreground listener — auto-refresh only (banner handled by GlobalBanner)
+  useEffect(() => {
+    const unsubscribe = setupForegroundMessageListener((remoteMessage) => {
+      const msgType = remoteMessage?.data?.type;
+      console.log('[ProviderJobs] FCM foreground message (auto-refresh):', msgType);
+      if (autoRefreshEnabled) fetchJobs(false);
+    });
+    return () => { if (unsubscribe) unsubscribe(); };
+  }, [autoRefreshEnabled, fetchJobs]);
   
   // Calculate stats - ensure allJobs is always an array
   const jobs = Array.isArray(allJobs) ? allJobs : [];
@@ -851,36 +910,35 @@ const ProviderJobsScreen = ({ navigation, route }) => {
   };
   
   /**
-   * Call customer (Exotel masked call)
+   * Call customer - direct phone dialing
    */
-  const handleCall = async (job) => {
-    const userId = job.userId || job.userDetails?._id;
-    if (!userId) {
-      Alert.alert('Error', 'Customer information not available');
+  const handleCall = (job) => {
+    const phone = job.userDetails?.phone || job.userDetails?.verifiedPhone || job.userPhone;
+    const customerName = job.userDetails?.name || job.userName || 'Customer';
+    
+    if (!phone) {
+      Alert.alert('Error', 'Customer phone number not available');
       return;
     }
 
-    try {
-      const result = await initiateCall({
-        receiverId: userId,
-        callerType: 'provider',
-        serviceRequestId: job._id || null,
-        serviceType: 'traditional',
-      });
+    const phoneNumber = phone.replace(/\s/g, '');
+    const url = `tel:${phoneNumber}`;
 
-      if (result.success) {
-        Alert.alert(
-          'Connecting Call',
-          'You will receive a call shortly. Once you pick up, we will connect you to the customer.',
-          [{ text: 'OK' }]
-        );
-      } else {
-        Alert.alert('Call Failed', result.error || 'Unable to connect. Please try again.');
-      }
-    } catch (error) {
-      console.error('[ProviderJobs] Call error:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
-    }
+    Alert.alert(
+      '📞 Call Customer',
+      `Call ${customerName} at ${phone}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Call Now',
+          onPress: () => {
+            Linking.openURL(url).catch(() => {
+              Alert.alert('Error', 'Unable to make phone calls on this device');
+            });
+          },
+        },
+      ]
+    );
   };
   
   /**
@@ -947,7 +1005,7 @@ const ProviderJobsScreen = ({ navigation, route }) => {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563EB" />
+          <ActivityIndicator size="large" color={BRAND.secondary} />
           <Text style={styles.loadingText}>Loading your jobs...</Text>
         </View>
       </View>
@@ -956,22 +1014,23 @@ const ProviderJobsScreen = ({ navigation, route }) => {
   
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
+      {/* Header — Compact with inline stats */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Icon name="arrow-left" size={24} color="#1F2937" />
+          <Icon name="back" size={22} color={BRAND.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Jobs</Text>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>My Jobs</Text>
+          <View style={styles.headerStats}>
+            <View style={[styles.headerStatDot, { backgroundColor: BRAND.primary }]} />
+            <Text style={styles.headerStatText}>{stats.pending} new</Text>
+            <View style={[styles.headerStatDot, { backgroundColor: BRAND.secondary }]} />
+            <Text style={styles.headerStatText}>{stats.active} active</Text>
+          </View>
+        </View>
         <TouchableOpacity onPress={onRefresh} style={styles.refreshBtn}>
-          <Icon name="refresh" size={22} color="#2563EB" />
+          <Icon name="refresh" size={20} color={BRAND.secondary} />
         </TouchableOpacity>
-      </View>
-      
-      {/* Stats Summary - Brand themed */}
-      <View style={styles.statsRow}>
-        <StatsCard iconName="inbox" value={stats.pending} label="New" color={BRAND.primary} bgColor="#FFF7ED" />
-        <StatsCard iconName="briefcase" value={stats.active} label="Active" color={BRAND.secondary} bgColor="#EFF6FF" />
-        <StatsCard iconName="check-circle" value={stats.completed} label="Done" color={BRAND.secondary} bgColor="#EFF6FF" />
       </View>
       
       {/* Tab Bar */}
@@ -984,7 +1043,7 @@ const ProviderJobsScreen = ({ navigation, route }) => {
         keyExtractor={item => item._id}
         contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={['#2563EB']} />
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[BRAND.secondary]} />
         }
         ListEmptyComponent={<EmptyState tab={activeTab} />}
         showsVerticalScrollIndicator={false}
@@ -1003,313 +1062,186 @@ const ProviderJobsScreen = ({ navigation, route }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  // Header
+  container: { flex: 1, backgroundColor: BRAND.background },
+  
+  // Header — Compact with inline stats
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: BRAND.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: BRAND.border,
   },
-  backBtn: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  refreshBtn: {
-    padding: 8,
-  },
-  // Stats
-  statsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-    backgroundColor: '#fff',
-  },
-  statsCard: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  statsValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginTop: 4,
-  },
-  statsLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  // Tab Bar - Sleek compact design
+  backBtn: { padding: 6 },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: BRAND.text },
+  headerStats: { flexDirection: 'row', alignItems: 'center', marginTop: 2, gap: 4 },
+  headerStatDot: { width: 6, height: 6, borderRadius: 3 },
+  headerStatText: { fontSize: 11, color: BRAND.textSecondary, fontWeight: '500' },
+  refreshBtn: { padding: 6 },
+  
+  // Tab Bar — Compact pills
   tabBar: {
-    backgroundColor: '#fff',
+    backgroundColor: BRAND.white,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: BRAND.border,
   },
-  tabBarContent: {
-    paddingHorizontal: 12,
-    gap: 8,
-  },
+  tabBarContent: { paddingHorizontal: 12, gap: 6 },
   tab: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    backgroundColor: '#F5F5F7',
-    gap: 6,
-  },
-  tabActive: {
-    backgroundColor: BRAND.secondary,
-  },
-  tabLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  tabLabelActive: {
-    color: '#FFFFFF',
-  },
-  tabBadge: {
-    backgroundColor: '#EF4444',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    minWidth: 18,
-    alignItems: 'center',
-  },
-  tabBadgeActive: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
-  },
-  tabBadgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  tabBadgeTextActive: {
-    color: '#FFFFFF',
-  },
-  // List
-  listContent: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  // Job Card
-  jobCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  serviceTypeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  serviceTypeInfo: {
-    marginLeft: 10,
-  },
-  serviceType: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  requestId: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 2,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  // Customer
-  customerSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-  },
-  customerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  customerAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#3B82F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  customerAvatarImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  customerInitial: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  customerDetails: {
-    marginLeft: 10,
-    flex: 1,
-  },
-  customerName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  customerPhone: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  distanceBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-    marginLeft: 8,
-  },
-  distanceText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#2563EB',
-  },
-  quickActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  quickActionBtn: {
-    width: 36,
-    height: 36,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
     borderRadius: 18,
-    backgroundColor: '#fff',
+    backgroundColor: '#F3F4F6',
+    gap: 5,
+  },
+  tabActive: { backgroundColor: BRAND.secondary },
+  tabLabel: { fontSize: 12, fontWeight: '600', color: BRAND.textSecondary },
+  tabLabelActive: { color: BRAND.white },
+  tabBadge: {
+    backgroundColor: BRAND.danger,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 8,
+    minWidth: 16,
     alignItems: 'center',
-    justifyContent: 'center',
+  },
+  tabBadgeActive: { backgroundColor: 'rgba(255,255,255,0.3)' },
+  tabBadgeText: { color: '#fff', fontSize: 9, fontWeight: '700' },
+  
+  // List
+  listContent: { padding: 12, paddingBottom: 24 },
+  
+  // Job Card — Compact v2.0
+  jobCard: {
+    backgroundColor: BRAND.white,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
   },
-  // Location
-  locationRow: {
+  jobCardPending: {
+    borderColor: BRAND.primary + '30',
+    borderWidth: 1.5,
+  },
+  
+  // Row 1: Service + Status
+  cardRow1: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 10,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  locationText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#6B7280',
-    marginLeft: 6,
-    lineHeight: 18,
-  },
-  directionsButton: {
-    padding: 6,
+  serviceChip: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
+  serviceLabel: { fontSize: 14, fontWeight: '600', color: BRAND.text, flex: 1 },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    gap: 4,
     marginLeft: 8,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 6,
   },
-  // Info Row
-  infoRow: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 10,
-  },
-  infoItem: {
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusLabel: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.3 },
+  
+  // Reason strip — compact
+  reasonStrip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginBottom: 8,
   },
-  infoText: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  // Description
-  descriptionContainer: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 12,
-  },
-  descriptionLabel: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    marginBottom: 4,
-  },
-  descriptionText: {
-    fontSize: 13,
-    color: '#4B5563',
-    lineHeight: 18,
-  },
-  // Accept Button - Brand orange
-  acceptBtn: {
-    flex: 1,
-    flexDirection: 'row',
+  reasonStripText: { fontSize: 11, color: '#92400E', fontWeight: '500', flex: 1 },
+  
+  // Row 2: Customer
+  cardRow2: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  customerChip: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8 },
+  customerThumb: { width: 28, height: 28, borderRadius: 14 },
+  customerThumbPlaceholder: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: BRAND.secondary,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: BRAND.primary,
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
   },
-  acceptBtnDisabled: {
-    backgroundColor: '#9CA3AF',
+  customerThumbInitial: { fontSize: 12, fontWeight: '600', color: '#fff' },
+  customerMeta: { flex: 1 },
+  customerName: { fontSize: 13, fontWeight: '500', color: BRAND.text },
+  customerPhone: { fontSize: 11, color: BRAND.textSecondary },
+  
+  // Quick actions
+  quickActions: { flexDirection: 'row', gap: 6 },
+  quickActionBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  acceptBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  // Pending Actions - Reject and Accept side by side
-  pendingActions: {
+  
+  // Distance pill
+  distancePill: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    gap: 3,
   },
+  distancePillText: { fontSize: 10, fontWeight: '600', color: BRAND.secondary },
+  
+  // Info strip
+  cardInfoStrip: { marginBottom: 6 },
+  infoChip: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 3 },
+  infoChipText: { fontSize: 12, color: BRAND.textSecondary, flex: 1 },
+  infoChipRight: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  infoChipDate: { fontSize: 11, color: BRAND.textMuted },
+  infoDot: { fontSize: 11, color: BRAND.textMuted },
+  
+  // Description inline
+  descriptionInline: {
+    fontSize: 12,
+    color: BRAND.textSecondary,
+    marginBottom: 8,
+    paddingLeft: 2,
+  },
+  
+  // Pending section
+  pendingSection: { marginTop: 4 },
+  viewMapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: BRAND.secondary + '10',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: BRAND.secondary + '30',
+    marginBottom: 8,
+    gap: 6,
+  },
+  viewMapBtnText: { fontSize: 13, fontWeight: '600', color: BRAND.secondary },
+  pendingActionRow: { flexDirection: 'row', gap: 8 },
+  
   // Reject Button
   rejectBtn: {
     flex: 1,
@@ -1317,141 +1249,95 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FEE2E2',
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: 11,
+    borderRadius: 10,
+    gap: 5,
     borderWidth: 1,
-    borderColor: '#EF4444',
-    gap: 8,
+    borderColor: BRAND.danger + '40',
   },
-  rejectBtnDisabled: {
-    opacity: 0.5,
-  },
-  rejectBtnText: {
-    color: '#EF4444',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  // Active Actions
-  activeActions: {
+  rejectBtnText: { color: BRAND.danger, fontSize: 14, fontWeight: '600' },
+  
+  // Accept Button
+  acceptBtn: {
+    flex: 1.3,
     flexDirection: 'row',
-    gap: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: BRAND.primary,
+    paddingVertical: 11,
+    borderRadius: 10,
+    gap: 5,
   },
+  acceptBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  btnDisabled: { opacity: 0.5 },
+  
+  // Active actions
+  activeActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
   completeBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: BRAND.secondary,
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 5,
   },
-  completeBtnText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
-  },
+  completeBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   cancelBtn: {
-    width: 48,
+    width: 40,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FEE2E2',
-    borderRadius: 12,
+    borderRadius: 10,
   },
-  // Loading
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#6B7280',
-    marginTop: 12,
-  },
-  // Empty
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#374151',
-    marginTop: 16,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 20,
-  },
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
+  
+  // Loading & Empty
+  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  loadingText: { fontSize: 14, color: BRAND.textSecondary, marginTop: 10 },
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 48 },
+  emptyTitle: { fontSize: 16, fontWeight: '600', color: BRAND.text, marginTop: 12 },
+  emptyText: { fontSize: 13, color: BRAND.textSecondary, textAlign: 'center', marginTop: 4, lineHeight: 18, paddingHorizontal: 32 },
+  
+  // Modal — Compact
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: {
     backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 40,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 36,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  modalClose: {
-    padding: 4,
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 20,
-    lineHeight: 20,
-  },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: BRAND.text },
+  modalClose: { padding: 4 },
+  modalSubtitle: { fontSize: 13, color: BRAND.textSecondary, marginBottom: 16, lineHeight: 18 },
   otpInput: {
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: BRAND.border,
     borderRadius: 12,
-    padding: 16,
+    padding: 14,
     fontSize: 24,
     textAlign: 'center',
     letterSpacing: 8,
-    fontWeight: '600',
-    marginBottom: 12,
+    fontWeight: '700',
+    marginBottom: 10,
+    color: BRAND.text,
   },
-  otpError: {
-    color: '#EF4444',
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
+  otpError: { color: BRAND.danger, fontSize: 13, textAlign: 'center', marginBottom: 10 },
   verifyBtn: {
     backgroundColor: BRAND.secondary,
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
   },
-  verifyBtnDisabled: {
-    backgroundColor: '#9CA3AF',
-  },
-  verifyBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  verifyBtnDisabled: { backgroundColor: '#9CA3AF' },
+  verifyBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
 });
 
 export default ProviderJobsScreen;

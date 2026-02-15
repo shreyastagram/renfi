@@ -1,14 +1,13 @@
 /**
- * User Service History Screen
+ * User Service History Screen — v2.0 Revamp
  * 
- * Service history with:
- * - Status filtering
- * - Provider live location for active requests
- * - Call provider / Get directions
- * - OTP display for accepted requests
- * - Rating system for completed services
+ * Compact professional service history with:
+ * - Tight card layout — no wasted space
+ * - Fixed icons
+ * - Better info density
+ * - Inline rating, OTP, and actions
  * 
- * @version 2.1.0 - Added rating system
+ * @version 2.0.0
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -26,8 +25,11 @@ import {
   Clipboard,
   ScrollView,
   Image,
+  AppState,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useIsFocused } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
 import { Icon, ServiceIcon, StatusIcon, RatingModal, FixhomiLogo } from '../components';
@@ -35,19 +37,27 @@ import {
   getUserRequests, 
   cancelRequest,
   submitRating,
+  checkRatingStatus,
   SERVICE_TYPE_LABELS,
 } from '../services/traditionalServiceService';
-import { subscribeToRequest, unsubscribeFromRequest } from '../services/socketService';
-import { initiateCall } from '../services/callService';
+import { subscribeToRequest, unsubscribeFromRequest, addEventListener as addSocketListener } from '../services/socketService';
+import { setupForegroundMessageListener } from '../services/fcmService';
+// Direct phone dialing - Exotel call masking removed
 import { NODE_BASE_URL } from '../config/api';
 
-// Brand colors - User side uses blue as accent
+// Brand colors
 const BRAND = {
-  primary: '#f67c16', // Orange
-  secondary: '#2b76bc', // Blue - user side accent
-  background: '#faf7f7',
+  primary: '#f67c16',
+  secondary: '#2b76bc',
+  background: '#F5F5F7',
   white: '#FFFFFF',
   neutral: '#6B7280',
+  success: '#10B981',
+  danger: '#EF4444',
+  text: '#1F2937',
+  textSecondary: '#6B7280',
+  textMuted: '#9CA3AF',
+  border: '#E5E7EB',
 };
 
 const STATUS_CONFIG = {
@@ -56,6 +66,7 @@ const STATUS_CONFIG = {
   'in-progress': { label: 'In Progress', color: BRAND.secondary, bgColor: '#DBEAFE', iconName: 'in_progress' },
   completed: { label: 'Completed', color: '#10B981', bgColor: '#D1FAE5', iconName: 'completed' },
   cancelled: { label: 'Cancelled', color: '#EF4444', bgColor: '#FEE2E2', iconName: 'cancelled' },
+  rejected: { label: 'Rejected', color: '#EF4444', bgColor: '#FEE2E2', iconName: 'cancelled' },
   expired: { label: 'Expired', color: BRAND.neutral, bgColor: '#F3F4F6', iconName: 'cancelled' },
 };
 
@@ -82,7 +93,7 @@ const FilterTabs = ({ activeFilter, onFilterChange }) => (
           onPress={() => onFilterChange(tab.key)}
           activeOpacity={0.7}
         >
-          <Icon name={tab.icon} size={14} color={activeFilter === tab.key ? BRAND.white : BRAND.neutral} />
+          <Icon name={tab.icon} size={13} color={activeFilter === tab.key ? BRAND.white : BRAND.neutral} />
           <Text style={[styles.filterTabText, activeFilter === tab.key && styles.filterTabTextActive]}>{tab.label}</Text>
         </TouchableOpacity>
       ))}
@@ -90,16 +101,22 @@ const FilterTabs = ({ activeFilter, onFilterChange }) => (
   </View>
 );
 
-const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvider, onDirections, onRate }) => {
+/**
+ * Compact Request Card — v2.0
+ */
+const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvider, onDirections, onRate, ratingStatus }) => {
   const status = STATUS_CONFIG[request.status] || STATUS_CONFIG.pending;
   const isActive = ['accepted', 'in-progress'].includes(request.status);
   const isCompleted = request.status === 'completed';
+  const isPending = request.status === 'pending';
+  const isCancelled = ['cancelled', 'rejected', 'expired'].includes(request.status);
   const hasProvider = request.providerDetails && (request.assignedProviderId || request.providerId);
-  const hasRated = request.ratings?.userRating > 0;
+  const hasRated = request.ratings?.userRating > 0 || request._rated || ratingStatus?.rated;
+  const ratedStars = ratingStatus?.rating?.rating || request.ratings?.userRating;
   const isEventService = request.isEventService;
   const isEmergencyService = request.isEmergencyService;
+  const serviceDate = new Date(request.serviceDate || request.createdAt);
   
-  // Get provider profile picture
   const providerProfilePicture = request.providerDetails?.profilePicture || 
     (typeof request.providerDetails?.profilePicture === 'string' ? request.providerDetails?.profilePicture : request.providerDetails?.profilePicture?.url);
   
@@ -111,91 +128,89 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
   };
 
   return (
-    <TouchableOpacity style={styles.requestCard} onPress={onPress} activeOpacity={0.8}>
-      {/* Event Service Badge */}
-      {isEventService && (
-        <View style={styles.eventBadge}>
-          <Icon name="camera" size={12} color="#7C3AED" />
-          <Text style={styles.eventBadgeText}>Event Service</Text>
-        </View>
-      )}
-      
-      {/* Header */}
-      <View style={styles.cardHeader}>
-        <View style={styles.serviceInfo}>
-          <View style={styles.serviceIconContainer}>
-            <ServiceIcon serviceType={request.serviceType} size={24} color={BRAND.secondary} />
-          </View>
-          <View>
-            <Text style={styles.serviceType}>{SERVICE_TYPE_LABELS[request.serviceType] || request.serviceType}</Text>
-            <Text style={styles.requestId}>#{request.requestId || request._id?.slice(-8)}</Text>
+    <TouchableOpacity style={[styles.requestCard, isPending && styles.requestCardPending]} onPress={onPress} activeOpacity={0.7}>
+      {/* Row 1: Service + Status + Service Badge */}
+      <View style={styles.cardRow1}>
+        <View style={styles.serviceChip}>
+          <ServiceIcon serviceType={request.serviceType} size={18} />
+          <View style={styles.serviceChipMeta}>
+            <Text style={styles.serviceLabel} numberOfLines={1}>
+              {SERVICE_TYPE_LABELS[request.serviceType] || request.serviceType}
+            </Text>
+            {isEventService && (
+              <View style={styles.eventTag}>
+                <Text style={styles.eventTagText}>EVENT</Text>
+              </View>
+            )}
           </View>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: status.bgColor }]}>
-          <StatusIcon status={request.status} size={14} />
-          <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
+        <View style={[styles.statusPill, { backgroundColor: status.bgColor }]}>
+          <View style={[styles.statusDot, { backgroundColor: status.color }]} />
+          <Text style={[styles.statusLabel, { color: status.color }]}>{status.label}</Text>
         </View>
       </View>
 
-      {/* Date - show event date for event services */}
-      <View style={styles.dateRow}>
-        <Icon name="calendar" size={14} color="#6B7280" />
-        <Text style={styles.dateLabel}>
+      {/* Cancellation/Rejection reason — compact */}
+      {isCancelled && (request.rejectReason || request.cancellationReason || request.cancelReason) && (
+        <View style={styles.reasonStrip}>
+          <Icon name="info" size={12} color="#92400E" />
+          <Text style={styles.reasonStripText} numberOfLines={1}>
+            {request.rejectReason || request.cancellationReason || request.cancelReason}
+          </Text>
+        </View>
+      )}
+
+      {/* Row 2: Date strip */}
+      <View style={styles.dateStrip}>
+        <Icon name="calendar" size={11} color={BRAND.textMuted} />
+        <Text style={styles.dateStripText}>
           {isEventService && request.eventDate 
-            ? `Event: ${new Date(request.eventDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}`
-            : new Date(request.serviceDate || request.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+            ? `Event: ${new Date(request.eventDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}`
+            : serviceDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
           }
         </Text>
       </View>
 
-      {/* Provider Info - Enhanced with profile picture */}
+      {/* Provider Row — compact inline */}
       {hasProvider && (
-        <View style={styles.providerSection}>
-          <View style={styles.providerInfo}>
+        <View style={styles.providerRow}>
+          <View style={styles.providerChip}>
             {providerProfilePicture ? (
-              <Image 
-                source={{ uri: providerProfilePicture }} 
-                style={styles.providerAvatarImage}
-              />
+              <Image source={{ uri: providerProfilePicture }} style={styles.providerThumb} />
             ) : (
-              <View style={styles.providerAvatar}>
-                <Text style={styles.providerInitial}>{request.providerDetails.name?.charAt(0).toUpperCase() || 'P'}</Text>
+              <View style={styles.providerThumbPlaceholder}>
+                <Text style={styles.providerThumbInitial}>
+                  {request.providerDetails.name?.charAt(0).toUpperCase() || 'P'}
+                </Text>
               </View>
             )}
-            <View style={styles.providerDetails}>
-              <Text style={styles.providerName}>{request.providerDetails.name}</Text>
+            <View style={styles.providerMeta}>
+              <Text style={styles.providerName} numberOfLines={1}>{request.providerDetails.name}</Text>
               {request.providerDetails.rating > 0 && (
-                <View style={styles.ratingRow}>
-                  <Icon name="star" size={12} color="#F59E0B" />
-                  <Text style={styles.providerRating}>{Number(request.providerDetails.rating).toFixed(1)}</Text>
+                <View style={styles.providerRatingChip}>
+                  <Icon name="star" size={10} color="#F59E0B" />
+                  <Text style={styles.providerRatingText}>{Number(request.providerDetails.rating).toFixed(1)}</Text>
                 </View>
-              )}
-              {isEventService && request.providerDetails.specializations?.length > 0 && (
-                <Text style={styles.providerSpecialization} numberOfLines={1}>
-                  {request.providerDetails.specializations.slice(0, 2).join(' • ')}
-                </Text>
               )}
             </View>
           </View>
           
-          {/* Action Buttons - Only for active requests (pending/accepted/in-progress) */}
-          {(isActive || request.status === 'pending') && (
-            <View style={styles.actionButtons}>
+          {/* Inline quick action buttons */}
+          {(isActive || isPending) && (
+            <View style={styles.quickActions}>
               {hasProvider && (
-                <TouchableOpacity style={styles.actionBtn} onPress={() => onCallProvider(request)}>
-                  <Icon name="phone" size={16} color="#10B981" />
-                  <Text style={styles.actionBtnText}>Call</Text>
+                <TouchableOpacity style={styles.quickActionBtn} onPress={() => onCallProvider(request)}>
+                  <Icon name="phone" size={14} color={BRAND.success} />
                 </TouchableOpacity>
               )}
               {isActive && !isEventService && (
-                <TouchableOpacity style={[styles.actionBtn, styles.actionBtnPrimary]} onPress={() => onTrackProvider(request)}>
-                  <Icon name="location" size={16} color={BRAND.white} />
-                  <Text style={[styles.actionBtnText, styles.actionBtnTextPrimary]}>Track</Text>
+                <TouchableOpacity style={[styles.quickActionBtn, styles.quickActionBtnPrimary]} onPress={() => onTrackProvider(request)}>
+                  <Icon name="location" size={14} color={BRAND.white} />
                 </TouchableOpacity>
               )}
               {isActive && request.location?.coordinates && !isEventService && (
-                <TouchableOpacity style={styles.actionBtn} onPress={() => onDirections(request.location)}>
-                  <Icon name="directions" size={18} color={BRAND.secondary} />
+                <TouchableOpacity style={styles.quickActionBtn} onPress={() => onDirections(request.location)}>
+                  <Icon name="directions" size={14} color={BRAND.secondary} />
                 </TouchableOpacity>
               )}
             </View>
@@ -203,43 +218,36 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
         </View>
       )}
 
-      {/* OTP Section */}
+      {/* OTP Section — compact inline */}
       {isActive && request.completionOtp && (
-        <TouchableOpacity style={styles.otpSection} onPress={handleCopyOtp}>
-          <View style={styles.otpLabelRow}>
-            <Icon name="lock" size={14} color="#7C3AED" />
-            <Text style={styles.otpLabel}>OTP for Completion</Text>
-          </View>
-          <View style={styles.otpBox}>
-            <Text style={styles.otpValue}>{request.completionOtp}</Text>
-            <View style={styles.otpCopyBtn}>
-              <Icon name="copy" size={14} color="#7C3AED" />
-              <Text style={styles.otpCopy}>Copy</Text>
-            </View>
-          </View>
+        <TouchableOpacity style={styles.otpStrip} onPress={handleCopyOtp} activeOpacity={0.7}>
+          <Icon name="lock" size={13} color="#7C3AED" />
+          <Text style={styles.otpStripLabel}>OTP</Text>
+          <Text style={styles.otpStripValue}>{request.completionOtp}</Text>
+          <Icon name="copy" size={12} color="#7C3AED" style={{ marginLeft: 'auto' }} />
         </TouchableOpacity>
       )}
 
-      {/* Cancel Button */}
-      {request.status === 'pending' && (
+      {/* Cancel Button — compact */}
+      {isPending && (
         <TouchableOpacity style={styles.cancelBtn} onPress={() => onCancel(request)}>
-          <Icon name="close" size={16} color="#EF4444" />
+          <Icon name="close" size={14} color={BRAND.danger} />
           <Text style={styles.cancelBtnText}>Cancel Request</Text>
         </TouchableOpacity>
       )}
 
-      {/* Rating Section for Completed Requests */}
+      {/* Rating Section — compact */}
       {isCompleted && hasProvider && (
         hasRated ? (
-          <View style={styles.ratedSection}>
-            <Icon name="star" size={16} color="#F59E0B" />
-            <Text style={styles.ratedText}>
-              You rated this service {request.ratings.userRating} stars
+          <View style={styles.ratedStrip}>
+            <Icon name="star" size={13} color="#F59E0B" />
+            <Text style={styles.ratedStripText}>
+              Rated {ratedStars} stars
             </Text>
           </View>
         ) : (
           <TouchableOpacity style={styles.rateBtn} onPress={() => onRate(request)}>
-            <Icon name="star" size={16} color="#FFFFFF" />
+            <Icon name="star" size={14} color="#FFFFFF" />
             <Text style={styles.rateBtnText}>Rate Service</Text>
           </TouchableOpacity>
         )
@@ -251,6 +259,7 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
 const UserServiceHistoryScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, profile, userType, logout } = useApp();
+  const isFocused = useIsFocused();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -258,9 +267,15 @@ const UserServiceHistoryScreen = ({ navigation }) => {
   const [requests, setRequests] = useState([]);
   const [activeFilter, setActiveFilter] = useState('all');
   
+  // Auto-refresh setting
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  
   // Rating modal state
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [requestToRate, setRequestToRate] = useState(null);
+  
+  // Rating statuses from central Rating collection
+  const [ratingStatuses, setRatingStatuses] = useState({});
 
   const displayData = { ...user, ...profile };
   const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
@@ -333,6 +348,112 @@ const UserServiceHistoryScreen = ({ navigation }) => {
   }, [userId]);
 
   useEffect(() => { fetchRequests(); }, [fetchRequests]);
+  
+  // Fetch rating statuses for completed requests from central Rating collection
+  useEffect(() => {
+    const fetchRatingStatuses = async () => {
+      const completedRequests = requests.filter(r => r.status === 'completed');
+      if (completedRequests.length === 0) return;
+      
+      const statuses = {};
+      await Promise.all(
+        completedRequests.map(async (req) => {
+          const reqId = req._id;
+          // Skip if we already have this status cached
+          if (ratingStatuses[reqId]) {
+            statuses[reqId] = ratingStatuses[reqId];
+            return;
+          }
+          try {
+            const result = await checkRatingStatus(reqId);
+            statuses[reqId] = result;
+          } catch (e) {
+            statuses[reqId] = { rated: false };
+          }
+        })
+      );
+      setRatingStatuses(prev => ({ ...prev, ...statuses }));
+    };
+    
+    if (requests.length > 0) {
+      fetchRatingStatuses();
+    }
+  }, [requests]);
+  
+  // Load auto-refresh preference
+  useEffect(() => {
+    const loadPref = async () => {
+      try {
+        const saved = await AsyncStorage.getItem('app_preferences');
+        if (saved) {
+          const prefs = JSON.parse(saved);
+          setAutoRefreshEnabled(prefs.autoRefresh !== false);
+        }
+      } catch (e) { /* default true */ }
+    };
+    loadPref();
+  }, []);
+  
+  // Auto-refresh on screen focus (when returning from detail screen)
+  useEffect(() => {
+    if (isFocused && autoRefreshEnabled && !loading) {
+      console.log('[UserHistory] Screen focused — auto-refreshing');
+      fetchRequests();
+    }
+  }, [isFocused]);
+  
+  // Periodic auto-refresh every 30s
+  useEffect(() => {
+    if (!isFocused || !autoRefreshEnabled) return;
+    
+    const interval = setInterval(() => {
+      console.log('[UserHistory] Periodic auto-refresh');
+      fetchRequests();
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [isFocused, autoRefreshEnabled, fetchRequests]);
+  
+  // AppState listener — refresh when app comes to foreground
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && autoRefreshEnabled && isFocused) {
+        console.log('[UserHistory] App foregrounded — auto-refreshing');
+        fetchRequests();
+      }
+    });
+    return () => sub.remove();
+  }, [autoRefreshEnabled, isFocused, fetchRequests]);
+  
+  // Socket listener — real-time status updates for user
+  useEffect(() => {
+    const cleanups = [
+      addSocketListener('request:accepted', () => {
+        if (autoRefreshEnabled) fetchRequests();
+      }),
+      addSocketListener('request:completed', () => {
+        if (autoRefreshEnabled) fetchRequests();
+      }),
+      addSocketListener('request:status', () => {
+        if (autoRefreshEnabled) fetchRequests();
+      }),
+      addSocketListener('provider:assigned', () => {
+        if (autoRefreshEnabled) fetchRequests();
+      }),
+    ];
+    return () => cleanups.forEach(fn => fn());
+  }, [autoRefreshEnabled, fetchRequests]);
+  
+  // FCM foreground listener — show banners for status changes
+  // FCM foreground listener — auto-refresh only (banner handled by GlobalBanner)
+  useEffect(() => {
+    const unsubscribe = setupForegroundMessageListener((remoteMessage) => {
+      const msgType = remoteMessage?.data?.type;
+      console.log('[UserHistory] FCM foreground (auto-refresh):', msgType);
+      if (autoRefreshEnabled) fetchRequests();
+    });
+    return () => { if (unsubscribe) unsubscribe(); };
+  }, [autoRefreshEnabled, fetchRequests]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -340,34 +461,33 @@ const UserServiceHistoryScreen = ({ navigation }) => {
     setRefreshing(false);
   };
 
-  const handleCallProvider = async (request) => {
-    const providerId = request.assignedProviderId || request.providerId || request.providerDetails?._id;
-    if (!providerId) {
-      Alert.alert('Error', 'Provider information not available');
+  const handleCallProvider = (request) => {
+    const phone = request.providerDetails?.phone || request.providerDetails?.verifiedPhone;
+    const providerName = request.providerDetails?.name || 'Provider';
+    
+    if (!phone) {
+      Alert.alert('Error', 'Provider phone number not available');
       return;
     }
 
-    try {
-      const result = await initiateCall({
-        receiverId: providerId,
-        callerType: 'user',
-        serviceRequestId: request._id || null,
-        serviceType: request.isEmergencyService ? 'emergency' : request.isEventService ? 'event' : 'traditional',
-      });
+    const phoneNumber = phone.replace(/\s/g, '');
+    const url = `tel:${phoneNumber}`;
 
-      if (result.success) {
-        Alert.alert(
-          'Connecting Call',
-          'You will receive a call shortly. Once you pick up, we will connect you to the provider.',
-          [{ text: 'OK' }]
-        );
-      } else {
-        Alert.alert('Call Failed', result.error || 'Unable to connect. Please try again.');
-      }
-    } catch (error) {
-      console.error('[UserServiceHistory] Call error:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
-    }
+    Alert.alert(
+      '📞 Call Provider',
+      `Call ${providerName} at ${phone}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Call Now',
+          onPress: () => {
+            Linking.openURL(url).catch(() => {
+              Alert.alert('Error', 'Unable to make phone calls on this device');
+            });
+          },
+        },
+      ]
+    );
   };
 
   const handleTrackProvider = (request) => {
@@ -383,8 +503,9 @@ const UserServiceHistoryScreen = ({ navigation }) => {
       requestId: request.requestId || request._id,
       providerId: request.assignedProviderId || request.providerId,
       providerName: request.providerDetails?.name || request.providerName,
+      providerPhone: request.providerDetails?.phone,
       serviceCategory: request.serviceType || request.serviceCategory || request.category,
-      serviceLocation: serviceCoords, // Pass the service location where work needs to be done
+      serviceLocation: serviceCoords,
       serviceAddress: request.serviceAddress || request.address || request.location?.address,
     });
   };
@@ -482,11 +603,15 @@ const UserServiceHistoryScreen = ({ navigation }) => {
   const handleSubmitRating = async (requestId, rating, review) => {
     if (!requestToRate) return;
     
+    // Resolve providerId from the request object
+    const providerId = requestToRate.assignedProviderId || requestToRate.providerId || requestToRate.providerDetails?._id;
+    
     const result = await submitRating(
       requestToRate._id,
       userId,
       rating,
-      review
+      review,
+      providerId
     );
     
     if (result.success) {
@@ -495,6 +620,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
         r._id === requestToRate._id 
           ? { 
               ...r, 
+              _rated: true,
               ratings: { 
                 ...r.ratings, 
                 userRating: rating, 
@@ -504,6 +630,11 @@ const UserServiceHistoryScreen = ({ navigation }) => {
             } 
           : r
       ));
+      // Update rating statuses cache
+      setRatingStatuses(prev => ({
+        ...prev,
+        [requestToRate._id]: { rated: true, rating: { rating, review, date: new Date().toISOString() } },
+      }));
     }
     
     return result;
@@ -517,7 +648,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
       case 'accepted':
         return requests.filter(r => ['accepted', 'in-progress'].includes(r.status));
       case 'cancelled':
-        return requests.filter(r => ['cancelled', 'expired'].includes(r.status));
+        return requests.filter(r => ['cancelled', 'expired', 'rejected'].includes(r.status));
       default:
         return requests.filter(r => r.status === activeFilter);
     }
@@ -566,13 +697,14 @@ const UserServiceHistoryScreen = ({ navigation }) => {
             onTrackProvider={handleTrackProvider}
             onDirections={handleDirections}
             onRate={handleOpenRating}
+            ratingStatus={ratingStatuses[item._id]}
           />
         )}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <FixhomiLogo size={64} color="#D1D5DB" />
+            <FixhomiLogo size={48} color="#D1D5DB" />
             <Text style={styles.emptyText}>No requests yet</Text>
-            <Text style={styles.emptySubtext}>Book a service to get started with FixHomi</Text>
+            <Text style={styles.emptySubtext}>Book a service to get started!</Text>
           </View>
         }
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -606,105 +738,106 @@ const UserServiceHistoryScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BRAND.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: BRAND.white, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937' },
-  headerPlaceholder: { width: 40 },
+  
+  // Header
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, backgroundColor: BRAND.white, borderBottomWidth: 1, borderBottomColor: BRAND.border },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: BRAND.text },
+  headerPlaceholder: { width: 36 },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  filterContainer: { backgroundColor: BRAND.white, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  filterScroll: { paddingHorizontal: 16, gap: 8 },
-  filterTab: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#F3F4F6', borderRadius: 20, gap: 6 },
+  
+  // Filter tabs — compact pills
+  filterContainer: { backgroundColor: BRAND.white, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: BRAND.border },
+  filterScroll: { paddingHorizontal: 12, gap: 6 },
+  filterTab: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 7, backgroundColor: '#F3F4F6', borderRadius: 18, gap: 5 },
   filterTabActive: { backgroundColor: BRAND.secondary },
-  filterTabText: { fontSize: 13, fontWeight: '600', color: BRAND.neutral },
+  filterTabText: { fontSize: 12, fontWeight: '600', color: BRAND.neutral },
   filterTabTextActive: { color: BRAND.white },
-  listContent: { padding: 16, paddingBottom: 32 },
-  requestCard: { backgroundColor: BRAND.white, borderRadius: 16, padding: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  serviceInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  serviceIconContainer: { width: 44, height: 44, borderRadius: 22, backgroundColor: BRAND.secondary + '20', alignItems: 'center', justifyContent: 'center' },
-  serviceType: { fontSize: 16, fontWeight: '700', color: '#1F2937' },
-  requestId: { fontSize: 12, color: '#6B7280', marginTop: 2 },
-  statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, gap: 4 },
-  statusText: { fontSize: 12, fontWeight: '600' },
-  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
-  dateLabel: { fontSize: 13, color: '#6B7280' },
-  providerSection: { backgroundColor: '#F9FAFB', borderRadius: 12, padding: 12, marginBottom: 12 },
-  providerInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  providerAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: BRAND.secondary, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  providerInitial: { fontSize: 16, fontWeight: '700', color: BRAND.white },
-  providerDetails: { flex: 1 },
-  providerName: { fontSize: 15, fontWeight: '600', color: '#1F2937' },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  providerRating: { fontSize: 12, color: BRAND.primary, fontWeight: '600' },
-  actionButtons: { flexDirection: 'row', gap: 8 },
-  actionBtn: { flex: 1, flexDirection: 'row', backgroundColor: '#E5E7EB', paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  actionBtnPrimary: { backgroundColor: BRAND.primary },
-  actionBtnText: { fontSize: 13, fontWeight: '600', color: '#374151' },
-  actionBtnTextPrimary: { color: BRAND.white },
-  otpSection: { backgroundColor: '#EDE9FE', borderRadius: 12, padding: 12, marginBottom: 12 },
-  otpLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  otpLabel: { fontSize: 13, color: '#7C3AED', fontWeight: '600' },
-  otpBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: BRAND.white, borderRadius: 8, padding: 12 },
-  otpValue: { fontSize: 22, fontWeight: '700', color: '#1F2937', letterSpacing: 4 },
-  otpCopyBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  otpCopy: { fontSize: 13, color: '#7C3AED', fontWeight: '600' },
-  cancelBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FEE2E2', paddingVertical: 12, borderRadius: 10 },
-  cancelBtnText: { fontSize: 14, fontWeight: '600', color: '#EF4444' },
-  rateBtn: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    gap: 8, 
-    backgroundColor: '#F59E0B', 
-    paddingVertical: 12, 
-    borderRadius: 10,
-    marginTop: 4,
+  
+  // List
+  listContent: { padding: 12, paddingBottom: 24 },
+  
+  // Request Card — Compact v2.0
+  requestCard: {
+    backgroundColor: BRAND.white,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
   },
-  rateBtnText: { fontSize: 14, fontWeight: '600', color: BRAND.white },
-  ratedSection: {
+  requestCardPending: {
+    borderColor: BRAND.primary + '30',
+    borderWidth: 1.5,
+  },
+  
+  // Row 1: Service + Status
+  cardRow1: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  serviceChip: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
+  serviceChipMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
+  serviceLabel: { fontSize: 14, fontWeight: '600', color: BRAND.text },
+  eventTag: { backgroundColor: '#F3E8FF', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 },
+  eventTagText: { fontSize: 8, fontWeight: '700', color: '#7C3AED', letterSpacing: 0.5 },
+  statusPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, gap: 4, marginLeft: 8 },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusLabel: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.3 },
+  
+  // Reason strip
+  reasonStrip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginBottom: 8 },
+  reasonStripText: { fontSize: 11, color: '#92400E', fontWeight: '500', flex: 1 },
+  
+  // Date strip
+  dateStrip: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 },
+  dateStripText: { fontSize: 12, color: BRAND.textMuted },
+  
+  // Provider row — compact inline
+  providerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  providerChip: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8 },
+  providerThumb: { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: BRAND.secondary },
+  providerThumbPlaceholder: { width: 28, height: 28, borderRadius: 14, backgroundColor: BRAND.secondary, alignItems: 'center', justifyContent: 'center' },
+  providerThumbInitial: { fontSize: 12, fontWeight: '600', color: '#fff' },
+  providerMeta: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  providerName: { fontSize: 13, fontWeight: '500', color: BRAND.text },
+  providerRatingChip: { flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: '#FEF3C7', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 6 },
+  providerRatingText: { fontSize: 10, fontWeight: '600', color: '#92400E' },
+  
+  // Quick action buttons — compact circles
+  quickActions: { flexDirection: 'row', gap: 6 },
+  quickActionBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
+  quickActionBtnPrimary: { backgroundColor: BRAND.primary },
+  
+  // OTP strip — compact inline
+  otpStrip: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#FEF3C7',
-    paddingVertical: 10,
+    backgroundColor: '#EDE9FE',
     borderRadius: 10,
-    marginTop: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 8,
+    gap: 6,
   },
-  ratedText: { fontSize: 13, fontWeight: '600', color: '#92400E' },
-  emptyContainer: { alignItems: 'center', paddingVertical: 60 },
-  emptyText: { fontSize: 16, fontWeight: '600', color: '#374151', marginTop: 12 },
-  emptySubtext: { fontSize: 14, color: '#6B7280', marginTop: 4 },
-  // Event service badge
-  eventBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#F3E8FF',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-    marginBottom: 10,
-  },
-  eventBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#7C3AED',
-  },
-  // Provider avatar image
-  providerAvatarImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
-    borderWidth: 2,
-    borderColor: BRAND.secondary,
-  },
-  providerSpecialization: {
-    fontSize: 11,
-    color: '#6B7280',
-    marginTop: 2,
-  },
+  otpStripLabel: { fontSize: 11, color: '#7C3AED', fontWeight: '600' },
+  otpStripValue: { fontSize: 17, fontWeight: '700', color: BRAND.text, letterSpacing: 3 },
+  
+  // Cancel button — compact
+  cancelBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: '#FEE2E2', paddingVertical: 9, borderRadius: 10 },
+  cancelBtnText: { fontSize: 13, fontWeight: '600', color: BRAND.danger },
+  
+  // Rating — compact
+  rateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#F59E0B', paddingVertical: 9, borderRadius: 10, marginTop: 2 },
+  rateBtnText: { fontSize: 13, fontWeight: '600', color: BRAND.white },
+  ratedStrip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FEF3C7', paddingVertical: 7, borderRadius: 8, marginTop: 2 },
+  ratedStripText: { fontSize: 12, fontWeight: '600', color: '#92400E' },
+  
+  // Empty state
+  emptyContainer: { alignItems: 'center', paddingVertical: 48 },
+  emptyText: { fontSize: 15, fontWeight: '600', color: BRAND.text, marginTop: 12 },
+  emptySubtext: { fontSize: 13, color: BRAND.textSecondary, marginTop: 4 },
 });
 
 export default UserServiceHistoryScreen;

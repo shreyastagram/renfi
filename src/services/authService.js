@@ -910,6 +910,49 @@ export const getErrorMessage = (code, defaultMessage) => {
   return messages[code] || defaultMessage || 'An unexpected error occurred. Please try again.';
 };
 
+/**
+ * Sync phone number from Java Auth to MongoDB
+ * Called after OTP phone verification to bridge the gap between Java Auth and MongoDB.
+ * Java Auth stores verified phone, but MongoDB (used for business logic) doesn't get it automatically.
+ * 
+ * @param {Object} params - Sync parameters
+ * @param {string} params.mongoId - MongoDB document ID (provider or user _id)
+ * @param {string} params.userType - 'user' or 'provider'
+ * @param {string} params.phoneNumber - Phone number to sync
+ * @param {boolean} params.isPhoneVerified - Whether the phone is verified
+ * @param {string} [params.accessToken] - Access token for Java Auth fallback fetch
+ * @returns {Promise<Object>} Sync result
+ */
+export const syncPhoneToMongoDB = async ({ mongoId, userType, phoneNumber, isPhoneVerified, accessToken }) => {
+  try {
+    console.log('📱 [AuthService] Syncing phone to MongoDB:', { mongoId, userType, hasPhone: !!phoneNumber, isPhoneVerified });
+    
+    const response = await apiClient.post(ENDPOINTS.AUTH.SYNC_PHONE, {
+      mongoId,
+      userType,
+      phoneNumber,
+      isPhoneVerified,
+      accessToken,
+    });
+
+    console.log('✅ [AuthService] Phone synced to MongoDB successfully');
+    
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+    };
+  } catch (error) {
+    const parsedError = parseApiError(error);
+    console.error('❌ [AuthService] Phone sync to MongoDB failed:', parsedError);
+    
+    // Don't fail the whole flow - phone sync is best-effort
+    return {
+      success: false,
+      error: parsedError,
+    };
+  }
+};
+
 export default {
   // Registration
   registerUser,
@@ -942,6 +985,9 @@ export default {
   // Logout & Tokens
   logout,
   refreshTokens,
+  
+  // Sync
+  syncPhoneToMongoDB,
   
   // Helpers
   getErrorMessage,

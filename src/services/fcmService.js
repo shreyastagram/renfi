@@ -117,23 +117,37 @@ export async function getStoredFcmToken() {
  * @param {string} authToken - JWT access token
  */
 export async function saveFcmTokenForUser(userId, authToken) {
+  const MAX_RETRIES = 2;
+  const RETRY_DELAY = 3000;
+
   try {
     const fcmToken = await getFcmToken();
     if (!fcmToken) {
-      console.warn('⚠️ No FCM token to save');
+      console.log('ℹ️ [FCM] No FCM token available to save');
       return { success: false, error: 'No FCM token' };
     }
 
-    await apiClient.patch(
-      `/api/user/${userId}/fcm-token`,
-      { fcmToken },
-      { headers: { Authorization: `Bearer ${authToken}` } }
-    );
-
-    console.log('✅ FCM token saved for user');
-    return { success: true };
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        await apiClient.patch(
+          `/api/user/${userId}/fcm-token`,
+          { fcmToken },
+          { headers: { Authorization: `Bearer ${authToken}` } }
+        );
+        console.log('✅ FCM token saved for user');
+        return { success: true };
+      } catch (err) {
+        if (attempt < MAX_RETRIES) {
+          console.log(`ℹ️ [FCM] Save attempt ${attempt + 1} failed, retrying in ${RETRY_DELAY / 1000}s...`);
+          await new Promise(r => setTimeout(r, RETRY_DELAY));
+        } else {
+          throw err;
+        }
+      }
+    }
   } catch (error) {
-    console.error('Error saving FCM token for user:', error);
+    // Non-critical — log concisely without full stack trace
+    console.log('ℹ️ [FCM] Could not save user FCM token:', error.message || 'Network Error');
     return { success: false, error: error.message };
   }
 }
@@ -144,23 +158,37 @@ export async function saveFcmTokenForUser(userId, authToken) {
  * @param {string} authToken - JWT access token
  */
 export async function saveFcmTokenForProvider(providerId, authToken) {
+  const MAX_RETRIES = 2;
+  const RETRY_DELAY = 3000;
+
   try {
     const fcmToken = await getFcmToken();
     if (!fcmToken) {
-      console.warn('⚠️ No FCM token to save');
+      console.log('ℹ️ [FCM] No FCM token available to save');
       return { success: false, error: 'No FCM token' };
     }
 
-    await apiClient.patch(
-      `/api/provider/${providerId}/fcm-token`,
-      { fcmToken },
-      { headers: { Authorization: `Bearer ${authToken}` } }
-    );
-
-    console.log('✅ FCM token saved for provider');
-    return { success: true };
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        await apiClient.patch(
+          `/api/provider/${providerId}/fcm-token`,
+          { fcmToken },
+          { headers: { Authorization: `Bearer ${authToken}` } }
+        );
+        console.log('✅ FCM token saved for provider');
+        return { success: true };
+      } catch (err) {
+        if (attempt < MAX_RETRIES) {
+          console.log(`ℹ️ [FCM] Save attempt ${attempt + 1} failed, retrying in ${RETRY_DELAY / 1000}s...`);
+          await new Promise(r => setTimeout(r, RETRY_DELAY));
+        } else {
+          throw err;
+        }
+      }
+    }
   } catch (error) {
-    console.error('Error saving FCM token for provider:', error);
+    // Non-critical — log concisely without full stack trace
+    console.log('ℹ️ [FCM] Could not save provider FCM token:', error.message || 'Network Error');
     return { success: false, error: error.message };
   }
 }

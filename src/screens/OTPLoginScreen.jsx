@@ -12,12 +12,12 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Input, Alert, FixhomiLogo } from '../components';
 import { 
   sendPhoneLoginOtp, 

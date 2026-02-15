@@ -13,13 +13,13 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Input, Alert, FixhomiLogo } from '../components';
 import { registerUser, getErrorMessage, AUTH_CODES } from '../services/authService';
 import { validateRegistrationForm } from '../utils/validation';

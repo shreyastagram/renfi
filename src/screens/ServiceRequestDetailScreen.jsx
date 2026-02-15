@@ -8,7 +8,7 @@
  * - Status timeline
  * - Action buttons based on status
  * 
- * @version 1.0.0
+ * @version 2.0.0 — Compact professional revamp
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -33,31 +33,33 @@ import { Icon, ServiceIcon, StatusIcon, RatingModal } from '../components';
 import { NODE_BASE_URL } from '../config/api';
 import Mapbox from '@rnmapbox/maps';
 import { initializeMapbox } from '../config/mapbox';
-
-// Initialize Mapbox from .env
-initializeMapbox();
 import { 
   getRequestDetails,
   cancelRequest,
+  acceptRequestAsProvider,
   resendCompletionOtp,
   verifyCompletionOtp,
   verifyEventCompletionOtp,
   submitRating,
-  submitEventRating,
+  checkRatingStatus,
   SERVICE_TYPE_LABELS,
 } from '../services/traditionalServiceService';
 import { addToFavorites, removeFromFavorites, checkIsFavorite } from '../services/favoritesService';
-import { initiateCall } from '../services/callService';
+// Direct phone dialing - Exotel call masking removed
 
-// Brand colors
+// Brand colors — unified across all screens
 const BRAND = {
-  primary: '#f67c16', // Orange
-  secondary: '#2b76bc', // Blue
-  background: '#faf7f7',
+  primary: '#f67c16',
+  secondary: '#2b76bc',
+  background: '#F5F5F7',
   white: '#FFFFFF',
   neutral: '#6B7280',
   success: '#10B981',
   danger: '#EF4444',
+  text: '#1F2937',
+  textSecondary: '#6B7280',
+  textMuted: '#9CA3AF',
+  border: '#E5E7EB',
 };
 
 // Status configuration - unified brand palette
@@ -127,7 +129,7 @@ const getStatusDescription = (status, isProvider) => {
 };
 
 /**
- * Status Timeline Component
+ * Status Timeline Component — compact inline progress bar
  */
 const StatusTimeline = ({ currentStatus, isProvider = false }) => {
   const status = STATUS_CONFIG[currentStatus] || STATUS_CONFIG.pending;
@@ -136,16 +138,16 @@ const StatusTimeline = ({ currentStatus, isProvider = false }) => {
   const steps = [
     { key: 'pending', label: 'Created', step: 1 },
     { key: 'accepted', label: 'Accepted', step: 2 },
-    { key: 'in-progress', label: 'In Progress', step: 3 },
-    { key: 'completed', label: 'Completed', step: 4 },
+    { key: 'in-progress', label: 'Working', step: 3 },
+    { key: 'completed', label: 'Done', step: 4 },
   ];
 
   if (isCancelled) {
     return (
       <View style={styles.timelineContainer}>
-        <View style={styles.cancelledTimeline}>
-          <StatusIcon status={currentStatus} size={24} />
-          <Text style={styles.cancelledText}>{getStatusDescription(currentStatus, isProvider)}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 8 }}>
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: status.color }} />
+          <Text style={{ fontSize: 13, color: BRAND.textSecondary }}>{getStatusDescription(currentStatus, isProvider)}</Text>
         </View>
       </View>
     );
@@ -153,7 +155,7 @@ const StatusTimeline = ({ currentStatus, isProvider = false }) => {
 
   return (
     <View style={styles.timelineContainer}>
-      <Text style={styles.timelineTitle}>Request Progress</Text>
+      <Text style={styles.timelineTitle}>Progress</Text>
       <View style={styles.timeline}>
         {steps.map((step, index) => {
           const isActive = status.step >= step.step;
@@ -162,37 +164,26 @@ const StatusTimeline = ({ currentStatus, isProvider = false }) => {
           
           return (
             <View key={step.key} style={styles.timelineStep}>
-              {/* Connector Line */}
               {index > 0 && (
                 <View style={[
                   styles.timelineConnector,
                   isActive && styles.timelineConnectorActive,
                 ]} />
               )}
-              
-              {/* Step Circle */}
               <View style={[
                 styles.timelineCircle,
                 isActive && styles.timelineCircleActive,
                 isCurrent && styles.timelineCircleCurrent,
               ]}>
                 {isCompleted ? (
-                  <Icon name="check" size={16} color={BRAND.white} />
+                  <Icon name="check" size={12} color={BRAND.white} />
                 ) : (
-                  <Text style={[
-                    styles.timelineNumber,
-                    isActive && styles.timelineNumberActive,
-                  ]}>
+                  <Text style={[styles.timelineNumber, isActive && styles.timelineNumberActive]}>
                     {step.step}
                   </Text>
                 )}
               </View>
-              
-              {/* Step Label */}
-              <Text style={[
-                styles.timelineLabel,
-                isActive && styles.timelineLabelActive,
-              ]}>
+              <Text style={[styles.timelineLabel, isActive && styles.timelineLabelActive]}>
                 {step.label}
               </Text>
             </View>
@@ -204,20 +195,18 @@ const StatusTimeline = ({ currentStatus, isProvider = false }) => {
 };
 
 /**
- * Info Row Component
+ * Info Row Component — compact single-line
  */
 const InfoRow = ({ label, value, iconName }) => (
   <View style={styles.infoRow}>
-    <Icon name={iconName} size={18} color="#6B7280" />
-    <View style={styles.infoContent}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
-    </View>
+    <Icon name={iconName} size={15} color={BRAND.textMuted} />
+    <Text style={styles.infoLabel}>{label}</Text>
+    <Text style={styles.infoValue} numberOfLines={2}>{value}</Text>
   </View>
 );
 
 /**
- * OTP Display Component
+ * OTP Display Component — compact inline
  */
 const OtpDisplay = ({ otp, expiresAt, onResend }) => {
   const [copied, setCopied] = useState(false);
@@ -225,12 +214,7 @@ const OtpDisplay = ({ otp, expiresAt, onResend }) => {
 
   const handleCopy = () => {
     if (otp) {
-      // Show the OTP in an alert for easy copying
-      Alert.alert(
-        'Completion OTP',
-        `Your OTP is: ${otp}\n\nShare this with your service provider to mark the service as complete.`,
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Completion OTP', `Your OTP is: ${otp}\n\nShare this with your service provider to mark the service as complete.`, [{ text: 'OK' }]);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -239,10 +223,12 @@ const OtpDisplay = ({ otp, expiresAt, onResend }) => {
   if (isExpired) {
     return (
       <View style={styles.otpExpiredContainer}>
-        <Icon name="clock" size={32} color="#F59E0B" />
-        <Text style={styles.otpExpiredTitle}>OTP Expired</Text>
-        <Text style={styles.otpExpiredText}>
-          The completion OTP has expired. Request a new one to complete the service.
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <Icon name="clock" size={20} color="#F59E0B" />
+          <Text style={{ fontSize: 14, fontWeight: '700', color: '#DC2626' }}>OTP Expired</Text>
+        </View>
+        <Text style={{ fontSize: 12, color: '#7F1D1D', textAlign: 'center', marginBottom: 10 }}>
+          The completion OTP has expired. Request a new one.
         </Text>
         <TouchableOpacity style={styles.resendButton} onPress={onResend}>
           <Text style={styles.resendButtonText}>Request New OTP</Text>
@@ -253,41 +239,37 @@ const OtpDisplay = ({ otp, expiresAt, onResend }) => {
 
   return (
     <View style={styles.otpDisplayContainer}>
-      <View style={styles.otpHeader}>
-        <View style={styles.otpTitleRow}>
-          <Icon name="lock" size={20} color={BRAND.secondary} />
-          <Text style={styles.otpTitle}>Completion OTP</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Icon name="lock" size={16} color={BRAND.secondary} />
+          <Text style={{ fontSize: 14, fontWeight: '700', color: BRAND.secondary }}>Completion OTP</Text>
         </View>
-        <Text style={styles.otpSubtitle}>Share this code with your provider</Text>
+        <Text style={{ fontSize: 11, color: BRAND.textMuted }}>Share with provider</Text>
       </View>
       
       <TouchableOpacity style={styles.otpCodeBox} onPress={handleCopy} activeOpacity={0.7}>
         <Text style={styles.otpCode}>{otp}</Text>
-        <View style={styles.otpCopyBadge}>
-          <Icon name={copied ? 'check' : 'copy'} size={14} color={copied ? BRAND.success : BRAND.neutral} />
-          <Text style={[styles.otpCopyText, copied && { color: BRAND.success }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Icon name={copied ? 'check' : 'copy'} size={12} color={copied ? BRAND.success : BRAND.textMuted} />
+          <Text style={{ fontSize: 11, color: copied ? BRAND.success : BRAND.textMuted, fontWeight: '500' }}>
             {copied ? 'Copied!' : 'Tap to copy'}
           </Text>
         </View>
       </TouchableOpacity>
 
       {expiresAt && (
-        <View style={styles.otpExpiryContainer}>
-          <Icon name="timer" size={16} color="#6B7280" />
-          <Text style={styles.otpExpiryText}>
-            Expires at {new Date(expiresAt).toLocaleTimeString('en-IN', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 8 }}>
+          <Icon name="timer" size={13} color={BRAND.textMuted} />
+          <Text style={{ fontSize: 11, color: BRAND.textMuted }}>
+            Expires {new Date(expiresAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
           </Text>
         </View>
       )}
 
-      <View style={styles.otpInfoBox}>
-        <Icon name="info" size={18} color="#3B82F6" />
-        <Text style={styles.otpInfoText}>
-          The provider will enter this OTP to mark the service as complete. 
-          Only share it after the work is satisfactorily done.
+      <View style={{ flexDirection: 'row', backgroundColor: '#FEF3C7', borderRadius: 8, padding: 8, marginTop: 10, gap: 6 }}>
+        <Icon name="info" size={14} color="#92400E" />
+        <Text style={{ flex: 1, fontSize: 11, color: '#92400E', lineHeight: 16 }}>
+          Only share after the work is satisfactorily done.
         </Text>
       </View>
     </View>
@@ -295,50 +277,80 @@ const OtpDisplay = ({ otp, expiresAt, onResend }) => {
 };
 
 /**
- * Provider Card Component
+ * Resolve profile picture URL from any format
+ * Handles: string, { url: '...' }, { url: { url: '...' } }, null
+ */
+const resolveProfilePic = (pic) => {
+  if (!pic) return null;
+  if (typeof pic === 'string' && pic.length > 0) return pic;
+  if (typeof pic === 'object' && pic.url) {
+    if (typeof pic.url === 'string') return pic.url;
+  }
+  return null;
+};
+
+/**
+ * Provider Card Component — compact with profile picture
  */
 const ProviderCard = ({ provider, onCall, onGetLocation, showActions }) => {
   if (!provider) return null;
+
+  const profilePicUrl = resolveProfilePic(provider.profilePicture) || resolveProfilePic(provider.profileImage);
+  const ratingValue = provider.ratings?.average || provider.rating || 0;
+  const reviewCount = provider.ratings?.total || provider.totalRatings || 0;
 
   return (
     <View style={styles.providerCard}>
       <Text style={styles.sectionTitle}>Your Provider</Text>
       
-      <View style={styles.providerContent}>
-        <View style={styles.providerAvatar}>
-          <Text style={styles.providerInitial}>
-            {provider.name?.charAt(0).toUpperCase() || 'P'}
-          </Text>
-        </View>
-        
-        <View style={styles.providerInfo}>
-          <Text style={styles.providerName}>{provider.name}</Text>
-          {provider.rating > 0 && (
-            <View style={styles.providerRating}>
-              <Icon name="star" size={14} color="#F59E0B" />
-              <Text style={styles.providerRatingText}>{provider.rating.toFixed(1)}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: showActions ? 10 : 0 }}>
+        <View style={{ position: 'relative', marginRight: 10 }}>
+          {profilePicUrl ? (
+            <Image source={{ uri: profilePicUrl }} style={styles.providerAvatarImage} />
+          ) : (
+            <View style={styles.providerAvatar}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: BRAND.white }}>
+                {provider.name?.charAt(0).toUpperCase() || 'P'}
+              </Text>
             </View>
           )}
+          {(provider.isVerified || provider.verified) && (
+            <View style={styles.providerVerifiedBadge}>
+              <Icon name="verified" size={10} color="#FFFFFF" />
+            </View>
+          )}
+        </View>
+        
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: BRAND.text }}>{provider.name}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+            {ratingValue > 0 && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                <Icon name="star" size={13} color="#F59E0B" />
+                <Text style={{ fontSize: 12, fontWeight: '600', color: BRAND.text }}>{ratingValue.toFixed(1)}</Text>
+                {reviewCount > 0 && <Text style={{ fontSize: 11, color: BRAND.textMuted }}>({reviewCount})</Text>}
+              </View>
+            )}
+            {showActions && (provider.phone || provider.verifiedPhone) && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginLeft: 4 }}>
+                <Icon name="phone" size={11} color={BRAND.textMuted} />
+                <Text style={{ fontSize: 11, color: BRAND.textMuted }}>{provider.phone || provider.verifiedPhone}</Text>
+              </View>
+            )}
+          </View>
         </View>
       </View>
 
       {showActions && (
-        <View style={styles.providerActionsRow}>
-          <TouchableOpacity 
-            style={styles.callButton}
-            onPress={onCall}
-          >
-            <Icon name="phone" size={18} color="#FFFFFF" />
-            <Text style={styles.callButtonText}>Call</Text>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity style={styles.callButton} onPress={onCall}>
+            <Icon name="phone" size={16} color="#FFFFFF" />
+            <Text style={{ color: '#FFF', fontWeight: '600', fontSize: 13 }}>Call</Text>
           </TouchableOpacity>
-          
           {onGetLocation && (
-            <TouchableOpacity 
-              style={styles.locationButton}
-              onPress={onGetLocation}
-            >
-              <Icon name="location" size={18} color="#FFFFFF" />
-              <Text style={styles.locationButtonText}>Track Location</Text>
+            <TouchableOpacity style={styles.locationButton} onPress={onGetLocation}>
+              <Icon name="location" size={16} color="#FFFFFF" />
+              <Text style={{ color: '#FFF', fontWeight: '600', fontSize: 13 }}>Track</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -348,14 +360,12 @@ const ProviderCard = ({ provider, onCall, onGetLocation, showActions }) => {
 };
 
 /**
- * Location Map Preview Component
- * Shows an interactive mini-map with the service location pinned
+ * Location Map Preview Component — compact with mini-map
  */
 const LocationMapPreview = ({ location, address }) => {
   const [mapExpanded, setMapExpanded] = useState(false);
   const [mapLoading, setMapLoading] = useState(true);
   
-  // Check if we have valid coordinates (must be numbers, not null/undefined)
   const hasValidCoordinates = location?.coordinates && 
     Array.isArray(location.coordinates) && 
     location.coordinates.length === 2 &&
@@ -365,16 +375,13 @@ const LocationMapPreview = ({ location, address }) => {
     !isNaN(location.coordinates[1]);
   
   if (!hasValidCoordinates) {
-    // Fallback to address-only display if no valid coordinates
-    if (!address) {
-      return null; // Don't render anything if no address and no coordinates
-    }
+    if (!address) return null;
     return (
       <View style={styles.locationCard}>
         <Text style={styles.sectionTitle}>Service Location</Text>
-        <View style={styles.locationContent}>
-          <Icon name="location" size={20} color="#EF4444" />
-          <Text style={styles.locationAddress}>{address}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Icon name="location" size={16} color="#EF4444" />
+          <Text style={{ flex: 1, fontSize: 13, color: BRAND.text, lineHeight: 18 }}>{address}</Text>
         </View>
       </View>
     );
@@ -396,18 +403,17 @@ const LocationMapPreview = ({ location, address }) => {
   return (
     <>
       <View style={styles.locationCard}>
-        <View style={styles.locationCardHeader}>
-          <Text style={styles.sectionTitle}>Service Location</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Service Location</Text>
           <TouchableOpacity 
-            style={styles.expandMapButton}
+            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#EFF6FF', borderRadius: 12, gap: 3 }}
             onPress={() => setMapExpanded(true)}
           >
-            <Icon name="zoom-in" size={16} color={BRAND.secondary} />
-            <Text style={styles.expandMapText}>Expand</Text>
+            <Icon name="zoom-in" size={13} color={BRAND.secondary} />
+            <Text style={{ fontSize: 11, fontWeight: '600', color: BRAND.secondary }}>Expand</Text>
           </TouchableOpacity>
         </View>
         
-        {/* Mini Map Preview */}
         <TouchableOpacity 
           style={styles.mapPreviewContainer}
           onPress={() => setMapExpanded(true)}
@@ -427,39 +433,28 @@ const LocationMapPreview = ({ location, address }) => {
             zoomEnabled={false}
             onDidFinishLoadingMap={() => setMapLoading(false)}
           >
-            <Mapbox.Camera
-              centerCoordinate={[lng, lat]}
-              zoomLevel={15}
-              animationDuration={0}
-            />
-            {/* Location Pin */}
-            <Mapbox.PointAnnotation
-              id="service-location"
-              coordinate={[lng, lat]}
-            >
+            <Mapbox.Camera centerCoordinate={[lng, lat]} zoomLevel={15} animationDuration={0} />
+            <Mapbox.PointAnnotation id="service-location" coordinate={[lng, lat]}>
               <View style={styles.mapPinContainer}>
                 <View style={styles.mapPin}>
-                  <Icon name="location" size={20} color="#FFFFFF" />
+                  <Icon name="location" size={16} color="#FFFFFF" />
                 </View>
                 <View style={styles.mapPinShadow} />
               </View>
             </Mapbox.PointAnnotation>
           </Mapbox.MapView>
           
-          {/* Overlay hint */}
           <View style={styles.mapPreviewHint}>
-            <Icon name="touch" size={14} color="#FFFFFF" />
-            <Text style={styles.mapPreviewHintText}>Tap to view full map</Text>
+            <Icon name="touch" size={12} color="#FFFFFF" />
+            <Text style={{ fontSize: 10, fontWeight: '500', color: '#FFFFFF' }}>Tap for full map</Text>
           </View>
         </TouchableOpacity>
 
-        {/* Address */}
-        <View style={styles.locationContent}>
-          <Icon name="location" size={18} color="#EF4444" />
-          <Text style={styles.locationAddress}>{address}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8, gap: 6 }}>
+          <Icon name="location" size={15} color="#EF4444" />
+          <Text style={{ flex: 1, fontSize: 13, color: BRAND.text, lineHeight: 18 }}>{address}</Text>
         </View>
         
-        {/* Get Directions Button */}
         <TouchableOpacity
           style={styles.directionsButton}
           onPress={handleGetDirections}
@@ -544,13 +539,15 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   const EVENT_SERVICE_TYPES = ['photographer', 'influencer'];
   const isEventService = route.params?.isEventService || 
     initialRequest?.isEventService || 
-    EVENT_SERVICE_TYPES.includes(initialRequest?.serviceType);
+    EVENT_SERVICE_TYPES.includes(initialRequest?.serviceType) ||
+    EVENT_SERVICE_TYPES.includes(route.params?.serviceType);
   
   // Detect emergency service by checking if serviceType is an emergency type
   const EMERGENCY_SERVICE_TYPES = ['snake_catcher', 'private_ambulance', 'mortuary_van', 'fire_brigade', 'police', 'hospital'];
   const isEmergencyService = route.params?.isEmergencyService || 
     initialRequest?.isEmergencyService || 
-    EMERGENCY_SERVICE_TYPES.includes(initialRequest?.serviceType);
+    EMERGENCY_SERVICE_TYPES.includes(initialRequest?.serviceType) ||
+    EMERGENCY_SERVICE_TYPES.includes(route.params?.serviceType);
   
   // State
   const [request, setRequest] = useState(initialRequest);
@@ -558,8 +555,13 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   
-  // Rating modal state
+  // Accept/Reject state (for providers on pending requests)
+  const [accepting, setAccepting] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  
+  // Rating state
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
+  const [ratingStatus, setRatingStatus] = useState({ rated: false, rating: null });
   
   // Favorites state
   const [isFavorited, setIsFavorited] = useState(false);
@@ -581,11 +583,11 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   }, [user, profile]);
 
   /**
-   * Fetch request details - for traditional services only
-   * Event and emergency services pass data directly via route params
+   * Fetch request details - supports traditional, event, and emergency services.
+   * Detects service category from route params and fetches from the correct API.
    */
   const fetchDetails = useCallback(async () => {
-    // For event/emergency services, use the data passed via route params
+    // For event/emergency services, use the data passed via route params (when navigated from list)
     if ((isEventService || isEmergencyService) && initialRequest) {
       setRequest(initialRequest);
       setLoading(false);
@@ -599,10 +601,38 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     if (!lookupId) return;
 
     try {
-      const result = await getRequestDetails(lookupId);
+      let result;
+
+      if (isEventService) {
+        // Fetch from event services API
+        console.log('[RequestDetail] Fetching event service:', lookupId);
+        const response = await fetch(`${NODE_BASE_URL}/api/event-services/${lookupId}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        const data = await response.json();
+        result = { success: data.success, request: data.request, error: data.error };
+      } else if (isEmergencyService) {
+        // Fetch from emergency services API
+        console.log('[RequestDetail] Fetching emergency service:', lookupId);
+        const response = await fetch(`${NODE_BASE_URL}/api/emergency-services/${lookupId}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        const data = await response.json();
+        result = { success: data.success, request: data.request, error: data.error };
+      } else {
+        // Traditional service - use existing helper
+        result = await getRequestDetails(lookupId);
+      }
       
-      if (result.success) {
-        setRequest(result.request);
+      if (result.success && result.request) {
+        // Normalize: emergency backend may return providerInfo instead of providerDetails
+        const req = result.request;
+        if (req.providerInfo && !req.providerDetails) {
+          req.providerDetails = req.providerInfo;
+        }
+        setRequest(req);
       } else {
         console.error('[RequestDetail] Fetch failed:', result.error);
       }
@@ -616,13 +646,17 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
 
   // Initial fetch if needed
   useEffect(() => {
-    // For event/emergency services, just use the passed data
+    // Initialize Mapbox on first render (lazy, idempotent)
+    initializeMapbox();
+    
+    // For event/emergency services with passed data, just use it
     if ((isEventService || isEmergencyService) && initialRequest) {
       setRequest(initialRequest);
       setLoading(false);
       return;
     }
     
+    // For notification-based navigation (no initialRequest), or traditional services, fetch details
     if (!initialRequest || !initialRequest.providerDetails) {
       fetchDetails();
     }
@@ -732,51 +766,46 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   }, [request, getUserId, navigation, isEventService, isEmergencyService]);
 
   /**
-   * Handle phone call via Exotel masked calling
+   * Handle phone call - direct dialing
    * Works for both user calling provider and provider calling user
    */
-  const handleCall = useCallback(async () => {
+  const handleCall = useCallback(() => {
     const callerIsProvider = isProvider;
-    let receiverId;
+    let phone, contactName;
     
     if (callerIsProvider) {
       // Provider calling the user
-      receiverId = request?.userId || request?.userDetails?._id;
+      phone = request?.userDetails?.phone || request?.userDetails?.verifiedPhone || request?.userPhone;
+      contactName = request?.userDetails?.name || request?.userName || 'Customer';
     } else {
       // User calling the provider
-      receiverId = request?.assignedProviderId || request?.providerId || request?.providerDetails?._id;
+      phone = request?.providerDetails?.phone || request?.providerDetails?.verifiedPhone || request?.providerPhone;
+      contactName = request?.providerDetails?.name || request?.providerName || 'Provider';
     }
     
-    if (!receiverId) {
-      Alert.alert('Error', 'Contact information not available');
+    if (!phone) {
+      Alert.alert('Phone Not Available', 'The phone number is not available yet. Please try again later.');
       return;
     }
-    
-    try {
-      const serviceType = request?.isEmergencyService ? 'emergency' 
-        : request?.isEventService ? 'event' 
-        : 'traditional';
-      
-      const result = await initiateCall({
-        receiverId,
-        callerType: callerIsProvider ? 'provider' : 'user',
-        serviceRequestId: request?._id || null,
-        serviceType,
-      });
 
-      if (result.success) {
-        Alert.alert(
-          'Connecting Call',
-          'You will receive a call shortly. Once you pick up, we will connect you.',
-          [{ text: 'OK' }]
-        );
-      } else {
-        Alert.alert('Call Failed', result.error || 'Unable to connect. Please try again.');
-      }
-    } catch (error) {
-      console.error('[ServiceDetail] Call error:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
-    }
+    const phoneNumber = phone.replace(/\s/g, '');
+    const url = `tel:${phoneNumber}`;
+
+    Alert.alert(
+      `📞 Call ${callerIsProvider ? 'Customer' : 'Provider'}`,
+      `Call ${contactName} at ${phone}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Call Now',
+          onPress: () => {
+            Linking.openURL(url).catch(() => {
+              Alert.alert('Error', 'Unable to make phone calls on this device');
+            });
+          },
+        },
+      ]
+    );
   }, [isProvider, request]);
 
   /**
@@ -809,11 +838,157 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
       requestId: request._id,
       providerId: providerIdValue,
       providerName: providerDetails?.name || 'Provider',
+      providerPhone: providerDetails?.phone,
       serviceCategory: request.serviceCategory || request.category || request.serviceType,
-      serviceLocation: serviceLocation, // ✅ Pass service location as destination
-      serviceAddress: request.serviceAddress || request.address || request.location?.address || '', // ✅ Pass service address
+      serviceLocation: serviceLocation,
+      serviceAddress: request.serviceAddress || request.address || request.location?.address || '',
     });
   }, [request, navigation]);
+
+  /**
+   * Handle accept request — for providers on pending requests
+   * Supports traditional, event, and emergency services
+   */
+  const handleAcceptRequest = useCallback(() => {
+    const serviceLabel = SERVICE_TYPE_LABELS[request?.serviceType] || request?.serviceType;
+    const providerId = user?.mongoId || user?.javaUserId || profile?.mongoId || profile?._id;
+    
+    const EVENT_SERVICE_TYPES = ['photographer', 'influencer'];
+    const EMERGENCY_SERVICE_TYPES = ['snake_catcher', 'private_ambulance', 'mortuary_van', 'fire_brigade', 'police', 'hospital'];
+    const isEventReq = request?.isEventService || EVENT_SERVICE_TYPES.includes(request?.serviceType);
+    const isEmergencyReq = request?.isEmergencyService || EMERGENCY_SERVICE_TYPES.includes(request?.serviceType);
+    
+    Alert.alert(
+      'Accept Request',
+      `Accept this ${serviceLabel} request?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Accept',
+          onPress: async () => {
+            setAccepting(true);
+            try {
+              let result;
+              
+              if (isEmergencyReq) {
+                const response = await fetch(`${NODE_BASE_URL}/api/emergency-services/${request._id}/accept`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    providerId,
+                    userEmail: request.userDetails?.email || '',
+                    estimatedArrival: 15,
+                  }),
+                });
+                result = await response.json();
+                result.success = result.success || response.ok;
+              } else if (isEventReq) {
+                const response = await fetch(`${NODE_BASE_URL}/api/event-services/${request._id}/accept`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    providerId,
+                    userEmail: request.userDetails?.email || request.userEmail || '',
+                  }),
+                });
+                result = await response.json();
+                result.success = result.success || result.statusCode === 200;
+              } else {
+                result = await acceptRequestAsProvider(
+                  request._id,
+                  providerId,
+                  request.userDetails?.email || ''
+                );
+              }
+              
+              if (result.success) {
+                Alert.alert('Request Accepted', 'You have accepted this request. The customer has been notified.');
+                fetchDetails(); // Refresh to show updated status
+              } else {
+                Alert.alert('Error', result.error || 'Failed to accept request');
+              }
+            } catch (error) {
+              console.error('[RequestDetail] Accept error:', error);
+              Alert.alert('Error', 'Something went wrong');
+            } finally {
+              setAccepting(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [request, user, profile, fetchDetails]);
+
+  /**
+   * Handle reject request — for providers on pending requests
+   * Supports traditional, event, and emergency services
+   */
+  const handleRejectRequest = useCallback(() => {
+    const serviceLabel = SERVICE_TYPE_LABELS[request?.serviceType] || request?.serviceType;
+    const providerId = user?.mongoId || user?.javaUserId || profile?.mongoId || profile?._id;
+    
+    const EVENT_SERVICE_TYPES = ['photographer', 'influencer'];
+    const EMERGENCY_SERVICE_TYPES = ['snake_catcher', 'private_ambulance', 'mortuary_van', 'fire_brigade', 'police', 'hospital'];
+    const isEventReq = request?.isEventService || EVENT_SERVICE_TYPES.includes(request?.serviceType);
+    const isEmergencyReq = request?.isEmergencyService || EMERGENCY_SERVICE_TYPES.includes(request?.serviceType);
+    
+    Alert.alert(
+      'Reject Request',
+      `Are you sure you want to reject this ${serviceLabel} request? The customer will be notified.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reject',
+          style: 'destructive',
+          onPress: async () => {
+            setRejecting(true);
+            try {
+              let result;
+              
+              if (isEmergencyReq) {
+                const response = await fetch(`${NODE_BASE_URL}/api/emergency-services/${request._id}/provider-reject`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ providerId }),
+                });
+                result = await response.json();
+                result.success = result.success || response.ok;
+              } else if (isEventReq) {
+                const response = await fetch(`${NODE_BASE_URL}/api/event-services/${request._id}/reject`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ providerId }),
+                });
+                result = await response.json();
+                result.success = result.success || result.statusCode === 200 || response.ok;
+              } else {
+                const response = await fetch(`${NODE_BASE_URL}/api/traditional-services/${request._id}/provider-reject`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ providerId }),
+                });
+                result = await response.json();
+                result.success = result.success || response.ok;
+              }
+              
+              if (result.success) {
+                Alert.alert('Request Rejected', 'You have rejected this request. The customer has been notified.', [
+                  { text: 'OK', onPress: () => navigation.goBack() },
+                ]);
+              } else {
+                Alert.alert('Error', result.error || result.message || 'Failed to reject request');
+              }
+            } catch (error) {
+              console.error('[RequestDetail] Reject error:', error);
+              Alert.alert('Error', 'Something went wrong');
+            } finally {
+              setRejecting(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [request, user, profile, navigation]);
 
   /**
    * Handle resend OTP
@@ -910,10 +1085,9 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   }, [request?._id, enteredOtp, handleRefresh, isEventService, isEmergencyService, request?.isEventService, request?.isEmergencyService]);
 
   /**
-   * Handle rating submission
-   * @param {string} requestId - Request ID from RatingModal
-   * @param {number} rating - Rating value 1-5
-   * @param {string} review - Optional review text
+   * Handle rating submission — Provider-level centralized rating.
+   * Sends the service request ID (for verification + dedup) and
+   * the provider ID (who is being rated).
    */
   const handleSubmitRating = useCallback(async (requestId, rating, review) => {
     const userId = getUserId();
@@ -921,32 +1095,26 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
       return { success: false, error: 'Missing request or user information' };
     }
     
-    // Validate rating is a number
     if (!rating || typeof rating !== 'number' || rating < 1 || rating > 5) {
       return { success: false, error: 'Please select a valid rating (1-5 stars)' };
     }
 
+    // Resolve the provider ID from the request
+    const providerId = request?.providerId
+      || request?.assignedProviderId
+      || request?.providerDetails?._id
+      || request?.assignedProviderDetails?._id
+      || null;
+
     try {
-      // Detect event service by serviceType (photographer, influencer)
-      const EVENT_SERVICE_TYPES = ['photographer', 'influencer'];
-      const isEventServiceRequest = isEventService || request?.isEventService || EVENT_SERVICE_TYPES.includes(request?.serviceType);
+      console.log('[Rating] Submitting provider rating:', { requestId, providerId });
       
-      // Use the correct rating function based on service type
-      const ratingFn = isEventServiceRequest ? submitEventRating : submitRating;
-      console.log('[Rating] Using endpoint for:', isEventServiceRequest ? 'event-service' : 'traditional-service', 'serviceType:', request?.serviceType);
-      
-      const result = await ratingFn(requestId, userId, Math.round(rating), review || '');
+      const result = await submitRating(requestId, userId, Math.round(rating), review || '', providerId);
       
       if (result.success) {
-        // Update local state to reflect the rating
         setRequest(prev => ({
           ...prev,
-          ratings: {
-            ...prev.ratings,
-            userRating: rating,
-            userReview: review,
-            ratedAt: new Date().toISOString()
-          }
+          _rated: true,
         }));
       }
       
@@ -955,7 +1123,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
       console.error('[Rating] Error:', error);
       return { success: false, error: error.message || 'Failed to submit rating' };
     }
-  }, [getUserId, isEventService, request?.isEventService]);
+  }, [getUserId, request]);
 
   /**
    * Check if provider is favorited on mount
@@ -1020,9 +1188,15 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     }
   }, [getUserId, request, isFavorited]);
 
-  // Check if user has already rated this service
-  const hasRated = request?.ratings?.userRating > 0;
+  // Check if user has already rated this service (from central Rating collection)
+  const hasRated = request?._rated || ratingStatus.rated;
   const canRate = !isProvider && request?.status === 'completed' && !hasRated;
+
+  useEffect(() => {
+    if (request?._id && request?.status === 'completed' && !isProvider) {
+      checkRatingStatus(request._id).then(setRatingStatus).catch(() => {});
+    }
+  }, [request?._id, request?.status, isProvider]);
 
   // Loading state
   if (loading) {
@@ -1056,8 +1230,11 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   }
 
   const status = STATUS_CONFIG[request.status] || STATUS_CONFIG.pending;
-  const serviceDate = new Date(request.serviceDate);
-  const createdAt = new Date(request.createdAt);
+  // Resolve service date across all service categories:
+  // Traditional → serviceDate, Event → eventDate, Emergency → createdAt (immediate)
+  const rawServiceDate = request.serviceDate || request.eventDate || request.assignedAt || request.createdAt;
+  const serviceDate = rawServiceDate ? new Date(rawServiceDate) : null;
+  const createdAt = request.createdAt ? new Date(request.createdAt) : null;
   const isActive = ['pending', 'accepted', 'in-progress'].includes(request.status);
   // Only show OTP for users (not providers) - providers should NOT see the OTP
   const showOtp = !isProvider && request.completionOtp && ['accepted', 'in-progress'].includes(request.status);
@@ -1073,10 +1250,10 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           style={styles.backButton} 
           onPress={() => navigation.goBack()}
         >
-          <Icon name="back" size={24} color="#1F2937" />
+          <Icon name="back" size={20} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Request Details</Text>
-        <View style={styles.headerSpacer} />
+        <Text style={styles.headerTitle}>Details</Text>
+        <View style={{ width: 36 }} />
       </View>
 
       <ScrollView
@@ -1086,32 +1263,114 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           <RefreshControl 
             refreshing={refreshing} 
             onRefresh={handleRefresh}
-            colors={['#2563EB']}
+            colors={[BRAND.primary]}
           />
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Service Type Header */}
+        {/* Service Type Header — compact */}
         <View style={styles.serviceHeader}>
-          <ServiceIcon serviceType={request.serviceType} size={40} />
+          <ServiceIcon serviceType={request.serviceType} size={32} />
           <View style={styles.serviceInfo}>
             <Text style={styles.serviceName}>
               {SERVICE_TYPE_LABELS[request.serviceType] || request.serviceType}
             </Text>
-            <Text style={styles.requestId}>#{request.requestId}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}>
+              <Text style={styles.requestId}>#{request.requestId}</Text>
+              {isEventService && (
+                <View style={{ backgroundColor: '#EDE9FE', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 }}>
+                  <Text style={{ fontSize: 9, fontWeight: '700', color: '#7C3AED' }}>EVENT</Text>
+                </View>
+              )}
+              {isEmergencyService && (
+                <View style={{ backgroundColor: '#FEE2E2', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 }}>
+                  <Text style={{ fontSize: 9, fontWeight: '700', color: '#DC2626' }}>EMERGENCY</Text>
+                </View>
+              )}
+            </View>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: status.bgColor }]}>
-            <StatusIcon status={request.status} size={16} />
+            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: status.color, marginRight: 5 }} />
             <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
           </View>
         </View>
 
-        {/* Status Description */}
+        {/* Status Description — compact pill */}
         <View style={[styles.statusDescriptionBox, { backgroundColor: status.bgColor }]}>
           <Text style={[styles.statusDescription, { color: status.color }]}>
             {getStatusDescription(request.status, isProvider)}
           </Text>
         </View>
+
+        {/* Location Map — ALWAYS show for providers on pending (before accept/reject) */}
+        {isProvider && ['pending', 'awaiting_confirmation'].includes(request.status) && request.location?.address && (
+          <LocationMapPreview 
+            location={request.location}
+            address={request.location.address}
+          />
+        )}
+
+        {/* Accept / Reject Buttons — for providers on pending requests */}
+        {isProvider && ['pending', 'awaiting_confirmation'].includes(request.status) && (
+          <View style={styles.providerActionContainer}>
+            <Text style={styles.providerActionTitle}>Respond to request</Text>
+            <View style={styles.providerActionRow}>
+              <TouchableOpacity
+                style={styles.rejectButton}
+                onPress={handleRejectRequest}
+                disabled={rejecting || accepting}
+              >
+                {rejecting ? (
+                  <ActivityIndicator size="small" color="#DC2626" />
+                ) : (
+                  <>
+                    <Icon name="close" size={16} color="#DC2626" />
+                    <Text style={styles.rejectButtonText}>Reject</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.acceptButton}
+                onPress={handleAcceptRequest}
+                disabled={accepting || rejecting}
+              >
+                {accepting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Icon name="check" size={16} color="#FFFFFF" />
+                    <Text style={styles.acceptButtonText}>Accept</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Cancel Button */}
+        {canCancel && (
+          <TouchableOpacity
+            style={[
+              styles.cancelButton,
+              ['accepted', 'in-progress'].includes(request.status) && styles.cancelButtonWarning
+            ]}
+            onPress={handleCancel}
+            disabled={cancelling}
+          >
+            {cancelling ? (
+              <ActivityIndicator color="#DC2626" size="small" />
+            ) : (
+              <>
+                <Icon name="close" size={15} color="#DC2626" />
+                <Text style={styles.cancelButtonText}>
+                  {['accepted', 'in-progress'].includes(request.status) 
+                    ? 'Cancel (Provider notified)' 
+                    : 'Cancel Request'}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
 
         {/* Status Timeline */}
         <StatusTimeline currentStatus={request.status} isProvider={isProvider} />
@@ -1125,31 +1384,28 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           />
         )}
 
-        {/* Provider OTP Entry Section - Provider enters OTP to complete */}
+        {/* Provider OTP Entry — compact */}
         {isProvider && ['accepted', 'in-progress'].includes(request.status) && (
           <View style={styles.providerOtpSection}>
-            <View style={styles.providerOtpHeader}>
-              <Icon name="lock" size={24} color="#8B5CF6" />
-              <Text style={styles.providerOtpTitle}>Complete Service</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              <Icon name="lock" size={18} color="#8B5CF6" />
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#5B21B6' }}>Complete Service</Text>
             </View>
-            <Text style={styles.providerOtpHint}>
-              Ask the customer for their completion OTP and enter it below to mark the service as complete.
+            <Text style={{ fontSize: 12, color: BRAND.textSecondary, marginBottom: 10, lineHeight: 16 }}>
+              Enter the customer's 6-digit OTP to mark complete.
             </Text>
             <View style={styles.providerOtpInputRow}>
               <TextInput
                 style={styles.providerOtpInput}
                 value={enteredOtp}
                 onChangeText={setEnteredOtp}
-                placeholder="Enter 6-digit OTP"
-                placeholderTextColor="#9CA3AF"
+                placeholder="000000"
+                placeholderTextColor="#D1D5DB"
                 keyboardType="number-pad"
                 maxLength={6}
               />
               <TouchableOpacity 
-                style={[
-                  styles.providerOtpButton,
-                  enteredOtp.length !== 6 && styles.providerOtpButtonDisabled,
-                ]}
+                style={[styles.providerOtpButton, enteredOtp.length !== 6 && styles.providerOtpButtonDisabled]}
                 onPress={handleVerifyOtp}
                 disabled={enteredOtp.length !== 6 || verifyingOtp}
               >
@@ -1157,8 +1413,8 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
-                    <Icon name="check" size={18} color="#FFFFFF" />
-                    <Text style={styles.providerOtpButtonText}>Complete</Text>
+                    <Icon name="check" size={15} color="#FFFFFF" />
+                    <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '600' }}>Done</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -1181,94 +1437,91 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           />
         )}
 
-        {/* User/Customer Details - Only show for providers (Industry-grade) */}
+        {/* Customer Details — compact, for providers only */}
         {isProvider && request.userDetails && (
           <View style={styles.customerCard}>
-            {/* Customer Header */}
-            <View style={styles.customerHeader}>
-              <Text style={styles.sectionTitle}>Customer Details</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Customer</Text>
               {request.userDetails.isRepeatCustomer && (
-                <View style={styles.repeatCustomerBadge}>
-                  <Icon name="heart" size={12} color={BRAND.primary} />
-                  <Text style={styles.repeatCustomerText}>Repeat Customer</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#FEF3E7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
+                  <Icon name="heart" size={10} color={BRAND.primary} />
+                  <Text style={{ fontSize: 10, fontWeight: '600', color: BRAND.primary }}>Repeat</Text>
                 </View>
               )}
             </View>
 
-            {/* Customer Profile */}
-            <View style={styles.customerProfileSection}>
-              {request.userDetails.profilePicture?.url ? (
+            {/* Customer Profile — compact */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: BRAND.border }}>
+              {resolveProfilePic(request.userDetails.profilePicture) ? (
                 <Image
-                  source={{ uri: request.userDetails.profilePicture.url }}
-                  style={styles.customerProfileImage}
+                  source={{ uri: resolveProfilePic(request.userDetails.profilePicture) }}
+                  style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10, backgroundColor: '#E5E7EB' }}
                 />
               ) : (
-                <View style={styles.customerAvatar}>
-                  <Text style={styles.customerInitial}>
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: BRAND.secondary, justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: BRAND.white }}>
                     {request.userDetails.name?.charAt(0).toUpperCase() || 'C'}
                   </Text>
                 </View>
               )}
-              <View style={styles.customerMainInfo}>
-                <View style={styles.customerNameRow}>
-                  <Text style={styles.customerName}>{request.userDetails.name || 'Customer'}</Text>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: BRAND.text }}>{request.userDetails.name || 'Customer'}</Text>
                   {request.userDetails.isVerified && (
-                    <Icon name="verified" size={16} color="#10B981" />
+                    <Icon name="verified" size={14} color={BRAND.success} />
                   )}
                 </View>
                 {request.userDetails.memberSince && (
-                  <Text style={styles.customerMemberSince}>
-                    Member since {request.userDetails.memberSince}
-                  </Text>
+                  <Text style={{ fontSize: 11, color: BRAND.textMuted, marginTop: 1 }}>Member since {request.userDetails.memberSince}</Text>
                 )}
                 {request.userDetails.previousServicesWithProvider > 0 && (
-                  <Text style={styles.customerPreviousServices}>
-                    {request.userDetails.previousServicesWithProvider} previous service{request.userDetails.previousServicesWithProvider > 1 ? 's' : ''} with you
+                  <Text style={{ fontSize: 11, color: BRAND.primary, fontWeight: '500', marginTop: 1 }}>
+                    {request.userDetails.previousServicesWithProvider} previous service{request.userDetails.previousServicesWithProvider > 1 ? 's' : ''}
                   </Text>
                 )}
               </View>
             </View>
 
-            {/* Customer Contact Info */}
-            <View style={styles.customerContactInfo}>
-              {request.userDetails.email && (
-                <View style={styles.customerContactRow}>
-                  <Icon name="mail" size={16} color="#6B7280" />
-                  <Text style={styles.customerContactText}>{request.userDetails.email}</Text>
-                </View>
-              )}
-              {(request.userDetails.address || request.userDetails.city) && (
-                <View style={styles.customerContactRow}>
-                  <Icon name="location" size={16} color="#6B7280" />
-                  <Text style={styles.customerContactText}>
-                    {[request.userDetails.address, request.userDetails.city].filter(Boolean).join(', ')}
-                  </Text>
-                </View>
-              )}
-            </View>
+            {/* Contact Info — show for pending + active */}
+            {['pending', 'awaiting_confirmation', 'accepted', 'in-progress'].includes(request.status) && (
+              <View style={{ marginBottom: 10 }}>
+                {request.userDetails.email && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 3 }}>
+                    <Icon name="mail" size={13} color={BRAND.textMuted} />
+                    <Text style={{ fontSize: 12, color: BRAND.text }}>{request.userDetails.email}</Text>
+                  </View>
+                )}
+                {(request.userDetails.address || request.userDetails.city) && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 3 }}>
+                    <Icon name="location" size={13} color={BRAND.textMuted} />
+                    <Text style={{ fontSize: 12, color: BRAND.text }}>
+                      {[request.userDetails.address, request.userDetails.city].filter(Boolean).join(', ')}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
 
-            {/* Service Location (from request) */}
-            {request.location?.address && (
-              <View style={styles.serviceLocationSection}>
-                <Text style={styles.serviceLocationTitle}>Service Location</Text>
-                <View style={styles.serviceLocationRow}>
-                  <Icon name="pin" size={16} color={BRAND.primary} />
-                  <Text style={styles.serviceLocationText}>{request.location.address}</Text>
+            {/* Service Location — show for pending + active (key fix: show before accept) */}
+            {request.location?.address && ['pending', 'awaiting_confirmation', 'accepted', 'in-progress'].includes(request.status) && (
+              <View style={{ backgroundColor: '#FEF9F4', borderRadius: 8, padding: 8, marginBottom: 10 }}>
+                <Text style={{ fontSize: 10, fontWeight: '600', color: BRAND.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Service Location</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
+                  <Icon name="pin" size={13} color={BRAND.primary} />
+                  <Text style={{ flex: 1, fontSize: 12, color: BRAND.text, lineHeight: 17 }}>{request.location.address}</Text>
                 </View>
               </View>
             )}
 
-            {/* Action Buttons - Only for active requests */}
-            {['pending', 'accepted', 'in-progress'].includes(request.status) && (
-              <View style={styles.customerActionButtons}>
-                <TouchableOpacity 
-                  style={styles.callCustomerButton}
-                  onPress={handleCall}
-                >
-                  <Icon name="phone" size={18} color="#FFFFFF" />
-                  <Text style={styles.callCustomerButtonText}>Call Customer</Text>
-                </TouchableOpacity>
-              </View>
+            {/* Call Button — for active requests */}
+            {['pending', 'awaiting_confirmation', 'accepted', 'in-progress'].includes(request.status) && (
+              <TouchableOpacity 
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: BRAND.success, borderRadius: 10, paddingVertical: 10 }}
+                onPress={handleCall}
+              >
+                <Icon name="phone" size={15} color="#FFFFFF" />
+                <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '600' }}>Call Customer</Text>
+              </TouchableOpacity>
             )}
           </View>
         )}
@@ -1277,28 +1530,32 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         <View style={styles.detailsCard}>
           <Text style={styles.sectionTitle}>Request Details</Text>
           
-          <InfoRow 
-            iconName="calendar" 
-            label="Service Date" 
-            value={serviceDate.toLocaleDateString('en-IN', {
-              weekday: 'long',
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric',
-            })}
-          />
+          {serviceDate && !isNaN(serviceDate.getTime()) && (
+            <InfoRow 
+              iconName="calendar" 
+              label={isEmergencyService ? "Requested On" : "Service Date"}
+              value={serviceDate.toLocaleDateString('en-IN', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              })}
+            />
+          )}
           
-          <InfoRow 
-            iconName="clock" 
-            label="Created On" 
-            value={createdAt.toLocaleDateString('en-IN', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          />
+          {createdAt && !isNaN(createdAt.getTime()) && (
+            <InfoRow 
+              iconName="clock" 
+              label="Created On" 
+              value={createdAt.toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            />
+          )}
 
           {request.acceptedAt && (
             <InfoRow 
@@ -1335,10 +1592,44 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               value={request.description}
             />
           )}
+
+          {/* Event-specific fields */}
+          {isEventService && request.venue && (
+            <InfoRow 
+              iconName="place" 
+              label="Venue" 
+              value={request.venue}
+            />
+          )}
+
+          {isEventService && request.budget && (
+            <InfoRow 
+              iconName="currency-rupee" 
+              label="Budget" 
+              value={`₹${Number(request.budget).toLocaleString()}`}
+            />
+          )}
+
+          {isEventService && request.additionalRequirements && (
+            <InfoRow 
+              iconName="checklist" 
+              label="Additional Requirements" 
+              value={request.additionalRequirements}
+            />
+          )}
+
+          {/* Emergency-specific fields */}
+          {isEmergencyService && request.urgencyLevel && (
+            <InfoRow 
+              iconName="warning" 
+              label="Urgency Level" 
+              value={request.urgencyLevel.charAt(0).toUpperCase() + request.urgencyLevel.slice(1)}
+            />
+          )}
         </View>
 
-        {/* Location with Map Preview - Only show for active requests */}
-        {request.location?.address && ['pending', 'accepted', 'in-progress'].includes(request.status) && (
+        {/* Location with Map Preview — show for ALL statuses (not just active) */}
+        {request.location?.address && (
           <LocationMapPreview 
             location={request.location}
             address={request.location.address}
@@ -1368,67 +1659,55 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           </View>
         )}
 
-        {/* Completed Badge */}
+        {/* Completed Badge — compact */}
         {request.status === 'completed' && (
           <View style={styles.completedBanner}>
-            <Icon name="celebration" size={32} color="#10B981" />
-            <Text style={styles.completedBannerTitle}>Service Completed!</Text>
-            <Text style={styles.completedBannerText}>
-              Thank you for using FixHomi. We hope you had a great experience!
+            <Icon name="celebration" size={24} color="#10B981" />
+            <Text style={{ fontSize: 15, fontWeight: '700', color: '#065F46', marginTop: 6 }}>Service Completed!</Text>
+            <Text style={{ fontSize: 12, color: '#047857', textAlign: 'center', marginTop: 4 }}>
+              Thank you for using FixHomi.
             </Text>
           </View>
         )}
 
-        {/* Rating Section for Completed Services */}
+        {/* Rating Section — compact */}
         {request.status === 'completed' && !isProvider && (
           <View style={styles.ratingSection}>
             {hasRated ? (
-              // Show existing rating
-              <View style={styles.ratedContainer}>
-                <View style={styles.ratedHeader}>
-                  <Icon name="star" size={24} color="#F59E0B" />
-                  <Text style={styles.ratedTitle}>You rated this service</Text>
+              <View style={{ alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                  <Icon name="star" size={18} color="#F59E0B" />
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: BRAND.text }}>You rated this provider</Text>
                 </View>
-                <View style={styles.ratedStars}>
+                <View style={{ flexDirection: 'row', gap: 3, marginBottom: 8 }}>
                   {[1, 2, 3, 4, 5].map((star) => (
-                    <Icon
-                      key={star}
-                      name="star"
-                      size={28}
-                      color={star <= (request.ratings?.userRating || 0) ? '#F59E0B' : '#E5E7EB'}
-                    />
+                    <Icon key={star} name="star" size={22} color={star <= (ratingStatus.rating?.rating || 0) ? '#F59E0B' : '#E5E7EB'} />
                   ))}
                 </View>
-                {request.ratings?.userReview && (
-                  <Text style={styles.ratedReview}>"{request.ratings.userReview}"</Text>
-                )}
+                {ratingStatus.rating?.review ? (
+                  <Text style={{ fontSize: 12, color: BRAND.textSecondary, fontStyle: 'italic', textAlign: 'center' }}>"{ratingStatus.rating.review}"</Text>
+                ) : null}
               </View>
             ) : (
-              // Show rating prompt
-              <View style={styles.ratingPrompt}>
-                <Text style={styles.ratingPromptTitle}>How was your experience?</Text>
-                <Text style={styles.ratingPromptText}>
-                  Help other users by rating this provider
-                </Text>
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: BRAND.text, marginBottom: 3 }}>How was your experience?</Text>
+                <Text style={{ fontSize: 12, color: BRAND.textSecondary, marginBottom: 12 }}>Help others by rating this provider</Text>
                 <TouchableOpacity
                   style={styles.rateButton}
                   onPress={() => setRatingModalVisible(true)}
                 >
-                  <Icon name="star" size={20} color="#FFFFFF" />
-                  <Text style={styles.rateButtonText}>Rate Provider</Text>
+                  <Icon name="star" size={16} color="#FFFFFF" />
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFF' }}>Rate Provider</Text>
                 </TouchableOpacity>
               </View>
             )}
           </View>
         )}
 
-        {/* Add to Favorites Button for Completed Services */}
+        {/* Favorites — compact */}
         {request.status === 'completed' && !isProvider && (request?.providerId || request?.assignedProviderDetails?._id) && (
           <TouchableOpacity
-            style={[
-              styles.favoriteButton,
-              isFavorited && styles.favoriteButtonActive
-            ]}
+            style={[styles.favoriteButton, isFavorited && styles.favoriteButtonActive]}
             onPress={handleToggleFavorite}
             disabled={togglingFavorite}
           >
@@ -1436,56 +1715,24 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               <ActivityIndicator color={isFavorited ? '#DC2626' : '#F59E0B'} size="small" />
             ) : (
               <>
-                <Icon 
-                  name={isFavorited ? 'favorite' : 'favorite-border'} 
-                  size={20} 
-                  color={isFavorited ? '#DC2626' : '#F59E0B'} 
-                />
-                <Text style={[
-                  styles.favoriteButtonText,
-                  isFavorited && styles.favoriteButtonTextActive
-                ]}>
-                  {isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
+                <Icon name={isFavorited ? 'favorite' : 'favorite-border'} size={16} color={isFavorited ? '#DC2626' : '#F59E0B'} />
+                <Text style={[styles.favoriteButtonText, isFavorited && styles.favoriteButtonTextActive]}>
+                  {isFavorited ? 'Remove Favorite' : 'Add to Favorites'}
                 </Text>
               </>
             )}
           </TouchableOpacity>
         )}
 
-        {/* Action Buttons - Allow cancel for users only (not providers) */}
-        {canCancel && (
-          <TouchableOpacity
-            style={[
-              styles.cancelButton,
-              ['accepted', 'in-progress'].includes(request.status) && styles.cancelButtonWarning
-            ]}
-            onPress={handleCancel}
-            disabled={cancelling}
-          >
-            {cancelling ? (
-              <ActivityIndicator color="#DC2626" size="small" />
-            ) : (
-              <>
-                <Icon name="close" size={18} color="#DC2626" />
-                <Text style={styles.cancelButtonText}>
-                  {['accepted', 'in-progress'].includes(request.status) 
-                    ? 'Cancel (Provider will be notified)' 
-                    : 'Cancel Request'}
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-        )}
-
-        {/* Help Section */}
+        {/* Help — compact */}
         <View style={styles.helpSection}>
-          <Text style={styles.helpTitle}>Need Help?</Text>
-          <Text style={styles.helpText}>
-            Contact our support team for any issues with your service request.
+          <Text style={{ fontSize: 13, fontWeight: '600', color: BRAND.text, marginBottom: 4 }}>Need Help?</Text>
+          <Text style={{ fontSize: 11, color: BRAND.textSecondary, textAlign: 'center', marginBottom: 8 }}>
+            Contact support for any issues.
           </Text>
           <TouchableOpacity style={styles.helpButton}>
-            <Icon name="email" size={18} color="#2563EB" />
-            <Text style={styles.helpButtonText}>Contact Support</Text>
+            <Icon name="email" size={14} color={BRAND.secondary} />
+            <Text style={{ fontSize: 12, color: BRAND.secondary, fontWeight: '500' }}>Contact Support</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -1507,7 +1754,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: BRAND.background,
   },
   loadingContainer: {
     flex: 1,
@@ -1515,141 +1762,136 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#6B7280',
+    marginTop: 10,
+    fontSize: 14,
+    color: BRAND.textSecondary,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
-  },
-  errorIcon: {
-    fontSize: 64,
-    marginBottom: 16,
+    padding: 24,
   },
   errorTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
-    marginBottom: 16,
+    color: BRAND.text,
+    marginTop: 10,
+    marginBottom: 12,
   },
   goBackButton: {
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    backgroundColor: BRAND.secondary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     borderRadius: 8,
   },
   goBackButtonText: {
     color: '#FFFFFF',
     fontWeight: '600',
+    fontSize: 13,
   },
 
-  // Header
+  // Header — compact
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: BRAND.primary,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  backButtonText: {
-    fontSize: 24,
-    color: '#111827',
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
-  },
-  headerSpacer: {
-    width: 40,
+    color: '#FFFFFF',
   },
 
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 48,
+    padding: 12,
+    paddingBottom: 40,
   },
 
-  // Service Header
+  // Service Header — compact
   serviceHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-  },
-  serviceIcon: {
-    fontSize: 40,
-    marginRight: 12,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   serviceInfo: {
     flex: 1,
+    marginLeft: 10,
   },
   serviceName: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: BRAND.text,
   },
   requestId: {
-    fontSize: 13,
-    color: '#9CA3AF',
-    marginTop: 2,
+    fontSize: 11,
+    color: BRAND.textMuted,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  statusIcon: {
-    fontSize: 14,
-    marginRight: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   statusText: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600',
   },
 
-  // Status Description
+  // Status Description — compact
   statusDescriptionBox: {
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
+    borderRadius: 10,
+    padding: 8,
+    marginBottom: 10,
   },
   statusDescription: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
     textAlign: 'center',
   },
 
-  // Timeline
+  // Timeline — compact
   timelineContainer: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
   timelineTitle: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 16,
+    color: BRAND.textMuted,
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   timeline: {
     flexDirection: 'row',
@@ -1662,25 +1904,25 @@ const styles = StyleSheet.create({
   },
   timelineConnector: {
     position: 'absolute',
-    top: 16,
-    left: -30,
+    top: 12,
+    left: -28,
     right: '50%',
     height: 2,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: BRAND.border,
     zIndex: -1,
   },
   timelineConnectorActive: {
     backgroundColor: BRAND.success,
   },
   timelineCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: BRAND.border,
   },
   timelineCircleActive: {
     backgroundColor: '#D1FAE5',
@@ -1690,304 +1932,186 @@ const styles = StyleSheet.create({
     backgroundColor: BRAND.secondary,
     borderColor: BRAND.secondary,
   },
-  timelineCheck: {
-    fontSize: 14,
-    color: BRAND.success,
-    fontWeight: '700',
-  },
   timelineNumber: {
-    fontSize: 14,
-    color: '#9CA3AF',
+    fontSize: 11,
+    color: BRAND.textMuted,
     fontWeight: '600',
   },
   timelineNumberActive: {
     color: BRAND.white,
   },
   timelineLabel: {
-    marginTop: 8,
-    fontSize: 11,
-    color: '#9CA3AF',
+    marginTop: 4,
+    fontSize: 10,
+    color: BRAND.textMuted,
     textAlign: 'center',
   },
   timelineLabelActive: {
-    color: '#374151',
+    color: BRAND.text,
     fontWeight: '500',
   },
-  cancelledTimeline: {
-    alignItems: 'center',
-    padding: 16,
-  },
-  cancelledIcon: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  cancelledText: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-  },
 
-  // OTP Display
+  // OTP Display — compact
   otpDisplayContainer: {
     backgroundColor: BRAND.white,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 2,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1.5,
     borderColor: BRAND.secondary,
-  },
-  otpHeader: {
-    marginBottom: 12,
-  },
-  otpTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: BRAND.secondary,
-    marginBottom: 4,
-  },
-  otpSubtitle: {
-    fontSize: 13,
-    color: BRAND.neutral,
   },
   otpCodeBox: {
     backgroundColor: BRAND.secondary + '10',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 10,
+    padding: 12,
     alignItems: 'center',
-    marginBottom: 12,
   },
   otpCode: {
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: '700',
     color: BRAND.secondary,
-    letterSpacing: 8,
-    marginBottom: 8,
-  },
-  otpCopyBadge: {
-    backgroundColor: BRAND.secondary + '20',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  otpCopyText: {
-    fontSize: 12,
-    color: BRAND.secondary,
-    fontWeight: '500',
-  },
-  otpExpiryContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  otpExpiryIcon: {
-    marginRight: 6,
-  },
-  otpExpiryText: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  otpInfoBox: {
-    flexDirection: 'row',
-    backgroundColor: '#FEF3C7',
-    borderRadius: 8,
-    padding: 12,
-  },
-  otpInfoIcon: {
-    marginRight: 8,
-  },
-  otpInfoText: {
-    flex: 1,
-    fontSize: 12,
-    color: '#92400E',
-    lineHeight: 18,
+    letterSpacing: 6,
+    marginBottom: 4,
   },
   otpExpiredContainer: {
     backgroundColor: '#FEE2E2',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
     alignItems: 'center',
-  },
-  otpExpiredIcon: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  otpExpiredTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#DC2626',
-    marginBottom: 8,
-  },
-  otpExpiredText: {
-    fontSize: 13,
-    color: '#7F1D1D',
-    textAlign: 'center',
-    marginBottom: 16,
   },
   resendButton: {
     backgroundColor: '#DC2626',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 8,
   },
   resendButtonText: {
     color: '#FFFFFF',
     fontWeight: '600',
+    fontSize: 13,
   },
 
-  // Provider Card
+  // Provider Card — compact
   providerCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 12,
-  },
-  providerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
+    color: BRAND.textMuted,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   providerAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: BRAND.secondary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
-  providerInitial: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: BRAND.white,
+  providerAvatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E5E7EB',
+    borderWidth: 1.5,
+    borderColor: BRAND.secondary + '30',
   },
-  providerInfo: {
-    flex: 1,
-  },
-  providerName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  providerRating: {
-    marginTop: 4,
-  },
-  providerRatingText: {
-    fontSize: 13,
-    color: BRAND.primary,
-  },
-  providerActionsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 4,
+  providerVerifiedBadge: {
+    position: 'absolute',
+    bottom: -1,
+    right: -2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: BRAND.success,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
   },
   callButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 5,
     backgroundColor: BRAND.success,
     borderRadius: 8,
-    padding: 12,
-  },
-  callButtonIcon: {
-    fontSize: 16,
-    marginRight: 8,
-  },
-  callButtonText: {
-    color: BRAND.white,
-    fontWeight: '600',
-    fontSize: 14,
+    paddingVertical: 9,
   },
   locationButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 5,
     backgroundColor: BRAND.secondary,
     borderRadius: 8,
-    padding: 12,
-  },
-  locationButtonText: {
-    color: BRAND.white,
-    fontWeight: '600',
-    fontSize: 14,
+    paddingVertical: 9,
   },
 
-  // Details Card
+  // Details Card — compact
   detailsCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 10,
+    paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  infoIcon: {
-    fontSize: 18,
-    marginRight: 12,
-    marginTop: 2,
-  },
-  infoContent: {
-    flex: 1,
+    borderBottomColor: '#F9FAFB',
+    gap: 8,
   },
   infoLabel: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginBottom: 2,
+    fontSize: 11,
+    color: BRAND.textMuted,
+    marginRight: 6,
+    minWidth: 70,
   },
   infoValue: {
-    fontSize: 14,
-    color: '#374151',
+    flex: 1,
+    fontSize: 12,
+    color: BRAND.text,
     fontWeight: '500',
   },
 
-  // Location Card
+  // Location Card — compact
   locationCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-  },
-  locationCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  expandMapButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 16,
-    gap: 4,
-  },
-  expandMapText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: BRAND.secondary,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   mapPreviewContainer: {
-    height: 160,
-    borderRadius: 12,
+    height: 130,
+    borderRadius: 10,
     overflow: 'hidden',
-    marginBottom: 12,
+    marginBottom: 8,
     backgroundColor: '#F3F4F6',
   },
   mapPreview: {
@@ -2004,59 +2128,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   mapPin: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: '#EF4444',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 4,
   },
   mapPinShadow: {
-    width: 12,
-    height: 4,
-    borderRadius: 6,
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    marginTop: 2,
+    width: 10,
+    height: 3,
+    borderRadius: 5,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+    marginTop: 1,
   },
   mapPreviewHint: {
     position: 'absolute',
-    bottom: 8,
-    right: 8,
+    bottom: 6,
+    right: 6,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    gap: 4,
-  },
-  mapPreviewHintText: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#FFFFFF',
-  },
-  locationContent: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  locationIcon: {
-    fontSize: 20,
-    marginRight: 12,
-  },
-  locationAddress: {
-    flex: 1,
-    fontSize: 14,
-    color: '#374151',
-    lineHeight: 22,
-    marginLeft: 8,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 3,
   },
 
   // Fullscreen Map Modal
@@ -2071,26 +2174,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   fullMapPin: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#EF4444',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 4,
+    borderWidth: 3,
     borderColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 8,
+    shadowRadius: 5,
+    elevation: 6,
   },
   fullMapPinShadow: {
-    width: 16,
-    height: 6,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    marginTop: 4,
+    width: 14,
+    height: 5,
+    borderRadius: 7,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    marginTop: 3,
   },
   fullMapTopBar: {
     position: 'absolute',
@@ -2100,23 +2203,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 50,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingTop: 48,
+    paddingHorizontal: 14,
+    paddingBottom: 10,
     backgroundColor: 'rgba(255,255,255,0.95)',
   },
   fullMapCloseButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
   },
   fullMapTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#1F2937',
+    color: BRAND.text,
   },
   fullMapBottomCard: {
     position: 'absolute',
@@ -2124,186 +2227,130 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: '#FFFFFF',
-    paddingTop: 20,
-    paddingBottom: 36,
-    paddingHorizontal: 20,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    paddingTop: 16,
+    paddingBottom: 32,
+    paddingHorizontal: 16,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 10,
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 8,
   },
   fullMapAddressRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 16,
-    gap: 10,
+    marginBottom: 12,
+    gap: 8,
   },
   fullMapAddress: {
     flex: 1,
-    fontSize: 15,
-    color: '#374151',
-    lineHeight: 22,
+    fontSize: 14,
+    color: BRAND.text,
+    lineHeight: 20,
   },
   fullMapDirectionsButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: BRAND.secondary,
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 6,
   },
   fullMapDirectionsText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',
   },
 
-  // Pricing Card
+  // Pricing — compact
   pricingCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 5,
   },
   priceLabel: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: 13,
+    color: BRAND.textSecondary,
   },
   priceValue: {
-    fontSize: 14,
-    color: '#374151',
+    fontSize: 13,
+    color: BRAND.text,
     fontWeight: '500',
   },
   priceRowFinal: {
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    marginTop: 8,
-    paddingTop: 12,
+    borderTopColor: BRAND.border,
+    marginTop: 6,
+    paddingTop: 8,
   },
   priceLabelFinal: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
+    color: BRAND.text,
   },
   priceValueFinal: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: BRAND.success,
   },
 
-  // Completed Banner
+  // Completed Banner — compact
   completedBanner: {
     backgroundColor: '#D1FAE5',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 14,
+    padding: 14,
     alignItems: 'center',
-    marginBottom: 16,
-  },
-  completedBannerIcon: {
-    fontSize: 40,
-    marginBottom: 8,
-  },
-  completedBannerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#065F46',
-    marginBottom: 8,
-  },
-  completedBannerText: {
-    fontSize: 14,
-    color: '#047857',
-    textAlign: 'center',
+    marginBottom: 10,
   },
 
-  // Rating Section
+  // Rating — compact
   ratingSection: {
     backgroundColor: BRAND.white,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  ratedContainer: {
-    alignItems: 'center',
-  },
-  ratedHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  ratedTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  ratedStars: {
-    flexDirection: 'row',
-    gap: 4,
-    marginBottom: 12,
-  },
-  ratedReview: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    paddingHorizontal: 16,
-  },
-  ratingPrompt: {
-    alignItems: 'center',
-  },
-  ratingPromptTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  ratingPromptText: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 16,
-    textAlign: 'center',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   rateButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: '#F59E0B',
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-  },
-  rateButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: BRAND.white,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 10,
   },
 
-  // Favorites Button
+  // Favorites — compact
   favoriteButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: '#FEF3C7',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: '#F59E0B',
   },
@@ -2312,7 +2359,7 @@ const styles = StyleSheet.create({
     borderColor: '#DC2626',
   },
   favoriteButtonText: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '600',
     color: '#92400E',
   },
@@ -2320,16 +2367,16 @@ const styles = StyleSheet.create({
     color: '#DC2626',
   },
 
-  // Cancel Button
+  // Cancel — compact
   cancelButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: '#FEE2E2',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
   },
   cancelButtonWarning: {
     backgroundColor: '#FEF3C7',
@@ -2337,313 +2384,138 @@ const styles = StyleSheet.create({
     borderColor: BRAND.primary,
   },
   cancelButtonText: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '600',
     color: BRAND.danger,
   },
 
-  // Customer Details (for provider view) - Industry Grade
-  customerCard: {
+  // Provider Accept/Reject — compact
+  providerActionContainer: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  customerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  repeatCustomerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FEF3E7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  repeatCustomerText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: BRAND.primary,
-  },
-  customerProfileSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  customerProfileImage: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    marginRight: 16,
-    backgroundColor: '#E5E7EB',
-  },
-  customerInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  customerAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: BRAND.secondary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  customerInitial: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: BRAND.white,
-  },
-  customerMainInfo: {
-    flex: 1,
-  },
-  customerNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  customerDetails: {
-    flex: 1,
-  },
-  customerName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  customerMemberSince: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 4,
-  },
-  customerPreviousServices: {
-    fontSize: 12,
-    color: BRAND.primary,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  customerEmail: {
-    fontSize: 14,
-    color: BRAND.neutral,
-    marginTop: 2,
-  },
-  customerContactInfo: {
-    marginBottom: 16,
-  },
-  customerContactRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 6,
-  },
-  customerContactText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#374151',
-  },
-  serviceLocationSection: {
-    backgroundColor: '#FEF9F4',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 12,
-    marginBottom: 16,
+    marginBottom: 10,
+    borderWidth: 1.5,
+    borderColor: BRAND.primary + '40',
+    shadowColor: BRAND.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  serviceLocationTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  serviceLocationRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  serviceLocationText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#374151',
-    lineHeight: 20,
-  },
-  customerActionButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  callCustomerButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: BRAND.success,
-    borderRadius: 12,
-    paddingVertical: 14,
-  },
-  callCustomerButtonText: {
-    color: BRAND.white,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  messageCustomerButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#FEF3E7',
-    borderRadius: 12,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: BRAND.primary,
-  },
-  messageCustomerButtonText: {
+  providerActionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
     color: BRAND.primary,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  providerActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  rejectButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: '#FEE2E2',
+    borderRadius: 10,
+    paddingVertical: 11,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  rejectButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  acceptButton: {
+    flex: 1.3,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: BRAND.success,
+    borderRadius: 10,
+    paddingVertical: 11,
+  },
+  acceptButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 
-  // Help Section
+  // Customer Card — compact
+  customerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+
+  // Help — compact
   helpSection: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 14,
+    padding: 12,
     alignItems: 'center',
-  },
-  helpTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  helpText: {
-    fontSize: 13,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  helpButton: {
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  helpButtonText: {
-    fontSize: 14,
-    color: '#374151',
-    fontWeight: '500',
+    marginBottom: 10,
   },
   helpButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: '#EFF6FF',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     borderRadius: 8,
   },
+
   // Directions Button
   directionsButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#3B82F6',
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 12,
-  },
-  directionsButtonIcon: {
-    fontSize: 18,
-    marginRight: 8,
+    gap: 6,
+    backgroundColor: BRAND.secondary,
+    borderRadius: 10,
+    padding: 10,
   },
   directionsButtonText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '600',
     color: '#FFFFFF',
   },
-  // OTP styles
-  otpTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  otpCopyBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  // Provider rating styles
-  providerRating: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-  },
-  callButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#10B981',
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 12,
-  },
 
-  // Provider OTP Entry Styles
+  // Provider OTP Entry — compact
   providerOtpSection: {
     backgroundColor: '#F5F3FF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: '#DDD6FE',
-  },
-  providerOtpHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
-  },
-  providerOtpTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#5B21B6',
-  },
-  providerOtpHint: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginBottom: 16,
-    lineHeight: 18,
   },
   providerOtpInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
   providerOtpInput: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 18,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
     fontWeight: '600',
     letterSpacing: 4,
     borderWidth: 1,
@@ -2654,18 +2526,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#8B5CF6',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 6,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 4,
   },
   providerOtpButtonDisabled: {
     backgroundColor: '#C4B5FD',
-  },
-  providerOtpButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
   },
 });
 

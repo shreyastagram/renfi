@@ -167,6 +167,7 @@ export const checkVerificationStatus = async (sessionId) => {
         status: data.status,
         verifiedAt: data.verifiedAt,
         message: data.message,
+        aadhaarName: data.aadhaarName || null,
       };
     }
     

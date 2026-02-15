@@ -2,11 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Linking, View } from 'react-native';
 import { NavigationContainer, NavigationContainerRef, ParamListBase } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
 import { AppProvider } from './src/context/AppContext';
 import { LocationProvider } from './src/context/LocationContext';
 import RootNavigator, { linking as navLinking } from './navigation/RootNavigator';
 import SplashScreen from './src/components/SplashScreen';
+import GlobalBanner from './src/components/GlobalBanner';
 import { 
   setupNotificationOpenedHandler, 
   getAppInitialNotification 
@@ -115,6 +117,7 @@ const handleNotificationData = (remoteMessage: any) => {
   switch (type) {
     case 'new_request':
     case 'NEW_SERVICE_REQUEST':
+    case 'NEW_JOB_REQUEST':
       // Provider received a new service request
       if (requestId) {
         navigate('ServiceRequestDetail', { 
@@ -129,6 +132,7 @@ const handleNotificationData = (remoteMessage: any) => {
       
     case 'request_accepted':
     case 'PROVIDER_ACCEPTED':
+    case 'REQUEST_ACCEPTED':
       // User's request was accepted by a provider
       if (requestId) {
         navigate('ServiceRequestDetail', { 
@@ -139,8 +143,19 @@ const handleNotificationData = (remoteMessage: any) => {
       }
       break;
       
+    case 'REQUEST_REJECTED':
+      // Provider rejected user's request
+      navigate('UserServiceHistory');
+      break;
+      
+    case 'REQUEST_CANCELLED':
+      // Request was cancelled by user or provider
+      navigate('UserServiceHistory');
+      break;
+      
     case 'request_completed':
     case 'SERVICE_COMPLETED':
+    case 'REQUEST_COMPLETED':
       // Service was completed
       if (requestId) {
         navigate('ServiceRequestDetail', { 
@@ -209,6 +224,7 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
       <AppProvider>
         <LocationProvider>
           <View style={{ flex: 1 }}>
@@ -220,6 +236,8 @@ export default function App() {
               }}
             >
               <RootNavigator />
+              {/* Global notification banner — overlays all screens */}
+              <GlobalBanner />
             </NavigationContainer>
             
             {/* Splash Screen - shows on app launch */}
@@ -230,6 +248,7 @@ export default function App() {
           </View>
         </LocationProvider>
       </AppProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

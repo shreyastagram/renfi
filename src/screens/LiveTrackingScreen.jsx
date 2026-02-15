@@ -28,11 +28,8 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { Icon, FixhomiLogo } from '../components';
 import { NODE_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
-import { initiateCall } from '../services/callService';
+// Direct phone dialing - Exotel call masking removed
 import { MAPBOX_ACCESS_TOKEN, initializeMapbox } from '../config/mapbox';
-
-// Initialize Mapbox from .env
-initializeMapbox();
 
 // Brand colors
 const BRAND = {
@@ -84,7 +81,8 @@ const LiveTrackingScreen = ({ navigation, route }) => {
   const { 
     requestId, 
     providerId, 
-    providerName, 
+    providerName,
+    providerPhone, 
     serviceCategory, 
     userLocation: initialUserLocation,
     serviceLocation: passedServiceLocation, // Service location from request
@@ -334,6 +332,9 @@ const LiveTrackingScreen = ({ navigation, route }) => {
    * Initial load and periodic updates
    */
   useEffect(() => {
+    // Initialize Mapbox on first render (lazy, idempotent)
+    initializeMapbox();
+    
     getUserLocation();
     fetchProviderLocation();
 
@@ -375,33 +376,35 @@ const LiveTrackingScreen = ({ navigation, route }) => {
   }, [providerLocation, providerName]);
 
   /**
-   * Call provider (Exotel masked call)
+   * Call provider - direct phone dialing
    */
-  const callProvider = useCallback(async () => {
-    if (!providerId) return;
-
-    try {
-      const result = await initiateCall({
-        receiverId: providerId,
-        callerType: 'user',
-        serviceRequestId: requestId || null,
-        serviceType: 'traditional',
-      });
-
-      if (result.success) {
-        Alert.alert(
-          'Connecting Call',
-          'You will receive a call shortly. Once you pick up, we will connect you to the provider.',
-          [{ text: 'OK' }]
-        );
-      } else {
-        Alert.alert('Call Failed', result.error || 'Unable to connect. Please try again.');
-      }
-    } catch (error) {
-      console.error('[LiveTracking] Call error:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+  const callProvider = useCallback(() => {
+    // Try providerPhone from route params, then from fetched providerData
+    const phone = providerPhone || providerData?.phone;
+    if (!phone) {
+      Alert.alert('Error', 'Provider phone number not available');
+      return;
     }
-  }, [providerId, requestId]);
+
+    const phoneNumber = phone.replace(/\s/g, '');
+    const url = `tel:${phoneNumber}`;
+
+    Alert.alert(
+      '📞 Call Provider',
+      `Call ${providerName || 'Provider'} at ${phone}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Call Now',
+          onPress: () => {
+            Linking.openURL(url).catch(() => {
+              Alert.alert('Error', 'Unable to make phone calls on this device');
+            });
+          },
+        },
+      ]
+    );
+  }, [providerPhone, providerData, providerName]);
 
   return (
     <View style={styles.container}>

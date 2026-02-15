@@ -323,9 +323,13 @@ const FavoritesScreen = ({ navigation }) => {
     } else if (['snake_catcher', 'private_ambulance', 'mortuary_van'].includes(category)) {
       navigation.navigate('EmergencyServices');
     } else {
-      // Traditional service - go to home with service pre-selected
-      navigation.navigate('HomeTab', {
-        preSelectedService: category,
+      // Traditional service - go to home tab with service pre-selected
+      // HomeTab is nested inside UserTabs, so navigate to the nested screen
+      navigation.navigate('UserTabs', {
+        screen: 'HomeTab',
+        params: {
+          preSelectedService: category,
+        },
       });
     }
   };

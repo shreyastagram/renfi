@@ -22,6 +22,7 @@ import {
   Modal,
   RefreshControl,
   TextInput,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -41,7 +42,7 @@ import {
   cancelEmergencyRequest,
 } from '../services/emergencyServicesService';
 import { addToFavorites } from '../services/favoritesService';
-import { initiateCall } from '../services/callService';
+// Direct phone dialing - Exotel call masking removed
 
 // Brand colors
 const BRAND = {
@@ -82,9 +83,18 @@ const ServiceCard = ({ service, onPress, isStatic }) => (
 );
 
 /**
- * Provider Card Component
+ * Provider Card Component — Production-grade with profile picture, phone, status
  */
-const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite }) => (
+const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite, hasContacted }) => {
+  // Get profile picture URL — handle string, object, and nested formats
+  const profilePictureUrl = typeof provider.profilePicture === 'string'
+    ? provider.profilePicture
+    : provider.profilePicture?.url || provider.profileImage || null;
+
+  // Get phone for display
+  const phone = provider.phone || provider.verifiedPhone || '';
+
+  return (
   <TouchableOpacity 
     style={styles.providerCard} 
     onPress={onPress}
@@ -92,9 +102,16 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite }
   >
     <View style={styles.providerInfo}>
       <View style={styles.providerAvatar}>
-        <Text style={styles.providerInitial}>
-          {provider.name?.charAt(0)?.toUpperCase() || 'P'}
-        </Text>
+        {profilePictureUrl ? (
+          <Image
+            source={{ uri: profilePictureUrl }}
+            style={styles.providerAvatarImage}
+          />
+        ) : (
+          <Text style={styles.providerInitial}>
+            {provider.name?.charAt(0)?.toUpperCase() || 'P'}
+          </Text>
+        )}
         {isFavorite && (
           <View style={styles.favoriteBadge}>
             <MaterialIcon name="star" size={10} color="#F59E0B" />
@@ -104,14 +121,15 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite }
       <View style={styles.providerDetails}>
         <View style={styles.providerNameRow}>
           <Text style={styles.providerName}>{provider.name}</Text>
-          {provider.verified && (
+          {(provider.verified || provider.isVerified) && (
             <MaterialIcon name="verified" size={16} color="#2563EB" style={styles.verifiedBadge} />
           )}
         </View>
         <View style={styles.providerDistanceRow}>
           <MaterialIcon name="location-on" size={14} color="#6B7280" />
           <Text style={styles.providerDistance}>
-            {provider.distanceKm ? `${provider.distanceKm.toFixed(1)} km` : provider.distance || 'Nearby'}
+            {provider.distanceKm ? `${provider.distanceKm.toFixed(1)} km` : 
+             provider.distance != null ? `${Number(provider.distance).toFixed(1)} km` : 'Nearby'}
           </Text>
         </View>
         {(provider.rating > 0 || provider.ratings?.average > 0) && (
@@ -120,8 +138,26 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite }
             <Text style={styles.providerRating}>
               {(provider.ratings?.average || provider.rating || 0).toFixed(1)}
             </Text>
+            {(provider.ratings?.total > 0 || provider.totalRatings > 0) && (
+              <Text style={styles.providerRatingCount}>
+                ({provider.ratings?.total || provider.totalRatings} reviews)
+              </Text>
+            )}
           </View>
         )}
+        {phone ? (
+          <View style={styles.providerPhoneRow}>
+            <MaterialIcon name="phone" size={13} color={BRAND.success} />
+            <Text style={styles.providerPhoneText}>{phone}</Text>
+          </View>
+        ) : null}
+        {/* Online/Available status */}
+        <View style={styles.providerStatusRow}>
+          <View style={[styles.statusDot, { backgroundColor: (provider.isOnline || provider.isAvailable) ? BRAND.success : '#9CA3AF' }]} />
+          <Text style={[styles.providerStatusText, { color: (provider.isOnline || provider.isAvailable) ? BRAND.success : '#9CA3AF' }]}>
+            {(provider.isOnline || provider.isAvailable) ? 'Available' : 'Offline'}
+          </Text>
+        </View>
       </View>
     </View>
     <View style={styles.providerActions}>
@@ -135,7 +171,7 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite }
         <MaterialIcon name="phone" size={22} color="#FFFFFF" />
       </TouchableOpacity>
       <TouchableOpacity 
-        style={[styles.bookButton, booking && styles.bookButtonLoading]} 
+        style={[styles.bookButton, booking && styles.bookButtonLoading, !hasContacted && { opacity: 0.5 }]} 
         onPress={(e) => {
           e.stopPropagation();
           onBook(provider);
@@ -145,12 +181,18 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite }
         {booking ? (
           <ActivityIndicator size="small" color="#fff" />
         ) : (
-          <Text style={styles.bookButtonText}>Send Request</Text>
+          <Text style={styles.bookButtonText}>{hasContacted ? 'Send Request' : 'Call First'}</Text>
         )}
       </TouchableOpacity>
     </View>
+    {/* View Details indicator */}
+    <View style={styles.viewDetailsHint}>
+      <Text style={styles.viewDetailsText}>Tap for details</Text>
+      <MaterialIcon name="chevron-right" size={16} color="#9CA3AF" />
+    </View>
   </TouchableOpacity>
 );
+};
 
 /**
  * Static Numbers Modal
@@ -205,6 +247,240 @@ const StaticNumbersModal = ({ visible, onClose, numbers, serviceType }) => (
   </Modal>
 );
 
+/**
+ * Emergency Provider Details Modal — Production Grade
+ * Full provider profile with call, rating, experience, bio, status
+ */
+const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onBook, hasContacted, booking }) => {
+  if (!provider) return null;
+
+  const profilePictureUrl = typeof provider.profilePicture === 'string'
+    ? provider.profilePicture
+    : provider.profilePicture?.url || provider.profileImage || null;
+
+  const phone = provider.phone || provider.verifiedPhone || '';
+
+  const getMemberSince = () => {
+    if (provider.memberSince) return provider.memberSince;
+    if (provider.createdAt) {
+      return new Date(provider.createdAt).toLocaleDateString('en-IN', {
+        month: 'short',
+        year: 'numeric'
+      });
+    }
+    return null;
+  };
+
+  const memberSince = getMemberSince();
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View style={detailStyles.overlay}>
+        <View style={detailStyles.container}>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Header */}
+            <View style={detailStyles.header}>
+              <TouchableOpacity style={detailStyles.closeBtn} onPress={onClose}>
+                <MaterialIcon name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+              <Text style={detailStyles.headerTitle}>Provider Details</Text>
+              <View style={{ width: 40 }} />
+            </View>
+
+            {/* Profile Section */}
+            <View style={detailStyles.profileSection}>
+              <View style={detailStyles.avatarContainer}>
+                {profilePictureUrl ? (
+                  <Image
+                    source={{ uri: profilePictureUrl }}
+                    style={detailStyles.avatarImage}
+                  />
+                ) : (
+                  <View style={detailStyles.avatarPlaceholder}>
+                    <Text style={detailStyles.avatarInitial}>
+                      {provider.name?.charAt(0)?.toUpperCase() || 'P'}
+                    </Text>
+                  </View>
+                )}
+                {(provider.verified || provider.isVerified || provider.isFullyVerified) && (
+                  <View style={detailStyles.verifiedBadge}>
+                    <MaterialIcon name="verified" size={20} color="#10B981" />
+                  </View>
+                )}
+              </View>
+
+              <View style={detailStyles.nameSection}>
+                <Text style={detailStyles.providerName}>{provider.name}</Text>
+
+                {/* Rating */}
+                {(provider.rating > 0 || provider.ratings?.average > 0) && (
+                  <View style={detailStyles.ratingRow}>
+                    <MaterialIcon name="star" size={18} color="#F59E0B" />
+                    <Text style={detailStyles.ratingText}>
+                      {(provider.ratings?.average || provider.rating || 0).toFixed(1)}
+                    </Text>
+                    {(provider.ratings?.total > 0 || provider.totalRatings > 0) && (
+                      <Text style={detailStyles.ratingCount}>
+                        ({provider.ratings?.total || provider.totalRatings} reviews)
+                      </Text>
+                    )}
+                  </View>
+                )}
+
+                {/* Experience */}
+                {provider.experience && (
+                  <View style={detailStyles.infoRow}>
+                    <MaterialIcon name="work" size={14} color="#6B7280" />
+                    <Text style={detailStyles.infoText}>{provider.experience} experience</Text>
+                  </View>
+                )}
+
+                {/* Member Since */}
+                {memberSince && (
+                  <View style={detailStyles.infoRow}>
+                    <MaterialIcon name="calendar-today" size={14} color="#6B7280" />
+                    <Text style={detailStyles.infoText}>Member since {memberSince}</Text>
+                  </View>
+                )}
+
+                {/* Distance */}
+                {(provider.distanceKm || provider.distance != null) && (
+                  <View style={detailStyles.infoRow}>
+                    <MaterialIcon name="location-on" size={14} color={BRAND.primary} />
+                    <Text style={detailStyles.infoText}>
+                      {provider.distanceKm ? `${provider.distanceKm.toFixed(1)} km away` :
+                       `${Number(provider.distance).toFixed(1)} km away`}
+                    </Text>
+                  </View>
+                )}
+
+                {/* City/Address */}
+                {(provider.city || provider.address) && (
+                  <View style={detailStyles.infoRow}>
+                    <MaterialIcon name="place" size={14} color="#6B7280" />
+                    <Text style={detailStyles.infoText}>
+                      {provider.city || provider.address}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* Stats Row */}
+            <View style={detailStyles.statsRow}>
+              <View style={detailStyles.statItem}>
+                <Text style={detailStyles.statValue}>
+                  {provider.stats?.completedRequests || provider.completedJobs || 0}
+                </Text>
+                <Text style={detailStyles.statLabel}>Jobs Done</Text>
+              </View>
+              <View style={detailStyles.statDivider} />
+              <View style={detailStyles.statItem}>
+                <Text style={detailStyles.statValue}>
+                  {provider.ratings?.total || provider.totalRatings || 0}
+                </Text>
+                <Text style={detailStyles.statLabel}>Reviews</Text>
+              </View>
+              <View style={detailStyles.statDivider} />
+              <View style={detailStyles.statItem}>
+                <Text style={[detailStyles.statValue, {
+                  color: (provider.isOnline || provider.isAvailable) ? BRAND.success : '#9CA3AF'
+                }]}>
+                  {(provider.isOnline || provider.isAvailable) ? 'Online' : 'Offline'}
+                </Text>
+                <Text style={detailStyles.statLabel}>Status</Text>
+              </View>
+            </View>
+
+            {/* Bio */}
+            {provider.bio ? (
+              <View style={detailStyles.section}>
+                <Text style={detailStyles.sectionTitle}>About</Text>
+                <View style={detailStyles.bioContainer}>
+                  <Text style={detailStyles.bioText}>{provider.bio}</Text>
+                </View>
+              </View>
+            ) : null}
+
+            {/* Services */}
+            {provider.verifiedServiceCategories && provider.verifiedServiceCategories.length > 0 && (
+              <View style={detailStyles.section}>
+                <Text style={detailStyles.sectionTitle}>Verified Services</Text>
+                <View style={detailStyles.tagsContainer}>
+                  {provider.verifiedServiceCategories.map((cat, index) => (
+                    <View key={index} style={detailStyles.serviceTag}>
+                      <MaterialIcon name="verified" size={12} color={BRAND.success} />
+                      <Text style={detailStyles.serviceTagText}>
+                        {EMERGENCY_SERVICE_LABELS[cat] || cat.replace(/_/g, ' ')}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Contact Section */}
+            <View style={detailStyles.section}>
+              <Text style={detailStyles.sectionTitle}>Contact</Text>
+              {phone ? (
+                <TouchableOpacity
+                  style={detailStyles.phoneButton}
+                  onPress={() => onCall(provider)}
+                >
+                  <MaterialIcon name="phone" size={20} color={BRAND.success} />
+                  <Text style={detailStyles.phoneButtonText}>
+                    Call Provider ({phone})
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={detailStyles.noPhoneText}>Phone number not available</Text>
+              )}
+            </View>
+          </ScrollView>
+
+          {/* Action Buttons */}
+          <View style={detailStyles.actions}>
+            <TouchableOpacity
+              style={detailStyles.callActionBtn}
+              onPress={() => onCall(provider)}
+            >
+              <MaterialIcon name="phone" size={22} color={BRAND.success} />
+              <Text style={detailStyles.callActionText}>Call</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[detailStyles.bookActionBtn, !hasContacted && { opacity: 0.5 }]}
+              onPress={() => {
+                if (!hasContacted) {
+                  Alert.alert('Call First', 'Please call the provider to discuss the emergency details before sending a request.', [{ text: 'OK' }]);
+                  return;
+                }
+                onBook(provider);
+              }}
+              disabled={booking}
+            >
+              {booking ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <MaterialIcon name="send" size={20} color="#FFFFFF" />
+                  <Text style={detailStyles.bookActionText}>
+                    {hasContacted ? 'Send Request' : 'Call First'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 const EmergencyServicesScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, profile } = useApp();
@@ -224,6 +500,11 @@ const EmergencyServicesScreen = ({ navigation }) => {
   const [notes, setNotes] = useState('');
   const [showNotesInput, setShowNotesInput] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState(null);
+  const [showDetails, setShowDetails] = useState(false);
+  
+  // Track which providers the user has called (call-before-book enforcement)
+  const [contactedProviderIds, setContactedProviderIds] = useState(new Set());
   
   // Service categories
   const locationBasedServices = LOCATION_BASED_SERVICES.map(id => ({
@@ -318,33 +599,45 @@ const EmergencyServicesScreen = ({ navigation }) => {
   /**
    * Handle calling provider (Exotel masked call)
    */
-  const handleCallProvider = async (provider) => {
-    if (!provider?._id) {
-      Alert.alert('Error', 'Provider information not available');
+  /**
+   * View provider details
+   */
+  const handleViewDetails = (provider) => {
+    setSelectedProvider(provider);
+    setShowDetails(true);
+  };
+
+  /**
+   * Handle calling provider - direct phone dialing with contact tracking
+   */
+  const handleCallProvider = (provider) => {
+    const phone = provider?.phone || provider?.verifiedPhone;
+    if (!phone) {
+      Alert.alert('Phone Unavailable', 'This provider has not added their phone number yet. Try another provider.');
       return;
     }
 
-    try {
-      const result = await initiateCall({
-        receiverId: provider._id,
-        callerType: 'user',
-        serviceRequestId: createdRequest?._id || null,
-        serviceType: 'emergency',
-      });
+    const cleanPhone = phone.replace(/[\s\-()]/g, '');
+    const phoneNumber = cleanPhone.startsWith('+') ? cleanPhone :
+                        cleanPhone.startsWith('91') ? `+${cleanPhone}` : `+91${cleanPhone}`;
 
-      if (result.success) {
-        Alert.alert(
-          'Connecting Call',
-          'You will receive a call shortly. Once you pick up, we will connect you to the provider.',
-          [{ text: 'OK' }]
-        );
-      } else {
-        Alert.alert('Call Failed', result.error || 'Unable to connect. Please try again.');
-      }
-    } catch (error) {
-      console.error('[EmergencyServices] Call error:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
-    }
+    Alert.alert(
+      '📞 Call Provider',
+      `Call ${provider.name || 'Provider'} at ${phone}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Call Now',
+          onPress: () => {
+            // Track that user has contacted this provider
+            setContactedProviderIds(prev => new Set(prev).add(provider._id));
+            Linking.openURL(`tel:${phoneNumber}`).catch(() => {
+              Alert.alert('Error', 'Unable to make phone calls on this device');
+            });
+          },
+        },
+      ]
+    );
   };
 
   /**
@@ -355,29 +648,46 @@ const EmergencyServicesScreen = ({ navigation }) => {
   const handleBookProvider = async (provider) => {
     if (!createdRequest) return;
     
+    // Enforce call-before-book: user must call provider first
+    if (!contactedProviderIds.has(provider._id)) {
+      Alert.alert(
+        'Call First',
+        'Please call the provider to discuss the emergency details before sending a request.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
     setBookingProvider(provider._id);
     
-    // Use assignEmergencyProvider - this sets status to 'awaiting_confirmation'
-    // Provider will see this in their Requests tab and must confirm
-    const result = await assignEmergencyProvider(createdRequest._id, provider._id);
-    
-    setBookingProvider(null);
-    
-    if (result.success) {
-      Alert.alert(
-        'Request Sent!',
-        `Your request has been sent to ${provider.name}. They will review and confirm shortly.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              navigation.goBack();
+    try {
+      // Use assignEmergencyProvider - this sets status to 'awaiting_confirmation'
+      // Provider will see this in their Requests tab and must confirm
+      const result = await assignEmergencyProvider(createdRequest._id, provider._id);
+      
+      if (result.success) {
+        setBookingProvider(null);
+        Alert.alert(
+          'Request Sent!',
+          `Your request has been sent to ${provider.name}. They will review and confirm shortly.`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                navigation.goBack();
+              },
             },
-          },
-        ]
-      );
-    } else {
-      Alert.alert('Error', result.error || 'Failed to send request');
+          ]
+        );
+      } else {
+        setBookingProvider(null);
+        Alert.alert('Error', result.error || 'Failed to send request');
+      }
+    } catch (error) {
+      console.error('[Emergency] Book provider error:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    } finally {
+      setBookingProvider(null);
     }
   };
 
@@ -463,6 +773,9 @@ const EmergencyServicesScreen = ({ navigation }) => {
     setStaticNumbers([]);
     setNotes('');
     setShowNotesInput(false);
+    setShowDetails(false);
+    setSelectedProvider(null);
+    setContactedProviderIds(new Set()); // Reset per search session
   };
 
   /**
@@ -594,9 +907,10 @@ const EmergencyServicesScreen = ({ navigation }) => {
               provider={item}
               onCall={handleCallProvider}
               onBook={handleBookProvider}
-              onPress={() => {}}
+              onPress={() => handleViewDetails(item)}
               booking={bookingProvider === item._id}
               isFavorite={item.isFavorite}
+              hasContacted={contactedProviderIds.has(item._id)}
             />
           )}
           contentContainerStyle={styles.providersList}
@@ -699,6 +1013,20 @@ const EmergencyServicesScreen = ({ navigation }) => {
         renderProvidersList()
       ) : null}
       
+      {/* Provider Details Modal - Emergency Services */}
+      <EmergencyProviderDetailsModal
+        visible={showDetails}
+        provider={selectedProvider}
+        onClose={() => setShowDetails(false)}
+        onCall={handleCallProvider}
+        onBook={(provider) => {
+          setShowDetails(false);
+          handleBookProvider(provider);
+        }}
+        hasContacted={selectedProvider ? contactedProviderIds.has(selectedProvider._id) : false}
+        booking={selectedProvider ? bookingProvider === selectedProvider._id : false}
+      />
+
       {/* Static Numbers Modal */}
       <StaticNumbersModal
         visible={step === 'static'}
@@ -884,6 +1212,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    overflow: 'hidden',
+  },
+  providerAvatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   providerInitial: {
     fontSize: 20,
@@ -936,6 +1270,21 @@ const styles = StyleSheet.create({
   providerRating: {
     fontSize: 13,
     color: '#374151',
+    marginLeft: 4,
+  },
+  providerRatingCount: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginLeft: 4,
+  },
+  providerPhoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 3,
+  },
+  providerPhoneText: {
+    fontSize: 12,
+    color: '#6B7280',
     marginLeft: 4,
   },
   providerActions: {
@@ -1189,6 +1538,277 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: BRAND.white,
+  },
+  // Provider card additions
+  providerStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 3,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 5,
+  },
+  providerStatusText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  viewDetailsHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  viewDetailsText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginRight: 2,
+  },
+});
+
+/**
+ * Styles for EmergencyProviderDetailsModal
+ */
+const detailStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  container: {
+    backgroundColor: BRAND.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '92%',
+    minHeight: '50%',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  closeBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  profileSection: {
+    flexDirection: 'row',
+    padding: 20,
+    paddingBottom: 16,
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginRight: 16,
+  },
+  avatarImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+  },
+  avatarPlaceholder: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: BRAND.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarInitial: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: BRAND.white,
+  },
+  verifiedBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: -2,
+    backgroundColor: BRAND.white,
+    borderRadius: 12,
+    padding: 2,
+  },
+  nameSection: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  providerName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  ratingText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#374151',
+    marginLeft: 4,
+  },
+  ratingCount: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    marginLeft: 4,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 3,
+  },
+  infoText: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginLeft: 6,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    marginHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: '#E5E7EB',
+  },
+  section: {
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  bioContainer: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 10,
+    padding: 12,
+  },
+  bioText: {
+    fontSize: 14,
+    color: '#4B5563',
+    lineHeight: 20,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  serviceTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  serviceTagText: {
+    fontSize: 12,
+    color: '#065F46',
+    fontWeight: '500',
+    marginLeft: 4,
+    textTransform: 'capitalize',
+  },
+  phoneButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    padding: 14,
+    borderRadius: 12,
+  },
+  phoneButtonText: {
+    fontSize: 14,
+    color: BRAND.success,
+    fontWeight: '500',
+    marginLeft: 10,
+  },
+  noPhoneText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    backgroundColor: BRAND.white,
+  },
+  callActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: BRAND.success,
+    marginRight: 12,
+  },
+  callActionText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: BRAND.success,
+    marginLeft: 6,
+  },
+  bookActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: BRAND.primary,
+  },
+  bookActionText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: BRAND.white,
+    marginLeft: 8,
   },
 });
 

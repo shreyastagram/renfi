@@ -21,9 +21,6 @@ import Geolocation from '@react-native-community/geolocation';
 
 import { initializeMapbox } from '../../config/mapbox';
 
-// Initialize Mapbox from .env
-initializeMapbox();
-
 // Default location (India - Mumbai)
 const DEFAULT_LOCATION = {
   latitude: 19.0760,
@@ -207,6 +204,7 @@ const LocationMap = forwardRef(({
   }, [onLocationChange, showUserLocation]);
 
   useEffect(() => {
+    initializeMapbox();
     initializeLocation();
 
     return () => {

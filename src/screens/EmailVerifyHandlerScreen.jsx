@@ -14,9 +14,9 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Alert } from '../components';
 import { verifyEmailToken, getErrorMessage, AUTH_CODES } from '../services/authService';
 import { useApp } from '../context/AppContext';
