@@ -25,6 +25,7 @@ import { saveFcmTokenForUser, saveFcmTokenForProvider, setupForegroundMessageLis
 import { validateAndRefreshTokens } from '../services/apiClient';
 import { performFullSync, processSyncQueue, isSyncDue, updateProfileWithSync, SYNC_STATUS } from '../services/profileSyncService';
 import { checkAuthHealth, addAuthStateListener, getDeviceInfo, AUTH_HEALTH } from '../services/authInfraService';
+import { initializeSocket, disconnectSocket } from '../services/socketService';
 
 /**
  * App Context
@@ -419,6 +420,33 @@ export const AppProvider = ({ children }) => {
       setUserTypeState(storedUserType);
       setIsAuthenticated(true);
       
+      // Re-initialize socket on session restore (users AND providers)
+      if (storedUserData.mongoId) {
+        const tokens = await getTokens();
+        if (tokens?.accessToken) {
+          if (storedUserType === 'user') {
+            console.log('🔌 [AppContext] Re-initializing socket for user on session restore');
+            initializeSocket('user', storedUserData.mongoId, tokens.accessToken);
+          }
+          // Note: Provider socket is initialized in ProviderHomeScreen (after mount)
+
+          // Re-save FCM token on every session restore so backend always has the latest
+          const resaveFcm = async () => {
+            try {
+              if (storedUserType === 'provider') {
+                await saveFcmTokenForProvider(storedUserData.mongoId, tokens.accessToken);
+              } else {
+                await saveFcmTokenForUser(storedUserData.mongoId, tokens.accessToken);
+              }
+              console.log('✅ [AppContext] FCM token re-saved on session restore');
+            } catch (err) {
+              console.warn('⚠️ [AppContext] FCM token re-save failed:', err.message);
+            }
+          };
+          resaveFcm();
+        }
+      }
+      
       // Fetch fresh profile data in background
       if (storedUserData.mongoId) {
         refreshProfile(storedUserType, storedUserData.mongoId);
@@ -524,6 +552,13 @@ export const AppProvider = ({ children }) => {
           }
         };
         saveFcmToken();
+        
+        // Initialize Socket.IO for real-time updates (users AND providers)
+        // Providers also init socket in ProviderHomeScreen, but users need it here
+        if (type === 'user') {
+          console.log('🔌 [AppContext] Initializing socket for user:', unifiedId);
+          initializeSocket('user', unifiedId, authData.accessToken);
+        }
       } else {
         // No ID available - just fetch verification status from Java Auth
         refreshVerificationStatus();
@@ -554,6 +589,9 @@ export const AppProvider = ({ children }) => {
   const logout = useCallback(async (callApi = true) => {
     try {
       console.log('🚪 [AppContext] Logging out...');
+      
+      // Disconnect socket before clearing auth
+      disconnectSocket();
       
       // Call logout API to revoke refresh token
       if (callApi) {

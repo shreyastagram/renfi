@@ -33,6 +33,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Icon } from '../components';
 import { useApp } from '../context/AppContext';
 import { setupForegroundMessageListener } from '../services/fcmService';
+import { addEventListener } from '../services/socketService';
 
 // Brand colors
 const BRAND = {
@@ -93,6 +94,8 @@ const GlobalBanner = () => {
   const [bannerData, setBannerData] = useState(null);
   const bannerAnim = useRef(new Animated.Value(-300)).current;
   const bannerTimer = useRef(null);
+  // Dedup: prevent showing same notification from both FCM and Socket
+  const lastBannerRef = useRef({ key: '', ts: 0 });
 
   const isProvider = userType === 'provider';
 
@@ -139,6 +142,21 @@ const GlobalBanner = () => {
   }, [bannerAnim]);
 
   /**
+   * Show banner with deduplication — prevents showing the same event
+   * from both FCM and Socket within 3 seconds
+   */
+  const showBannerDeduped = useCallback((data) => {
+    const dedupKey = `${data.requestId || data.serviceRequestId || ''}_${data.bannerType}`;
+    const now = Date.now();
+    if (dedupKey && dedupKey === lastBannerRef.current.key && now - lastBannerRef.current.ts < 3000) {
+      console.log('[GlobalBanner] Dedup: skipping duplicate banner', dedupKey);
+      return;
+    }
+    lastBannerRef.current = { key: dedupKey, ts: now };
+    showBanner(data);
+  }, [showBanner]);
+
+  /**
    * FCM Foreground Listener — single, global listener
    */
   useEffect(() => {
@@ -149,7 +167,7 @@ const GlobalBanner = () => {
 
       // ---- Provider-facing notifications ----
       if (msgType === 'new_request' || msgType === 'NEW_SERVICE_REQUEST' || msgType === 'NEW_JOB_REQUEST') {
-        showBanner({
+        showBannerDeduped({
           ...data,
           title: remoteMessage?.notification?.title || '🔔 New Service Request!',
           body: remoteMessage?.notification?.body || 'You have a new service request!',
@@ -158,7 +176,7 @@ const GlobalBanner = () => {
       }
       // ---- User-facing notifications ----
       else if (msgType === 'REQUEST_ACCEPTED' || msgType === 'PROVIDER_ACCEPTED' || msgType === 'request_accepted' || msgType === 'BOOKING_ACCEPTED') {
-        showBanner({
+        showBannerDeduped({
           ...data,
           title: remoteMessage?.notification?.title || '✅ Request Accepted!',
           body: remoteMessage?.notification?.body || 'A provider has accepted your request!',
@@ -166,7 +184,7 @@ const GlobalBanner = () => {
         });
       }
       else if (msgType === 'REQUEST_REJECTED' || msgType === 'BOOKING_REJECTED' || msgType === 'EMERGENCY_REJECTED') {
-        showBanner({
+        showBannerDeduped({
           ...data,
           title: remoteMessage?.notification?.title || '❌ Request Rejected',
           body: remoteMessage?.notification?.body || 'The provider has declined your request.',
@@ -174,7 +192,7 @@ const GlobalBanner = () => {
         });
       }
       else if (msgType === 'REQUEST_CANCELLED' || msgType === 'BOOKING_CANCELLED') {
-        showBanner({
+        showBannerDeduped({
           ...data,
           title: '⚠️ Request Cancelled',
           body: remoteMessage?.notification?.body || (isProvider
@@ -184,7 +202,7 @@ const GlobalBanner = () => {
         });
       }
       else if (msgType === 'REQUEST_COMPLETED' || msgType === 'SERVICE_COMPLETED' || msgType === 'request_completed') {
-        showBanner({
+        showBannerDeduped({
           ...data,
           title: '🎉 Service Completed!',
           body: remoteMessage?.notification?.body || 'The service has been completed.',
@@ -192,7 +210,7 @@ const GlobalBanner = () => {
         });
       }
       else if (msgType === 'PROVIDER_ARRIVED' || msgType === 'provider_arrived') {
-        showBanner({
+        showBannerDeduped({
           ...data,
           title: '📍 Provider Arrived',
           body: remoteMessage?.notification?.body || 'Your provider has arrived at the location.',
@@ -205,7 +223,91 @@ const GlobalBanner = () => {
       if (unsubscribe) unsubscribe();
       if (bannerTimer.current) clearTimeout(bannerTimer.current);
     };
-  }, [isProvider, showBanner]);
+  }, [isProvider, showBannerDeduped]);
+
+  /**
+   * Socket Event Listeners — real-time events via Socket.IO
+   * These fire instantly (before FCM push arrives), giving true
+   * real-time banners on any screen. Dedup prevents double-showing
+   * when FCM arrives 1-2s later.
+   */
+  useEffect(() => {
+    // new:request — provider receives a new service request
+    const removeNewRequest = addEventListener('new:request', (data) => {
+      console.log('[GlobalBanner] Socket: new:request', data);
+      showBannerDeduped({
+        ...data,
+        title: '🔔 New Service Request!',
+        body: `New ${data.serviceType || 'service'} request received`,
+        bannerType: 'new_request',
+      });
+    });
+
+    // request:accepted — user/provider sees acceptance
+    const removeAccepted = addEventListener('request:accepted', (data) => {
+      console.log('[GlobalBanner] Socket: request:accepted', data);
+      showBannerDeduped({
+        ...data,
+        title: '✅ Request Accepted!',
+        body: isProvider
+          ? 'You have accepted this request.'
+          : `${data.providerName || 'A provider'} has accepted your request!`,
+        bannerType: 'accepted',
+      });
+    });
+
+    // request:completed — both sides see completion
+    const removeCompleted = addEventListener('request:completed', (data) => {
+      console.log('[GlobalBanner] Socket: request:completed', data);
+      showBannerDeduped({
+        ...data,
+        title: '🎉 Service Completed!',
+        body: 'The service has been completed successfully.',
+        bannerType: 'completed',
+      });
+    });
+
+    // request:cancelled — both sides see cancellation
+    const removeCancelled = addEventListener('request:cancelled', (data) => {
+      console.log('[GlobalBanner] Socket: request:cancelled', data);
+      showBannerDeduped({
+        ...data,
+        title: '⚠️ Request Cancelled',
+        body: data.cancelledBy === 'user'
+          ? 'The customer has cancelled their request.'
+          : data.cancelledBy === 'provider'
+            ? 'The provider has cancelled the request.'
+            : 'The request has been cancelled.',
+        bannerType: 'cancelled',
+      });
+    });
+
+    // request:status — generic status update fallback
+    const removeStatus = addEventListener('request:status', (data) => {
+      console.log('[GlobalBanner] Socket: request:status', data);
+      const statusMap = {
+        accepted: 'accepted',
+        completed: 'completed',
+        cancelled: 'cancelled',
+        rejected: 'rejected',
+      };
+      const bannerType = statusMap[data.status] || 'new_request';
+      showBannerDeduped({
+        ...data,
+        title: `📊 Request ${(data.status || 'updated').charAt(0).toUpperCase() + (data.status || 'updated').slice(1)}`,
+        body: `Your request status has been updated to ${data.status || 'unknown'}.`,
+        bannerType,
+      });
+    });
+
+    return () => {
+      removeNewRequest();
+      removeAccepted();
+      removeCompleted();
+      removeCancelled();
+      removeStatus();
+    };
+  }, [isProvider, showBannerDeduped]);
 
   // Nothing to render
   if (!bannerData) return null;

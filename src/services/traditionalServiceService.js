@@ -651,13 +651,20 @@ export const acceptRequestAsProvider = async (requestId, providerId, userEmail =
 
     const url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.ACCEPT_PROVIDER}/${requestId}/accept-provider`;
     
+    // Timeout: abort if server doesn't respond within 45 seconds
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ providerId, userEmail }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     const data = await response.json();
 
@@ -681,9 +688,12 @@ export const acceptRequestAsProvider = async (requestId, providerId, userEmail =
     };
   } catch (error) {
     console.error('[TraditionalService] Accept request error:', error.message);
+    const isTimeout = error.name === 'AbortError';
     return {
       success: false,
-      error: error.message || 'Failed to accept request',
+      error: isTimeout
+        ? 'Request timed out. Please check your connection and try again.'
+        : (error.message || 'Failed to accept request'),
     };
   }
 };

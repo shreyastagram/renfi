@@ -21,6 +21,9 @@ let locationUpdateInterval = null;
 // Listeners registry
 const listeners = new Map();
 
+// Track subscribed request rooms for re-join on reconnect
+const subscribedRooms = new Set();
+
 /**
  * Socket Service Configuration
  */
@@ -65,9 +68,9 @@ export const initializeSocket = (userType, userId, token) => {
       userId,
     },
     reconnection: true,
-    reconnectionAttempts: 10,
+    reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,
-    reconnectionDelayMax: 5000,
+    reconnectionDelayMax: 10000,
   });
 
   // Connection event handlers
@@ -79,6 +82,14 @@ export const initializeSocket = (userType, userId, token) => {
       socket.emit('provider:register', { providerId: userId });
     } else {
       socket.emit('user:register', { userId });
+    }
+
+    // Re-join any request rooms we were subscribed to before disconnect
+    if (subscribedRooms.size > 0) {
+      console.log(`📡 [Socket] Re-joining ${subscribedRooms.size} request rooms after reconnect`);
+      subscribedRooms.forEach((requestId) => {
+        socket.emit('request:subscribe', { requestId });
+      });
     }
   });
 
@@ -104,11 +115,6 @@ export const initializeSocket = (userType, userId, token) => {
       console.log('📦 [Socket] New request received:', data);
       notifyListeners('new:request', data);
     });
-
-    socket.on('request:cancelled', (data) => {
-      console.log('❌ [Socket] Request cancelled:', data);
-      notifyListeners('request:cancelled', data);
-    });
   }
 
   // User-specific events
@@ -126,22 +132,28 @@ export const initializeSocket = (userType, userId, token) => {
       console.log('📍 [Socket] Provider location update:', data);
       notifyListeners('provider:location', data);
     });
-
-    socket.on('request:accepted', (data) => {
-      console.log('✅ [Socket] Request accepted:', data);
-      notifyListeners('request:accepted', data);
-    });
-
-    socket.on('request:completed', (data) => {
-      console.log('🎉 [Socket] Request completed:', data);
-      notifyListeners('request:completed', data);
-    });
-
-    socket.on('request:status', (data) => {
-      console.log('📊 [Socket] Request status update:', data);
-      notifyListeners('request:status', data);
-    });
   }
+
+  // ─── Universal status events (both user & provider must receive) ───
+  socket.on('request:accepted', (data) => {
+    console.log('✅ [Socket] Request accepted:', data);
+    notifyListeners('request:accepted', data);
+  });
+
+  socket.on('request:completed', (data) => {
+    console.log('🎉 [Socket] Request completed:', data);
+    notifyListeners('request:completed', data);
+  });
+
+  socket.on('request:cancelled', (data) => {
+    console.log('❌ [Socket] Request cancelled:', data);
+    notifyListeners('request:cancelled', data);
+  });
+
+  socket.on('request:status', (data) => {
+    console.log('📊 [Socket] Request status update:', data);
+    notifyListeners('request:status', data);
+  });
 
   return socket;
 };
@@ -153,6 +165,7 @@ export const disconnectSocket = () => {
   if (socket) {
     console.log('🔌 [Socket] Disconnecting...');
     stopLocationTracking();
+    subscribedRooms.clear();
     socket.disconnect();
     socket = null;
   }
@@ -314,8 +327,13 @@ const sendLocationUpdate = async (providerId, coords) => {
  * @param {string} requestId - Request ID to subscribe to
  */
 export const subscribeToRequest = (requestId) => {
+  if (!requestId) return;
+
+  // Always track even if not connected — will re-join on connect
+  subscribedRooms.add(requestId);
+
   if (!socket?.connected) {
-    console.warn('⚠️ [Socket] Cannot subscribe - not connected');
+    console.warn('⚠️ [Socket] Not connected — room queued for reconnect');
     return;
   }
 
@@ -329,6 +347,10 @@ export const subscribeToRequest = (requestId) => {
  * @param {string} requestId - Request ID to unsubscribe from
  */
 export const unsubscribeFromRequest = (requestId) => {
+  if (!requestId) return;
+
+  subscribedRooms.delete(requestId);
+
   if (!socket?.connected) return;
 
   socket.emit('request:unsubscribe', { requestId });

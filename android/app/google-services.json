@@ -12,7 +12,20 @@
           "package_name": "com.renfi"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "752028559781-eskhite9ek7f838l2pnjrgpicooqvibv.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.renfi",
+            "certificate_hash": "e1b724515525501fa879cd40d359fc0bfce80a35"
+          }
+        },
+        {
+          "client_id": "752028559781-q0mi48eo45foh0lag7mkmtthevcrhcm9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDI0pkxJD0gd3vyAdiOP4muAE1rsoQq0D0"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "752028559781-q0mi48eo45foh0lag7mkmtthevcrhcm9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

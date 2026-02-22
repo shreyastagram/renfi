@@ -45,6 +45,8 @@ import {
   SERVICE_TYPE_LABELS,
 } from '../services/traditionalServiceService';
 import { addToFavorites, removeFromFavorites, checkIsFavorite } from '../services/favoritesService';
+import { addEventListener as addSocketListener, subscribeToRequest, unsubscribeFromRequest } from '../services/socketService';
+import { setupForegroundMessageListener } from '../services/fcmService';
 // Direct phone dialing - Exotel call masking removed
 
 // Brand colors — unified across all screens
@@ -662,6 +664,101 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     }
   }, [isEventService, isEmergencyService]);
 
+  // ─── Real-time listeners: Socket.IO + FCM + Polling ────────────────
+  // Subscribe to this specific request's room for targeted updates
+  // Dedup guard: prevent Socket.IO + FCM from triggering simultaneous fetches
+  const lastFetchRef = useRef(0);
+  const DEDUP_WINDOW_MS = 2000; // ignore duplicate triggers within 2s
+
+  const debouncedFetchDetails = useCallback(() => {
+    const now = Date.now();
+    if (now - lastFetchRef.current < DEDUP_WINDOW_MS) {
+      console.log('[RequestDetail] Dedup: skipping duplicate fetch');
+      return;
+    }
+    lastFetchRef.current = now;
+    fetchDetails();
+  }, [fetchDetails]);
+
+  useEffect(() => {
+    const requestId = request?._id || route.params?.requestId;
+    if (!requestId) return;
+
+    // Join the request-specific Socket.IO room
+    subscribeToRequest(requestId);
+
+    // Listen for status change events via Socket.IO
+    const cleanups = [
+      addSocketListener('request:accepted', (data) => {
+        if (data?.requestId === requestId) {
+          console.log('[RequestDetail] Socket: request accepted');
+          debouncedFetchDetails();
+        }
+      }),
+      addSocketListener('request:completed', (data) => {
+        if (data?.requestId === requestId) {
+          console.log('[RequestDetail] Socket: request completed');
+          debouncedFetchDetails();
+        }
+      }),
+      addSocketListener('request:cancelled', (data) => {
+        if (data?.requestId === requestId) {
+          console.log('[RequestDetail] Socket: request cancelled');
+          debouncedFetchDetails();
+        }
+      }),
+      addSocketListener('request:status', (data) => {
+        if (data?.requestId === requestId) {
+          console.log('[RequestDetail] Socket: status update:', data.status);
+          debouncedFetchDetails();
+        }
+      }),
+      addSocketListener('provider:assigned', (data) => {
+        if (data?.requestId === requestId) {
+          console.log('[RequestDetail] Socket: provider assigned');
+          debouncedFetchDetails();
+        }
+      }),
+      addSocketListener('provider:location', (data) => {
+        // Update provider location in real-time (for tracking)
+        console.log('[RequestDetail] Socket: provider location update');
+      }),
+    ];
+
+    return () => {
+      unsubscribeFromRequest(requestId);
+      cleanups.forEach(fn => fn());
+    };
+  }, [request?._id, route.params?.requestId, debouncedFetchDetails]);
+
+  // FCM foreground listener — auto-refresh on push notifications
+  useEffect(() => {
+    const requestId = request?._id || route.params?.requestId;
+    const unsubscribe = setupForegroundMessageListener((remoteMessage) => {
+      const msgRequestId = remoteMessage?.data?.requestId;
+      const msgType = remoteMessage?.data?.type;
+      // Only refresh if this notification is about OUR request
+      if (msgRequestId === requestId) {
+        console.log('[RequestDetail] FCM foreground for this request:', msgType);
+        debouncedFetchDetails();
+      }
+    });
+    return () => { if (unsubscribe) unsubscribe(); };
+  }, [request?._id, route.params?.requestId, debouncedFetchDetails]);
+
+  // Polling fallback — refresh every 15s for active requests only
+  useEffect(() => {
+    const isActive = request && ['pending', 'accepted', 'in-progress', 'in_transit', 'arrived', 'awaiting_confirmation'].includes(request.status);
+    if (!isActive) return;
+
+    const interval = setInterval(() => {
+      console.log('[RequestDetail] Polling refresh (active request)');
+      fetchDetails();
+    }, 15000); // 15 seconds for detail screen
+
+    return () => clearInterval(interval);
+  }, [request?.status, fetchDetails]);
+
   /**
    * Handle refresh
    */
@@ -867,6 +964,9 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           text: 'Accept',
           onPress: async () => {
             setAccepting(true);
+            // 45s timeout for all accept API calls
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 45000);
             try {
               let result;
               
@@ -879,6 +979,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                     userEmail: request.userDetails?.email || '',
                     estimatedArrival: 15,
                   }),
+                  signal: controller.signal,
                 });
                 result = await response.json();
                 result.success = result.success || response.ok;
@@ -890,6 +991,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                     providerId,
                     userEmail: request.userDetails?.email || request.userEmail || '',
                   }),
+                  signal: controller.signal,
                 });
                 result = await response.json();
                 result.success = result.success || result.statusCode === 200;
@@ -901,6 +1003,8 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                 );
               }
               
+              clearTimeout(timeoutId);
+
               if (result.success) {
                 Alert.alert('Request Accepted', 'You have accepted this request. The customer has been notified.');
                 fetchDetails(); // Refresh to show updated status
@@ -908,8 +1012,12 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                 Alert.alert('Error', result.error || 'Failed to accept request');
               }
             } catch (error) {
+              clearTimeout(timeoutId);
               console.error('[RequestDetail] Accept error:', error);
-              Alert.alert('Error', 'Something went wrong');
+              const msg = error.name === 'AbortError'
+                ? 'Request timed out. Please check your connection and try again.'
+                : 'Something went wrong. Please try again.';
+              Alert.alert('Error', msg);
             } finally {
               setAccepting(false);
             }

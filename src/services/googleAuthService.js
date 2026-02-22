@@ -32,13 +32,13 @@ import { ENDPOINTS } from '../config/api';
  * Web Client ID is used by the mobile app to request an ID token
  * that can be verified by the Java backend
  */
-const GOOGLE_WEB_CLIENT_ID = '524781184814-nkbud6c3r44b1plqpm77p27ejfi3de3j.apps.googleusercontent.com';
+const GOOGLE_WEB_CLIENT_ID = '752028559781-q0mi48eo45foh0lag7mkmtthevcrhcm9.apps.googleusercontent.com';
 
 /**
  * iOS Client ID - Used for iOS Google Sign-In
  * This should also be configured in ios/renfi/Info.plist
  */
-const GOOGLE_IOS_CLIENT_ID = '524781184814-381pquihbspvu31si5ea2ecreqs3d824.apps.googleusercontent.com';
+const GOOGLE_IOS_CLIENT_ID = '752028559781-q0mi48eo45foh0lag7mkmtthevcrhcm9.apps.googleusercontent.com';
 
 /**
  * Role types for Google OAuth registration

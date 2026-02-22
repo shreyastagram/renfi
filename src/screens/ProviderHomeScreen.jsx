@@ -33,6 +33,7 @@ import {
   startLocationTracking, 
   stopLocationTracking,
   isConnected,
+  addEventListener,
 } from '../services/socketService';
 import { getProviderRequests } from '../services/traditionalServiceService';
 import { getVerificationDashboard } from '../services/verificationService';
@@ -349,17 +350,28 @@ const ProviderHomeScreen = ({ navigation }) => {
   // Initialize socket and location tracking
   useEffect(() => {
     const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
-    const token = user?.accessToken || profile?.accessToken;
     // Use the persisted setting from profile
     const locationTrackingEnabled = displayData?.locationTracking?.enabled === true;
     // Check if provider has valid location set (null lat/lng = never reported)
     const hasLocation = displayData?.location?.latitude != null && displayData?.location?.longitude != null;
     
     if (providerId) {
-      // Initialize socket connection (if token available)
-      if (token) {
-        initializeSocket('provider', providerId, token);
-      }
+      // Initialize socket connection — fetch token from secure storage
+      // (accessToken is NOT stored in the user state object, only in AsyncStorage)
+      const initSocket = async () => {
+        try {
+          const tokens = await getTokens();
+          if (tokens?.accessToken) {
+            console.log('🔌 [ProviderHome] Initializing socket for provider:', providerId);
+            initializeSocket('provider', providerId, tokens.accessToken);
+          } else {
+            console.warn('⚠️ [ProviderHome] No access token available — socket NOT initialized');
+          }
+        } catch (err) {
+          console.error('❌ [ProviderHome] Failed to get token for socket:', err.message);
+        }
+      };
+      initSocket();
       
       // Start location tracking if:
       // 1. Explicitly enabled in settings, OR
@@ -382,6 +394,36 @@ const ProviderHomeScreen = ({ navigation }) => {
       stopLocationTracking();
     };
   }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id, displayData?.locationTracking?.enabled, displayData?.location?.latitude]);
+
+  // Listen for socket events so provider's dashboard refreshes in real-time
+  useEffect(() => {
+    // When a new request arrives, refresh stats so pending count updates
+    const removeNewReq = addEventListener('new:request', () => {
+      console.log('📦 [ProviderHome] Socket: new:request — refreshing stats');
+      fetchStats();
+    });
+
+    // When a request is accepted/completed/cancelled, refresh stats
+    const removeAccepted = addEventListener('request:accepted', () => {
+      console.log('✅ [ProviderHome] Socket: request:accepted — refreshing stats');
+      fetchStats();
+    });
+    const removeCompleted = addEventListener('request:completed', () => {
+      console.log('🎉 [ProviderHome] Socket: request:completed — refreshing stats');
+      fetchStats();
+    });
+    const removeCancelled = addEventListener('request:cancelled', () => {
+      console.log('❌ [ProviderHome] Socket: request:cancelled — refreshing stats');
+      fetchStats();
+    });
+
+    return () => {
+      removeNewReq();
+      removeAccepted();
+      removeCompleted();
+      removeCancelled();
+    };
+  }, [fetchStats]);
 
   useEffect(() => {
     fetchStats();
