@@ -15,6 +15,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { Platform, PermissionsAndroid, Alert, Linking, AppState } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 import DeviceInfo from 'react-native-device-info';
+import { check, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
 // Mapbox Access Token (from .env via centralized config)
 import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
@@ -126,6 +127,10 @@ export const LocationProvider = ({ children }) => {
   const [locationLoading, setLocationLoading] = useState(true);
   const [locationError, setLocationError] = useState(null);
   const [isEmulator, setIsEmulator] = useState(false);
+  const [locationServicesEnabled, setLocationServicesEnabled] = useState(true);
+  
+  // Track if we've shown the GPS-off alert this session (don't spam)
+  const gpsAlertShownRef = useRef(false);
   
   // Refs
   const locationIntervalRef = useRef(null);
@@ -189,6 +194,74 @@ export const LocationProvider = ({ children }) => {
   }, []);
   
   /**
+   * Check if device location services (GPS) are enabled.
+   * Shows user-friendly popup if GPS is turned off.
+   */
+  const checkLocationServices = useCallback(async () => {
+    try {
+      const permission = Platform.OS === 'ios'
+        ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
+        : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
+      
+      const result = await check(permission);
+      
+      if (result === RESULTS.UNAVAILABLE) {
+        // Location services are not available on this device/OS
+        setLocationServicesEnabled(false);
+        return false;
+      }
+      
+      // Permission check doesn't directly tell us if GPS hardware is on,
+      // but BLOCKED means user explicitly denied and we should treat it as disabled.
+      if (result === RESULTS.BLOCKED) {
+        setLocationServicesEnabled(false);
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.warn('[LocationContext] Location services check failed:', error.message);
+      return true; // Assume enabled if check fails
+    }
+  }, []);
+
+  /**
+   * Show GPS-off alert with "Enable" and "Cancel" options.
+   * Only shows once per foreground session to avoid spamming.
+   */
+  const showGpsOffAlert = useCallback(() => {
+    if (gpsAlertShownRef.current) return;
+    gpsAlertShownRef.current = true;
+    
+    setLocationServicesEnabled(false);
+    setLocationLoading(false);
+    setLocationError('Location services are turned off');
+    
+    Alert.alert(
+      'Location is Turned Off',
+      'Please enable location services to find nearby service providers and use FixHomi effectively.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Enable Location',
+          onPress: () => {
+            gpsAlertShownRef.current = false; // Allow re-showing after user goes to settings
+            if (Platform.OS === 'ios') {
+              Linking.openURL('app-settings:');
+            } else {
+              // Open Android location settings directly
+              Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS').catch(() => {
+                Linking.openSettings();
+              });
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  }, []);
+
+  /**
    * Fetch current location - ULTRA FAST with 2-stage approach
    * Stage 1: Get ANY cached location instantly (maximumAge: 5 min)
    * Stage 2: Get accurate location in background
@@ -228,6 +301,7 @@ export const LocationProvider = ({ children }) => {
           
           const newLocation = { latitude, longitude, accuracy };
           setCurrentLocation(newLocation);
+          setLocationServicesEnabled(true); // GPS is working
           setLocationLoading(false);
           hasReceivedLocation = true;
           
@@ -261,6 +335,19 @@ export const LocationProvider = ({ children }) => {
           }
         },
         (error) => {
+          // ERROR CODE 2 = POSITION_UNAVAILABLE = GPS/Location Services OFF
+          // ERROR CODE 1 = PERMISSION_DENIED
+          // ERROR CODE 3 = TIMEOUT (could also mean GPS off)
+          if (error.code === 2 || (error.code === 3 && !currentLocation)) {
+            console.warn('🔴 [LocationContext] Location services appear to be OFF (error code:', error.code, ')');
+            if (!resolved) {
+              resolved = true;
+              showGpsOffAlert();
+              resolve(null);
+            }
+            return;
+          }
+          
           console.log('⚠️ [LocationContext] No cached location, trying fresh GPS...');
           // No cached location - fall back to watchPosition
           const watchId = Geolocation.watchPosition(
@@ -275,6 +362,7 @@ export const LocationProvider = ({ children }) => {
               
               const newLocation = { latitude, longitude, accuracy };
               setCurrentLocation(newLocation);
+              setLocationServicesEnabled(true); // GPS is working
               setLocationLoading(false);
               hasReceivedLocation = true;
               
@@ -292,8 +380,13 @@ export const LocationProvider = ({ children }) => {
               if (!resolved) {
                 resolved = true;
                 console.error('[LocationContext] Watch error:', watchError);
-                setLocationError(watchError.message || 'Failed to get location');
-                setLocationLoading(false);
+                // Check if this is GPS-off error
+                if (watchError.code === 2) {
+                  showGpsOffAlert();
+                } else {
+                  setLocationError(watchError.message || 'Failed to get location');
+                  setLocationLoading(false);
+                }
                 resolve(null);
               }
             },
@@ -306,7 +399,7 @@ export const LocationProvider = ({ children }) => {
               resolved = true;
               Geolocation.clearWatch(watchId);
               setLocationLoading(false);
-              setLocationError('Location timeout');
+              setLocationError('Location timeout. Please check if location services are enabled.');
               resolve(null);
             }
           }, LOCATION_TIMEOUT + 2000);
@@ -373,6 +466,8 @@ export const LocationProvider = ({ children }) => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (appStateRef.current !== 'active' && nextAppState === 'active') {
         // App came to foreground - refresh location
+        // Reset GPS alert flag so user gets fresh prompt if GPS is still off
+        gpsAlertShownRef.current = false;
         console.log('📱 [LocationContext] App foregrounded - refreshing location');
         fetchLocation(true);
       }
@@ -435,12 +530,14 @@ export const LocationProvider = ({ children }) => {
     locationLoading,
     locationError,
     locationPermission,
+    locationServicesEnabled,
     isEmulator,
     
     // Actions
     refreshLocation,
     requestPermission,
     openLocationSettings,
+    showGpsOffAlert,
     
     // Formatted display — prefer short address, never show raw coordinates
     displayAddress: locationAddress?.shortAddress || 

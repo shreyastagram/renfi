@@ -318,6 +318,7 @@ const LocationPicker = ({
   onChange: onChangeProp,
   onLocationChange,
   currentLocation,
+  currentLocationAddress,
   label = 'Service Location',
   placeholder = 'Where do you need the service?',
   error,
@@ -374,18 +375,55 @@ const LocationPicker = ({
    */
   const handleMapPickerSelect = useCallback((location) => {
     setLocationType('other');
-    setInternalValue(location);
-    handleChange(location);
+    // CRITICAL: Mark as non-current-location so booking uses these coordinates
+    const locationData = { ...location, isCurrentLocation: false };
+    setInternalValue(locationData);
+    handleChange(locationData);
     setShowMapPicker(false);
     setShowModal(false);
   }, [handleChange]);
   
   /**
    * Industry-grade location strategy (like Uber/Ola):
-   * Uses watchPosition for instant cached location + GPS refinement
+   * 1. If context already has location → use INSTANTLY (no GPS call, no loader)
+   * 2. Only fall back to fresh GPS if context has no location
+   * 3. Background-refine address via reverse geocode (non-blocking)
    */
   const handleUseCurrentLocation = useCallback(async () => {
     setLocationType('current');
+    
+    // ── INSTANT PATH: Context already has location (Ola/Uber-like) ──
+    // LocationContext refreshes every 30s, so this is always fresh
+    if (currentLocation?.latitude && currentLocation?.longitude) {
+      console.log('📍 Instant location from context:', currentLocation.latitude.toFixed(6), currentLocation.longitude.toFixed(6));
+      
+      // Set immediately with whatever address we have — zero latency
+      const locationData = {
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        address: currentLocationAddress || 'Current location',
+        shortAddress: currentLocationAddress || 'My location',
+        isCurrentLocation: true,
+      };
+      setInternalValue(locationData);
+      handleChange(locationData);
+      // Don't show loader — location is already set
+      setGettingLocation(false);
+      
+      // Silently refine address in background (non-blocking)
+      reverseGeocode(currentLocation.latitude, currentLocation.longitude)
+        .then(refined => {
+          if (refined) {
+            const refinedData = { ...refined, isCurrentLocation: true };
+            setInternalValue(refinedData);
+            handleChange(refinedData);
+          }
+        })
+        .catch(() => {}); // Ignore — we already have a good enough result
+      return;
+    }
+    
+    // ── FALLBACK PATH: No context location — need fresh GPS ──
     setGettingLocation(true);
     
     // Request permission first on Android
@@ -411,18 +449,12 @@ const LocationPicker = ({
     
     let locationReceived = false;
     
-    /**
-     * Multi-strategy location fetching (like Uber/Ola):
-     * 1. First try getCurrentPosition with high accuracy (quick if GPS is warm)
-     * 2. If that times out, try with low accuracy (faster network-based)
-     * 3. If all fail, use context currentLocation as fallback
-     */
     const handleLocationSuccess = async (position) => {
       if (locationReceived) return;
       locationReceived = true;
       
       const { latitude, longitude, accuracy } = position.coords;
-      console.log('📍 Location success:', latitude.toFixed(6), longitude.toFixed(6), 'accuracy:', accuracy?.toFixed(0) || 'unknown', 'm');
+      console.log('📍 GPS location received:', latitude.toFixed(6), longitude.toFixed(6), 'accuracy:', accuracy?.toFixed(0) || 'unknown', 'm');
       
       try {
         const locationData = await reverseGeocode(latitude, longitude);
@@ -431,7 +463,6 @@ const LocationPicker = ({
         setInternalValue(locationData);
         handleChange(locationData);
       } catch (err) {
-        // Even if geocoding fails, use the coordinates
         const locationData = {
           latitude,
           longitude,
@@ -446,70 +477,39 @@ const LocationPicker = ({
     };
     
     const handleLocationError = (error, isHighAccuracy = true) => {
-      console.warn('📍 Location error:', error.message, 'code:', error.code, 'highAccuracy:', isHighAccuracy);
+      console.warn('📍 Location error:', error.message, 'code:', error.code);
       
-      // If high accuracy failed, try low accuracy
       if (isHighAccuracy && !locationReceived) {
-        console.log('📍 Trying low accuracy location...');
         Geolocation.getCurrentPosition(
           handleLocationSuccess,
           (lowAccErr) => {
             console.warn('📍 Low accuracy also failed:', lowAccErr.message);
-            fallbackToContext();
+            if (!locationReceived) {
+              locationReceived = true;
+              setGettingLocation(false);
+              Alert.alert(
+                'Location Unavailable',
+                'Could not determine your location. Please ensure GPS is enabled or search for your location manually.',
+                [
+                  { text: 'Search Manually', onPress: () => setShowModal(true) },
+                  { text: 'Open Settings', onPress: () => Linking.openSettings() },
+                ]
+              );
+            }
           },
-          {
-            enableHighAccuracy: false,
-            timeout: 8000,
-            maximumAge: 60000, // Accept cached location up to 1 minute old
-          }
+          { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
         );
         return;
       }
-      
-      fallbackToContext();
     };
     
-    const fallbackToContext = () => {
-      if (locationReceived) return;
-      locationReceived = true;
-      
-      if (currentLocation?.latitude && currentLocation?.longitude) {
-        console.log('📍 Using context location as fallback');
-        const locationData = {
-          latitude: currentLocation.latitude,
-          longitude: currentLocation.longitude,
-          address: 'Current location',
-          shortAddress: 'My location',
-          isCurrentLocation: true,
-        };
-        setInternalValue(locationData);
-        handleChange(locationData);
-        setGettingLocation(false);
-      } else {
-        setGettingLocation(false);
-        Alert.alert(
-          'Location Unavailable',
-          'Could not determine your location. Please ensure GPS is enabled or search for your location manually.',
-          [
-            { text: 'Search Manually', onPress: () => setShowModal(true) },
-            { text: 'Open Settings', onPress: () => Linking.openSettings() },
-          ]
-        );
-      }
-    };
-    
-    // Start with high accuracy (fast if GPS is ready)
-    console.log('📍 Trying high accuracy location...');
+    // Try high accuracy GPS
     Geolocation.getCurrentPosition(
       handleLocationSuccess,
       (error) => handleLocationError(error, true),
-      {
-        enableHighAccuracy: true,
-        timeout: 8000,
-        maximumAge: 5000, // Accept cached location up to 5 seconds old
-      }
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 5000 }
     );
-  }, [currentLocation, handleChange]);
+  }, [currentLocation, currentLocationAddress, handleChange]);
   
   // Cleanup on unmount
   useEffect(() => {
@@ -593,10 +593,33 @@ const LocationPicker = ({
     setSearchResults([]);
   }, [handleChange]);
   
-  // Set current location on mount if not already set
+  // Set current location on mount — INSTANT from context (Ola/Uber-like)
+  // No GPS call, no loader — just use what LocationContext already has
   useEffect(() => {
-    if (!displayValue && currentLocation) {
-      handleUseCurrentLocation();
+    if (!displayValue && currentLocation?.latitude && currentLocation?.longitude) {
+      setLocationType('current');
+      const locationData = {
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        address: currentLocationAddress || 'Current location',
+        shortAddress: currentLocationAddress || 'My location',
+        isCurrentLocation: true,
+      };
+      setInternalValue(locationData);
+      handleChange(locationData);
+      
+      // Background-refine address if context didn't provide one
+      if (!currentLocationAddress) {
+        reverseGeocode(currentLocation.latitude, currentLocation.longitude)
+          .then(refined => {
+            if (refined) {
+              const refinedData = { ...refined, isCurrentLocation: true };
+              setInternalValue(refinedData);
+              handleChange(refinedData);
+            }
+          })
+          .catch(() => {});
+      }
     }
   }, []);
   

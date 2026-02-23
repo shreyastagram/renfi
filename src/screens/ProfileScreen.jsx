@@ -404,7 +404,25 @@ const ProfileScreen = ({ navigation, route }) => {
       } else {
         // Handle specific error codes from backend
         const errorCode = result.error?.code || result.error?.response?.data?.code;
-        if (errorCode === 'NAME_LOCKED') {
+        
+        if (errorCode === 'PHONE_ALREADY_EXISTS') {
+          Alert.alert(
+            'Number Already Registered',
+            'This mobile number is already associated with another account. Please use a different number.',
+            [
+              { text: 'OK', onPress: () => {
+                // Revert phone field to original value
+                setFormData(prev => ({ ...prev, phone: originalPhone }));
+              }}
+            ]
+          );
+        } else if (errorCode === 'PROFILE_CONFLICT') {
+          Alert.alert(
+            'Update Conflict',
+            result.error?.message || 'This information conflicts with another account. Please try different values.',
+            [{ text: 'OK' }]
+          );
+        } else if (errorCode === 'NAME_LOCKED') {
           Alert.alert(
             'Name Locked',
             'Your name has been locked after Aadhaar verification and cannot be changed. This ensures your profile matches your verified identity.',

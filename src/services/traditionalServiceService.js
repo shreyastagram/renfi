@@ -267,6 +267,63 @@ export const getNearbyProviders = async (requestId, limit = 20) => {
 };
 
 /**
+ * Skip (remove) a provider and get a replacement from the backend queue.
+ * 
+ * The backend:
+ * 1. Adds the provider to rejectedProviders
+ * 2. Runs the same geo-search, excluding all rejected + currently displayed IDs
+ * 3. Returns exactly 1 replacement provider (or null if queue exhausted)
+ * 
+ * @param {string} requestId - Service request MongoDB _id
+ * @param {string} providerId - Provider being skipped
+ * @param {string[]} currentProviderIds - All provider IDs currently visible in the list
+ * @returns {Promise<Object>} { success, skippedProviderId, replacement, meta }
+ */
+export const skipProvider = async (requestId, providerId, currentProviderIds = []) => {
+  try {
+    if (!requestId) throw new Error('Request ID is required');
+    if (!providerId) throw new Error('Provider ID is required');
+
+    console.log('[TraditionalService] Skipping provider:', { requestId, providerId });
+
+    const url = `${NODE_BASE_URL}/api/traditional-services/${requestId}/skip-provider`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ providerId, currentProviderIds }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('[TraditionalService] Skip provider failed:', data);
+      throw new Error(data.message || data.error || 'Failed to skip provider');
+    }
+
+    console.log('[TraditionalService] Skip result:', {
+      skipped: data.skippedProviderId,
+      hasReplacement: !!data.replacement,
+      remaining: data.meta?.remainingInQueue,
+    });
+
+    return {
+      success: true,
+      skippedProviderId: data.skippedProviderId,
+      replacement: data.replacement || null,
+      meta: data.meta || {},
+      message: data.message,
+    };
+  } catch (error) {
+    console.error('[TraditionalService] Skip provider error:', error.message);
+    return {
+      success: false,
+      error: error.message || 'Failed to skip provider',
+    };
+  }
+};
+
+/**
  * Retry search for providers after rejecting all
  * Clears the rejected providers list and re-fetches nearby providers
  * 

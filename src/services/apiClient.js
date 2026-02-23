@@ -32,8 +32,37 @@ const onTokenRefreshed = (accessToken) => {
 };
 
 /**
+ * Check if an error is a transient network error (timeout, connection refused, etc.)
+ * These errors should NOT cause token clearing — the auth is still valid,
+ * the server is just temporarily unreachable (e.g., Render cold start)
+ */
+const isTransientNetworkError = (error) => {
+  // No response received — pure network failure
+  if (!error.response && error.request) {
+    return true;
+  }
+  // Specific network error codes
+  const transientCodes = ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'ECONNABORTED', 'ERR_NETWORK', 'ENETUNREACH'];
+  if (transientCodes.includes(error.code)) {
+    return true;
+  }
+  // 502/503/504 from gateway — server temporarily unavailable
+  if (error.response?.status >= 502 && error.response?.status <= 504) {
+    return true;
+  }
+  return false;
+};
+
+/**
  * Proactively refresh token if expired or about to expire
  * This is called before making requests to ensure we have a valid token
+ * 
+ * CRITICAL: Does NOT clear tokens on transient network errors (timeouts, 
+ * connection refused). Only clears on definitive auth failures (invalid 
+ * refresh token = 400/401 from the refresh endpoint).
+ * This prevents Google OAuth providers from being logged out when Java Auth 
+ * on Render has a cold start.
+ * 
  * @returns {Promise<string|null>} New access token or null if refresh fails
  */
 const proactiveTokenRefresh = async () => {
@@ -69,23 +98,50 @@ const proactiveTokenRefresh = async () => {
       
       console.log('🔄 [API] Refreshing tokens proactively...');
       
-      const response = await axios.post(
-        `${API_CONFIG.JAVA_AUTH_URL}/api/auth/refresh`,
-        { refreshToken: tokens.refreshToken },
-        { headers: API_CONFIG.HEADERS }
-      );
+      // Retry once on transient failure (handles Java Auth cold starts on Render)
+      let lastError;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const response = await axios.post(
+            `${API_CONFIG.JAVA_AUTH_URL}/api/auth/refresh`,
+            { refreshToken: tokens.refreshToken },
+            { 
+              headers: API_CONFIG.HEADERS,
+              timeout: 35000, // 35s timeout for Render cold starts
+            }
+          );
+          
+          const { accessToken, refreshToken: newRefreshToken, expiresIn } = response.data;
+          await storeTokens(accessToken, newRefreshToken, expiresIn || 86400);
+          
+          console.log('✅ [API] Proactive token refresh successful');
+          onTokenRefreshed(accessToken);
+          
+          return accessToken;
+        } catch (err) {
+          lastError = err;
+          if (attempt === 1 && isTransientNetworkError(err)) {
+            console.warn(`⚠️ [API] Refresh attempt ${attempt} failed (transient), retrying in 3s...`);
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            continue;
+          }
+          break;
+        }
+      }
       
-      const { accessToken, refreshToken: newRefreshToken, expiresIn } = response.data;
-      await storeTokens(accessToken, newRefreshToken, expiresIn || 86400);
+      // Refresh failed — but only clear tokens on definitive auth failure
+      const error = lastError;
+      if (isTransientNetworkError(error)) {
+        // Server is temporarily unreachable — DON'T clear tokens
+        // The tokens are still valid, the auth server is just down/cold-starting
+        console.warn('⚠️ [API] Proactive refresh failed (network), keeping tokens. Auth server may be cold-starting.');
+        // Return the existing (possibly expired) token — the request might still work
+        // if the backend validates the token itself with the shared JWT secret
+        return tokens.accessToken;
+      }
       
-      console.log('✅ [API] Proactive token refresh successful');
-      onTokenRefreshed(accessToken);
-      
-      return accessToken;
-    } catch (error) {
-      console.error('❌ [API] Proactive token refresh failed:', error.message);
-      
-      // Clear tokens and notify app
+      // Definitive auth failure (400/401 = invalid refresh token)
+      console.error('❌ [API] Proactive token refresh failed (auth rejected):', error.message);
       await clearTokens();
       if (global.onAuthExpired) {
         global.onAuthExpired();
@@ -176,6 +232,11 @@ authClient.interceptors.request.use(
 
 /**
  * Response error handler with token refresh
+ * 
+ * CRITICAL: Does NOT clear tokens on transient network errors during refresh.
+ * Only clears tokens when the refresh endpoint explicitly rejects the token
+ * (400/401 response). This prevents Google OAuth users from being logged out
+ * when Java Auth on Render is cold-starting.
  */
 const handleResponseError = async (error, client) => {
   const originalRequest = error.config;
@@ -198,6 +259,20 @@ const handleResponseError = async (error, client) => {
     console.error('🚫 [API] Cannot connect to server. Is the backend running?');
   }
   
+  // Handle 503 Service Unavailable — auth service temporarily down (e.g., Render cold start)
+  // Do NOT treat as auth failure, do NOT trigger token refresh/clearing
+  if (error.response?.status === 503 && error.response?.data?.isTransient) {
+    console.warn('⚠️ [API] Service temporarily unavailable (auth service may be cold-starting)');
+    // Retry once after a delay
+    if (!originalRequest._retried503) {
+      originalRequest._retried503 = true;
+      console.log('🔄 [API] Retrying request after 503...');
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      return client(originalRequest);
+    }
+    return Promise.reject(error);
+  }
+  
   // Handle 401 Unauthorized - Token expired
   if (error.response?.status === 401 && !originalRequest._retry) {
     // Don't retry refresh/logout endpoints
@@ -215,23 +290,66 @@ const handleResponseError = async (error, client) => {
           if (tokens?.refreshToken) {
             console.log('🔄 [API] Attempting token refresh (401 handler)...');
             
-            const response = await axios.post(
-              `${API_CONFIG.JAVA_AUTH_URL}/api/auth/refresh`,
-              { refreshToken: tokens.refreshToken },
-              { headers: API_CONFIG.HEADERS }
-            );
+            // Retry once on transient failure (Java Auth cold starts)
+            let lastRefreshError;
+            for (let attempt = 1; attempt <= 2; attempt++) {
+              try {
+                const response = await axios.post(
+                  `${API_CONFIG.JAVA_AUTH_URL}/api/auth/refresh`,
+                  { refreshToken: tokens.refreshToken },
+                  { 
+                    headers: API_CONFIG.HEADERS,
+                    timeout: 35000, // 35s for Render cold starts
+                  }
+                );
+                
+                const { accessToken, refreshToken: newRefreshToken, expiresIn } = response.data;
+                await storeTokens(accessToken, newRefreshToken, expiresIn || 86400);
+                
+                console.log('✅ [API] Token refresh successful');
+                isRefreshing = false;
+                refreshPromise = null;
+                onTokenRefreshed(accessToken);
+                
+                // Retry original request with new token
+                originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+                return client(originalRequest);
+              } catch (err) {
+                lastRefreshError = err;
+                if (attempt === 1 && isTransientNetworkError(err)) {
+                  console.warn(`⚠️ [API] Refresh attempt ${attempt} failed (transient), retrying in 3s...`);
+                  await new Promise(resolve => setTimeout(resolve, 3000));
+                  continue;
+                }
+                break;
+              }
+            }
             
-            const { accessToken, refreshToken: newRefreshToken, expiresIn } = response.data;
-            await storeTokens(accessToken, newRefreshToken, expiresIn || 86400);
+            // Refresh failed
+            const refreshError = lastRefreshError;
             
-            console.log('✅ [API] Token refresh successful');
-            isRefreshing = false;
-            refreshPromise = null;
-            onTokenRefreshed(accessToken);
+            if (isTransientNetworkError(refreshError)) {
+              // Server unreachable — DON'T clear tokens, DON'T force logout
+              // The tokens might still be valid, auth server is just cold-starting
+              console.warn('⚠️ [API] Token refresh failed (network/timeout), keeping tokens. Will retry on next request.');
+              isRefreshing = false;
+              refreshPromise = null;
+              // Reject with a user-friendly error but keep session alive
+              return Promise.reject({
+                ...refreshError,
+                _isTransientAuthError: true,
+                response: {
+                  status: 503,
+                  data: {
+                    message: 'Authentication server is temporarily unavailable. Please try again in a moment.',
+                    code: 'AUTH_SERVER_UNAVAILABLE',
+                  },
+                },
+              });
+            }
             
-            // Retry original request with new token
-            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-            return client(originalRequest);
+            // Definitive auth failure — clear tokens
+            throw refreshError;
           } else {
             throw new Error('No refresh token available');
           }
@@ -240,13 +358,12 @@ const handleResponseError = async (error, client) => {
           isRefreshing = false;
           refreshPromise = null;
           
-          // Clear tokens and force re-login
-          await clearTokens();
-          
-          // Emit event for app to handle logout
-          // This will be caught by the AppContext
-          if (global.onAuthExpired) {
-            global.onAuthExpired();
+          // Only clear tokens on definitive auth failures, not network errors
+          if (!isTransientNetworkError(refreshError)) {
+            await clearTokens();
+            if (global.onAuthExpired) {
+              global.onAuthExpired();
+            }
           }
           
           return Promise.reject(refreshError);
@@ -256,10 +373,14 @@ const handleResponseError = async (error, client) => {
       return refreshPromise;
     } else {
       // Wait for refresh to complete
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
         subscribeTokenRefresh((accessToken) => {
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-          resolve(client(originalRequest));
+          if (accessToken) {
+            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+            resolve(client(originalRequest));
+          } else {
+            reject(error);
+          }
         });
       });
     }
@@ -296,6 +417,18 @@ authClient.interceptors.response.use(
  * @returns {Object} Parsed error object
  */
 export const parseApiError = (error) => {
+  // Handle synthetic transient auth errors (from our 401 handler)
+  if (error._isTransientAuthError && error.response) {
+    return {
+      status: error.response.status,
+      code: error.response.data?.code || 'AUTH_SERVER_UNAVAILABLE',
+      message: error.response.data?.message || 'Authentication server is temporarily unavailable. Please try again.',
+      errors: null,
+      hint: 'The server is warming up. Please wait a moment and try again.',
+      isTransient: true,
+    };
+  }
+
   if (error.response) {
     // Server responded with error status
     const { data, status } = error.response;
@@ -309,8 +442,8 @@ export const parseApiError = (error) => {
     };
   } else if (error.request) {
     // Request made but no response
-    let message = 'Unable to connect to server.';
-    let hint = 'Please check your internet connection';
+    let message = 'Unable to connect to server. Please try again.';
+    let hint = 'Please check your internet connection and try again';
     
     // Check for specific network errors
     if (error.code === 'ECONNREFUSED') {
@@ -319,9 +452,9 @@ export const parseApiError = (error) => {
     } else if (error.code === 'ENOTFOUND') {
       message = 'Cannot find backend server.';
       hint = 'Check your network connection and backend URL';
-    } else if (error.code === 'ETIMEDOUT') {
-      message = 'Connection timed out.';
-      hint = 'The server is taking too long to respond';
+    } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
+      message = 'Connection timed out. The server may be starting up.';
+      hint = 'Please wait a moment and try again';
     }
     
     return {
@@ -331,6 +464,7 @@ export const parseApiError = (error) => {
       errors: null,
       hint,
       errorCode: error.code,
+      isTransient: true,
     };
   } else {
     // Error in request setup

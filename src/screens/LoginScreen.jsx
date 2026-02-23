@@ -211,21 +211,40 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
             profilePicture: user.profilePicture,
           };
           
-          try {
-            if (isProvider) {
-              // For providers, sync basic data - they can add more in ProfileScreen
-              await syncGoogleProviderToMongoDB({
-                ...syncData,
-                name: user.fullName,
-                address: '', // Will be updated in ProfileScreen
-              });
-            } else {
-              await syncGoogleUserToMongoDB(syncData);
+          // Retry sync up to 3 times with delay — this is critical for first-time Google providers
+          // Without a MongoDB profile, all subsequent authenticated API calls will fail
+          let syncSuccess = false;
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+              if (isProvider) {
+                const syncResult = await syncGoogleProviderToMongoDB({
+                  ...syncData,
+                  name: user.fullName,
+                  address: '', // Will be updated in ProfileScreen
+                });
+                syncSuccess = syncResult.success;
+              } else {
+                const syncResult = await syncGoogleUserToMongoDB(syncData);
+                syncSuccess = syncResult.success;
+              }
+              
+              if (syncSuccess) {
+                console.log(`✅ [LoginScreen] MongoDB sync completed (attempt ${attempt})`);
+                break;
+              }
+              
+              console.warn(`⚠️ [LoginScreen] MongoDB sync attempt ${attempt} returned failure, ${attempt < 3 ? 'retrying...' : 'continuing anyway'}`);
+            } catch (syncError) {
+              console.warn(`⚠️ [LoginScreen] MongoDB sync attempt ${attempt} error:`, syncError.message);
             }
-            console.log('✅ [LoginScreen] MongoDB sync completed');
-          } catch (syncError) {
-            console.warn('⚠️ [LoginScreen] MongoDB sync failed, continuing...', syncError);
-            // Don't block login - auth middleware auto-sync will handle it
+            
+            if (attempt < 3) {
+              await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+            }
+          }
+          
+          if (!syncSuccess) {
+            console.warn('⚠️ [LoginScreen] MongoDB sync failed after 3 attempts - auth middleware auto-sync will handle it');
           }
         }
         

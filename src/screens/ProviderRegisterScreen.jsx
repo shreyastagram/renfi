@@ -66,6 +66,10 @@ const ProviderRegisterScreen = ({ navigation }) => {
   // Account exists modal state
   const [showAccountExistsModal, setShowAccountExistsModal] = useState(false);
   const [existingEmail, setExistingEmail] = useState('');
+  
+  // Phone already registered modal state
+  const [showPhoneExistsModal, setShowPhoneExistsModal] = useState(false);
+  const [existingPhone, setExistingPhone] = useState('');
 
   // Location state
   const [location, setLocation] = useState(null);
@@ -93,6 +97,26 @@ const ProviderRegisterScreen = ({ navigation }) => {
       prefillEmail: existingEmail 
     });
   }, [navigation, existingEmail]);
+
+  /**
+   * Navigate to login when phone already exists
+   */
+  const handlePhoneGoToLogin = useCallback(() => {
+    setShowPhoneExistsModal(false);
+    navigation.navigate('ProviderAuthScreen', { 
+      initialTab: 'login' 
+    });
+  }, [navigation]);
+
+  /**
+   * Dismiss phone modal and focus phone field for user to change it
+   */
+  const handleUseDifferentPhone = useCallback(() => {
+    setShowPhoneExistsModal(false);
+    setExistingPhone('');
+    // Clear the phone error so user can re-enter
+    setErrors(prev => ({ ...prev, phone: undefined }));
+  }, []);
 
   /**
    * Request location permission (Android)
@@ -353,8 +377,10 @@ const ProviderRegisterScreen = ({ navigation }) => {
             break;
             
           case AUTH_CODES.PHONE_ALREADY_EXISTS:
-            setErrors({ phone: 'This phone number is already registered' });
-            showAlert(getErrorMessage(error.code, error.message), 'error');
+            // Industry-grade UX: Show modal with options (like Zomato/Uber)
+            setExistingPhone(formData.phone);
+            setShowPhoneExistsModal(true);
+            setErrors({ phone: 'This mobile number is already registered' });
             break;
             
           case AUTH_CODES.WEAK_PASSWORD:
@@ -764,6 +790,43 @@ const ProviderRegisterScreen = ({ navigation }) => {
                 activeOpacity={0.8}
               >
                 <Text style={styles.modalDismissText}>Use a Different Email</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Phone Already Registered Modal */}
+      <Modal
+        visible={showPhoneExistsModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPhoneExistsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalIcon}>📱</Text>
+            <Text style={styles.modalTitle}>Number Already Registered</Text>
+            <Text style={styles.modalEmail}>{existingPhone}</Text>
+            <Text style={styles.modalMessage}>
+              This mobile number is already associated with another account. Would you like to log in instead, or use a different number?
+            </Text>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.modalPrimaryButton}
+                onPress={handlePhoneGoToLogin}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalPrimaryButtonText}>Log In to My Account</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.modalDismissButton}
+                onPress={handleUseDifferentPhone}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalDismissText}>Use a Different Number</Text>
               </TouchableOpacity>
             </View>
           </View>

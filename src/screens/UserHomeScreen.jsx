@@ -47,7 +47,7 @@ import {
   sendRequestToProvider,
   cancelRequest,
   getProviderDetails,
-  retryProviderSearch,
+  skipProvider,
 } from '../services/traditionalServiceService';
 // Direct phone dialing - Exotel call masking removed
 
@@ -99,11 +99,12 @@ const ServiceCard = ({ service, onPress }) => (
   </TouchableOpacity>
 );
 
-const ProviderCard = ({ provider, onCall, onBook, onPress, booking, contacted, calling }) => (
+const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, contacted, calling, skipping }) => (
   <TouchableOpacity 
-    style={styles.providerCard} 
+    style={[styles.providerCard, skipping && styles.providerCardSkipping]} 
     onPress={onPress}
     activeOpacity={0.7}
+    disabled={skipping}
   >
     <View style={styles.providerInfo}>
       {/* Profile Picture or Avatar */}
@@ -189,6 +190,22 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, contacted, c
           <Text style={[styles.bookButtonText, { color: '#9CA3AF', fontSize: 13 }]}>Call first to book</Text>
         </View>
       )}
+      {/* Skip / Remove Provider Button */}
+      <TouchableOpacity
+        style={[styles.skipButton, skipping && styles.skipButtonLoading]}
+        onPress={(e) => {
+          e.stopPropagation();
+          onSkip(provider);
+        }}
+        disabled={skipping || booking}
+        hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+      >
+        {skipping ? (
+          <ActivityIndicator size="small" color="#EF4444" />
+        ) : (
+          <MaterialIcon name="close" size={20} color="#EF4444" />
+        )}
+      </TouchableOpacity>
     </View>
   </TouchableOpacity>
 );
@@ -206,7 +223,9 @@ const UserHomeScreen = ({ navigation }) => {
     locationLoading, 
     locationError, 
     locationPermission: globalLocationPermission,
-    refreshLocation 
+    locationServicesEnabled,
+    refreshLocation,
+    showGpsOffAlert,
   } = useLocation();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -228,7 +247,7 @@ const UserHomeScreen = ({ navigation }) => {
   
   // Permission states (use global for location, local for notifications)
   const [locationPermission, setLocationPermission] = useState(globalLocationPermission);
-  const [locationEnabled, setLocationEnabled] = useState(true);
+  // locationServicesEnabled comes from LocationContext (detects GPS on/off)
   const [notificationPermission, setNotificationPermission] = useState('unknown');
   
   // Sync location permission from global context
@@ -486,6 +505,19 @@ const UserHomeScreen = ({ navigation }) => {
     console.log('📍 [UserHomeScreen] Location updated from context');
   }, []);
 
+  // Animate map to selected service location (marker + camera fly)
+  useEffect(() => {
+    if (
+      serviceLocation &&
+      serviceLocation.isCurrentLocation !== true &&
+      serviceLocation.latitude &&
+      serviceLocation.longitude
+    ) {
+      console.log('📍 [UserHomeScreen] Flying map to service location:', serviceLocation.shortAddress || serviceLocation.address);
+      mapRef.current?.animateToLocation(serviceLocation, 1000);
+    }
+  }, [serviceLocation]);
+
   const handleServiceSelect = (service) => {
     if (!isVerified) {
       Alert.alert('Verification Required', 'Please verify your phone and email to book services.', [
@@ -494,6 +526,39 @@ const UserHomeScreen = ({ navigation }) => {
       ]);
       return;
     }
+    
+    // Check if location services are enabled — show popup if GPS is off
+    if (!locationServicesEnabled && !currentLocation) {
+      Alert.alert(
+        'Location is Turned Off',
+        'Please enable location services to find nearby service providers. You can also select a saved address during booking.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Enable Location',
+            onPress: () => {
+              if (Platform.OS === 'ios') {
+                Linking.openURL('app-settings:');
+              } else {
+                Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS').catch(() => {
+                  Linking.openSettings();
+                });
+              }
+            },
+          },
+          {
+            text: 'Continue Anyway',
+            onPress: () => {
+              setSelectedService(service);
+              setStep('date');
+              animateSheetTo(SHEET_MAX_HEIGHT);
+            },
+          },
+        ]
+      );
+      return;
+    }
+    
     setSelectedService(service);
     setStep('date');
     animateSheetTo(SHEET_MAX_HEIGHT);
@@ -515,13 +580,42 @@ const UserHomeScreen = ({ navigation }) => {
       return;
     }
     
-    // Determine location to use (service location or current location)
-    const locationToUse = serviceLocation?.isCurrentLocation === false 
-      ? serviceLocation 
-      : currentLocation;
+    // Determine location to use:
+    // 1. If user explicitly selected "Other Location" (saved addr, search, map pin) → use those coordinates
+    // 2. Otherwise → use current GPS location
+    // CRITICAL: Check for latitude/longitude presence, not just isCurrentLocation flag
+    const hasServiceLocation = serviceLocation && 
+      serviceLocation.latitude && 
+      serviceLocation.longitude && 
+      serviceLocation.isCurrentLocation !== true; // undefined or false both count as "other"
+    
+    const locationToUse = hasServiceLocation ? serviceLocation : currentLocation;
     
     if (!locationToUse) {
-      Alert.alert('Location Required', 'Please wait for your location to be detected, or select a saved address.');
+      // No location at all — GPS might be off
+      if (!locationServicesEnabled) {
+        Alert.alert(
+          'Location Required',
+          'Location services are turned off. Please enable GPS or select a saved address.',
+          [
+            { text: 'Select Address', onPress: () => {} },
+            {
+              text: 'Enable GPS',
+              onPress: () => {
+                if (Platform.OS === 'ios') {
+                  Linking.openURL('app-settings:');
+                } else {
+                  Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS').catch(() => {
+                    Linking.openSettings();
+                  });
+                }
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Location Required', 'Please wait for your location to be detected, or select a saved address.');
+      }
       return;
     }
     
@@ -530,6 +624,11 @@ const UserHomeScreen = ({ navigation }) => {
       Alert.alert('Location Incomplete', 'Your location is still being detected. Please wait a moment and try again.');
       return;
     }
+    
+    // Build a descriptive service address
+    const serviceAddr = hasServiceLocation
+      ? (serviceLocation.address || serviceLocation.shortAddress || serviceLocation.addressLine1 || null)
+      : null;
 
     setCreatingRequest(true);
     try {
@@ -540,8 +639,8 @@ const UserHomeScreen = ({ navigation }) => {
         longitude: locationToUse.longitude,
         serviceDate: selectedDateTime.date,
         serviceTime: selectedDateTime.time,
-        serviceAddress: serviceLocation?.isCurrentLocation === false ? serviceLocation.address : null,
-        isOtherLocation: serviceLocation?.isCurrentLocation === false,
+        serviceAddress: serviceAddr,
+        isOtherLocation: hasServiceLocation,
         description: serviceDescription || null,
         isInstant: selectedDateTime.isInstant || false, // Pass instant flag
       });
@@ -584,22 +683,28 @@ const UserHomeScreen = ({ navigation }) => {
   };
 
   /**
-   * Retry search for providers (clears rejected list)
+   * Retry search for providers within the SAME search session.
+   * Skipped providers remain excluded (rejectedProviders is NOT cleared).
+   * The backend's getNearbyProviders already excludes rejectedProviders via $nin,
+   * so we just re-fetch — any newly available providers will appear, but skipped ones stay hidden.
+   * A brand-new search session (new request via resetFlow) starts with a clean slate automatically.
    */
   const handleRetrySearch = async () => {
-    if (!createdRequest?._id || !userId) return;
+    if (!createdRequest?._id) return;
     
     setFetchingProviders(true);
     try {
-      const result = await retryProviderSearch(createdRequest._id, userId);
+      // Re-fetch providers — skipped providers remain excluded via rejectedProviders $nin
+      const result = await getNearbyProviders(createdRequest._id);
       if (result.success) {
         setProviders(result.providers || []);
         setSearchRadius(result.searchRadius || 0);
+        setContactedProviderIds(new Set()); // Reset contacted state for fresh list
         if (!result.providers?.length) {
-          Alert.alert('No Providers Found', 'No more providers available in your area. Try again later.');
+          Alert.alert('No Providers Found', 'No providers are currently available in your area. New providers may come online — try again in a few minutes.');
         }
       } else {
-        Alert.alert('Error', result.error || 'Failed to retry search');
+        Alert.alert('No Providers Found', result.error || 'No providers available right now. Try again shortly.');
       }
     } catch (error) {
       Alert.alert('Error', 'Something went wrong');
@@ -611,6 +716,72 @@ const UserHomeScreen = ({ navigation }) => {
   // Direct call state
   const [callingProviderId, setCallingProviderId] = useState(null);
   const [contactedProviderIds, setContactedProviderIds] = useState(new Set());
+  // Skip provider state
+  const [skippingProviderId, setSkippingProviderId] = useState(null);
+
+  /**
+   * Skip/Remove a provider from the list.
+   * Backend adds them to rejectedProviders and returns a replacement (if available).
+   * The replacement slides into the list in place of the skipped provider.
+   */
+  const handleSkipProvider = (provider) => {
+    Alert.alert(
+      'Skip Provider',
+      `Remove ${provider.name || 'this provider'} from your list?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Skip',
+          style: 'destructive',
+          onPress: async () => {
+            if (!createdRequest?._id) return;
+
+            setSkippingProviderId(provider._id);
+            try {
+              // Send all currently-visible provider IDs so backend excludes them
+              const currentProviderIds = providers.map(p => p._id);
+
+              const result = await skipProvider(
+                createdRequest._id,
+                provider._id,
+                currentProviderIds
+              );
+
+              if (result.success) {
+                setProviders(prev => {
+                  // Remove the skipped provider
+                  const filtered = prev.filter(p => p._id !== provider._id);
+                  // If backend returned a replacement, append it
+                  if (result.replacement) {
+                    return [...filtered, result.replacement];
+                  }
+                  return filtered;
+                });
+
+                // Remove from contacted set (no longer relevant)
+                setContactedProviderIds(prev => {
+                  const next = new Set(prev);
+                  next.delete(provider._id);
+                  return next;
+                });
+
+                // Inform user if queue is exhausted
+                if (result.meta?.queueExhausted) {
+                  // No toast or alert — the empty list component handles this
+                }
+              } else {
+                Alert.alert('Error', result.error || 'Failed to skip provider');
+              }
+            } catch (error) {
+              Alert.alert('Error', 'Something went wrong while skipping');
+            } finally {
+              setSkippingProviderId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   /**
    * Direct phone call to provider - opens native dialer
@@ -700,7 +871,10 @@ const UserHomeScreen = ({ navigation }) => {
     setProviderDetailsVisible(false);
     setSelectedProvider(null);
     setContactedProviderIds(new Set()); // Reset per search session — don't carry over from previous bookings
+    setSkippingProviderId(null);
     animateSheetTo(SHEET_MID_HEIGHT);
+    // Return map camera to user's GPS location
+    mapRef.current?.animateToUserLocation(currentLocation);
   };
 
   /**
@@ -748,17 +922,59 @@ const UserHomeScreen = ({ navigation }) => {
       case 'date':
         return (
           <ScrollView style={styles.sheetContent} showsVerticalScrollIndicator={false} bounces={false}>
-            <TouchableOpacity style={styles.backRow} onPress={resetFlow}>
-              <Icon name="arrow_back" size={20} color="#2563EB" />
-              <Text style={styles.backText}>Back</Text>
-            </TouchableOpacity>
-            
-            {/* Selected Service Display */}
-            <View style={styles.selectedServiceRow}>
-              <View style={styles.selectedServiceIcon}>
-                <ServiceIcon serviceType={selectedService.id} size={28} color={BRAND.secondary} />
+            {/* Header: Back + Selected Service (compact row) */}
+            <View style={styles.dateStepHeader}>
+              <TouchableOpacity style={styles.backRow} onPress={resetFlow}>
+                <Icon name="arrow_back" size={20} color="#2563EB" />
+                <Text style={styles.backText}>Back</Text>
+              </TouchableOpacity>
+              <View style={styles.dateStepServiceChip}>
+                <ServiceIcon serviceType={selectedService.id} size={20} color={BRAND.secondary} />
+                <Text style={styles.dateStepServiceName} numberOfLines={1}>{selectedService.name}</Text>
               </View>
-              <Text style={styles.selectedServiceName}>{selectedService.name}</Text>
+            </View>
+            
+            {/* Service Location Card — always visible at top of sheet (like Ola destination) */}
+            <View style={styles.serviceAtCard}>
+              <View style={styles.serviceAtIconCol}>
+                {/* "From" dot */}
+                <View style={styles.serviceAtDotBlue} />
+                <View style={styles.serviceAtDottedLine} />
+                {/* "To" pin */}
+                <MaterialIcon name="place" size={20} color={BRAND.primary} />
+              </View>
+              <View style={styles.serviceAtInfoCol}>
+                {/* Current location row */}
+                <View style={styles.serviceAtRow}>
+                  <Text style={styles.serviceAtRowLabel}>Your location</Text>
+                  <Text style={styles.serviceAtRowValue} numberOfLines={1}>
+                    {displayAddress || (currentLocation ? 'Location detected' : 'Detecting...')}
+                  </Text>
+                </View>
+                <View style={styles.serviceAtRowDivider} />
+                {/* Service location row */}
+                <View style={styles.serviceAtRow}>
+                  <Text style={styles.serviceAtRowLabel}>Service at</Text>
+                  <Text style={[styles.serviceAtRowValue, serviceLocation && serviceLocation.isCurrentLocation !== true && { color: BRAND.primary, fontWeight: '700' }]} numberOfLines={1}>
+                    {serviceLocation && serviceLocation.isCurrentLocation !== true
+                      ? (serviceLocation.shortAddress || serviceLocation.address || 'Selected address')
+                      : (displayAddress || 'Same as your location')}
+                  </Text>
+                </View>
+              </View>
+              {/* Show on map button */}
+              {serviceLocation && serviceLocation.isCurrentLocation !== true && serviceLocation.latitude && (
+                <TouchableOpacity
+                  style={styles.serviceAtMapBtn}
+                  onPress={() => {
+                    animateSheetTo(SHEET_MIN_HEIGHT);
+                    setTimeout(() => mapRef.current?.animateToLocation(serviceLocation, 800), 200);
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <MaterialIcon name="map" size={20} color={BRAND.secondary} />
+                </TouchableOpacity>
+              )}
             </View>
             
             {/* Date & Time Picker */}
@@ -768,29 +984,28 @@ const UserHomeScreen = ({ navigation }) => {
               initialTime={selectedDateTime?.time}
             />
             
-            {/* Location Picker - Book for Others */}
+            {/* Location Picker — Change Service Location */}
             <View style={styles.sectionDivider} />
-            <Text style={styles.sectionTitle}>Service Location</Text>
+            <Text style={styles.sectionTitle}>Change Service Location</Text>
             <LocationPicker
               onLocationChange={handleServiceLocationChange}
               currentLocation={currentLocation}
+              currentLocationAddress={displayAddress}
             />
             
             {/* Create Request Button */}
             <View style={styles.createButtonContainer}>
-              {/* Location status hint — only show while actually waiting for first location */}
-              {!currentLocation && !serviceLocation && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 8, gap: 6 }}>
-                  <ActivityIndicator size="small" color="#6B7280" />
-                  <Text style={{ fontSize: 12, color: '#6B7280' }}>Detecting your location...</Text>
+              {/* Location status hint */}
+              {!currentLocation && !serviceLocation && !locationServicesEnabled && (
+                <View style={styles.locationHintRow}>
+                  <MaterialIcon name="location-off" size={16} color="#EF4444" />
+                  <Text style={[styles.locationHintText, { color: '#EF4444' }]}>GPS is off — select a saved address above</Text>
                 </View>
               )}
-              {currentLocation && !serviceLocation && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 8, gap: 6 }}>
-                  <MaterialIcon name="check-circle" size={16} color="#10B981" />
-                  <Text style={{ fontSize: 12, color: '#10B981', fontWeight: '500' }}>
-                    {displayAddress || 'Location detected'}
-                  </Text>
+              {!currentLocation && !serviceLocation && locationServicesEnabled && (
+                <View style={styles.locationHintRow}>
+                  <ActivityIndicator size="small" color="#6B7280" />
+                  <Text style={styles.locationHintText}>Detecting your location...</Text>
                 </View>
               )}
               <TouchableOpacity 
@@ -815,16 +1030,14 @@ const UserHomeScreen = ({ navigation }) => {
           <View style={styles.sheetContent}>
             <View style={styles.providersHeader}>
               <View style={styles.providerHeaderActions}>
-                <TouchableOpacity style={styles.backRow} onPress={resetFlow}>
-                  <Icon name="check" size={20} color="#2563EB" />
-                  <Text style={styles.backText}>Done</Text>
-                </TouchableOpacity>
+                {/* No "Done" button — it would leave the request in pending with no provider assigned.
+                    After booking, the success Alert already calls resetFlow automatically. */}
                 <TouchableOpacity style={styles.cancelRow} onPress={handleCancelRequest}>
                   <Icon name="cancel" size={20} color="#EF4444" />
                   <Text style={styles.cancelText}>Cancel Request</Text>
                 </TouchableOpacity>
               </View>
-              <Text style={styles.providersTitle}>{fetchingProviders ? 'Finding Providers...' : `${providers.length} Providers Found`}</Text>
+              <Text style={styles.providersTitle}>{fetchingProviders ? 'Finding Providers...' : `${providers.length} Provider${providers.length !== 1 ? 's' : ''} Found`}</Text>
               {searchRadius > 0 && (
                 <View style={styles.radiusRow}>
                   <Icon name="location" size={14} color="#6B7280" />
@@ -833,9 +1046,9 @@ const UserHomeScreen = ({ navigation }) => {
               )}
               {/* Contact-first tip */}
               {!fetchingProviders && providers.length > 0 && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', borderRadius: 8, padding: 10, marginTop: 8, gap: 8 }}>
+                <View style={styles.providerTipRow}>
                   <MaterialIcon name="info-outline" size={18} color="#D97706" />
-                  <Text style={{ flex: 1, fontSize: 12, color: '#92400E', lineHeight: 17 }}>Call and discuss your issue first, then send a booking request.</Text>
+                  <Text style={styles.providerTipText}>Call and discuss first. Skip providers you don't want.</Text>
                 </View>
               )}
             </View>
@@ -853,10 +1066,12 @@ const UserHomeScreen = ({ navigation }) => {
                     provider={item} 
                     onCall={handleCallProvider} 
                     onBook={handleBookProvider}
+                    onSkip={handleSkipProvider}
                     onPress={() => handleViewProviderDetails(item)}
                     booking={bookingProvider === item._id}
                     contacted={contactedProviderIds.has(item._id)}
                     calling={callingProviderId === item._id}
+                    skipping={skippingProviderId === item._id}
                   />
                 )}
                 ListEmptyComponent={
@@ -948,30 +1163,45 @@ const UserHomeScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-      <LocationMap ref={mapRef} onLocationChange={handleLocationChange} showUserLocation showSearchRadius={step === 'providers'} searchRadius={searchRadius} />
+      <LocationMap 
+        ref={mapRef} 
+        onLocationChange={handleLocationChange} 
+        showUserLocation 
+        showSearchRadius={step === 'providers'} 
+        searchRadius={searchRadius}
+        externalLocation={currentLocation}
+        selectedLocation={
+          serviceLocation && 
+          serviceLocation.isCurrentLocation !== true && 
+          serviceLocation.latitude && 
+          serviceLocation.longitude
+            ? serviceLocation
+            : null
+        }
+      />
       
       {/* Permission Warning Bars */}
-      {(locationPermission === 'denied' || locationPermission === 'blocked' || !locationEnabled) && (
+      {(locationPermission === 'denied' || locationPermission === 'blocked' || !locationServicesEnabled) && (
         <View style={[styles.permissionBar, { top: insets.top + 60 }]}>
           <Icon name="location" size={18} color="#F59E0B" />
           <Text style={styles.permissionBarText}>
-            {!locationEnabled 
+            {!locationServicesEnabled 
               ? 'Location is turned off. Turn it on for better experience.' 
               : 'Location permission needed for finding nearby providers.'}
           </Text>
           <TouchableOpacity 
             style={styles.permissionBarButton}
-            onPress={locationPermission === 'blocked' || !locationEnabled ? () => openSettings() : requestLocationPermission}
+            onPress={locationPermission === 'blocked' || !locationServicesEnabled ? () => openSettings() : requestLocationPermission}
           >
             <Text style={styles.permissionBarButtonText}>
-              {locationPermission === 'blocked' || !locationEnabled ? 'Settings' : 'Enable'}
+              {locationPermission === 'blocked' || !locationServicesEnabled ? 'Settings' : 'Enable'}
             </Text>
           </TouchableOpacity>
         </View>
       )}
       
       {notificationPermission === 'blocked' && (
-        <View style={[styles.permissionBar, styles.permissionBarDanger, { top: insets.top + (locationPermission === 'denied' || locationPermission === 'blocked' || !locationEnabled ? 110 : 60) }]}>
+        <View style={[styles.permissionBar, styles.permissionBarDanger, { top: insets.top + (locationPermission === 'denied' || locationPermission === 'blocked' || !locationServicesEnabled ? 110 : 60) }]}>
           <Icon name="notification" size={18} color="#EF4444" />
           <Text style={[styles.permissionBarText, styles.permissionBarTextDanger]}>
             Notifications required for service updates
@@ -1068,6 +1298,110 @@ const UserHomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BRAND.background },
   topBar: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, zIndex: 10 },
+  // Date step header (back + service chip in one row)
+  dateStepHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  dateStepServiceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: BRAND.secondary + '12',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: BRAND.secondary + '25',
+  },
+  dateStepServiceName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: BRAND.secondary,
+    maxWidth: 120,
+  },
+  // Service-at card (Ola/Uber-style origin → destination inside sheet)
+  serviceAtCard: {
+    flexDirection: 'row',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  serviceAtIconCol: {
+    alignItems: 'center',
+    width: 24,
+    marginRight: 12,
+    paddingTop: 4,
+  },
+  serviceAtDotBlue: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#2563EB',
+    borderWidth: 2,
+    borderColor: '#93C5FD',
+  },
+  serviceAtDottedLine: {
+    width: 2,
+    flex: 1,
+    borderLeftWidth: 2,
+    borderLeftColor: '#D1D5DB',
+    borderStyle: 'dashed',
+    marginVertical: 4,
+    minHeight: 18,
+  },
+  serviceAtInfoCol: {
+    flex: 1,
+  },
+  serviceAtRow: {
+    paddingVertical: 6,
+  },
+  serviceAtRowLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  serviceAtRowValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1F2937',
+  },
+  serviceAtRowDivider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 4,
+  },
+  serviceAtMapBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: BRAND.secondary + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginLeft: 8,
+  },
+  // Location hint row
+  locationHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    gap: 6,
+  },
+  locationHintText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
   addressManageButton: { 
     width: 44, 
     height: 44, 
@@ -1184,9 +1518,7 @@ const styles = StyleSheet.create({
   quickActions: { flexDirection: 'row', justifyContent: 'center', paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
   quickActionButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, gap: 8 },
   quickActionText: { fontSize: 14, fontWeight: '600', color: '#374151' },
-  selectedServiceRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: BRAND.secondary + '10', padding: 14, borderRadius: 14, marginBottom: 16, borderWidth: 1, borderColor: BRAND.secondary + '25' },
-  selectedServiceIcon: { width: 52, height: 52, borderRadius: 16, backgroundColor: BRAND.secondary + '18', justifyContent: 'center', alignItems: 'center', marginRight: 14 },
-  selectedServiceName: { fontSize: 17, fontWeight: '700', color: '#1F2937', flex: 1 },
+
   sectionTitle: { fontSize: 16, fontWeight: '600', color: '#374151', marginBottom: 12, marginTop: 8 },
   sectionDivider: { height: 1, backgroundColor: '#E5E7EB', marginVertical: 16 },
   createButtonContainer: { paddingVertical: 20, paddingBottom: 40 },
@@ -1223,12 +1555,19 @@ const styles = StyleSheet.create({
   viewDetailsIcon: { padding: 4 },
   contactedBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#10B981', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 6, gap: 2 },
   contactedBadgeText: { fontSize: 10, fontWeight: '600', color: '#FFFFFF' },
-  providerActions: { flexDirection: 'row', gap: 10 },
+  providerActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   callButton: { width: 48, height: 44, backgroundColor: '#10B981', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   callButtonCalling: { backgroundColor: '#6B7280' },
   bookButton: { flex: 1, height: 44, backgroundColor: BRAND.primary, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   bookButtonLoading: { backgroundColor: BRAND.primary + '80' },
   bookButtonText: { fontSize: 15, fontWeight: '600', color: BRAND.white },
+  // Skip / Remove provider button
+  skipButton: { width: 40, height: 44, borderRadius: 12, borderWidth: 1.5, borderColor: '#FCA5A5', backgroundColor: '#FEF2F2', alignItems: 'center', justifyContent: 'center' },
+  skipButtonLoading: { opacity: 0.5 },
+  providerCardSkipping: { opacity: 0.5 },
+  // Provider tip row
+  providerTipRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', borderRadius: 8, padding: 10, marginTop: 8, gap: 8 },
+  providerTipText: { flex: 1, fontSize: 12, color: '#92400E', lineHeight: 17 },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
   loadingText: { fontSize: 15, color: '#6B7280', marginTop: 12 },
   emptyContainer: { alignItems: 'center', paddingVertical: 40 },

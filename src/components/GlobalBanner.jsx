@@ -267,9 +267,22 @@ const GlobalBanner = () => {
       });
     });
 
-    // request:cancelled — both sides see cancellation
+    // request:cancelled — only show banner if the OTHER party cancelled
+    // If user cancelled their own request, they already see the Alert confirmation
+    // If provider cancelled their own, they already know — no redundant banner
     const removeCancelled = addEventListener('request:cancelled', (data) => {
       console.log('[GlobalBanner] Socket: request:cancelled', data);
+
+      // Skip banner if this user initiated the cancel (they already see Alert)
+      const selfCancelled =
+        (!isProvider && data.cancelledBy === 'user') ||
+        (isProvider && data.cancelledBy === 'provider');
+
+      if (selfCancelled) {
+        console.log('[GlobalBanner] Skipping cancel banner — self-initiated cancellation');
+        return;
+      }
+
       showBannerDeduped({
         ...data,
         title: '⚠️ Request Cancelled',

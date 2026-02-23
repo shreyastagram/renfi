@@ -189,14 +189,26 @@ export const updateUserProfile = async (userId, updates) => {
       const javaAuthResult = await updateJavaAuthProfile({ fullName: nameToSync });
       
       if (!javaAuthResult.success) {
-        console.warn('⚠️ [ProfileService] Failed to sync name to Java Auth:', javaAuthResult.error);
-        // Continue with MongoDB update even if Java Auth fails (non-blocking)
+        const errorStatus = javaAuthResult.error?.status;
+        const isDuplicate = errorStatus === 409;
+        if (isDuplicate) {
+          console.error('🚫 [ProfileService] Name update conflict in Java Auth — blocking MongoDB update');
+          return {
+            success: false,
+            error: {
+              message: javaAuthResult.error?.message || 'Profile update conflict.',
+              code: 'PROFILE_CONFLICT',
+              status: 409,
+            },
+          };
+        }
+        console.warn('⚠️ [ProfileService] Failed to sync name to Java Auth (non-blocking):', javaAuthResult.error);
       } else {
         console.log('✅ [ProfileService] Name synced to Java Auth');
       }
     }
     
-    // If phone is being updated, sync to Java Auth
+    // If phone is being updated, sync to Java Auth FIRST (blocking)
     if (updates.phone || updates.phoneNumber) {
       const phoneToSync = updates.phone || updates.phoneNumber;
       console.log(`🔄 [ProfileService] Syncing phone to Java Auth: ${phoneToSync}`);
@@ -204,8 +216,23 @@ export const updateUserProfile = async (userId, updates) => {
       const javaAuthResult = await updateJavaAuthProfile({ phoneNumber: phoneToSync });
       
       if (!javaAuthResult.success) {
-        console.warn('⚠️ [ProfileService] Failed to sync phone to Java Auth:', javaAuthResult.error);
-        // Continue with MongoDB update even if Java Auth fails (non-blocking)
+        const errorStatus = javaAuthResult.error?.status;
+        const errorMsg = javaAuthResult.error?.message || '';
+        const isDuplicate = errorStatus === 409 || errorMsg.includes('already exists');
+        
+        if (isDuplicate) {
+          console.error('🚫 [ProfileService] Phone already exists in Java Auth — blocking MongoDB update');
+          return {
+            success: false,
+            error: {
+              message: 'This mobile number is already registered with another account.',
+              code: 'PHONE_ALREADY_EXISTS',
+              status: 409,
+            },
+          };
+        }
+        // For non-duplicate errors (network, server), continue to MongoDB (non-blocking)
+        console.warn('⚠️ [ProfileService] Failed to sync phone to Java Auth (non-blocking):', javaAuthResult.error);
       } else {
         console.log('✅ [ProfileService] Phone synced to Java Auth');
       }
@@ -308,31 +335,50 @@ export const fetchFullProfile = async (userType, mongoId) => {
       mongoResult = await getProviderProfile(mongoId);
       
       // AUTO-SYNC: If provider not found in MongoDB, create it from Java Auth data
-      if (!mongoResult.success && mongoResult.error?.code === 'ERR_BAD_REQUEST') {
+      // Trigger on any error that indicates the profile doesn't exist or couldn't be fetched
+      const shouldAutoSync = !mongoResult.success && (
+        mongoResult.error?.code === 'ERR_BAD_REQUEST' ||
+        mongoResult.error?.status === 404 ||
+        mongoResult.error?.status === 400 ||
+        mongoResult.error?.status === 500 ||
+        mongoResult.error?.code === 'NETWORK_ERROR'
+      );
+      
+      if (shouldAutoSync) {
         console.log('🔄 [ProfileService] Provider not found in MongoDB - auto-syncing...');
         
-        try {
-          const syncResult = await syncGoogleProviderToMongoDB({
-            javaUserId: javaAuthData.userId,
-            email: javaAuthData.email,
-            name: javaAuthData.fullName,
-            phone: javaAuthData.phoneNumber || '',
-            address: '',
-            city: '',
-            pincode: '',
-          });
-          
-          if (syncResult.success) {
-            console.log('✅ [ProfileService] Provider auto-synced to MongoDB');
-            mongoResult = {
-              success: true,
-              data: syncResult.data?.data || syncResult.data || {},
-            };
-          } else {
-            console.warn('⚠️ [ProfileService] Provider auto-sync failed:', syncResult.error);
+        // Retry sync up to 2 times with delay
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            const syncResult = await syncGoogleProviderToMongoDB({
+              javaUserId: javaAuthData.userId,
+              email: javaAuthData.email,
+              name: javaAuthData.fullName,
+              phone: javaAuthData.phoneNumber || '',
+              address: '',
+              city: '',
+              pincode: '',
+            });
+            
+            if (syncResult.success) {
+              console.log('✅ [ProfileService] Provider auto-synced to MongoDB');
+              mongoResult = {
+                success: true,
+                data: syncResult.data?.data || syncResult.data || {},
+              };
+              break;
+            } else {
+              console.warn(`⚠️ [ProfileService] Provider auto-sync attempt ${attempt} failed:`, syncResult.error);
+              if (attempt < 2) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+              }
+            }
+          } catch (syncError) {
+            console.warn(`⚠️ [ProfileService] Provider auto-sync attempt ${attempt} error:`, syncError.message);
+            if (attempt < 2) {
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            }
           }
-        } catch (syncError) {
-          console.warn('⚠️ [ProfileService] Provider auto-sync error:', syncError.message);
         }
       }
     } else if (mongoId) {
@@ -382,7 +428,7 @@ export const fetchFullProfile = async (userType, mongoId) => {
         experience: mongoData.experience || '',
         rating: mongoData.rating || 0,
         ratings: mongoData.ratings || {},
-        isAvailable: mongoData.isAvailable ?? true,
+        isAvailable: mongoData.isAvailable ?? false,
         isOnline: mongoData.isOnline ?? false,
         availability: mongoData.availability || {},
         verification: mongoData.verification || {},
@@ -455,40 +501,84 @@ export const updateProviderProfile = async (providerId, updates) => {
       const javaAuthResult = await updateJavaAuthProfile({ fullName: nameToSync });
       
       if (!javaAuthResult.success) {
-        console.warn('⚠️ [ProfileService] Failed to sync name to Java Auth:', javaAuthResult.error);
-        // Continue with MongoDB update even if Java Auth fails (non-blocking)
+        const errorStatus = javaAuthResult.error?.status;
+        const isDuplicate = errorStatus === 409;
+        if (isDuplicate) {
+          console.error('🚫 [ProfileService] Name update conflict in Java Auth — blocking MongoDB update');
+          return {
+            success: false,
+            error: {
+              message: javaAuthResult.error?.message || 'Profile update conflict.',
+              code: 'PROFILE_CONFLICT',
+              status: 409,
+            },
+          };
+        }
+        console.warn('⚠️ [ProfileService] Failed to sync name to Java Auth (non-blocking):', javaAuthResult.error);
       } else {
         console.log('✅ [ProfileService] Name synced to Java Auth');
       }
     }
     
-    // If phone is being updated, sync to Java Auth
+    // If phone is being updated, sync to Java Auth FIRST (blocking for duplicates)
     if (updates.phone) {
       console.log(`🔄 [ProfileService] Syncing phone to Java Auth: ${updates.phone}`);
       
       const javaAuthResult = await updateJavaAuthProfile({ phoneNumber: updates.phone });
       
       if (!javaAuthResult.success) {
-        console.warn('⚠️ [ProfileService] Failed to sync phone to Java Auth:', javaAuthResult.error);
-        // Continue with MongoDB update even if Java Auth fails (non-blocking)
+        const errorStatus = javaAuthResult.error?.status;
+        const errorMsg = javaAuthResult.error?.message || '';
+        const isDuplicate = errorStatus === 409 || errorMsg.includes('already exists');
+        
+        if (isDuplicate) {
+          console.error('🚫 [ProfileService] Phone already exists in Java Auth — blocking MongoDB update');
+          return {
+            success: false,
+            error: {
+              message: 'This mobile number is already registered with another account.',
+              code: 'PHONE_ALREADY_EXISTS',
+              status: 409,
+            },
+          };
+        }
+        // For non-duplicate errors (network, server), continue to MongoDB (non-blocking)
+        console.warn('⚠️ [ProfileService] Failed to sync phone to Java Auth (non-blocking):', javaAuthResult.error);
       } else {
         console.log('✅ [ProfileService] Phone synced to Java Auth');
       }
     }
     
-    // Update MongoDB
-    const response = await apiClient.put(ENDPOINTS.PROFILE.UPDATE_PROVIDER, {
-      providerId,
-      ...updates,
-    });
+    // Update MongoDB — with retry for transient errors
+    let lastError;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const response = await apiClient.put(ENDPOINTS.PROFILE.UPDATE_PROVIDER, {
+          providerId,
+          ...updates,
+        });
+        
+        console.log('✅ [ProfileService] Provider profile updated:', response.data);
+        
+        return {
+          success: true,
+          data: response.data.data || response.data,
+        };
+      } catch (err) {
+        lastError = err;
+        const isTransient = !err.response && err.request; // No response = network error
+        const isServerError = err.response?.status >= 500;
+        
+        if (attempt < 2 && (isTransient || isServerError)) {
+          console.warn(`⚠️ [ProfileService] Update attempt ${attempt} failed (transient), retrying in 2s...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
+        }
+        break;
+      }
+    }
     
-    console.log('✅ [ProfileService] Provider profile updated:', response.data);
-    
-    return {
-      success: true,
-      data: response.data.data || response.data,
-    };
-  } catch (error) {
+    const error = lastError;
     console.error('❌ [ProfileService] Update provider profile failed:', error.message);
     
     // Handle specific error codes from backend
@@ -503,6 +593,13 @@ export const updateProviderProfile = async (providerId, updates) => {
       };
     }
     
+    const parsedError = parseApiError(error);
+    return {
+      success: false,
+      error: parsedError,
+    };
+  } catch (error) {
+    console.error('❌ [ProfileService] Update provider profile unexpected error:', error.message);
     const parsedError = parseApiError(error);
     return {
       success: false,

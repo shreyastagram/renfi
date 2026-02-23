@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import Mapbox from '@rnmapbox/maps';
 import Geolocation from '@react-native-community/geolocation';
+import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 
 import { initializeMapbox } from '../../config/mapbox';
 
@@ -101,90 +102,58 @@ const LocationMap = forwardRef(({
   allowLocationSelection = false,
   mapStyle = {},
   initialRegion = null,
+  externalLocation = null, // From LocationContext — skips independent GPS
   children,
 }, ref) => {
   const cameraRef = useRef(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isMapReady, setIsMapReady] = useState(false);
-  const [userLocation, setUserLocation] = useState(null);
-  const [hasPermission, setHasPermission] = useState(false);
+  const [userLocation, setUserLocation] = useState(externalLocation || null);
+  const [hasPermission, setHasPermission] = useState(!!externalLocation);
   const [locationError, setLocationError] = useState(null);
   const watchIdRef = useRef(null);
+  const hasFallbackInit = useRef(false);
+
+  // ── Sync from LocationContext (instant, no GPS call) ──
+  useEffect(() => {
+    if (externalLocation?.latitude && externalLocation?.longitude) {
+      setUserLocation(externalLocation);
+      setHasPermission(true);
+      setLocationError(null);
+    }
+  }, [externalLocation]);
 
   /**
-   * Initialize location tracking
+   * Fallback: Only do independent GPS if externalLocation is never provided
+   * This handles ProviderHomeScreen or other screens that don't use LocationContext
    */
   const initializeLocation = useCallback(async () => {
+    // Skip entirely if we already have external location
+    if (externalLocation?.latitude) return;
+    if (hasFallbackInit.current) return;
+    hasFallbackInit.current = true;
+
     const granted = await requestLocationPermission();
     setHasPermission(granted);
-
     if (!granted) {
       setLocationError('Location permission denied');
-      setIsLoading(false);
       return;
     }
 
-    // Strategy: Get fast low-accuracy location first, then upgrade to high-accuracy
-    // This gives instant map display while GPS locks on
-    
-    // First: Quick low-accuracy position (network/cell tower)
+    // Single fast attempt — no timeout chain
     Geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        console.log('\u2705 Got quick location (low accuracy)');
         setUserLocation({ latitude, longitude });
         onLocationChange?.({ latitude, longitude });
-        setIsLoading(false);
-        
-        // Then: Upgrade to high-accuracy GPS position
-        Geolocation.getCurrentPosition(
-          (highAccPos) => {
-            const { latitude: lat, longitude: lng } = highAccPos.coords;
-            console.log('\u2705 Upgraded to high accuracy location');
-            setUserLocation({ latitude: lat, longitude: lng });
-            onLocationChange?.({ latitude: lat, longitude: lng });
-          },
-          (error) => {
-            // High accuracy failed, but we already have low accuracy - that's fine
-            console.log('\u26a0\ufe0f High accuracy unavailable, using low accuracy');
-          },
-          {
-            enableHighAccuracy: true,
-            timeout: 20000,
-            maximumAge: 5000,
-          }
-        );
       },
       (error) => {
-        console.warn('Low accuracy location error:', error);
-        // Fallback: Try high accuracy directly
-        Geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            setUserLocation({ latitude, longitude });
-            onLocationChange?.({ latitude, longitude });
-            setIsLoading(false);
-          },
-          (highAccError) => {
-            console.warn('All location attempts failed:', highAccError);
-            setLocationError(highAccError.message);
-            setIsLoading(false);
-          },
-          {
-            enableHighAccuracy: true,
-            timeout: 30000,
-            maximumAge: 60000,
-          }
-        );
+        console.warn('[LocationMap] Fallback GPS failed:', error.message);
+        setLocationError(error.message);
       },
-      {
-        enableHighAccuracy: false, // Low accuracy for speed
-        timeout: 5000, // Fast timeout
-        maximumAge: 60000, // Accept cached location up to 1 minute old
-      }
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 120000 }
     );
 
-    // Watch position for real-time updates
+    // Background watch for real-time
     if (showUserLocation) {
       watchIdRef.current = Geolocation.watchPosition(
         (position) => {
@@ -193,26 +162,27 @@ const LocationMap = forwardRef(({
           onLocationChange?.({ latitude, longitude });
         },
         (error) => console.warn('Watch position error:', error),
-        {
-          enableHighAccuracy: true,
-          distanceFilter: 10,
-          interval: 5000,
-          fastestInterval: 2000,
-        }
+        { enableHighAccuracy: true, distanceFilter: 10, interval: 5000, fastestInterval: 2000 }
       );
     }
-  }, [onLocationChange, showUserLocation]);
+  }, [externalLocation, onLocationChange, showUserLocation]);
 
   useEffect(() => {
     initializeMapbox();
-    initializeLocation();
+    // Only run fallback GPS if no external location after a tick
+    const timer = setTimeout(() => {
+      if (!externalLocation?.latitude) {
+        initializeLocation();
+      }
+    }, 100);
 
     return () => {
+      clearTimeout(timer);
       if (watchIdRef.current !== null) {
         Geolocation.clearWatch(watchIdRef.current);
       }
     };
-  }, [initializeLocation]);
+  }, [initializeLocation, externalLocation]);
 
   /**
    * Expose methods to parent via ref
@@ -227,10 +197,11 @@ const LocationMap = forwardRef(({
         });
       }
     },
-    animateToUserLocation: () => {
-      if (cameraRef.current && userLocation) {
+    animateToUserLocation: (loc) => {
+      const target = loc || userLocation;
+      if (cameraRef.current && target) {
         cameraRef.current.setCamera({
-          centerCoordinate: [userLocation.longitude, userLocation.latitude],
+          centerCoordinate: [target.longitude, target.latitude],
           zoomLevel: DEFAULT_ZOOM,
           animationDuration: 500,
         });
@@ -293,25 +264,7 @@ const LocationMap = forwardRef(({
   };
   const initialCenter = getValidCenter();
 
-  if (isLoading) {
-    return (
-      <View style={[styles.container, styles.loadingContainer, mapStyle]}>
-        <ActivityIndicator size="large" color="#2563EB" />
-        <Text style={styles.loadingText}>Getting your location...</Text>
-      </View>
-    );
-  }
-
-  if (locationError && !userLocation) {
-    return (
-      <View style={[styles.container, styles.errorContainer, mapStyle]}>
-        <Text style={styles.errorIcon}>📍</Text>
-        <Text style={styles.errorText}>Location unavailable</Text>
-        <Text style={styles.errorSubtext}>{locationError}</Text>
-      </View>
-    );
-  }
-
+  // Never block the UI — always show the map (with default center if location pending)
   return (
     <View style={[styles.container, mapStyle]}>
       <Mapbox.MapView
@@ -366,14 +319,21 @@ const LocationMap = forwardRef(({
           </Mapbox.ShapeSource>
         )}
 
-        {/* Selected location marker - only render after map is ready */}
+        {/* Selected location marker (service address) - industry-grade pin */}
         {isMapReady && selectedLocation && (
-          <CustomMarker
-            coordinate={selectedLocation}
-            title="Selected Location"
-            color="#EF4444"
-            icon="📍"
-          />
+          <Mapbox.PointAnnotation
+            id="selected-service-location"
+            coordinate={[selectedLocation.longitude, selectedLocation.latitude]}
+            anchor={{ x: 0.5, y: 1 }}
+          >
+            <View style={styles.serviceLocationMarker}>
+              <View style={styles.serviceLocationPin}>
+                <MaterialIcon name="place" size={32} color="#FFFFFF" />
+              </View>
+              <View style={styles.serviceLocationPinTail} />
+            </View>
+            <Mapbox.Callout title={selectedLocation.shortAddress || selectedLocation.address || 'Service Location'} />
+          </Mapbox.PointAnnotation>
         )}
 
         {/* Custom markers - only render after map is ready */}
@@ -466,6 +426,36 @@ const styles = StyleSheet.create({
     backgroundColor: '#2563EB',
     borderWidth: 2,
     borderColor: '#fff',
+  },
+  // Selected service location marker (orange pin)
+  serviceLocationMarker: {
+    alignItems: 'center',
+  },
+  serviceLocationPin: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#f67c16',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 8,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
+  serviceLocationPinTail: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 8,
+    borderRightWidth: 8,
+    borderTopWidth: 10,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#f67c16',
+    marginTop: -2,
   },
 });
 

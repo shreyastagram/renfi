@@ -228,7 +228,8 @@ const ProviderHomeScreen = ({ navigation }) => {
 
   // Combined user data - single source of truth for availability
   const displayData = { ...user, ...profile };
-  const isAvailable = displayData?.isAvailable ?? displayData?.isOnline ?? true;
+  // Default to false (offline) until the DB value loads — prevents toggle flashing ON
+  const isAvailable = displayData?.isAvailable ?? displayData?.isOnline ?? false;
 
   /**
    * Fetch provider stats from API - includes traditional and event services

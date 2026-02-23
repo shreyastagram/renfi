@@ -420,6 +420,7 @@ const mergeProfiles = (javaAuth, mongo, type) => {
     merged.averageRating = mongo.averageRating;
     merged.totalReviews = mongo.totalReviews;
     merged.isOnline = mongo.isOnline;
+    merged.isAvailable = mongo.isAvailable;
     merged.isVerified = mongo.isVerified;
     merged.location = mongo.location;
     merged.serviceArea = mongo.serviceArea;

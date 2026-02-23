@@ -73,6 +73,10 @@ yarn-error.log
 .env.production
 !.env.example
 
+# Firebase / Google Services (contains API keys)
+**/google-services.json
+**/GoogleService-Info.plist
+
 # Yarn
 .yarn/*
 !.yarn/patches

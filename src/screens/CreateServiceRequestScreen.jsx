@@ -172,8 +172,33 @@ const CreateServiceRequestScreen = ({ navigation }) => {
       },
       (error) => {
         console.error('[Location] Error:', error);
-        setLocationError(error.message || 'Failed to get location');
         setLocationLoading(false);
+        
+        // Detect GPS turned off (code 2 = POSITION_UNAVAILABLE, code 3 = TIMEOUT with no fallback)
+        if (error.code === 2 || (error.code === 3 && !location)) {
+          setLocationError('GPS is turned off');
+          Alert.alert(
+            'Location is Turned Off',
+            'Please enable GPS to detect your location, or select a saved address for your service request.',
+            [
+              { text: 'Use Saved Address', onPress: () => setShowAddressModal(true) },
+              {
+                text: 'Enable GPS',
+                onPress: () => {
+                  if (Platform.OS === 'ios') {
+                    Linking.openURL('app-settings:');
+                  } else {
+                    Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS').catch(() => {
+                      Linking.openSettings();
+                    });
+                  }
+                },
+              },
+            ]
+          );
+        } else {
+          setLocationError(error.message || 'Failed to get location');
+        }
       },
       {
         enableHighAccuracy: true,
