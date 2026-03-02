@@ -132,7 +132,7 @@ const ProviderRequestsScreen = ({ navigation }) => {
 
     Alert.alert(
       '✅ Accept Request',
-      `Accept this ${SERVICE_TYPE_LABELS[request.serviceType] || request.serviceType} request?\n\nService Date: ${formatDate(request.serviceDate)}\n\nYou will be assigned to this job.`,
+      `Accept this ${SERVICE_TYPE_LABELS[request.serviceType] || request.serviceType} request?\n\nService Date: ${formatDate(request.serviceDate)}${request.serviceTime ? `\nService Time: ${(() => { let h, m; const d = new Date(request.serviceTime); if (!isNaN(d.getTime()) && request.serviceTime.length > 5) { h = d.getHours(); m = d.getMinutes(); } else { [h, m] = String(request.serviceTime).split(':').map(Number); } if (isNaN(h) || isNaN(m)) return request.serviceTime; const p = h >= 12 ? 'PM' : 'AM'; const dh = h === 0 ? 12 : h > 12 ? h - 12 : h; return `${dh}:${String(m).padStart(2, '0')} ${p}`; })()}` : ''}\n\nYou will be assigned to this job.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -466,6 +466,28 @@ const ProviderRequestsScreen = ({ navigation }) => {
             <Text style={styles.detailValue}>{formatDate(request.serviceDate)}</Text>
           </View>
           
+          {/* Service Time — for scheduled/future bookings */}
+          {request.serviceTime && (() => {
+            let h, m;
+            const asDate = new Date(request.serviceTime);
+            if (!isNaN(asDate.getTime()) && request.serviceTime.length > 5) {
+              h = asDate.getHours();
+              m = asDate.getMinutes();
+            } else {
+              [h, m] = String(request.serviceTime).split(':').map(Number);
+            }
+            if (isNaN(h) || isNaN(m)) return null;
+            const period = h >= 12 ? 'PM' : 'AM';
+            const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+            return (
+              <View style={styles.detailRow}>
+                <Icon name="clock" size={16} color="#6B7280" />
+                <Text style={styles.detailLabel}>Service Time:</Text>
+                <Text style={styles.detailValue}>{`${displayHour}:${String(m).padStart(2, '0')} ${period}`}</Text>
+              </View>
+            );
+          })()}
+          
           {request.description && (
             <View style={styles.descriptionContainer}>
               <Text style={styles.descriptionLabel}>Description:</Text>
@@ -473,6 +495,40 @@ const ProviderRequestsScreen = ({ navigation }) => {
             </View>
           )}
         </View>
+
+        {/* Cancellation info — shows who cancelled and reason */}
+        {request.status === 'cancelled' && (() => {
+          const cancelledBy = request.cancelledBy;
+          const reason = request.cancellationReason || request.cancelReason;
+          let label = '';
+          if (cancelledBy === 'user') {
+            label = 'Cancelled by Customer';
+          } else if (cancelledBy === 'provider') {
+            label = 'Cancelled by You';
+          } else if (cancelledBy === 'system') {
+            label = 'Cancelled by System';
+          } else {
+            label = reason || 'Request cancelled';
+          }
+          const genericReasons = ['user cancelled', 'cancelled by user', 'cancelled by provider', 'provider cancelled'];
+          const hasCustomReason = reason && !genericReasons.includes(reason.toLowerCase());
+          if (hasCustomReason && cancelledBy) {
+            label += ` — ${reason}`;
+          }
+          return (
+            <View style={{ backgroundColor: '#FEF2F2', borderRadius: 8, padding: 10, marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Icon name="close" size={14} color="#DC2626" />
+              <Text style={{ fontSize: 13, color: '#991B1B', flex: 1, fontWeight: '500' }} numberOfLines={2}>
+                {label}
+              </Text>
+              {request.cancelledAt && (
+                <Text style={{ fontSize: 11, color: '#9B2C2C' }}>
+                  {new Date(request.cancelledAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                </Text>
+              )}
+            </View>
+          );
+        })()}
 
         {/* Action Buttons */}
         {isPending && (

@@ -54,7 +54,6 @@ const SERVICE_LABELS = {
   mason_tiler: 'Mason & Tiler',
   vehicle_cleaning: 'Vehicle Cleaning',
   ac_repair: 'AC Repair',
-  cleaning: 'Cleaning',
 };
 
 const formatServiceName = (service) => {
@@ -183,9 +182,10 @@ const ProviderDetailsModal = ({
   }, [visible, providerId, fetchDetails]);
 
   const handleCall = () => {
-    // Direct phone call to provider - check both phone and verifiedPhone
+    // Direct phone call to provider - robustly resolve phone from all available fields
     if (onCall && provider) {
-      onCall(provider.phone || provider.verifiedPhone);
+      const resolvedPhone = provider.phone || provider.verifiedPhone || provider.mobileNumber || '';
+      onCall(resolvedPhone);
     }
   };
 

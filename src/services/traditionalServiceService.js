@@ -179,7 +179,17 @@ export const createServiceRequest = async ({
 
     if (!response.ok) {
       console.error('[TraditionalService] Create failed:', data);
-      throw new Error(data.message || data.error || 'Failed to create service request');
+      // Propagate error code (e.g., OUTSIDE_SERVICE_ZONE) so screens can show contextual UI
+      const errorCode = data.code || null;
+      const errorMessage = data.message || data.error || 'Failed to create service request';
+      const suggestion = data.details?.suggestion || null;
+      return {
+        success: false,
+        error: errorMessage,
+        code: errorCode,
+        suggestion,
+        statusCode: response.status,
+      };
     }
 
     // Backend returns { success, message, data: service }
@@ -234,9 +244,34 @@ export const getNearbyProviders = async (requestId, limit = 20) => {
 
     if (!response.ok) {
       console.error('[TraditionalService] Get providers failed:', data);
-      // Backend returns error in { error: { code, message } } format
-      const errorMessage = data.error?.message || data.message || data.error || 'Failed to fetch nearby providers';
-      throw new Error(errorMessage);
+      const errorMessage = data.message || data.error?.message || data.error || 'Failed to fetch nearby providers';
+      const errorCode = data.code || data.error?.code || null;
+      return {
+        success: false,
+        error: errorMessage,
+        code: errorCode,
+        suggestion: data.suggestion || null,
+        retryAction: data.retryAction || null,
+        meta: data.meta || null,
+        providers: [],
+        count: 0,
+      };
+    }
+
+    // Handle success response that signals ALL_PROVIDERS_REJECTED (returned as 200)
+    if (data.code === 'ALL_PROVIDERS_REJECTED') {
+      console.warn('[TraditionalService] All providers rejected:', data.message);
+      return {
+        success: true,
+        code: data.code,
+        providers: data.providers || [],
+        count: 0,
+        searchRadius: data.searchRadius || 0,
+        suggestion: data.suggestion || null,
+        retryAction: data.retryAction || null,
+        meta: data.meta || null,
+        message: data.message,
+      };
     }
 
     console.log('[TraditionalService] Providers found:', {
@@ -574,6 +609,18 @@ export const getUserRequests = async (userId, filters = {}) => {
     const queryParams = new URLSearchParams();
     if (filters.status) {
       queryParams.append('status', filters.status);
+    }
+    if (filters.limit) {
+      queryParams.append('limit', String(filters.limit));
+    }
+    if (filters.page) {
+      queryParams.append('page', String(filters.page));
+    }
+    if (filters.sortBy) {
+      queryParams.append('sortBy', filters.sortBy);
+    }
+    if (filters.sortOrder) {
+      queryParams.append('sortOrder', filters.sortOrder);
     }
     if (queryParams.toString()) {
       url += `?${queryParams.toString()}`;
@@ -1135,6 +1182,80 @@ export const verifyEventCompletionOtp = async (requestId, otp) => {
   }
 };
 
+// ==================== LOCATION SHARING API ====================
+
+/**
+ * Toggle location sharing for a specific request
+ * @param {string} requestId — request _id
+ * @param {string} providerId — assigned provider ID
+ * @param {boolean} enabled — turn sharing on or off
+ * @param {string} serviceCategory — 'traditional' | 'event'
+ */
+export const toggleLocationSharing = async (requestId, providerId, enabled, serviceCategory = 'traditional') => {
+  try {
+    const baseRoute = serviceCategory === 'event' ? 'event-services' : 'traditional-services';
+    const response = await fetch(`${NODE_BASE_URL}/api/${baseRoute}/${requestId}/location-sharing/toggle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ providerId, enabled, serviceCategory }),
+    });
+    const data = await response.json();
+    return { success: data.success, locationSharing: data.locationSharing, error: data.error };
+  } catch (error) {
+    console.error('[LocationSharing] Toggle error:', error.message);
+    return { success: false, error: error.message || 'Failed to toggle location sharing' };
+  }
+};
+
+/**
+ * Send provider location update for a specific request (REST persistence fallback)
+ * @param {string} requestId — request _id
+ * @param {string} providerId — assigned provider ID
+ * @param {{ latitude: number, longitude: number, accuracy?: number }} location
+ * @param {string} serviceCategory — 'traditional' | 'event'
+ */
+export const updateRequestProviderLocation = async (requestId, providerId, location, serviceCategory = 'traditional') => {
+  try {
+    const baseRoute = serviceCategory === 'event' ? 'event-services' : 'traditional-services';
+    const response = await fetch(`${NODE_BASE_URL}/api/${baseRoute}/${requestId}/location-sharing/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        providerId,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        accuracy: location.accuracy || null,
+        serviceCategory,
+      }),
+    });
+    const data = await response.json();
+    return { success: data.success, error: data.error };
+  } catch (error) {
+    // Silent fail — socket is primary channel
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Get provider location status for a specific request
+ * @param {string} requestId — request _id
+ * @param {string} serviceCategory — 'traditional' | 'event'
+ */
+export const getRequestProviderLocation = async (requestId, serviceCategory = 'traditional') => {
+  try {
+    const baseRoute = serviceCategory === 'event' ? 'event-services' : 'traditional-services';
+    const response = await fetch(
+      `${NODE_BASE_URL}/api/${baseRoute}/${requestId}/provider-location?serviceCategory=${serviceCategory}`,
+      { method: 'GET', headers: { 'Content-Type': 'application/json' } }
+    );
+    const data = await response.json();
+    return { success: data.success, locationSharing: data.locationSharing, error: data.error };
+  } catch (error) {
+    console.error('[LocationSharing] Get location error:', error.message);
+    return { success: false, error: error.message || 'Failed to get provider location' };
+  }
+};
+
 export default {
   createServiceRequest,
   getNearbyProviders,
@@ -1152,6 +1273,9 @@ export default {
   submitEventRating,
   checkRatingStatus,
   getProviderDetails,
+  toggleLocationSharing,
+  updateRequestProviderLocation,
+  getRequestProviderLocation,
   SERVICE_TYPES,
   SERVICE_TYPE_LABELS,
   REQUEST_STATUS,

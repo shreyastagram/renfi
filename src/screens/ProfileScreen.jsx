@@ -68,7 +68,6 @@ const SERVICE_LABELS = {
   mortuary_van: 'Mortuary Van',
   photographer: 'Photographer',
   ac_repair: 'AC Repair',
-  cleaning: 'Cleaning',
 };
 
 /**
@@ -143,7 +142,7 @@ const InfoRow = ({ label, value, iconName, verified, onVerify, isLoading }) => (
 /**
  * Editable Field
  */
-const EditableField = ({ label, value, onChangeText, placeholder, editable = true, locked = false, lockMessage }) => (
+const EditableField = ({ label, value, onChangeText, placeholder, editable = true, locked = false, lockMessage, keyboardType = 'default', maxLength }) => (
   <View style={styles.fieldContainer}>
     <View style={styles.fieldLabelRow}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -161,6 +160,8 @@ const EditableField = ({ label, value, onChangeText, placeholder, editable = tru
       placeholder={placeholder}
       placeholderTextColor="#9CA3AF"
       editable={editable && !locked}
+      keyboardType={keyboardType}
+      maxLength={maxLength}
     />
     {locked && lockMessage && (
       <Text style={styles.fieldLockMessage}>{lockMessage}</Text>
@@ -253,7 +254,7 @@ const ProfileScreen = ({ navigation, route }) => {
       address: displayData?.address || '',
       city: displayData?.city || '',
       pincode: displayData?.pincode || '',
-      experience: displayData?.experience || '',
+      experience: String(displayData?.experience || ''),
     });
     setOriginalPhone(phoneValue);
   }, [displayData?.fullName, displayData?.phone, displayData?.phoneNumber, displayData?.address, displayData?.city, displayData?.pincode, displayData?.experience]);
@@ -388,7 +389,7 @@ const ProfileScreen = ({ navigation, route }) => {
           address: formData.address,
           city: formData.city,
           pincode: formData.pincode,
-          experience: formData.experience,
+          experience: formData.experience ? parseInt(formData.experience, 10) : undefined,
         });
       } else {
         // For users, use user profile endpoint (formData includes phone)
@@ -568,14 +569,42 @@ const ProfileScreen = ({ navigation, route }) => {
       
       if (result.success) {
         Alert.alert(
-          'Verification Email Sent',
-          `Please check your email at ${displayData.email} and click the verification link.`
+          '✅ Verification Email Sent',
+          `Please check your email at ${displayData.email} and click the verification link.\n\nAlso check your spam/junk folder if you don't see it.`
         );
       } else {
-        Alert.alert('Error', getErrorMessage(result.error, 'Failed to send verification email'));
+        // Parse rate-limit errors with remaining seconds
+        const errorObj = result.error;
+        const status = errorObj?.status;
+        const message = errorObj?.message || '';
+        
+        if (status === 429 || message.includes('wait')) {
+          // Extract seconds from message like "Please wait 85 seconds before..."
+          const secondsMatch = message.match(/wait\s+(\d+)\s+seconds/i);
+          const retrySeconds = secondsMatch 
+            ? parseInt(secondsMatch[1], 10) 
+            : (errorObj?.errors?.retryAfterSeconds ? parseInt(errorObj.errors.retryAfterSeconds, 10) : null);
+          
+          if (retrySeconds && retrySeconds > 0) {
+            const mins = Math.floor(retrySeconds / 60);
+            const secs = retrySeconds % 60;
+            const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+            Alert.alert(
+              '⏳ Email Already Sent',
+              `A verification email was recently sent to ${displayData.email}.\n\nPlease check your inbox (and spam folder). You can request another in ${timeStr}.`
+            );
+          } else {
+            Alert.alert(
+              '⏳ Email Already Sent',
+              `A verification email was recently sent to ${displayData.email}.\n\nPlease check your inbox (and spam folder) and wait a couple of minutes before requesting another.`
+            );
+          }
+        } else {
+          Alert.alert('Error', getErrorMessage(result.error, 'Failed to send verification email'));
+        }
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to send verification email');
+      Alert.alert('Error', 'Failed to send verification email. Please try again.');
     } finally {
       setVerifyingEmail(false);
     }
@@ -1057,9 +1086,21 @@ const ProfileScreen = ({ navigation, route }) => {
           <AadhaarVerificationModal
             visible={showAadhaarModal}
             onClose={() => setShowAadhaarModal(false)}
-            onVerified={() => {
+            onVerified={async () => {
+              // Immediately update UI optimistically
               setIsAadhaarVerified(true);
               setShowAadhaarModal(false);
+              // Re-fetch from backend to get aadhaarName and lock status
+              try {
+                const result = await getAadhaarStatus();
+                if (result.success) {
+                  setIsAadhaarVerified(result.aadhaar?.isVerified || true);
+                  setIsNameLocked(result.aadhaar?.isNameLocked || false);
+                  setAadhaarName(result.aadhaar?.aadhaarName || null);
+                }
+              } catch (e) {
+                console.log('Error re-fetching Aadhaar status after verification:', e);
+              }
             }}
           />
 
@@ -1176,8 +1217,14 @@ const ProfileScreen = ({ navigation, route }) => {
                 <EditableField
                   label="Years of Experience"
                   value={formData.experience}
-                  onChangeText={(text) => setFormData(prev => ({ ...prev, experience: text }))}
-                  placeholder="e.g., 5 years"
+                  onChangeText={(text) => {
+                    // Allow only digits (numeric input)
+                    const numericOnly = text.replace(/[^0-9]/g, '');
+                    setFormData(prev => ({ ...prev, experience: numericOnly }));
+                  }}
+                  placeholder="e.g., 5"
+                  keyboardType="numeric"
+                  maxLength={2}
                 />
               )}
               
@@ -1320,7 +1367,9 @@ const ProfileScreen = ({ navigation, route }) => {
                   <InfoRow
                     iconName="briefcase"
                     label="Experience"
-                    value={displayData?.experience || 'Not set'}
+                    value={displayData?.experience 
+                      ? `${displayData.experience} year${displayData.experience === '1' || displayData.experience === 1 ? '' : 's'}` 
+                      : 'Not set'}
                   />
                   
                   {/* Portfolio Section - Only for Photographer/Influencer */}

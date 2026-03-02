@@ -171,7 +171,16 @@ export const signInWithGoogle = async (role = GOOGLE_AUTH_ROLES.USER) => {
     // Check for Google Play Services
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
-    // Perform sign in
+    // Always sign out first to force account picker
+    // Without this, Google SDK auto-picks the cached account and shows
+    // "You are signing back in to fixhomi" without an option to switch
+    try {
+      await GoogleSignin.signOut();
+    } catch (e) {
+      // Ignore — may not be signed in
+    }
+
+    // Perform sign in — will now show full account picker
     const signInResult = await GoogleSignin.signIn();
     
     console.log('📧 [GoogleAuth] Google Sign-In successful:', signInResult.data?.user?.email);

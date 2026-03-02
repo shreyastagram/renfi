@@ -23,6 +23,7 @@ import { syncPhoneToMongoDB } from '../services/authService';
 import { fetchFullProfile, getCurrentUser, updateProviderOnlineStatus as apiUpdateOnlineStatus, updateProviderProfile as apiUpdateProviderProfile } from '../services/profileService';
 import { saveFcmTokenForUser, saveFcmTokenForProvider, setupForegroundMessageListener, setupTokenRefreshListener } from '../services/fcmService';
 import { validateAndRefreshTokens } from '../services/apiClient';
+import { signOutFromGoogle } from '../services/googleAuthService';
 import { performFullSync, processSyncQueue, isSyncDue, updateProfileWithSync, SYNC_STATUS } from '../services/profileSyncService';
 import { checkAuthHealth, addAuthStateListener, getDeviceInfo, AUTH_HEALTH } from '../services/authInfraService';
 import { initializeSocket, disconnectSocket } from '../services/socketService';
@@ -324,7 +325,12 @@ export const AppProvider = ({ children }) => {
         }));
         
         console.log('✅ [AppContext] Availability updated successfully');
-        return { success: true };
+        // Forward visibility warnings from backend so UI can inform the provider
+        return { 
+          success: true,
+          visibilityWarnings: result.data?.visibilityWarnings,
+          searchReady: result.data?.searchReady,
+        };
       } else {
         console.error('❌ [AppContext] API failed to update availability');
         return { success: false, error: result.error?.message || 'Failed to update availability' };
@@ -592,6 +598,14 @@ export const AppProvider = ({ children }) => {
       
       // Disconnect socket before clearing auth
       disconnectSocket();
+      
+      // Sign out from Google to clear cached session
+      // This ensures the account picker shows on next sign-in
+      try {
+        await signOutFromGoogle();
+      } catch (googleErr) {
+        console.warn('⚠️ [AppContext] Google sign-out failed:', googleErr.message);
+      }
       
       // Call logout API to revoke refresh token
       if (callApi) {

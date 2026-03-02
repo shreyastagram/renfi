@@ -572,7 +572,15 @@ const EmergencyServicesScreen = ({ navigation }) => {
     
     if (!createResult.success) {
       setIsLoading(false);
-      Alert.alert('Error', createResult.error || 'Failed to create request');
+      if (createResult.code === 'OUTSIDE_SERVICE_ZONE') {
+        Alert.alert(
+          '📍 Service Unavailable in Your Area',
+          createResult.suggestion || 'Emergency services are currently available only in Yavatmal City, Maharashtra. For emergencies outside this zone, please call 112.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', createResult.error || 'Failed to create request');
+      }
       return;
     }
     
@@ -611,15 +619,21 @@ const EmergencyServicesScreen = ({ navigation }) => {
    * Handle calling provider - direct phone dialing with contact tracking
    */
   const handleCallProvider = (provider) => {
-    const phone = provider?.phone || provider?.verifiedPhone;
-    if (!phone) {
-      Alert.alert('Phone Unavailable', 'This provider has not added their phone number yet. Try another provider.');
+    // Robust phone resolution: check all possible phone fields
+    const phone = provider?.phone || provider?.verifiedPhone || provider?.mobileNumber || '';
+    const stripped = phone.replace(/[\s\-()]/g, '');
+    
+    if (!stripped) {
+      Alert.alert(
+        'Phone Not Available',
+        'This provider\'s phone number is not yet available. Please try viewing their full profile or try again later.',
+        [{ text: 'OK' }]
+      );
       return;
     }
 
-    const cleanPhone = phone.replace(/[\s\-()]/g, '');
-    const phoneNumber = cleanPhone.startsWith('+') ? cleanPhone :
-                        cleanPhone.startsWith('91') ? `+${cleanPhone}` : `+91${cleanPhone}`;
+    const phoneNumber = stripped.startsWith('+') ? stripped :
+                        stripped.startsWith('91') ? `+${stripped}` : `+91${stripped}`;
 
     Alert.alert(
       '📞 Call Provider',

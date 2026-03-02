@@ -270,13 +270,30 @@ const VerificationScreen = ({
           return;
         }
         
-        switch (error.code) {
-          case AUTH_CODES.TOO_MANY_REQUESTS:
-            showAlert('Too many requests. Please wait before trying again.', 'warning');
-            break;
-            
-          default:
-            showAlert(error.message || 'Failed to send verification.', 'error');
+        // Check for rate limit (429) — code may come as 'TOO_MANY_REQUESTS' or 'Too Many Requests'
+        const isRateLimited = error.status === 429 || 
+          error.code === AUTH_CODES.TOO_MANY_REQUESTS || 
+          error.code === 'Too Many Requests' ||
+          (error.message || '').toLowerCase().includes('wait');
+        
+        if (isRateLimited) {
+          // Extract remaining seconds from message: "Please wait N seconds before..."
+          const msg = error.message || '';
+          const secMatch = msg.match(/wait\s+(\d+)\s+seconds/i);
+          const retrySec = secMatch 
+            ? parseInt(secMatch[1], 10) 
+            : (error.errors?.retryAfterSeconds ? parseInt(error.errors.retryAfterSeconds, 10) : null);
+          
+          if (retrySec && retrySec > 0) {
+            const m = Math.floor(retrySec / 60);
+            const s = retrySec % 60;
+            const timeStr = m > 0 ? `${m}m ${s}s` : `${s}s`;
+            showAlert(`Verification email already sent. Check your inbox (and spam). Retry in ${timeStr}.`, 'warning');
+          } else {
+            showAlert('Verification email already sent. Please check your inbox and spam folder, then wait a couple of minutes before retrying.', 'warning');
+          }
+        } else {
+          showAlert(error.message || 'Failed to send verification.', 'error');
         }
       }
     } catch (error) {

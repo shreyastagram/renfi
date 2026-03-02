@@ -150,17 +150,40 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
         </View>
       </View>
 
-      {/* Cancellation/Rejection reason — compact */}
-      {isCancelled && (request.rejectReason || request.cancellationReason || request.cancelReason) && (
-        <View style={styles.reasonStrip}>
-          <Icon name="info" size={12} color="#92400E" />
-          <Text style={styles.reasonStripText} numberOfLines={1}>
-            {request.rejectReason || request.cancellationReason || request.cancelReason}
-          </Text>
-        </View>
-      )}
+      {/* Cancellation/Rejection info — production-grade */}
+      {isCancelled && (() => {
+        const cancelledBy = request.cancelledBy;
+        const reason = request.rejectReason || request.cancellationReason || request.cancelReason;
+        // Build a clean label: "Cancelled by You" or "Cancelled by Provider" + optional reason
+        let label = '';
+        if (request.status === 'rejected') {
+          label = reason || 'No providers available';
+        } else if (cancelledBy === 'provider') {
+          label = 'Cancelled by Service Provider';
+        } else if (cancelledBy === 'user') {
+          label = 'Cancelled by You';
+        } else if (cancelledBy === 'system') {
+          label = 'Cancelled by System';
+        } else {
+          label = reason || 'Request cancelled';
+        }
+        // Append custom reason if different from generic defaults
+        const genericReasons = ['user cancelled', 'cancelled by user', 'cancelled by provider', 'provider cancelled'];
+        const hasCustomReason = reason && !genericReasons.includes(reason.toLowerCase());
+        if (hasCustomReason && cancelledBy) {
+          label += ` — ${reason}`;
+        }
+        return (
+          <View style={styles.reasonStrip}>
+            <Icon name="info" size={12} color="#92400E" />
+            <Text style={styles.reasonStripText} numberOfLines={2}>
+              {label}
+            </Text>
+          </View>
+        );
+      })()}
 
-      {/* Row 2: Date strip */}
+      {/* Row 2: Date & Time strip */}
       <View style={styles.dateStrip}>
         <Icon name="calendar" size={11} color={BRAND.textMuted} />
         <Text style={styles.dateStripText}>
@@ -169,6 +192,29 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
             : serviceDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
           }
         </Text>
+        {/* Service Time — for scheduled/future bookings */}
+        {request.serviceTime && !isEmergencyService && (() => {
+          let h, m;
+          const asDate = new Date(request.serviceTime);
+          if (!isNaN(asDate.getTime()) && request.serviceTime.length > 5) {
+            h = asDate.getHours();
+            m = asDate.getMinutes();
+          } else {
+            [h, m] = String(request.serviceTime).split(':').map(Number);
+          }
+          if (isNaN(h) || isNaN(m)) return null;
+          const period = h >= 12 ? 'PM' : 'AM';
+          const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+          return (
+            <>
+              <Text style={styles.dateStripText}> · </Text>
+              <Icon name="clock" size={11} color={BRAND.textMuted} />
+              <Text style={styles.dateStripText}>
+                {` ${displayHour}:${String(m).padStart(2, '0')} ${period}`}
+              </Text>
+            </>
+          );
+        })()}
       </View>
 
       {/* Provider Row — compact inline */}
@@ -203,14 +249,9 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
                   <Icon name="phone" size={14} color={BRAND.success} />
                 </TouchableOpacity>
               )}
-              {isActive && !isEventService && (
+              {isActive && hasProvider && (
                 <TouchableOpacity style={[styles.quickActionBtn, styles.quickActionBtnPrimary]} onPress={() => onTrackProvider(request)}>
                   <Icon name="location" size={14} color={BRAND.white} />
-                </TouchableOpacity>
-              )}
-              {isActive && request.location?.coordinates && !isEventService && (
-                <TouchableOpacity style={styles.quickActionBtn} onPress={() => onDirections(request.location)}>
-                  <Icon name="directions" size={14} color={BRAND.secondary} />
                 </TouchableOpacity>
               )}
             </View>
@@ -284,10 +325,11 @@ const UserServiceHistoryScreen = ({ navigation }) => {
     if (!userId) { setLoading(false); return; }
     try {
       // Fetch traditional, event, and emergency services in parallel
+      // Use limit: 500 to ensure ALL bookings are fetched (backend default is only 10)
       const [traditionalResult, eventResult, emergencyResult] = await Promise.all([
-        getUserRequests(userId, { limit: 100 }),
+        getUserRequests(userId, { limit: 500, sortBy: 'createdAt', sortOrder: 'desc' }),
         fetch(`${NODE_BASE_URL}/api/event-services/user/${userId}`).then(r => r.json()).catch(() => ({ data: [] })),
-        fetch(`${NODE_BASE_URL}/api/emergency-services/user/${userId}`).then(r => r.json()).catch(() => ({ requests: [] })),
+        fetch(`${NODE_BASE_URL}/api/emergency-services/user/${userId}?limit=500`).then(r => r.json()).catch(() => ({ requests: [] })),
       ]);
       
       // Event services now come with providerDetails from backend
@@ -511,9 +553,25 @@ const UserServiceHistoryScreen = ({ navigation }) => {
   };
 
   const handleDirections = (location) => {
-    const { latitude, longitude, lat, lng } = location.coordinates || location;
-    const destLat = latitude || lat;
-    const destLng = longitude || lng;
+    if (!location) { Alert.alert('Error', 'Location not available'); return; }
+
+    let destLat, destLng;
+
+    // Handle GeoJSON format: location.coordinates = [lng, lat]
+    if (Array.isArray(location.coordinates) && location.coordinates.length >= 2) {
+      destLng = location.coordinates[0];
+      destLat = location.coordinates[1];
+    } else if (location.coordinates?.latitude && location.coordinates?.longitude) {
+      destLat = location.coordinates.latitude;
+      destLng = location.coordinates.longitude;
+    } else if (location.latitude && location.longitude) {
+      destLat = location.latitude;
+      destLng = location.longitude;
+    } else if (location.lat && location.lng) {
+      destLat = location.lat;
+      destLng = location.lng;
+    }
+
     if (!destLat || !destLng) { Alert.alert('Error', 'Location not available'); return; }
     const url = Platform.select({
       ios: `maps:?daddr=${destLat},${destLng}`,

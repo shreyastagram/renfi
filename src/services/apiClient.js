@@ -275,8 +275,10 @@ const handleResponseError = async (error, client) => {
   
   // Handle 401 Unauthorized - Token expired
   if (error.response?.status === 401 && !originalRequest._retry) {
-    // Don't retry refresh/logout endpoints
-    if (originalRequest.url?.includes('/refresh') || originalRequest.url?.includes('/logout')) {
+    // Don't retry auth endpoints — these are login/signup requests, not token-protected
+    const skipRetryUrls = ['/refresh', '/logout', '/login', '/register', '/forgot-password', '/reset-password', '/oauth2', '/google', '/send-otp', '/verify'];
+    const shouldSkipRetry = skipRetryUrls.some(url => originalRequest.url?.includes(url));
+    if (shouldSkipRetry) {
       return Promise.reject(error);
     }
     

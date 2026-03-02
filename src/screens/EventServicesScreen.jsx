@@ -716,6 +716,13 @@ const EventServicesScreen = ({ navigation }) => {
       
       // Backend returns { statusCode: 201, message: '...', data: {...} }
       if (!createResponse.ok || (createData.statusCode && createData.statusCode >= 400)) {
+        // Handle geofence rejection with user-friendly message
+        if (createData.code === 'OUTSIDE_SERVICE_ZONE') {
+          const suggestion = createData.details?.suggestion || 'Event services are currently available only in Yavatmal City, Maharashtra. We\'re expanding soon!';
+          Alert.alert('📍 Service Unavailable in Your Area', suggestion, [{ text: 'OK' }]);
+          setSendingRequest(false);
+          return;
+        }
         throw new Error(createData.message || createData.error || 'Failed to create request');
       }
       

@@ -31,7 +31,6 @@ export const SERVICE_CATEGORIES = [
   { id: 'mason_tiler', label: 'Mason & Tiler' },
   { id: 'driver', label: 'Driver' },
   { id: 'ac_repair', label: 'AC Repair' },
-  { id: 'cleaning', label: 'Cleaning' },
 ];
 
 /**

@@ -155,6 +155,17 @@ export const initializeSocket = (userType, userId, token) => {
     notifyListeners('request:status', data);
   });
 
+  // ─── Per-request location events (location sharing system) ─────────
+  socket.on('request:provider:location', (data) => {
+    console.log('📍 [Socket] Request provider location:', data?.requestId);
+    notifyListeners('request:provider:location', data);
+  });
+
+  socket.on('request:location:status', (data) => {
+    console.log('📍 [Socket] Location sharing status:', data?.requestId, data?.enabled);
+    notifyListeners('request:location:status', data);
+  });
+
   return socket;
 };
 
@@ -182,6 +193,11 @@ export const getSocket = () => socket;
 export const isConnected = () => socket?.connected ?? false;
 
 // ==================== PROVIDER LOCATION TRACKING ====================
+
+// Per-request location tracking state
+let requestLocationWatchId = null;
+let requestLocationInterval = null;
+let activeTrackingRequestId = null;
 
 /**
  * Start sending location updates (for providers)
@@ -319,6 +335,134 @@ const sendLocationUpdate = async (providerId, coords) => {
   console.log('📍 [Socket] Location sent:', locationData.latitude, locationData.longitude);
 };
 
+// ==================== PER-REQUEST LOCATION TRACKING ====================
+
+/**
+ * Start per-request location tracking (provider sharing for a specific booking)
+ * Sends location updates via BOTH socket (real-time) and REST (persistence)
+ * 
+ * @param {string} requestId - The service request ID
+ * @param {string} providerId - Provider MongoDB ID
+ * @param {Function} onLocationUpdate - Optional callback with { latitude, longitude, accuracy }
+ */
+export const startRequestLocationTracking = (requestId, providerId, onLocationUpdate) => {
+  if (!requestId || !providerId) {
+    console.warn('⚠️ [Socket] Cannot start request tracking — missing IDs');
+    return;
+  }
+
+  // Stop any existing per-request tracking
+  stopRequestLocationTracking();
+  activeTrackingRequestId = requestId;
+
+  console.log(`📍 [Socket] Starting per-request location tracking: ${requestId}`);
+
+  const sendRequestLocationUpdate = (coords) => {
+    const locationPayload = {
+      requestId,
+      providerId,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      accuracy: coords.accuracy,
+      timestamp: new Date().toISOString(),
+    };
+
+    // Real-time via socket
+    if (socket?.connected) {
+      socket.emit('request:location:update', locationPayload);
+    }
+
+    // Callback for local UI update
+    if (onLocationUpdate) {
+      onLocationUpdate({
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        accuracy: coords.accuracy,
+      });
+    }
+
+    // REST persistence fallback (async, fire-and-forget)
+    try {
+      fetch(`${NODE_BASE_URL}/api/traditional-services/${requestId}/location-sharing/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          providerId,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          accuracy: coords.accuracy,
+        }),
+      }).catch(() => {});
+    } catch (e) {
+      // Silent
+    }
+  };
+
+  // Get initial position
+  Geolocation.getCurrentPosition(
+    (position) => {
+      console.log('✅ [Socket] Got initial request tracking position');
+      sendRequestLocationUpdate(position.coords);
+    },
+    (error) => {
+      console.warn('⚠️ [Socket] High accuracy failed for request tracking:', error.message);
+      Geolocation.getCurrentPosition(
+        (position) => sendRequestLocationUpdate(position.coords),
+        (fallbackError) => console.error('❌ [Socket] Request tracking location unavailable:', fallbackError.message),
+        SOCKET_CONFIG.GEOLOCATION_OPTIONS_LOW_ACCURACY
+      );
+    },
+    SOCKET_CONFIG.GEOLOCATION_OPTIONS
+  );
+
+  // Watch position changes
+  requestLocationWatchId = Geolocation.watchPosition(
+    (position) => sendRequestLocationUpdate(position.coords),
+    (error) => console.warn('⚠️ [Socket] Request tracking watch error:', error.message),
+    SOCKET_CONFIG.GEOLOCATION_OPTIONS
+  );
+
+  // Regular interval heartbeat (10s)
+  requestLocationInterval = setInterval(() => {
+    Geolocation.getCurrentPosition(
+      (position) => sendRequestLocationUpdate(position.coords),
+      (error) => {
+        Geolocation.getCurrentPosition(
+          (position) => sendRequestLocationUpdate(position.coords),
+          () => {},
+          SOCKET_CONFIG.GEOLOCATION_OPTIONS_LOW_ACCURACY
+        );
+      },
+      SOCKET_CONFIG.GEOLOCATION_OPTIONS
+    );
+  }, SOCKET_CONFIG.LOCATION_UPDATE_INTERVAL);
+};
+
+/**
+ * Stop per-request location tracking
+ */
+export const stopRequestLocationTracking = () => {
+  if (requestLocationWatchId !== null) {
+    Geolocation.clearWatch(requestLocationWatchId);
+    requestLocationWatchId = null;
+  }
+  if (requestLocationInterval) {
+    clearInterval(requestLocationInterval);
+    requestLocationInterval = null;
+  }
+  if (activeTrackingRequestId) {
+    console.log(`📍 [Socket] Stopped request tracking for: ${activeTrackingRequestId}`);
+    activeTrackingRequestId = null;
+  }
+};
+
+/**
+ * Check if currently tracking a specific request
+ */
+export const isTrackingRequest = (requestId) => {
+  return activeTrackingRequestId === requestId;
+};
+
 // ==================== REQUEST EVENTS ====================
 
 /**
@@ -413,6 +557,9 @@ export default {
   isConnected,
   startLocationTracking,
   stopLocationTracking,
+  startRequestLocationTracking,
+  stopRequestLocationTracking,
+  isTrackingRequest,
   subscribeToRequest,
   unsubscribeFromRequest,
   addEventListener,

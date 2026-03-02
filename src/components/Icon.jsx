@@ -25,7 +25,6 @@ const ICON_MAP = {
   carpenter: { family: 'MaterialCommunityIcons', name: 'hammer', color: '#8B5CF6' },
   painter: { family: 'MaterialCommunityIcons', name: 'format-paint', color: '#EC4899' },
   ac_repair: { family: 'MaterialCommunityIcons', name: 'air-conditioner', color: '#06B6D4' },
-  cleaning: { family: 'MaterialCommunityIcons', name: 'broom', color: '#10B981' },
   electronics_technician: { family: 'MaterialIcons', name: 'tv', color: '#6366F1' },
   solar_repairing: { family: 'MaterialCommunityIcons', name: 'solar-panel', color: '#EAB308' },
   driver: { family: 'MaterialCommunityIcons', name: 'car', color: '#14B8A6' },

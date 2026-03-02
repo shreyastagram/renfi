@@ -311,21 +311,16 @@ export const fetchFullProfile = async (userType, mongoId) => {
   try {
     console.log(`📋 [ProfileService] Fetching full profile for ${userType}...`);
     
-    // Fetch from Java Auth (verification status) - always works with our tokens
+    // Fetch from Java Auth (verification status)
+    // If Java Auth is down, continue with MongoDB data only (graceful degradation)
     const javaAuthResult = await getCurrentUser();
     
-    // As long as Java Auth worked, we have core profile data
-    if (!javaAuthResult.success) {
-      return {
-        success: false,
-        error: { 
-          message: 'Failed to fetch profile from auth service',
-          javaAuthError: javaAuthResult.error,
-        },
-      };
-    }
+    const javaAuthAvailable = javaAuthResult.success;
+    const javaAuthData = javaAuthAvailable ? (javaAuthResult.data || {}) : {};
     
-    const javaAuthData = javaAuthResult.data || {};
+    if (!javaAuthAvailable) {
+      console.warn('⚠️ [ProfileService] Java Auth unavailable — loading profile from MongoDB only');
+    }
     
     // Fetch from MongoDB based on user type
     // Note: User profile may fail auth if JWT secrets don't match
@@ -397,6 +392,8 @@ export const fetchFullProfile = async (userType, mongoId) => {
       isActive: javaAuthData.isActive ?? true,
       role: javaAuthData.role,
       lastLoginAt: javaAuthData.lastLoginAt,
+      // Password status — false for Google-only users (no password set yet)
+      hasPassword: javaAuthData.hasPassword ?? null,
       
       // Core identity - for providers, MongoDB name takes precedence (where profile is updated)
       email: javaAuthData.email || mongoData.email,
@@ -453,6 +450,7 @@ export const fetchFullProfile = async (userType, mongoId) => {
       
       // Metadata
       mongoProfileLoaded: mongoResult.success,
+      javaAuthLoaded: javaAuthAvailable,
     };
     
     console.log('✅ [ProfileService] Full profile combined:', combinedProfile);

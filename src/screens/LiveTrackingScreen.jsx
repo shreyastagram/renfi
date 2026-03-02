@@ -39,8 +39,11 @@ const BRAND = {
   white: '#FFFFFF',
 };
 
-// Location update interval (10 seconds)
-const LOCATION_UPDATE_INTERVAL = 10000;
+// Location update interval (15 seconds — reduced from 10s to cut API overhead)
+const LOCATION_UPDATE_INTERVAL = 15000;
+
+// Minimum distance (in km) provider must move before re-fetching route from Mapbox
+const ROUTE_REFETCH_THRESHOLD_KM = 0.15; // ~150 meters
 
 /**
  * Format time ago
@@ -93,6 +96,7 @@ const LiveTrackingScreen = ({ navigation, route }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const mapReadyRef = useRef(false);
   const initialCameraSetRef = useRef(false);
+  const lastRouteFetchLocationRef = useRef(null); // Throttle route fetches
   
   // State - Use serviceLocation as destination (where provider needs to go)
   const [providerLocation, setProviderLocation] = useState(null);
@@ -110,6 +114,10 @@ const LiveTrackingScreen = ({ navigation, route }) => {
   const [routeDuration, setRouteDuration] = useState(null);
   const [routeDistance, setRouteDistance] = useState(null);
   const [isFetchingRoute, setIsFetchingRoute] = useState(false);
+  const [lastFetchedAt, setLastFetchedAt] = useState(null); // Client-side timestamp of last successful fetch
+  const [now, setNow] = useState(Date.now()); // Ticks every second for live time-ago display
+  const [isRefreshing, setIsRefreshing] = useState(false); // Manual refresh indicator
+  const providerLocationRef = useRef(null); // Ref to avoid stale closure in fetchProviderLocation
   
   // ✅ PRODUCTION: Calculate initial camera center immediately (no jumps)
   const getInitialCenter = useCallback(() => {
@@ -130,11 +138,20 @@ const LiveTrackingScreen = ({ navigation, route }) => {
    */
   const fetchRoute = useCallback(async (providerLoc, userLoc) => {
     if (!providerLoc || !userLoc) return;
+
+    // Throttle: only refetch route if provider moved >150m since last route fetch
+    const lastFetchLoc = lastRouteFetchLocationRef.current;
+    if (lastFetchLoc) {
+      const movedKm = calculateDistance(
+        lastFetchLoc.latitude, lastFetchLoc.longitude,
+        providerLoc.latitude, providerLoc.longitude
+      );
+      if (movedKm < ROUTE_REFETCH_THRESHOLD_KM) return; // Skip — provider hasn't moved enough
+    }
     
     setIsFetchingRoute(true);
     
     try {
-      // Mapbox Directions API - driving route from provider to user
       const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${providerLoc.longitude},${providerLoc.latitude};${userLoc.longitude},${userLoc.latitude}?geometries=geojson&overview=full&access_token=${MAPBOX_ACCESS_TOKEN}`;
       
       const response = await fetch(url);
@@ -142,22 +159,13 @@ const LiveTrackingScreen = ({ navigation, route }) => {
       
       if (data.routes && data.routes.length > 0) {
         const route = data.routes[0];
-        // Route geometry is in GeoJSON format
         setRouteCoordinates(route.geometry.coordinates);
-        // Duration in seconds, convert to minutes
         setRouteDuration(Math.ceil(route.duration / 60));
-        // Distance in meters, convert to km
         setRouteDistance((route.distance / 1000).toFixed(1));
-        
-        console.log('[LiveTracking] Route fetched:', {
-          duration: Math.ceil(route.duration / 60) + ' min',
-          distance: (route.distance / 1000).toFixed(1) + ' km',
-          steps: route.legs?.[0]?.steps?.length || 0,
-        });
+        lastRouteFetchLocationRef.current = { ...providerLoc };
       }
     } catch (err) {
-      console.error('[LiveTracking] Route fetch error:', err);
-      // Fall back to straight line (already handled by routeCoordinates being null)
+      console.error('[LiveTracking] Route fetch error:', err.message);
     } finally {
       setIsFetchingRoute(false);
     }
@@ -193,7 +201,9 @@ const LiveTrackingScreen = ({ navigation, route }) => {
         };
         
         setProviderLocation(newLocation);
+        providerLocationRef.current = newLocation; // Keep ref in sync
         setLastUpdated(loc.lastUpdated || data.data.lastUpdated);
+        setLastFetchedAt(new Date()); // Client-side "when we last got data"
         setProviderData(data.data);
         setIsOnline(data.data.isOnline);
         setError(null);
@@ -216,19 +226,20 @@ const LiveTrackingScreen = ({ navigation, route }) => {
         }
       } else {
         console.log('[LiveTracking] No location data:', data);
-        if (!providerLocation) {
+        if (!providerLocationRef.current) {
           setError('Provider location not available yet');
         }
       }
     } catch (err) {
       console.error('[LiveTracking] Fetch error:', err);
-      if (!providerLocation) {
+      if (!providerLocationRef.current) {
         setError('Failed to fetch provider location');
       }
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
-  }, [providerId, destinationLocation, providerLocation, fetchRoute]);
+  }, [providerId, destinationLocation, fetchRoute]);
 
   /**
    * Get user's current location (for context, not for route)
@@ -305,6 +316,14 @@ const LiveTrackingScreen = ({ navigation, route }) => {
       setTimeout(() => centerMap(true), 300);
     }
   }, [providerLocation, centerMap]);
+
+  /**
+   * ✅ PRODUCTION: Tick every second so "Updated X ago" refreshes in real-time
+   */
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(tick);
+  }, []);
 
   /**
    * Start pulse animation for live indicator
@@ -607,11 +626,24 @@ const LiveTrackingScreen = ({ navigation, route }) => {
                     <Text style={styles.etaLabel}>{routeDuration !== null ? 'ETA (route)' : 'ETA (est.)'}</Text>
                   </View>
                 )}
-                <View style={styles.etaItem}>
-                  <MaterialIcon name="update" size={20} color="#6B7280" />
-                  <Text style={styles.etaValue}>{formatTimeAgo(lastUpdated)}</Text>
-                  <Text style={styles.etaLabel}>updated</Text>
-                </View>
+                <TouchableOpacity
+                  style={styles.etaItem}
+                  onPress={() => {
+                    setIsRefreshing(true);
+                    fetchProviderLocation();
+                  }}
+                  activeOpacity={0.6}
+                >
+                  {isRefreshing ? (
+                    <ActivityIndicator size={18} color={BRAND.primary} />
+                  ) : (
+                    <MaterialIcon name="refresh" size={20} color={BRAND.primary} />
+                  )}
+                  <Text style={styles.etaValue}>
+                    {formatTimeAgo(lastFetchedAt || lastUpdated)}
+                  </Text>
+                  <Text style={styles.etaLabel}>tap to refresh</Text>
+                </TouchableOpacity>
               </View>
             )}
 

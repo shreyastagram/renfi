@@ -48,6 +48,7 @@ import {
   cancelRequest,
   getProviderDetails,
   skipProvider,
+  retryProviderSearch,
 } from '../services/traditionalServiceService';
 // Direct phone dialing - Exotel call masking removed
 
@@ -83,7 +84,6 @@ const SERVICE_CATEGORIES = [
   { id: 'mason_tiler', name: 'Mason & Tiler', iconName: 'mason_tiler' },
   { id: 'driver', name: 'Driver', iconName: 'driver' },
   { id: 'ac_repair', name: 'AC Repair', iconName: 'ac_repair' },
-  { id: 'cleaning', name: 'Cleaning', iconName: 'cleaning' },
 ];
 
 const ServiceCard = ({ service, onPress }) => (
@@ -240,6 +240,7 @@ const UserHomeScreen = ({ navigation }) => {
   const [creatingRequest, setCreatingRequest] = useState(false);
   const [fetchingProviders, setFetchingProviders] = useState(false);
   const [bookingProvider, setBookingProvider] = useState(null);
+  const [allProvidersRejected, setAllProvidersRejected] = useState(false);
   
   // Provider details modal state
   const [selectedProvider, setSelectedProvider] = useState(null);
@@ -653,6 +654,12 @@ const UserHomeScreen = ({ navigation }) => {
           { text: 'Later', onPress: resetFlow },
           { text: 'Find Providers', onPress: () => fetchProviders(result.request._id) },
         ]);
+      } else if (result.code === 'OUTSIDE_SERVICE_ZONE') {
+        Alert.alert(
+          '📍 Service Unavailable in Your Area',
+          result.suggestion || 'Our services are currently available only in Yavatmal City, Maharashtra. We\'re expanding soon!',
+          [{ text: 'OK', onPress: resetFlow }]
+        );
       } else {
         Alert.alert('Error', result.error || 'Failed to create request');
       }
@@ -669,9 +676,20 @@ const UserHomeScreen = ({ navigation }) => {
     try {
       const result = await getNearbyProviders(requestId);
       if (result.success) {
-        setProviders(result.providers || []);
-        setSearchRadius(result.searchRadius || 0);
-        if (!result.providers?.length) Alert.alert('No Providers Found', `No providers within ${(result.searchRadius / 1000).toFixed(1)}km. Try again later.`);
+        // Check if all providers have been rejected
+        if (result.code === 'ALL_PROVIDERS_REJECTED') {
+          setProviders([]);
+          setAllProvidersRejected(true);
+          Alert.alert(
+            '🔄 All Providers Reviewed',
+            result.suggestion || 'You have reviewed all available providers. Start a fresh search to see them again.',
+          );
+        } else {
+          setAllProvidersRejected(false);
+          setProviders(result.providers || []);
+          setSearchRadius(result.searchRadius || 0);
+          if (!result.providers?.length) Alert.alert('No Providers Found', `No providers within ${(result.searchRadius / 1000).toFixed(1)}km. Try again later.`);
+        }
       } else {
         Alert.alert('Error', result.error || 'Failed to find providers');
       }
@@ -683,25 +701,46 @@ const UserHomeScreen = ({ navigation }) => {
   };
 
   /**
-   * Retry search for providers within the SAME search session.
-   * Skipped providers remain excluded (rejectedProviders is NOT cleared).
-   * The backend's getNearbyProviders already excludes rejectedProviders via $nin,
-   * so we just re-fetch — any newly available providers will appear, but skipped ones stay hidden.
-   * A brand-new search session (new request via resetFlow) starts with a clean slate automatically.
+   * Retry / Fresh search for providers.
+   * - If allProvidersRejected: calls retryProviderSearch() which clears rejectedProviders
+   *   on the backend, then returns a fresh provider list.
+   * - Otherwise: re-fetches getNearbyProviders (skipped providers remain excluded).
    */
   const handleRetrySearch = async () => {
     if (!createdRequest?._id) return;
     
     setFetchingProviders(true);
     try {
-      // Re-fetch providers — skipped providers remain excluded via rejectedProviders $nin
+      if (allProvidersRejected) {
+        // Step 1: Clear rejected list on backend
+        const resetResult = await retryProviderSearch(createdRequest._id, userId);
+        if (!resetResult.success) {
+          Alert.alert('Error', resetResult.error || 'Failed to reset search. Try again.');
+          setFetchingProviders(false);
+          return;
+        }
+        // Step 2: Now fetch fresh providers (rejected list is cleared)
+      }
+
+      // Fetch providers — either fresh (after reset) or normal re-fetch
       const result = await getNearbyProviders(createdRequest._id);
+
       if (result.success) {
-        setProviders(result.providers || []);
-        setSearchRadius(result.searchRadius || 0);
-        setContactedProviderIds(new Set()); // Reset contacted state for fresh list
-        if (!result.providers?.length) {
-          Alert.alert('No Providers Found', 'No providers are currently available in your area. New providers may come online — try again in a few minutes.');
+        if (result.code === 'ALL_PROVIDERS_REJECTED') {
+          setProviders([]);
+          setAllProvidersRejected(true);
+          Alert.alert(
+            '🔄 All Providers Reviewed',
+            result.suggestion || 'All providers reviewed. Try again later when new providers come online.',
+          );
+        } else {
+          setAllProvidersRejected(false);
+          setProviders(result.providers || []);
+          setSearchRadius(result.searchRadius || 0);
+          setContactedProviderIds(new Set()); // Reset contacted state for fresh list
+          if (!result.providers?.length) {
+            Alert.alert('No Providers Found', 'No providers are currently available in your area. Try again in a few minutes.');
+          }
         }
       } else {
         Alert.alert('No Providers Found', result.error || 'No providers available right now. Try again shortly.');
@@ -785,16 +824,21 @@ const UserHomeScreen = ({ navigation }) => {
 
   /**
    * Direct phone call to provider - opens native dialer
+   * Checks multiple phone fields to handle data inconsistencies
    */
   const handleCallProvider = (provider) => {
-    const phone = provider?.phone || provider?.verifiedPhone;
-    if (!phone) {
-      Alert.alert('Phone Unavailable', 'This provider has not added their phone number yet. Try another provider.');
+    // Robust phone resolution: check all possible phone fields
+    const phone = provider?.phone || provider?.verifiedPhone || provider?.mobileNumber || '';
+    const cleanPhone = phone.replace(/[\s\-()]/g, '');
+    
+    if (!cleanPhone) {
+      Alert.alert(
+        'Phone Not Available',
+        'This provider\'s phone number is not yet available. Please try viewing their full profile or try again later.',
+        [{ text: 'OK' }]
+      );
       return;
     }
-
-    const phoneNumber = phone.replace(/\s/g, '');
-    const url = `tel:${phoneNumber}`;
 
     Alert.alert(
       '📞 Call Provider',
@@ -805,7 +849,7 @@ const UserHomeScreen = ({ navigation }) => {
           text: 'Call Now',
           onPress: () => {
             setContactedProviderIds(prev => new Set(prev).add(provider._id));
-            Linking.openURL(url).catch(() => {
+            Linking.openURL(`tel:${cleanPhone}`).catch(() => {
               Alert.alert('Error', 'Unable to make phone calls on this device');
             });
           },
@@ -872,6 +916,7 @@ const UserHomeScreen = ({ navigation }) => {
     setSelectedProvider(null);
     setContactedProviderIds(new Set()); // Reset per search session — don't carry over from previous bookings
     setSkippingProviderId(null);
+    setAllProvidersRejected(false);
     animateSheetTo(SHEET_MID_HEIGHT);
     // Return map camera to user's GPS location
     mapRef.current?.animateToUserLocation(currentLocation);
@@ -1077,15 +1122,31 @@ const UserHomeScreen = ({ navigation }) => {
                 ListEmptyComponent={
                   <View style={styles.emptyContainer}>
                     <FixhomiLogo size={64} color="#D1D5DB" />
-                    <Text style={styles.emptyText}>No providers found nearby</Text>
-                    <Text style={styles.emptySubtext}>We're searching for providers to fix your home</Text>
-                    <TouchableOpacity 
-                      style={styles.retryButton} 
-                      onPress={handleRetrySearch}
-                    >
-                      <Icon name="refresh" size={20} color="#FFFFFF" />
-                      <Text style={styles.retryButtonText}>Retry Search</Text>
-                    </TouchableOpacity>
+                    {allProvidersRejected ? (
+                      <>
+                        <Text style={styles.emptyText}>All providers reviewed</Text>
+                        <Text style={styles.emptySubtext}>You've gone through all available providers. Start a fresh search to see them again.</Text>
+                        <TouchableOpacity 
+                          style={[styles.retryButton, { backgroundColor: BRAND.primary }]} 
+                          onPress={handleRetrySearch}
+                        >
+                          <Icon name="refresh" size={20} color="#FFFFFF" />
+                          <Text style={styles.retryButtonText}>Start Fresh Search</Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.emptyText}>No providers found nearby</Text>
+                        <Text style={styles.emptySubtext}>We're searching for providers to fix your home</Text>
+                        <TouchableOpacity 
+                          style={styles.retryButton} 
+                          onPress={handleRetrySearch}
+                        >
+                          <Icon name="refresh" size={20} color="#FFFFFF" />
+                          <Text style={styles.retryButtonText}>Retry Search</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
                   </View>
                 }
                 contentContainerStyle={styles.providersList}
@@ -1284,8 +1345,30 @@ const UserHomeScreen = ({ navigation }) => {
           }
         }}
         onCall={(phone) => {
-          // Called from ProviderDetailsModal - wrap in provider-like object
-          if (selectedProvider) {
+          // Called from ProviderDetailsModal with the freshly-fetched phone number
+          // Use the phone arg directly since it comes from the details endpoint (latest data)
+          // Fall back to selectedProvider data if phone arg is empty
+          if (phone) {
+            const phoneNumber = phone.replace(/[\s\-()]/g, '');
+            Alert.alert(
+              '📞 Call Provider',
+              `Call ${selectedProvider?.name || 'Provider'} at ${phone}?`,
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Call Now',
+                  onPress: () => {
+                    if (selectedProvider) {
+                      setContactedProviderIds(prev => new Set(prev).add(selectedProvider._id));
+                    }
+                    Linking.openURL(`tel:${phoneNumber}`).catch(() => {
+                      Alert.alert('Error', 'Unable to make phone calls on this device');
+                    });
+                  },
+                },
+              ]
+            );
+          } else if (selectedProvider) {
             handleCallProvider(selectedProvider);
           }
         }}

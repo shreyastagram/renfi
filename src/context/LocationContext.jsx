@@ -15,7 +15,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { Platform, PermissionsAndroid, Alert, Linking, AppState } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 import DeviceInfo from 'react-native-device-info';
-import { check, PERMISSIONS, RESULTS } from 'react-native-permissions';
+import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
+import { requestNotificationPermission } from '../services/fcmService';
 
 // Mapbox Access Token (from .env via centralized config)
 import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
@@ -155,13 +156,91 @@ export const LocationProvider = ({ children }) => {
   }, []);
   
   /**
-   * Request location permission
+   * Check current permission status WITHOUT requesting (silent check)
+   * Returns: 'granted' | 'denied' | 'blocked' | 'unknown'
+   */
+  const checkPermissionStatus = useCallback(async () => {
+    try {
+      if (Platform.OS === 'ios') {
+        const result = await check(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
+        if (result === RESULTS.GRANTED || result === RESULTS.LIMITED) {
+          setLocationPermission('granted');
+          return 'granted';
+        } else if (result === RESULTS.BLOCKED) {
+          setLocationPermission('blocked');
+          return 'blocked';
+        } else if (result === RESULTS.DENIED) {
+          setLocationPermission('denied');
+          return 'denied';
+        }
+        setLocationPermission('unknown');
+        return 'unknown';
+      }
+
+      // Android: check fine location permission
+      const granted = await PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+      );
+      if (granted) {
+        setLocationPermission('granted');
+        return 'granted';
+      }
+      setLocationPermission('denied');
+      return 'denied';
+    } catch (error) {
+      console.warn('[LocationContext] Permission check error:', error.message);
+      setLocationPermission('unknown');
+      return 'unknown';
+    }
+  }, []);
+  
+  /**
+   * Request location permission (only called when NOT already granted)
+   * Production-grade: checks first, only prompts when necessary
    */
   const requestPermission = useCallback(async () => {
-    if (Platform.OS === 'ios') {
-      // iOS - permissions handled through Info.plist
-      setLocationPermission('granted');
+    // First, silently check current status
+    const currentStatus = await checkPermissionStatus();
+    
+    // Already granted → no dialog needed
+    if (currentStatus === 'granted') {
+      console.log('📍 [LocationContext] Location permission already granted');
       return true;
+    }
+    
+    // Blocked (user selected "Never ask again") → send to Settings
+    if (currentStatus === 'blocked') {
+      console.log('🔒 [LocationContext] Location permission blocked, directing to Settings');
+      Alert.alert(
+        'Location Permission Required',
+        'FixHomi needs location access to find nearby service providers. Please enable it in Settings.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Open Settings',
+            onPress: () => {
+              if (Platform.OS === 'ios') {
+                Linking.openURL('app-settings:');
+              } else {
+                Linking.openSettings();
+              }
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+      return false;
+    }
+
+    // Not yet granted → request
+    if (Platform.OS === 'ios') {
+      const result = await request(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
+      if (result === RESULTS.GRANTED || result === RESULTS.LIMITED) {
+        setLocationPermission('granted');
+        return true;
+      }
+      setLocationPermission(result === RESULTS.BLOCKED ? 'blocked' : 'denied');
+      return false;
     }
     
     try {
@@ -187,11 +266,11 @@ export const LocationProvider = ({ children }) => {
         return false;
       }
     } catch (error) {
-      console.error('[LocationContext] Permission error:', error);
+      console.error('[LocationContext] Permission request error:', error);
       setLocationPermission('denied');
       return false;
     }
-  }, []);
+  }, [checkPermissionStatus]);
   
   /**
    * Check if device location services (GPS) are enabled.
@@ -275,8 +354,9 @@ export const LocationProvider = ({ children }) => {
       return currentLocation;
     }
     
-    // Check permission first
-    if (locationPermission !== 'granted') {
+    // Check permission first — silently check, only request if needed
+    const currentStatus = locationPermission === 'granted' ? 'granted' : await checkPermissionStatus();
+    if (currentStatus !== 'granted') {
       const granted = await requestPermission();
       if (!granted) {
         setLocationLoading(false);
@@ -480,7 +560,47 @@ export const LocationProvider = ({ children }) => {
   }, [fetchLocation]);
   
   /**
+   * Request notification permission (Android 13+ requires POST_NOTIFICATIONS)
+   * Called once during app init — non-blocking, doesn't affect location flow
+   */
+  const requestNotificationPermissionOnce = useCallback(async () => {
+    try {
+      if (Platform.OS === 'android' && Platform.Version >= 33) {
+        // Android 13+ (API 33) requires explicit POST_NOTIFICATIONS permission
+        const notifStatus = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+        );
+        if (!notifStatus) {
+          console.log('🔔 [LocationContext] Requesting notification permission...');
+          const result = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+            {
+              title: 'Notification Permission',
+              message: 'FixHomi needs notifications to alert you about service requests, provider updates, and important messages.',
+              buttonNegative: 'Deny',
+              buttonPositive: 'Allow',
+            }
+          );
+          console.log('🔔 [LocationContext] Notification permission:', result);
+        } else {
+          console.log('🔔 [LocationContext] Notification permission already granted');
+        }
+      }
+      // Also ensure FCM messaging permission is set (works on both platforms)
+      await requestNotificationPermission();
+    } catch (err) {
+      console.warn('⚠️ [LocationContext] Notification permission request failed:', err.message);
+    }
+  }, []);
+
+  /**
    * Initialize location on mount
+   * Production-grade flow:
+   * 1. Small delay for Android Activity attachment
+   * 2. Silently check location permission (no dialog if already granted)
+   * 3. Request notification permission (non-blocking)
+   * 4. Fetch location (will request permission only if not yet granted)
+   * 5. Start periodic updates
    */
   useEffect(() => {
     const init = async () => {
@@ -488,10 +608,17 @@ export const LocationProvider = ({ children }) => {
       // Prevents: "Tried to use permissions API while not attached to an Activity"
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Fetch location immediately
+      // Step 1: Silently check if location permission is already granted
+      const status = await checkPermissionStatus();
+      console.log('📍 [LocationContext] Initial permission status:', status);
+      
+      // Step 2: Request notification permission (non-blocking, parallel-safe)
+      requestNotificationPermissionOnce();
+      
+      // Step 3: Fetch location — will prompt for permission only if needed
       await fetchLocation(true);
       
-      // Start periodic updates
+      // Step 4: Start periodic updates
       startLocationUpdates();
     };
     
@@ -536,6 +663,7 @@ export const LocationProvider = ({ children }) => {
     // Actions
     refreshLocation,
     requestPermission,
+    checkPermissionStatus,
     openLocationSettings,
     showGpsOffAlert,
     

@@ -128,7 +128,18 @@ export const createEmergencyRequest = async ({ userId, serviceType, location, no
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || 'Failed to create emergency request');
+      console.error('[EmergencyService] Create failed:', data);
+      // Propagate error code (e.g., OUTSIDE_SERVICE_ZONE) so screens can show contextual UI
+      const errorCode = data.code || null;
+      const errorMessage = data.error || 'Failed to create emergency request';
+      const suggestion = data.details?.suggestion || null;
+      return {
+        success: false,
+        error: errorMessage,
+        code: errorCode,
+        suggestion,
+        statusCode: response.status,
+      };
     }
 
     return {

@@ -22,6 +22,7 @@ import {
   Switch,
   Dimensions,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
@@ -118,8 +119,29 @@ const ActionCard = ({ iconName, title, subtitle, onPress, color }) => (
 /**
  * Verification Status Card — shows progress on ProviderHomeScreen
  */
-const VerificationStatusCard = ({ dashboard, onPress }) => {
-  if (!dashboard) return null;
+const VerificationStatusCard = ({ dashboard, onPress, isLoading = false }) => {
+  // Show loading skeleton while dashboard is being fetched
+  if (!dashboard) {
+    if (!isLoading) return null;
+    return (
+      <TouchableOpacity 
+        style={[styles.verificationCard, { backgroundColor: '#FFF7ED', borderColor: BRAND.primary + '30' }]}
+        onPress={onPress}
+        activeOpacity={0.7}
+      >
+        <View style={styles.verificationCardContent}>
+          <View style={[styles.verificationProgress, { borderColor: BRAND.primary + '40' }]}>
+            <ActivityIndicator size="small" color={BRAND.primary} />
+          </View>
+          <View style={styles.verificationTextContent}>
+            <Text style={styles.verificationCardTitle}>Loading verification status...</Text>
+            <Text style={styles.verificationCardSubtitle}>Checking your profile completion</Text>
+          </View>
+          <Icon name="chevron-right" size={20} color={BRAND.primary} />
+        </View>
+      </TouchableOpacity>
+    );
+  }
 
   const steps = dashboard.steps || [];
   const completed = steps.filter(s => s.completed).length;
@@ -212,7 +234,7 @@ const VerificationStatusCard = ({ dashboard, onPress }) => {
  */
 const ProviderHomeScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { user, profile, logout, updateProviderAvailability } = useApp();
+  const { user, profile, logout, updateProviderAvailability, isProfileLoading } = useApp();
 
   // State - derive from profile/user for single source of truth
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -225,6 +247,7 @@ const ProviderHomeScreen = ({ navigation }) => {
     rating: 0,
   });
   const [verificationDashboard, setVerificationDashboard] = useState(null);
+  const [verificationLoading, setVerificationLoading] = useState(true);
 
   // Combined user data - single source of truth for availability
   const displayData = { ...user, ...profile };
@@ -290,12 +313,15 @@ const ProviderHomeScreen = ({ navigation }) => {
     if (!providerId) return;
 
     try {
+      setVerificationLoading(true);
       const result = await getVerificationDashboard(providerId);
       if (result.success) {
         setVerificationDashboard(result.data);
       }
     } catch (error) {
       console.log('[ProviderHome] Verification dashboard fetch error:', error.message);
+    } finally {
+      setVerificationLoading(false);
     }
   }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id]);
 
@@ -320,7 +346,24 @@ const ProviderHomeScreen = ({ navigation }) => {
       const result = await updateProviderAvailability(value);
       
       if (!result.success) {
-        Alert.alert('Error', result.error || 'Failed to update availability');
+        // Parse error for user-friendly messaging
+        const errorMsg = result.error || 'Failed to update availability';
+        const isNetworkError = /unable to connect|network|timeout|unavailable|ECONNREFUSED/i.test(errorMsg);
+        const isAuthError = /not authorized|token|auth|401|403/i.test(errorMsg);
+        
+        if (isNetworkError) {
+          Alert.alert(
+            'Connection Issue',
+            'Unable to reach the server. Please check your internet connection and try again.',
+          );
+        } else if (isAuthError) {
+          Alert.alert(
+            'Session Expired',
+            'Your session has expired. Please log out and log back in.',
+          );
+        } else {
+          Alert.alert('Error', errorMsg);
+        }
       } else {
         // Start/stop location tracking based on availability
         const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
@@ -329,10 +372,20 @@ const ProviderHomeScreen = ({ navigation }) => {
         } else {
           stopLocationTracking();
         }
+
+        // Show visibility warnings if any — tells provider why they might not appear in searches
+        if (value && result.visibilityWarnings && result.visibilityWarnings.length > 0) {
+          const warningText = result.visibilityWarnings.map((w, i) => `${i + 1}. ${w}`).join('\n');
+          Alert.alert(
+            '⚠️ Profile Visibility',
+            `You are now online, but your profile may not appear in search results yet:\n\n${warningText}`,
+            [{ text: 'Got It' }]
+          );
+        }
       }
     } catch (error) {
       console.error('Failed to update availability:', error);
-      Alert.alert('Error', 'Failed to update availability. Please try again.');
+      Alert.alert('Error', 'Something went wrong. Please check your internet connection and try again.');
     } finally {
       setIsUpdatingAvailability(false);
     }
@@ -431,6 +484,15 @@ const ProviderHomeScreen = ({ navigation }) => {
     fetchVerificationData();
   }, [fetchStats, fetchVerificationData]);
 
+  // Retry verification data once profile finishes loading
+  // This handles Google signup where MongoDB profile is auto-synced asynchronously
+  useEffect(() => {
+    if (!isProfileLoading && !verificationDashboard && (user?.mongoId || profile?.mongoId)) {
+      console.log('🔄 [ProviderHome] Profile loaded but verification dashboard empty — retrying...');
+      fetchVerificationData();
+    }
+  }, [isProfileLoading, verificationDashboard, user?.mongoId, profile?.mongoId, fetchVerificationData]);
+
   // Refresh verification data when screen regains focus (e.g., returning from Subscription/VerificationDashboard)
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
@@ -494,6 +556,7 @@ const ProviderHomeScreen = ({ navigation }) => {
         <VerificationStatusCard
           dashboard={verificationDashboard}
           onPress={() => navigation.navigate('VerificationDashboard')}
+          isLoading={verificationLoading || isProfileLoading}
         />
 
         {/* Stats Grid - Unified Brand Colors */}

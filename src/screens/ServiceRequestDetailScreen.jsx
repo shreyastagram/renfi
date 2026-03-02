@@ -26,6 +26,8 @@ import {
   TextInput,
   Modal,
   Image,
+  Switch,
+  AppState,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
@@ -43,9 +45,17 @@ import {
   submitRating,
   checkRatingStatus,
   SERVICE_TYPE_LABELS,
+  toggleLocationSharing,
+  getRequestProviderLocation,
 } from '../services/traditionalServiceService';
 import { addToFavorites, removeFromFavorites, checkIsFavorite } from '../services/favoritesService';
-import { addEventListener as addSocketListener, subscribeToRequest, unsubscribeFromRequest } from '../services/socketService';
+import {
+  addEventListener as addSocketListener,
+  subscribeToRequest,
+  unsubscribeFromRequest,
+  startRequestLocationTracking,
+  stopRequestLocationTracking,
+} from '../services/socketService';
 import { setupForegroundMessageListener } from '../services/fcmService';
 // Direct phone dialing - Exotel call masking removed
 
@@ -123,17 +133,110 @@ const STATUS_CONFIG = {
 };
 
 /**
- * Get status description based on user type
+ * Get status description based on user type and cancellation info
  */
-const getStatusDescription = (status, isProvider) => {
+const getStatusDescription = (status, isProvider, cancelledBy) => {
+  if (status === 'cancelled' && cancelledBy) {
+    if (cancelledBy === 'user') {
+      return isProvider ? 'Cancelled by the customer' : 'You cancelled this request';
+    }
+    if (cancelledBy === 'provider') {
+      return isProvider ? 'You cancelled this request' : 'The service provider cancelled';
+    }
+    if (cancelledBy === 'system') {
+      return 'Automatically cancelled by the system';
+    }
+  }
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
   return isProvider ? config.providerDescription : config.userDescription;
 };
 
 /**
+ * Cancellation Info Card — shows who cancelled, reason, and timestamp
+ */
+const CancellationInfoCard = ({ request, isProvider }) => {
+  if (request.status !== 'cancelled') return null;
+  
+  const cancelledBy = request.cancelledBy || null;
+  const reason = request.cancellationReason || request.cancelReason || null;
+  const cancelledAt = request.cancelledAt ? new Date(request.cancelledAt) : null;
+  
+  // Determine the display label for who cancelled
+  let cancelledByLabel;
+  if (cancelledBy === 'user') {
+    cancelledByLabel = isProvider ? 'Customer' : 'You';
+  } else if (cancelledBy === 'provider') {
+    cancelledByLabel = isProvider ? 'You' : 'Service Provider';
+  } else if (cancelledBy === 'system') {
+    cancelledByLabel = 'System';
+  } else {
+    cancelledByLabel = null;
+  }
+
+  // Clean up reason text — strip redundant "by user/provider" prefixes
+  let displayReason = reason;
+  if (displayReason) {
+    displayReason = displayReason
+      .replace(/^(User cancelled|Cancelled by user|Cancelled by provider|Provider cancelled)$/i, '')
+      .trim();
+  }
+
+  return (
+    <View style={{
+      backgroundColor: '#FEF2F2',
+      borderRadius: 12,
+      padding: 14,
+      marginTop: 12,
+      borderWidth: 1,
+      borderColor: '#FECACA',
+    }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: cancelledByLabel || displayReason || cancelledAt ? 8 : 0 }}>
+        <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="close" size={16} color="#DC2626" />
+        </View>
+        <Text style={{ fontSize: 14, fontWeight: '600', color: '#991B1B' }}>Request Cancelled</Text>
+      </View>
+      
+      {cancelledByLabel && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4, paddingLeft: 36 }}>
+          <Icon name="person" size={13} color="#B91C1C" />
+          <Text style={{ fontSize: 13, color: '#7F1D1D' }}>
+            Cancelled by: <Text style={{ fontWeight: '600' }}>{cancelledByLabel}</Text>
+          </Text>
+        </View>
+      )}
+      
+      {displayReason ? (
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: 4, paddingLeft: 36 }}>
+          <Icon name="info" size={13} color="#B91C1C" style={{ marginTop: 2 }} />
+          <Text style={{ fontSize: 12, color: '#991B1B', flex: 1, lineHeight: 17 }}>
+            {displayReason}
+          </Text>
+        </View>
+      ) : null}
+      
+      {cancelledAt && !isNaN(cancelledAt.getTime()) && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 36 }}>
+          <Icon name="clock" size={13} color="#B91C1C" />
+          <Text style={{ fontSize: 11, color: '#9B2C2C' }}>
+            {cancelledAt.toLocaleDateString('en-IN', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
+/**
  * Status Timeline Component — compact inline progress bar
  */
-const StatusTimeline = ({ currentStatus, isProvider = false }) => {
+const StatusTimeline = ({ currentStatus, isProvider = false, cancelledBy = null }) => {
   const status = STATUS_CONFIG[currentStatus] || STATUS_CONFIG.pending;
   const isCancelled = currentStatus === 'cancelled' || currentStatus === 'rejected';
   
@@ -149,7 +252,7 @@ const StatusTimeline = ({ currentStatus, isProvider = false }) => {
       <View style={styles.timelineContainer}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 8 }}>
           <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: status.color }} />
-          <Text style={{ fontSize: 13, color: BRAND.textSecondary }}>{getStatusDescription(currentStatus, isProvider)}</Text>
+          <Text style={{ fontSize: 13, color: BRAND.textSecondary }}>{getStatusDescription(currentStatus, isProvider, cancelledBy)}</Text>
         </View>
       </View>
     );
@@ -550,6 +653,9 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     initialRequest?.isEmergencyService || 
     EMERGENCY_SERVICE_TYPES.includes(initialRequest?.serviceType) ||
     EMERGENCY_SERVICE_TYPES.includes(route.params?.serviceType);
+
+  // Determine service category for location sharing API
+  const serviceCategory = isEventService ? 'event' : 'traditional';
   
   // State
   const [request, setRequest] = useState(initialRequest);
@@ -573,6 +679,14 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   const [enteredOtp, setEnteredOtp] = useState('');
   const [verifyingOtp, setVerifyingOtp] = useState(false);
 
+  // ─── Location Sharing State ────────────────────────────────────────
+  const [locationSharingEnabled, setLocationSharingEnabled] = useState(false);
+  const [locationSharingLoading, setLocationSharingLoading] = useState(false);
+  const [locationSharingData, setLocationSharingData] = useState(null);
+  const [providerLiveLocation, setProviderLiveLocation] = useState(null);
+  const [lastLocationUpdate, setLastLocationUpdate] = useState(null);
+  const locationSharingRef = useRef(false); // Avoid stale closure issues
+
   // Determine if viewer is the request owner (user who created the request)
   // vs the provider who is handling/viewing the request
   const isProvider = userType === 'provider';
@@ -583,6 +697,163 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     const javaUserId = user?.javaUserId || user?.userId || profile?.userId;
     return mongoId || javaUserId;
   }, [user, profile]);
+
+  // Get unified providerId (for providers)
+  const getProviderId = useCallback(() => {
+    return user?.mongoId || user?.javaUserId || profile?.mongoId || profile?._id;
+  }, [user, profile]);
+
+  // ─── Location Sharing: Fetch initial state ─────────────────────────
+  const fetchLocationSharingStatus = useCallback(async () => {
+    const reqId = request?._id;
+    if (!reqId || isEmergencyService) return;
+    if (!['accepted', 'in-progress'].includes(request?.status)) return;
+
+    try {
+      const result = await getRequestProviderLocation(reqId, serviceCategory);
+      if (result.success && result.locationSharing) {
+        const ls = result.locationSharing;
+        setLocationSharingData(ls);
+        setLocationSharingEnabled(ls.enabled || false);
+        locationSharingRef.current = ls.enabled || false;
+        if (ls.providerLocation) {
+          setProviderLiveLocation(ls.providerLocation);
+          setLastLocationUpdate(ls.providerLocation.updatedAt ? new Date(ls.providerLocation.updatedAt) : null);
+        }
+      }
+    } catch (error) {
+      console.warn('[LocationSharing] Fetch status error:', error);
+    }
+  }, [request?._id, request?.status, serviceCategory, isEmergencyService]);
+
+  // ─── Location Sharing: Toggle handler (provider) ───────────────────
+  const handleToggleLocationSharing = useCallback(async (newValue) => {
+    const reqId = request?._id;
+    const providerId = getProviderId();
+    if (!reqId || !providerId) return;
+
+    setLocationSharingLoading(true);
+    try {
+      const result = await toggleLocationSharing(reqId, providerId, newValue, serviceCategory);
+      if (result.success) {
+        setLocationSharingEnabled(newValue);
+        locationSharingRef.current = newValue;
+        if (newValue) {
+          // Start per-request tracking
+          startRequestLocationTracking(reqId, providerId, (loc) => {
+            setProviderLiveLocation(loc);
+            setLastLocationUpdate(new Date());
+          });
+        } else {
+          // Stop per-request tracking
+          stopRequestLocationTracking();
+          setProviderLiveLocation(null);
+          setLastLocationUpdate(null);
+        }
+      } else {
+        Alert.alert('Error', result.error || 'Failed to toggle location sharing');
+      }
+    } catch (error) {
+      console.error('[LocationSharing] Toggle error:', error);
+      Alert.alert('Error', 'Failed to update location sharing');
+    } finally {
+      setLocationSharingLoading(false);
+    }
+  }, [request?._id, getProviderId, serviceCategory]);
+
+  // ─── Location Sharing: Auto-enable logic & cleanup ─────────────────
+  useEffect(() => {
+    const reqId = request?._id;
+    if (!reqId || isEmergencyService) return;
+    if (!['accepted', 'in-progress'].includes(request?.status)) return;
+
+    // Fetch initial status
+    fetchLocationSharingStatus();
+
+    return () => {
+      // Cleanup: stop per-request tracking when leaving screen
+      stopRequestLocationTracking();
+    };
+  }, [request?._id, request?.status, isEmergencyService, fetchLocationSharingStatus]);
+
+  // Auto-enable 45 min before service time (provider only)
+  useEffect(() => {
+    if (!isProvider || isEmergencyService) return;
+    if (!['accepted', 'in-progress'].includes(request?.status)) return;
+    if (locationSharingRef.current) return; // Already enabled
+
+    const scheduledTime = locationSharingData?.scheduledTime;
+    if (!scheduledTime) return;
+
+    const serviceMs = new Date(scheduledTime).getTime();
+    const autoEnableMs = serviceMs - (45 * 60 * 1000);
+    const now = Date.now();
+
+    if (now >= autoEnableMs) {
+      // Already within 45 min — auto-enable
+      console.log('[LocationSharing] Auto-enabling (within 45 min threshold)');
+      handleToggleLocationSharing(true);
+    } else {
+      // Schedule auto-enable
+      const delay = autoEnableMs - now;
+      console.log(`[LocationSharing] Will auto-enable in ${Math.round(delay / 60000)} min`);
+      const timer = setTimeout(() => {
+        if (!locationSharingRef.current) {
+          handleToggleLocationSharing(true);
+        }
+      }, delay);
+      return () => clearTimeout(timer);
+    }
+  }, [isProvider, isEmergencyService, request?.status, locationSharingData?.scheduledTime, handleToggleLocationSharing]);
+
+  // Resume tracking if provider returns to screen with sharing already enabled
+  useEffect(() => {
+    if (!isProvider || !locationSharingEnabled || !request?._id) return;
+    if (!['accepted', 'in-progress'].includes(request?.status)) return;
+
+    const providerId = getProviderId();
+    if (!providerId) return;
+
+    startRequestLocationTracking(request._id, providerId, (loc) => {
+      setProviderLiveLocation(loc);
+      setLastLocationUpdate(new Date());
+    });
+
+    return () => stopRequestLocationTracking();
+  }, [isProvider, locationSharingEnabled, request?._id, request?.status, getProviderId]);
+
+  // Listen for real-time location updates via socket (user side)
+  useEffect(() => {
+    if (isProvider || !request?._id) return;
+    if (!['accepted', 'in-progress'].includes(request?.status)) return;
+
+    const cleanupLocation = addSocketListener('request:provider:location', (data) => {
+      if (data?.requestId === request._id) {
+        setProviderLiveLocation({
+          latitude: data.latitude,
+          longitude: data.longitude,
+          accuracy: data.accuracy,
+        });
+        setLastLocationUpdate(new Date(data.timestamp || Date.now()));
+      }
+    });
+
+    const cleanupStatus = addSocketListener('request:location:status', (data) => {
+      if (data?.requestId === request._id) {
+        setLocationSharingEnabled(data.enabled);
+        locationSharingRef.current = data.enabled;
+        if (!data.enabled) {
+          setProviderLiveLocation(null);
+          setLastLocationUpdate(null);
+        }
+      }
+    });
+
+    return () => {
+      cleanupLocation();
+      cleanupStatus();
+    };
+  }, [isProvider, request?._id, request?.status]);
 
   /**
    * Fetch request details - supports traditional, event, and emergency services.
@@ -1343,6 +1614,10 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   const rawServiceDate = request.serviceDate || request.eventDate || request.assignedAt || request.createdAt;
   const serviceDate = rawServiceDate ? new Date(rawServiceDate) : null;
   const createdAt = request.createdAt ? new Date(request.createdAt) : null;
+  
+  // Resolve service time for scheduled bookings (Traditional services)
+  // serviceTime can be an ISO date string (e.g., "2026-03-03T19:30:00.000Z") or "HH:MM"
+  const serviceTime = request.serviceTime || null;
   const isActive = ['pending', 'accepted', 'in-progress'].includes(request.status);
   // Only show OTP for users (not providers) - providers should NOT see the OTP
   const showOtp = !isProvider && request.completionOtp && ['accepted', 'in-progress'].includes(request.status);
@@ -1481,7 +1756,10 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         )}
 
         {/* Status Timeline */}
-        <StatusTimeline currentStatus={request.status} isProvider={isProvider} />
+        <StatusTimeline currentStatus={request.status} isProvider={isProvider} cancelledBy={request.cancelledBy} />
+
+        {/* Cancellation Details — production-grade info card */}
+        <CancellationInfoCard request={request} isProvider={isProvider} />
 
         {/* OTP Section (for accepted/in-progress) - User sees OTP to share */}
         {showOtp && (
@@ -1530,6 +1808,128 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           </View>
         )}
 
+        {/* ─── Provider Location Sharing Card ─────────────────────────── */}
+        {isProvider && !isEmergencyService && ['accepted', 'in-progress'].includes(request.status) && (() => {
+          const scheduledTime = locationSharingData?.scheduledTime;
+          const now = Date.now();
+          const serviceMs = scheduledTime ? new Date(scheduledTime).getTime() : null;
+          const msUntilService = serviceMs ? serviceMs - now : null;
+          const AUTO_THRESHOLD = 45 * 60 * 1000;
+          const isWithin45Min = msUntilService != null && msUntilService <= AUTO_THRESHOLD;
+          const isAutoEnabled = locationSharingData?.enabledBy === 'auto';
+
+          // Format time until service
+          let timeUntilLabel = '';
+          if (msUntilService != null && msUntilService > 0) {
+            const hrs = Math.floor(msUntilService / 3600000);
+            const mins = Math.floor((msUntilService % 3600000) / 60000);
+            if (hrs > 0) timeUntilLabel = `${hrs}h ${mins}m`;
+            else timeUntilLabel = `${mins} min`;
+          } else if (msUntilService != null) {
+            timeUntilLabel = 'Now';
+          }
+
+          // Format last update time
+          let lastUpdateLabel = '';
+          if (lastLocationUpdate) {
+            const diffMs = now - lastLocationUpdate.getTime();
+            if (diffMs < 10000) lastUpdateLabel = 'Just now';
+            else if (diffMs < 60000) lastUpdateLabel = `${Math.floor(diffMs / 1000)}s ago`;
+            else lastUpdateLabel = `${Math.floor(diffMs / 60000)}m ago`;
+          }
+
+          return (
+            <View style={styles.locationSharingCard}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={{
+                    width: 32, height: 32, borderRadius: 16,
+                    backgroundColor: locationSharingEnabled ? '#D1FAE5' : '#F3F4F6',
+                    alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <Icon name="location" size={18} color={locationSharingEnabled ? BRAND.success : BRAND.textMuted} />
+                  </View>
+                  <View>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: BRAND.text }}>Location Sharing</Text>
+                    <Text style={{ fontSize: 11, color: BRAND.textMuted }}>
+                      {locationSharingEnabled ? 'Active — customer can see your location' : 'Customer cannot see your location'}
+                    </Text>
+                  </View>
+                </View>
+                {locationSharingLoading ? (
+                  <ActivityIndicator size="small" color={BRAND.secondary} />
+                ) : (
+                  <Switch
+                    value={locationSharingEnabled}
+                    onValueChange={handleToggleLocationSharing}
+                    trackColor={{ false: '#E5E7EB', true: '#86EFAC' }}
+                    thumbColor={locationSharingEnabled ? BRAND.success : '#9CA3AF'}
+                    ios_backgroundColor="#E5E7EB"
+                  />
+                )}
+              </View>
+
+              {/* Status info rows */}
+              {locationSharingEnabled && (
+                <View style={{ backgroundColor: '#F0FDF4', borderRadius: 10, padding: 10, gap: 6 }}>
+                  {/* Pulsing active indicator */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND.success }} />
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#065F46' }}>
+                      Sharing location with customer
+                    </Text>
+                  </View>
+                  {lastUpdateLabel ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 14 }}>
+                      <Icon name="clock" size={11} color="#047857" />
+                      <Text style={{ fontSize: 11, color: '#047857' }}>Last update: {lastUpdateLabel}</Text>
+                    </View>
+                  ) : null}
+                  {providerLiveLocation?.accuracy && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 14 }}>
+                      <Icon name="target" size={11} color="#047857" />
+                      <Text style={{ fontSize: 11, color: '#047857' }}>
+                        Accuracy: ~{Math.round(providerLiveLocation.accuracy)}m
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {!locationSharingEnabled && (
+                <View style={{ gap: 6 }}>
+                  {/* Time until service */}
+                  {timeUntilLabel && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Icon name="clock" size={13} color={BRAND.textSecondary} />
+                      <Text style={{ fontSize: 12, color: BRAND.textSecondary }}>
+                        Service {msUntilService > 0 ? `in ${timeUntilLabel}` : 'time reached'}
+                      </Text>
+                    </View>
+                  )}
+                  {/* Auto-enable info */}
+                  {!isWithin45Min && msUntilService != null && msUntilService > 0 && (
+                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: '#FEF3C7', borderRadius: 8, padding: 8 }}>
+                      <Icon name="info" size={13} color="#92400E" style={{ marginTop: 1 }} />
+                      <Text style={{ flex: 1, fontSize: 11, color: '#92400E', lineHeight: 16 }}>
+                        Location sharing will auto-enable 45 min before service time. Toggle on now if you'd like to share earlier.
+                      </Text>
+                    </View>
+                  )}
+                  {isWithin45Min && msUntilService != null && (
+                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: '#DBEAFE', borderRadius: 8, padding: 8 }}>
+                      <Icon name="info" size={13} color="#1E40AF" style={{ marginTop: 1 }} />
+                      <Text style={{ flex: 1, fontSize: 11, color: '#1E40AF', lineHeight: 16 }}>
+                        Service is within 45 minutes. Toggle on to share your location with the customer.
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
+          );
+        })()}
+
         {/* Provider Card - Only show for users (not providers) */}
         {!isProvider && request.providerDetails && (
           <ProviderCard 
@@ -1537,13 +1937,132 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             onCall={handleCall}
             showActions={['pending', 'accepted', 'in-progress'].includes(request.status)}
             onGetLocation={
-              // Only show track location for traditional services (not event services)
-              !request.isEventService && ['accepted', 'in-progress'].includes(request.status) 
+              // Track button — only available when provider is actively sharing location for THIS request
+              locationSharingEnabled && providerLiveLocation && ['accepted', 'in-progress'].includes(request.status) 
                 ? handleGetProviderLocation 
                 : null
             }
           />
         )}
+
+        {/* ─── User-side Provider Location Status ─────────────────────── */}
+        {!isProvider && !isEmergencyService && ['accepted', 'in-progress'].includes(request.status) && request.providerDetails && (() => {
+          const scheduledTime = locationSharingData?.scheduledTime;
+          const now = Date.now();
+          const serviceMs = scheduledTime ? new Date(scheduledTime).getTime() : null;
+          const msUntilService = serviceMs ? serviceMs - now : null;
+          const AUTO_THRESHOLD = 45 * 60 * 1000;
+          const isWithin45Min = msUntilService != null && msUntilService <= AUTO_THRESHOLD;
+
+          let timeUntilLabel = '';
+          if (msUntilService != null && msUntilService > 0) {
+            const hrs = Math.floor(msUntilService / 3600000);
+            const mins = Math.floor((msUntilService % 3600000) / 60000);
+            if (hrs > 0) timeUntilLabel = `${hrs}h ${mins}m`;
+            else timeUntilLabel = `${mins} min`;
+          }
+
+          let lastUpdateLabel = '';
+          if (lastLocationUpdate) {
+            const diffMs = now - lastLocationUpdate.getTime();
+            if (diffMs < 10000) lastUpdateLabel = 'Just now';
+            else if (diffMs < 60000) lastUpdateLabel = `${Math.floor(diffMs / 1000)}s ago`;
+            else if (diffMs < 3600000) lastUpdateLabel = `${Math.floor(diffMs / 60000)}m ago`;
+            else lastUpdateLabel = `${Math.floor(diffMs / 3600000)}h ago`;
+          }
+
+          if (locationSharingEnabled && providerLiveLocation) {
+            // Provider is actively sharing
+            return (
+              <View style={styles.providerLocationCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name="location" size={18} color={BRAND.success} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: BRAND.text }}>Provider Location</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 }}>
+                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: BRAND.success }} />
+                      <Text style={{ fontSize: 11, color: '#059669', fontWeight: '600' }}>Live — sharing location</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {lastUpdateLabel ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8, paddingLeft: 40 }}>
+                    <Icon name="clock" size={11} color={BRAND.textMuted} />
+                    <Text style={{ fontSize: 11, color: BRAND.textMuted }}>Updated {lastUpdateLabel}</Text>
+                  </View>
+                ) : null}
+
+                <TouchableOpacity
+                  style={styles.trackProviderButton}
+                  onPress={handleGetProviderLocation}
+                  activeOpacity={0.7}
+                >
+                  <Icon name="location" size={16} color="#FFFFFF" />
+                  <Text style={{ color: '#FFF', fontWeight: '600', fontSize: 13 }}>Track Live Location</Text>
+                  <Icon name="chevron-right" size={14} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            );
+          } else if (locationSharingEnabled && !providerLiveLocation) {
+            // Sharing enabled but no location yet (provider just toggled on)
+            return (
+              <View style={styles.providerLocationCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center' }}>
+                    <ActivityIndicator size="small" color="#F59E0B" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: BRAND.text }}>Provider Location</Text>
+                    <Text style={{ fontSize: 11, color: '#B45309' }}>Acquiring location...</Text>
+                  </View>
+                </View>
+                <Text style={{ fontSize: 11, color: BRAND.textMuted, paddingLeft: 40, lineHeight: 16 }}>
+                  Provider has enabled location sharing. Their position will appear shortly.
+                </Text>
+              </View>
+            );
+          } else {
+            // Provider not sharing yet
+            return (
+              <View style={styles.providerLocationCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name="location" size={18} color={BRAND.textMuted} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: BRAND.text }}>Provider Location</Text>
+                    <Text style={{ fontSize: 11, color: BRAND.textMuted }}>Not sharing yet</Text>
+                  </View>
+                </View>
+                {!isWithin45Min && msUntilService != null && msUntilService > 0 ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: '#EFF6FF', borderRadius: 8, padding: 8 }}>
+                    <Icon name="clock" size={13} color={BRAND.secondary} style={{ marginTop: 1 }} />
+                    <Text style={{ flex: 1, fontSize: 11, color: '#1E40AF', lineHeight: 16 }}>
+                      Provider location will be available 45 min before service time.{timeUntilLabel ? ` Service in ${timeUntilLabel}.` : ''}
+                    </Text>
+                  </View>
+                ) : isWithin45Min || (msUntilService != null && msUntilService <= 0) ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: '#FEF3C7', borderRadius: 8, padding: 8 }}>
+                    <Icon name="clock" size={13} color="#B45309" style={{ marginTop: 1 }} />
+                    <Text style={{ flex: 1, fontSize: 11, color: '#92400E', lineHeight: 16 }}>
+                      Waiting for the provider to start sharing their location...
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: '#F3F4F6', borderRadius: 8, padding: 8 }}>
+                    <Icon name="info" size={13} color={BRAND.textMuted} style={{ marginTop: 1 }} />
+                    <Text style={{ flex: 1, fontSize: 11, color: BRAND.textSecondary, lineHeight: 16 }}>
+                      The provider will share their live location before the scheduled service time.
+                    </Text>
+                  </View>
+                )}
+              </View>
+            );
+          }
+        })()}
 
         {/* Customer Details — compact, for providers only */}
         {isProvider && request.userDetails && (
@@ -1638,18 +2157,41 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         <View style={styles.detailsCard}>
           <Text style={styles.sectionTitle}>Request Details</Text>
           
-          {serviceDate && !isNaN(serviceDate.getTime()) && (
-            <InfoRow 
-              iconName="calendar" 
-              label={isEmergencyService ? "Requested On" : "Service Date"}
-              value={serviceDate.toLocaleDateString('en-IN', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              })}
-            />
-          )}
+          {serviceDate && !isNaN(serviceDate.getTime()) && (() => {
+            let dateStr = serviceDate.toLocaleDateString('en-IN', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+            });
+            // Merge serviceTime into the same line for scheduled bookings
+            // serviceTime can be ISO date ("2026-03-03T19:30:00.000Z") or "HH:MM"
+            if (serviceTime && !isEmergencyService) {
+              let h, m;
+              const asDate = new Date(serviceTime);
+              if (!isNaN(asDate.getTime()) && serviceTime.length > 5) {
+                // ISO date string — extract hours/minutes
+                h = asDate.getHours();
+                m = asDate.getMinutes();
+              } else {
+                // "HH:MM" format
+                [h, m] = String(serviceTime).split(':').map(Number);
+              }
+              if (!isNaN(h) && !isNaN(m)) {
+                const period = h >= 12 ? 'PM' : 'AM';
+                const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+                const displayMin = String(m).padStart(2, '0');
+                dateStr += `  ·  ${displayHour}:${displayMin} ${period}`;
+              }
+            }
+            return (
+              <InfoRow 
+                iconName="calendar" 
+                label={isEmergencyService ? "Requested On" : "Service Date"}
+                value={dateStr}
+              />
+            );
+          })()}
           
           {createdAt && !isNaN(createdAt.getTime()) && (
             <InfoRow 
@@ -2641,6 +3183,44 @@ const styles = StyleSheet.create({
   },
   providerOtpButtonDisabled: {
     backgroundColor: '#C4B5FD',
+  },
+
+  // ─── Location Sharing Styles ────────────────────────────────────
+  locationSharingCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  providerLocationCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  trackProviderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: BRAND.secondary,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    gap: 6,
   },
 });
 

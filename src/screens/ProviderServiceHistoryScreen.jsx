@@ -177,6 +177,35 @@ const RequestCard = ({ request, onPress, onCall, onDirections }) => {
         </View>
       </View>
 
+      {/* Cancellation info — shows who cancelled and reason */}
+      {request.status === 'cancelled' && (() => {
+        const cancelledBy = request.cancelledBy;
+        const reason = request.cancellationReason || request.cancelReason;
+        let label = '';
+        if (cancelledBy === 'user') {
+          label = 'Cancelled by Customer';
+        } else if (cancelledBy === 'provider') {
+          label = 'Cancelled by You';
+        } else if (cancelledBy === 'system') {
+          label = 'Cancelled by System';
+        } else {
+          label = reason || 'Request cancelled';
+        }
+        const genericReasons = ['user cancelled', 'cancelled by user', 'cancelled by provider', 'provider cancelled'];
+        const hasCustomReason = reason && !genericReasons.includes(reason.toLowerCase());
+        if (hasCustomReason && cancelledBy) {
+          label += ` — ${reason}`;
+        }
+        return (
+          <View style={{ backgroundColor: '#FEF2F2', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6, marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Icon name="info" size={12} color="#B91C1C" />
+            <Text style={{ fontSize: 12, color: '#991B1B', flex: 1 }} numberOfLines={2}>
+              {label}
+            </Text>
+          </View>
+        );
+      })()}
+
       {/* Customer Info */}
       {request.userDetails && (
         <View style={styles.customerContainer}>
@@ -239,6 +268,31 @@ const RequestCard = ({ request, onPress, onCall, onDirections }) => {
             })}
           </Text>
         </View>
+        {/* Service Time — for scheduled/future bookings */}
+        {request.serviceTime && (() => {
+          let h, m;
+          const asDate = new Date(request.serviceTime);
+          if (!isNaN(asDate.getTime()) && request.serviceTime.length > 5) {
+            h = asDate.getHours();
+            m = asDate.getMinutes();
+          } else {
+            [h, m] = String(request.serviceTime).split(':').map(Number);
+          }
+          if (isNaN(h) || isNaN(m)) return null;
+          const period = h >= 12 ? 'PM' : 'AM';
+          const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+          return (
+            <>
+              <View style={styles.dateDivider} />
+              <View style={styles.dateItem}>
+                <Text style={styles.dateLabel}>Service Time</Text>
+                <Text style={styles.dateValue}>
+                  {`${displayHour}:${String(m).padStart(2, '0')} ${period}`}
+                </Text>
+              </View>
+            </>
+          );
+        })()}
         {request.completedAt && (
           <>
             <View style={styles.dateDivider} />
