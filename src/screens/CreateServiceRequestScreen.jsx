@@ -174,8 +174,9 @@ const CreateServiceRequestScreen = ({ navigation }) => {
         console.error('[Location] Error:', error);
         setLocationLoading(false);
         
-        // Detect GPS turned off (code 2 = POSITION_UNAVAILABLE, code 3 = TIMEOUT with no fallback)
-        if (error.code === 2 || (error.code === 3 && !location)) {
+        // Only error code 2 (POSITION_UNAVAILABLE) reliably indicates GPS is off.
+        // Code 3 (TIMEOUT) can happen on cold GPS start — don't treat as GPS-off.
+        if (error.code === 2) {
           setLocationError('GPS is turned off');
           Alert.alert(
             'Location is Turned Off',

@@ -101,7 +101,7 @@ const RegisterScreen = ({ navigation }) => {
    */
   const handleGoToLogin = useCallback(() => {
     setShowAccountExistsModal(false);
-    navigation.navigate('UserAuthScreen', { 
+    navigation.navigate('UserAuth', { 
       initialTab: 'login',
       prefillEmail: existingEmail 
     });
@@ -112,7 +112,7 @@ const RegisterScreen = ({ navigation }) => {
    */
   const handleForgotPassword = useCallback(() => {
     setShowAccountExistsModal(false);
-    navigation.navigate('ForgotPasswordScreen', { 
+    navigation.navigate('ForgotPassword', { 
       prefillEmail: existingEmail 
     });
   }, [navigation, existingEmail]);
@@ -122,7 +122,7 @@ const RegisterScreen = ({ navigation }) => {
    */
   const handlePhoneGoToLogin = useCallback(() => {
     setShowPhoneExistsModal(false);
-    navigation.navigate('UserAuthScreen', { 
+    navigation.navigate('UserAuth', { 
       initialTab: 'login' 
     });
   }, [navigation]);
@@ -261,16 +261,17 @@ const RegisterScreen = ({ navigation }) => {
 
   /**
    * Handle Google Sign-In for registration
-   * Creates account with USER role
+   * Uses mode="signup" — backend will NOT login existing users
    */
   const handleGoogleSignIn = async () => {
     try {
       setGoogleLoading(true);
       clearAlert();
 
-      console.log('🔐 [RegisterScreen] Starting Google Sign-In as USER');
+      console.log('🔐 [RegisterScreen] Starting Google Sign-Up as USER');
       
-      const result = await signInWithGoogleAsUser();
+      // ✅ KEY CHANGE: Pass mode="signup" — backend rejects if already registered
+      const result = await signInWithGoogleAsUser('signup');
 
       if (result.success) {
         const { accessToken, refreshToken, user, isNewUser } = result.data;
@@ -325,10 +326,18 @@ const RegisterScreen = ({ navigation }) => {
         
         // Handle role conflict
         if (error.code === GOOGLE_AUTH_CODES.ROLE_CONFLICT) {
+          const existingRole = error.existingRole === 'SERVICE_PROVIDER' ? 'Service Provider' : 'User';
           showAlert(
-            'This email is already registered as a Service Provider. Each email can only be used for one account type.',
+            `This email is already registered as a ${existingRole}. Each email can only be used for one account type.`,
             'warning'
           );
+          return;
+        }
+        
+        // ✅ Handle already registered — user should login instead
+        if (error.code === GOOGLE_AUTH_CODES.ALREADY_REGISTERED) {
+          setExistingEmail('this Google account');
+          setShowAccountExistsModal(true);
           return;
         }
         
@@ -396,6 +405,7 @@ const RegisterScreen = ({ navigation }) => {
               error={errors.fullName}
               autoCapitalize="words"
               autoComplete="name"
+              required
             />
 
             <Input
@@ -407,6 +417,7 @@ const RegisterScreen = ({ navigation }) => {
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
+              required
             />
 
             <Input
@@ -417,6 +428,7 @@ const RegisterScreen = ({ navigation }) => {
               error={errors.password}
               secureTextEntry
               autoComplete="password-new"
+              required
             />
 
             <Input

@@ -26,15 +26,18 @@ import {
   Linking,
   Platform,
   Vibration,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
 import { startLocationTracking, stopLocationTracking } from '../services/socketService';
-import { Icon, FixhomiLogo } from '../components';
+import { Icon } from '../components';
 import { NODE_BASE_URL, JAVA_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
+
+const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
 // Brand colors
 const BRAND = {
@@ -792,11 +795,11 @@ const SettingsScreen = ({ navigation }) => {
           <ActionRow
             iconName="info"
             title="About FixHomi"
-            subtitle="Version 1.0.0"
+            subtitle="Version 1.5"
             onPress={() => {
               Alert.alert(
                 'About FixHomi',
-                'FixHomi - Your trusted home services partner.\n\nVersion 1.0.0\nBuild 2026.01.22\n\n© 2026 FixHomi. All rights reserved.',
+                'FixHomi - Your trusted home services partner.\n\nVersion 1.5\nBuild 2026.03.04\n\n© 2026 FixHomi. All rights reserved.',
                 [{ text: 'OK' }]
               );
             }}
@@ -902,7 +905,7 @@ const SettingsScreen = ({ navigation }) => {
         
         {/* Brand Footer */}
         <View style={styles.brandFooter}>
-          <FixhomiLogo size={40} color={BRAND.primary} />
+          <Image source={FIXHOMI_LOGO} style={styles.brandFooterLogo} />
           <Text style={styles.brandFooterText}>FixHomi</Text>
           <Text style={styles.brandFooterTagline}>Fix Your Home, Anytime</Text>
         </View>
@@ -1162,6 +1165,11 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
     paddingBottom: 48,
     gap: 8,
+  },
+  brandFooterLogo: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
   },
   brandFooterText: {
     fontSize: 18,

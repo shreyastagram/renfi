@@ -37,8 +37,10 @@ import RazorpayCheckout from 'react-native-razorpay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
-import { LocationMap, Icon, ServiceIcon, DateTimePicker, LocationPicker, ProviderDetailsModal, FixhomiLogo } from '../components';
+import { LocationMap, Icon, ServiceIcon, DateTimePicker, LocationPicker, ProviderDetailsModal, FixhomiLogo, CancellationReasonModal } from '../components';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
+
+const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 import { useApp } from '../context/AppContext';
 import { useLocation } from '../context/LocationContext';
 import {
@@ -56,8 +58,8 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Bottom sheet heights
 const SHEET_MIN_HEIGHT = 160;
-const SHEET_MID_HEIGHT = SCREEN_HEIGHT * 0.40; // 30% for initial state - shows user location
-const SHEET_MAX_HEIGHT = SCREEN_HEIGHT * 0.85;
+const SHEET_MID_HEIGHT = SCREEN_HEIGHT * 0.40; // 40% for initial state - shows user location
+const SHEET_MAX_HEIGHT = SCREEN_HEIGHT * 0.80; // Never exceed 80% of screen
 
 // Brand colors
 const BRAND = {
@@ -210,8 +212,10 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
   </TouchableOpacity>
 );
 
-const UserHomeScreen = ({ navigation }) => {
+const UserHomeScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
+  // Cap sheet max height — 80% of screen ensures it stays below the top bar icons
+  const safeMaxHeight = SHEET_MAX_HEIGHT;
   const mapRef = useRef(null);
   const { user, profile, userType, logout } = useApp();
   
@@ -256,6 +260,23 @@ const UserHomeScreen = ({ navigation }) => {
     setLocationPermission(globalLocationPermission);
   }, [globalLocationPermission]);
 
+  // Handle pre-selected service from Favorites screen or deep link
+  // Note: animateSheetTo is defined after the PanResponder, so we use a ref-based approach
+  const pendingPreSelectRef = useRef(null);
+  useEffect(() => {
+    const preSelectedService = route?.params?.preSelectedService;
+    if (preSelectedService) {
+      const service = SERVICE_CATEGORIES.find(s => s.id === preSelectedService);
+      if (service) {
+        setSelectedService(service);
+        setStep('date');
+        pendingPreSelectRef.current = true;
+        // Clear the param so it doesn't re-trigger
+        navigation.setParams({ preSelectedService: undefined, preSelectedProvider: undefined });
+      }
+    }
+  }, [route?.params?.preSelectedService]);
+
   // Animated sheet height
   const sheetHeight = useRef(new Animated.Value(SHEET_MID_HEIGHT)).current;
   const currentHeightRef = useRef(SHEET_MID_HEIGHT);
@@ -278,7 +299,7 @@ const UserHomeScreen = ({ navigation }) => {
         // Calculate new height based on drag (negative dy = swipe up = increase height)
         const newHeight = Math.max(
           SHEET_MIN_HEIGHT,
-          Math.min(SHEET_MAX_HEIGHT, currentHeightRef.current - gestureState.dy)
+          Math.min(safeMaxHeight, currentHeightRef.current - gestureState.dy)
         );
         sheetHeight.setValue(newHeight);
       },
@@ -293,10 +314,10 @@ const UserHomeScreen = ({ navigation }) => {
         if (Math.abs(velocity) > 0.15) {
           if (velocity < 0) {
             // Swiping up fast
-            targetHeight = SHEET_MAX_HEIGHT;
+            targetHeight = safeMaxHeight;
           } else {
             // Swiping down — always step down one level
-            if (currentHeightRef.current >= SHEET_MAX_HEIGHT * 0.7) {
+            if (currentHeightRef.current >= safeMaxHeight * 0.7) {
               targetHeight = SHEET_MID_HEIGHT;
             } else {
               targetHeight = SHEET_MIN_HEIGHT;
@@ -306,26 +327,26 @@ const UserHomeScreen = ({ navigation }) => {
           // Even very small drags (30px) should trigger state change
           if (dragDistance > 0) {
             // Dragging down — step down one level
-            if (currentHeightRef.current >= SHEET_MAX_HEIGHT * 0.7) {
+            if (currentHeightRef.current >= safeMaxHeight * 0.7) {
               targetHeight = SHEET_MID_HEIGHT;
             } else {
               targetHeight = SHEET_MIN_HEIGHT;
             }
           } else {
             // Dragging up
-            targetHeight = SHEET_MAX_HEIGHT;
+            targetHeight = safeMaxHeight;
           }
         } else {
           // Snap to nearest position based on current position
           const midPoint1 = (SHEET_MIN_HEIGHT + SHEET_MID_HEIGHT) / 2;
-          const midPoint2 = (SHEET_MID_HEIGHT + SHEET_MAX_HEIGHT) / 2;
+          const midPoint2 = (SHEET_MID_HEIGHT + safeMaxHeight) / 2;
           
           if (currentValue < midPoint1) {
             targetHeight = SHEET_MIN_HEIGHT;
           } else if (currentValue < midPoint2) {
             targetHeight = SHEET_MID_HEIGHT;
           } else {
-            targetHeight = SHEET_MAX_HEIGHT;
+            targetHeight = safeMaxHeight;
           }
         }
         
@@ -335,10 +356,11 @@ const UserHomeScreen = ({ navigation }) => {
           useNativeDriver: false,
           friction: 7,
           tension: 50,
+          overshootClamping: true,
         }).start();
       },
     }),
-  [sheetHeight]);
+  [sheetHeight, safeMaxHeight]);
 
   // Function to animate sheet to a specific height
   const animateSheetTo = useCallback((targetHeight) => {
@@ -348,8 +370,18 @@ const UserHomeScreen = ({ navigation }) => {
       useNativeDriver: false,
       friction: 8,
       tension: 65,
+      overshootClamping: true,
     }).start();
   }, [sheetHeight]);
+
+  // If a pre-selected service was set from Favorites, animate the sheet up
+  useEffect(() => {
+    if (pendingPreSelectRef.current) {
+      pendingPreSelectRef.current = false;
+      // Small delay so the component has re-rendered with the new step
+      setTimeout(() => animateSheetTo(safeMaxHeight), 150);
+    }
+  }, [step, animateSheetTo, safeMaxHeight]);
 
   const displayData = { ...user, ...profile };
   const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
@@ -552,7 +584,7 @@ const UserHomeScreen = ({ navigation }) => {
             onPress: () => {
               setSelectedService(service);
               setStep('date');
-              animateSheetTo(SHEET_MAX_HEIGHT);
+              animateSheetTo(safeMaxHeight);
             },
           },
         ]
@@ -562,7 +594,7 @@ const UserHomeScreen = ({ navigation }) => {
     
     setSelectedService(service);
     setStep('date');
-    animateSheetTo(SHEET_MAX_HEIGHT);
+    animateSheetTo(safeMaxHeight);
   };
 
   // Handle date/time selection from DateTimePicker
@@ -758,6 +790,10 @@ const UserHomeScreen = ({ navigation }) => {
   // Skip provider state
   const [skippingProviderId, setSkippingProviderId] = useState(null);
 
+  // Cancel reason modal state
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancellingRequest, setCancellingRequest] = useState(false);
+
   /**
    * Skip/Remove a provider from the list.
    * Backend adds them to rejectedProviders and returns a replacement (if available).
@@ -923,7 +959,7 @@ const UserHomeScreen = ({ navigation }) => {
   };
 
   /**
-   * Cancel the current request and go back
+   * Cancel the current request — opens reason modal first
    */
   const handleCancelRequest = async () => {
     if (!createdRequest?._id) {
@@ -931,32 +967,30 @@ const UserHomeScreen = ({ navigation }) => {
       resetFlow();
       return;
     }
+    // Open cancellation reason modal instead of a bare Alert
+    setCancelModalVisible(true);
+  };
 
-    Alert.alert(
-      'Cancel Request',
-      'Are you sure you want to cancel this service request?',
-      [
-        { text: 'No, Keep It', style: 'cancel' },
-        {
-          text: 'Yes, Cancel',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const result = await cancelRequest(createdRequest._id, userId, 'User cancelled from app');
-              if (result.success) {
-                Alert.alert('Request Cancelled', 'Your request has been cancelled.', [
-                  { text: 'OK', onPress: resetFlow }
-                ]);
-              } else {
-                Alert.alert('Error', result.error || 'Failed to cancel request');
-              }
-            } catch (error) {
-              Alert.alert('Error', 'Something went wrong');
-            }
-          },
-        },
-      ]
-    );
+  /**
+   * Execute cancellation after user selects a reason
+   */
+  const executeCancellation = async (reason) => {
+    setCancellingRequest(true);
+    try {
+      const result = await cancelRequest(createdRequest._id, userId, reason);
+      setCancelModalVisible(false);
+      if (result.success) {
+        Alert.alert('Request Cancelled', 'Your request has been cancelled.', [
+          { text: 'OK', onPress: resetFlow }
+        ]);
+      } else {
+        Alert.alert('Error', result.error || 'Failed to cancel request');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Something went wrong');
+    } finally {
+      setCancellingRequest(false);
+    }
   };
 
   const handleLogout = async () => await logout();
@@ -1242,27 +1276,39 @@ const UserHomeScreen = ({ navigation }) => {
       />
       
       {/* Permission Warning Bars */}
-      {(locationPermission === 'denied' || locationPermission === 'blocked' || !locationServicesEnabled) && (
+      {(locationPermission === 'denied' || locationPermission === 'blocked') && locationServicesEnabled && (
         <View style={[styles.permissionBar, { top: insets.top + 60 }]}>
           <Icon name="location" size={18} color="#F59E0B" />
           <Text style={styles.permissionBarText}>
-            {!locationServicesEnabled 
-              ? 'Location is turned off. Turn it on for better experience.' 
-              : 'Location permission needed for finding nearby providers.'}
+            Location permission needed for finding nearby providers.
           </Text>
           <TouchableOpacity 
             style={styles.permissionBarButton}
-            onPress={locationPermission === 'blocked' || !locationServicesEnabled ? () => openSettings() : requestLocationPermission}
+            onPress={locationPermission === 'blocked' ? () => openSettings() : requestLocationPermission}
           >
             <Text style={styles.permissionBarButtonText}>
-              {locationPermission === 'blocked' || !locationServicesEnabled ? 'Settings' : 'Enable'}
+              {locationPermission === 'blocked' ? 'Settings' : 'Enable'}
             </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      {!locationServicesEnabled && (
+        <View style={[styles.permissionBar, { top: insets.top + ((locationPermission === 'denied' || locationPermission === 'blocked') && locationServicesEnabled ? 110 : 60) }]}>
+          <Icon name="location" size={18} color="#F59E0B" />
+          <Text style={styles.permissionBarText}>
+            Location is turned off. Turn it on for better experience.
+          </Text>
+          <TouchableOpacity 
+            style={styles.permissionBarButton}
+            onPress={() => openSettings()}
+          >
+            <Text style={styles.permissionBarButtonText}>Settings</Text>
           </TouchableOpacity>
         </View>
       )}
       
       {notificationPermission === 'blocked' && (
-        <View style={[styles.permissionBar, styles.permissionBarDanger, { top: insets.top + (locationPermission === 'denied' || locationPermission === 'blocked' || !locationServicesEnabled ? 110 : 60) }]}>
+        <View style={[styles.permissionBar, styles.permissionBarDanger, { top: insets.top + ((locationPermission === 'denied' || locationPermission === 'blocked') || !locationServicesEnabled ? 110 : 60) }]}>
           <Icon name="notification" size={18} color="#EF4444" />
           <Text style={[styles.permissionBarText, styles.permissionBarTextDanger]}>
             Notifications required for service updates
@@ -1277,7 +1323,9 @@ const UserHomeScreen = ({ navigation }) => {
       )}
       
       <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
-        <MenuButton onPress={() => setIsDrawerOpen(true)} />
+        <TouchableOpacity onPress={() => setIsDrawerOpen(true)} activeOpacity={0.7} style={styles.topBarLogoBtn}>
+          <Image source={FIXHOMI_LOGO} style={styles.topBarLogoImg} />
+        </TouchableOpacity>
         <View style={styles.topBarSpacer} />
         {/* Address Management Icon */}
         <TouchableOpacity 
@@ -1374,6 +1422,16 @@ const UserHomeScreen = ({ navigation }) => {
         }}
         hasContacted={selectedProvider ? contactedProviderIds.has(selectedProvider._id) : false}
       />
+
+      {/* Cancellation Reason Modal */}
+      <CancellationReasonModal
+        visible={cancelModalVisible}
+        onClose={() => setCancelModalVisible(false)}
+        onSubmit={executeCancellation}
+        cancellerRole="user"
+        loading={cancellingRequest}
+        serviceName={selectedService?.name}
+      />
     </View>
   );
 };
@@ -1381,6 +1439,8 @@ const UserHomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BRAND.background },
   topBar: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, zIndex: 10 },
+  topBarLogoBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.95)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
+  topBarLogoImg: { width: 30, height: 30, borderRadius: 8 },
   // Date step header (back + service chip in one row)
   dateStepHeader: {
     flexDirection: 'row',
@@ -1500,7 +1560,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   topBarSpacer: { flex: 1 },
-  bottomSheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: BRAND.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 8 },
+  bottomSheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: BRAND.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 8, zIndex: 5 },
   sheetHandle: { alignItems: 'center', paddingTop: 10, paddingBottom: 10, minHeight: 44 },
   sheetHandleBar: { width: 48, height: 5, backgroundColor: '#C5C8CE', borderRadius: 3 },
   sheetContent: { flex: 1, paddingHorizontal: 16 },
@@ -1572,9 +1632,9 @@ const styles = StyleSheet.create({
   
   servicesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
   serviceCard: { 
-    width: (SCREEN_WIDTH - 52) / 3, 
+    width: Math.floor((SCREEN_WIDTH - 52) / 3), 
     paddingVertical: 16, 
-    paddingHorizontal: 8, 
+    paddingHorizontal: 6, 
     borderRadius: 16, 
     alignItems: 'center',
     backgroundColor: BRAND.white,

@@ -27,6 +27,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { getProviderDetails } from '../services/traditionalServiceService';
+import ImageViewerModal from './ImageViewerModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -117,6 +118,10 @@ const ProviderDetailsModal = ({
   const [loading, setLoading] = useState(true);
   const [provider, setProvider] = useState(null);
   const [error, setError] = useState(null);
+  
+  // In-app image viewer state
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
+  const [imageViewerIndex, setImageViewerIndex] = useState(0);
 
   const fetchDetails = useCallback(async () => {
     if (!providerId) {
@@ -504,7 +509,10 @@ const ProviderDetailsModal = ({
                       <TouchableOpacity 
                         key={index} 
                         style={styles.galleryImageContainer}
-                        onPress={() => handleOpenLink(image.url || image)}
+                        onPress={() => {
+                          setImageViewerIndex(index);
+                          setImageViewerVisible(true);
+                        }}
                       >
                         <Image 
                           source={{ uri: image.url || image }} 
@@ -519,6 +527,14 @@ const ProviderDetailsModal = ({
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
+                  
+                  {/* In-App Image Viewer */}
+                  <ImageViewerModal
+                    visible={imageViewerVisible}
+                    images={provider.portfolioGallery}
+                    initialIndex={imageViewerIndex}
+                    onClose={() => setImageViewerVisible(false)}
+                  />
                 </View>
               )}
             </ScrollView>

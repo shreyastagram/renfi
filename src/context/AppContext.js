@@ -7,7 +7,7 @@
  * @version 3.0.0
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { 
   storeTokens, 
   storeUserData, 
@@ -45,6 +45,10 @@ export const AppProvider = ({ children }) => {
   const [userType, setUserTypeState] = useState(null); // 'user' or 'provider'
   const [profile, setProfile] = useState(null); // Full profile data
   const [isProfileLoading, setIsProfileLoading] = useState(false);
+  const [aadhaarStatus, setAadhaarStatus] = useState({ isVerified: false, isNameLocked: false, aadhaarName: null });
+  const [premiumStatus, setPremiumStatus] = useState({ isPremiumActive: false, premiumDaysLeft: 0, premiumLoaded: false });
+  const profileLastFetched = useRef(0); // timestamp of last successful fetch
+  const STALE_THRESHOLD = 30000; // 30 seconds — skip re-fetch if data is fresh
   const [authHealth, setAuthHealth] = useState(null); // Auth service health status
   const [activeSessions, setActiveSessions] = useState([]); // Multi-device sessions
 
@@ -83,6 +87,8 @@ export const AppProvider = ({ children }) => {
     setIsAuthenticated(false);
     setAuthHealth(null);
     setActiveSessions([]);
+    setAadhaarStatus({ isVerified: false, isNameLocked: false, aadhaarName: null });
+    setPremiumStatus({ isPremiumActive: false, premiumDaysLeft: 0, premiumLoaded: false });
   }, []);
 
   /**
@@ -175,15 +181,35 @@ export const AppProvider = ({ children }) => {
 
   /**
    * Refresh profile data from APIs
-   * @param {string} type - User type ('user' or 'provider')
-   * @param {string} mongoId - MongoDB document ID
+   * @param {string} [type] - User type ('user' or 'provider'). Falls back to current userType.
+   * @param {string} [mongoId] - MongoDB document ID. Falls back to current user's mongoId.
    */
-  const refreshProfile = useCallback(async (type, mongoId) => {
+  const refreshProfile = useCallback(async (type, mongoId, { force = false } = {}) => {
+    // Default to stored context values if not provided — allows calling refreshProfile() with no args
+    const effectiveType = type || userType;
+    const effectiveMongoId = mongoId || user?.mongoId || user?._id;
+    
+    if (!effectiveType || !effectiveMongoId) {
+      console.warn('⚠️ [AppContext] Cannot refresh profile — missing type or mongoId');
+      return null;
+    }
+
+    // SWR: Skip fetch if data is fresh (< 30s old) unless forced
+    const now = Date.now();
+    if (!force && profile && (now - profileLastFetched.current) < STALE_THRESHOLD) {
+      console.log('⏭️ [AppContext] Profile is fresh, skipping re-fetch');
+      return profile;
+    }
+    
     try {
+      // Only show loading spinner on first load (no cached data yet)
+      const isFirstLoad = !profile;
+      if (isFirstLoad) {
+        setIsProfileLoading(true);
+      }
       console.log('🔄 [AppContext] Refreshing profile...');
-      setIsProfileLoading(true);
       
-      const result = await fetchFullProfile(type, mongoId);
+      const result = await fetchFullProfile(effectiveType, effectiveMongoId);
       
       if (result.success) {
         // Preserve verification fields — they come from Java Auth and must not be lost
@@ -200,6 +226,7 @@ export const AppProvider = ({ children }) => {
           isPhoneVerified: result.data.isPhoneVerified ?? prev?.isPhoneVerified ?? false,
         }));
         
+        profileLastFetched.current = Date.now();
         console.log('✅ [AppContext] Profile refreshed');
         return result.data;
       } else {
@@ -212,7 +239,7 @@ export const AppProvider = ({ children }) => {
     } finally {
       setIsProfileLoading(false);
     }
-  }, []);
+  }, [userType, user?.mongoId, user?._id, profile]);
 
   /**
    * Refresh just the verification status from Java Auth
@@ -239,6 +266,7 @@ export const AppProvider = ({ children }) => {
           isPhoneVerified: data.isPhoneVerified ?? false,
           isActive: data.isActive ?? true,
           role: data.role || prev?.role,
+          hasPassword: data.hasPassword ?? prev?.hasPassword,
         }));
         
         // Also update profile state
@@ -247,6 +275,7 @@ export const AppProvider = ({ children }) => {
           email: data.email || prev?.email,
           fullName: data.fullName || prev?.fullName,
           phone: data.phoneNumber || prev?.phone, // Map phoneNumber to phone
+          hasPassword: data.hasPassword ?? prev?.hasPassword,
           isEmailVerified: data.isEmailVerified ?? false,
           isPhoneVerified: data.isPhoneVerified ?? false,
           isActive: data.isActive ?? true,
@@ -628,6 +657,8 @@ export const AppProvider = ({ children }) => {
       setUserTypeState(null);
       setProfile(null);
       setIsAuthenticated(false);
+      setAadhaarStatus({ isVerified: false, isNameLocked: false, aadhaarName: null });
+      setPremiumStatus({ isPremiumActive: false, premiumDaysLeft: 0, premiumLoaded: false });
       
       console.log('✅ [AppContext] Logout successful');
     } catch (error) {
@@ -638,6 +669,8 @@ export const AppProvider = ({ children }) => {
       setUserTypeState(null);
       setProfile(null);
       setIsAuthenticated(false);
+      setAadhaarStatus({ isVerified: false, isNameLocked: false, aadhaarName: null });
+      setPremiumStatus({ isPremiumActive: false, premiumDaysLeft: 0, premiumLoaded: false });
     }
   }, []);
 
@@ -676,6 +709,14 @@ export const AppProvider = ({ children }) => {
     
     // Auth health actions (Phase 4)
     checkHealth,
+    
+    // Aadhaar / KYC status (cached in context to prevent flicker)
+    aadhaarStatus,
+    setAadhaarStatus,
+    
+    // Premium subscription status (cached in context to prevent flicker)
+    premiumStatus,
+    setPremiumStatus,
     
     // Re-initialize (useful for token refresh)
     initializeAuth,

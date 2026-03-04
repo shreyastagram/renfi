@@ -6,13 +6,10 @@
  * - Subscribe to premium plans
  * - View transaction history
  * 
- * Features:
- * - Industry-grade UI with premium feel
- * - Real-time status updates
- * - Transaction history with details
- * - Error handling and loading states
+ * Production-grade iOS-inspired design
+ * Matches Fixhomi brand (primary=#f67c16, secondary=#2b76bc)
  * 
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -27,6 +24,7 @@ import {
   RefreshControl,
   Modal,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -40,341 +38,379 @@ import {
   resetPremium,
 } from '../services/subscriptionService';
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // ============================================
-// PREMIUM BADGE COMPONENT
+// PREMIUM BADGE (Header)
 // ============================================
-
 const PremiumBadge = ({ isPremium, daysRemaining }) => {
-  if (!isPremium) return null;
-  
+  if (!isPremium) return <View style={{ width: 40 }} />;
   return (
-    <View style={[styles.premiumBadge, { backgroundColor: '#FFD700' }]}>
-      <MaterialIcon name="workspace-premium" size={16} color="#000" />
-      <Text style={styles.premiumBadgeText}>PREMIUM</Text>
+    <View style={badgeStyles.wrap}>
+      <MaterialIcon name="workspace-premium" size={14} color="#92400E" />
+      <Text style={badgeStyles.text}>PRO</Text>
       {daysRemaining > 0 && (
-        <Text style={styles.premiumDaysText}>{daysRemaining}d left</Text>
+        <Text style={badgeStyles.days}>{daysRemaining}d</Text>
       )}
     </View>
   );
 };
+const badgeStyles = StyleSheet.create({
+  wrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, gap: 4, borderWidth: 1, borderColor: '#FDE68A' },
+  text: { fontSize: 11, fontWeight: '800', color: '#92400E', letterSpacing: 0.5 },
+  days: { fontSize: 10, fontWeight: '600', color: '#B45309' },
+});
 
 // ============================================
-// SUBSCRIPTION STATUS CARD
+// ACTIVE STATUS CARD
 // ============================================
-
-const StatusCard = ({ subscription, onSubscribe, loading }) => {
-  const isPremium = subscription?.isPremium;
+const ActiveStatusCard = ({ subscription, onRenew, loading }) => {
   const daysRemaining = subscription?.daysRemaining || 0;
   const endDate = subscription?.currentPlan?.endDate;
-  
-  if (isPremium) {
-    return (
-      <View style={[styles.statusCard, { backgroundColor: '#1a1a2e' }]}>
-        <View style={styles.statusHeader}>
-          <View style={[styles.statusIconBg, { backgroundColor: '#FFD700' }]}>
-            <MaterialIcon name="workspace-premium" size={32} color="#000" />
-          </View>
-          <View style={styles.statusInfo}>
-            <Text style={styles.statusTitle}>Premium Active</Text>
-            <Text style={styles.statusSubtitle}>
-              {daysRemaining} days remaining
-            </Text>
-          </View>
-        </View>
-        
-        <View style={styles.statusDivider} />
-        
-        <View style={styles.statusDetails}>
-          <View style={styles.statusRow}>
-            <MaterialIcon name="event" size={18} color="#A0AEC0" />
-            <Text style={styles.statusLabel}>Valid Until</Text>
-            <Text style={styles.statusValue}>
-              {endDate ? new Date(endDate).toLocaleDateString('en-IN', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric'
-              }) : '-'}
-            </Text>
-          </View>
-          <View style={styles.statusRow}>
-            <MaterialIcon name="verified" size={18} color="#48BB78" />
-            <Text style={styles.statusLabel}>Status</Text>
-            <Text style={[styles.statusValue, { color: '#48BB78' }]}>Active</Text>
-          </View>
-        </View>
-        
-        {daysRemaining <= 5 && (
-          <TouchableOpacity
-            style={styles.renewButton}
-            onPress={onSubscribe}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color="#000" />
-            ) : (
-              <>
-                <MaterialIcon name="autorenew" size={18} color="#000" />
-                <Text style={styles.renewButtonText}>Renew Now</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        )}
-      </View>
-    );
-  }
-  
-  // Not premium - show upgrade prompt
+  const isExpiringSoon = daysRemaining <= 5;
+
   return (
-    <View style={styles.upgradeCard}>
-      <View style={[styles.upgradeGradient, { backgroundColor: '#667eea' }]}>
-        <MaterialIcon name="star" size={48} color="#FFD700" />
-        <Text style={styles.upgradeTitle}>Unlock Premium</Text>
-        <Text style={styles.upgradeSubtitle}>
-          Get priority listing and reach more customers
+    <View style={activeStyles.card}>
+      {/* Dark premium header */}
+      <View style={activeStyles.header}>
+        <View style={activeStyles.decoCircle1} />
+        <View style={activeStyles.decoCircle2} />
+        <View style={activeStyles.headerTop}>
+          <View style={activeStyles.crownBg}>
+            <MaterialIcon name="workspace-premium" size={28} color="#0F172A" />
+          </View>
+          <View style={activeStyles.statusPill}>
+            <View style={activeStyles.statusDot} />
+            <Text style={activeStyles.statusText}>Active</Text>
+          </View>
+        </View>
+        <Text style={activeStyles.title}>Premium Plan</Text>
+        <Text style={activeStyles.subtitle}>
+          {endDate
+            ? `Valid until ${new Date(endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
+            : 'Your benefits are active'}
         </Text>
-        
-        <TouchableOpacity
-          style={styles.upgradeButton}
-          onPress={onSubscribe}
-          disabled={loading}
-        >
+      </View>
+
+      {/* Stats strip */}
+      <View style={activeStyles.statsRow}>
+        <View style={activeStyles.statItem}>
+          <Text style={activeStyles.statValue}>{daysRemaining}</Text>
+          <Text style={activeStyles.statLabel}>Days Left</Text>
+        </View>
+        <View style={activeStyles.statDivider} />
+        <View style={activeStyles.statItem}>
+          <MaterialIcon name="trending-up" size={20} color="#16A34A" />
+          <Text style={activeStyles.statLabel}>Priority</Text>
+        </View>
+        <View style={activeStyles.statDivider} />
+        <View style={activeStyles.statItem}>
+          <MaterialIcon name="visibility" size={20} color="#2b76bc" />
+          <Text style={activeStyles.statLabel}>Boosted</Text>
+        </View>
+      </View>
+
+      {/* Renew CTA if expiring soon */}
+      {isExpiringSoon && (
+        <TouchableOpacity style={activeStyles.renewBtn} onPress={onRenew} disabled={loading}>
           {loading ? (
-            <ActivityIndicator size="small" color="#667eea" />
+            <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
-            <Text style={styles.upgradeButtonText}>Subscribe Now</Text>
+            <>
+              <MaterialIcon name="autorenew" size={18} color="#FFFFFF" />
+              <Text style={activeStyles.renewText}>Renew Now</Text>
+            </>
           )}
         </TouchableOpacity>
-      </View>
+      )}
     </View>
   );
 };
+const activeStyles = StyleSheet.create({
+  card: { borderRadius: 22, backgroundColor: '#FFFFFF', overflow: 'hidden', marginBottom: 20, shadowColor: '#0F172A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 6, borderWidth: 1, borderColor: '#F1F5F9' },
+  header: { backgroundColor: '#0F172A', paddingHorizontal: 22, paddingTop: 24, paddingBottom: 22, position: 'relative', overflow: 'hidden' },
+  decoCircle1: { position: 'absolute', top: -25, right: -25, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,215,0,0.07)' },
+  decoCircle2: { position: 'absolute', bottom: -35, left: -15, width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(99,102,241,0.06)' },
+  headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  crownBg: { width: 50, height: 50, borderRadius: 16, backgroundColor: '#FFD700', alignItems: 'center', justifyContent: 'center' },
+  statusPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(22,163,74,0.15)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, gap: 6 },
+  statusDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#4ADE80' },
+  statusText: { fontSize: 12, fontWeight: '700', color: '#4ADE80', letterSpacing: 0.3 },
+  title: { fontSize: 24, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 },
+  subtitle: { fontSize: 13, color: '#94A3B8', marginTop: 4 },
+  statsRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 20, paddingHorizontal: 12 },
+  statItem: { flex: 1, alignItems: 'center', gap: 5 },
+  statValue: { fontSize: 28, fontWeight: '800', color: '#0F172A' },
+  statLabel: { fontSize: 11.5, fontWeight: '600', color: '#94A3B8', letterSpacing: 0.2 },
+  statDivider: { width: 1, height: 34, backgroundColor: '#E2E8F0' },
+  renewBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f67c16', marginHorizontal: 18, marginBottom: 18, paddingVertical: 14, borderRadius: 14, gap: 8, shadowColor: '#f67c16', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4 },
+  renewText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+});
 
 // ============================================
-// PLAN CARD COMPONENT
+// UPGRADE PROMPT CARD (not premium)
 // ============================================
-
-const PlanCard = ({ plan, selected, onSelect, isCurrentPlan }) => {
-  return (
-    <TouchableOpacity
-      style={[
-        styles.planCard,
-        selected && styles.planCardSelected,
-        isCurrentPlan && styles.planCardCurrent
-      ]}
-      onPress={() => onSelect(plan)}
-      disabled={isCurrentPlan}
-    >
-      {plan.id === 'premium_28' && (
-        <View style={styles.popularTag}>
-          <Text style={styles.popularTagText}>POPULAR</Text>
-        </View>
-      )}
-      
-      <View style={styles.planHeader}>
-        <Text style={styles.planName}>{plan.name}</Text>
-        <View style={styles.planPriceContainer}>
-          <Text style={styles.planPrice}>{plan.priceDisplay}</Text>
-          <Text style={styles.planDuration}>/{plan.durationDays} days</Text>
-        </View>
-      </View>
-      
-      <Text style={styles.planDescription}>{plan.description}</Text>
-      
-      <View style={styles.planFeatures}>
-        {plan.features.map((feature, index) => (
-          <View key={index} style={styles.featureRow}>
-            <MaterialIcon name="check-circle" size={16} color="#48BB78" />
-            <Text style={styles.featureText}>{feature}</Text>
-          </View>
-        ))}
-      </View>
-      
-      {isCurrentPlan && (
-        <View style={styles.currentPlanBadge}>
-          <Text style={styles.currentPlanText}>Current Plan</Text>
-        </View>
-      )}
-      
-      {selected && !isCurrentPlan && (
-        <View style={styles.selectedIndicator}>
-          <MaterialIcon name="check" size={20} color="#fff" />
-        </View>
+const UpgradeCard = ({ onSubscribe, loading }) => (
+  <View style={upgradeStyles.card}>
+    <View style={upgradeStyles.decoCircle1} />
+    <View style={upgradeStyles.decoCircle2} />
+    <View style={upgradeStyles.decoCircle3} />
+    <MaterialIcon name="workspace-premium" size={52} color="#FFD700" />
+    <Text style={upgradeStyles.title}>Unlock Premium</Text>
+    <Text style={upgradeStyles.subtitle}>Get priority listing, premium badge, and reach more customers instantly</Text>
+    <TouchableOpacity style={upgradeStyles.btn} onPress={onSubscribe} disabled={loading}>
+      {loading ? (
+        <ActivityIndicator size="small" color="#FFFFFF" />
+      ) : (
+        <>
+          <Text style={upgradeStyles.btnText}>Subscribe Now</Text>
+          <MaterialIcon name="arrow-forward" size={18} color="#FFFFFF" />
+        </>
       )}
     </TouchableOpacity>
-  );
-};
+  </View>
+);
+const upgradeStyles = StyleSheet.create({
+  card: { borderRadius: 22, backgroundColor: '#1E293B', padding: 32, alignItems: 'center', marginBottom: 20, overflow: 'hidden', position: 'relative' },
+  decoCircle1: { position: 'absolute', top: -30, right: -30, width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255,215,0,0.06)' },
+  decoCircle2: { position: 'absolute', bottom: -40, left: -20, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(99,102,241,0.08)' },
+  decoCircle3: { position: 'absolute', top: 40, left: -15, width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.03)' },
+  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginTop: 16, letterSpacing: -0.3 },
+  subtitle: { fontSize: 14, color: '#94A3B8', textAlign: 'center', marginTop: 8, lineHeight: 21 },
+  btn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f67c16', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 30, marginTop: 24, gap: 8, shadowColor: '#f67c16', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 5 },
+  btnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+});
 
 // ============================================
-// TRANSACTION ITEM COMPONENT
+// PLAN CARD
 // ============================================
-
-const TransactionItem = ({ transaction, onPress }) => {
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'captured': return '#48BB78';
-      case 'failed': return '#F56565';
-      case 'refunded': return '#ED8936';
-      case 'pending':
-      case 'created': return '#ECC94B';
-      default: return '#A0AEC0';
-    }
-  };
-  
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'captured': return 'check-circle';
-      case 'failed': return 'cancel';
-      case 'refunded': return 'undo';
-      default: return 'schedule';
-    }
-  };
-  
-  return (
-    <TouchableOpacity style={styles.transactionItem} onPress={() => onPress(transaction)}>
-      <View style={[styles.transactionIcon, { backgroundColor: getStatusColor(transaction.status) + '20' }]}>
-        <MaterialIcon 
-          name={getStatusIcon(transaction.status)} 
-          size={24} 
-          color={getStatusColor(transaction.status)} 
-        />
+const PlanCard = ({ plan, selected, onSelect, isCurrentPlan }) => (
+  <TouchableOpacity
+    style={[planStyles.card, selected && planStyles.selected, isCurrentPlan && planStyles.current]}
+    onPress={() => onSelect(plan)}
+    disabled={isCurrentPlan}
+    activeOpacity={0.7}
+  >
+    {plan.id === 'premium_28' && (
+      <View style={planStyles.popularTag}>
+        <MaterialIcon name="local-fire-department" size={12} color="#FFFFFF" />
+        <Text style={planStyles.popularText}>POPULAR</Text>
       </View>
-      
-      <View style={styles.transactionInfo}>
-        <Text style={styles.transactionPlan}>{transaction.planName}</Text>
-        <Text style={styles.transactionDate}>
+    )}
+
+    <View style={planStyles.top}>
+      <View style={{ flex: 1, paddingRight: 12 }}>
+        <Text style={planStyles.name}>{plan.name}</Text>
+        <Text style={planStyles.desc}>{plan.description}</Text>
+      </View>
+      <View style={planStyles.priceWrap}>
+        <Text style={[planStyles.price, selected && planStyles.priceSelected]}>{plan.priceDisplay}</Text>
+        <Text style={planStyles.duration}>/{plan.durationDays}d</Text>
+      </View>
+    </View>
+
+    <View style={planStyles.features}>
+      {plan.features.map((f, i) => (
+        <View key={i} style={planStyles.featureRow}>
+          <MaterialIcon name="check-circle" size={16} color={selected ? '#2b76bc' : '#94A3B8'} />
+          <Text style={[planStyles.featureText, selected && planStyles.featureTextSelected]}>{f}</Text>
+        </View>
+      ))}
+    </View>
+
+    {isCurrentPlan && (
+      <View style={planStyles.currentBadge}>
+        <MaterialIcon name="verified" size={14} color="#16A34A" />
+        <Text style={planStyles.currentText}>Current Plan</Text>
+      </View>
+    )}
+
+    <View style={[planStyles.radio, selected && planStyles.radioSelected]}>
+      {selected && <View style={planStyles.radioDot} />}
+    </View>
+  </TouchableOpacity>
+);
+const planStyles = StyleSheet.create({
+  card: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 18, marginBottom: 12, borderWidth: 2, borderColor: '#E2E8F0', position: 'relative' },
+  selected: { borderColor: '#2b76bc', backgroundColor: '#F8FBFF' },
+  current: { opacity: 0.6 },
+  popularTag: { position: 'absolute', top: 0, right: 18, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f67c16', paddingHorizontal: 10, paddingVertical: 4, borderBottomLeftRadius: 10, borderBottomRightRadius: 10, gap: 4, zIndex: 2 },
+  popularText: { fontSize: 10, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.5 },
+  top: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  name: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
+  desc: { fontSize: 13, color: '#64748B', marginTop: 3, lineHeight: 18 },
+  priceWrap: { alignItems: 'flex-end' },
+  price: { fontSize: 26, fontWeight: '800', color: '#0F172A' },
+  priceSelected: { color: '#2b76bc' },
+  duration: { fontSize: 12, color: '#94A3B8', marginTop: -2 },
+  features: { marginTop: 14, gap: 8 },
+  featureRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  featureText: { fontSize: 13, color: '#64748B', fontWeight: '500' },
+  featureTextSelected: { color: '#334155' },
+  currentBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginTop: 14, backgroundColor: '#F0FDF4', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, gap: 5, borderWidth: 1, borderColor: '#BBF7D0' },
+  currentText: { fontSize: 12, fontWeight: '600', color: '#16A34A' },
+  radio: { position: 'absolute', top: 18, right: 18, width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#D1D5DB', alignItems: 'center', justifyContent: 'center' },
+  radioSelected: { borderColor: '#2b76bc', borderWidth: 2.5 },
+  radioDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#2b76bc' },
+});
+
+// ============================================
+// TRANSACTION ITEM
+// ============================================
+const TransactionItem = ({ transaction, onPress }) => {
+  const getStatusConfig = (status) => {
+    switch (status) {
+      case 'captured': return { color: '#16A34A', bg: '#F0FDF4', icon: 'check-circle' };
+      case 'failed': return { color: '#DC2626', bg: '#FEF2F2', icon: 'cancel' };
+      case 'refunded': return { color: '#EA580C', bg: '#FFF7ED', icon: 'undo' };
+      default: return { color: '#D97706', bg: '#FFFBEB', icon: 'schedule' };
+    }
+  };
+  const cfg = getStatusConfig(transaction.status);
+
+  return (
+    <TouchableOpacity style={txStyles.item} onPress={() => onPress(transaction)} activeOpacity={0.7}>
+      <View style={[txStyles.iconWrap, { backgroundColor: cfg.bg }]}>
+        <MaterialIcon name={cfg.icon} size={22} color={cfg.color} />
+      </View>
+      <View style={txStyles.info}>
+        <Text style={txStyles.plan}>{transaction.planName}</Text>
+        <Text style={txStyles.date}>
           {new Date(transaction.createdAt).toLocaleDateString('en-IN', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
+            day: 'numeric', month: 'short', year: 'numeric',
           })}
         </Text>
       </View>
-      
-      <View style={styles.transactionRight}>
-        <Text style={styles.transactionAmount}>{transaction.amountDisplay}</Text>
-        <Text style={[styles.transactionStatus, { color: getStatusColor(transaction.status) }]}>
-          {transaction.statusDisplay}
-        </Text>
+      <View style={txStyles.right}>
+        <Text style={txStyles.amount}>{transaction.amountDisplay}</Text>
+        <View style={[txStyles.statusPill, { backgroundColor: cfg.bg }]}>
+          <Text style={[txStyles.statusText, { color: cfg.color }]}>{transaction.statusDisplay}</Text>
+        </View>
       </View>
-      
-      <MaterialIcon name="chevron-right" size={20} color="#A0AEC0" />
     </TouchableOpacity>
   );
 };
+const txStyles = StyleSheet.create({
+  item: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  iconWrap: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
+  info: { flex: 1 },
+  plan: { fontSize: 15, fontWeight: '600', color: '#0F172A' },
+  date: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
+  right: { alignItems: 'flex-end' },
+  amount: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
+  statusPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, marginTop: 3 },
+  statusText: { fontSize: 11, fontWeight: '700' },
+});
 
 // ============================================
 // TRANSACTION DETAIL MODAL
 // ============================================
-
 const TransactionDetailModal = ({ visible, transaction, onClose }) => {
   if (!transaction) return null;
-  
+
+  const DetailRow = ({ label, value, valueStyle }) => (
+    <View style={modalStyles.row}>
+      <Text style={modalStyles.label}>{label}</Text>
+      <Text style={[modalStyles.value, valueStyle]}>{value || 'N/A'}</Text>
+    </View>
+  );
+
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Transaction Details</Text>
-            <TouchableOpacity onPress={onClose}>
-              <MaterialIcon name="close" size={24} color="#1F2937" />
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={modalStyles.overlay}>
+        <View style={modalStyles.content}>
+          <View style={modalStyles.dragBar} />
+
+          <View style={modalStyles.header}>
+            <Text style={modalStyles.title}>Transaction Details</Text>
+            <TouchableOpacity style={modalStyles.closeBtn} onPress={onClose}>
+              <MaterialIcon name="close" size={20} color="#64748B" />
             </TouchableOpacity>
           </View>
-          
-          <ScrollView style={styles.modalBody}>
-            <View style={styles.detailSection}>
-              <Text style={styles.detailLabel}>Receipt Number</Text>
-              <Text style={styles.detailValue}>{transaction.receiptNumber}</Text>
+
+          <ScrollView style={modalStyles.body} showsVerticalScrollIndicator={false}>
+            <View style={modalStyles.amountSection}>
+              <Text style={modalStyles.amountLabel}>Amount Paid</Text>
+              <Text style={modalStyles.amountValue}>{transaction.amountDisplay}</Text>
+              <View style={[modalStyles.statusBadge, {
+                backgroundColor: transaction.status === 'captured' ? '#F0FDF4' : '#FEF2F2',
+              }]}>
+                <MaterialIcon
+                  name={transaction.status === 'captured' ? 'check-circle' : 'error'}
+                  size={16}
+                  color={transaction.status === 'captured' ? '#16A34A' : '#DC2626'}
+                />
+                <Text style={[modalStyles.statusBadgeText, {
+                  color: transaction.status === 'captured' ? '#16A34A' : '#DC2626',
+                }]}>{transaction.statusDisplay}</Text>
+              </View>
             </View>
-            
-            <View style={styles.detailSection}>
-              <Text style={styles.detailLabel}>Order ID</Text>
-              <Text style={styles.detailValue}>{transaction.orderId}</Text>
-            </View>
-            
+
+            <View style={modalStyles.divider} />
+
+            <DetailRow label="Plan" value={transaction.planName} />
+            <DetailRow label="Receipt #" value={transaction.receiptNumber} />
+            <DetailRow label="Order ID" value={transaction.orderId} />
             {transaction.paymentId && (
-              <View style={styles.detailSection}>
-                <Text style={styles.detailLabel}>Payment ID</Text>
-                <Text style={styles.detailValue}>{transaction.paymentId}</Text>
-              </View>
+              <DetailRow label="Payment ID" value={transaction.paymentId} />
             )}
-            
-            <View style={styles.detailSection}>
-              <Text style={styles.detailLabel}>Plan</Text>
-              <Text style={styles.detailValue}>{transaction.planName}</Text>
-            </View>
-            
-            <View style={styles.detailSection}>
-              <Text style={styles.detailLabel}>Amount</Text>
-              <Text style={[styles.detailValue, styles.detailAmount]}>
-                {transaction.amountDisplay}
-              </Text>
-            </View>
-            
-            <View style={styles.detailSection}>
-              <Text style={styles.detailLabel}>Payment Method</Text>
-              <Text style={styles.detailValue}>{transaction.paymentMethodDisplay || 'N/A'}</Text>
-            </View>
-            
-            <View style={styles.detailSection}>
-              <Text style={styles.detailLabel}>Status</Text>
-              <View style={[styles.statusBadge, { backgroundColor: transaction.status === 'captured' ? '#C6F6D520' : '#FED7D720' }]}>
-                <Text style={[styles.statusBadgeText, { color: transaction.status === 'captured' ? '#48BB78' : '#F56565' }]}>
-                  {transaction.statusDisplay}
-                </Text>
-              </View>
-            </View>
-            
-            <View style={styles.detailSection}>
-              <Text style={styles.detailLabel}>Date</Text>
-              <Text style={styles.detailValue}>
-                {new Date(transaction.createdAt).toLocaleString('en-IN')}
-              </Text>
-            </View>
-            
+            <DetailRow label="Payment Method" value={transaction.paymentMethodDisplay} />
+            <DetailRow
+              label="Date"
+              value={new Date(transaction.createdAt).toLocaleString('en-IN')}
+            />
             {transaction.subscriptionPeriod && (
-              <View style={styles.detailSection}>
-                <Text style={styles.detailLabel}>Subscription Period</Text>
-                <Text style={styles.detailValue}>
-                  {new Date(transaction.subscriptionPeriod.startDate).toLocaleDateString('en-IN')} - {new Date(transaction.subscriptionPeriod.endDate).toLocaleDateString('en-IN')}
-                </Text>
-              </View>
+              <DetailRow
+                label="Period"
+                value={`${new Date(transaction.subscriptionPeriod.startDate).toLocaleDateString('en-IN')} \u2192 ${new Date(transaction.subscriptionPeriod.endDate).toLocaleDateString('en-IN')}`}
+              />
             )}
-            
             {transaction.error && (
-              <View style={[styles.detailSection, styles.errorSection]}>
-                <Text style={styles.detailLabel}>Error</Text>
-                <Text style={styles.errorText}>{transaction.error}</Text>
+              <View style={modalStyles.errorBox}>
+                <MaterialIcon name="error-outline" size={16} color="#DC2626" />
+                <Text style={modalStyles.errorText}>{transaction.error}</Text>
               </View>
             )}
           </ScrollView>
-          
-          <TouchableOpacity style={styles.modalCloseButton} onPress={onClose}>
-            <Text style={styles.modalCloseButtonText}>Close</Text>
+
+          <TouchableOpacity style={modalStyles.doneBtn} onPress={onClose}>
+            <Text style={modalStyles.doneBtnText}>Done</Text>
           </TouchableOpacity>
         </View>
       </View>
     </Modal>
   );
 };
+const modalStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(15,23,42,0.5)', justifyContent: 'flex-end' },
+  content: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '82%' },
+  dragBar: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center', marginTop: 12 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 22, paddingTop: 18, paddingBottom: 14 },
+  title: { fontSize: 20, fontWeight: '800', color: '#0F172A', letterSpacing: -0.3 },
+  closeBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
+  body: { paddingHorizontal: 22 },
+  amountSection: { alignItems: 'center', paddingVertical: 16 },
+  amountLabel: { fontSize: 12, color: '#94A3B8', fontWeight: '600', letterSpacing: 0.3, textTransform: 'uppercase' },
+  amountValue: { fontSize: 36, fontWeight: '800', color: '#0F172A', marginTop: 4 },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginTop: 10, gap: 5 },
+  statusBadgeText: { fontSize: 13, fontWeight: '700' },
+  divider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 8 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F8FAFC' },
+  label: { fontSize: 13, color: '#94A3B8', fontWeight: '600' },
+  value: { fontSize: 14, color: '#0F172A', fontWeight: '600', textAlign: 'right', maxWidth: '60%' },
+  errorBox: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#FEF2F2', padding: 14, borderRadius: 12, gap: 8, marginTop: 12, marginBottom: 8 },
+  errorText: { flex: 1, fontSize: 13, color: '#DC2626', lineHeight: 18 },
+  doneBtn: { marginHorizontal: 22, marginTop: 8, marginBottom: Platform.OS === 'ios' ? 36 : 24, backgroundColor: '#F1F5F9', paddingVertical: 16, borderRadius: 14, alignItems: 'center' },
+  doneBtnText: { fontSize: 16, fontWeight: '700', color: '#0F172A' },
+});
 
 // ============================================
-// MAIN SCREEN COMPONENT
+// MAIN SCREEN
 // ============================================
-
 const SubscriptionScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { userType } = useApp();
-  
-  // State
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
@@ -385,80 +421,62 @@ const SubscriptionScreen = ({ navigation }) => {
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] = useState('');
-  
-  // Load data
+
   const loadData = useCallback(async () => {
     try {
-      // Load subscription status, plans, and transactions in parallel
       const [statusResult, plansResult, transactionsResult] = await Promise.all([
         getSubscriptionStatus(),
         getPlans(),
         getTransactions(1, 10),
       ]);
-      
-      if (statusResult.success) {
-        setSubscription(statusResult.subscription);
-      }
-      
+
+      if (statusResult.success) setSubscription(statusResult.subscription);
       if (plansResult.success) {
         setPlans(plansResult.plans);
-        // Auto-select first plan if not premium
         if (!statusResult.subscription?.isPremium && plansResult.plans.length > 0) {
           setSelectedPlan(plansResult.plans[0]);
         }
       }
-      
-      if (transactionsResult.success) {
-        setTransactions(transactionsResult.transactions);
-      }
+      if (transactionsResult.success) setTransactions(transactionsResult.transactions);
     } catch (error) {
-      console.error('[SubscriptionScreen] Load data error:', error);
+      console.error('[SubscriptionScreen] Load error:', error);
       Alert.alert('Error', 'Failed to load subscription data');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
-  
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-  
-  // Handle refresh
+
+  useEffect(() => { loadData(); }, [loadData]);
+
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
     loadData();
   }, [loadData]);
-  
-  // Handle subscribe
+
   const handleSubscribe = useCallback(async () => {
     if (!selectedPlan) {
       Alert.alert('Select Plan', 'Please select a subscription plan');
       return;
     }
-    
     setSubscribing(true);
     setSubscriptionStatus('');
-    
     try {
       const result = await subscribeToplan(selectedPlan.id, (status) => {
         setSubscriptionStatus(status);
       });
-      
       if (result.success) {
         Alert.alert(
-          '🎉 Welcome to Premium!',
+          '\uD83C\uDF89 Welcome to Premium!',
           result.message || 'Your premium subscription is now active.',
           [{ text: 'Great!', onPress: () => loadData() }]
         );
       } else if (result.cancelled) {
-        // User cancelled - no alert needed
         setSubscriptionStatus('');
       } else {
         Alert.alert(
           'Payment Failed',
-          result.error || 'Unable to process payment. Please try again.',
-          [{ text: 'OK' }]
+          result.error || 'Unable to process payment. Please try again.'
         );
       }
     } catch (error) {
@@ -468,18 +486,16 @@ const SubscriptionScreen = ({ navigation }) => {
       setSubscriptionStatus('');
     }
   }, [selectedPlan, loadData]);
-  
-  // Handle transaction press
-  const handleTransactionPress = useCallback((transaction) => {
-    setSelectedTransaction(transaction);
+
+  const handleTransactionPress = useCallback((tx) => {
+    setSelectedTransaction(tx);
     setShowTransactionModal(true);
   }, []);
-  
-  // Handle reset premium (DEVELOPMENT ONLY)
+
   const handleResetPremium = useCallback(async () => {
     Alert.alert(
-      '⚠️ Reset Premium',
-      'This will remove your premium status. This is for testing only. Continue?',
+      '\u26A0\uFE0F Reset Premium',
+      'This will remove your premium status. Continue?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -490,88 +506,83 @@ const SubscriptionScreen = ({ navigation }) => {
               setLoading(true);
               const result = await resetPremium();
               if (result.success) {
-                Alert.alert('Success', result.message || 'Premium status reset successfully');
+                Alert.alert('Success', result.message || 'Premium reset');
                 loadData();
               } else {
-                Alert.alert('Error', result.error || 'Failed to reset premium');
+                Alert.alert('Error', result.error || 'Failed to reset');
               }
-            } catch (error) {
+            } catch (e) {
               Alert.alert('Error', 'Something went wrong');
             } finally {
               setLoading(false);
             }
-          }
-        }
+          },
+        },
       ]
     );
   }, [loadData]);
-  
-  // Check if user is provider
+
+  // Not a provider
   if (userType !== 'provider') {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Icon name="arrow_back" size={24} color="#1F2937" />
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <MaterialIcon name="arrow-back-ios-new" size={20} color="#0F172A" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Premium</Text>
           <View style={{ width: 40 }} />
         </View>
-        
-        <View style={styles.errorContainer}>
-          <MaterialIcon name="error-outline" size={64} color="#A0AEC0" />
-          <Text style={styles.errorText}>
-            Premium subscription is only available for service providers.
-          </Text>
+        <View style={styles.emptyState}>
+          <MaterialIcon name="lock-outline" size={56} color="#CBD5E1" />
+          <Text style={styles.emptyTitle}>Premium Only</Text>
+          <Text style={styles.emptyDesc}>Premium subscription is only available for service providers.</Text>
         </View>
       </View>
     );
   }
-  
+
   if (loading) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color="#2563EB" />
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color="#f67c16" />
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
   }
-  
+
+  const isPremium = subscription?.isPremium;
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Icon name="arrow_back" size={24} color="#1F2937" />
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <MaterialIcon name="arrow-back-ios-new" size={20} color="#0F172A" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Premium</Text>
-        <PremiumBadge isPremium={subscription?.isPremium} daysRemaining={subscription?.daysRemaining} />
+        <PremiumBadge isPremium={isPremium} daysRemaining={subscription?.daysRemaining} />
       </View>
-      
+
       <ScrollView
         style={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
+        contentContainerStyle={{ paddingBottom: insets.bottom + 30 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
         showsVerticalScrollIndicator={false}
       >
-        {/* Status Card */}
-        <StatusCard
-          subscription={subscription}
-          onSubscribe={handleSubscribe}
-          loading={subscribing}
-        />
-        
-        {/* Processing Status */}
+        {isPremium ? (
+          <ActiveStatusCard subscription={subscription} onRenew={handleSubscribe} loading={subscribing} />
+        ) : (
+          <UpgradeCard onSubscribe={handleSubscribe} loading={subscribing} />
+        )}
+
         {subscriptionStatus ? (
-          <View style={styles.processingCard}>
-            <ActivityIndicator size="small" color="#2563EB" />
+          <View style={styles.processingBar}>
+            <ActivityIndicator size="small" color="#2b76bc" />
             <Text style={styles.processingText}>{subscriptionStatus}</Text>
           </View>
         ) : null}
-        
-        {/* Plans Section (show only if not premium or expiring soon) */}
-        {(!subscription?.isPremium || subscription?.daysRemaining <= 5) && (
+
+        {(!isPremium || subscription?.daysRemaining <= 5) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Choose Your Plan</Text>
             {plans.map((plan) => (
@@ -580,681 +591,328 @@ const SubscriptionScreen = ({ navigation }) => {
                 plan={plan}
                 selected={selectedPlan?.id === plan.id}
                 onSelect={setSelectedPlan}
-                isCurrentPlan={subscription?.currentPlan?.planId === plan.id && subscription?.isPremium}
+                isCurrentPlan={subscription?.currentPlan?.planId === plan.id && isPremium}
               />
             ))}
-            
-            {/* Subscribe Button */}
+
             {selectedPlan && (
               <TouchableOpacity
-                style={[styles.subscribeButton, subscribing && styles.subscribeButtonDisabled]}
+                style={[styles.subscribeBtn, subscribing && styles.subscribeBtnDisabled]}
                 onPress={handleSubscribe}
                 disabled={subscribing}
               >
                 {subscribing ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
-                    <MaterialIcon name="lock" size={20} color="#fff" />
-                    <Text style={styles.subscribeButtonText}>
-                      Subscribe for {selectedPlan.priceDisplay}
-                    </Text>
+                    <MaterialIcon name="bolt" size={20} color="#FFFFFF" />
+                    <Text style={styles.subscribeBtnText}>Subscribe for {selectedPlan.priceDisplay}</Text>
                   </>
                 )}
               </TouchableOpacity>
             )}
           </View>
         )}
-        
-        {/* Stats Section (for premium users) */}
+
         {subscription?.stats && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Your Stats</Text>
-            <View style={styles.statsGrid}>
+            <View style={styles.statsRow}>
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{subscription.stats.totalSubscriptions}</Text>
-                <Text style={styles.statLabel}>Subscriptions</Text>
+                <Text style={styles.statNumber}>{subscription.stats.totalSubscriptions}</Text>
+                <Text style={styles.statDesc}>Subscriptions</Text>
               </View>
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{subscription.stats.totalSpentDisplay}</Text>
-                <Text style={styles.statLabel}>Total Spent</Text>
+                <Text style={styles.statNumber}>{subscription.stats.totalSpentDisplay}</Text>
+                <Text style={styles.statDesc}>Total Spent</Text>
               </View>
             </View>
           </View>
         )}
-        
-        {/* Transaction History */}
+
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Transaction History</Text>
+          <Text style={styles.sectionTitle}>Transaction History</Text>
+          <View style={styles.sectionCard}>
+            {transactions.length === 0 ? (
+              <View style={styles.emptyTx}>
+                <MaterialIcon name="receipt-long" size={44} color="#E2E8F0" />
+                <Text style={styles.emptyTxTitle}>No Transactions</Text>
+                <Text style={styles.emptyTxDesc}>Your payment history will appear here</Text>
+              </View>
+            ) : (
+              transactions.map((tx) => (
+                <TransactionItem key={tx.id} transaction={tx} onPress={handleTransactionPress} />
+              ))
+            )}
           </View>
-          
-          {transactions.length === 0 ? (
-            <View style={styles.emptyTransactions}>
-              <MaterialIcon name="receipt-long" size={48} color="#E2E8F0" />
-              <Text style={styles.emptyText}>No transactions yet</Text>
-            </View>
-          ) : (
-            transactions.map((transaction) => (
-              <TransactionItem
-                key={transaction.id}
-                transaction={transaction}
-                onPress={handleTransactionPress}
-              />
-            ))
-          )}
         </View>
-        
-        {/* Benefits Section */}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Premium Benefits</Text>
-          <View style={styles.benefitsList}>
+          <View style={styles.sectionCard}>
             {[
-              { icon: 'trending-up', title: 'Priority Listing', desc: 'Appear at the top of search results' },
-              { icon: 'workspace-premium', title: 'Premium Badge', desc: 'Stand out with a verified premium badge' },
-              { icon: 'location-on', title: 'Extended Reach', desc: 'Get discovered by more customers' },
-              { icon: 'analytics', title: 'Analytics', desc: 'Track your profile views and engagement' },
-              { icon: 'support-agent', title: 'Priority Support', desc: '24/7 dedicated customer support' },
-            ].map((benefit, index) => (
-              <View key={index} style={styles.benefitItem}>
-                <View style={styles.benefitIcon}>
-                  <MaterialIcon name={benefit.icon} size={24} color="#2563EB" />
+              { icon: 'trending-up', title: 'Priority Listing', desc: 'Appear at the top of search results', color: '#16A34A', bg: '#F0FDF4' },
+              { icon: 'workspace-premium', title: 'Premium Badge', desc: 'Stand out with a verified badge', color: '#D97706', bg: '#FFFBEB' },
+              { icon: 'location-on', title: 'Extended Reach', desc: 'Get discovered by more customers', color: '#2b76bc', bg: '#EFF6FF' },
+              { icon: 'analytics', title: 'Analytics', desc: 'Track profile views & engagement', color: '#7C3AED', bg: '#F5F3FF' },
+              { icon: 'support-agent', title: 'Priority Support', desc: '24/7 dedicated customer support', color: '#0EA5E9', bg: '#F0F9FF' },
+            ].map((b, i) => (
+              <View key={i} style={[styles.benefitRow, i === 4 && { borderBottomWidth: 0 }]}>
+                <View style={[styles.benefitIcon, { backgroundColor: b.bg }]}>
+                  <MaterialIcon name={b.icon} size={22} color={b.color} />
                 </View>
-                <View style={styles.benefitInfo}>
-                  <Text style={styles.benefitTitle}>{benefit.title}</Text>
-                  <Text style={styles.benefitDesc}>{benefit.desc}</Text>
+                <View style={styles.benefitContent}>
+                  <Text style={styles.benefitTitle}>{b.title}</Text>
+                  <Text style={styles.benefitDesc}>{b.desc}</Text>
                 </View>
+                <MaterialIcon name="check" size={18} color="#16A34A" />
               </View>
             ))}
           </View>
         </View>
-        
-        {/* DEV ONLY: Reset Premium Button */}
-        {__DEV__ && subscription?.isPremium && (
+
+        {__DEV__ && isPremium && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: '#EF4444' }]}>🔧 Developer Options</Text>
-            <TouchableOpacity 
-              style={styles.resetButton}
-              onPress={handleResetPremium}
-            >
-              <MaterialIcon name="refresh" size={20} color="#EF4444" />
-              <Text style={styles.resetButtonText}>Reset Premium (Test Again)</Text>
+            <Text style={[styles.sectionTitle, { color: '#EF4444' }]}>{'\uD83D\uDD27'} Developer</Text>
+            <TouchableOpacity style={styles.resetBtn} onPress={handleResetPremium}>
+              <MaterialIcon name="refresh" size={18} color="#EF4444" />
+              <Text style={styles.resetBtnText}>Reset Premium (Dev)</Text>
             </TouchableOpacity>
-            <Text style={styles.devWarning}>
-              This option is only visible in development mode
-            </Text>
           </View>
         )}
-        
-        {/* Footer spacing */}
-        <View style={{ height: 40 }} />
       </ScrollView>
-      
-      {/* Transaction Detail Modal */}
+
       <TransactionDetailModal
         visible={showTransactionModal}
         transaction={selectedTransaction}
-        onClose={() => {
-          setShowTransactionModal(false);
-          setSelectedTransaction(null);
-        }}
+        onClose={() => { setShowTransactionModal(false); setSelectedTransaction(null); }}
       />
     </View>
   );
 };
 
 // ============================================
-// STYLES
+// MAIN STYLES
 // ============================================
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F1F5F9',
   },
-  centerContent: {
+  center: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 16,
-    color: '#6B7280',
+    fontSize: 15,
+    color: '#94A3B8',
+    fontWeight: '500',
   },
-  
-  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
+    paddingVertical: 14,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  backButton: {
-    padding: 8,
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.3,
   },
-  
-  // Premium Badge
-  premiumBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 16,
-    gap: 4,
-  },
-  premiumBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#000',
-  },
-  premiumDaysText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#000',
-    opacity: 0.7,
-  },
-  
-  // Content
   content: {
     flex: 1,
     padding: 16,
   },
-  
-  // Status Card
-  statusCard: {
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-  },
-  statusHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  statusIconBg: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statusInfo: {
-    flex: 1,
-  },
-  statusTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  statusSubtitle: {
-    fontSize: 14,
-    color: '#A0AEC0',
-    marginTop: 2,
-  },
-  statusDivider: {
-    height: 1,
-    backgroundColor: '#2D3748',
-    marginVertical: 16,
-  },
-  statusDetails: {
-    gap: 12,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  statusLabel: {
-    flex: 1,
-    fontSize: 14,
-    color: '#A0AEC0',
-  },
-  statusValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  renewButton: {
+  processingBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFD700',
+    backgroundColor: '#EFF6FF',
     paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 16,
-    gap: 8,
-  },
-  renewButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#000',
-  },
-  
-  // Upgrade Card
-  upgradeCard: {
-    borderRadius: 16,
-    overflow: 'hidden',
+    paddingHorizontal: 16,
+    borderRadius: 14,
     marginBottom: 16,
-  },
-  upgradeGradient: {
-    padding: 24,
-    alignItems: 'center',
-  },
-  upgradeTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#fff',
-    marginTop: 12,
-  },
-  upgradeSubtitle: {
-    fontSize: 14,
-    color: '#E2E8F0',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  upgradeButton: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 24,
-    marginTop: 20,
-  },
-  upgradeButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#667eea',
-  },
-  
-  // Processing
-  processingCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#EBF5FF',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    gap: 8,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
   },
   processingText: {
     fontSize: 14,
-    color: '#2563EB',
+    color: '#2b76bc',
+    fontWeight: '600',
   },
-  
-  // Section
   section: {
-    marginBottom: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 12,
-  },
-  viewAllText: {
-    fontSize: 14,
-    color: '#2563EB',
-    fontWeight: '500',
-  },
-  
-  // Plan Card
-  planCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-  },
-  planCardSelected: {
-    borderColor: '#2563EB',
-    backgroundColor: '#EBF5FF',
-  },
-  planCardCurrent: {
-    opacity: 0.7,
-  },
-  popularTag: {
-    position: 'absolute',
-    top: -1,
-    right: 16,
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
-  },
-  popularTagText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  planHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  planName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  planPriceContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  planPrice: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#2563EB',
-  },
-  planDuration: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  planDescription: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 12,
-  },
-  planFeatures: {
-    gap: 8,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  featureText: {
     fontSize: 13,
-    color: '#4B5563',
+    fontWeight: '700',
+    color: '#94A3B8',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
-  currentPlanBadge: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    backgroundColor: '#E5E7EB',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+  sectionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 6,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
-  currentPlanText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  selectedIndicator: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#2563EB',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  
-  // Subscribe Button
-  subscribeButton: {
+  subscribeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2563EB',
+    backgroundColor: '#f67c16',
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     marginTop: 8,
     gap: 8,
+    shadowColor: '#f67c16',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 5,
   },
-  subscribeButtonDisabled: {
+  subscribeBtnDisabled: {
     opacity: 0.7,
   },
-  subscribeButtonText: {
+  subscribeBtnText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
-  
-  // Stats
-  statsGrid: {
+  statsRow: {
     flexDirection: 'row',
     gap: 12,
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 18,
     alignItems: 'center',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
-  statValue: {
+  statNumber: {
     fontSize: 24,
-    fontWeight: '700',
-    color: '#1F2937',
+    fontWeight: '800',
+    color: '#0F172A',
   },
-  statLabel: {
+  statDesc: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#94A3B8',
     marginTop: 4,
-  },
-  
-  // Transactions
-  transactionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  transactionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  transactionInfo: {
-    flex: 1,
-  },
-  transactionPlan: {
-    fontSize: 14,
     fontWeight: '600',
-    color: '#1F2937',
   },
-  transactionDate: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  transactionRight: {
-    alignItems: 'flex-end',
-    marginRight: 8,
-  },
-  transactionAmount: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  transactionStatus: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  emptyTransactions: {
+  emptyTx: {
     alignItems: 'center',
-    padding: 32,
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    paddingVertical: 32,
   },
-  emptyText: {
-    fontSize: 14,
-    color: '#A0AEC0',
+  emptyTxTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#94A3B8',
     marginTop: 12,
   },
-  
-  // Benefits
-  benefitsList: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    overflow: 'hidden',
+  emptyTxDesc: {
+    fontSize: 13,
+    color: '#CBD5E1',
+    marginTop: 4,
   },
-  benefitItem: {
+  benefitRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: '#F8FAFC',
+    gap: 14,
   },
   benefitIcon: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: '#EBF5FF',
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
-  benefitInfo: {
+  benefitContent: {
     flex: 1,
   },
   benefitTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
   },
   benefitDesc: {
-    fontSize: 12,
-    color: '#6B7280',
+    fontSize: 12.5,
+    color: '#94A3B8',
     marginTop: 2,
   },
-  
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  modalBody: {
-    padding: 20,
-  },
-  detailSection: {
-    marginBottom: 16,
-  },
-  detailLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 4,
-  },
-  detailValue: {
-    fontSize: 15,
-    color: '#1F2937',
-    fontWeight: '500',
-  },
-  detailAmount: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#2563EB',
-  },
-  statusBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusBadgeText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  errorSection: {
-    backgroundColor: '#FEF2F2',
-    padding: 12,
-    borderRadius: 8,
-  },
-  errorText: {
-    fontSize: 13,
-    color: '#EF4444',
-  },
-  modalCloseButton: {
-    backgroundColor: '#F3F4F6',
-    margin: 20,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  modalCloseButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  
-  // Error
-  errorContainer: {
+  emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    padding: 40,
   },
-  
-  // Reset Premium Button (Dev Only)
-  resetButton: {
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#64748B',
+    marginTop: 16,
+  },
+  emptyDesc: {
+    fontSize: 14,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 20,
+  },
+  resetBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 14,
     backgroundColor: '#FEF2F2',
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#FECACA',
-    marginTop: 8,
     gap: 8,
   },
-  resetButtonText: {
+  resetBtnText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#EF4444',
-  },
-  devWarning: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    textAlign: 'center',
-    marginTop: 8,
-    fontStyle: 'italic',
   },
 });
 

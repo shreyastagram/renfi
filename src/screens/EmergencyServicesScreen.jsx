@@ -42,7 +42,15 @@ import {
   cancelEmergencyRequest,
 } from '../services/emergencyServicesService';
 import { addToFavorites } from '../services/favoritesService';
+import { CancellationReasonModal } from '../components';
 // Direct phone dialing - Exotel call masking removed
+
+// Service-specific placeholder hints for notes input
+const EMERGENCY_NOTES_PLACEHOLDERS = {
+  snake_catcher: 'e.g., Snake spotted in backyard near the fence...',
+  private_ambulance: 'e.g., Patient needs urgent transport to hospital, stretcher required...',
+  mortuary_van: 'e.g., Need vehicle for deceased family member transport from home...',
+};
 
 // Brand colors
 const BRAND = {
@@ -505,6 +513,10 @@ const EmergencyServicesScreen = ({ navigation }) => {
   
   // Track which providers the user has called (call-before-book enforcement)
   const [contactedProviderIds, setContactedProviderIds] = useState(new Set());
+
+  // Cancel reason modal state
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancellingRequest, setCancellingRequest] = useState(false);
   
   // Service categories
   const locationBasedServices = LOCATION_BASED_SERVICES.map(id => ({
@@ -754,26 +766,33 @@ const EmergencyServicesScreen = ({ navigation }) => {
   };
 
   /**
-   * Handle cancel request
+   * Handle cancel request — opens reason modal
    */
   const handleCancelRequest = () => {
-    Alert.alert(
-      'Cancel Request',
-      'Are you sure you want to cancel this emergency request?',
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Yes, Cancel',
-          style: 'destructive',
-          onPress: async () => {
-            if (createdRequest) {
-              await cancelEmergencyRequest(createdRequest._id, userId, 'Cancelled by user');
-            }
-            resetState();
-          },
-        },
-      ]
-    );
+    if (!createdRequest) {
+      resetState();
+      return;
+    }
+    setCancelModalVisible(true);
+  };
+
+  /**
+   * Execute cancellation after user selects a reason from the modal
+   */
+  const executeCancellation = async (reason) => {
+    setCancellingRequest(true);
+    try {
+      if (createdRequest) {
+        await cancelEmergencyRequest(createdRequest._id, reason, 'user');
+      }
+      setCancelModalVisible(false);
+      resetState();
+    } catch (error) {
+      console.error('[Emergency Cancel] Error:', error);
+      Alert.alert('Error', 'Failed to cancel request');
+    } finally {
+      setCancellingRequest(false);
+    }
   };
 
   /**
@@ -969,7 +988,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
           
           <TextInput
             style={styles.notesInput}
-            placeholder="e.g., Snake spotted in backyard near the fence..."
+            placeholder={EMERGENCY_NOTES_PLACEHOLDERS[selectedService?.id] || 'Add details to help the provider...'}
             placeholderTextColor="#9CA3AF"
             value={notes}
             onChangeText={setNotes}
@@ -1051,6 +1070,16 @@ const EmergencyServicesScreen = ({ navigation }) => {
       
       {/* Notes Input Modal */}
       {renderNotesInput()}
+
+      {/* Cancellation Reason Modal */}
+      <CancellationReasonModal
+        visible={cancelModalVisible}
+        onClose={() => setCancelModalVisible(false)}
+        onSubmit={executeCancellation}
+        cancellerRole="user"
+        loading={cancellingRequest}
+        serviceName={EMERGENCY_SERVICE_LABELS[selectedService?.id]}
+      />
     </View>
   );
 };

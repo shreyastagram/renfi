@@ -70,6 +70,12 @@ export const GOOGLE_AUTH_CODES = {
   // Role conflict - email already registered as different role
   ROLE_CONFLICT: 'GOOGLE_AUTH_ROLE_CONFLICT',
   
+  // Not registered - user tried to login but doesn't have an account
+  NOT_REGISTERED: 'GOOGLE_AUTH_NOT_REGISTERED',
+  
+  // Already registered - user tried to signup but already has an account
+  ALREADY_REGISTERED: 'GOOGLE_AUTH_ALREADY_REGISTERED',
+  
   // Account already exists with password
   ACCOUNT_EXISTS_WITH_PASSWORD: 'ACCOUNT_EXISTS_WITH_PASSWORD',
   
@@ -159,7 +165,7 @@ export const getCurrentGoogleUser = async () => {
  * @param {string} role - 'USER' or 'SERVICE_PROVIDER' (defaults to 'USER')
  * @returns {Promise<Object>} Auth response with tokens and user info
  */
-export const signInWithGoogle = async (role = GOOGLE_AUTH_ROLES.USER) => {
+export const signInWithGoogle = async (role = GOOGLE_AUTH_ROLES.USER, mode = null) => {
   try {
     // Ensure Google Sign-In is configured
     if (!isConfigured) {
@@ -200,7 +206,7 @@ export const signInWithGoogle = async (role = GOOGLE_AUTH_ROLES.USER) => {
     }
 
     // Exchange Google token for FixHomi tokens
-    const authResult = await exchangeGoogleTokenForAuth(idToken, role);
+    const authResult = await exchangeGoogleTokenForAuth(idToken, role, mode);
     
     return authResult;
 
@@ -211,22 +217,20 @@ export const signInWithGoogle = async (role = GOOGLE_AUTH_ROLES.USER) => {
 
 /**
  * Sign in with Google as a User (regular customer)
- * Convenience wrapper for signInWithGoogle('USER')
- * 
+ * @param {string} mode - 'login' or 'signup' (optional)
  * @returns {Promise<Object>} Auth response
  */
-export const signInWithGoogleAsUser = async () => {
-  return signInWithGoogle(GOOGLE_AUTH_ROLES.USER);
+export const signInWithGoogleAsUser = async (mode = null) => {
+  return signInWithGoogle(GOOGLE_AUTH_ROLES.USER, mode);
 };
 
 /**
  * Sign in with Google as a Service Provider
- * Convenience wrapper for signInWithGoogle('SERVICE_PROVIDER')
- * 
+ * @param {string} mode - 'login' or 'signup' (optional)
  * @returns {Promise<Object>} Auth response
  */
-export const signInWithGoogleAsProvider = async () => {
-  return signInWithGoogle(GOOGLE_AUTH_ROLES.SERVICE_PROVIDER);
+export const signInWithGoogleAsProvider = async (mode = null) => {
+  return signInWithGoogle(GOOGLE_AUTH_ROLES.SERVICE_PROVIDER, mode);
 };
 
 // ==================== TOKEN EXCHANGE ====================
@@ -237,16 +241,24 @@ export const signInWithGoogleAsProvider = async () => {
  * 
  * @param {string} idToken - Google ID token
  * @param {string} role - 'USER' or 'SERVICE_PROVIDER'
+ * @param {string|null} mode - 'login', 'signup', or null (legacy)
  * @returns {Promise<Object>} Auth response with tokens
  */
-const exchangeGoogleTokenForAuth = async (idToken, role) => {
+const exchangeGoogleTokenForAuth = async (idToken, role, mode = null) => {
   try {
-    console.log('🔄 [GoogleAuth] Exchanging Google token for FixHomi auth...');
+    console.log('🔄 [GoogleAuth] Exchanging Google token for FixHomi auth (mode:', mode, ')');
 
-    const response = await authClient.post(ENDPOINTS.OAUTH.GOOGLE_MOBILE, {
+    const requestBody = {
       idToken,
       role, // Backend will use this for new user creation
-    });
+    };
+    
+    // Include mode if specified (login/signup separation)
+    if (mode) {
+      requestBody.mode = mode;
+    }
+
+    const response = await authClient.post(ENDPOINTS.OAUTH.GOOGLE_MOBILE, requestBody);
 
     // Java Auth returns user data at top level, not nested in 'user' object
     const { accessToken, refreshToken, userId, email, fullName, role: userRole, isNewUser } = response.data;
@@ -287,15 +299,46 @@ const exchangeGoogleTokenForAuth = async (idToken, role) => {
     
     const parsedError = parseApiError(error);
     
-    // Check for specific role conflict error
-    if (error.response?.data?.code === 'ROLE_CONFLICT' || 
+    // Parse structured error codes from Java Auth backend
+    const validationErrors = error.response?.data?.validationErrors || {};
+    const errorCode = validationErrors.code || '';
+    const existingRole = validationErrors.existingRole || '';
+    
+    // Check for role conflict error (email registered as different role)
+    if (errorCode === 'ROLE_CONFLICT' || 
+        error.response?.data?.code === 'ROLE_CONFLICT' || 
         error.response?.data?.message?.includes('already registered')) {
-      const existingRole = error.response?.data?.existingRole || 'different account type';
+      const existingRoleDisplay = existingRole === 'SERVICE_PROVIDER' ? 'Service Provider' : 
+                                  existingRole === 'USER' ? 'User' : 'different account type';
       return {
         success: false,
         error: {
           code: GOOGLE_AUTH_CODES.ROLE_CONFLICT,
-          message: `This email is already registered as a ${existingRole}. Each email can only be used for one account type.`,
+          message: `This email is already registered as a ${existingRoleDisplay}.`,
+          existingRole: existingRole,
+        },
+      };
+    }
+    
+    // Check for not registered error (login mode, user doesn't exist)
+    if (errorCode === 'NOT_REGISTERED') {
+      return {
+        success: false,
+        error: {
+          code: GOOGLE_AUTH_CODES.NOT_REGISTERED,
+          message: error.response?.data?.message || 'No account found with this email. Please register first.',
+          requestedRole: existingRole, // In this case it's the requested role
+        },
+      };
+    }
+    
+    // Check for already registered error (signup mode, user exists)
+    if (errorCode === 'ALREADY_REGISTERED') {
+      return {
+        success: false,
+        error: {
+          code: GOOGLE_AUTH_CODES.ALREADY_REGISTERED,
+          message: error.response?.data?.message || 'This email is already registered. Please login instead.',
           existingRole: existingRole,
         },
       };
@@ -543,6 +586,8 @@ export const getGoogleAuthErrorMessage = (code, defaultMessage) => {
     [GOOGLE_AUTH_CODES.IN_PROGRESS]: 'Please wait, sign-in is in progress.',
     [GOOGLE_AUTH_CODES.NO_ID_TOKEN]: 'Could not get your Google account information. Please try again.',
     [GOOGLE_AUTH_CODES.ROLE_CONFLICT]: 'This email is already registered with a different account type.',
+    [GOOGLE_AUTH_CODES.NOT_REGISTERED]: 'No account found. Please register first.',
+    [GOOGLE_AUTH_CODES.ALREADY_REGISTERED]: 'This email is already registered. Please login instead.',
     [GOOGLE_AUTH_CODES.ACCOUNT_EXISTS_WITH_PASSWORD]: 'An account with this email already exists. Please login with your password.',
     [GOOGLE_AUTH_CODES.SIGN_IN_FAILED]: 'Google Sign-In failed. Please try again.',
     [GOOGLE_AUTH_CODES.BACKEND_ERROR]: 'Could not complete sign-in. Please try again.',

@@ -1,9 +1,10 @@
 /**
  * Input Component
  * 
- * Reusable text input with label and error handling
+ * Reusable text input with label, error handling, password toggle icon,
+ * optional right icon support, and mandatory field asterisk.
  * 
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 import React, { useState } from 'react';
@@ -28,6 +29,9 @@ import {
  * @param {string} props.keyboardType - Keyboard type
  * @param {string} props.autoCapitalize - Auto capitalize setting
  * @param {boolean} props.editable - Editable state
+ * @param {boolean} props.required - Show asterisk for mandatory fields
+ * @param {string} props.rightIcon - Name of right icon ('eye', 'eye-off', etc.)
+ * @param {Function} props.onRightIconPress - Handler for right icon press
  * @param {Object} props.style - Additional container styles
  */
 const Input = ({
@@ -40,6 +44,9 @@ const Input = ({
   keyboardType = 'default',
   autoCapitalize = 'none',
   editable = true,
+  required = false,
+  rightIcon,
+  onRightIconPress,
   style,
   ...props
 }) => {
@@ -50,9 +57,27 @@ const Input = ({
     setIsPasswordVisible(!isPasswordVisible);
   };
 
+  // Determine which icon to show for password toggle
+  const renderPasswordIcon = () => {
+    const isVisible = rightIcon ? rightIcon === 'eye-off' : isPasswordVisible;
+    return (
+      <Text style={styles.eyeIcon}>
+        {isVisible ? '◉' : '◎'}
+      </Text>
+    );
+  };
+
+  // Check if we should show the toggle button
+  const hasRightAction = secureTextEntry || (rightIcon && onRightIconPress);
+
   return (
     <View style={[styles.container, style]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && (
+        <Text style={styles.label}>
+          {label}
+          {required && <Text style={styles.requiredAsterisk}> *</Text>}
+        </Text>
+      )}
       
       <View style={[
         styles.inputContainer,
@@ -66,7 +91,11 @@ const Input = ({
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor="#9CA3AF"
-          secureTextEntry={secureTextEntry && !isPasswordVisible}
+          secureTextEntry={
+            rightIcon 
+              ? (rightIcon === 'eye' ? true : false)  // controlled by parent
+              : (secureTextEntry && !isPasswordVisible) // internal toggle
+          }
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
           editable={editable}
@@ -75,14 +104,13 @@ const Input = ({
           {...props}
         />
         
-        {secureTextEntry && (
+        {hasRightAction && (
           <TouchableOpacity 
-            onPress={togglePasswordVisibility}
+            onPress={onRightIconPress || togglePasswordVisibility}
             style={styles.eyeButton}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.eyeIcon}>
-              {isPasswordVisible ? '👁️' : '👁️‍🗨️'}
-            </Text>
+            {renderPasswordIcon()}
           </TouchableOpacity>
         )}
       </View>
@@ -101,6 +129,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#374151',
     marginBottom: 6,
+  },
+  requiredAsterisk: {
+    color: '#EF4444',
+    fontWeight: '700',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -131,7 +163,8 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   eyeIcon: {
-    fontSize: 18,
+    fontSize: 20,
+    color: '#6B7280',
   },
   error: {
     fontSize: 12,

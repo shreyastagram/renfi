@@ -1,10 +1,16 @@
 /**
- * Favorites Screen
- * 
- * Displays user's favorite providers organized by service category
- * Allows removing from favorites and quick access to book
- * 
- * @version 1.0.0
+ * Favorites Screen - Premium Edition
+ *
+ * Full booking flow from favorites:
+ *   Select provider -> Pick service -> Create request via correct API
+ *   (traditional/event/emergency) -> Send to provider -> Accept/Reject -> OTP -> Tracking
+ *
+ * Routes service types to their correct backend APIs:
+ *   - Traditional (12 types) -> traditionalServiceService
+ *   - Event (photographer, influencer) -> /api/event-services/create-service
+ *   - Emergency (snake_catcher, private_ambulance, mortuary_van) -> emergencyServicesService
+ *
+ * @version 3.0.0
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -13,41 +19,107 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  FlatList,
   ActivityIndicator,
   Alert,
   Linking,
   RefreshControl,
   SectionList,
+  Modal,
+  ScrollView,
+  Dimensions,
+  Image,
+  StatusBar,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useApp } from '../context/AppContext';
+import { useLocation } from '../context/LocationContext';
 import { getFavorites, removeFromFavorites } from '../services/favoritesService';
-import { initiateCall } from '../services/callService';
+import { ProviderDetailsModal } from '../components';
+import {
+  createServiceRequest,
+  sendRequestToProvider,
+} from '../services/traditionalServiceService';
+import {
+  createEmergencyRequest,
+  assignEmergencyProvider,
+} from '../services/emergencyServicesService';
+import { NODE_BASE_URL } from '../config/api';
 
-// Brand colors
-const BRAND = {
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  background: '#faf7f7',
-  white: '#FFFFFF',
-  success: '#10B981',
-  danger: '#DC2626',
-  neutral: '#6B7280',
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Design Tokens
+const COLORS = {
+  primary: '#FF6B00',
+  primaryLight: '#FFF0E5',
+  primaryDark: '#E05A00',
+  secondary: '#1A73E8',
+  secondaryLight: '#E8F0FE',
+  surface: '#FFFFFF',
+  background: '#F5F5F7',
+  backgroundAlt: '#FAFAFA',
+  text: '#1A1A2E',
+  textSecondary: '#5F6368',
+  textTertiary: '#9AA0A6',
+  border: '#E8EAED',
+  borderLight: '#F1F3F4',
+  success: '#0D9488',
+  successLight: '#CCFBF1',
+  danger: '#EF4444',
+  dangerLight: '#FEF2F2',
+  warning: '#F59E0B',
+  warningLight: '#FFFBEB',
+  purple: '#7C3AED',
+  purpleLight: '#EDE9FE',
 };
 
-// Service category labels
+const FONTS = {
+  h1: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5, color: COLORS.text },
+  h2: { fontSize: 20, fontWeight: '700', letterSpacing: -0.3, color: COLORS.text },
+  h3: { fontSize: 17, fontWeight: '600', letterSpacing: -0.2, color: COLORS.text },
+  body: { fontSize: 15, fontWeight: '400', lineHeight: 22, color: COLORS.text },
+  bodyMedium: { fontSize: 15, fontWeight: '500', color: COLORS.text },
+  caption: { fontSize: 13, fontWeight: '400', color: COLORS.textSecondary },
+  captionMedium: { fontSize: 13, fontWeight: '500', color: COLORS.textSecondary },
+  small: { fontSize: 11, fontWeight: '500', letterSpacing: 0.2, color: COLORS.textTertiary },
+  button: { fontSize: 15, fontWeight: '600', letterSpacing: 0.3 },
+};
+
+const SHADOWS = {
+  sm: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 },
+  md: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
+  lg: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 6 },
+  xl: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 24, elevation: 10 },
+};
+
+// Service Type Routing
+// These MUST match the backend model enums exactly
+const TRADITIONAL_SERVICES = [
+  'electrician', 'plumber', 'electronics_technician', 'carpenter',
+  'painter', 'solar_repairing', 'welder', 'salon',
+  'vehicle_cleaning', 'mason_tiler', 'driver', 'ac_repair',
+];
+const EVENT_SERVICES = ['photographer', 'influencer'];
+const EMERGENCY_SERVICES = ['snake_catcher', 'private_ambulance', 'mortuary_van'];
+
+const getServiceFlow = (serviceType) => {
+  if (EVENT_SERVICES.includes(serviceType)) return 'event';
+  if (EMERGENCY_SERVICES.includes(serviceType)) return 'emergency';
+  return 'traditional';
+};
+
+// Service Labels and Icons
 const SERVICE_CATEGORY_LABELS = {
   electrician: 'Electrician',
   plumber: 'Plumber',
-  electronics_technician: 'Electronics Technician',
+  electronics_technician: 'Electronics',
   carpenter: 'Carpenter',
   painter: 'Painter',
-  solar_repairing: 'Solar Repairing',
+  solar_repairing: 'Solar Repair',
   welder: 'Welder',
   salon: 'Salon',
-  vehicle_cleaning: 'Vehicle Cleaning',
+  vehicle_cleaning: 'Vehicle Wash',
   mason_tiler: 'Mason & Tiler',
   driver: 'Driver',
   ac_repair: 'AC Repair',
@@ -55,11 +127,10 @@ const SERVICE_CATEGORY_LABELS = {
   photographer: 'Photographer',
   influencer: 'Influencer',
   snake_catcher: 'Snake Catcher',
-  private_ambulance: 'Private Ambulance',
+  private_ambulance: 'Ambulance',
   mortuary_van: 'Mortuary Van',
 };
 
-// Service category icons - MaterialIcon names for production-grade UI
 const SERVICE_ICONS = {
   electrician: 'flash-on',
   plumber: 'plumbing',
@@ -81,205 +152,316 @@ const SERVICE_ICONS = {
   mortuary_van: 'airport-shuttle',
 };
 
-/**
- * Provider Card Component
- */
-const ProviderCard = ({ provider, onCall, onRemove, onBook }) => (
-  <View style={styles.providerCard}>
-    <View style={styles.providerHeader}>
-      <View style={styles.providerAvatar}>
-        <Text style={styles.providerInitial}>
-          {provider.name?.charAt(0)?.toUpperCase() || 'P'}
-        </Text>
-      </View>
-      
-      <View style={styles.providerInfo}>
-        <View style={styles.providerNameRow}>
-          <Text style={styles.providerName}>{provider.name}</Text>
-          {provider.verified && (
-            <MaterialIcon name="verified" size={16} color="#2563EB" />
+const SERVICE_FLOW_COLORS = {
+  traditional: COLORS.secondary,
+  event: COLORS.purple,
+  emergency: COLORS.danger,
+};
+
+const SERVICE_FLOW_LABELS = {
+  traditional: 'Standard',
+  event: 'Event',
+  emergency: 'Emergency',
+};
+
+// =============================================================================
+// Provider Card Component
+// =============================================================================
+const ProviderCard = ({ provider, onCall, onRemove, onBook, onViewProfile }) => {
+  const verifiedCount = (provider.verifiedServices || []).length;
+  // Handle both string URL and object { url } from backend
+  const profilePicUrl = typeof provider.profilePicture === 'string'
+    ? provider.profilePicture
+    : provider.profilePicture?.url || provider.profileImage || null;
+  const hasProfilePic = !!profilePicUrl;
+
+  return (
+    <View style={cardStyles.card}>
+      <View style={cardStyles.cardTop}>
+        <TouchableOpacity
+          style={cardStyles.avatarTouchable}
+          onPress={() => onViewProfile(provider)}
+          activeOpacity={0.75}
+        >
+          {hasProfilePic ? (
+            <Image source={{ uri: profilePicUrl }} style={cardStyles.avatarImage} />
+          ) : (
+            <View style={cardStyles.avatarFallback}>
+              <Text style={cardStyles.avatarInitial}>
+                {(provider.name || 'P').charAt(0).toUpperCase()}
+              </Text>
+            </View>
           )}
-        </View>
-        
-        {(provider.rating > 0 || provider.ratings?.average > 0) && (
-          <View style={styles.ratingRow}>
-            <MaterialIcon name="star" size={14} color="#F59E0B" />
-            <Text style={styles.ratingText}>
-              {(provider.ratings?.average || provider.rating || 0).toFixed(1)}
-            </Text>
+          <View style={cardStyles.avatarBadge}>
+            <MaterialIcon name="open-in-new" size={10} color={COLORS.surface} />
           </View>
-        )}
-        
-        {provider.lastServiceDate && (
-          <Text style={styles.lastServiceText}>
-            Last service: {new Date(provider.lastServiceDate).toLocaleDateString()}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={cardStyles.cardInfo}
+          onPress={() => onViewProfile(provider)}
+          activeOpacity={0.75}
+        >
+          <View style={cardStyles.nameRow}>
+            <Text style={cardStyles.providerName} numberOfLines={1}>
+              {provider.name || 'Provider'}
+            </Text>
+            {verifiedCount > 0 && (
+              <View style={cardStyles.proBadge}>
+                <MaterialIcon name="verified" size={11} color={COLORS.surface} />
+                <Text style={cardStyles.proBadgeText}>PRO</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={cardStyles.metaRow}>
+            {(provider.rating > 0 || (provider.ratings && provider.ratings.average > 0)) && (
+              <View style={cardStyles.ratingChip}>
+                <MaterialIcon name="star" size={13} color="#F59E0B" />
+                <Text style={cardStyles.ratingValue}>
+                  {((provider.ratings && provider.ratings.average) || provider.rating || 0).toFixed(1)}
+                </Text>
+                {(provider.totalRatings > 0 || (provider.ratings && provider.ratings.total > 0)) && (
+                  <Text style={cardStyles.ratingCount}>
+                    ({provider.totalRatings || (provider.ratings && provider.ratings.total) || 0})
+                  </Text>
+                )}
+              </View>
+            )}
+            {verifiedCount > 0 && (
+              <View style={cardStyles.serviceCountChip}>
+                <MaterialIcon name="build" size={11} color={COLORS.textTertiary} />
+                <Text style={cardStyles.serviceCountText}>{verifiedCount} verified</Text>
+              </View>
+            )}
+          </View>
+
+          {provider.lastServiceDate && (
+            <Text style={cardStyles.lastServiceText}>
+              {'Last booked '}
+              {new Date(provider.lastServiceDate).toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })}
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={cardStyles.heartButton}
+          onPress={() => onRemove(provider)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <MaterialIcon name="favorite" size={22} color={COLORS.danger} />
+        </TouchableOpacity>
+      </View>
+
+      {provider.notes ? (
+        <View style={cardStyles.notesRow}>
+          <MaterialIcon name="sticky-note-2" size={14} color={COLORS.textTertiary} />
+          <Text style={cardStyles.notesText} numberOfLines={2}>
+            {provider.notes}
+          </Text>
+        </View>
+      ) : null}
+
+      <View style={cardStyles.actions}>
+        <TouchableOpacity style={cardStyles.callBtn} onPress={() => onCall(provider)} activeOpacity={0.8}>
+          <MaterialIcon name="phone" size={18} color={COLORS.success} />
+          <Text style={cardStyles.callBtnText}>Call</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={cardStyles.bookBtn} onPress={() => onBook(provider)} activeOpacity={0.8}>
+          <MaterialIcon name="bolt" size={18} color={COLORS.surface} />
+          <Text style={cardStyles.bookBtnText}>Book Now</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+// =============================================================================
+// Section Header
+// =============================================================================
+const SectionHeader = ({ category, count }) => {
+  const flow = getServiceFlow(category);
+  const iconBg =
+    flow === 'event'
+      ? COLORS.purpleLight
+      : flow === 'emergency'
+        ? COLORS.dangerLight
+        : COLORS.secondaryLight;
+  const iconColor = SERVICE_FLOW_COLORS[flow];
+
+  return (
+    <View style={sectionStyles.sectionHeader}>
+      <View style={[sectionStyles.sectionIcon, { backgroundColor: iconBg }]}>
+        <MaterialIcon name={SERVICE_ICONS[category] || 'star'} size={20} color={iconColor} />
+      </View>
+      <View style={sectionStyles.sectionTitleCol}>
+        <Text style={sectionStyles.sectionTitle}>
+          {SERVICE_CATEGORY_LABELS[category] || category}
+        </Text>
+        {flow !== 'traditional' && (
+          <Text style={[sectionStyles.sectionFlowLabel, { color: iconColor }]}>
+            {SERVICE_FLOW_LABELS[flow]} Service
           </Text>
         )}
       </View>
-      
-      <TouchableOpacity 
-        style={styles.removeButton}
-        onPress={() => onRemove(provider)}
-      >
-        <MaterialIcon name="favorite" size={24} color={BRAND.danger} />
-      </TouchableOpacity>
-    </View>
-    
-    {provider.notes && (
-      <View style={styles.notesContainer}>
-        <MaterialIcon name="notes" size={14} color="#9CA3AF" />
-        <Text style={styles.notesText}>{provider.notes}</Text>
+      <View style={sectionStyles.sectionCount}>
+        <Text style={sectionStyles.sectionCountText}>{count}</Text>
       </View>
-    )}
-    
-    <View style={styles.providerActions}>
-      <TouchableOpacity 
-        style={styles.callButton}
-        onPress={() => onCall(provider)}
-      >
-        <MaterialIcon name="phone" size={18} color={BRAND.white} />
-        <Text style={styles.callButtonText}>Call</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity 
-        style={styles.bookButton}
-        onPress={() => onBook(provider)}
-      >
-        <MaterialIcon name="calendar-today" size={18} color={BRAND.white} />
-        <Text style={styles.bookButtonText}>Book Now</Text>
-      </TouchableOpacity>
     </View>
-  </View>
-);
+  );
+};
 
-/**
- * Section Header Component - Using MaterialIcon instead of emoji
- */
-const SectionHeader = ({ category, count }) => (
-  <View style={styles.sectionHeader}>
-    <View style={styles.sectionIconContainer}>
-      <MaterialIcon 
-        name={SERVICE_ICONS[category] || 'star'} 
-        size={22} 
-        color={BRAND.secondary} 
-      />
-    </View>
-    <Text style={styles.sectionTitle}>
-      {SERVICE_CATEGORY_LABELS[category] || category}
-    </Text>
-    <View style={styles.countBadge}>
-      <Text style={styles.countText}>{count}</Text>
-    </View>
-  </View>
-);
-
+// =============================================================================
+// Main Screen
+// =============================================================================
 const FavoritesScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, profile } = useApp();
-  
-  // User ID
+  const { currentLocation } = useLocation();
+
   const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
-  
-  // State
-  const [favorites, setFavorites] = useState([]);
+
+  // Data
   const [sections, setSections] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
-  /**
-   * Fetch favorites
-   */
-  const fetchFavorites = useCallback(async (refresh = false) => {
-    if (!userId) return;
-    
-    if (refresh) {
-      setRefreshing(true);
-    } else {
-      setIsLoading(true);
-    }
-    
-    const result = await getFavorites(userId);
-    
-    console.log('[Favorites] Fetch result:', { 
-      success: result.success, 
-      count: result.count,
-      favoritesCount: result.favorites?.length 
-    });
-    
-    if (result.success) {
-      const favs = result.favorites || [];
-      setFavorites(favs);
-      
-      // Organize by category for section list
-      const byCategory = {};
-      favs.forEach(fav => {
-        const category = fav.serviceCategory || 'other';
-        if (!byCategory[category]) {
-          byCategory[category] = [];
-        }
-        byCategory[category].push({
-          ...fav.provider,
-          serviceCategory: category,
-          notes: fav.notes,
-          lastServiceDate: fav.lastServiceDate,
-          addedAt: fav.addedAt,
-        });
-      });
-      
-      const sectionData = Object.entries(byCategory).map(([category, data]) => ({
-        category,
-        data,
-      }));
-      
-      setSections(sectionData);
-    }
-    
-    setIsLoading(false);
-    setRefreshing(false);
-  }, [userId]);
-  
-  useEffect(() => {
-    fetchFavorites();
-  }, [fetchFavorites]);
-  
-  /**
-   * Handle call provider (Exotel masked call)
-   */
-  const handleCallProvider = async (provider) => {
-    if (!provider?._id) {
-      Alert.alert('Error', 'Provider information not available');
-      return;
-    }
 
-    try {
-      const result = await initiateCall({
-        receiverId: provider._id,
-        callerType: 'user',
-        serviceType: 'pre_booking',
+  // Service selection modal
+  const [serviceModalVisible, setServiceModalVisible] = useState(false);
+  const [bookingProvider, setBookingProvider] = useState(null);
+  const [availableServicesForModal, setAvailableServicesForModal] = useState([]);
+  const [sendingRequest, setSendingRequest] = useState(false);
+
+  // Provider details modal
+  const [providerDetailsVisible, setProviderDetailsVisible] = useState(false);
+  const [selectedProviderForDetails, setSelectedProviderForDetails] = useState(null);
+
+  // Fetch Favorites
+  const fetchFavorites = useCallback(
+    async (refresh) => {
+      if (!userId) return;
+      if (refresh) {
+        setRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
+
+      const result = await getFavorites(userId);
+      console.log('[Favorites] Fetch:', {
+        success: result.success,
+        count: result.favorites ? result.favorites.length : 0,
       });
 
       if (result.success) {
-        Alert.alert(
-          'Connecting Call',
-          'You will receive a call shortly. Once you pick up, we will connect you to the provider.',
-          [{ text: 'OK' }]
+        // Deduplicate by providerId — keep only the most recent entry per provider
+        const seenProviders = new Map();
+        (result.favorites || []).forEach((fav) => {
+          const pid = (fav.provider?._id || fav.providerId || '').toString();
+          const existing = seenProviders.get(pid);
+          if (!existing || new Date(fav.addedAt) > new Date(existing.addedAt)) {
+            seenProviders.set(pid, fav);
+          }
+        });
+        const uniqueFavorites = Array.from(seenProviders.values());
+
+        const byCategory = {};
+        uniqueFavorites.forEach((fav) => {
+          const category = fav.serviceCategory || 'other';
+          if (!byCategory[category]) {
+            byCategory[category] = [];
+          }
+          byCategory[category].push({
+            ...(fav.provider || {}),
+            _id: (fav.provider && fav.provider._id) || fav.providerId,
+            serviceCategory: category,
+            notes: fav.notes,
+            lastServiceDate: fav.lastServiceDate,
+            addedAt: fav.addedAt,
+          });
+        });
+
+        const order = [
+          ...TRADITIONAL_SERVICES,
+          ...EVENT_SERVICES,
+          ...EMERGENCY_SERVICES,
+          'other',
+        ];
+        const sorted = Object.entries(byCategory).sort(([a], [b]) => {
+          const idxA = order.indexOf(a) === -1 ? 99 : order.indexOf(a);
+          const idxB = order.indexOf(b) === -1 ? 99 : order.indexOf(b);
+          return idxA - idxB;
+        });
+        setSections(
+          sorted.map(([cat, data]) => ({ category: cat, data: data }))
         );
-      } else {
-        Alert.alert('Call Failed', result.error || 'Unable to connect. Please try again.');
       }
-    } catch (error) {
-      console.error('[Favorites] Call error:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+
+      setIsLoading(false);
+      setRefreshing(false);
+    },
+    [userId]
+  );
+
+  useEffect(() => {
+    fetchFavorites(false);
+  }, [fetchFavorites]);
+
+  // View Provider Profile
+  const handleViewProfile = (provider) => {
+    if (!provider._id) {
+      Alert.alert('Error', 'Provider information not available');
+      return;
     }
+    setSelectedProviderForDetails(provider);
+    setProviderDetailsVisible(true);
   };
-  
-  /**
-   * Handle remove from favorites
-   */
+
+  // Direct Phone Call
+  const handleCallProvider = (provider) => {
+    const phone = provider.phone || '';
+    const cleanPhone = phone.replace(/[^0-9+]/g, '');
+
+    if (!cleanPhone) {
+      Alert.alert(
+        'Phone Not Available',
+        "This provider's phone number is not available yet.",
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Call Provider',
+      'Call ' + (provider.name || 'Provider') + ' at ' + phone + '?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Call Now',
+          onPress: () =>
+            Linking.openURL('tel:' + cleanPhone).catch(() =>
+              Alert.alert('Error', 'Unable to make calls on this device')
+            ),
+        },
+      ]
+    );
+  };
+
+  // Remove Favorite
   const handleRemoveFavorite = (provider) => {
+    const providerId = provider._id;
+    if (!userId || !providerId) {
+      Alert.alert('Error', 'Unable to remove. Please try refreshing.');
+      return;
+    }
+
     Alert.alert(
       'Remove Favorite',
-      `Remove ${provider.name} from your favorites?`,
+      'Remove ' + (provider.name || 'this provider') + ' from favorites?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -288,380 +470,1059 @@ const FavoritesScreen = ({ navigation }) => {
           onPress: async () => {
             const result = await removeFromFavorites(
               userId,
-              provider._id,
+              providerId,
               provider.serviceCategory
             );
-            
             if (result.success) {
-              // Remove from local state
-              setSections(prev => 
-                prev.map(section => ({
-                  ...section,
-                  data: section.data.filter(p => 
-                    !(p._id === provider._id && p.serviceCategory === provider.serviceCategory)
-                  ),
-                })).filter(section => section.data.length > 0)
+              setSections((prev) =>
+                prev
+                  .map((sec) => ({
+                    ...sec,
+                    data: sec.data.filter(
+                      (p) =>
+                        !(
+                          p._id === providerId &&
+                          p.serviceCategory === provider.serviceCategory
+                        )
+                    ),
+                  }))
+                  .filter((sec) => sec.data.length > 0)
               );
             } else {
-              Alert.alert('Error', result.error || 'Failed to remove from favorites');
+              Alert.alert('Error', result.error || 'Failed to remove');
             }
           },
         },
       ]
     );
   };
-  
-  /**
-   * Handle book provider
-   */
+
+  // Book Provider - Show Service Picker
   const handleBookProvider = (provider) => {
-    const category = provider.serviceCategory;
-    
-    // Determine which screen to navigate to
-    if (['photographer', 'influencer'].includes(category)) {
-      navigation.navigate('EventServices');
-    } else if (['snake_catcher', 'private_ambulance', 'mortuary_van'].includes(category)) {
-      navigation.navigate('EmergencyServices');
-    } else {
-      // Traditional service - go to home tab with service pre-selected
-      // HomeTab is nested inside UserTabs, so navigate to the nested screen
-      navigation.navigate('UserTabs', {
-        screen: 'HomeTab',
-        params: {
-          preSelectedService: category,
+    const verifiedServices = provider.verifiedServices || [];
+    const allCategories = provider.serviceCategories || [];
+    const allServices = [...new Set([...verifiedServices, ...allCategories])];
+    const available =
+      allServices.length > 0 ? allServices : [provider.serviceCategory];
+
+    if (available.length === 0) {
+      Alert.alert(
+        'Not Available',
+        'This provider has no registered services yet.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    if (available.length === 1) {
+      showConfirmation(available[0], provider);
+      return;
+    }
+
+    setBookingProvider(provider);
+    setAvailableServicesForModal(
+      available.map((svc) => ({
+        id: svc,
+        label: SERVICE_CATEGORY_LABELS[svc] || svc,
+        icon: SERVICE_ICONS[svc] || 'build',
+        isVerified: verifiedServices.includes(svc),
+        flow: getServiceFlow(svc),
+      }))
+    );
+    setServiceModalVisible(true);
+  };
+
+  // Confirmation Alert
+  const showConfirmation = (serviceId, provider) => {
+    setServiceModalVisible(false);
+    const name = SERVICE_CATEGORY_LABELS[serviceId] || serviceId;
+    const flow = getServiceFlow(serviceId);
+    var flowLabel = '';
+    if (flow === 'event') {
+      flowLabel = ' (Event Service)';
+    } else if (flow === 'emergency') {
+      flowLabel = ' (Emergency Service)';
+    }
+
+    Alert.alert(
+      'Send Service Request',
+      'Send a ' +
+        name +
+        ' request' +
+        flowLabel +
+        ' to ' +
+        (provider.name || 'this provider') +
+        '?\n\nThe provider will be notified and can accept or reject.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send Request',
+          onPress: () => handleSendRequest(serviceId, provider),
         },
-      });
+      ]
+    );
+  };
+
+  const handleServiceSelected = (service) => {
+    if (bookingProvider) {
+      showConfirmation(service.id, bookingProvider);
     }
   };
-  
-  /**
-   * Render header
-   */
-  const renderHeader = () => (
-    <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-      <TouchableOpacity 
-        style={styles.backButton} 
-        onPress={() => navigation.goBack()}
-      >
-        <MaterialIcon name="arrow-back" size={24} color="#1F2937" />
-      </TouchableOpacity>
-      <Text style={styles.headerTitle}>My Favorites</Text>
-      <View style={styles.headerSpacer} />
-    </View>
+
+  // =================================================================
+  // Create and Send Request - routes to the CORRECT backend API
+  //
+  //   Traditional -> createServiceRequest + sendRequestToProvider
+  //   Event       -> POST /api/event-services/create-service + send-to-provider
+  //   Emergency   -> createEmergencyRequest + assignEmergencyProvider
+  // =================================================================
+  const handleSendRequest = async (serviceId, provider) => {
+    if (!currentLocation || !currentLocation.latitude || !currentLocation.longitude) {
+      Alert.alert('Location Required', 'Please enable GPS and try again.', [
+        { text: 'OK' },
+      ]);
+      return;
+    }
+
+    setSendingRequest(true);
+    const flow = getServiceFlow(serviceId);
+
+    try {
+      var success = false;
+      var errorMsg = '';
+
+      // ========================================================
+      // TRADITIONAL SERVICE FLOW
+      // ========================================================
+      if (flow === 'traditional') {
+        var now = new Date();
+        var hours = now.getHours().toString().padStart(2, '0');
+        var mins = now.getMinutes().toString().padStart(2, '0');
+
+        var createResult = await createServiceRequest({
+          userId: userId,
+          serviceType: serviceId,
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+          serviceDate: now.toISOString(),
+          serviceTime: hours + ':' + mins,
+          serviceAddress:
+            currentLocation.address || currentLocation.shortAddress || '',
+          isOtherLocation: false,
+          description: 'Booked from favorites',
+        });
+
+        if (!createResult.success) {
+          if (createResult.code === 'OUTSIDE_SERVICE_ZONE') {
+            Alert.alert(
+              'Service Unavailable',
+              createResult.suggestion || 'Not available in your area.',
+              [{ text: 'OK' }]
+            );
+            return;
+          }
+          throw new Error(createResult.error || 'Failed to create request');
+        }
+
+        var requestId = createResult.request && createResult.request._id;
+        if (!requestId) {
+          throw new Error('No request ID returned');
+        }
+
+        var sendResult = await sendRequestToProvider(requestId, provider._id);
+        success = sendResult.success;
+        if (!success) {
+          errorMsg = sendResult.error || 'Failed to send request';
+        }
+      }
+
+      // ========================================================
+      // EVENT SERVICE FLOW  (photographer, influencer)
+      // ========================================================
+      else if (flow === 'event') {
+        var eventNow = new Date();
+        var locationData = {
+          address:
+            currentLocation.address ||
+            currentLocation.shortAddress ||
+            'Current Location',
+          coordinates: [currentLocation.longitude, currentLocation.latitude],
+          landmark: '',
+        };
+
+        var createResp = await fetch(
+          NODE_BASE_URL + '/api/event-services/create-service',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: userId,
+              serviceType: serviceId,
+              serviceName: SERVICE_CATEGORY_LABELS[serviceId] || serviceId,
+              eventDate: eventNow.toISOString(),
+              notes: 'Booked from favorites',
+              location: locationData,
+            }),
+          }
+        );
+
+        var createData = await createResp.json();
+
+        if (
+          !createResp.ok ||
+          (createData.statusCode && createData.statusCode >= 400)
+        ) {
+          if (createData.code === 'OUTSIDE_SERVICE_ZONE') {
+            Alert.alert(
+              'Service Unavailable',
+              (createData.details && createData.details.suggestion) ||
+                'Not available in your area.',
+              [{ text: 'OK' }]
+            );
+            return;
+          }
+          throw new Error(
+            createData.message ||
+              createData.error ||
+              'Failed to create event request'
+          );
+        }
+
+        var serviceRequestId =
+          (createData.data && createData.data._id) || createData._id;
+        if (!serviceRequestId) {
+          throw new Error('No event request ID returned');
+        }
+
+        var sendResp = await fetch(
+          NODE_BASE_URL +
+            '/api/event-services/' +
+            serviceRequestId +
+            '/send-to-provider',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ providerId: provider._id }),
+          }
+        );
+
+        var sendData = await sendResp.json();
+        success =
+          sendResp.ok && (!sendData.statusCode || sendData.statusCode < 400);
+
+        if (!success) {
+          // Cancel orphan request on failure
+          try {
+            await fetch(
+              NODE_BASE_URL +
+                '/api/event-services/' +
+                serviceRequestId +
+                '/cancel',
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userId: userId,
+                  reason: 'Failed to send to provider',
+                }),
+              }
+            );
+          } catch (cancelErr) {
+            // ignore cancel error
+          }
+          errorMsg =
+            sendData.message ||
+            sendData.error ||
+            'Failed to send to provider';
+        }
+      }
+
+      // ========================================================
+      // EMERGENCY SERVICE FLOW (snake_catcher, private_ambulance, mortuary_van)
+      // ========================================================
+      else if (flow === 'emergency') {
+        var emergencyResult = await createEmergencyRequest({
+          userId: userId,
+          serviceType: serviceId,
+          location: {
+            latitude: currentLocation.latitude,
+            longitude: currentLocation.longitude,
+            address:
+              currentLocation.address || currentLocation.shortAddress || '',
+          },
+          notes: 'Booked from favorites',
+        });
+
+        if (!emergencyResult.success) {
+          if (emergencyResult.code === 'OUTSIDE_SERVICE_ZONE') {
+            Alert.alert(
+              'Service Unavailable',
+              emergencyResult.suggestion || 'Not available in your area.',
+              [{ text: 'OK' }]
+            );
+            return;
+          }
+          throw new Error(
+            emergencyResult.error || 'Failed to create emergency request'
+          );
+        }
+
+        var emergencyId = emergencyResult.data && emergencyResult.data._id;
+        if (!emergencyId) {
+          throw new Error('No emergency request ID returned');
+        }
+
+        var assignResult = await assignEmergencyProvider(
+          emergencyId,
+          provider._id
+        );
+        success = assignResult.success;
+        if (!success) {
+          errorMsg = assignResult.error || 'Failed to assign provider';
+        }
+      }
+
+      // Show result
+      if (success) {
+        var serviceName = SERVICE_CATEGORY_LABELS[serviceId] || serviceId;
+        Alert.alert(
+          'Request Sent!',
+          'Your ' +
+            serviceName +
+            ' request has been sent to ' +
+            (provider.name || 'the provider') +
+            '.\n\nYou will be notified when they respond.',
+          [
+            {
+              text: 'View History',
+              onPress: () =>
+                navigation.navigate('UserTabs', { screen: 'HistoryTab' }),
+            },
+            { text: 'OK' },
+          ]
+        );
+      } else {
+        Alert.alert('Error', errorMsg || 'Failed to send request');
+      }
+    } catch (error) {
+      console.error('[Favorites] Send request error:', error);
+      Alert.alert(
+        'Error',
+        error.message || 'Something went wrong. Please try again.'
+      );
+    } finally {
+      setSendingRequest(false);
+      setBookingProvider(null);
+      setAvailableServicesForModal([]);
+    }
+  };
+
+  const closeModal = () => {
+    setServiceModalVisible(false);
+    setTimeout(() => {
+      setBookingProvider(null);
+      setAvailableServicesForModal([]);
+    }, 300);
+  };
+
+  // Total count
+  var totalFavorites = sections.reduce(
+    (acc, sec) => acc + sec.data.length,
+    0
   );
-  
-  /**
-   * Render empty state
-   */
-  const renderEmptyState = () => (
-    <View style={styles.emptyContainer}>
-      <View style={styles.emptyIconContainer}>
-        <MaterialIcon name="favorite-border" size={64} color="#D1D5DB" />
-      </View>
-      <Text style={styles.emptyTitle}>No Favorites Yet</Text>
-      <Text style={styles.emptySubtitle}>
-        Your favorite providers will appear here after you complete a service and add them to favorites
-      </Text>
-      <View style={styles.emptyHintContainer}>
-        <MaterialIcon name="info-outline" size={18} color="#9CA3AF" />
-        <Text style={styles.emptyHintText}>
-          After completing a service, tap the heart icon to save the provider
-        </Text>
-      </View>
-    </View>
-  );
-  
+
+  // =================================================================
+  // RENDER
+  // =================================================================
   return (
-    <View style={styles.container}>
-      {renderHeader()}
-      
+    <View style={screenStyles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
+
+      {/* Header */}
+      <View style={[screenStyles.header, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity
+          style={screenStyles.backBtn}
+          onPress={() => navigation.goBack()}
+        >
+          <MaterialIcon name="arrow-back-ios" size={22} color={COLORS.text} />
+        </TouchableOpacity>
+        <View style={screenStyles.headerCenter}>
+          <Text style={screenStyles.headerTitle}>Favorites</Text>
+          {totalFavorites > 0 && (
+            <View style={screenStyles.headerBadge}>
+              <Text style={screenStyles.headerBadgeText}>{totalFavorites}</Text>
+            </View>
+          )}
+        </View>
+        <View style={screenStyles.headerRight} />
+      </View>
+
+      {/* Sending Overlay */}
+      {sendingRequest && (
+        <View style={screenStyles.overlay}>
+          <View style={screenStyles.overlayCard}>
+            <View style={screenStyles.overlayIconWrap}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+            </View>
+            <Text style={screenStyles.overlayTitle}>Sending Request...</Text>
+            <Text style={screenStyles.overlaySubtitle}>
+              Connecting you with the provider
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* Content */}
       {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BRAND.primary} />
-          <Text style={styles.loadingText}>Loading favorites...</Text>
+        <View style={screenStyles.center}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={[FONTS.caption, { marginTop: 16 }]}>
+            Loading your favorites...
+          </Text>
         </View>
       ) : sections.length === 0 ? (
-        renderEmptyState()
+        <View style={screenStyles.emptyState}>
+          <View style={screenStyles.emptyCircle}>
+            <MaterialIcon
+              name="favorite-border"
+              size={56}
+              color={COLORS.textTertiary}
+            />
+          </View>
+          <Text style={screenStyles.emptyTitle}>No Favorites Yet</Text>
+          <Text style={screenStyles.emptyBody}>
+            After completing a service, tap the heart icon on the completion
+            screen to save your favorite providers here.
+          </Text>
+          <TouchableOpacity
+            style={screenStyles.emptyBtn}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.8}
+          >
+            <MaterialIcon name="search" size={18} color={COLORS.surface} />
+            <Text style={screenStyles.emptyBtnText}>Find Services</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <SectionList
           sections={sections}
-          keyExtractor={(item, index) => `${item._id}-${item.serviceCategory}-${index}`}
+          keyExtractor={(item, idx) =>
+            (item._id || '') + '-' + (item.serviceCategory || '') + '-' + idx
+          }
           renderItem={({ item }) => (
             <ProviderCard
               provider={item}
               onCall={handleCallProvider}
               onRemove={handleRemoveFavorite}
               onBook={handleBookProvider}
+              onViewProfile={handleViewProfile}
             />
           )}
           renderSectionHeader={({ section }) => (
-            <SectionHeader 
-              category={section.category} 
+            <SectionHeader
+              category={section.category}
               count={section.data.length}
             />
           )}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={screenStyles.listContent}
           stickySectionHeadersEnabled={false}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => fetchFavorites(true)}
-              colors={[BRAND.primary]}
+              colors={[COLORS.primary]}
+              tintColor={COLORS.primary}
             />
           }
         />
       )}
+
+      {/* Service Selection Modal */}
+      <Modal
+        visible={serviceModalVisible}
+        animationType="slide"
+        transparent
+        statusBarTranslucent
+        onRequestClose={closeModal}
+      >
+        <View style={modalStyles.modalOverlay}>
+          <TouchableOpacity
+            style={modalStyles.modalDismiss}
+            activeOpacity={1}
+            onPress={closeModal}
+          />
+          <View
+            style={[
+              modalStyles.modalSheet,
+              { paddingBottom: insets.bottom + 20 },
+            ]}
+          >
+            <View style={modalStyles.modalGrabber}>
+              <View style={modalStyles.modalGrabberBar} />
+            </View>
+
+            <View style={modalStyles.modalHeader}>
+              <View style={modalStyles.modalHeaderLeft}>
+                <View style={modalStyles.modalHeaderIcon}>
+                  <MaterialIcon
+                    name="handyman"
+                    size={24}
+                    color={COLORS.primary}
+                  />
+                </View>
+                <View>
+                  <Text style={FONTS.h3}>Choose a Service</Text>
+                  {bookingProvider && (
+                    <Text
+                      style={[FONTS.caption, { marginTop: 2 }]}
+                      numberOfLines={1}
+                    >
+                      {'for ' + bookingProvider.name}
+                    </Text>
+                  )}
+                </View>
+              </View>
+              <TouchableOpacity
+                style={modalStyles.modalClose}
+                onPress={closeModal}
+              >
+                <MaterialIcon
+                  name="close"
+                  size={22}
+                  color={COLORS.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={modalStyles.modalList}
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              {availableServicesForModal.map((svc, idx) => {
+                var flowColor = SERVICE_FLOW_COLORS[svc.flow];
+                var iconBgColor =
+                  svc.flow === 'event'
+                    ? COLORS.purpleLight
+                    : svc.flow === 'emergency'
+                      ? COLORS.dangerLight
+                      : COLORS.secondaryLight;
+                return (
+                  <TouchableOpacity
+                    key={svc.id + '-modal-' + idx}
+                    style={modalStyles.modalItem}
+                    onPress={() => handleServiceSelected(svc)}
+                    activeOpacity={0.65}
+                  >
+                    <View
+                      style={[
+                        modalStyles.modalItemIcon,
+                        { backgroundColor: iconBgColor },
+                      ]}
+                    >
+                      <MaterialIcon
+                        name={svc.icon}
+                        size={22}
+                        color={flowColor}
+                      />
+                    </View>
+                    <View style={modalStyles.modalItemInfo}>
+                      <Text style={modalStyles.modalItemName}>{svc.label}</Text>
+                      <View style={modalStyles.modalItemMeta}>
+                        {svc.isVerified ? (
+                          <View style={modalStyles.verifiedTag}>
+                            <MaterialIcon
+                              name="verified"
+                              size={11}
+                              color={COLORS.success}
+                            />
+                            <Text style={modalStyles.verifiedTagText}>
+                              Verified
+                            </Text>
+                          </View>
+                        ) : (
+                          <View style={modalStyles.pendingTag}>
+                            <MaterialIcon
+                              name="schedule"
+                              size={11}
+                              color={COLORS.warning}
+                            />
+                            <Text style={modalStyles.pendingTagText}>Pending</Text>
+                          </View>
+                        )}
+                        {svc.flow !== 'traditional' && (
+                          <View
+                            style={[
+                              modalStyles.flowTag,
+                              { backgroundColor: flowColor + '18' },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                modalStyles.flowTagText,
+                                { color: flowColor },
+                              ]}
+                            >
+                              {SERVICE_FLOW_LABELS[svc.flow]}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                    <MaterialIcon
+                      name="arrow-forward-ios"
+                      size={16}
+                      color={COLORS.border}
+                    />
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <View style={modalStyles.modalHint}>
+              <MaterialIcon
+                name="info-outline"
+                size={15}
+                color={COLORS.secondary}
+              />
+              <Text style={modalStyles.modalHintText}>
+                Select a service to send a booking request
+              </Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Provider Details Modal */}
+      <ProviderDetailsModal
+        visible={providerDetailsVisible}
+        providerId={
+          selectedProviderForDetails
+            ? selectedProviderForDetails._id
+            : undefined
+        }
+        onClose={() => {
+          setProviderDetailsVisible(false);
+          setSelectedProviderForDetails(null);
+        }}
+        onBook={() => {
+          setProviderDetailsVisible(false);
+          if (selectedProviderForDetails) {
+            setTimeout(
+              () => handleBookProvider(selectedProviderForDetails),
+              350
+            );
+          }
+        }}
+        onCall={(phone) => {
+          if (phone) {
+            var cleaned = phone.replace(/[^0-9+]/g, '');
+            Alert.alert(
+              'Call Provider',
+              'Call ' +
+                (selectedProviderForDetails
+                  ? selectedProviderForDetails.name
+                  : 'Provider') +
+                ' at ' +
+                phone +
+                '?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Call Now',
+                  onPress: () =>
+                    Linking.openURL('tel:' + cleaned).catch(() =>
+                      Alert.alert('Error', 'Unable to make calls')
+                    ),
+                },
+              ]
+            );
+          } else if (selectedProviderForDetails) {
+            handleCallProvider(selectedProviderForDetails);
+          }
+        }}
+      />
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: BRAND.background,
-  },
+// =============================================================================
+// STYLES - Premium Design System
+// =============================================================================
+
+// Screen styles
+const screenStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.background },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingBottom: 16,
-    backgroundColor: BRAND.white,
+    paddingBottom: 14,
+    backgroundColor: COLORS.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: COLORS.borderLight,
   },
-  backButton: {
-    padding: 8,
-    marginLeft: -8,
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-    textAlign: 'center',
-    marginHorizontal: 8,
-  },
-  headerSpacer: {
+  backBtn: {
     width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.background,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  
-  // Loading
-  loadingContainer: {
+  headerCenter: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#6B7280',
-  },
-  
-  // Empty State
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  emptyTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 12,
-  },
-  emptySubtitle: {
-    fontSize: 15,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
-  },
-  emptyHintContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 10,
-    marginTop: 8,
+    justifyContent: 'center',
+    gap: 8,
   },
-  emptyHintText: {
+  headerTitle: {
+    ...FONTS.h2,
+  },
+  headerBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    backgroundColor: COLORS.primaryLight,
+  },
+  headerBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  headerRight: { width: 40 },
+
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 200,
+  },
+  overlayCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 24,
+    padding: 36,
+    alignItems: 'center',
+    width: SCREEN_WIDTH * 0.72,
+    ...SHADOWS.xl,
+  },
+  overlayIconWrap: { marginBottom: 20 },
+  overlayTitle: { ...FONTS.h3, marginBottom: 6 },
+  overlaySubtitle: { ...FONTS.caption, textAlign: 'center' },
+
+  emptyState: {
     flex: 1,
-    fontSize: 13,
-    color: '#6B7280',
-    lineHeight: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 44,
   },
-  
-  // List
-  listContent: {
-    padding: 16,
-    paddingBottom: 32,
+  emptyCircle: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: COLORS.borderLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 28,
   },
-  
-  // Section Header
+  emptyTitle: { ...FONTS.h2, marginBottom: 12, textAlign: 'center' },
+  emptyBody: {
+    ...FONTS.body,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 28,
+  },
+  emptyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 14,
+    gap: 8,
+    ...SHADOWS.md,
+  },
+  emptyBtnText: { ...FONTS.button, color: COLORS.surface },
+
+  listContent: { padding: 16, paddingBottom: 40 },
+});
+
+// Card styles
+const cardStyles = StyleSheet.create({
+  card: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    ...SHADOWS.md,
+  },
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  avatarTouchable: {
+    position: 'relative',
+    marginRight: 14,
+  },
+  avatarImage: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: COLORS.borderLight,
+  },
+  avatarFallback: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: COLORS.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarInitial: {
+    fontSize: 21,
+    fontWeight: '700',
+    color: COLORS.surface,
+  },
+  avatarBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.surface,
+  },
+  cardInfo: { flex: 1, paddingTop: 2 },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  providerName: { ...FONTS.h3, flex: 1 },
+  proBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: COLORS.secondary,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  proBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.surface,
+    letterSpacing: 0.5,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 2,
+  },
+  ratingChip: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  ratingValue: { fontSize: 13, fontWeight: '600', color: COLORS.text },
+  ratingCount: { fontSize: 11, color: COLORS.textTertiary },
+  serviceCountChip: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  serviceCountText: { ...FONTS.small },
+  lastServiceText: { ...FONTS.small, marginTop: 2 },
+  heartButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: COLORS.dangerLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
+    marginTop: 2,
+  },
+  notesRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: COLORS.backgroundAlt,
+    padding: 10,
+    borderRadius: 10,
+    marginTop: 12,
+    marginBottom: 4,
+    gap: 8,
+  },
+  notesText: { flex: 1, ...FONTS.caption, lineHeight: 18 },
+  actions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+  callBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: COLORS.successLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: COLORS.success + '30',
+  },
+  callBtnText: { ...FONTS.button, color: COLORS.success },
+  bookBtn: {
+    flex: 2,
+    flexDirection: 'row',
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    ...SHADOWS.sm,
+  },
+  bookBtnText: { ...FONTS.button, color: COLORS.surface },
+});
+
+// Section styles
+const sectionStyles = StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    marginTop: 8,
-  },
-  sectionIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FFF7ED',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
+    marginTop: 20,
+    marginBottom: 14,
+    paddingHorizontal: 4,
   },
   sectionIcon: {
-    fontSize: 16,
-  },
-  sectionTitle: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  countBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 12,
-  },
-  countText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  
-  // Provider Card
-  providerCard: {
-    backgroundColor: BRAND.white,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  providerHeader: {
-    flexDirection: 'row',
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  providerAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: BRAND.secondary,
     justifyContent: 'center',
-    alignItems: 'center',
     marginRight: 12,
   },
-  providerInitial: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: BRAND.white,
+  sectionTitleCol: { flex: 1 },
+  sectionTitle: { ...FONTS.h3 },
+  sectionFlowLabel: { ...FONTS.small, marginTop: 1 },
+  sectionCount: {
+    minWidth: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.borderLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
   },
-  providerInfo: {
+  sectionCountText: { ...FONTS.captionMedium, color: COLORS.text },
+});
+
+// Modal styles
+const modalStyles = StyleSheet.create({
+  modalOverlay: {
     flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
   },
-  providerNameRow: {
+  modalDismiss: { flex: 1 },
+  modalSheet: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    maxHeight: '78%',
+  },
+  modalGrabber: {
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  modalGrabberBar: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.border,
+  },
+  modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
   },
-  providerName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginRight: 6,
-  },
-  ratingRow: {
+  modalHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    flex: 1,
+    gap: 12,
   },
-  ratingText: {
-    fontSize: 13,
-    color: '#374151',
-    marginLeft: 4,
+  modalHeaderIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: COLORS.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  lastServiceText: {
+  modalClose: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: COLORS.backgroundAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  modalList: { paddingTop: 8, maxHeight: 420 },
+  modalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
+  modalItemIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  modalItemInfo: { flex: 1 },
+  modalItemName: { ...FONTS.bodyMedium, marginBottom: 4 },
+  modalItemMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  verifiedTag: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  verifiedTagText: { ...FONTS.small, color: COLORS.success },
+  pendingTag: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  pendingTagText: { ...FONTS.small, color: COLORS.warning },
+  flowTag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  flowTagText: { fontSize: 10, fontWeight: '600', letterSpacing: 0.3 },
+  modalHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.secondaryLight,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  modalHintText: {
+    flex: 1,
     fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 2,
-  },
-  removeButton: {
-    padding: 8,
-  },
-  
-  // Notes
-  notesContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#F9FAFB',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  notesText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#6B7280',
-    marginLeft: 8,
-    lineHeight: 18,
-  },
-  
-  // Actions
-  providerActions: {
-    flexDirection: 'row',
-  },
-  callButton: {
-    flex: 1,
-    flexDirection: 'row',
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: BRAND.success,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  callButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: BRAND.white,
-    marginLeft: 6,
-  },
-  bookButton: {
-    flex: 2,
-    flexDirection: 'row',
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: BRAND.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  bookButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: BRAND.white,
-    marginLeft: 6,
+    fontWeight: '500',
+    color: COLORS.secondary,
   },
 });
 

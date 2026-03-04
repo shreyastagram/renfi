@@ -32,7 +32,7 @@ import { useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
-import { Icon, ServiceIcon, StatusIcon, RatingModal, FixhomiLogo } from '../components';
+import { Icon, ServiceIcon, StatusIcon, RatingModal, FixhomiLogo, CancellationReasonModal } from '../components';
 import { 
   getUserRequests, 
   cancelRequest,
@@ -318,6 +318,11 @@ const UserServiceHistoryScreen = ({ navigation }) => {
   // Rating statuses from central Rating collection
   const [ratingStatuses, setRatingStatuses] = useState({});
 
+  // Cancel reason modal state
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancellingRequest, setCancellingRequest] = useState(false);
+  const [requestToCancel, setRequestToCancel] = useState(null);
+
   const displayData = { ...user, ...profile };
   const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
 
@@ -580,64 +585,73 @@ const UserServiceHistoryScreen = ({ navigation }) => {
     Linking.openURL(url).catch(() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}`));
   };
 
-  const handleCancel = async (request) => {
-    Alert.alert('Cancel Request?', 'Are you sure you want to cancel this booking?', [
-      { text: 'No', style: 'cancel' },
-      { text: 'Yes, Cancel', style: 'destructive', onPress: async () => {
-        try {
-          let result;
-          
-          // Detect service types from request's serviceType field
-          const EVENT_SERVICE_TYPES = ['photographer', 'influencer'];
-          const EMERGENCY_SERVICE_TYPES = ['snake_catcher', 'private_ambulance', 'mortuary_van', 'fire_brigade', 'police', 'hospital'];
-          
-          const isEventServiceRequest = request.isEventService || EVENT_SERVICE_TYPES.includes(request?.serviceType);
-          const isEmergencyServiceRequest = request.isEmergencyService || EMERGENCY_SERVICE_TYPES.includes(request?.serviceType);
-          
-          console.log('[UserHistory] Cancel service type detection:', { 
-            serviceType: request?.serviceType, 
-            isEventService: isEventServiceRequest, 
-            isEmergencyService: isEmergencyServiceRequest 
-          });
-          
-          if (isEventServiceRequest) {
-            console.log('[UserHistory] Cancelling event service:', request._id);
-            // Use event service cancel endpoint
-            const response = await fetch(`${NODE_BASE_URL}/api/event-services/${request._id}/cancel`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ userId, reason: 'Cancelled by user' }),
-            });
-            result = await response.json();
-            result.success = response.ok && result.statusCode !== 500;
-          } else if (isEmergencyServiceRequest) {
-            console.log('[UserHistory] Cancelling emergency service:', request._id);
-            // Use emergency service cancel endpoint
-            const response = await fetch(`${NODE_BASE_URL}/api/emergency-services/${request._id}/cancel`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ userId, reason: 'Cancelled by user' }),
-            });
-            result = await response.json();
-            result.success = response.ok && result.statusCode !== 500;
-          } else {
-            console.log('[UserHistory] Cancelling traditional service:', request._id);
-            // Use traditional service cancel
-            result = await cancelRequest(request._id, userId, 'Cancelled by user');
-          }
-          
-          if (result.success) { 
-            Alert.alert('Cancelled', 'Your booking has been cancelled successfully.'); 
-            onRefresh(); 
-          } else {
-            Alert.alert('Error', result.error || 'Failed to cancel');
-          }
-        } catch (error) {
-          console.error('Cancel error:', error);
-          Alert.alert('Error', 'Failed to cancel booking');
-        }
-      }},
-    ]);
+  /**
+   * Open cancellation reason modal instead of bare Alert
+   */
+  const handleCancel = (request) => {
+    setRequestToCancel(request);
+    setCancelModalVisible(true);
+  };
+
+  /**
+   * Execute cancellation after user selects a reason from the modal
+   */
+  const executeCancellation = async (reason) => {
+    if (!requestToCancel) return;
+    setCancellingRequest(true);
+    try {
+      let result;
+      
+      // Detect service types from request's serviceType field
+      const EVENT_SERVICE_TYPES = ['photographer', 'influencer'];
+      const EMERGENCY_SERVICE_TYPES = ['snake_catcher', 'private_ambulance', 'mortuary_van', 'fire_brigade', 'police', 'hospital'];
+      
+      const isEventServiceRequest = requestToCancel.isEventService || EVENT_SERVICE_TYPES.includes(requestToCancel?.serviceType);
+      const isEmergencyServiceRequest = requestToCancel.isEmergencyService || EMERGENCY_SERVICE_TYPES.includes(requestToCancel?.serviceType);
+      
+      console.log('[UserHistory] Cancel service type detection:', { 
+        serviceType: requestToCancel?.serviceType, 
+        isEventService: isEventServiceRequest, 
+        isEmergencyService: isEmergencyServiceRequest 
+      });
+      
+      if (isEventServiceRequest) {
+        console.log('[UserHistory] Cancelling event service:', requestToCancel._id);
+        const response = await fetch(`${NODE_BASE_URL}/api/event-services/${requestToCancel._id}/cancel`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, reason, cancelledBy: 'user' }),
+        });
+        result = await response.json();
+        result.success = response.ok && result.statusCode !== 500;
+      } else if (isEmergencyServiceRequest) {
+        console.log('[UserHistory] Cancelling emergency service:', requestToCancel._id);
+        const response = await fetch(`${NODE_BASE_URL}/api/emergency-services/${requestToCancel._id}/cancel`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, reason, cancelledBy: 'user' }),
+        });
+        result = await response.json();
+        result.success = response.ok && result.statusCode !== 500;
+      } else {
+        console.log('[UserHistory] Cancelling traditional service:', requestToCancel._id);
+        result = await cancelRequest(requestToCancel._id, userId, reason);
+      }
+      
+      setCancelModalVisible(false);
+      if (result.success) { 
+        Alert.alert('Cancelled', 'Your booking has been cancelled successfully.'); 
+        onRefresh(); 
+      } else {
+        Alert.alert('Error', result.error || 'Failed to cancel');
+      }
+    } catch (error) {
+      console.error('Cancel error:', error);
+      Alert.alert('Error', 'Failed to cancel booking');
+    } finally {
+      setCancellingRequest(false);
+      setRequestToCancel(null);
+    }
   };
 
   const handleViewDetails = (request) => {
@@ -789,6 +803,19 @@ const UserServiceHistoryScreen = ({ navigation }) => {
           setRequestToRate(null);
         }}
         onSubmit={handleSubmitRating}
+      />
+
+      {/* Cancellation Reason Modal */}
+      <CancellationReasonModal
+        visible={cancelModalVisible}
+        onClose={() => {
+          setCancelModalVisible(false);
+          setRequestToCancel(null);
+        }}
+        onSubmit={executeCancellation}
+        cancellerRole="user"
+        loading={cancellingRequest}
+        serviceName={SERVICE_TYPE_LABELS[requestToCancel?.serviceType] || requestToCancel?.serviceType}
       />
     </View>
   );

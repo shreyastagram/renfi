@@ -27,7 +27,7 @@ import {
   Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Icon, ServiceIcon, StatusIcon } from '../components';
+import { Icon, ServiceIcon, StatusIcon, CancellationReasonModal } from '../components';
 import { useApp } from '../context/AppContext';
 import {
   getProviderRequests,
@@ -55,6 +55,11 @@ const ProviderRequestsScreen = ({ navigation }) => {
   const [otpInput, setOtpInput] = useState('');
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [otpError, setOtpError] = useState('');
+
+  // Cancel reason modal state
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancellingRequest, setCancellingRequest] = useState(false);
+  const [requestToCancel, setRequestToCancel] = useState(null);
   
   // ✅ UNIFIED ID SYSTEM:
   // After backend update, MongoDB _id = Java Auth userId
@@ -242,39 +247,40 @@ const ProviderRequestsScreen = ({ navigation }) => {
   };
 
   /**
-   * Handle provider cancelling an accepted request
+   * Handle provider cancelling an accepted request — opens reason modal
    */
   const handleCancelRequest = (request) => {
-    Alert.alert(
-      'Cancel Request?',
-      'Are you sure you want to cancel this request? The customer will be notified.',
-      [
-        { text: 'No, Keep It', style: 'cancel' },
-        {
-          text: 'Yes, Cancel',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const result = await providerCancelRequest(
-                request._id,
-                providerId,
-                'Provider cancelled the request'
-              );
+    setRequestToCancel(request);
+    setCancelModalVisible(true);
+  };
 
-              if (result.success) {
-                Alert.alert('Request Cancelled', 'The request has been cancelled.');
-                fetchRequests(false);
-              } else {
-                Alert.alert('Error', result.error || 'Failed to cancel request');
-              }
-            } catch (error) {
-              console.error('[CancelRequest] Error:', error);
-              Alert.alert('Error', 'Something went wrong. Please try again.');
-            }
-          },
-        },
-      ]
-    );
+  /**
+   * Execute cancellation after provider selects a reason from the modal
+   */
+  const executeCancellation = async (reason) => {
+    if (!requestToCancel) return;
+    setCancellingRequest(true);
+    try {
+      const result = await providerCancelRequest(
+        requestToCancel._id,
+        providerId,
+        reason
+      );
+
+      setCancelModalVisible(false);
+      if (result.success) {
+        Alert.alert('Request Cancelled', 'The request has been cancelled.');
+        fetchRequests(false);
+      } else {
+        Alert.alert('Error', result.error || 'Failed to cancel request');
+      }
+    } catch (error) {
+      console.error('[CancelRequest] Error:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    } finally {
+      setCancellingRequest(false);
+      setRequestToCancel(null);
+    }
   };
 
   /**
@@ -841,6 +847,19 @@ const ProviderRequestsScreen = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Cancellation Reason Modal */}
+      <CancellationReasonModal
+        visible={cancelModalVisible}
+        onClose={() => {
+          setCancelModalVisible(false);
+          setRequestToCancel(null);
+        }}
+        onSubmit={executeCancellation}
+        cancellerRole="provider"
+        loading={cancellingRequest}
+        serviceName={SERVICE_TYPE_LABELS[requestToCancel?.serviceType] || requestToCancel?.serviceType}
+      />
     </View>
   );
 };

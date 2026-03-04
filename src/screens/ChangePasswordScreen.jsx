@@ -57,7 +57,7 @@ const COLORS = {
  * @param {Object} props - Navigation props
  */
 const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
-  const { user, profile } = useApp();
+  const { user, profile, refreshVerificationStatus } = useApp();
 
   // Determine if user has a password (OAuth users don't)
   const [hasPassword, setHasPassword] = useState(true);
@@ -187,6 +187,9 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
         const successMsg = hasPassword ? 'Password changed successfully!' : 'Password set successfully!';
         showAlert(successMsg, 'success');
         
+        // Refresh profile from Java Auth so hasPassword is persisted in AppContext
+        refreshVerificationStatus().catch(() => {});
+        
         // Clear form
         setFormData({
           currentPassword: '',
@@ -286,6 +289,9 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
         setChangeComplete(true);
         setHasPassword(true);
         showAlert('Password reset successfully!', 'success');
+        
+        // Refresh profile from Java Auth so hasPassword is persisted in AppContext
+        refreshVerificationStatus().catch(() => {});
         
         // Clear form and reset state
         setFormData({

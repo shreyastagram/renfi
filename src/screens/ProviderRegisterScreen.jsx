@@ -36,6 +36,7 @@ import {
   GOOGLE_AUTH_CODES,
   getGoogleAuthErrorMessage,
 } from '../services/googleAuthService';
+import { isInsideServiceZone, getZoneStatus } from '../utils/serviceZone';
 
 /**
  * ProviderRegisterScreen Component
@@ -75,14 +76,13 @@ const ProviderRegisterScreen = ({ navigation }) => {
   const [location, setLocation] = useState(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState(null);
-  const [watchId, setWatchId] = useState(null);
 
   /**
    * Navigate to login with pre-filled email
    */
   const handleGoToLogin = useCallback(() => {
     setShowAccountExistsModal(false);
-    navigation.navigate('ProviderAuthScreen', { 
+    navigation.navigate('ProviderAuth', { 
       initialTab: 'login',
       prefillEmail: existingEmail 
     });
@@ -93,7 +93,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
    */
   const handleForgotPassword = useCallback(() => {
     setShowAccountExistsModal(false);
-    navigation.navigate('ForgotPasswordScreen', { 
+    navigation.navigate('ForgotPassword', { 
       prefillEmail: existingEmail 
     });
   }, [navigation, existingEmail]);
@@ -103,7 +103,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
    */
   const handlePhoneGoToLogin = useCallback(() => {
     setShowPhoneExistsModal(false);
-    navigation.navigate('ProviderAuthScreen', { 
+    navigation.navigate('ProviderAuth', { 
       initialTab: 'login' 
     });
   }, [navigation]);
@@ -144,11 +144,10 @@ const ProviderRegisterScreen = ({ navigation }) => {
   };
 
   /**
-   * Industry-grade location strategy (like Uber/Ola):
-   * 1. Start with watchPosition for continuous updates
-   * 2. Accept first location immediately (cached/network)
-   * 3. Refine with better accuracy updates automatically
-   * 4. Stop watching once we have good enough accuracy (<100m)
+   * Ultra-fast 2-stage location strategy (same as LocationContext / Uber / Ola):
+   * Stage 1: Get ANY cached location INSTANTLY (maximumAge: 5 min, low accuracy OK)
+   * Stage 2: If accuracy > 100m, silently refine in background
+   * This gives users a near-instant location result.
    */
   const getCurrentLocation = async () => {
     setLocationLoading(true);
@@ -161,110 +160,75 @@ const ProviderRegisterScreen = ({ navigation }) => {
       return;
     }
 
-    console.log('📍 Starting industry-grade location fetch...');
-    
-    // Clear any existing watch
-    if (watchId !== null) {
-      Geolocation.clearWatch(watchId);
-    }
+    console.log('⚡ [ProviderRegister] Starting ultra-fast 2-stage location fetch...');
 
-    let locationReceived = false;
-    let bestAccuracy = Infinity;
-    
-    // Use watchPosition - this is how Uber/Ola get fast location
-    // It immediately returns cached/network location, then refines with GPS
-    const id = Geolocation.watchPosition(
+    // STAGE 1: Get ANY cached/network location INSTANTLY
+    Geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude, accuracy } = position.coords;
-        console.log('📍 Location update:', latitude.toFixed(6), longitude.toFixed(6), 'accuracy:', accuracy?.toFixed(0) || 'unknown', 'm');
+        console.log(`⚡ [ProviderRegister] FAST location: ${latitude.toFixed(6)}, ${longitude.toFixed(6)} (±${accuracy?.toFixed(0) || '?'}m)`);
         
-        // Accept any location immediately to show user we're working
-        if (!locationReceived) {
-          locationReceived = true;
-          setLocation({ latitude, longitude, accuracy });
-          setLocationLoading(false);
-          console.log('📍 First location acquired!');
-        }
+        setLocation({ latitude, longitude, accuracy });
+        setLocationLoading(false);
         
-        // Keep updating if we get better accuracy
-        if (accuracy && accuracy < bestAccuracy) {
-          bestAccuracy = accuracy;
-          setLocation({ latitude, longitude, accuracy });
-          console.log('📍 Better accuracy received:', accuracy.toFixed(0), 'm');
-        }
-        
-        // Stop watching once we have good accuracy (<100m) or after getting a location
-        if (accuracy && accuracy < 100) {
-          console.log('📍 Good accuracy achieved, stopping watch');
-          Geolocation.clearWatch(id);
-          setWatchId(null);
+        // STAGE 2: If accuracy is poor (>100m), silently get better location
+        if (accuracy && accuracy > 100) {
+          console.log('📍 [ProviderRegister] Refining accuracy in background...');
+          Geolocation.getCurrentPosition(
+            (betterPosition) => {
+              const better = betterPosition.coords;
+              if (better.accuracy && better.accuracy < accuracy) {
+                console.log(`✅ [ProviderRegister] Improved: ±${better.accuracy.toFixed(0)}m`);
+                setLocation({ latitude: better.latitude, longitude: better.longitude, accuracy: better.accuracy });
+              }
+            },
+            () => {}, // Ignore errors in background refinement
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+          );
         }
       },
       (error) => {
-        console.warn('📍 Location watch error:', error.message, error.code);
+        // Stage 1 failed — no cached location available
+        console.warn('⚠️ [ProviderRegister] No cached location, trying fresh GPS...');
         
-        // Only show error if we haven't received any location yet
-        if (!locationReceived) {
-          // Try one last time with getCurrentPosition as fallback
-          Geolocation.getCurrentPosition(
-            (position) => {
-              const { latitude, longitude } = position.coords;
-              console.log('📍 Fallback location:', latitude, longitude);
-              setLocation({ latitude, longitude });
-              setLocationLoading(false);
-            },
-            (fallbackError) => {
-              console.error('📍 All location attempts failed:', fallbackError.message);
-              setLocationError('Could not get location. You can retry or continue without GPS.');
-              setLocationLoading(false);
-            },
-            { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
-          );
+        // GPS off check (error code 2 = POSITION_UNAVAILABLE)
+        if (error.code === 2) {
+          setLocationError('Location services are turned off. Please enable GPS.');
+          setLocationLoading(false);
+          return;
         }
         
-        Geolocation.clearWatch(id);
-        setWatchId(null);
+        // Fallback: Try fresh GPS with high accuracy
+        Geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude, accuracy } = position.coords;
+            console.log(`📍 [ProviderRegister] Fresh location: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+            setLocation({ latitude, longitude, accuracy });
+            setLocationLoading(false);
+          },
+          (fallbackError) => {
+            console.error('📍 [ProviderRegister] All location attempts failed:', fallbackError.message);
+            if (fallbackError.code === 2) {
+              setLocationError('Location services are turned off. Please enable GPS.');
+            } else {
+              setLocationError('Could not get location. You can retry or continue without it.');
+            }
+            setLocationLoading(false);
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
       },
       {
-        enableHighAccuracy: true,
-        distanceFilter: 10, // Update every 10 meters
-        interval: 1000, // Android: update every 1 second
-        fastestInterval: 500, // Android: fastest update interval
-        timeout: 30000,
-        maximumAge: 1000, // Use cached location up to 1 second old for instant result
+        enableHighAccuracy: false, // FALSE for SPEED — get any cached location
+        timeout: 3000,             // Short timeout — fail fast if no cache
+        maximumAge: 300000,        // Accept 5-min old cache for instant result
       }
     );
-    
-    setWatchId(id);
-    
-    // Safety timeout: stop watching after 15 seconds regardless
-    setTimeout(() => {
-      if (id && !locationReceived) {
-        console.log('📍 Safety timeout reached');
-        Geolocation.clearWatch(id);
-        setWatchId(null);
-        if (!location) {
-          setLocationError('Location timeout. You can retry or continue without GPS.');
-          setLocationLoading(false);
-        }
-      } else if (id) {
-        // We have a location, just stop the watch
-        Geolocation.clearWatch(id);
-        setWatchId(null);
-      }
-    }, 15000);
   };
 
-  // Request location on mount and cleanup on unmount
+  // Request location on mount
   useEffect(() => {
     getCurrentLocation();
-    
-    return () => {
-      // Cleanup watch on unmount
-      if (watchId !== null) {
-        Geolocation.clearWatch(watchId);
-      }
-    };
   }, []);
 
   /**
@@ -439,32 +403,31 @@ const ProviderRegisterScreen = ({ navigation }) => {
 
   /**
    * Handle Google Sign-In for provider registration
-   * Creates account with SERVICE_PROVIDER role
-   * Note: Provider will need to complete their profile (address, services) after Google sign-in
+   * Uses mode="signup" — backend will NOT login existing users
    */
   const handleGoogleSignIn = async () => {
     try {
       setGoogleLoading(true);
       clearAlert();
 
-      console.log('🔐 [ProviderRegisterScreen] Starting Google Sign-In as SERVICE_PROVIDER');
+      console.log('🔐 [ProviderRegisterScreen] Starting Google Sign-Up as SERVICE_PROVIDER');
       
-      const result = await signInWithGoogleAsProvider();
+      // ✅ KEY CHANGE: Pass mode="signup" — backend rejects if already registered
+      const result = await signInWithGoogleAsProvider('signup');
 
       if (result.success) {
         const { accessToken, refreshToken, user, isNewUser } = result.data;
 
-        // For new providers via Google, we need their address (required field)
-        // We'll sync with the form data if available, otherwise use defaults
+        // For new providers via Google, sync to MongoDB
+        // Use form data if pre-filled, otherwise rely on profile completion later
         if (isNewUser && user) {
           console.log('🆕 [ProviderRegisterScreen] New provider - syncing to MongoDB...');
           
-          // Use form data if filled, otherwise use Google data
           const syncResult = await syncGoogleProviderToMongoDB({
             javaUserId: user.id || user.userId,
             email: user.email,
-            name: formData.name?.trim() || user.fullName || user.name || user.email.split('@')[0],
-            address: formData.address?.trim() || 'Please update your address',
+            name: user.fullName || user.name || user.email.split('@')[0],
+            address: formData.address?.trim() || '',
             googleId: user.googleId,
             profilePicture: user.profilePicture,
             phone: formData.phone?.trim() || undefined,
@@ -476,11 +439,6 @@ const ProviderRegisterScreen = ({ navigation }) => {
 
           if (!syncResult.success) {
             console.warn('⚠️ [ProviderRegisterScreen] MongoDB sync failed, but auth succeeded');
-          } else {
-            // If address was defaulted, show warning
-            if (!formData.address?.trim()) {
-              showAlert('Please update your address in Profile settings.', 'info');
-            }
           }
         }
 
@@ -519,10 +477,18 @@ const ProviderRegisterScreen = ({ navigation }) => {
         
         // Handle role conflict
         if (error.code === GOOGLE_AUTH_CODES.ROLE_CONFLICT) {
+          const existingRole = error.existingRole === 'USER' ? 'User' : 'Service Provider';
           showAlert(
-            'This email is already registered as a User. Each email can only be used for one account type.',
+            `This email is already registered as a ${existingRole}. Each email can only be used for one account type.`,
             'warning'
           );
+          return;
+        }
+        
+        // ✅ Handle already registered — provider should login instead
+        if (error.code === GOOGLE_AUTH_CODES.ALREADY_REGISTERED) {
+          setExistingEmail('this Google account');
+          setShowAccountExistsModal(true);
           return;
         }
         
@@ -590,6 +556,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
               error={errors.name}
               autoCapitalize="words"
               autoComplete="name"
+              required
             />
 
             <Input
@@ -601,6 +568,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
+              required
             />
 
             <Input
@@ -611,6 +579,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
               error={errors.password}
               secureTextEntry
               autoComplete="password-new"
+              required
             />
 
             <Input
@@ -631,6 +600,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
               error={errors.address}
               autoCapitalize="words"
               autoComplete="street-address"
+              required
             />
 
             <View style={styles.row}>
@@ -674,12 +644,32 @@ const ProviderRegisterScreen = ({ navigation }) => {
                 )}
               </View>
               {location ? (
-                <View style={styles.locationSuccess}>
-                  <Text style={styles.locationSuccessIcon}>✓</Text>
-                  <Text style={styles.locationSuccessText}>
-                    Location captured ({location.latitude.toFixed(4)}, {location.longitude.toFixed(4)})
-                  </Text>
-                </View>
+                (() => {
+                  const zoneStatus = getZoneStatus(location.latitude, location.longitude);
+                  return (
+                    <View>
+                      <View style={[styles.locationSuccess, !zoneStatus.inside && styles.locationOutOfZone]}>
+                        <Text style={zoneStatus.inside ? styles.locationSuccessIcon : styles.locationWarningIcon}>
+                          {zoneStatus.inside ? '✓' : '⚠'}
+                        </Text>
+                        <Text style={zoneStatus.inside ? styles.locationSuccessText : styles.locationWarningText}>
+                          {zoneStatus.inside 
+                            ? 'Location detected — within service area' 
+                            : 'Location detected — outside service area'}
+                        </Text>
+                      </View>
+                      {!zoneStatus.inside && (
+                        <View style={styles.outOfZoneBanner}>
+                          <Text style={styles.outOfZoneText}>
+                            FixHomi is currently available only in {zoneStatus.zoneName}. 
+                            You can still register, but you won't receive service requests until 
+                            you're within the service area.
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })()
               ) : locationError ? (
                 <View style={styles.locationErrorContainer}>
                   <Text style={styles.locationErrorText}>{locationError}</Text>
@@ -689,7 +679,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
                 </View>
               ) : !locationLoading ? (
                 <TouchableOpacity onPress={getCurrentLocation} style={styles.getLocationButton}>
-                  <Text style={styles.getLocationButtonText}>Get My Location</Text>
+                  <Text style={styles.getLocationButtonText}>Detect My Location</Text>
                 </TouchableOpacity>
               ) : null}
               <Text style={styles.locationHint}>
@@ -733,10 +723,6 @@ const ProviderRegisterScreen = ({ navigation }) => {
                 </>
               )}
             </TouchableOpacity>
-
-            <Text style={styles.googleNote}>
-              💡 You can fill in Name, Address, and Location above before using Google Sign-In
-            </Text>
           </View>
 
           {/* Footer */}
@@ -946,6 +932,33 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#15803D',
   },
+  locationOutOfZone: {
+    borderColor: '#FDE68A',
+  },
+  locationWarningIcon: {
+    color: '#D97706',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginRight: 6,
+  },
+  locationWarningText: {
+    fontSize: 13,
+    color: '#92400E',
+  },
+  outOfZoneBanner: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 6,
+    padding: 10,
+    marginTop: 6,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  outOfZoneText: {
+    fontSize: 12,
+    color: '#92400E',
+    lineHeight: 17,
+  },
   locationErrorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1037,14 +1050,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#374151',
-  },
-  googleNote: {
-    fontSize: 12,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 8,
-    fontStyle: 'italic',
   },
   footer: {
     paddingVertical: 24,

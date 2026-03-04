@@ -13,10 +13,14 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useApp } from '../context/AppContext';
+
+// Logo image
+const LOGO_IMAGE = require('../assets/fixhomi_logo.jpg');
 
 // Brand colors
 const COLORS = {
@@ -56,7 +60,11 @@ const UserTypeScreen = ({ navigation }) => {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <MaterialIcon name="home-repair-service" size={40} color={COLORS.primary} />
+            <Image
+              source={LOGO_IMAGE}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
           <Text style={styles.logo}>FixHomi</Text>
           <Text style={styles.title}>Welcome!</Text>
@@ -128,18 +136,24 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logoContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 90,
+    height: 90,
+    borderRadius: 24,
     backgroundColor: COLORS.white,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  logoImage: {
+    width: 90,
+    height: 90,
+    borderRadius: 24,
   },
   logo: {
     fontSize: 32,

@@ -250,7 +250,7 @@ const SavedAddressItem = ({ address, onSelect }) => {
     switch (type) {
       case 'home': return 'home';
       case 'work': return 'work';
-      default: return 'location';
+      default: return 'location-on';
     }
   };
   

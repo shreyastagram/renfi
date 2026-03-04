@@ -84,3 +84,7 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# APK builds
+*.apk
+public/download/

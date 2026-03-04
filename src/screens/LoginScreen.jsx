@@ -18,6 +18,7 @@ import {
   Platform,
   TouchableOpacity,
   Image,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Input, Alert, FixhomiLogo } from '../components';
@@ -54,6 +55,11 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
   const [alertMessage, setAlertMessage] = useState(null);
   const [alertType, setAlertType] = useState('error');
   const [showPassword, setShowPassword] = useState(false);
+
+  // Cross-role dialog state
+  const [showRoleConflictModal, setShowRoleConflictModal] = useState(false);
+  const [conflictExistingRole, setConflictExistingRole] = useState('');
+  const [conflictGoogleData, setConflictGoogleData] = useState(null);
 
   /**
    * Update form field
@@ -176,8 +182,9 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
   };
 
   /**
-   * Handle Google Sign-In
-   * Uses userType prop to determine if signing in as USER or SERVICE_PROVIDER
+   * Handle Google Sign-In — LOGIN MODE ONLY
+   * Does NOT auto-register new users. If not registered, tells them to signup.
+   * Handles cross-role conflicts with a user-friendly dialog.
    */
   const handleGoogleSignIn = async () => {
     try {
@@ -185,23 +192,22 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
       clearAlert();
 
       const isProvider = userType === 'provider';
-      console.log(`🔐 [LoginScreen] Starting Google Sign-In as ${isProvider ? 'PROVIDER' : 'USER'}`);
+      console.log(`🔐 [LoginScreen] Starting Google Login as ${isProvider ? 'PROVIDER' : 'USER'}`);
       
-      // Call appropriate sign-in method based on user type
+      // ✅ KEY CHANGE: Pass mode="login" — backend will NOT auto-register
       const result = isProvider 
-        ? await signInWithGoogleAsProvider()
-        : await signInWithGoogleAsUser();
+        ? await signInWithGoogleAsProvider('login')
+        : await signInWithGoogleAsUser('login');
 
       if (result.success) {
         showAlert('Login successful!', 'success');
         
         const { accessToken, refreshToken, user, isNewUser } = result.data;
         
-        // ✅ CRITICAL: Always sync Google users to MongoDB
-        // Java Auth creates user in PostgreSQL, but we need them in MongoDB too
-        // This handles: new users, returning users after DB clear, cross-device login
+        // ✅ For LOGIN, user must already exist in MongoDB (registered via signup)
+        // Only do a lightweight sync to ensure MongoDB profile is up-to-date
         if (user) {
-          console.log(`🔄 [LoginScreen] Syncing Google ${isProvider ? 'provider' : 'user'} to MongoDB...`);
+          console.log(`🔄 [LoginScreen] Ensuring MongoDB profile exists for ${isProvider ? 'provider' : 'user'}...`);
           
           const syncData = {
             javaUserId: user.userId,
@@ -211,51 +217,29 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
             profilePicture: user.profilePicture,
           };
           
-          // Retry sync up to 3 times with delay — this is critical for first-time Google providers
-          // Without a MongoDB profile, all subsequent authenticated API calls will fail
-          let syncSuccess = false;
-          for (let attempt = 1; attempt <= 3; attempt++) {
-            try {
-              if (isProvider) {
-                const syncResult = await syncGoogleProviderToMongoDB({
-                  ...syncData,
-                  name: user.fullName,
-                  address: '', // Will be updated in ProfileScreen
-                });
-                syncSuccess = syncResult.success;
-              } else {
-                const syncResult = await syncGoogleUserToMongoDB(syncData);
-                syncSuccess = syncResult.success;
-              }
-              
-              if (syncSuccess) {
-                console.log(`✅ [LoginScreen] MongoDB sync completed (attempt ${attempt})`);
-                break;
-              }
-              
-              console.warn(`⚠️ [LoginScreen] MongoDB sync attempt ${attempt} returned failure, ${attempt < 3 ? 'retrying...' : 'continuing anyway'}`);
-            } catch (syncError) {
-              console.warn(`⚠️ [LoginScreen] MongoDB sync attempt ${attempt} error:`, syncError.message);
+          try {
+            if (isProvider) {
+              await syncGoogleProviderToMongoDB({
+                ...syncData,
+                name: user.fullName,
+                address: '',
+              });
+            } else {
+              await syncGoogleUserToMongoDB(syncData);
             }
-            
-            if (attempt < 3) {
-              await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
-            }
-          }
-          
-          if (!syncSuccess) {
-            console.warn('⚠️ [LoginScreen] MongoDB sync failed after 3 attempts - auth middleware auto-sync will handle it');
+            console.log('✅ [LoginScreen] MongoDB profile sync OK');
+          } catch (syncError) {
+            console.warn('⚠️ [LoginScreen] MongoDB sync warning:', syncError.message);
+            // Don't fail login — auth middleware auto-sync will handle it
           }
         }
         
-        // Add userType to auth data
-        // Include javaUserId as the unified ID for MongoDB queries
         const authData = {
           accessToken: accessToken,
           refreshToken: refreshToken,
           userId: user.userId,
           javaUserId: user.userId,
-          mongoId: user.userId, // Same as javaUserId in unified system
+          mongoId: user.userId,
           email: user.email,
           fullName: user.fullName,
           role: user.role,
@@ -264,8 +248,6 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
           authMethod: 'google',
         };
         
-        // For new providers, they may need to complete their profile
-        // The handleAuthSuccess should handle this navigation
         const authProcessed = await handleAuthSuccess(authData);
         
         if (!authProcessed) {
@@ -280,12 +262,20 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
           return;
         }
         
-        // Handle role conflict - email registered as different type
+        // ✅ NOT REGISTERED — user needs to sign up first
+        if (error.code === GOOGLE_AUTH_CODES.NOT_REGISTERED) {
+          showAlert(
+            'No account found with this email. Please register first to use FixHomi.',
+            'warning'
+          );
+          return;
+        }
+        
+        // ✅ CROSS-ROLE CONFLICT — show dialog to switch role
         if (error.code === GOOGLE_AUTH_CODES.ROLE_CONFLICT) {
-          const roleMessage = isProvider
-            ? 'This email is already registered as a User. Each email can only be used for one account type.'
-            : 'This email is already registered as a Service Provider. Please login from the Provider app.';
-          showAlert(roleMessage, 'warning');
+          const existingRole = error.existingRole || '';
+          setConflictExistingRole(existingRole);
+          setShowRoleConflictModal(true);
           return;
         }
         
@@ -308,6 +298,22 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
       setGoogleLoading(false);
     }
   };
+
+  /**
+   * Handle "Yes, proceed" from cross-role conflict dialog.
+   * Navigates user to the correct auth screen for their existing role.
+   */
+  const handleRoleConflictProceed = useCallback(() => {
+    setShowRoleConflictModal(false);
+    const isExistingUser = conflictExistingRole === 'USER';
+    if (isExistingUser && userType === 'provider') {
+      // They're a User but on Provider login — navigate to User login
+      navigation?.navigate?.('UserAuth');
+    } else if (!isExistingUser && userType === 'user') {
+      // They're a Provider but on User login — navigate to Provider login
+      navigation?.navigate?.('ProviderAuth');
+    }
+  }, [conflictExistingRole, userType, navigation]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -352,6 +358,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
               autoComplete="email"
               error={errors.email}
               editable={!loading}
+              required
             />
 
             <Input
@@ -365,6 +372,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
               editable={!loading && !googleLoading}
               rightIcon={showPassword ? 'eye-off' : 'eye'}
               onRightIconPress={() => setShowPassword(!showPassword)}
+              required
             />
 
             {/* Forgot Password */}
@@ -432,6 +440,49 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Cross-Role Conflict Dialog */}
+      <Modal
+        visible={showRoleConflictModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowRoleConflictModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalIcon}>🔄</Text>
+            <Text style={styles.modalTitle}>Different Account Type</Text>
+            <Text style={styles.modalMessage}>
+              {conflictExistingRole === 'USER'
+                ? 'This email is registered as a User account.'
+                : 'This email is registered as a Service Provider account.'}
+              {'\n\n'}
+              Would you like to proceed to login as a{' '}
+              {conflictExistingRole === 'USER' ? 'User' : 'Service Provider'}?
+            </Text>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.modalPrimaryButton}
+                onPress={handleRoleConflictProceed}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalPrimaryButtonText}>
+                  Yes, Login as {conflictExistingRole === 'USER' ? 'User' : 'Provider'}
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.modalDismissButton}
+                onPress={() => setShowRoleConflictModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalDismissText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -562,6 +613,68 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#2563EB',
     fontWeight: '600',
+  },
+  // Cross-role conflict modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalIcon: {
+    fontSize: 48,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  modalMessage: {
+    fontSize: 15,
+    color: '#4B5563',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalButtons: {
+    gap: 12,
+  },
+  modalPrimaryButton: {
+    backgroundColor: '#f67c16',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  modalPrimaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalDismissButton: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  modalDismissText: {
+    color: '#9CA3AF',
+    fontSize: 14,
   },
 });
 

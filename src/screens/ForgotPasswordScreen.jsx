@@ -288,6 +288,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
       <Input
         label="Phone Number"
         placeholder="Enter your phone number"
+        required
         value={phoneNumber}
         onChangeText={(text) => {
           setPhoneNumber(text);
@@ -361,6 +362,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
       <Input
         label="New Password"
         placeholder="Enter new password"
+        required
         value={newPassword}
         onChangeText={(text) => {
           setNewPassword(text);
@@ -376,6 +378,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
       <Input
         label="Confirm Password"
         placeholder="Confirm new password"
+        required
         value={confirmPassword}
         onChangeText={(text) => {
           setConfirmPassword(text);

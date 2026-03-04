@@ -290,11 +290,12 @@ export const LocationProvider = ({ children }) => {
         return false;
       }
       
-      // Permission check doesn't directly tell us if GPS hardware is on,
-      // but BLOCKED means user explicitly denied and we should treat it as disabled.
+      // BLOCKED means user denied the permission permanently — but GPS hardware may still be on.
+      // Don't conflate permission denial with GPS being off.
       if (result === RESULTS.BLOCKED) {
-        setLocationServicesEnabled(false);
-        return false;
+        // Permission blocked, but GPS hardware could still be enabled
+        // Let locationServicesEnabled remain true (or its current state)
+        return true;
       }
       
       return true;
@@ -382,6 +383,7 @@ export const LocationProvider = ({ children }) => {
           const newLocation = { latitude, longitude, accuracy };
           setCurrentLocation(newLocation);
           setLocationServicesEnabled(true); // GPS is working
+          gpsAlertShownRef.current = false; // GPS confirmed working — allow future alerts if it goes off
           setLocationLoading(false);
           hasReceivedLocation = true;
           
@@ -415,20 +417,14 @@ export const LocationProvider = ({ children }) => {
           }
         },
         (error) => {
-          // ERROR CODE 2 = POSITION_UNAVAILABLE = GPS/Location Services OFF
+          // Fast path failed — this is NORMAL when there's no cached location.
+          // ERROR CODE 2 = POSITION_UNAVAILABLE (GPS off OR temporary)
           // ERROR CODE 1 = PERMISSION_DENIED
-          // ERROR CODE 3 = TIMEOUT (could also mean GPS off)
-          if (error.code === 2 || (error.code === 3 && !currentLocation)) {
-            console.warn('🔴 [LocationContext] Location services appear to be OFF (error code:', error.code, ')');
-            if (!resolved) {
-              resolved = true;
-              showGpsOffAlert();
-              resolve(null);
-            }
-            return;
-          }
-          
-          console.log('⚠️ [LocationContext] No cached location, trying fresh GPS...');
+          // ERROR CODE 3 = TIMEOUT (no cached location within 3s — cold GPS start)
+          // NEVER show GPS-off alert here — always retry with watchPosition first.
+          // The fast path is optimistic (3s, cached); only the watchPosition retry
+          // (10s, high accuracy) can reliably determine if GPS is truly off.
+          console.log(`⚠️ [LocationContext] Fast path failed (code ${error.code}): ${error.message || 'unknown'}. Retrying with fresh GPS...`);
           // No cached location - fall back to watchPosition
           const watchId = Geolocation.watchPosition(
             (position) => {
@@ -443,6 +439,7 @@ export const LocationProvider = ({ children }) => {
               const newLocation = { latitude, longitude, accuracy };
               setCurrentLocation(newLocation);
               setLocationServicesEnabled(true); // GPS is working
+              gpsAlertShownRef.current = false; // GPS confirmed working
               setLocationLoading(false);
               hasReceivedLocation = true;
               
@@ -546,8 +543,9 @@ export const LocationProvider = ({ children }) => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (appStateRef.current !== 'active' && nextAppState === 'active') {
         // App came to foreground - refresh location
-        // Reset GPS alert flag so user gets fresh prompt if GPS is still off
-        gpsAlertShownRef.current = false;
+        // DON'T reset gpsAlertShownRef here — it's only reset when GPS
+        // successfully returns a position (in fetchLocation success callbacks).
+        // This prevents false "enable location" alerts on every foreground.
         console.log('📱 [LocationContext] App foregrounded - refreshing location');
         fetchLocation(true);
       }

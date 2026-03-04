@@ -25,8 +25,10 @@ import {
   Modal,
   Image,
   Animated,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { useApp } from '../context/AppContext';
@@ -42,11 +44,18 @@ import {
 } from '../services/authService';
 import { getAadhaarStatus } from '../services/aadhaarService';
 import { getVerificationDashboard } from '../services/verificationService';
+import Geolocation from '@react-native-community/geolocation';
+import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import SavedAddresses from '../components/SavedAddresses';
+import AddressAutocomplete from '../components/AddressAutocomplete';
+import CityAutocomplete from '../components/CityAutocomplete';
+import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
 
 // Cloudinary config
 const CLOUDINARY_CLOUD_NAME = 'dj1aytbae';
 const CLOUDINARY_UPLOAD_PRESET = 'fixhomi_documents';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Service labels for proper display
 const SERVICE_LABELS = {
@@ -142,8 +151,8 @@ const InfoRow = ({ label, value, iconName, verified, onVerify, isLoading }) => (
 /**
  * Editable Field
  */
-const EditableField = ({ label, value, onChangeText, placeholder, editable = true, locked = false, lockMessage, keyboardType = 'default', maxLength }) => (
-  <View style={styles.fieldContainer}>
+const EditableField = ({ label, value, onChangeText, placeholder, editable = true, locked = false, lockMessage, keyboardType = 'default', maxLength, containerStyle }) => (
+  <View style={[styles.fieldContainer, containerStyle]}>
     <View style={styles.fieldLabelRow}>
       <Text style={styles.fieldLabel}>{label}</Text>
       {locked && (
@@ -174,7 +183,7 @@ const EditableField = ({ label, value, onChangeText, placeholder, editable = tru
  */
 const ProfileScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
-  const { user, profile, userType, refreshVerificationStatus, refreshProfile } = useApp();
+  const { user, profile, userType, refreshVerificationStatus, refreshProfile, aadhaarStatus, setAadhaarStatus, premiumStatus, setPremiumStatus } = useApp();
   
   // Check if we should scroll to/open addresses section
   const scrollToAddresses = route?.params?.scrollToAddresses;
@@ -215,20 +224,142 @@ const ProfileScreen = ({ navigation, route }) => {
   // Profile picture state
   const [uploadingPicture, setUploadingPicture] = useState(false);
   const [showImagePickerModal, setShowImagePickerModal] = useState(false);
+  const [showViewPhotoModal, setShowViewPhotoModal] = useState(false);
   
-  // Aadhaar verification state (providers only)
+  // Aadhaar verification state — derived from context cache (no flicker)
   const [showAadhaarModal, setShowAadhaarModal] = useState(false);
-  const [isAadhaarVerified, setIsAadhaarVerified] = useState(false);
-  const [isNameLocked, setIsNameLocked] = useState(false);
-  const [aadhaarName, setAadhaarName] = useState(null);
+  const isAadhaarVerified = aadhaarStatus.isVerified;
+  const isNameLocked = aadhaarStatus.isNameLocked;
+  const aadhaarName = aadhaarStatus.aadhaarName;
   
-  // Premium subscription state (providers only)
-  const [isPremiumActive, setIsPremiumActive] = useState(false);
-  const [premiumDaysLeft, setPremiumDaysLeft] = useState(0);
+  // Premium subscription state — derived from context cache (SWR pattern: show loading until fetched)
+  const isPremiumActive = premiumStatus.isPremiumActive;
+  const premiumDaysLeft = premiumStatus.premiumDaysLeft;
+  const premiumLoaded = premiumStatus.premiumLoaded;
   
   // Track original phone to detect changes
   const [originalPhone, setOriginalPhone] = useState('');
   
+  // Location detection state
+  const [detectingLocation, setDetectingLocation] = useState(false);
+  
+  /**
+   * Detect My Location — GPS + Mapbox Reverse Geocoding
+   * Gets device coordinates, reverse geocodes to address/city/pincode,
+   * shows confirmation alert, then auto-fills the form.
+   */
+  const handleDetectLocation = useCallback(async () => {
+    setDetectingLocation(true);
+    try {
+      // 1. Check & request location permission
+      const permission = Platform.OS === 'ios'
+        ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
+        : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
+
+      let permStatus = await check(permission);
+      if (permStatus === RESULTS.DENIED) {
+        permStatus = await request(permission);
+      }
+
+      if (permStatus !== RESULTS.GRANTED && permStatus !== RESULTS.LIMITED) {
+        Alert.alert(
+          'Location Permission Required',
+          'Please enable location permission in your device settings to use this feature.',
+          [{ text: 'OK' }]
+        );
+        setDetectingLocation(false);
+        return;
+      }
+
+      // 2. Get current GPS position
+      const position = await new Promise((resolve, reject) => {
+        Geolocation.getCurrentPosition(
+          resolve,
+          reject,
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+        );
+      });
+
+      const { latitude, longitude } = position.coords;
+
+      // 3. Reverse geocode via Mapbox
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?` +
+        `access_token=${MAPBOX_ACCESS_TOKEN}` +
+        `&types=address,poi,place,locality,neighborhood,postcode` +
+        `&limit=1` +
+        `&language=en`;
+
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (!data.features || data.features.length === 0) {
+        Alert.alert('Location Not Found', 'Could not determine your address. Please enter it manually.');
+        setDetectingLocation(false);
+        return;
+      }
+
+      const feature = data.features[0];
+      const context = feature.context || [];
+
+      // Parse address components
+      let detectedAddress = feature.place_name || '';
+      let detectedCity = '';
+      let detectedPincode = '';
+      let detectedState = '';
+
+      context.forEach((ctx) => {
+        const id = ctx.id || '';
+        if (id.startsWith('postcode')) detectedPincode = ctx.text || '';
+        else if (id.startsWith('place')) detectedCity = ctx.text || '';
+        else if (id.startsWith('district') && !detectedCity) detectedCity = ctx.text || '';
+        else if (id.startsWith('locality') && !detectedCity) detectedCity = ctx.text || '';
+        else if (id.startsWith('region')) detectedState = ctx.text || '';
+      });
+
+      // If the feature itself is a place, use it for city
+      if (feature.place_type?.includes('place') && !detectedCity) {
+        detectedCity = feature.text || '';
+      }
+
+      // 4. Show confirmation popup
+      const confirmMsg = [
+        `📍 Address: ${detectedAddress || 'Not found'}`,
+        `🏙️ City: ${detectedCity || 'Not found'}`,
+        `📮 Pincode: ${detectedPincode || 'Not found'}`,
+        detectedState ? `🗺️ State: ${detectedState}` : '',
+      ].filter(Boolean).join('\n\n');
+
+      Alert.alert(
+        'Detected Location',
+        `We detected the following from your current location:\n\n${confirmMsg}\n\nWould you like to use this?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Use This Location',
+            onPress: () => {
+              setFormData(prev => ({
+                ...prev,
+                address: detectedAddress || prev.address,
+                city: detectedCity || prev.city,
+                pincode: detectedPincode || prev.pincode,
+              }));
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('[DetectLocation] Error:', error);
+      const errCode = error?.code;
+      let errMsg = 'Could not detect your location. Please try again or enter manually.';
+      if (errCode === 1) errMsg = 'Location permission denied. Please enable it in Settings.';
+      else if (errCode === 2) errMsg = 'Location unavailable. Make sure GPS is turned on.';
+      else if (errCode === 3) errMsg = 'Location request timed out. Please try again.';
+      Alert.alert('Location Error', errMsg);
+    } finally {
+      setDetectingLocation(false);
+    }
+  }, []);
+
   // Auto-open addresses modal if navigated with scrollToAddresses param
   useEffect(() => {
     if (scrollToAddresses) {
@@ -260,37 +391,61 @@ const ProfileScreen = ({ navigation, route }) => {
   }, [displayData?.fullName, displayData?.phone, displayData?.phoneNumber, displayData?.address, displayData?.city, displayData?.pincode, displayData?.experience]);
 
   // Fetch Aadhaar verification status and premium status for providers
-  useEffect(() => {
-    const fetchProviderStatus = async () => {
-      if (isProvider) {
-        try {
-          const result = await getAadhaarStatus();
-          if (result.success) {
-            setIsAadhaarVerified(result.aadhaar?.isVerified || false);
-            setIsNameLocked(result.aadhaar?.isNameLocked || false);
-            setAadhaarName(result.aadhaar?.aadhaarName || null);
-          }
-        } catch (error) {
-          console.log('Error fetching Aadhaar status:', error);
-        }
-        // Fetch premium status from verification dashboard
-        try {
-          const pid = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
-          if (pid) {
-            const dashResult = await getVerificationDashboard(pid);
-            if (dashResult.success && dashResult.data) {
-              setIsPremiumActive(dashResult.data.isPremiumActive || false);
-              const premStep = dashResult.data.steps?.find(s => s.id === 'premium');
-              setPremiumDaysLeft(premStep?.daysRemaining || 0);
-            }
-          }
-        } catch (error) {
-          console.log('Error fetching premium status:', error);
+  // Uses context cache — only fetches if stale or on first load
+  const aadhaarFetchedRef = useRef(false);
+  
+  const fetchProviderStatuses = useCallback(async () => {
+    if (!isProvider) return;
+    try {
+      const result = await getAadhaarStatus();
+      if (result.success) {
+        setAadhaarStatus({
+          isVerified: result.aadhaar?.isVerified || false,
+          isNameLocked: result.aadhaar?.isNameLocked || false,
+          aadhaarName: result.aadhaar?.aadhaarName || null,
+        });
+      }
+    } catch (error) {
+      console.log('Error fetching Aadhaar status:', error);
+    }
+    // Fetch premium status from verification dashboard
+    try {
+      const pid = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+      if (pid) {
+        const dashResult = await getVerificationDashboard(pid);
+        if (dashResult.success && dashResult.data) {
+          const premStep = dashResult.data.steps?.find(s => s.id === 'premium');
+          setPremiumStatus({
+            isPremiumActive: dashResult.data.isPremiumActive || false,
+            premiumDaysLeft: premStep?.daysRemaining || 0,
+            premiumLoaded: true,
+          });
         }
       }
-    };
-    fetchProviderStatus();
+    } catch (error) {
+      console.log('Error fetching premium status:', error);
+      // Mark as loaded even on error so UI doesn't stay in loading state forever
+      setPremiumStatus(prev => ({ ...prev, premiumLoaded: true }));
+    }
+  }, [isProvider, user?.mongoId, profile?.mongoId]);
+
+  useEffect(() => {
+    if (isProvider && !aadhaarFetchedRef.current) {
+      aadhaarFetchedRef.current = true;
+      fetchProviderStatuses();
+    }
   }, [isProvider]);
+
+  // Auto-refresh profile when screen gains focus
+  // SWR: refreshProfile internally skips if data is < 30s old
+  useFocusEffect(
+    useCallback(() => {
+      const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+      if (userId && userType) {
+        refreshProfile(userType, userId);
+      }
+    }, [user?.mongoId, profile?.mongoId, userType, refreshProfile])
+  );
 
   /**
    * Handle refresh - fetch full profile from both Java Auth and MongoDB
@@ -299,36 +454,13 @@ const ProfileScreen = ({ navigation, route }) => {
     setRefreshing(true);
     const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
     if (userId) {
-      await refreshProfile(userType, userId);
+      await refreshProfile(userType, userId, { force: true });
     }
     await refreshVerificationStatus();
     
-    // Refresh Aadhaar status for providers
+    // Refresh Aadhaar & premium status for providers (force refresh)
     if (isProvider) {
-      try {
-        const result = await getAadhaarStatus();
-        if (result.success) {
-          setIsAadhaarVerified(result.aadhaar?.isVerified || false);
-          setIsNameLocked(result.aadhaar?.isNameLocked || false);
-          setAadhaarName(result.aadhaar?.aadhaarName || null);
-        }
-      } catch (error) {
-        console.log('Error refreshing Aadhaar status:', error);
-      }
-      // Refresh premium status
-      try {
-        const pid = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
-        if (pid) {
-          const dashResult = await getVerificationDashboard(pid);
-          if (dashResult.success && dashResult.data) {
-            setIsPremiumActive(dashResult.data.isPremiumActive || false);
-            const premStep = dashResult.data.steps?.find(s => s.id === 'premium');
-            setPremiumDaysLeft(premStep?.daysRemaining || 0);
-          }
-        }
-      } catch (error) {
-        console.log('Error refreshing premium status:', error);
-      }
+      await fetchProviderStatuses();
     }
     
     setRefreshing(false);
@@ -794,7 +926,7 @@ const ProfileScreen = ({ navigation, route }) => {
         <Text style={styles.headerTitle}>Profile</Text>
         {!isEditing ? (
           <TouchableOpacity style={styles.editButton} onPress={() => setIsEditing(true)}>
-            <MaterialIcon name="edit" size={18} color="#2b76bc" />
+            <MaterialIcon name="edit-note" size={20} color="#2b76bc" />
             <Text style={styles.editButtonText}>Edit</Text>
           </TouchableOpacity>
         ) : (
@@ -802,8 +934,8 @@ const ProfileScreen = ({ navigation, route }) => {
             style={[styles.editButton, styles.editButtonCancel]} 
             onPress={() => setIsEditing(false)}
           >
-            <MaterialIcon name="close" size={18} color="#EF4444" />
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <MaterialIcon name="undo" size={18} color="#EF4444" />
+            <Text style={styles.cancelButtonText}>Discard</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -820,10 +952,18 @@ const ProfileScreen = ({ navigation, route }) => {
           }
           showsVerticalScrollIndicator={false}
         >
-          {/* Profile Card - Enhanced Layout */}
+          {/* ─── Premium Profile Card ─── */}
           <View style={styles.profileCard}>
-            <View style={styles.profileTopRow}>
-              {/* Profile Picture */}
+            {/* Gradient-like colored header band */}
+            <View style={[styles.profileCardHeader, isProvider ? styles.profileCardHeaderProvider : styles.profileCardHeaderUser]}>
+              {/* Decorative glass circles */}
+              <View style={styles.profileDecorCircle1} />
+              <View style={styles.profileDecorCircle2} />
+              <View style={styles.profileDecorCircle3} />
+            </View>
+
+            {/* Avatar — sits OUTSIDE header to avoid overflow:hidden clipping */}
+            <View style={styles.profileAvatarWrap}>
               <TouchableOpacity 
                 style={styles.avatarContainer}
                 onPress={() => setShowImagePickerModal(true)}
@@ -832,102 +972,109 @@ const ProfileScreen = ({ navigation, route }) => {
                 {displayData?.profilePicture?.url ? (
                   <Image 
                     source={{ uri: displayData.profilePicture.url }} 
-                    style={[styles.avatarImage, isProvider && styles.avatarImageProvider]}
+                    style={styles.avatarImage}
                   />
                 ) : (
-                  <View style={[
-                    styles.avatar,
-                    isProvider && styles.avatarProvider,
-                  ]}>
+                  <View style={[styles.avatar, isProvider && styles.avatarProvider]}>
                     <Text style={styles.avatarText}>
                       {displayData?.fullName?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?'}
                     </Text>
                   </View>
                 )}
-                {/* Camera Icon Overlay */}
-                <View style={styles.cameraIconOverlay}>
+                {/* Camera overlay */}
+                <View style={[styles.cameraIconOverlay, isProvider && styles.cameraIconOverlayProvider]}>
                   {uploadingPicture ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
-                    <MaterialIcon name="camera-alt" size={16} color="#FFFFFF" />
+                    <MaterialIcon name="camera-alt" size={14} color="#FFFFFF" />
                   )}
                 </View>
               </TouchableOpacity>
+            </View>
 
-              {/* Name and Type */}
-              <View style={styles.profileInfoColumn}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={styles.profileName}>{displayData?.fullName || 'User'}</Text>
-                  {isProvider && isPremiumActive && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12 }}>
-                      <MaterialIcon name="workspace-premium" size={14} color="#F59E0B" />
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#D97706', marginLeft: 3 }}>PRO</Text>
-                    </View>
-                  )}
-                </View>
+            {/* Body: name, badges, verification */}
+            <View style={[styles.profileCardBody, { borderBottomLeftRadius: 22, borderBottomRightRadius: 22, overflow: 'hidden' }]}>
+              {/* Subtle accent strip at top of body */}
+              <View style={[styles.profileBodyAccent, isProvider ? { backgroundColor: '#FFF7ED' } : { backgroundColor: '#EFF6FF' }]} />
+              <View style={styles.profileNameRow}>
+                <Text style={styles.profileName} numberOfLines={2}>{displayData?.fullName || 'User'}</Text>
+                {isProvider && isPremiumActive && (
+                  <View style={styles.proBadge}>
+                    <MaterialIcon name="workspace-premium" size={14} color="#F59E0B" />
+                    <Text style={styles.proBadgeText}>PRO</Text>
+                  </View>
+                )}
+              </View>
+              
+              {/* Email / phone subtitle */}
+              <Text style={styles.profileSubtext} numberOfLines={1}>
+                {displayData?.email || displayData?.phone || ''}
+              </Text>
+
+              {/* Type badge */}
+              <View style={styles.profileBadgeRow}>
                 <View style={[styles.typeBadge, isProvider && styles.typeBadgeProvider]}>
-                  <Icon name={isProvider ? 'provider' : 'user'} size={14} color={isProvider ? '#f67c16' : '#2b76bc'} />
+                  <Icon name={isProvider ? 'provider' : 'user'} size={13} color={isProvider ? '#f67c16' : '#2b76bc'} />
                   <Text style={[styles.typeBadgeText, isProvider && styles.typeBadgeTextProvider]}>
                     {isProvider ? 'Service Provider' : 'User'}
                   </Text>
                 </View>
               </View>
-            </View>
 
-            {/* Verification Status Summary */}
-            <View style={styles.verificationSummary}>
-              <View style={[
-                styles.verificationItem,
-                displayData?.isPhoneVerified && styles.verificationItemVerified,
-              ]}>
-                <Icon name="phone" size={16} color={displayData?.isPhoneVerified ? '#2b76bc' : '#6B7280'} />
-                <Text style={[
-                  styles.verificationLabel,
-                  displayData?.isPhoneVerified && styles.verificationLabelVerified
-                ]}>
-                  {displayData?.isPhoneVerified ? 'Phone ✓' : 'Phone'}
-                </Text>
-              </View>
-              <View style={[
-                styles.verificationItem,
-                displayData?.isEmailVerified && styles.verificationItemVerified,
-              ]}>
-                <Icon name="email" size={16} color={displayData?.isEmailVerified ? '#2b76bc' : '#6B7280'} />
-                <Text style={[
-                  styles.verificationLabel,
-                  displayData?.isEmailVerified && styles.verificationLabelVerified
-                ]}>
-                  {displayData?.isEmailVerified ? 'Email ✓' : 'Email'}
-                </Text>
-              </View>
-              {/* Aadhaar badge for providers */}
-              {isProvider && (
+              {/* ─── Verification pills ─── */}
+              <View style={styles.verificationSummary}>
                 <View style={[
                   styles.verificationItem,
-                  isAadhaarVerified && styles.verificationItemVerified,
+                  displayData?.isPhoneVerified && styles.verificationItemVerified,
                 ]}>
-                  <Icon name="verified_user" size={16} color={isAadhaarVerified ? '#2b76bc' : '#6B7280'} />
+                  <Icon name="phone" size={14} color={displayData?.isPhoneVerified ? '#FFFFFF' : '#6B7280'} />
                   <Text style={[
                     styles.verificationLabel,
-                    isAadhaarVerified && styles.verificationLabelVerified
+                    displayData?.isPhoneVerified && styles.verificationLabelVerified
                   ]}>
-                    {isAadhaarVerified ? 'KYC ✓' : 'KYC'}
+                    {displayData?.isPhoneVerified ? 'Phone ✓' : 'Phone'}
+                  </Text>
+                </View>
+                <View style={[
+                  styles.verificationItem,
+                  displayData?.isEmailVerified && styles.verificationItemVerified,
+                ]}>
+                  <Icon name="email" size={14} color={displayData?.isEmailVerified ? '#FFFFFF' : '#6B7280'} />
+                  <Text style={[
+                    styles.verificationLabel,
+                    displayData?.isEmailVerified && styles.verificationLabelVerified
+                  ]}>
+                    {displayData?.isEmailVerified ? 'Email ✓' : 'Email'}
+                  </Text>
+                </View>
+                {isProvider && (
+                  <View style={[
+                    styles.verificationItem,
+                    isAadhaarVerified && styles.verificationItemVerified,
+                  ]}>
+                    <Icon name="verified_user" size={14} color={isAadhaarVerified ? '#FFFFFF' : '#6B7280'} />
+                    <Text style={[
+                      styles.verificationLabel,
+                      isAadhaarVerified && styles.verificationLabelVerified
+                    ]}>
+                      {isAadhaarVerified ? 'KYC ✓' : 'KYC'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {!isVerified && (
+                <View style={styles.verifyWarning}>
+                  <Icon name="warning" size={15} color="#f67c16" />
+                  <Text style={styles.verifyWarningText}>
+                    Verify phone & email to unlock all features
                   </Text>
                 </View>
               )}
             </View>
-
-            {!isVerified && (
-              <View style={styles.verifyWarning}>
-                <Icon name="warning" size={16} color="#f67c16" />
-                <Text style={styles.verifyWarningText}>
-                  Please verify your phone and email to use all features
-                </Text>
-              </View>
-            )}
           </View>
 
-          {/* Image Picker Modal */}
+          {/* Image Picker Modal — Bottom sheet */}
           <Modal
             visible={showImagePickerModal}
             transparent
@@ -939,25 +1086,90 @@ const ProfileScreen = ({ navigation, route }) => {
               activeOpacity={1}
               onPress={() => setShowImagePickerModal(false)}
             >
-              <View style={styles.imagePickerModal}>
-                <Text style={styles.imagePickerTitle}>Change Profile Picture</Text>
-                
+              <View style={styles.imagePickerModal} onStartShouldSetResponder={() => true}>
+                {/* Drag indicator */}
+                <View style={styles.imagePickerDragBar} />
+                <Text style={styles.imagePickerTitle}>Profile Photo</Text>
+
+                {/* View Photo option — only if photo exists */}
+                {displayData?.profilePicture?.url && (
+                  <TouchableOpacity
+                    style={styles.imagePickerOption}
+                    onPress={() => {
+                      setShowImagePickerModal(false);
+                      setTimeout(() => setShowViewPhotoModal(true), 200);
+                    }}
+                  >
+                    <View style={[styles.imagePickerIconWrap, { backgroundColor: '#EFF6FF' }]}>
+                      <MaterialIcon name="visibility" size={22} color="#2b76bc" />
+                    </View>
+                    <View style={styles.imagePickerOptionContent}>
+                      <Text style={styles.imagePickerOptionText}>View Photo</Text>
+                      <Text style={styles.imagePickerOptionHint}>See your profile picture</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
                 <TouchableOpacity style={styles.imagePickerOption} onPress={handleTakePhoto}>
-                  <MaterialIcon name="camera-alt" size={24} color="#2b76bc" />
-                  <Text style={styles.imagePickerOptionText}>Take Photo</Text>
+                  <View style={[styles.imagePickerIconWrap, { backgroundColor: '#F0FDF4' }]}>
+                    <MaterialIcon name="camera-alt" size={22} color="#16A34A" />
+                  </View>
+                  <View style={styles.imagePickerOptionContent}>
+                    <Text style={styles.imagePickerOptionText}>Take Photo</Text>
+                    <Text style={styles.imagePickerOptionHint}>Use your camera</Text>
+                  </View>
                 </TouchableOpacity>
                 
                 <TouchableOpacity style={styles.imagePickerOption} onPress={handleSelectFromGallery}>
-                  <MaterialIcon name="photo-library" size={24} color="#2b76bc" />
-                  <Text style={styles.imagePickerOptionText}>Choose from Gallery</Text>
+                  <View style={[styles.imagePickerIconWrap, { backgroundColor: '#FFF7ED' }]}>
+                    <MaterialIcon name="photo-library" size={22} color="#EA580C" />
+                  </View>
+                  <View style={styles.imagePickerOptionContent}>
+                    <Text style={styles.imagePickerOptionText}>Choose from Gallery</Text>
+                    <Text style={styles.imagePickerOptionHint}>Pick from your photos</Text>
+                  </View>
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
-                  style={[styles.imagePickerOption, styles.imagePickerCancel]}
+                  style={styles.imagePickerCancelBtn}
                   onPress={() => setShowImagePickerModal(false)}
                 >
                   <Text style={styles.imagePickerCancelText}>Cancel</Text>
                 </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </Modal>
+
+          {/* View Photo Modal — Full-screen preview */}
+          <Modal
+            visible={showViewPhotoModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowViewPhotoModal(false)}
+          >
+            <TouchableOpacity
+              style={styles.viewPhotoOverlay}
+              activeOpacity={1}
+              onPress={() => setShowViewPhotoModal(false)}
+            >
+              <View style={styles.viewPhotoContainer} onStartShouldSetResponder={() => true}>
+                {/* Close button */}
+                <TouchableOpacity
+                  style={styles.viewPhotoCloseBtn}
+                  onPress={() => setShowViewPhotoModal(false)}
+                >
+                  <MaterialIcon name="arrow-back" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+
+                {displayData?.profilePicture?.url && (
+                  <Image
+                    source={{ uri: displayData.profilePicture.url }}
+                    style={styles.viewPhotoImage}
+                    resizeMode="contain"
+                  />
+                )}
+
+                <Text style={styles.viewPhotoName}>{displayData?.fullName || ''}</Text>
               </View>
             </TouchableOpacity>
           </Modal>
@@ -1087,16 +1299,18 @@ const ProfileScreen = ({ navigation, route }) => {
             visible={showAadhaarModal}
             onClose={() => setShowAadhaarModal(false)}
             onVerified={async () => {
-              // Immediately update UI optimistically
-              setIsAadhaarVerified(true);
+              // Immediately update context cache optimistically
+              setAadhaarStatus(prev => ({ ...prev, isVerified: true }));
               setShowAadhaarModal(false);
               // Re-fetch from backend to get aadhaarName and lock status
               try {
                 const result = await getAadhaarStatus();
                 if (result.success) {
-                  setIsAadhaarVerified(result.aadhaar?.isVerified || true);
-                  setIsNameLocked(result.aadhaar?.isNameLocked || false);
-                  setAadhaarName(result.aadhaar?.aadhaarName || null);
+                  setAadhaarStatus({
+                    isVerified: result.aadhaar?.isVerified || true,
+                    isNameLocked: result.aadhaar?.isNameLocked || false,
+                    aadhaarName: result.aadhaar?.aadhaarName || null,
+                  });
                 }
               } catch (e) {
                 console.log('Error re-fetching Aadhaar status after verification:', e);
@@ -1135,20 +1349,55 @@ const ProfileScreen = ({ navigation, route }) => {
                 </View>
               )}
 
-              <EditableField
-                label="Address"
+              {/* === Location Section Header with Detect Button === */}
+              <View style={styles.locationSectionHeader}>
+                <Text style={styles.locationSectionTitle}>Location Details</Text>
+                <TouchableOpacity
+                  style={[styles.detectLocationBtn, detectingLocation && styles.detectLocationBtnDisabled]}
+                  onPress={handleDetectLocation}
+                  disabled={detectingLocation}
+                  activeOpacity={0.7}
+                >
+                  {detectingLocation ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <MaterialIcon name="my-location" size={16} color="#FFFFFF" />
+                  )}
+                  <Text style={styles.detectLocationBtnText}>
+                    {detectingLocation ? 'Detecting...' : 'Detect My Location'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Address — Mapbox Geocoding powered search */}
+              <AddressAutocomplete
                 value={formData.address}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, address: text }))}
-                placeholder="Enter your street address"
+                label="Address"
+                placeholder="Search your address (e.g., Satyanarayan Layout)..."
+                onSelectAddress={({ address, city, pincode }) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    address: address || prev.address,
+                    city: city || prev.city,
+                    pincode: pincode || prev.pincode,
+                  }));
+                }}
               />
               
               <View style={styles.rowFields}>
-                <View style={styles.halfField}>
-                  <EditableField
-                    label="City"
+                <View style={[styles.halfField, { zIndex: 998 }]}>
+                  {/* City — Mapbox city search */}
+                  <CityAutocomplete
                     value={formData.city}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, city: text }))}
-                    placeholder="City"
+                    label="City"
+                    placeholder="Search city..."
+                    onSelectCity={({ city, pincode }) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        city: city || prev.city,
+                        pincode: pincode || prev.pincode,
+                      }));
+                    }}
                   />
                 </View>
                 <View style={styles.halfField}>
@@ -1157,6 +1406,9 @@ const ProfileScreen = ({ navigation, route }) => {
                     value={formData.pincode}
                     onChangeText={(text) => setFormData(prev => ({ ...prev, pincode: text }))}
                     placeholder="Pincode"
+                    keyboardType="numeric"
+                    maxLength={6}
+                    containerStyle={{ marginBottom: 0 }}
                   />
                 </View>
               </View>
@@ -1516,29 +1768,79 @@ const ProfileScreen = ({ navigation, route }) => {
 
           {/* Premium Subscription Section - Providers Only */}
           {isProvider && (
-            <View style={styles.section}>
-              <SectionHeader title="Premium Subscription" />
-              <TouchableOpacity 
-                style={styles.addressesCard}
-                onPress={() => navigation.navigate('Subscription')}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.addressesIconContainer, { backgroundColor: isPremiumActive ? '#ECFDF5' : '#FEF3C7' }]}>
-                  <MaterialIcon name="workspace-premium" size={24} color={isPremiumActive ? '#10B981' : '#F59E0B'} />
+            <View style={styles.premiumSection}>
+              {!premiumLoaded ? (
+                /* SWR-style skeleton: show neutral loading card until fetch completes */
+                <View style={styles.premiumCardLoading}>
+                  <View style={styles.premiumLoadingShimmer}>
+                    <ActivityIndicator size="small" color="#CBD5E1" />
+                    <Text style={styles.premiumLoadingText}>Checking subscription…</Text>
+                  </View>
                 </View>
-                <View style={styles.addressesContent}>
-                  <Text style={styles.addressesTitle}>
-                    {isPremiumActive ? 'Premium Active' : 'Go Premium'}
-                  </Text>
-                  <Text style={styles.addressesSubtitle}>
-                    {isPremiumActive
-                      ? `${premiumDaysLeft} day${premiumDaysLeft !== 1 ? 's' : ''} remaining · Visible in all searches`
-                      : 'Get priority listing & reach more customers'
-                    }
-                  </Text>
-                </View>
-                <MaterialIcon name="chevron-right" size={24} color="#9CA3AF" />
-              </TouchableOpacity>
+              ) : isPremiumActive ? (
+                <TouchableOpacity
+                  style={styles.premiumCardActive}
+                  onPress={() => navigation.navigate('Subscription')}
+                  activeOpacity={0.8}
+                >
+                  {/* Active premium header */}
+                  <View style={styles.premiumActiveHeader}>
+                    <View style={styles.premiumActiveDecoCircle1} />
+                    <View style={styles.premiumActiveDecoCircle2} />
+                    <View style={styles.premiumActiveIconRow}>
+                      <View style={styles.premiumActiveIconBg}>
+                        <MaterialIcon name="workspace-premium" size={26} color="#000" />
+                      </View>
+                      <View style={styles.premiumActiveBadge}>
+                        <MaterialIcon name="verified" size={14} color="#16A34A" />
+                        <Text style={styles.premiumActiveBadgeText}>ACTIVE</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.premiumActiveTitle}>Premium Plan</Text>
+                    <Text style={styles.premiumActiveSubtitle}>Your premium benefits are active</Text>
+                  </View>
+                  {/* Stats row */}
+                  <View style={styles.premiumStatsRow}>
+                    <View style={styles.premiumStatItem}>
+                      <Text style={styles.premiumStatValue}>{premiumDaysLeft}</Text>
+                      <Text style={styles.premiumStatLabel}>Days Left</Text>
+                    </View>
+                    <View style={styles.premiumStatDivider} />
+                    <View style={styles.premiumStatItem}>
+                      <MaterialIcon name="trending-up" size={22} color="#16A34A" />
+                      <Text style={styles.premiumStatLabel}>Priority</Text>
+                    </View>
+                    <View style={styles.premiumStatDivider} />
+                    <View style={styles.premiumStatItem}>
+                      <MaterialIcon name="visibility" size={22} color="#2b76bc" />
+                      <Text style={styles.premiumStatLabel}>Boosted</Text>
+                    </View>
+                  </View>
+                  {/* Footer */}
+                  <View style={styles.premiumActiveFooter}>
+                    <Text style={styles.premiumActiveFooterText}>Manage Subscription</Text>
+                    <MaterialIcon name="arrow-forward-ios" size={14} color="#64748B" />
+                  </View>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.premiumCardInactive}
+                  onPress={() => navigation.navigate('Subscription')}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.premiumInactiveGradient}>
+                    <View style={styles.premiumInactiveDecoCircle1} />
+                    <View style={styles.premiumInactiveDecoCircle2} />
+                    <MaterialIcon name="workspace-premium" size={44} color="#FFD700" />
+                    <Text style={styles.premiumInactiveTitle}>Go Premium</Text>
+                    <Text style={styles.premiumInactiveSubtitle}>Get priority listing & reach more customers</Text>
+                    <View style={styles.premiumInactiveBtn}>
+                      <Text style={styles.premiumInactiveBtnText}>Subscribe Now</Text>
+                      <MaterialIcon name="arrow-forward" size={18} color="#FFFFFF" />
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
@@ -1618,14 +1920,17 @@ const styles = StyleSheet.create({
   editButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     paddingHorizontal: 14,
     paddingVertical: 9,
     backgroundColor: '#EFF6FF',
-    borderRadius: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
   },
   editButtonCancel: {
     backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
   },
   editButtonText: {
     fontSize: 14,
@@ -1648,6 +1953,7 @@ const styles = StyleSheet.create({
   rowFields: {
     flexDirection: 'row',
     gap: 12,
+    marginBottom: 18,
   },
   halfField: {
     flex: 1,
@@ -1667,19 +1973,80 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Profile Card — Modern elevated design
+  // Profile Card — Premium elevated card with colored header
   profileCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 22,
-    marginBottom: 16,
+    borderRadius: 22,
+    marginBottom: 20,
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 8,
     borderWidth: 1,
     borderColor: '#F1F5F9',
+    // NO overflow:'hidden' — so the avatar can straddle header/body
+  },
+  profileCardHeader: {
+    height: 100,
+    overflow: 'hidden', // clips decorative circles within header only
+    position: 'relative',
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+  },
+  profileCardHeaderUser: {
+    backgroundColor: '#2b76bc',
+  },
+  profileCardHeaderProvider: {
+    backgroundColor: '#f67c16',
+  },
+  profileDecorCircle1: {
+    position: 'absolute',
+    top: -30,
+    right: -20,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  profileDecorCircle2: {
+    position: 'absolute',
+    bottom: -20,
+    left: -15,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  profileDecorCircle3: {
+    position: 'absolute',
+    top: 10,
+    left: '40%',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  profileAvatarWrap: {
+    alignSelf: 'center',
+    marginTop: -46,  // pulls avatar up to overlap header by ~half its height
+    zIndex: 10,
+    elevation: 10,
+    marginBottom: -2,
+  },
+  profileCardBody: {
+    paddingTop: 8,
+    paddingHorizontal: 22,
+    paddingBottom: 22,
+    alignItems: 'center',
+  },
+  profileBodyAccent: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 60,
+    opacity: 0.5,
   },
   profileTopRow: {
     flexDirection: 'row',
@@ -1688,32 +2055,36 @@ const styles = StyleSheet.create({
   },
   avatarContainer: {
     position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 8,
   },
   avatar: {
-    width: 84,
-    height: 84,
-    borderRadius: 28,
+    width: 92,
+    height: 92,
+    borderRadius: 46,
     backgroundColor: '#2b76bc',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
   },
   avatarImage: {
-    width: 84,
-    height: 84,
-    borderRadius: 28,
-    borderWidth: 3,
-    borderColor: '#2b76bc',
-  },
-  avatarImageProvider: {
-    borderColor: '#f67c16',
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
   },
   cameraIconOverlay: {
     position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 30,
-    height: 30,
-    borderRadius: 10,
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#2b76bc',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1725,9 +2096,13 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
+  cameraIconOverlayProvider: {
+    backgroundColor: '#f67c16',
+  },
   profileInfoColumn: {
     marginLeft: 18,
     flex: 1,
+    minWidth: 0,
   },
   avatarProvider: {
     backgroundColor: '#f67c16',
@@ -1737,22 +2112,66 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
   },
+  profileBadgeRow: {
+    marginTop: 10,
+    marginBottom: 14,
+    alignItems: 'center',
+  },
+  profileSubtext: {
+    fontSize: 13.5,
+    color: '#94A3B8',
+    marginTop: 4,
+    marginBottom: 2,
+    letterSpacing: 0.1,
+  },
+  profileNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 2,
+    marginTop: 6,
+  },
   profileName: {
-    fontSize: 21,
+    fontSize: 24,
     fontWeight: '800',
     color: '#0F172A',
-    marginBottom: 8,
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
+    textAlign: 'center',
+    flexShrink: 1,
+  },
+  proBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+    flexShrink: 0,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  proBadgeText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#D97706',
+    marginLeft: 3,
+    letterSpacing: 0.5,
   },
   typeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
     gap: 5,
     backgroundColor: '#EFF6FF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#DBEAFE',
   },
@@ -1768,85 +2187,151 @@ const styles = StyleSheet.create({
   typeBadgeTextProvider: {
     color: '#f67c16',
   },
-  // Image Picker Modal — Bottom sheet style
+  // Image Picker Modal — iOS-style bottom sheet
   imagePickerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15,23,42,0.5)',
+    backgroundColor: 'rgba(15,23,42,0.55)',
     justifyContent: 'flex-end',
   },
   imagePickerModal: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 12,
     paddingBottom: 40,
   },
+  imagePickerDragBar: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#D1D5DB',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
   imagePickerTitle: {
-    fontSize: 19,
+    fontSize: 20,
     fontWeight: '800',
     color: '#0F172A',
     textAlign: 'center',
-    marginBottom: 22,
+    marginBottom: 20,
+    letterSpacing: -0.3,
   },
   imagePickerOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    gap: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    gap: 14,
+  },
+  imagePickerIconWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imagePickerOptionContent: {
+    flex: 1,
   },
   imagePickerOptionText: {
     fontSize: 16,
     color: '#0F172A',
     fontWeight: '600',
   },
-  imagePickerCancel: {
-    justifyContent: 'center',
-    borderBottomWidth: 0,
-    marginTop: 8,
+  imagePickerOptionHint: {
+    fontSize: 12.5,
+    color: '#94A3B8',
+    marginTop: 1,
+  },
+  imagePickerCancelBtn: {
+    marginTop: 12,
+    paddingVertical: 14,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 14,
+    alignItems: 'center',
   },
   imagePickerCancelText: {
     fontSize: 16,
-    color: '#EF4444',
+    color: '#64748B',
     fontWeight: '700',
-    textAlign: 'center',
+  },
+
+  // View Photo Modal — Full-screen centered preview
+  viewPhotoOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewPhotoContainer: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewPhotoCloseBtn: {
+    position: 'absolute',
+    top: 54,
+    left: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  viewPhotoImage: {
+    width: SCREEN_WIDTH * 0.85,
+    height: SCREEN_WIDTH * 0.85,
+    borderRadius: 20,
+  },
+  viewPhotoName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: 20,
+    letterSpacing: 0.2,
   },
   verificationSummary: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     marginBottom: 8,
+    marginTop: 4,
     flexWrap: 'wrap',
+    justifyContent: 'center',
   },
   verificationItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F1F5F9',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 7,
-    borderRadius: 10,
-    gap: 6,
+    borderRadius: 20,
+    gap: 5,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   verificationItemVerified: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#DBEAFE',
+    backgroundColor: '#2b76bc',
+    borderColor: '#1e5f9e',
   },
   verificationLabel: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '700',
     color: '#94A3B8',
+    letterSpacing: 0.2,
   },
   verificationLabelVerified: {
-    color: '#2b76bc',
+    color: '#FFFFFF',
   },
   verifyWarning: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     backgroundColor: '#FFF7ED',
-    padding: 14,
+    padding: 12,
     borderRadius: 12,
     marginTop: 10,
     borderWidth: 1,
@@ -1854,7 +2339,7 @@ const styles = StyleSheet.create({
   },
   verifyWarningText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 12.5,
     color: '#C2410C',
     fontWeight: '500',
     lineHeight: 18,
@@ -2543,6 +3028,258 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9CA3AF',
     fontWeight: '500',
+  },
+  // Detect My Location
+  locationSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  locationSectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#374151',
+    letterSpacing: 0.2,
+  },
+  detectLocationBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  detectLocationBtnDisabled: {
+    backgroundColor: '#93C5FD',
+  },
+  detectLocationBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
+
+  // ─── Premium Subscription Section ───
+  premiumSection: {
+    marginBottom: 16,
+  },
+  // Loading skeleton for premium card
+  premiumCardLoading: {
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingVertical: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  premiumLoadingShimmer: {
+    alignItems: 'center',
+    gap: 10,
+  },
+  premiumLoadingText: {
+    fontSize: 13,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  // Active premium card
+  premiumCardActive: {
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  premiumActiveHeader: {
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 22,
+    paddingTop: 22,
+    paddingBottom: 20,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  premiumActiveDecoCircle1: {
+    position: 'absolute',
+    top: -20,
+    right: -20,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: 'rgba(255,215,0,0.08)',
+  },
+  premiumActiveDecoCircle2: {
+    position: 'absolute',
+    bottom: -30,
+    left: -10,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: 'rgba(255,215,0,0.05)',
+  },
+  premiumActiveIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  premiumActiveIconBg: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: '#FFD700',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  premiumActiveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(22,163,74,0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    gap: 4,
+  },
+  premiumActiveBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#4ADE80',
+    letterSpacing: 0.5,
+  },
+  premiumActiveTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  premiumActiveSubtitle: {
+    fontSize: 13,
+    color: '#94A3B8',
+    marginTop: 4,
+  },
+  premiumStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 12,
+  },
+  premiumStatItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  premiumStatValue: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  premiumStatLabel: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#94A3B8',
+    letterSpacing: 0.2,
+  },
+  premiumStatDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: '#E2E8F0',
+  },
+  premiumActiveFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    gap: 6,
+  },
+  premiumActiveFooterText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  // Inactive / Upgrade card
+  premiumCardInactive: {
+    borderRadius: 22,
+    overflow: 'hidden',
+    shadowColor: '#4338CA',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 6,
+  },
+  premiumInactiveGradient: {
+    backgroundColor: '#1E293B',
+    paddingVertical: 32,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  premiumInactiveDecoCircle1: {
+    position: 'absolute',
+    top: -30,
+    right: -30,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,215,0,0.06)',
+  },
+  premiumInactiveDecoCircle2: {
+    position: 'absolute',
+    bottom: -40,
+    left: -20,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(99,102,241,0.08)',
+  },
+  premiumInactiveTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 14,
+    letterSpacing: -0.3,
+  },
+  premiumInactiveSubtitle: {
+    fontSize: 14,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 20,
+  },
+  premiumInactiveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f67c16',
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 30,
+    marginTop: 22,
+    gap: 8,
+    shadowColor: '#f67c16',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  premiumInactiveBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
 

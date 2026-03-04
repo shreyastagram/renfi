@@ -23,11 +23,14 @@ import {
   Dimensions,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
-import { Icon, FixhomiLogo } from '../components';
+
+const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
+import { Icon } from '../components';
 import { 
   initializeSocket, 
   disconnectSocket, 
@@ -512,13 +515,11 @@ const ProviderHomeScreen = ({ navigation }) => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <MenuButton onPress={() => setIsDrawerOpen(true)} />
+          <TouchableOpacity onPress={() => setIsDrawerOpen(true)} activeOpacity={0.7} style={styles.headerLogoBtn}>
+            <Image source={FIXHOMI_LOGO} style={styles.headerLogoImg} />
+          </TouchableOpacity>
           
           <View style={styles.headerContent}>
-            <View style={styles.brandRow}>
-              <FixhomiLogo size={24} color={BRAND.primary} />
-              <Text style={styles.brandName}>FixHomi</Text>
-            </View>
             <Text style={styles.greeting}>Hello, {displayData?.fullName?.split(' ')[0] || 'Provider'}</Text>
           </View>
 
@@ -677,21 +678,27 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     gap: 12,
   },
+  headerLogoBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  headerLogoImg: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+  },
   headerContent: {
     flex: 1,
     marginLeft: 4,
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 2,
-  },
-  brandName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: BRAND.primary,
-    letterSpacing: 0.5,
   },
   greeting: {
     fontSize: 20,

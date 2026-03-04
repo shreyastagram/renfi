@@ -35,6 +35,7 @@ import { useLocation } from '../context/LocationContext';
 import { NODE_BASE_URL } from '../config/api';
 import { addToFavorites, checkIsFavorite } from '../services/favoritesService';
 import MapPickerModal from '../components/MapPickerModal';
+import ImageViewerModal from '../components/ImageViewerModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -225,6 +226,9 @@ const EventProviderCard = ({ provider, onViewDetails, onContact }) => {
  * Shows comprehensive provider information for event services
  */
 const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContactProvider, sending, hasContacted }) => {
+  const [galleryViewerVisible, setGalleryViewerVisible] = useState(false);
+  const [galleryViewerIndex, setGalleryViewerIndex] = useState(0);
+  
   if (!provider) return null;
   
   const openLink = (urlInput) => {
@@ -437,7 +441,16 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                     <TouchableOpacity 
                       key={index}
                       style={styles.galleryItem}
-                      onPress={() => openLink(item.url || item)}
+                      onPress={() => {
+                        if (item.type === 'video') {
+                          // Videos still open in browser
+                          openLink(item.url || item);
+                        } else {
+                          // Images open in in-app viewer
+                          setGalleryViewerIndex(index);
+                          setGalleryViewerVisible(true);
+                        }
+                      }}
                     >
                       <Image 
                         source={{ uri: item.thumbnail || item.url || item }} 
@@ -451,6 +464,14 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
+                
+                {/* In-App Image Viewer */}
+                <ImageViewerModal
+                  visible={galleryViewerVisible}
+                  images={provider.portfolioGallery.slice(0, 6).filter(item => item.type !== 'video')}
+                  initialIndex={galleryViewerIndex}
+                  onClose={() => setGalleryViewerVisible(false)}
+                />
               </View>
             )}
             
@@ -788,9 +809,23 @@ const EventServicesScreen = ({ navigation }) => {
   };
   
   /**
-   * Handle add to favorites
+   * Handle add to favorites — with duplicate prevention
    */
   const handleAddFavorite = async (provider) => {
+    // Check if already favorited (by providerId only — prevents cross-service duplicates)
+    const checkResult = await checkIsFavorite(userId, provider._id);
+    if (checkResult.success && checkResult.isFavorite) {
+      Alert.alert('Already Favorited', `${provider.name} is already in your favorites`);
+      // Update UI to reflect correct state
+      setProviders(prev => prev.map(p => 
+        p._id === provider._id ? { ...p, isFavorite: true } : p
+      ));
+      if (selectedProvider?._id === provider._id) {
+        setSelectedProvider({ ...selectedProvider, isFavorite: true });
+      }
+      return;
+    }
+
     const result = await addToFavorites(
       userId,
       provider._id,
