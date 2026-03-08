@@ -580,7 +580,7 @@ const SettingsScreen = ({ navigation }) => {
   };
 
   /**
-   * Handle emergency hours toggle (12 AM - 6 AM availability)
+   * Handle emergency hours toggle (10 PM - 7 AM availability)
    */
   const handleEmergencyServicesChange = async (value) => {
     if (!userId || isUpdatingEmergency) return;
@@ -602,8 +602,8 @@ const SettingsScreen = ({ navigation }) => {
         dialog(
           value ? 'Emergency Hours Enabled' : 'Emergency Hours Disabled',
           value
-            ? 'You will now appear in search results during midnight hours (12 AM \u2013 6 AM IST).'
-            : 'You will no longer appear in midnight hour searches.',
+            ? 'You will now appear in search results during night hours (10 PM \u2013 7 AM IST).'
+            : 'You will no longer appear in night hour searches.',
           [{ text: 'OK' }]
         );
       } else {
@@ -624,14 +624,14 @@ const SettingsScreen = ({ navigation }) => {
    */
   const showEmergencyServicesInfo = () => {
     dialog(
-      'Emergency Hours (12 AM \u2013 6 AM)',
-      'This toggle controls your availability during midnight hours.\n\n' +
+      'Night Emergency Hours (10 PM \u2013 7 AM)',
+      'This toggle controls your availability during night hours.\n\n' +
       'When enabled:\n\n' +
-      '• You will appear in search results between 12 AM and 6 AM IST\n' +
+      '• You will appear in search results between 10 PM and 7 AM IST\n' +
       '• Customers in need of urgent help can find and contact you\n' +
       '• Only providers who opt in are shown during these hours\n\n' +
       'When disabled:\n\n' +
-      '• You will not appear in searches during 12 AM \u2013 6 AM IST\n' +
+      '• You will not appear in searches during 10 PM \u2013 7 AM IST\n' +
       '• Your regular daytime availability is not affected\n\n' +
       'Note: This applies to all service types. Event services are not affected by emergency hours.',
       [{ text: 'Got it' }]
@@ -826,8 +826,8 @@ const SettingsScreen = ({ navigation }) => {
 
             <ToggleRow
               iconName="notification"
-              title="Emergency Hours (12\u20136 AM)"
-              subtitle={emergencyServicesEnabled ? 'You are searchable during midnight hours (12 AM \u2013 6 AM IST)' : 'Toggle ON to be available during midnight hours'}
+              title={'Night Emergency Hours (10 PM \u2013 7 AM)'}
+              subtitle={emergencyServicesEnabled ? 'You are searchable during night hours (10 PM \u2013 7 AM IST)' : 'Toggle ON to be available during night hours'}
               value={emergencyServicesEnabled}
               onValueChange={handleEmergencyServicesChange}
               onInfoPress={showEmergencyServicesInfo}
@@ -1273,15 +1273,18 @@ const styles = StyleSheet.create({
   rowTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
   },
   rowTitle: {
     fontSize: 15,
     fontWeight: '600',
     color: COLORS.textPrimary,
+    flexShrink: 1,
   },
   infoButton: {
-    marginLeft: 6,
+    marginLeft: 8,
     padding: 4,
+    flexShrink: 0,
   },
   rowTitleDanger: {
     color: COLORS.danger,

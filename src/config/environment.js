@@ -28,7 +28,7 @@
  * true  = Use Railway hosted backend (for Razorpay, webhooks, etc.)
  * false = Use local development server
  */
-export const USE_PRODUCTION_NODE_API = true;
+export const USE_PRODUCTION_NODE_API = false;
 
 /**
  * Toggle for Java Auth Service (jarbac)

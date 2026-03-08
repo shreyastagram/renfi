@@ -1,10 +1,12 @@
 /**
  * MapPickerModal Component
- * 
+ *
  * Full-screen map picker for selecting locations
  * Ultra-smooth with center pin marker (like Uber/Ola)
- * 
- * @version 1.0.0
+ * Includes location search with Mapbox geocoding
+ * Uses device GPS for initial position instead of hardcoded Mumbai
+ *
+ * @version 2.0.0
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
@@ -18,14 +20,17 @@ import {
   ActivityIndicator,
   Platform,
   Animated,
+  TextInput,
+  FlatList,
+  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Mapbox from '@rnmapbox/maps';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import Geolocation from '@react-native-community/geolocation';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// Mapbox Access Token (from .env via centralized config)
 import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
 
 // Brand colors
@@ -36,8 +41,8 @@ const BRAND = {
   white: '#FFFFFF',
 };
 
-// Default location (Mumbai, India)
-const DEFAULT_LOCATION = {
+// Fallback location (Mumbai) — only used if GPS fails AND no initialLocation
+const FALLBACK_LOCATION = {
   latitude: 19.0760,
   longitude: 72.8777,
 };
@@ -51,33 +56,24 @@ const reverseGeocode = async (latitude, longitude) => {
       `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?` +
       `access_token=${MAPBOX_ACCESS_TOKEN}&` +
       `types=address,poi,locality,neighborhood,place`,
-      {
-        headers: {
-          'Accept': 'application/json',
-        },
-      }
+      { headers: { 'Accept': 'application/json' } }
     );
     const data = await response.json();
-    
+
     if (!data.features || data.features.length === 0) {
-      return { 
-        latitude, 
-        longitude, 
-        address: 'Selected Location', 
-        shortAddress: 'Selected Location' 
-      };
+      return { latitude, longitude, address: 'Selected Location', shortAddress: 'Selected Location' };
     }
-    
+
     const feature = data.features[0];
     const context = feature.context || [];
     const locality = context.find(c => c.id?.startsWith('locality'))?.text || '';
     const place = context.find(c => c.id?.startsWith('place'))?.text || '';
     const region = context.find(c => c.id?.startsWith('region'))?.text || '';
     const postcode = context.find(c => c.id?.startsWith('postcode'))?.text || '';
-    
+
     const shortParts = [locality || feature.text, place].filter(Boolean);
     const shortAddress = shortParts.length > 0 ? shortParts.slice(0, 2).join(', ') : feature.place_name?.split(',').slice(0, 2).join(',');
-    
+
     return {
       latitude,
       longitude,
@@ -91,13 +87,35 @@ const reverseGeocode = async (latitude, longitude) => {
     };
   } catch (error) {
     console.error('Reverse geocoding error:', error);
-    return { 
-      latitude, 
-      longitude, 
-      address: 'Selected Location', 
-      shortAddress: 'Selected Location',
-      isCurrentLocation: false,
-    };
+    return { latitude, longitude, address: 'Selected Location', shortAddress: 'Selected Location', isCurrentLocation: false };
+  }
+};
+
+/**
+ * Forward geocode (search) using Mapbox
+ */
+const forwardGeocode = async (query, proximity) => {
+  if (!query || query.length < 2) return [];
+  try {
+    let url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
+      `access_token=${MAPBOX_ACCESS_TOKEN}&` +
+      `country=in&limit=5&language=en`;
+    if (proximity) {
+      url += `&proximity=${proximity.longitude},${proximity.latitude}`;
+    }
+    const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    const data = await response.json();
+    if (!data.features) return [];
+    return data.features.map(f => ({
+      id: f.id,
+      name: f.text,
+      fullAddress: f.place_name,
+      latitude: f.center[1],
+      longitude: f.center[0],
+    }));
+  } catch (error) {
+    console.error('Forward geocoding error:', error);
+    return [];
   }
 };
 
@@ -113,141 +131,223 @@ const MapPickerModal = ({
 }) => {
   const insets = useSafeAreaInsets();
   const cameraRef = useRef(null);
-  
-  // Validate initialLocation has valid numeric coordinates
+
   const getValidInitialLocation = () => {
-    if (initialLocation && 
+    if (initialLocation &&
         typeof initialLocation.longitude === 'number' && !isNaN(initialLocation.longitude) &&
         typeof initialLocation.latitude === 'number' && !isNaN(initialLocation.latitude)) {
       return initialLocation;
     }
-    return DEFAULT_LOCATION;
+    return null; // Will be resolved by GPS
   };
-  const [centerLocation, setCenterLocation] = useState(getValidInitialLocation());
+
+  const [centerLocation, setCenterLocation] = useState(getValidInitialLocation() || FALLBACK_LOCATION);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState(null);
-  // Use ref for moving state to avoid re-renders during drag
   const isMapMovingRef = useRef(false);
   const [pinLifted, setPinLifted] = useState(false);
-
-  // Use a ref to track center during drag — avoids re-renders that cause jitter
-  const centerRef = useRef(getValidInitialLocation());
-  // Debounce timer for geocoding
+  const centerRef = useRef(getValidInitialLocation() || FALLBACK_LOCATION);
   const geocodeTimer = useRef(null);
-
-  // Animation for pin bounce
   const pinBounce = useRef(new Animated.Value(0)).current;
-  
-  // Reset state when modal opens
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const searchTimer = useRef(null);
+  const searchInputRef = useRef(null);
+  // Track if GPS location was fetched
+  const gpsLocationRef = useRef(null);
+  // Flag to skip onMapIdle geocode during programmatic camera moves
+  const isProgrammaticMoveRef = useRef(false);
+
+  // Get device GPS on modal open
   useEffect(() => {
     if (visible) {
-      const startLocation = initialLocation || DEFAULT_LOCATION;
-      setCenterLocation(startLocation);
-      centerRef.current = startLocation;
+      const validInitial = getValidInitialLocation();
+
+      if (validInitial) {
+        // Has valid initial location — use it
+        setCenterLocation(validInitial);
+        centerRef.current = validInitial;
+        // Geocode will happen via onMapIdle
+      } else {
+        // No initial location — try GPS
+        Geolocation.getCurrentPosition(
+          (position) => {
+            const loc = {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            };
+            gpsLocationRef.current = loc;
+            setCenterLocation(loc);
+            centerRef.current = loc;
+            isProgrammaticMoveRef.current = true;
+            cameraRef.current?.setCamera({
+              centerCoordinate: [loc.longitude, loc.latitude],
+              zoomLevel: 16,
+              animationDuration: 800,
+            });
+          },
+          () => {
+            // GPS failed, use fallback
+            setCenterLocation(FALLBACK_LOCATION);
+            centerRef.current = FALLBACK_LOCATION;
+            // Geocode will happen via onMapIdle
+          },
+          { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+        );
+      }
+
       setSelectedAddress(null);
+      setSearchQuery('');
+      setSearchResults([]);
+      setShowSearchResults(false);
       isMapMovingRef.current = false;
       setPinLifted(false);
-      
-      // Initial geocode
-      handleRegionChange(startLocation.latitude, startLocation.longitude);
     }
     return () => {
       if (geocodeTimer.current) clearTimeout(geocodeTimer.current);
+      if (searchTimer.current) clearTimeout(searchTimer.current);
     };
   }, [visible, initialLocation]);
-  
-  // Animate pin when map is moving
+
+  // Animate pin
   useEffect(() => {
-    if (pinLifted) {
-      Animated.spring(pinBounce, {
-        toValue: -10,
-        friction: 8,
-        tension: 100,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.spring(pinBounce, {
-        toValue: 0,
-        friction: 5,
-        tension: 80,
-        useNativeDriver: true,
-      }).start();
-    }
+    Animated.spring(pinBounce, {
+      toValue: pinLifted ? -10 : 0,
+      friction: pinLifted ? 8 : 5,
+      tension: pinLifted ? 100 : 80,
+      useNativeDriver: true,
+    }).start();
   }, [pinLifted]);
-  
-  /**
-   * Handle map region change (when user drags the map)
-   * Only called on idle — does reverse geocoding
-   * Does NOT update centerLocation state to avoid Camera re-render jitter
-   */
+
+  // Track geocode request to cancel stale ones
+  const geocodeIdRef = useRef(0);
+
   const handleRegionChange = useCallback(async (latitude, longitude) => {
     centerRef.current = { latitude, longitude };
+    const requestId = ++geocodeIdRef.current;
     setIsLoading(true);
-
     try {
       const result = await reverseGeocode(latitude, longitude);
-      setSelectedAddress(result);
+      // Only apply if this is still the latest request
+      if (requestId === geocodeIdRef.current) {
+        setSelectedAddress(result);
+      }
     } catch (error) {
       console.error('Error getting address:', error);
     } finally {
-      setIsLoading(false);
+      if (requestId === geocodeIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, []);
-  
-  /**
-   * Handle map camera change — only update ref, NOT state
-   * This prevents re-renders during pan gestures which cause jitter
-   */
+
   const onCameraChanged = useCallback((event) => {
     const { center } = event.properties;
     if (center) {
-      centerRef.current = {
-        latitude: center[1],
-        longitude: center[0],
-      };
+      centerRef.current = { latitude: center[1], longitude: center[0] };
     }
   }, []);
-  
-  /**
-   * Handle map region did change (user stopped dragging)
-   * Read from ref (always fresh) instead of stale state closure
-   */
+
   const onMapIdle = useCallback(() => {
     isMapMovingRef.current = false;
     setPinLifted(false);
-    // Clear any pending geocode
+    if (isProgrammaticMoveRef.current) {
+      isProgrammaticMoveRef.current = false;
+      // Still geocode, but with longer delay to let camera settle
+      if (geocodeTimer.current) clearTimeout(geocodeTimer.current);
+      geocodeTimer.current = setTimeout(() => {
+        const loc = centerRef.current;
+        handleRegionChange(loc.latitude, loc.longitude);
+      }, 400);
+      return;
+    }
     if (geocodeTimer.current) clearTimeout(geocodeTimer.current);
-    // Small debounce to avoid rapid successive geocode calls
     geocodeTimer.current = setTimeout(() => {
       const loc = centerRef.current;
       handleRegionChange(loc.latitude, loc.longitude);
-    }, 150);
+    }, 300);
   }, [handleRegionChange]);
-  
-  /**
-   * Handle confirm location
-   */
+
   const handleConfirm = useCallback(() => {
     if (selectedAddress) {
       onLocationSelect(selectedAddress);
       onClose();
     }
   }, [selectedAddress, onLocationSelect, onClose]);
-  
-  /**
-   * Center to user location
-   */
+
   const centerToUserLocation = useCallback(() => {
-    const validLocation = getValidInitialLocation();
-    if (validLocation && typeof validLocation.longitude === 'number' && typeof validLocation.latitude === 'number') {
-      cameraRef.current?.setCamera({
-        centerCoordinate: [validLocation.longitude, validLocation.latitude],
-        zoomLevel: 16,
-        animationDuration: 1000,
-      });
+    // Prefer GPS location, then initialLocation, then fallback
+    const loc = gpsLocationRef.current || getValidInitialLocation();
+    if (!loc) {
+      // Try GPS again
+      Geolocation.getCurrentPosition(
+        (position) => {
+          const gpsLoc = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+          gpsLocationRef.current = gpsLoc;
+          isProgrammaticMoveRef.current = true;
+          cameraRef.current?.setCamera({
+            centerCoordinate: [gpsLoc.longitude, gpsLoc.latitude],
+            zoomLevel: 16,
+            animationDuration: 1000,
+          });
+        },
+        () => {},
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+      );
+      return;
     }
+    isProgrammaticMoveRef.current = true;
+    cameraRef.current?.setCamera({
+      centerCoordinate: [loc.longitude, loc.latitude],
+      zoomLevel: 16,
+      animationDuration: 1000,
+    });
   }, [initialLocation]);
-  
+
+  // Search handler with debounce
+  const handleSearchChange = useCallback((text) => {
+    setSearchQuery(text);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+
+    if (text.length < 2) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+
+    setShowSearchResults(true);
+    setIsSearching(true);
+    searchTimer.current = setTimeout(async () => {
+      const results = await forwardGeocode(text, centerRef.current);
+      setSearchResults(results);
+      setIsSearching(false);
+    }, 350);
+  }, []);
+
+  // Select a search result — fly to it
+  const handleSearchSelect = useCallback((result) => {
+    Keyboard.dismiss();
+    setSearchQuery(result.name);
+    setShowSearchResults(false);
+    setSearchResults([]);
+
+    const loc = { latitude: result.latitude, longitude: result.longitude };
+    centerRef.current = loc;
+    isProgrammaticMoveRef.current = true;
+
+    cameraRef.current?.setCamera({
+      centerCoordinate: [result.longitude, result.latitude],
+      zoomLevel: 16,
+      animationDuration: 1000,
+    });
+
+    // Geocode will happen via onMapIdle after camera animation
+  }, []);
+
   return (
     <Modal
       visible={visible}
@@ -264,7 +364,65 @@ const MapPickerModal = ({
           <Text style={styles.headerTitle}>{title}</Text>
           <View style={{ width: 40 }} />
         </View>
-        
+
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <MaterialIcon name="search" size={22} color="#9CA3AF" />
+            <TextInput
+              ref={searchInputRef}
+              style={styles.searchInput}
+              placeholder="Search area, landmark, or address..."
+              placeholderTextColor="#9CA3AF"
+              value={searchQuery}
+              onChangeText={handleSearchChange}
+              onFocus={() => searchQuery.length >= 2 && setShowSearchResults(true)}
+              returnKeyType="search"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchResults([]); setShowSearchResults(false); }}>
+                <MaterialIcon name="close" size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Search Results Dropdown */}
+          {showSearchResults && (
+            <View style={styles.searchResultsContainer}>
+              {isSearching ? (
+                <View style={styles.searchLoadingRow}>
+                  <ActivityIndicator size="small" color={BRAND.primary} />
+                  <Text style={styles.searchLoadingText}>Searching...</Text>
+                </View>
+              ) : searchResults.length === 0 ? (
+                <View style={styles.searchLoadingRow}>
+                  <MaterialIcon name="search-off" size={20} color="#9CA3AF" />
+                  <Text style={styles.searchLoadingText}>No results found</Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={searchResults}
+                  keyExtractor={(item) => item.id}
+                  keyboardShouldPersistTaps="handled"
+                  style={{ maxHeight: 220 }}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={styles.searchResultItem}
+                      onPress={() => handleSearchSelect(item)}
+                    >
+                      <MaterialIcon name="location-on" size={20} color={BRAND.primary} style={{ marginTop: 2 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.searchResultName} numberOfLines={1}>{item.name}</Text>
+                        <Text style={styles.searchResultAddress} numberOfLines={1}>{item.fullAddress}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                />
+              )}
+            </View>
+          )}
+        </View>
+
         {/* Map */}
         <View style={styles.mapContainer}>
           <Mapbox.MapView
@@ -277,6 +435,12 @@ const MapPickerModal = ({
             onCameraChanged={onCameraChanged}
             onMapIdle={onMapIdle}
             onTouchStart={() => {
+              if (showSearchResults) {
+                setShowSearchResults(false);
+                Keyboard.dismiss();
+              }
+              // Don't animate pin during programmatic camera moves
+              if (isProgrammaticMoveRef.current) return;
               if (!isMapMovingRef.current) {
                 isMapMovingRef.current = true;
                 setPinLifted(true);
@@ -293,34 +457,28 @@ const MapPickerModal = ({
               animationDuration={1000}
             />
           </Mapbox.MapView>
-          
-          {/* Center Pin (fixed in center of map) */}
+
+          {/* Center Pin */}
           <View style={styles.centerPinContainer} pointerEvents="none">
-            <Animated.View style={[
-              styles.centerPin,
-              { transform: [{ translateY: pinBounce }] }
-            ]}>
+            <Animated.View style={[styles.centerPin, { transform: [{ translateY: pinBounce }] }]}>
               <View style={styles.pinHead}>
                 <MaterialIcon name="place" size={40} color={BRAND.primary} />
               </View>
             </Animated.View>
             <View style={styles.pinShadow} />
           </View>
-          
+
           {/* My Location Button */}
-          {initialLocation && (
-            <TouchableOpacity 
-              style={[styles.myLocationButton, { bottom: 200 }]}
-              onPress={centerToUserLocation}
-            >
-              <MaterialIcon name="my-location" size={24} color={BRAND.secondary} />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={[styles.myLocationButton, { bottom: 200 }]}
+            onPress={centerToUserLocation}
+          >
+            <MaterialIcon name="my-location" size={24} color={BRAND.secondary} />
+          </TouchableOpacity>
         </View>
-        
+
         {/* Bottom Card */}
         <View style={[styles.bottomCard, { paddingBottom: insets.bottom + 16 }]}>
-          {/* Address Display */}
           <View style={styles.addressContainer}>
             {isLoading ? (
               <View style={styles.loadingContainer}>
@@ -343,13 +501,9 @@ const MapPickerModal = ({
               </>
             )}
           </View>
-          
-          {/* Confirm Button */}
-          <TouchableOpacity 
-            style={[
-              styles.confirmButton,
-              (!selectedAddress || isLoading) && styles.confirmButtonDisabled
-            ]}
+
+          <TouchableOpacity
+            style={[styles.confirmButton, (!selectedAddress || isLoading) && styles.confirmButtonDisabled]}
             onPress={handleConfirm}
             disabled={!selectedAddress || isLoading}
           >
@@ -372,10 +526,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 8,
     backgroundColor: BRAND.white,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
     zIndex: 10,
   },
   closeButton: {
@@ -391,6 +543,74 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1F2937',
   },
+
+  // Search
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    backgroundColor: BRAND.white,
+    zIndex: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 44,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#1F2937',
+    padding: 0,
+  },
+  searchResultsContainer: {
+    backgroundColor: BRAND.white,
+    borderRadius: 12,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8 },
+      android: { elevation: 6 },
+    }),
+  },
+  searchLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  searchLoadingText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  searchResultItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E5E7EB',
+  },
+  searchResultName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  searchResultAddress: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+
+  // Map
   mapContainer: {
     flex: 1,
     position: 'relative',
@@ -438,6 +658,8 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
+
+  // Bottom card
   bottomCard: {
     backgroundColor: BRAND.white,
     borderTopLeftRadius: 24,

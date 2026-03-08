@@ -1307,9 +1307,9 @@ const EventServicesScreen = ({ navigation }) => {
             {/* Action Button */}
             <View style={styles.bookingActions}>
               <TouchableOpacity
-                style={styles.confirmBookingButton}
+                style={[styles.confirmBookingButton, (!eventVenue.trim() || !eventDate || !selectedProvider) && { opacity: 0.5 }]}
                 onPress={handleSendRequest}
-                disabled={sendingRequest}
+                disabled={sendingRequest || !eventVenue.trim()}
                 activeOpacity={0.7}
               >
                 {sendingRequest ? (

@@ -49,7 +49,7 @@ const safeJson = async (res) => {
     console.warn('[InsuranceService] Non-JSON response:', res.status, text.substring(0, 200));
     return { success: false, error: `Server returned ${res.status}` };
   }
-  return await safeJson(res);
+  return await res.json();
 };
 
 /**

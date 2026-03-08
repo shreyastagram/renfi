@@ -140,7 +140,7 @@ const ServiceCard = ({ service, onPress, isStatic }) => (
     <View style={[styles.serviceIconContainer, isStatic && styles.staticIconContainer]}>
       <MaterialIcon
         name={EMERGENCY_SERVICE_ICONS[service.id]}
-        size={24}
+        size={28}
         color={isStatic ? COLORS.danger : COLORS.secondary}
       />
     </View>
@@ -1336,16 +1336,16 @@ const styles = StyleSheet.create({
   servicesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: -6,
+    gap: 12,
   },
   serviceCard: {
-    width: '31%',
-    marginHorizontal: '1.16%',
+    width: '47%',
+    flexGrow: 1,
     backgroundColor: COLORS.cardWhite,
     borderRadius: CARD_RADIUS,
-    padding: 16,
+    padding: 18,
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 0,
     ...SHADOWS,
   },
   staticServiceCard: {
@@ -1354,23 +1354,23 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.dangerLight,
   },
   serviceIconContainer: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     backgroundColor: COLORS.background,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   staticIconContainer: {
     backgroundColor: '#FEE2E2',
   },
   serviceName: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     color: COLORS.textPrimary,
     textAlign: 'center',
-    lineHeight: 16,
+    lineHeight: 18,
   },
   staticBadge: {
     flexDirection: 'row',

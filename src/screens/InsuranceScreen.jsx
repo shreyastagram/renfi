@@ -148,7 +148,7 @@ const PulsingDot = ({ color = C.success, size = 8 }) => {
 /* ═══════════════════════════════════════════════════════════════
    DocumentCard — individual document upload/status card
    ═══════════════════════════════════════════════════════════════ */
-const DocumentCard = ({ config, document, onUpload, onRemove, onView, isRejected }) => {
+const DocumentCard = ({ config, document, onUpload, onRemove, onView, isRejected, isLocked }) => {
   const hasDoc = !!(document?.localUri || document?.fileUrl);
   const isStaged = document?.isStaged && !document?.fileUrl;
   const docStatus = document?.status || (hasDoc ? (isStaged ? 'staged' : 'pending') : 'none');
@@ -224,11 +224,19 @@ const DocumentCard = ({ config, document, onUpload, onRemove, onView, isRejected
                 <Text style={[s.statusPillText, { color: C.warning }]}>Pending Review</Text>
               </View>
             )}
-            {(isStaged || isRejected) && (
+            {isStaged && (
               <TouchableOpacity style={s.removeBtn} onPress={onRemove}>
                 <MaterialIcon name="delete-outline" size={18} color={C.danger} />
               </TouchableOpacity>
             )}
+          </View>
+        </View>
+      ) : isLocked ? (
+        <View style={[s.uploadBtn, { borderColor: C.muted + '25', opacity: 0.5 }]}>
+          <MaterialIcon name="lock" size={20} color={C.muted} />
+          <View>
+            <Text style={[s.uploadBtnText, { color: C.muted }]}>Under Review</Text>
+            <Text style={s.uploadBtnHint}>Documents are being verified</Text>
           </View>
         </View>
       ) : (
@@ -629,10 +637,11 @@ const InsuranceScreen = ({ navigation }) => {
             key={config.key}
             config={config}
             document={documents[config.key]}
-            onUpload={() => pickDocument(config.key)}
-            onRemove={() => removeDoc(config.key)}
+            onUpload={isSubmitted ? undefined : () => pickDocument(config.key)}
+            onRemove={isSubmitted ? undefined : () => removeDoc(config.key)}
             onView={(uri) => openViewer(uri)}
             isRejected={isRejected}
+            isLocked={isSubmitted}
           />
         ))}
 
@@ -701,6 +710,17 @@ const InsuranceScreen = ({ navigation }) => {
               {!hasPAN ? 'PAN Card is required' : 'At least one address proof is required'}
             </Text>
           )}
+        </View>
+      )}
+
+      {/* ── Submission Overlay ──────────────────────────── */}
+      {submitting && (
+        <View style={s.submittingOverlay}>
+          <View style={s.submittingCard}>
+            <ActivityIndicator size="large" color={C.secondary} />
+            <Text style={s.submittingTitle}>Uploading Documents</Text>
+            <Text style={s.submittingSubtitle}>Please wait while your documents are being uploaded and submitted for verification...</Text>
+          </View>
         </View>
       )}
 
@@ -812,6 +832,12 @@ const s = StyleSheet.create({
   submitBtnDisabled: { backgroundColor: C.muted, opacity: 0.6 },
   submitBtnText: { fontSize: 16, fontWeight: '800', color: '#fff', letterSpacing: -0.2 },
   submitHint: { fontSize: 11, color: C.muted, textAlign: 'center', marginTop: 6 },
+
+  // Submission overlay
+  submittingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15,23,42,0.6)', zIndex: 100, alignItems: 'center', justifyContent: 'center' },
+  submittingCard: { backgroundColor: C.card, borderRadius: 20, padding: 32, alignItems: 'center', marginHorizontal: 40, gap: 14, ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 20 }, android: { elevation: 12 } }) },
+  submittingTitle: { fontSize: 17, fontWeight: '800', color: C.text, letterSpacing: -0.3 },
+  submittingSubtitle: { fontSize: 13, color: C.textSec, textAlign: 'center', lineHeight: 19 },
 });
 
 export default InsuranceScreen;

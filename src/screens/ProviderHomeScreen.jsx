@@ -44,6 +44,7 @@ import {
 } from '../services/socketService';
 import { getProviderRequests } from '../services/traditionalServiceService';
 import { getVerificationDashboard } from '../services/verificationService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NODE_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
 
@@ -227,6 +228,81 @@ const ShimmerBlock = ({ width, height, borderRadius = 8, style }) => {
     />
   );
 };
+
+/**
+ * Home Screen Skeleton Loader
+ */
+const HomeSkeletonLoader = ({ insets }) => (
+  <View style={styles.container}>
+    <StatusBar barStyle="light-content" backgroundColor={BRAND.dark} />
+    <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]} scrollEnabled={false}>
+      {/* Hero Header skeleton */}
+      <View style={[styles.heroHeader, { paddingTop: insets.top + 16 }]}>
+        <View style={[styles.decorCircle, styles.decorCircle1]} />
+        <View style={[styles.decorCircle, styles.decorCircle2]} />
+        <View style={styles.headerRow}>
+          <ShimmerBlock width={40} height={40} borderRadius={20} style={{ backgroundColor: 'rgba(255,255,255,0.15)' }} />
+          <ShimmerBlock width={40} height={40} borderRadius={20} style={{ backgroundColor: 'rgba(255,255,255,0.15)' }} />
+        </View>
+        <View style={styles.heroTextBlock}>
+          <ShimmerBlock width={100} height={14} borderRadius={6} style={{ backgroundColor: 'rgba(255,255,255,0.12)', marginBottom: 8 }} />
+          <ShimmerBlock width={160} height={26} borderRadius={8} style={{ backgroundColor: 'rgba(255,255,255,0.18)', marginBottom: 6 }} />
+          <ShimmerBlock width={200} height={12} borderRadius={6} style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
+        </View>
+      </View>
+
+      <View style={styles.contentArea}>
+        {/* Availability card skeleton */}
+        <View style={[styles.availabilityCard, { paddingVertical: 20 }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+            <ShimmerBlock width={14} height={14} borderRadius={7} />
+            <View style={{ gap: 6 }}>
+              <ShimmerBlock width={120} height={16} borderRadius={6} />
+              <ShimmerBlock width={180} height={12} borderRadius={6} />
+            </View>
+          </View>
+          <ShimmerBlock width={50} height={28} borderRadius={14} />
+        </View>
+
+        {/* Verification card skeleton */}
+        <View style={{ backgroundColor: BRAND.white, borderRadius: 16, padding: 16, gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <ShimmerBlock width={40} height={40} borderRadius={20} />
+            <View style={{ gap: 6, flex: 1 }}>
+              <ShimmerBlock width={140} height={14} borderRadius={6} />
+              <ShimmerBlock width={100} height={12} borderRadius={6} />
+            </View>
+          </View>
+          <ShimmerBlock width={'100%'} height={6} borderRadius={3} />
+        </View>
+
+        {/* Stats skeleton */}
+        <ShimmerBlock width={80} height={12} borderRadius={6} style={{ marginTop: 20, marginBottom: 10 }} />
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          {[1, 2, 3, 4].map(i => (
+            <View key={i} style={{ flex: 1, backgroundColor: BRAND.white, borderRadius: 16, padding: 14, alignItems: 'center', gap: 8 }}>
+              <ShimmerBlock width={36} height={36} borderRadius={18} />
+              <ShimmerBlock width={30} height={18} borderRadius={6} />
+              <ShimmerBlock width={50} height={10} borderRadius={5} />
+            </View>
+          ))}
+        </View>
+
+        {/* Quick actions skeleton */}
+        <ShimmerBlock width={110} height={12} borderRadius={6} style={{ marginTop: 20, marginBottom: 10 }} />
+        {[1, 2, 3].map(i => (
+          <View key={i} style={{ backgroundColor: BRAND.white, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+            <ShimmerBlock width={44} height={44} borderRadius={12} />
+            <View style={{ gap: 6, flex: 1 }}>
+              <ShimmerBlock width={120} height={14} borderRadius={6} />
+              <ShimmerBlock width={180} height={11} borderRadius={5} />
+            </View>
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  </View>
+);
 
 /**
  * Stats Card Component
@@ -443,8 +519,29 @@ const ProviderHomeScreen = ({ navigation }) => {
 
   // Combined user data - single source of truth for availability
   const displayData = { ...user, ...profile };
-  // Default to false (offline) until the DB value loads -- prevents toggle flashing ON
-  const isAvailable = displayData?.isAvailable ?? displayData?.isOnline ?? false;
+
+  // Cached availability — show last known state instantly, validate from DB
+  const [cachedAvailability, setCachedAvailability] = useState(null);
+  const availabilityLoadedRef = useRef(false);
+
+  // Load cached availability from AsyncStorage on mount
+  useEffect(() => {
+    AsyncStorage.getItem('provider_availability').then(val => {
+      if (val !== null) setCachedAvailability(val === 'true');
+    });
+  }, []);
+
+  // Once DB data loads, sync cache
+  const dbAvailability = displayData?.isAvailable ?? displayData?.isOnline;
+  useEffect(() => {
+    if (dbAvailability !== undefined && dbAvailability !== null && !availabilityLoadedRef.current) {
+      availabilityLoadedRef.current = true;
+      setCachedAvailability(dbAvailability);
+      AsyncStorage.setItem('provider_availability', String(dbAvailability));
+    }
+  }, [dbAvailability]);
+
+  const isAvailable = cachedAvailability ?? dbAvailability ?? false;
 
   /**
    * Fetch provider stats from API - includes traditional and event services
@@ -550,6 +647,8 @@ const ProviderHomeScreen = ({ navigation }) => {
 
     // Optimistic update -- toggle UI immediately
     const previousValue = isAvailable;
+    setCachedAvailability(value);
+    AsyncStorage.setItem('provider_availability', String(value));
     updateProviderAvailability(value, true); // optimistic flag
 
     setIsUpdatingAvailability(true);
@@ -559,6 +658,8 @@ const ProviderHomeScreen = ({ navigation }) => {
 
       if (!result.success) {
         // Revert optimistic update
+        setCachedAvailability(previousValue);
+        AsyncStorage.setItem('provider_availability', String(previousValue));
         updateProviderAvailability(previousValue, true);
 
         const errorMsg = result.error || 'Failed to update availability';
@@ -573,6 +674,8 @@ const ProviderHomeScreen = ({ navigation }) => {
           dialog('Error', errorMsg);
         }
       } else {
+        // DB confirmed — update cache
+        AsyncStorage.setItem('provider_availability', String(value));
         // Start/stop location tracking based on availability
         const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
         if (value && providerId) {
@@ -588,6 +691,8 @@ const ProviderHomeScreen = ({ navigation }) => {
       }
     } catch (error) {
       // Revert on failure
+      setCachedAvailability(previousValue);
+      AsyncStorage.setItem('provider_availability', String(previousValue));
       updateProviderAvailability(previousValue, true);
       console.error('Failed to update availability:', error);
       dialog('Error', 'Something went wrong. Please check your internet connection and try again.');
@@ -707,6 +812,11 @@ const ProviderHomeScreen = ({ navigation }) => {
   }, [navigation, fetchVerificationData]);
 
   const firstName = displayData?.fullName?.split(' ')[0] || 'Provider';
+
+  // Show skeleton loader while profile is loading on initial load
+  if (isProfileLoading && !displayData?.fullName) {
+    return <HomeSkeletonLoader insets={insets} />;
+  }
 
   return (
     <View style={styles.container}>

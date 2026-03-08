@@ -1085,7 +1085,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginBottom: 4,
+    marginTop: 2,
+    marginBottom: 6,
     marginLeft: 44,
   },
   stepLockInfoText: {

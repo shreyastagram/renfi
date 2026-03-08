@@ -195,12 +195,80 @@ const EditableField = React.memo(({ label, value, onChangeText, placeholder, edi
 ));
 
 /**
+ * Shimmer block for skeleton loading
+ */
+const ShimmerBlock = ({ width, height, borderRadius = 8, style }) => {
+  const shimmerAnim = useRef(new Animated.Value(0.3)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, { toValue: 0.7, duration: 800, useNativeDriver: true }),
+        Animated.timing(shimmerAnim, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+  return <Animated.View style={[{ width, height, borderRadius, backgroundColor: '#CBD5E1', opacity: shimmerAnim }, style]} />;
+};
+
+/**
+ * Profile Screen Skeleton Loader
+ */
+const ProfileSkeletonLoader = ({ insets, onBack }) => (
+  <View style={styles.container}>
+    <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <TouchableOpacity style={styles.backButton} onPress={onBack}>
+        <Icon name="arrow_back" size={22} color="#0F172A" />
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>Profile</Text>
+      <View style={{ width: 60 }} />
+    </View>
+    <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 30 }]} scrollEnabled={false}>
+      {/* Profile card skeleton */}
+      <View style={[styles.profileCard, { overflow: 'hidden' }]}>
+        <View style={{ height: 100, backgroundColor: '#E2E8F0' }} />
+        <View style={{ alignItems: 'center', marginTop: -40, paddingBottom: 20 }}>
+          <ShimmerBlock width={80} height={80} borderRadius={40} />
+          <ShimmerBlock width={140} height={18} borderRadius={8} style={{ marginTop: 12 }} />
+          <ShimmerBlock width={180} height={13} borderRadius={6} style={{ marginTop: 8 }} />
+        </View>
+      </View>
+
+      {/* Info rows skeleton */}
+      <ShimmerBlock width={120} height={14} borderRadius={6} style={{ marginTop: 20, marginBottom: 12 }} />
+      {[1, 2, 3, 4].map(i => (
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8 }}>
+          <ShimmerBlock width={36} height={36} borderRadius={18} />
+          <View style={{ gap: 6, flex: 1 }}>
+            <ShimmerBlock width={80} height={12} borderRadius={5} />
+            <ShimmerBlock width={160} height={14} borderRadius={6} />
+          </View>
+        </View>
+      ))}
+
+      {/* Another section */}
+      <ShimmerBlock width={100} height={14} borderRadius={6} style={{ marginTop: 20, marginBottom: 12 }} />
+      {[1, 2].map(i => (
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8 }}>
+          <ShimmerBlock width={36} height={36} borderRadius={18} />
+          <View style={{ gap: 6, flex: 1 }}>
+            <ShimmerBlock width={90} height={12} borderRadius={5} />
+            <ShimmerBlock width={140} height={14} borderRadius={6} />
+          </View>
+        </View>
+      ))}
+    </ScrollView>
+  </View>
+);
+
+/**
  * Profile Screen Component
  */
 const ProfileScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
-  const { user, profile, userType, refreshVerificationStatus, refreshProfile, aadhaarStatus, setAadhaarStatus, premiumStatus, setPremiumStatus } = useApp();
+  const { user, profile, userType, refreshVerificationStatus, refreshProfile, aadhaarStatus, setAadhaarStatus, premiumStatus, setPremiumStatus, isProfileLoading } = useApp();
   
   // Check if we should scroll to/open addresses section
   const scrollToAddresses = route?.params?.scrollToAddresses;
@@ -927,6 +995,11 @@ const ProfileScreen = ({ navigation, route }) => {
       setUploadingPicture(false);
     }
   };
+
+  // Show skeleton while profile is loading initially
+  if (isProfileLoading && !displayData?.fullName && !displayData?.email) {
+    return <ProfileSkeletonLoader insets={insets} onBack={() => navigation.goBack()} />;
+  }
 
   return (
     <View style={styles.container}>
@@ -2812,7 +2885,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
-    marginTop: -2,
+    marginTop: 6,
     marginBottom: 8,
     marginLeft: 56,
     marginRight: 16,
