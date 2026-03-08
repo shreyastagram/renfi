@@ -19,7 +19,6 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Image,
@@ -29,6 +28,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useApp } from '../context/AppContext';
+import { useDialog } from '../context/DialogContext';
 import { updateProviderProfile } from '../services/profileService';
 import { NODE_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
@@ -134,7 +134,9 @@ const SUGGESTED_SPECIALIZATIONS = {
 /**
  * Link Input Component
  */
-const LinkInput = ({ platform, value, onChange }) => (
+const LinkInput = ({ platform, value, onChange }) => {
+  const { dialog } = useDialog();
+  return (
   <View style={styles.linkInputContainer}>
     <View style={[styles.linkIconContainer, { backgroundColor: platform.bgColor }]}>
       <MaterialIcon name={platform.icon} size={22} color={platform.color} />
@@ -161,7 +163,7 @@ const LinkInput = ({ platform, value, onChange }) => (
             url = 'https://' + url;
           }
           Linking.openURL(url).catch(() => {
-            Alert.alert('Invalid URL', 'Please check the URL format');
+            dialog('Invalid URL', 'Please check the URL format');
           });
         }}
       >
@@ -169,7 +171,8 @@ const LinkInput = ({ platform, value, onChange }) => (
       </TouchableOpacity>
     ) : null}
   </View>
-);
+  );
+};
 
 /**
  * Specialization Chip Component
@@ -208,6 +211,7 @@ const GalleryImage = ({ image, onRemove }) => (
 const PortfolioEditScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { profile, refreshProfile } = useApp();
+  const { dialog } = useDialog();
 
   // Determine service type
   const isPhotographer = profile?.verifiedServiceCategories?.includes('photographer');
@@ -319,14 +323,14 @@ const PortfolioEditScreen = ({ navigation }) => {
       setPortfolioGallery(prev => [...prev, uploaded]);
     } catch (error) {
       console.error('Error uploading image:', error);
-      Alert.alert('Error', 'Failed to upload image. Please try again.');
+      dialog('Error', 'Failed to upload image. Please try again.');
     } finally {
       setUploadingImage(false);
     }
   };
 
   const handleRemoveGalleryImage = (index) => {
-    Alert.alert(
+    dialog(
       'Remove Image',
       'Are you sure you want to remove this image?',
       [
@@ -357,15 +361,15 @@ const PortfolioEditScreen = ({ navigation }) => {
 
       if (result.success) {
         await refreshProfile();
-        Alert.alert('Success', 'Portfolio updated successfully!', [
+        dialog('Success', 'Portfolio updated successfully!', [
           { text: 'OK', onPress: () => navigation.goBack() },
         ]);
       } else {
-        Alert.alert('Error', result.error || 'Failed to update portfolio');
+        dialog('Error', result.error || 'Failed to update portfolio');
       }
     } catch (error) {
       console.error('Error saving portfolio:', error);
-      Alert.alert('Error', 'Failed to save portfolio. Please try again.');
+      dialog('Error', 'Failed to save portfolio. Please try again.');
     } finally {
       setSaving(false);
     }

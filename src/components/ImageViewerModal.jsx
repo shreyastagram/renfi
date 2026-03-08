@@ -26,10 +26,10 @@ import {
   FlatList,
   StatusBar,
   ActivityIndicator,
-  Alert,
   Platform,
 } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import { useDialog } from '../context/DialogContext';
 import Share from 'react-native-share';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 
@@ -97,6 +97,7 @@ const ImageSlide = ({ item, width }) => {
  * @param {function} onClose - Close handler
  */
 const ImageViewerModal = ({ visible, images = [], initialIndex = 0, onClose }) => {
+  const { dialog } = useDialog();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const flatListRef = useRef(null);
 
@@ -169,7 +170,7 @@ const ImageViewerModal = ({ visible, images = [], initialIndex = 0, onClose }) =
     } catch (error) {
       if (error?.message !== 'User did not share') {
         console.error('[ImageViewer] Share error:', error);
-        Alert.alert('Share Failed', 'Could not share this image. Please try again.');
+        dialog('Share Failed', 'Could not share this image. Please try again.');
       }
     } finally {
       setSharing(false);

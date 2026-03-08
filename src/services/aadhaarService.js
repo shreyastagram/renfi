@@ -21,6 +21,7 @@
  */
 
 import { NODE_BASE_URL } from '../config/api';
+import { authFetch } from '../utils/authFetch';
 import { getTokens } from '../utils/storage';
 import { Linking } from 'react-native';
 
@@ -46,7 +47,7 @@ export const initiateVerification = async () => {
     
     console.log('[AadhaarService] Making POST request to initiate...');
     
-    const response = await fetch(`${NODE_BASE_URL}/api/aadhaar/initiate`, {
+    const response = await authFetch(`${NODE_BASE_URL}/api/aadhaar/initiate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -150,7 +151,7 @@ export const checkVerificationStatus = async (sessionId) => {
       return { success: false, error: 'Not authenticated' };
     }
     
-    const response = await fetch(`${NODE_BASE_URL}/api/aadhaar/check-status/${sessionId}`, {
+    const response = await authFetch(`${NODE_BASE_URL}/api/aadhaar/check-status/${sessionId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -198,7 +199,7 @@ export const getAadhaarStatus = async () => {
       return { success: false, error: 'Not authenticated' };
     }
     
-    const response = await fetch(`${NODE_BASE_URL}/api/aadhaar/status`, {
+    const response = await authFetch(`${NODE_BASE_URL}/api/aadhaar/status`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -257,7 +258,7 @@ export const validateAadhaarFormat = async (aadhaarNumber) => {
       };
     }
     
-    const response = await fetch(`${NODE_BASE_URL}/api/aadhaar/validate`, {
+    const response = await authFetch(`${NODE_BASE_URL}/api/aadhaar/validate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -6,6 +6,7 @@
  */
 
 import { NODE_BASE_URL } from '../config/api';
+import { authFetch } from '../utils/authFetch';
 
 const API_BASE = `${NODE_BASE_URL}/api/favorites`;
 
@@ -19,7 +20,7 @@ const API_BASE = `${NODE_BASE_URL}/api/favorites`;
  */
 export const addToFavorites = async (userId, providerId, serviceCategory, notes = '') => {
   try {
-    const response = await fetch(`${API_BASE}/add`, {
+    const response = await authFetch(`${API_BASE}/add`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -66,7 +67,7 @@ export const removeFromFavorites = async (userId, providerId, serviceCategory = 
       body.serviceCategory = serviceCategory;
     }
 
-    const response = await fetch(`${API_BASE}/remove`, {
+    const response = await authFetch(`${API_BASE}/remove`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -106,7 +107,7 @@ export const getFavorites = async (userId, serviceCategory = null) => {
       url += `?serviceCategory=${encodeURIComponent(serviceCategory)}`;
     }
 
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -148,7 +149,7 @@ export const checkIsFavorite = async (userId, providerId, serviceCategory = null
       url += `?serviceCategory=${encodeURIComponent(serviceCategory)}`;
     }
 
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

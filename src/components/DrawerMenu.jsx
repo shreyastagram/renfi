@@ -1,10 +1,11 @@
 /**
  * Premium Drawer Menu Component
- * 
- * Ultra-smooth animated sidebar with glossy glass feel
- * Silky spring animations, staggered menu items, profile picture support
- * 
- * @version 4.0.0
+ *
+ * Dark hero header with decorative circles, glowing avatar ring,
+ * large touch-target menu items with colored icon circles,
+ * danger-styled logout, and version footer.
+ *
+ * @version 5.0.0
  */
 
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
@@ -18,7 +19,6 @@ import {
   Animated,
   Dimensions,
   Linking,
-  Alert,
   Image,
   ScrollView,
   Platform,
@@ -26,6 +26,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useDialog } from '../context/DialogContext';
 import Icon from './Icon';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
@@ -37,13 +38,30 @@ const DRAWER_WIDTH = Math.min(SCREEN_WIDTH * 0.82, 330);
 const BRAND = {
   primary: '#f67c16',
   secondary: '#2b76bc',
-  background: '#faf7f7',
+  heroBg: '#0F172A',
   white: '#FFFFFF',
+  surface: '#FBFCFE',
+  backdrop: 'rgba(15,23,42,0.6)',
+  danger: '#EF4444',
+  dangerBg: 'rgba(239,68,68,0.08)',
+  dangerBorder: 'rgba(239,68,68,0.15)',
+  textPrimary: '#1E293B',
+  textSecondary: '#64748B',
+  textMuted: '#94A3B8',
+  divider: '#E2E8F0',
+  iconBg: '#F1F5F9',
 };
 
-// Custom easing curves for ultra-smooth feel
-const EASE_OUT_EXPO = Easing.bezier(0.19, 1, 0.22, 1);
-const EASE_IN_EXPO = Easing.bezier(0.95, 0.05, 0.795, 0.035);
+// Icon accent colors per menu item
+const ICON_COLORS = {
+  home: '#3B82F6',
+  briefcase: '#8B5CF6',
+  history: '#06B6D4',
+  settings: '#64748B',
+  wallet: '#10B981',
+  help: '#F59E0B',
+  info: '#6366F1',
+};
 
 /**
  * Get user initials from name
@@ -116,8 +134,9 @@ export const AvatarButton = ({ name, onPress, style, isProvider, profilePicture 
 
 // ─── Animated Menu Item ────────────────────────────────────────────────────────
 
-const AnimatedMenuItem = React.memo(({ item, index, onPress, isReady }) => {
+const AnimatedMenuItem = React.memo(({ item, index, onPress, isReady, isActive }) => {
   const anim = useRef(new Animated.Value(0)).current;
+  const pressAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     if (isReady) {
@@ -137,18 +156,50 @@ const AnimatedMenuItem = React.memo(({ item, index, onPress, isReady }) => {
   const translateX = anim.interpolate({ inputRange: [0, 1], outputRange: [-30, 0] });
   const opacity = anim.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 0.6, 1] });
 
+  const handlePressIn = () => {
+    Animated.spring(pressAnim, {
+      toValue: 0.97,
+      damping: 15,
+      stiffness: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(pressAnim, {
+      toValue: 1,
+      damping: 15,
+      stiffness: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
   if (item.type === 'divider') {
     return <Animated.View key={item.id} style={[styles.divider, { opacity }]} />;
   }
 
+  const iconColor = item.danger ? BRAND.danger : (ICON_COLORS[item.iconName] || BRAND.textSecondary);
+  const iconBgColor = item.danger
+    ? BRAND.dangerBg
+    : isActive
+      ? (ICON_COLORS[item.iconName] ? `${ICON_COLORS[item.iconName]}20` : '#E0E7FF')
+      : (ICON_COLORS[item.iconName] ? `${ICON_COLORS[item.iconName]}12` : BRAND.iconBg);
+
   return (
-    <Animated.View style={{ transform: [{ translateX }], opacity }}>
-      <TouchableOpacity style={styles.menuItem} onPress={() => onPress(item)} activeOpacity={0.55}>
-        <View style={[styles.menuIconContainer, item.danger && styles.menuIconDanger]}>
-          <Icon name={item.iconName} size={19} color={item.danger ? '#EF4444' : '#475569'} />
+    <Animated.View style={{ transform: [{ translateX }, { scale: pressAnim }], opacity }}>
+      <TouchableOpacity
+        style={[styles.menuItem, item.danger && styles.menuItemDanger, isActive && styles.menuItemActive]}
+        onPress={() => onPress(item)}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={0.7}
+      >
+        {isActive && <View style={styles.activeIndicator} />}
+        <View style={[styles.menuIconContainer, { backgroundColor: iconBgColor }]}>
+          <Icon name={item.iconName} size={20} color={iconColor} />
         </View>
-        <Text style={[styles.menuLabel, item.danger && styles.menuLabelDanger]}>{item.label}</Text>
-        {!item.danger && <Icon name="chevron-right" size={15} color="#CBD5E1" style={{ marginLeft: 'auto' }} />}
+        <Text style={[styles.menuLabel, item.danger && styles.menuLabelDanger, isActive && styles.menuLabelActive]}>{item.label}</Text>
+        {!item.danger && <Icon name="chevron-right" size={16} color={isActive ? BRAND.secondary : BRAND.textMuted} style={{ marginLeft: 'auto' }} />}
       </TouchableOpacity>
     </Animated.View>
   );
@@ -164,15 +215,17 @@ export const DrawerMenu = ({
   navigation,
   onLogout,
   isVerified = true,
+  activeTab = 'home',
 }) => {
   const insets = useSafeAreaInsets();
+  const { dialog } = useDialog();
 
   // StatusBar.currentHeight is reliable on Android even inside Modals.
   // insets.top returns 0 inside statusBarTranslucent Modals on Android.
   const safeTop = Platform.OS === 'android'
     ? (StatusBar.currentHeight || 0)
     : insets.top;
-  
+
   // Animation values
   const slideAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
@@ -242,8 +295,7 @@ export const DrawerMenu = ({
     if (isProvider) {
       return [
         { id: 'home', iconName: 'home', label: 'Dashboard', screen: 'Home' },
-        { id: 'requests', iconName: 'clipboard-list', label: 'Service Requests', screen: 'ProviderRequests' },
-        { id: 'history', iconName: 'history', label: 'Service History', screen: 'ProviderServiceHistory' },
+        { id: 'jobs', iconName: 'briefcase', label: 'My Jobs', tab: 'JobsTab' },
         { id: 'div1', type: 'divider' },
         { id: 'settings', iconName: 'settings', label: 'Settings', screen: 'Settings' },
         { id: 'earnings', iconName: 'wallet', label: 'Earnings', action: 'earnings' },
@@ -271,17 +323,28 @@ export const DrawerMenu = ({
 
   const handleMenuPress = useCallback((item) => {
     onClose();
-    if (item.screen) {
+    if (item.tab) {
+      // Navigate to a specific bottom tab
       setTimeout(() => {
-        if (item.screen === 'Home' && userType === 'user') {
-          navigation.navigate('UserTabs', { screen: 'HomeTab' });
+        const tabNavigator = userType === 'provider' ? 'ProviderTabs' : 'UserTabs';
+        navigation.navigate(tabNavigator, { screen: item.tab });
+      }, 300);
+    } else if (item.screen) {
+      setTimeout(() => {
+        const tabNavigator = userType === 'provider' ? 'ProviderTabs' : 'UserTabs';
+        if (item.screen === 'Home') {
+          navigation.navigate(tabNavigator, { screen: 'HomeTab' });
+        } else if (item.screen === 'Settings') {
+          navigation.navigate(tabNavigator, { screen: 'SettingsTab' });
+        } else if (item.screen === 'UserServiceHistory') {
+          navigation.navigate(tabNavigator, { screen: 'HistoryTab' });
         } else {
           navigation.navigate(item.screen);
         }
       }, 300);
     } else if (item.action === 'logout') {
       setTimeout(() => {
-        Alert.alert('Logout', 'Are you sure you want to logout?', [
+        dialog('Logout', 'Are you sure you want to logout?', [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Logout', style: 'destructive', onPress: onLogout },
         ]);
@@ -289,9 +352,9 @@ export const DrawerMenu = ({
     } else if (item.action === 'help') {
       Linking.openURL('mailto:support@fixhomi.com');
     } else if (item.action === 'earnings') {
-      Alert.alert('Coming Soon', 'Earnings feature will be available soon!');
+      dialog('Coming Soon', 'Earnings feature will be available soon!');
     } else if (item.action === 'about') {
-      Alert.alert('FixHomi', 'Your trusted home services partner.\n\nVersion 1.5\n\n© 2026 FixHomi. All rights reserved.');
+      dialog('FixHomi', 'Your trusted home services partner.\n\nVersion 1.5\n\n© 2026 FixHomi. All rights reserved.');
     }
   }, [onClose, userType, navigation, onLogout]);
 
@@ -316,32 +379,32 @@ export const DrawerMenu = ({
       statusBarTranslucent
     >
       <View style={styles.container}>
-        {/* Backdrop — tap anywhere outside to close */}
+        {/* Backdrop */}
         <TouchableWithoutFeedback onPress={handleClose}>
           <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]} />
         </TouchableWithoutFeedback>
 
-        {/* Drawer Panel — top offset below status bar, stretches to bottom */}
+        {/* Safe area cover — dark overlay above drawer to cover map bleed */}
+        <Animated.View style={[styles.safeAreaCover, { height: safeTop, transform: [{ translateX: slideAnim }] }]} />
+
+        {/* Drawer Panel */}
         <Animated.View style={[styles.drawer, { top: safeTop, transform: [{ translateX: slideAnim }] }]}>
-          
-          {/* ─── Profile Header ─── */}
+
+          {/* ─── Dark Hero Header ─── */}
           <Animated.View style={{ opacity: contentAnim, transform: [{ scale: headerScale }] }}>
             <TouchableOpacity
-              style={[
-                styles.header,
-                isProvider ? styles.headerProvider : styles.headerUser,
-              ]}
+              style={styles.header}
               onPress={handleProfilePress}
               activeOpacity={0.85}
             >
-              {/* Decorative glass circles */}
+              {/* Decorative circles (SubscriptionScreen style) */}
               <View style={styles.decorCircle1} />
               <View style={styles.decorCircle2} />
               <View style={styles.decorCircle3} />
 
-              <View style={styles.headerRow}>
-                {/* Avatar */}
-                <View style={styles.avatarContainer}>
+              {/* Avatar with glowing ring */}
+              <View style={styles.avatarCenter}>
+                <View style={[styles.glowRing, isProvider ? styles.glowRingProvider : styles.glowRingUser]}>
                   {profileUrl ? (
                     <Image source={{ uri: profileUrl }} style={styles.headerAvatar} />
                   ) : (
@@ -349,41 +412,43 @@ export const DrawerMenu = ({
                       <Text style={styles.headerInitials}>{getInitials(user?.fullName)}</Text>
                     </View>
                   )}
-                  <View style={styles.onlineDot} />
                 </View>
+                <View style={styles.onlineDot} />
+              </View>
 
-                {/* User Info */}
-                <View style={styles.userInfo}>
-                  <Text style={styles.userName} numberOfLines={1}>
-                    {user?.fullName || 'User'}
-                  </Text>
-                  <Text style={styles.userSub} numberOfLines={1}>
-                    {user?.email || user?.phone || ''}
-                  </Text>
-                  <View style={styles.badgeRow}>
-                    <View style={[styles.typeBadge, isProvider && styles.typeBadgeProv]}>
-                      <Icon
-                        name={isProvider ? 'provider' : 'home'}
-                        size={10}
-                        color={BRAND.white}
-                        style={{ marginRight: 3 }}
-                      />
-                      <Text style={styles.typeBadgeText}>{isProvider ? 'Provider' : 'User'}</Text>
-                    </View>
-                    {isVerified && (
-                      <View style={styles.verifiedBadge}>
-                        <Icon name="check-circle" size={10} color="#86EFAC" style={{ marginRight: 2 }} />
-                        <Text style={styles.verifiedText}>Verified</Text>
-                      </View>
-                    )}
-                  </View>
+              {/* Name */}
+              <Text style={styles.userName} numberOfLines={1} ellipsizeMode="tail">
+                {user?.fullName || 'User'}
+              </Text>
+
+              {/* Email */}
+              <Text style={styles.userEmail} numberOfLines={1} ellipsizeMode="tail">
+                {user?.email || user?.phone || ''}
+              </Text>
+
+              {/* Badges */}
+              <View style={styles.badgeRow}>
+                <View style={[styles.typeBadge, isProvider && styles.typeBadgeProv]}>
+                  <Icon
+                    name={isProvider ? 'provider' : 'home'}
+                    size={10}
+                    color={BRAND.white}
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text style={styles.typeBadgeText}>{isProvider ? 'Provider' : 'User'}</Text>
                 </View>
+                {isVerified && (
+                  <View style={styles.verifiedBadge}>
+                    <Icon name="check-circle" size={10} color="#86EFAC" style={{ marginRight: 3 }} />
+                    <Text style={styles.verifiedText}>Verified</Text>
+                  </View>
+                )}
               </View>
 
               {/* View Profile link */}
               <View style={styles.viewProfileRow}>
                 <Text style={styles.viewProfileText}>View Profile</Text>
-                <Icon name="chevron-right" size={14} color="rgba(255,255,255,0.7)" />
+                <Icon name="chevron-right" size={14} color="rgba(255,255,255,0.55)" />
               </View>
             </TouchableOpacity>
           </Animated.View>
@@ -402,6 +467,7 @@ export const DrawerMenu = ({
                 index={index}
                 onPress={handleMenuPress}
                 isReady={menuReady}
+                isActive={item.id === activeTab}
               />
             ))}
           </ScrollView>
@@ -420,8 +486,7 @@ export const DrawerMenu = ({
             <View style={styles.footerLogoWrap}>
               <Image source={FIXHOMI_LOGO} style={styles.footerLogo} />
             </View>
-            <Text style={styles.footerBrand}>FixHomi</Text>
-            <Text style={styles.footerTagline}>v1.5 · Fix Your Home, Anytime</Text>
+            <Text style={styles.footerVersion}>v1.5</Text>
           </Animated.View>
         </Animated.View>
       </View>
@@ -432,223 +497,282 @@ export const DrawerMenu = ({
 // ─── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  // Menu Button
+  // ─── Menu Button ───
   menuButton: {
     width: 48,
     height: 48,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: BRAND.white,
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 4,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.14,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   menuLine: {
     width: 20,
-    height: 2,
-    backgroundColor: '#1F2937',
-    borderRadius: 1,
+    height: 2.2,
+    backgroundColor: BRAND.heroBg,
+    borderRadius: 1.5,
     marginVertical: 2,
   },
   menuLineMiddle: {
-    width: 16,
+    width: 14,
   },
 
-  // Avatar Button
+  // ─── Avatar Button ───
   avatarButton: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     backgroundColor: BRAND.secondary,
-    borderRadius: 20,
+    borderRadius: 21,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 2.5,
+    borderColor: 'rgba(43,118,188,0.25)',
     overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: BRAND.secondary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
-  avatarButtonProvider: { backgroundColor: BRAND.primary },
+  avatarButtonProvider: {
+    backgroundColor: BRAND.primary,
+    borderColor: 'rgba(246,124,22,0.25)',
+  },
   avatarText: { color: BRAND.white, fontSize: 16, fontWeight: '700' },
-  avatarImage: { width: 40, height: 40, borderRadius: 20 },
+  avatarImage: { width: 42, height: 42, borderRadius: 21 },
 
-  // Container & Backdrop
+  // ─── Container & Backdrop ───
   container: {
     flex: 1,
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: BRAND.backdrop,
+  },
+  safeAreaCover: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: DRAWER_WIDTH,
+    backgroundColor: BRAND.heroBg,
+    zIndex: 12,
   },
 
-  // Drawer — top set inline via safeTop (StatusBar.currentHeight on Android)
+  // ─── Drawer ───
   drawer: {
     position: 'absolute',
     left: 0,
     bottom: 0,
     width: DRAWER_WIDTH,
-    backgroundColor: '#FBFCFE',
+    backgroundColor: BRAND.surface,
     overflow: 'hidden',
-    // Glossy shadow
-    shadowColor: '#000',
-    shadowOffset: { width: 8, height: 0 },
-    shadowOpacity: 0.18,
-    shadowRadius: 40,
-    elevation: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 10, height: 0 },
+        shadowOpacity: 0.22,
+        shadowRadius: 44,
+      },
+      android: {
+        elevation: 24,
+      },
+    }),
   },
 
-  // ─── Header ───
+  // ─── Dark Hero Header ───
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
+    backgroundColor: BRAND.heroBg,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 20,
+    alignItems: 'center',
     overflow: 'hidden',
   },
-  headerUser: { backgroundColor: BRAND.secondary },
-  headerProvider: { backgroundColor: BRAND.primary },
 
   decorCircle1: {
     position: 'absolute',
-    top: -40,
-    right: -25,
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    top: -50,
+    right: -35,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: 'rgba(246,124,22,0.08)',
   },
   decorCircle2: {
     position: 'absolute',
-    bottom: -15,
-    left: -20,
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    bottom: -30,
+    left: -30,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: 'rgba(43,118,188,0.08)',
   },
   decorCircle3: {
     position: 'absolute',
-    top: 20,
-    left: '50%',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    top: 30,
+    left: '40%',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255,255,255,0.03)',
   },
 
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  avatarContainer: {
+  avatarCenter: {
     position: 'relative',
+    marginBottom: 14,
   },
-  headerAvatar: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    borderWidth: 2.5,
-    borderColor: 'rgba(255,255,255,0.35)',
-  },
-  headerAvatarFallback: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+  glowRing: {
+    width: 82,
+    height: 82,
+    borderRadius: 41,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2.5,
-    borderColor: 'rgba(255,255,255,0.25)',
+    borderWidth: 3,
+  },
+  glowRingUser: {
+    borderColor: 'rgba(43,118,188,0.6)',
+    ...Platform.select({
+      ios: {
+        shadowColor: BRAND.secondary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 14,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  glowRingProvider: {
+    borderColor: 'rgba(246,124,22,0.6)',
+    ...Platform.select({
+      ios: {
+        shadowColor: BRAND.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 14,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  headerAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+  },
+  headerAvatarFallback: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: BRAND.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerAvatarFallbackProv: {
-    backgroundColor: 'rgba(255,255,255,0.22)',
+    backgroundColor: BRAND.primary,
   },
   headerInitials: {
     color: BRAND.white,
-    fontSize: 21,
+    fontSize: 26,
     fontWeight: '800',
-    letterSpacing: 1,
+    letterSpacing: 1.5,
   },
   onlineDot: {
     position: 'absolute',
-    bottom: 1,
-    right: 1,
-    width: 13,
-    height: 13,
+    bottom: 4,
+    right: 4,
+    width: 14,
+    height: 14,
     borderRadius: 7,
     backgroundColor: '#22C55E',
     borderWidth: 2.5,
-    borderColor: BRAND.white,
+    borderColor: BRAND.heroBg,
   },
 
-  userInfo: {
-    flex: 1,
-    marginLeft: 14,
-  },
   userName: {
     color: BRAND.white,
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textAlign: 'center',
+    maxWidth: '90%',
   },
-  userSub: {
-    color: 'rgba(255,255,255,0.72)',
-    fontSize: 12.5,
-    marginTop: 2,
+  userEmail: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 13,
+    marginTop: 4,
+    textAlign: 'center',
+    maxWidth: '90%',
   },
+
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
-    gap: 6,
+    marginTop: 12,
+    gap: 8,
   },
   typeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    paddingHorizontal: 9,
-    paddingVertical: 3.5,
-    borderRadius: 10,
+    backgroundColor: 'rgba(43,118,188,0.25)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   typeBadgeProv: {
-    backgroundColor: 'rgba(255,255,255,0.20)',
+    backgroundColor: 'rgba(246,124,22,0.25)',
   },
   typeBadgeText: {
     color: BRAND.white,
-    fontSize: 10.5,
+    fontSize: 11,
     fontWeight: '600',
   },
   verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(34,197,94,0.22)',
-    paddingHorizontal: 7,
-    paddingVertical: 3.5,
-    borderRadius: 10,
+    backgroundColor: 'rgba(34,197,94,0.18)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   verifiedText: {
     color: '#DCFCE7',
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '700',
   },
 
   viewProfileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 14,
-    paddingTop: 12,
+    marginTop: 16,
+    paddingTop: 14,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.18)',
+    borderTopColor: 'rgba(255,255,255,0.1)',
   },
   viewProfileText: {
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(255,255,255,0.6)',
     fontSize: 12.5,
     fontWeight: '500',
-    marginRight: 3,
+    marginRight: 4,
   },
 
   // ─── Menu ───
@@ -656,42 +780,64 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   menuScrollContent: {
-    paddingTop: 10,
+    paddingTop: 12,
     paddingBottom: 8,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 13,
+    height: 52,
     paddingHorizontal: 20,
+    marginHorizontal: 8,
+    borderRadius: 12,
+  },
+  menuItemActive: {
+    backgroundColor: '#EFF6FF',
+    position: 'relative',
+  },
+  activeIndicator: {
+    position: 'absolute',
+    left: 0,
+    top: 10,
+    bottom: 10,
+    width: 3,
+    borderRadius: 2,
+    backgroundColor: BRAND.secondary,
+  },
+  menuLabelActive: {
+    color: BRAND.secondary,
+    fontWeight: '700',
+  },
+  menuItemDanger: {
+    backgroundColor: BRAND.dangerBg,
+    borderWidth: 1,
+    borderColor: BRAND.dangerBorder,
+    marginTop: 4,
   },
   menuIconContainer: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: '#F1F5F9',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: BRAND.iconBg,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 13,
-  },
-  menuIconDanger: {
-    backgroundColor: '#FEF2F2',
+    marginRight: 14,
   },
   menuLabel: {
     fontSize: 15,
-    color: '#1E293B',
-    fontWeight: '500',
-    letterSpacing: 0.1,
+    color: BRAND.textPrimary,
+    fontWeight: '600',
+    letterSpacing: 0.15,
   },
   menuLabelDanger: {
-    color: '#EF4444',
-    fontWeight: '600',
+    color: BRAND.danger,
+    fontWeight: '700',
   },
   divider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#E2E8F0',
-    marginVertical: 6,
-    marginHorizontal: 20,
+    backgroundColor: BRAND.divider,
+    marginVertical: 8,
+    marginHorizontal: 28,
   },
 
   // ─── Footer ───
@@ -700,34 +846,35 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingTop: 14,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E2E8F0',
-    gap: 3,
+    borderTopColor: BRAND.divider,
+    gap: 4,
   },
   footerLogoWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 8,
     overflow: 'hidden',
-    marginBottom: 2,
-    shadowColor: BRAND.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 5,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: BRAND.primary,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   footerLogo: {
-    width: 36,
-    height: 36,
+    width: 30,
+    height: 30,
   },
-  footerBrand: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#374151',
-    letterSpacing: 0.4,
-  },
-  footerTagline: {
+  footerVersion: {
     fontSize: 10.5,
-    color: '#9CA3AF',
+    color: BRAND.textMuted,
+    fontWeight: '400',
+    letterSpacing: 0.3,
   },
 });
 

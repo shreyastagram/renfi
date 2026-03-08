@@ -325,37 +325,35 @@ export const AppProvider = ({ children }) => {
    * @param {boolean} isAvailable - New availability status
    * @returns {Promise<Object>} Result with success status
    */
-  const updateProviderAvailability = useCallback(async (isAvailable) => {
+  const setAvailabilityOptimistic = useCallback((value) => {
+    setUser(prev => ({ ...prev, isAvailable: value, isOnline: value }));
+    setProfile(prev => ({ ...prev, isAvailable: value, isOnline: value }));
+  }, []);
+
+  const updateProviderAvailability = useCallback(async (isAvailable, optimistic) => {
+    // Optimistic-only call — just update local state, no API
+    if (optimistic) {
+      setAvailabilityOptimistic(isAvailable);
+      return { success: true };
+    }
+
     const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
-    
+
     if (!providerId) {
       console.error('❌ [AppContext] Cannot update availability - no provider ID');
       return { success: false, error: 'Provider ID not found' };
     }
-    
+
     console.log(`🔄 [AppContext] Updating provider availability: ${isAvailable}`);
-    
+
     try {
-      // Call API to update
       const result = await apiUpdateOnlineStatus(providerId, isAvailable);
-      
+
       if (result.success) {
-        // Update both user and profile state immediately for instant UI feedback
-        setUser(prev => ({
-          ...prev,
-          isAvailable: isAvailable,
-          isOnline: isAvailable,
-        }));
-        
-        setProfile(prev => ({
-          ...prev,
-          isAvailable: isAvailable,
-          isOnline: isAvailable,
-        }));
-        
+        setAvailabilityOptimistic(isAvailable);
+
         console.log('✅ [AppContext] Availability updated successfully');
-        // Forward visibility warnings from backend so UI can inform the provider
-        return { 
+        return {
           success: true,
           visibilityWarnings: result.data?.visibilityWarnings,
           searchReady: result.data?.searchReady,
@@ -368,7 +366,7 @@ export const AppProvider = ({ children }) => {
       console.error('❌ [AppContext] Error updating availability:', error);
       return { success: false, error: error.message || 'Failed to update availability' };
     }
-  }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id]);
+  }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id, setAvailabilityOptimistic]);
 
   /**   * Update provider location tracking - Single source of truth
    * This function updates both the backend AND the local state
@@ -377,32 +375,35 @@ export const AppProvider = ({ children }) => {
    * @param {boolean} enabled - New location tracking status
    * @returns {Promise<Object>} Result with success status
    */
-  const updateProviderLocationTracking = useCallback(async (enabled) => {
+  const setLocationTrackingOptimistic = useCallback((value) => {
+    setProfile(prev => ({
+      ...prev,
+      locationTracking: { ...(prev?.locationTracking || {}), enabled: value },
+    }));
+  }, []);
+
+  const updateProviderLocationTracking = useCallback(async (enabled, optimistic) => {
+    if (optimistic) {
+      setLocationTrackingOptimistic(enabled);
+      return { success: true };
+    }
+
     const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
-    
+
     if (!providerId) {
       console.error('❌ [AppContext] Cannot update location tracking - no provider ID');
       return { success: false, error: 'Provider ID not found' };
     }
-    
+
     console.log(`🔄 [AppContext] Updating provider location tracking: ${enabled}`);
-    
+
     try {
-      // Call API to update
       const result = await apiUpdateProviderProfile(providerId, {
         locationTracking: { enabled },
       });
-      
+
       if (result.success) {
-        // Update profile state immediately for instant UI feedback
-        setProfile(prev => ({
-          ...prev,
-          locationTracking: {
-            ...(prev?.locationTracking || {}),
-            enabled: enabled,
-          },
-        }));
-        
+        setLocationTrackingOptimistic(enabled);
         console.log('✅ [AppContext] Location tracking updated successfully');
         return { success: true };
       } else {
@@ -413,7 +414,7 @@ export const AppProvider = ({ children }) => {
       console.error('❌ [AppContext] Error updating location tracking:', error);
       return { success: false, error: error.message || 'Failed to update location tracking' };
     }
-  }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id]);
+  }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id, setLocationTrackingOptimistic]);
 
   /**   * Check stored tokens and restore auth state
    * Now with proactive token validation and refresh

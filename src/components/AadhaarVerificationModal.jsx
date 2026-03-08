@@ -28,13 +28,13 @@ import {
   Modal,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Linking,
   AppState,
 } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import { useDialog } from '../context/DialogContext';
 import { useApp } from '../context/AppContext';
 import { 
   initiateVerification, 
@@ -54,6 +54,7 @@ const STEPS = {
 };
 
 const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
+  const { dialog } = useDialog();
   const { profile } = useApp();
   const [step, setStep] = useState(STEPS.INTRO);
   const [loading, setLoading] = useState(false);
@@ -297,7 +298,7 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
       );
       setStep(STEPS.ERROR);
     } else if (result.status === 'pending') {
-      Alert.alert(
+      dialog(
         'Verification Pending',
         'Please complete the verification in DigiLocker first.',
         [
@@ -408,7 +409,7 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
         style={styles.nameUpdateButton}
         onPress={() => {
           onClose();
-          Alert.alert(
+          dialog(
             'Update Your Name',
             'Please go to your Profile and update your name to match your Aadhaar card exactly (including spelling and middle name), then return here to verify.',
             [{ text: 'OK' }]

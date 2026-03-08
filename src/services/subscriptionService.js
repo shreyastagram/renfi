@@ -19,6 +19,7 @@
  */
 
 import { NODE_BASE_URL } from '../config/api';
+import { authFetch } from '../utils/authFetch';
 import { getRazorpayKeyId, getEnvironmentName } from '../config/environment';
 import { getTokens } from '../utils/storage';
 import RazorpayCheckout from 'react-native-razorpay';
@@ -44,7 +45,7 @@ export const getSubscriptionStatus = async () => {
       return { success: false, error: 'Not authenticated' };
     }
     
-    const response = await fetch(`${NODE_BASE_URL}/api/subscription/status`, {
+    const response = await authFetch(`${NODE_BASE_URL}/api/subscription/status`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -86,7 +87,7 @@ export const getSubscriptionStatus = async () => {
  */
 export const getPlans = async () => {
   try {
-    const response = await fetch(`${NODE_BASE_URL}/api/subscription/plans`, {
+    const response = await authFetch(`${NODE_BASE_URL}/api/subscription/plans`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -135,7 +136,7 @@ export const createOrder = async (planId) => {
     
     console.log('[SubscriptionService] Creating order for plan:', planId);
     
-    const response = await fetch(`${NODE_BASE_URL}/api/subscription/create-order`, {
+    const response = await authFetch(`${NODE_BASE_URL}/api/subscription/create-order`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -190,7 +191,7 @@ export const verifyPayment = async (paymentData) => {
     
     console.log('[SubscriptionService] Verifying payment:', paymentData.razorpay_payment_id);
     
-    const response = await fetch(`${NODE_BASE_URL}/api/subscription/verify-payment`, {
+    const response = await authFetch(`${NODE_BASE_URL}/api/subscription/verify-payment`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -238,7 +239,7 @@ export const reportPaymentFailure = async (failureData) => {
       return { success: false };
     }
     
-    await fetch(`${NODE_BASE_URL}/api/subscription/payment-failed`, {
+    await authFetch(`${NODE_BASE_URL}/api/subscription/payment-failed`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -341,7 +342,7 @@ export const getTransactions = async (page = 1, limit = 10) => {
       return { success: false, error: 'Not authenticated' };
     }
     
-    const response = await fetch(
+    const response = await authFetch(
       `${NODE_BASE_URL}/api/subscription/transactions?page=${page}&limit=${limit}`,
       {
         method: 'GET',
@@ -389,7 +390,7 @@ export const getTransactionDetails = async (transactionId) => {
       return { success: false, error: 'Not authenticated' };
     }
     
-    const response = await fetch(
+    const response = await authFetch(
       `${NODE_BASE_URL}/api/subscription/transactions/${transactionId}`,
       {
         method: 'GET',
@@ -522,7 +523,7 @@ export const resetPremium = async () => {
     
     console.log('[SubscriptionService] Resetting premium status for testing...');
     
-    const response = await fetch(`${NODE_BASE_URL}/api/subscription/reset-premium`, {
+    const response = await authFetch(`${NODE_BASE_URL}/api/subscription/reset-premium`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',

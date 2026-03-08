@@ -9,6 +9,7 @@
  */
 
 import { NODE_BASE_URL } from '../config/api';
+import { authFetch } from '../utils/authFetch';
 import { getTokens } from '../utils/storage';
 
 /**
@@ -38,7 +39,7 @@ export const getVerificationDashboard = async (providerId) => {
 
     console.log('🔍 [VerificationService] Fetching verification dashboard for:', providerId);
 
-    const response = await fetch(
+    const response = await authFetch(
       `${NODE_BASE_URL}/api/provider/${providerId}/verification-dashboard`,
       {
         method: 'GET',
@@ -99,7 +100,7 @@ export const syncVerificationStatus = async (providerId) => {
 
     console.log('🔄 [VerificationService] Syncing verification status for:', providerId);
 
-    const response = await fetch(
+    const response = await authFetch(
       `${NODE_BASE_URL}/api/provider/${providerId}/sync-verification`,
       {
         method: 'POST',

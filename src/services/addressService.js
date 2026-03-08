@@ -8,6 +8,7 @@
  */
 
 import { ENDPOINTS, getNodeBackendUrl } from '../config/api';
+import { authFetch } from '../utils/authFetch';
 import { getTokens } from '../utils/storage';
 
 const API_BASE_URL = getNodeBackendUrl();
@@ -35,7 +36,7 @@ const getAuthHeaders = async () => {
 export const getSavedAddresses = async (userId) => {
   try {
     const headers = await getAuthHeaders();
-    const response = await fetch(
+    const response = await authFetch(
       `${API_BASE_URL}${ENDPOINTS.ADDRESS.GET_ALL}/${userId}`,
       {
         method: 'GET',
@@ -73,7 +74,7 @@ export const getSavedAddresses = async (userId) => {
 export const addAddress = async (userId, addressData) => {
   try {
     const headers = await getAuthHeaders();
-    const response = await fetch(
+    const response = await authFetch(
       `${API_BASE_URL}${ENDPOINTS.ADDRESS.ADD}/${userId}`,
       {
         method: 'POST',
@@ -111,7 +112,7 @@ export const addAddress = async (userId, addressData) => {
 export const updateAddress = async (userId, addressId, updates) => {
   try {
     const headers = await getAuthHeaders();
-    const response = await fetch(
+    const response = await authFetch(
       `${API_BASE_URL}${ENDPOINTS.ADDRESS.UPDATE}/${userId}/${addressId}`,
       {
         method: 'PUT',
@@ -148,7 +149,7 @@ export const updateAddress = async (userId, addressId, updates) => {
 export const deleteAddress = async (userId, addressId) => {
   try {
     const headers = await getAuthHeaders();
-    const response = await fetch(
+    const response = await authFetch(
       `${API_BASE_URL}${ENDPOINTS.ADDRESS.DELETE}/${userId}/${addressId}`,
       {
         method: 'DELETE',
@@ -184,7 +185,7 @@ export const deleteAddress = async (userId, addressId) => {
 export const setDefaultAddress = async (userId, addressId) => {
   try {
     const headers = await getAuthHeaders();
-    const response = await fetch(
+    const response = await authFetch(
       `${API_BASE_URL}${ENDPOINTS.ADDRESS.SET_DEFAULT}/${userId}/${addressId}/default`,
       {
         method: 'PUT',

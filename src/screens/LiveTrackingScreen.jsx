@@ -1,11 +1,14 @@
 /**
- * Live Tracking Screen
- * 
- * Real-time provider location tracking (like Swiggy/Zomato)
- * Shows provider's current location on map with live updates
- * Displays actual driving route from provider to user
- * 
- * @version 2.0.0 - Added route visualization
+ * Live Tracking Screen -- v3.0 Premium Revamp
+ *
+ * Real-time provider location tracking with:
+ * - Fast initial load with aggressive retry (2s intervals)
+ * - Proper coordinate extraction from all backend formats
+ * - Premium bottom sheet with glassmorphism
+ * - Animated provider marker, route line, ETA
+ * - Responsive touch feedback on all actions
+ *
+ * @version 3.0.0
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -19,979 +22,591 @@ import {
   Platform,
   Image,
   Animated,
-  Alert,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Mapbox from '@rnmapbox/maps';
 import Geolocation from '@react-native-community/geolocation';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { Icon, FixhomiLogo } from '../components';
+import { useDialog } from '../context/DialogContext';
 import { NODE_BASE_URL } from '../config/api';
-import { getTokens } from '../utils/storage';
-// Direct phone dialing - Exotel call masking removed
+import { authFetch } from '../utils/authFetch';
 import { MAPBOX_ACCESS_TOKEN, initializeMapbox } from '../config/mapbox';
+import { formatDistance, useDistanceUnit } from '../utils/formatDistance';
+import {
+  addEventListener as addSocketListener,
+  subscribeToRequest,
+  unsubscribeFromRequest,
+} from '../services/socketService';
 
-// Brand colors
-const BRAND = {
+const { width: SCREEN_W } = Dimensions.get('window');
+
+const C = {
   primary: '#f67c16',
   secondary: '#2b76bc',
-  background: '#faf7f7',
+  bg: '#F8FAFC',
   white: '#FFFFFF',
+  text: '#0F172A',
+  textSec: '#64748B',
+  muted: '#94A3B8',
+  success: '#10B981',
+  danger: '#EF4444',
+  purple: '#8B5CF6',
 };
 
-// Location update interval (15 seconds — reduced from 10s to cut API overhead)
-const LOCATION_UPDATE_INTERVAL = 15000;
+// Fast initial polling: 2s for first 30s, then 15s steady state
+const FAST_POLL_INTERVAL = 2000;
+const FAST_POLL_DURATION = 30000;
+const STEADY_POLL_INTERVAL = 15000;
+const ROUTE_REFETCH_THRESHOLD_KM = 0.15;
 
-// Minimum distance (in km) provider must move before re-fetching route from Mapbox
-const ROUTE_REFETCH_THRESHOLD_KM = 0.15; // ~150 meters
-
-/**
- * Format time ago
- */
 const formatTimeAgo = (date) => {
   if (!date) return 'Unknown';
-  const now = new Date();
-  const updated = new Date(date);
-  const diffMs = now - updated;
-  const diffSecs = Math.floor(diffMs / 1000);
-  const diffMins = Math.floor(diffSecs / 60);
-  
-  if (diffSecs < 60) return 'Just now';
-  if (diffMins < 60) return `${diffMins} min ago`;
-  return `${Math.floor(diffMins / 60)}h ${diffMins % 60}m ago`;
+  const diffSecs = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+  if (diffSecs < 10) return 'Just now';
+  if (diffSecs < 60) return `${diffSecs}s ago`;
+  const m = Math.floor(diffSecs / 60);
+  if (m < 60) return `${m} min ago`;
+  return `${Math.floor(m / 60)}h ${m % 60}m ago`;
 };
 
-/**
- * Calculate distance between two points in km
- */
-const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371; // Radius of Earth in km
+const haversine = (lat1, lon1, lat2, lon2) => {
+  const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
 /**
- * Live Tracking Screen Component
+ * Extract valid lat/lng from any backend location format:
+ * - currentLocation: {lat, lng}
+ * - location: {latitude, longitude}
+ * - geoLocation: {type: "Point", coordinates: [lng, lat]}
  */
+const extractCoords = (loc) => {
+  if (!loc) return null;
+  // {lat, lng} format (currentLocation)
+  if (loc.lat != null && loc.lng != null && !isNaN(loc.lat) && !isNaN(loc.lng) && loc.lat !== 0 && loc.lng !== 0) {
+    return { latitude: loc.lat, longitude: loc.lng };
+  }
+  // {latitude, longitude} format (location)
+  if (loc.latitude != null && loc.longitude != null && !isNaN(loc.latitude) && !isNaN(loc.longitude) && loc.latitude !== 0 && loc.longitude !== 0) {
+    return { latitude: loc.latitude, longitude: loc.longitude };
+  }
+  // GeoJSON {type: "Point", coordinates: [lng, lat]}
+  if (loc.coordinates && Array.isArray(loc.coordinates) && loc.coordinates.length === 2) {
+    const [lng, lat] = loc.coordinates;
+    if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) return { latitude: lat, longitude: lng };
+  }
+  return null;
+};
+
 const LiveTrackingScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
-  const { 
-    requestId, 
-    providerId, 
+  const { dialog } = useDialog();
+  const useKm = useDistanceUnit();
+  const {
+    requestId,
+    providerId,
     providerName,
-    providerPhone, 
-    serviceCategory, 
+    providerPhone,
+    serviceCategory,
     userLocation: initialUserLocation,
-    serviceLocation: passedServiceLocation, // Service location from request
+    serviceLocation: passedServiceLocation,
     serviceAddress,
   } = route.params || {};
-  
+
   const cameraRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
   const mapReadyRef = useRef(false);
   const initialCameraSetRef = useRef(false);
-  const lastRouteFetchLocationRef = useRef(null); // Throttle route fetches
-  
-  // State - Use serviceLocation as destination (where provider needs to go)
+  const lastRouteFetchRef = useRef(null);
+  const mountTimeRef = useRef(Date.now());
+  const pollIntervalRef = useRef(null);
+
   const [providerLocation, setProviderLocation] = useState(null);
-  const [destinationLocation, setDestinationLocation] = useState(passedServiceLocation || initialUserLocation || null);
-  const [userLocation, setUserLocation] = useState(null); // User's actual current location for context
+  const [destinationLocation] = useState(passedServiceLocation || initialUserLocation || null);
+  const [userLocation, setUserLocation] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isMapReady, setIsMapReady] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState(null);
+  const [lastFetchedAt, setLastFetchedAt] = useState(null);
   const [providerData, setProviderData] = useState(null);
   const [isOnline, setIsOnline] = useState(false);
   const [error, setError] = useState(null);
-  const [distance, setDistance] = useState(null);
-  const [eta, setEta] = useState(null);
   const [routeCoordinates, setRouteCoordinates] = useState(null);
   const [routeDuration, setRouteDuration] = useState(null);
   const [routeDistance, setRouteDistance] = useState(null);
-  const [isFetchingRoute, setIsFetchingRoute] = useState(false);
-  const [lastFetchedAt, setLastFetchedAt] = useState(null); // Client-side timestamp of last successful fetch
-  const [now, setNow] = useState(Date.now()); // Ticks every second for live time-ago display
-  const [isRefreshing, setIsRefreshing] = useState(false); // Manual refresh indicator
-  const providerLocationRef = useRef(null); // Ref to avoid stale closure in fetchProviderLocation
-  
-  // ✅ PRODUCTION: Calculate initial camera center immediately (no jumps)
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  const [locationSharingStopped, setLocationSharingStopped] = useState(false);
+  const providerLocRef = useRef(null);
+
   const getInitialCenter = useCallback(() => {
-    if (passedServiceLocation?.longitude && passedServiceLocation?.latitude) {
-      return [passedServiceLocation.longitude, passedServiceLocation.latitude];
-    }
-    if (initialUserLocation?.longitude && initialUserLocation?.latitude) {
-      return [initialUserLocation.longitude, initialUserLocation.latitude];
-    }
-    // Fallback to Mumbai only if no location data
+    if (passedServiceLocation?.longitude && passedServiceLocation?.latitude) return [passedServiceLocation.longitude, passedServiceLocation.latitude];
+    if (initialUserLocation?.longitude && initialUserLocation?.latitude) return [initialUserLocation.longitude, initialUserLocation.latitude];
     return [72.8777, 19.0760];
   }, [passedServiceLocation, initialUserLocation]);
-  
+
   const [initialCenter] = useState(getInitialCenter);
 
-  /**
-   * Fetch driving route from Mapbox Directions API
-   */
-  const fetchRoute = useCallback(async (providerLoc, userLoc) => {
-    if (!providerLoc || !userLoc) return;
-
-    // Throttle: only refetch route if provider moved >150m since last route fetch
-    const lastFetchLoc = lastRouteFetchLocationRef.current;
-    if (lastFetchLoc) {
-      const movedKm = calculateDistance(
-        lastFetchLoc.latitude, lastFetchLoc.longitude,
-        providerLoc.latitude, providerLoc.longitude
-      );
-      if (movedKm < ROUTE_REFETCH_THRESHOLD_KM) return; // Skip — provider hasn't moved enough
+  // Fetch driving route
+  const fetchRoute = useCallback(async (provLoc, destLoc) => {
+    if (!provLoc || !destLoc) return;
+    const last = lastRouteFetchRef.current;
+    if (last) {
+      const moved = haversine(last.latitude, last.longitude, provLoc.latitude, provLoc.longitude);
+      if (moved < ROUTE_REFETCH_THRESHOLD_KM) return;
     }
-    
-    setIsFetchingRoute(true);
-    
     try {
-      const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${providerLoc.longitude},${providerLoc.latitude};${userLoc.longitude},${userLoc.latitude}?geometries=geojson&overview=full&access_token=${MAPBOX_ACCESS_TOKEN}`;
-      
-      const response = await fetch(url);
-      const data = await response.json();
-      
-      if (data.routes && data.routes.length > 0) {
-        const route = data.routes[0];
-        setRouteCoordinates(route.geometry.coordinates);
-        setRouteDuration(Math.ceil(route.duration / 60));
-        setRouteDistance((route.distance / 1000).toFixed(1));
-        lastRouteFetchLocationRef.current = { ...providerLoc };
+      const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${provLoc.longitude},${provLoc.latitude};${destLoc.longitude},${destLoc.latitude}?geometries=geojson&overview=full&access_token=${MAPBOX_ACCESS_TOKEN}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.routes?.[0]) {
+        const r = data.routes[0];
+        setRouteCoordinates(r.geometry.coordinates);
+        setRouteDuration(Math.ceil(r.duration / 60));
+        setRouteDistance(r.distance / 1000);
+        lastRouteFetchRef.current = { ...provLoc };
       }
-    } catch (err) {
-      console.error('[LiveTracking] Route fetch error:', err.message);
-    } finally {
-      setIsFetchingRoute(false);
-    }
+    } catch (e) { console.error('[LiveTracking] Route error:', e.message); }
   }, []);
 
-  /**
-   * Fetch provider location from API
-   */
+  // Fetch provider location — handles ALL backend response formats
   const fetchProviderLocation = useCallback(async () => {
-    if (!providerId) {
-      setError('Provider ID not available');
-      setIsLoading(false);
-      return;
-    }
-
+    if (!providerId) { setError('Provider ID not available'); setIsLoading(false); return; }
     try {
-      const { accessToken } = await getTokens();
-      const response = await fetch(`${NODE_BASE_URL}/api/auth/provider/location/${providerId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      });
-
+      const response = await authFetch(`${NODE_BASE_URL}/api/auth/provider/location/${providerId}`, { method: 'GET' });
       const data = await response.json();
 
-      if (data.success && data.data?.location) {
-        const loc = data.data.location;
-        const newLocation = {
-          latitude: loc.lat || loc.latitude,
-          longitude: loc.lng || loc.longitude,
-        };
-        
-        setProviderLocation(newLocation);
-        providerLocationRef.current = newLocation; // Keep ref in sync
-        setLastUpdated(loc.lastUpdated || data.data.lastUpdated);
-        setLastFetchedAt(new Date()); // Client-side "when we last got data"
-        setProviderData(data.data);
-        setIsOnline(data.data.isOnline);
-        setError(null);
+      if (data.success && data.data) {
+        const d = data.data;
+        // Try currentLocation first, then location, then geoLocation
+        const coords = extractCoords(d.location) || extractCoords(d.currentLocation) || extractCoords(d.geoLocation);
 
-        // Calculate distance to destination (service location)
-        if (destinationLocation && newLocation.latitude && newLocation.longitude) {
-          const dist = calculateDistance(
-            destinationLocation.latitude,
-            destinationLocation.longitude,
-            newLocation.latitude,
-            newLocation.longitude
-          );
-          setDistance(dist);
-          // Estimate ETA (assuming 30 km/h average speed in city) - will be overwritten by route API
-          const etaMinutes = Math.ceil((dist / 30) * 60);
-          setEta(etaMinutes);
-          
-          // Fetch actual driving route from provider to service location
-          fetchRoute(newLocation, destinationLocation);
+        if (coords) {
+          setProviderLocation(coords);
+          providerLocRef.current = coords;
+          setLastFetchedAt(new Date());
+          setProviderData(d);
+          setIsOnline(d.isOnline || false);
+          setError(null);
+
+          if (destinationLocation) {
+            fetchRoute(coords, destinationLocation);
+          }
+        } else {
+          // Location exists but has null/zero values
+          if (!providerLocRef.current) setError('Waiting for provider to share location...');
         }
       } else {
-        console.log('[LiveTracking] No location data:', data);
-        if (!providerLocationRef.current) {
-          setError('Provider location not available yet');
-        }
+        if (!providerLocRef.current) setError('Provider location not available yet');
       }
     } catch (err) {
       console.error('[LiveTracking] Fetch error:', err);
-      if (!providerLocationRef.current) {
-        setError('Failed to fetch provider location');
-      }
+      if (!providerLocRef.current) setError('Connecting to provider...');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
   }, [providerId, destinationLocation, fetchRoute]);
 
-  /**
-   * Get user's current location (for context, not for route)
-   */
+  // Get user GPS
   const getUserLocation = useCallback(() => {
     Geolocation.getCurrentPosition(
-      (position) => {
-        setUserLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-        // If no service location was passed, use current location as destination
-        if (!destinationLocation) {
-          setDestinationLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
-        }
-      },
-      (error) => console.log('[LiveTracking] User location error:', error),
+      (pos) => setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+      () => {},
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
     );
-  }, [destinationLocation]);
+  }, []);
 
-  /**
-   * Center map to show provider, destination, and optionally user location
-   * ✅ PRODUCTION: Smooth animation, proper padding, no jarring jumps
-   */
+  // Center map
   const centerMap = useCallback((animate = true) => {
     if (!cameraRef.current || !mapReadyRef.current) return;
-    
-    // Collect all available locations for bounds calculation
-    const locations = [];
-    if (providerLocation) locations.push(providerLocation);
-    if (destinationLocation) locations.push(destinationLocation);
-    if (userLocation && !destinationLocation) locations.push(userLocation); // Only show user if no destination
-    
-    if (locations.length === 0) return;
-    
-    if (locations.length > 1) {
-      // Calculate bounds to show all markers with padding
-      const lngs = locations.map(loc => loc.longitude);
-      const lats = locations.map(loc => loc.latitude);
-      
-      // Add padding for markers (0.005 degrees ≈ 500m)
-      const bounds = {
-        ne: [Math.max(...lngs) + 0.008, Math.max(...lats) + 0.008],
-        sw: [Math.min(...lngs) - 0.008, Math.min(...lats) - 0.008],
-      };
-      
-      cameraRef.current?.fitBounds(bounds.ne, bounds.sw, [100, 100, 180, 100], animate ? 800 : 0);
+    const locs = [];
+    if (providerLocation) locs.push(providerLocation);
+    if (destinationLocation) locs.push(destinationLocation);
+    if (locs.length === 0 && userLocation) locs.push(userLocation);
+    if (locs.length === 0) return;
+    if (locs.length > 1) {
+      const lngs = locs.map(l => l.longitude);
+      const lats = locs.map(l => l.latitude);
+      cameraRef.current?.fitBounds(
+        [Math.max(...lngs) + 0.008, Math.max(...lats) + 0.008],
+        [Math.min(...lngs) - 0.008, Math.min(...lats) - 0.008],
+        [100, 100, 220, 100], animate ? 800 : 0
+      );
     } else {
-      // Just show single location
-      const loc = locations[0];
-      cameraRef.current?.setCamera({
-        centerCoordinate: [loc.longitude, loc.latitude],
-        zoomLevel: 15,
-        animationDuration: animate ? 600 : 0,
-        animationMode: 'easeTo',
-      });
+      cameraRef.current?.setCamera({ centerCoordinate: [locs[0].longitude, locs[0].latitude], zoomLevel: 15, animationDuration: animate ? 600 : 0, animationMode: 'easeTo' });
     }
   }, [providerLocation, destinationLocation, userLocation]);
-  
-  /**
-   * Handle map ready - set initial camera position smoothly
-   */
+
   const handleMapReady = useCallback(() => {
     mapReadyRef.current = true;
     setIsMapReady(true);
-    
-    // If we already have provider location, fit bounds after a short delay
     if (providerLocation && !initialCameraSetRef.current) {
       initialCameraSetRef.current = true;
       setTimeout(() => centerMap(true), 300);
     }
   }, [providerLocation, centerMap]);
 
-  /**
-   * ✅ PRODUCTION: Tick every second so "Updated X ago" refreshes in real-time
-   */
+  // Tick for time-ago display
   useEffect(() => {
-    const tick = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(tick);
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
   }, []);
 
-  /**
-   * Start pulse animation for live indicator
-   */
+  // Pulse animation
   useEffect(() => {
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.3,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
+    const p = Animated.loop(Animated.sequence([
+      Animated.timing(pulseAnim, { toValue: 1.4, duration: 800, useNativeDriver: true }),
+      Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+    ]));
+    p.start();
+    return () => p.stop();
   }, [pulseAnim]);
 
-  /**
-   * Initial load and periodic updates
-   */
+  // Slide-up bottom sheet
   useEffect(() => {
-    // Initialize Mapbox on first render (lazy, idempotent)
+    Animated.spring(slideAnim, { toValue: 1, tension: 50, friction: 9, useNativeDriver: true }).start();
+  }, [slideAnim]);
+
+  // Smart polling: fast initially, then slow
+  useEffect(() => {
     initializeMapbox();
-    
     getUserLocation();
-    fetchProviderLocation();
+    fetchProviderLocation(); // Immediate first fetch
 
-    // Set up periodic location updates
-    const interval = setInterval(fetchProviderLocation, LOCATION_UPDATE_INTERVAL);
+    // Fast poll for first 30 seconds (every 2s), then switch to 15s
+    let fastInterval = setInterval(fetchProviderLocation, FAST_POLL_INTERVAL);
 
-    return () => clearInterval(interval);
+    const switchTimer = setTimeout(() => {
+      clearInterval(fastInterval);
+      pollIntervalRef.current = setInterval(fetchProviderLocation, STEADY_POLL_INTERVAL);
+    }, FAST_POLL_DURATION);
+
+    return () => {
+      clearInterval(fastInterval);
+      clearTimeout(switchTimer);
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
   }, [fetchProviderLocation, getUserLocation]);
 
-  /**
-   * Center map when locations are available
-   * ✅ PRODUCTION: Only animate once after first provider location fetch
-   */
+  // Socket: listen for real-time location updates & sharing status changes
+  useEffect(() => {
+    if (!requestId) return;
+    subscribeToRequest(requestId);
+
+    // Real-time provider location via socket
+    const cleanupLocation = addSocketListener('request:provider:location', (data) => {
+      if (data?.requestId === requestId) {
+        const coords = extractCoords(data);
+        if (coords) {
+          setProviderLocation(coords);
+          providerLocRef.current = coords;
+          setLastFetchedAt(new Date());
+          setError(null);
+          setLocationSharingStopped(false);
+          if (destinationLocation) fetchRoute(coords, destinationLocation);
+        }
+      }
+    });
+
+    // Real-time location sharing status (provider toggled off)
+    const cleanupStatus = addSocketListener('request:location:status', (data) => {
+      if (data?.requestId === requestId && data.enabled === false) {
+        setLocationSharingStopped(true);
+        setIsOnline(false);
+        setError('Provider stopped sharing location');
+      } else if (data?.requestId === requestId && data.enabled === true) {
+        setLocationSharingStopped(false);
+        setIsOnline(true);
+        setError(null);
+      }
+    });
+
+    return () => {
+      unsubscribeFromRequest(requestId);
+      cleanupLocation();
+      cleanupStatus();
+    };
+  }, [requestId, destinationLocation, fetchRoute]);
+
+  // Center map on first provider location
   useEffect(() => {
     if (providerLocation && mapReadyRef.current && !initialCameraSetRef.current) {
       initialCameraSetRef.current = true;
-      // Smooth delay for initial animation
       requestAnimationFrame(() => centerMap(true));
     }
   }, [providerLocation, centerMap]);
 
-  /**
-   * Open directions in maps app
-   */
   const openDirections = useCallback(() => {
     if (!providerLocation) return;
-    
     const { latitude, longitude } = providerLocation;
-    const label = encodeURIComponent(`${providerName || 'Provider'}`);
-    
-    const url = Platform.select({
-      ios: `maps:?daddr=${latitude},${longitude}`,
-      android: `google.navigation:q=${latitude},${longitude}`,
-    });
-    
-    Linking.openURL(url).catch(() => {
-      Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`);
-    });
-  }, [providerLocation, providerName]);
+    const url = Platform.select({ ios: `maps:?daddr=${latitude},${longitude}`, android: `google.navigation:q=${latitude},${longitude}` });
+    Linking.openURL(url).catch(() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`));
+  }, [providerLocation]);
 
-  /**
-   * Call provider - direct phone dialing
-   */
   const callProvider = useCallback(() => {
-    // Try providerPhone from route params, then from fetched providerData
     const phone = providerPhone || providerData?.phone;
-    if (!phone) {
-      Alert.alert('Error', 'Provider phone number not available');
-      return;
-    }
-
-    const phoneNumber = phone.replace(/\s/g, '');
-    const url = `tel:${phoneNumber}`;
-
-    Alert.alert(
-      '📞 Call Provider',
-      `Call ${providerName || 'Provider'} at ${phone}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Call Now',
-          onPress: () => {
-            Linking.openURL(url).catch(() => {
-              Alert.alert('Error', 'Unable to make phone calls on this device');
-            });
-          },
-        },
-      ]
-    );
+    if (!phone) { dialog('Error', 'Provider phone number not available'); return; }
+    const num = phone.replace(/\s/g, '');
+    dialog('Call Provider', `Call ${providerName || 'Provider'} at ${phone}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Call Now', onPress: () => Linking.openURL(`tel:${num}`).catch(() => dialog('Error', 'Cannot make calls')) },
+    ]);
   }, [providerPhone, providerData, providerName]);
+
+  const straightDist = providerLocation && destinationLocation
+    ? haversine(providerLocation.latitude, providerLocation.longitude, destinationLocation.latitude, destinationLocation.longitude)
+    : null;
+
+  const displayDist = routeDistance ?? straightDist;
+  const displayEta = routeDuration ?? (straightDist ? Math.ceil((straightDist / 30) * 60) : null);
+
+  const sheetTranslate = slideAnim.interpolate({ inputRange: [0, 1], outputRange: [300, 0] });
 
   return (
     <View style={styles.container}>
-      {/* Map Loading Overlay - Shows while map is initializing */}
+      {/* Map loading overlay */}
       {!isMapReady && (
-        <View style={styles.mapLoadingOverlay}>
-          <ActivityIndicator size="large" color={BRAND.primary} />
-          <Text style={styles.mapLoadingText}>Loading map...</Text>
+        <View style={styles.mapOverlay}>
+          <View style={styles.mapOverlayInner}>
+            <ActivityIndicator size="large" color={C.primary} />
+            <Text style={styles.mapOverlayText}>Loading map...</Text>
+          </View>
         </View>
       )}
-      
+
       {/* Map */}
-      <Mapbox.MapView
-        style={styles.map}
-        styleURL={Mapbox.StyleURL.Street}
-        logoEnabled={false}
-        attributionEnabled={false}
-        compassEnabled={true}
-        scaleBarEnabled={false}
-        onDidFinishLoadingMap={handleMapReady}
-      >
-        {/* ✅ PRODUCTION: Use initial center from service location to avoid jumps */}
-        <Mapbox.Camera
-          ref={cameraRef}
-          defaultSettings={{
-            centerCoordinate: initialCenter,
-            zoomLevel: 14,
-          }}
-          animationMode="flyTo"
-          animationDuration={0}
-        />
+      <Mapbox.MapView style={styles.map} styleURL={Mapbox.StyleURL.Street} logoEnabled={false} attributionEnabled={false} compassEnabled scaleBarEnabled={false} onDidFinishLoadingMap={handleMapReady}>
+        <Mapbox.Camera ref={cameraRef} defaultSettings={{ centerCoordinate: initialCenter, zoomLevel: 14 }} animationMode="flyTo" animationDuration={0} />
 
-        {/* User's Current Location Marker (Blue) - Only show if user is at different location than destination */}
-        {userLocation && (!destinationLocation || (
-          Math.abs(userLocation.latitude - destinationLocation.latitude) > 0.001 ||
-          Math.abs(userLocation.longitude - destinationLocation.longitude) > 0.001
-        )) && (
-          <Mapbox.PointAnnotation
-            id="user-marker"
-            coordinate={[userLocation.longitude, userLocation.latitude]}
-          >
-            <View style={styles.userMarker}>
-              <MaterialIcon name="person-pin" size={18} color="#FFFFFF" />
-            </View>
+        {/* User marker */}
+        {userLocation && (!destinationLocation || Math.abs(userLocation.latitude - destinationLocation.latitude) > 0.001 || Math.abs(userLocation.longitude - destinationLocation.longitude) > 0.001) && (
+          <Mapbox.PointAnnotation id="user-marker" coordinate={[userLocation.longitude, userLocation.latitude]}>
+            <View style={styles.userMarker}><MaterialIcon name="person-pin" size={16} color={C.white} /></View>
           </Mapbox.PointAnnotation>
         )}
 
-        {/* Destination Marker (Service Location - Green) */}
+        {/* Destination marker */}
         {destinationLocation && (
-          <Mapbox.PointAnnotation
-            id="destination-marker"
-            coordinate={[destinationLocation.longitude, destinationLocation.latitude]}
-          >
-            <View style={styles.destinationMarker}>
-              <MaterialIcon name="home" size={20} color="#FFFFFF" />
-            </View>
+          <Mapbox.PointAnnotation id="dest-marker" coordinate={[destinationLocation.longitude, destinationLocation.latitude]}>
+            <View style={styles.destMarker}><MaterialIcon name="home" size={18} color={C.white} /></View>
           </Mapbox.PointAnnotation>
         )}
 
-        {/* Provider Location Marker - FixHomi Logo (Orange) */}
+        {/* Provider marker */}
         {providerLocation && (
-          <Mapbox.PointAnnotation
-            id="provider-marker"
-            coordinate={[providerLocation.longitude, providerLocation.latitude]}
-          >
-            <View style={styles.providerMarker}>
-              <FixhomiLogo size={24} color="#FFFFFF" />
-            </View>
+          <Mapbox.PointAnnotation id="provider-marker" coordinate={[providerLocation.longitude, providerLocation.latitude]}>
+            <View style={styles.providerMarker}><FixhomiLogo size={22} color={C.white} /></View>
           </Mapbox.PointAnnotation>
         )}
 
-        {/* Route line from provider to destination */}
+        {/* Route line */}
         {destinationLocation && providerLocation && (
-          <Mapbox.ShapeSource
-            id="route"
-            shape={{
-              type: 'Feature',
-              geometry: {
-                type: 'LineString',
-                coordinates: routeCoordinates || [
-                  [providerLocation.longitude, providerLocation.latitude],
-                  [destinationLocation.longitude, destinationLocation.latitude],
-                ],
-              },
-            }}
-          >
-            {/* Route outline for better visibility - draw first (below main line) */}
-            <Mapbox.LineLayer
-              id="routeLineOutline"
-              style={{
-                lineColor: '#c45a00', // Darker orange outline
-                lineWidth: 8,
-                lineCap: 'round',
-                lineJoin: 'round',
-                lineOpacity: 0.5,
-              }}
-            />
-            {/* Main route line - solid orange */}
-            <Mapbox.LineLayer
-              id="routeLine"
-              style={{
-                lineColor: BRAND.primary, // Always orange (#f67c16)
-                lineWidth: 5,
-                lineCap: 'round',
-                lineJoin: 'round',
-                lineOpacity: 1,
-              }}
-            />
+          <Mapbox.ShapeSource id="route" shape={{ type: 'Feature', geometry: { type: 'LineString', coordinates: routeCoordinates || [[providerLocation.longitude, providerLocation.latitude], [destinationLocation.longitude, destinationLocation.latitude]] } }}>
+            <Mapbox.LineLayer id="routeOutline" style={{ lineColor: '#c45a00', lineWidth: 8, lineCap: 'round', lineJoin: 'round', lineOpacity: 0.4 }} />
+            <Mapbox.LineLayer id="routeLine" style={{ lineColor: C.primary, lineWidth: 5, lineCap: 'round', lineJoin: 'round', lineOpacity: 1 }} />
           </Mapbox.ShapeSource>
         )}
       </Mapbox.MapView>
 
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Icon name="arrow_back" size={24} color="#1F2937" />
+      <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
+        <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+          <Icon name="arrow_back" size={22} color={C.text} />
         </TouchableOpacity>
-        <View style={styles.headerContent}>
+        <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Live Tracking</Text>
           {isOnline && (
-            <View style={styles.liveIndicator}>
+            <View style={styles.liveBadge}>
               <Animated.View style={[styles.liveDot, { transform: [{ scale: pulseAnim }] }]} />
               <Text style={styles.liveText}>LIVE</Text>
             </View>
           )}
         </View>
-        <TouchableOpacity style={styles.centerButton} onPress={centerMap}>
-          <MaterialIcon name="my-location" size={24} color={BRAND.primary} />
+        <TouchableOpacity style={styles.headerBtn} onPress={() => centerMap(true)} activeOpacity={0.7}>
+          <MaterialIcon name="my-location" size={22} color={C.primary} />
         </TouchableOpacity>
       </View>
 
-      {/* Provider Info Card */}
-      <View style={[styles.infoCard, { paddingBottom: insets.bottom + 16 }]}>
+      {/* Bottom Sheet */}
+      <Animated.View style={[styles.sheet, { paddingBottom: insets.bottom + 16, transform: [{ translateY: sheetTranslate }] }]}>
         {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={BRAND.primary} />
-            <Text style={styles.loadingText}>Finding provider location...</Text>
+          <View style={styles.sheetCenter}>
+            <ActivityIndicator size="large" color={C.primary} />
+            <Text style={styles.sheetLoadingText}>Finding provider...</Text>
+            <Text style={styles.sheetSubText}>This usually takes a few seconds</Text>
+          </View>
+        ) : locationSharingStopped ? (
+          <View style={styles.sheetCenter}>
+            <View style={[styles.errorIcon, { backgroundColor: '#FEF2F2' }]}><MaterialIcon name="location-off" size={28} color={C.danger} /></View>
+            <Text style={styles.errorTitle}>Provider stopped sharing location</Text>
+            <Text style={styles.errorSubText}>Their last known position is shown on the map</Text>
+            <TouchableOpacity style={[styles.retryBtn, { backgroundColor: C.secondary }]} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+              <Text style={styles.retryBtnText}>Go Back</Text>
+            </TouchableOpacity>
           </View>
         ) : error && !providerLocation ? (
-          <View style={styles.errorContainer}>
-            <MaterialIcon name="location-off" size={48} color="#EF4444" />
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={fetchProviderLocation}>
-              <Text style={styles.retryButtonText}>Retry</Text>
+          <View style={styles.sheetCenter}>
+            <View style={styles.errorIcon}><MaterialIcon name="location-searching" size={28} color={C.primary} /></View>
+            <Text style={styles.errorTitle}>{error}</Text>
+            <Text style={styles.errorSubText}>We're polling every 2 seconds</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={() => { setIsRefreshing(true); fetchProviderLocation(); }} activeOpacity={0.7}>
+              {isRefreshing ? <ActivityIndicator size="small" color={C.white} /> : <Text style={styles.retryBtnText}>Retry Now</Text>}
             </TouchableOpacity>
           </View>
         ) : (
           <>
-            {/* Provider Details */}
+            {/* Provider row */}
             <View style={styles.providerRow}>
-              <View style={styles.providerAvatar}>
-                {providerData?.profilePicture?.url ? (
-                  <Image source={{ uri: providerData.profilePicture.url }} style={styles.avatarImage} />
+              <View style={styles.avatar}>
+                {providerData?.profilePicture?.url || (typeof providerData?.profilePicture === 'string' && providerData.profilePicture) ? (
+                  <Image source={{ uri: providerData.profilePicture?.url || providerData.profilePicture }} style={styles.avatarImg} />
                 ) : (
-                  <MaterialIcon name="person" size={24} color="#FFFFFF" />
+                  <Text style={styles.avatarInitial}>{(providerName || 'P').charAt(0).toUpperCase()}</Text>
                 )}
               </View>
-              <View style={styles.providerInfo}>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.providerName}>{providerName || providerData?.name || 'Provider'}</Text>
-                <Text style={styles.providerService}>{serviceCategory || 'Service Provider'}</Text>
+                <Text style={styles.providerSvc}>{serviceCategory || 'Service Provider'}</Text>
               </View>
-              <View style={styles.statusBadge}>
-                <View style={[styles.statusDot, isOnline && styles.statusDotOnline]} />
-                <Text style={[styles.statusText, isOnline && styles.statusTextOnline]}>
-                  {isOnline ? 'Online' : 'Offline'}
-                </Text>
+              <View style={[styles.statusChip, isOnline && styles.statusChipOnline]}>
+                <View style={[styles.statusChipDot, isOnline && styles.statusChipDotOn]} />
+                <Text style={[styles.statusChipText, isOnline && styles.statusChipTextOn]}>{isOnline ? 'Online' : 'Offline'}</Text>
               </View>
             </View>
 
-            {/* Service Location */}
-            {serviceAddress && (
-              <View style={styles.serviceLocationRow}>
-                <MaterialIcon name="home" size={18} color="#10B981" />
-                <View style={styles.serviceLocationInfo}>
-                  <Text style={styles.serviceLocationLabel}>Service Location</Text>
-                  <Text style={styles.serviceLocationAddress} numberOfLines={2}>{serviceAddress}</Text>
+            {/* Service address */}
+            {serviceAddress ? (
+              <View style={styles.addressBar}>
+                <View style={styles.addressDot} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.addressLabel}>HEADING TO</Text>
+                  <Text style={styles.addressText} numberOfLines={2}>{serviceAddress}</Text>
                 </View>
               </View>
-            )}
+            ) : null}
 
-            {/* ETA & Distance - Use route data when available */}
-            {(distance !== null || routeDistance !== null) && (
-              <View style={styles.etaRow}>
-                <View style={styles.etaItem}>
-                  <MaterialIcon name="directions-car" size={20} color={BRAND.primary} />
-                  <Text style={styles.etaValue}>
-                    {routeDistance !== null ? `${routeDistance} km` : `${distance.toFixed(1)} km`}
-                  </Text>
-                  <Text style={styles.etaLabel}>{routeDistance !== null ? 'via road' : 'away'}</Text>
+            {/* Stats row */}
+            {displayDist != null && (
+              <View style={styles.statsRow}>
+                <View style={styles.statItem}>
+                  <View style={[styles.statIconWrap, { backgroundColor: '#FFF7ED' }]}>
+                    <MaterialIcon name="directions-car" size={18} color={C.primary} />
+                  </View>
+                  <Text style={styles.statVal}>{formatDistance(Number(displayDist), useKm)}</Text>
+                  <Text style={styles.statSub}>{routeDistance != null ? 'via road' : 'straight'}</Text>
                 </View>
-                {(routeDuration !== null || eta !== null) && (
-                  <View style={styles.etaItem}>
-                    <MaterialIcon name="schedule" size={20} color={BRAND.primary} />
-                    <Text style={styles.etaValue}>
-                      {(() => {
-                        const time = routeDuration !== null ? routeDuration : eta;
-                        return time < 60 ? `${time} min` : `${Math.floor(time/60)}h ${time%60}m`;
-                      })()}
-                    </Text>
-                    <Text style={styles.etaLabel}>{routeDuration !== null ? 'ETA (route)' : 'ETA (est.)'}</Text>
+                {displayEta != null && (
+                  <View style={styles.statItem}>
+                    <View style={[styles.statIconWrap, { backgroundColor: '#EDE9FE' }]}>
+                      <MaterialIcon name="schedule" size={18} color={C.purple} />
+                    </View>
+                    <Text style={styles.statVal}>{displayEta < 60 ? `${displayEta} min` : `${Math.floor(displayEta / 60)}h ${displayEta % 60}m`}</Text>
+                    <Text style={styles.statSub}>ETA</Text>
                   </View>
                 )}
-                <TouchableOpacity
-                  style={styles.etaItem}
-                  onPress={() => {
-                    setIsRefreshing(true);
-                    fetchProviderLocation();
-                  }}
-                  activeOpacity={0.6}
-                >
-                  {isRefreshing ? (
-                    <ActivityIndicator size={18} color={BRAND.primary} />
-                  ) : (
-                    <MaterialIcon name="refresh" size={20} color={BRAND.primary} />
-                  )}
-                  <Text style={styles.etaValue}>
-                    {formatTimeAgo(lastFetchedAt || lastUpdated)}
-                  </Text>
-                  <Text style={styles.etaLabel}>tap to refresh</Text>
+                <TouchableOpacity style={styles.statItem} onPress={() => { setIsRefreshing(true); fetchProviderLocation(); }} activeOpacity={0.6}>
+                  <View style={[styles.statIconWrap, { backgroundColor: '#ECFDF5' }]}>
+                    {isRefreshing ? <ActivityIndicator size={16} color={C.success} /> : <MaterialIcon name="refresh" size={18} color={C.success} />}
+                  </View>
+                  <Text style={styles.statVal}>{formatTimeAgo(lastFetchedAt)}</Text>
+                  <Text style={styles.statSub}>tap to refresh</Text>
                 </TouchableOpacity>
               </View>
             )}
 
-            {/* Action Buttons */}
+            {/* Action buttons */}
             <View style={styles.actionsRow}>
-              <TouchableOpacity style={styles.actionButton} onPress={callProvider}>
-                <MaterialIcon name="phone" size={22} color="#FFFFFF" />
-                <Text style={styles.actionButtonText}>Call</Text>
+              <TouchableOpacity style={styles.callBtn} onPress={callProvider} activeOpacity={0.8}>
+                <MaterialIcon name="phone" size={20} color={C.white} />
+                <Text style={styles.callBtnText}>Call Provider</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionButton, styles.actionButtonSecondary]} onPress={openDirections}>
-                <MaterialIcon name="directions" size={22} color={BRAND.primary} />
-                <Text style={[styles.actionButtonText, styles.actionButtonTextSecondary]}>Directions</Text>
+              <TouchableOpacity style={styles.dirBtn} onPress={openDirections} activeOpacity={0.8}>
+                <MaterialIcon name="directions" size={20} color={C.primary} />
+                <Text style={styles.dirBtnText}>Directions</Text>
               </TouchableOpacity>
             </View>
           </>
         )}
-      </View>
+      </Animated.View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: BRAND.background,
-  },
-  map: {
-    flex: 1,
-  },
-  // ✅ PRODUCTION: Map loading overlay
-  mapLoadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 100,
-  },
-  mapLoadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  liveIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-  },
-  liveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
-  },
-  liveText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#EF4444',
-  },
-  centerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  
-  // User's current location marker (blue)
-  userMarker: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#2b76bc',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  
-  // Destination marker (service location - green)
-  destinationMarker: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#10B981',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  
-  // Provider marker
-  providerMarker: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: BRAND.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
+  container: { flex: 1, backgroundColor: C.bg },
+  map: { flex: 1 },
 
-  // Info Card
-  infoCard: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  errorContainer: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  errorText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#EF4444',
-    textAlign: 'center',
-  },
-  retryButton: {
-    marginTop: 16,
-    backgroundColor: BRAND.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  // Map overlay
+  mapOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(248,250,252,0.95)', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
+  mapOverlayInner: { alignItems: 'center', gap: 12 },
+  mapOverlayText: { fontSize: 14, fontWeight: '600', color: C.textSec },
 
-  // Provider Row
-  providerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  providerAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: BRAND.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  avatarImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-  },
-  providerInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  providerName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  providerService: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
-    textTransform: 'capitalize',
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    gap: 6,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#9CA3AF',
-  },
-  statusDotOnline: {
-    backgroundColor: '#22C55E',
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  statusTextOnline: {
-    color: '#16A34A',
-  },
+  // Header
+  header: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12, backgroundColor: 'rgba(255,255,255,0.96)', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 5 },
+  headerBtn: { width: 42, height: 42, borderRadius: 14, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
+  headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: C.text, letterSpacing: -0.3 },
+  liveBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEE2E2', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, gap: 5 },
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.danger },
+  liveText: { fontSize: 10, fontWeight: '800', color: C.danger, letterSpacing: 0.5 },
 
-  // Service Location Row
-  serviceLocationRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#ECFDF5',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 12,
-    gap: 10,
-  },
-  serviceLocationInfo: {
-    flex: 1,
-  },
-  serviceLocationLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#10B981',
-    marginBottom: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  serviceLocationAddress: {
-    fontSize: 13,
-    color: '#374151',
-    lineHeight: 18,
-  },
+  // Markers
+  userMarker: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.secondary, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: C.white, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
+  destMarker: { width: 38, height: 38, borderRadius: 19, backgroundColor: C.success, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: C.white, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
+  providerMarker: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: C.white, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.4, shadowRadius: 6, elevation: 8 },
 
-  // ETA Row
-  etaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  etaItem: {
-    alignItems: 'center',
-  },
-  etaValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginTop: 4,
-  },
-  etaLabel: {
-    fontSize: 11,
-    color: '#6B7280',
-    marginTop: 2,
-  },
+  // Bottom sheet
+  sheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.white, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 20, shadowColor: '#0F172A', shadowOffset: { width: 0, height: -6 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 12 },
 
-  // Actions
-  actionsRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: BRAND.primary,
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
-  },
-  actionButtonSecondary: {
-    backgroundColor: '#FFF7ED',
-    borderWidth: 1,
-    borderColor: BRAND.primary,
-  },
-  actionButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  actionButtonTextSecondary: {
-    color: BRAND.primary,
-  },
+  // Loading/Error in sheet
+  sheetCenter: { alignItems: 'center', paddingVertical: 20 },
+  sheetLoadingText: { marginTop: 14, fontSize: 16, fontWeight: '700', color: C.text },
+  sheetSubText: { marginTop: 4, fontSize: 13, fontWeight: '500', color: C.muted },
+  errorIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#FFF7ED', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  errorTitle: { fontSize: 15, fontWeight: '700', color: C.text, textAlign: 'center' },
+  errorSubText: { fontSize: 12, fontWeight: '500', color: C.muted, marginTop: 4 },
+  retryBtn: { marginTop: 16, backgroundColor: C.primary, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 14, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
+  retryBtnText: { fontSize: 14, fontWeight: '700', color: C.white },
+
+  // Provider row
+  providerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  avatar: { width: 48, height: 48, borderRadius: 16, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', marginRight: 12 },
+  avatarImg: { width: 48, height: 48, borderRadius: 16 },
+  avatarInitial: { fontSize: 20, fontWeight: '800', color: C.white },
+  providerName: { fontSize: 16, fontWeight: '700', color: C.text },
+  providerSvc: { fontSize: 12, fontWeight: '500', color: C.muted, marginTop: 2, textTransform: 'capitalize' },
+  statusChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, gap: 6 },
+  statusChipOnline: { backgroundColor: '#ECFDF5' },
+  statusChipDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.muted },
+  statusChipDotOn: { backgroundColor: C.success },
+  statusChipText: { fontSize: 11, fontWeight: '700', color: C.muted },
+  statusChipTextOn: { color: '#059669' },
+
+  // Address bar
+  addressBar: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#F0FDF4', borderRadius: 14, padding: 12, marginBottom: 14, gap: 10, borderWidth: 1, borderColor: '#BBF7D0' },
+  addressDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.success, marginTop: 4 },
+  addressLabel: { fontSize: 9, fontWeight: '800', color: C.success, letterSpacing: 0.8, marginBottom: 2 },
+  addressText: { fontSize: 13, fontWeight: '500', color: C.text, lineHeight: 18 },
+
+  // Stats row
+  statsRow: { flexDirection: 'row', backgroundColor: '#F8FAFC', borderRadius: 16, padding: 14, marginBottom: 14, gap: 8, borderWidth: 1, borderColor: '#F1F5F9' },
+  statItem: { flex: 1, alignItems: 'center' },
+  statIconWrap: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  statVal: { fontSize: 14, fontWeight: '700', color: C.text },
+  statSub: { fontSize: 10, fontWeight: '500', color: C.muted, marginTop: 2 },
+
+  // Action buttons
+  actionsRow: { flexDirection: 'row', gap: 10 },
+  callBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.success, paddingVertical: 14, borderRadius: 16, gap: 8, shadowColor: C.success, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
+  callBtnText: { fontSize: 15, fontWeight: '700', color: C.white },
+  dirBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF7ED', paddingVertical: 14, borderRadius: 16, gap: 8, borderWidth: 1.5, borderColor: C.primary },
+  dirBtnText: { fontSize: 15, fontWeight: '700', color: C.primary },
 });
 
 export default LiveTrackingScreen;

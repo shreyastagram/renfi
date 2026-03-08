@@ -1,865 +1,913 @@
 /**
- * Provider Service History Screen
- * 
- * Comprehensive view of provider's completed and ongoing services:
- * - Status filtering (All, In Progress, Completed, Cancelled)
- * - Earnings summary
- * - Pull-to-refresh
- * - Customer details with contact options
- * 
- * @version 2.0.0
+ * Provider Service History Screen — Unified v6.0
+ *
+ * Single screen for all provider jobs:
+ * - Traditional, Event, and Emergency services
+ * - Accept/Reject for pending requests
+ * - OTP completion & cancellation modals
+ * - Date filter + status filter tabs
+ * - Stats pills (non-collapsible for cross-device consistency)
+ * - Fixhomi logo header + drawer menu
+ * - Socket + FCM real-time updates
+ * - Paginated infinite scroll with background stats fetch
+ *
+ * @version 6.0.0
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
+  TextInput,
+  Modal,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
   FlatList,
-  Alert,
   Linking,
   Platform,
+  ScrollView,
+  AppState,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useIsFocused } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
+import { useDialog } from '../context/DialogContext';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
-import { Icon, ServiceIcon, StatusIcon } from '../components';
-import { 
+import { Icon, ServiceIcon, CancellationReasonModal } from '../components';
+import {
   getProviderRequests,
+  acceptRequestAsProvider,
+  verifyCompletionOtp,
+  providerCancelRequest,
   SERVICE_TYPE_LABELS,
 } from '../services/traditionalServiceService';
-// Direct phone dialing - Exotel call masking removed
+import { addEventListener as addSocketListener } from '../services/socketService';
+import { setupForegroundMessageListener } from '../services/fcmService';
+import { STATIC_NUMBER_SERVICES } from '../services/emergencyServicesService';
+import { authFetch } from '../utils/authFetch';
 import { NODE_BASE_URL } from '../config/api';
 
-// Brand colors
-const BRAND = {
-  primary: '#f67c16', // Orange
-  secondary: '#2b76bc', // Blue
-  background: '#faf7f7',
+const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
+
+const C = {
+  primary: '#f67c16',
+  secondary: '#2b76bc',
+  dark: '#0F172A',
+  bg: '#F8FAFC',
   white: '#FFFFFF',
+  border: '#F1F5F9',
+  muted: '#94A3B8',
+  text: '#0F172A',
+  textSec: '#64748B',
+  success: '#10B981',
+  successBg: '#ECFDF5',
+  danger: '#EF4444',
+  dangerBg: '#FEF2F2',
+  purple: '#8B5CF6',
+  purpleBg: '#EDE9FE',
+  blue: '#3B82F6',
+  blueBg: '#DBEAFE',
+  gold: '#F59E0B',
 };
 
-// Status configuration
 const STATUS_CONFIG = {
-  'in-progress': {
-    label: 'In Progress',
-    color: '#8B5CF6',
-    bgColor: '#EDE9FE',
-    iconName: 'wrench',
-  },
-  'accepted': {
-    label: 'Accepted',
-    color: '#3B82F6',
-    bgColor: '#DBEAFE',
-    iconName: 'check',
-  },
-  'completed': {
-    label: 'Completed',
-    color: '#10B981',
-    bgColor: '#D1FAE5',
-    iconName: 'check-circle',
-  },
-  'cancelled': {
-    label: 'Cancelled',
-    color: '#EF4444',
-    bgColor: '#FEE2E2',
-    iconName: 'close',
-  },
+  pending: { label: 'Pending', color: C.primary, bgColor: '#FEF3C7', dotColor: C.primary },
+  awaiting_confirmation: { label: 'Awaiting', color: C.primary, bgColor: '#FEF3C7', dotColor: C.primary },
+  accepted: { label: 'Accepted', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
+  'in-progress': { label: 'In Progress', color: C.purple, bgColor: C.purpleBg, dotColor: C.purple },
+  in_transit: { label: 'On The Way', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
+  arrived: { label: 'Arrived', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
+  completed: { label: 'Completed', color: C.success, bgColor: C.successBg, dotColor: C.success },
+  cancelled: { label: 'Cancelled', color: C.danger, bgColor: C.dangerBg, dotColor: C.danger },
+  rejected: { label: 'Rejected', color: C.danger, bgColor: C.dangerBg, dotColor: C.danger },
+  expired: { label: 'Expired', color: C.muted, bgColor: '#F1F5F9', dotColor: C.muted },
 };
 
-// Filter tabs
 const FILTER_TABS = [
-  { key: 'all', label: 'All' },
-  { key: 'in-progress', label: 'Active' },
-  { key: 'completed', label: 'Completed' },
+  { key: 'all', label: 'All Jobs' },
+  { key: 'pending', label: 'New' },
+  { key: 'active', label: 'Active' },
+  { key: 'completed', label: 'Done' },
   { key: 'cancelled', label: 'Cancelled' },
 ];
 
-/**
- * Stats Card Component
- */
-const StatsCard = ({ iconName, value, label, color, bgColor }) => (
-  <View style={[styles.statsCard, { backgroundColor: bgColor }]}>
-    <Icon name={iconName} size={24} color={color} />
-    <Text style={[styles.statsValue, { color }]}>{value}</Text>
-    <Text style={styles.statsLabel}>{label}</Text>
+const DATE_PRESETS = [
+  { key: 'all', label: 'All Time' },
+  { key: 'today', label: 'Today' },
+  { key: 'week', label: 'This Week' },
+  { key: 'month', label: 'This Month' },
+  { key: '3months', label: '3 Months' },
+  { key: '6months', label: '6 Months' },
+  { key: 'year', label: 'This Year' },
+];
+
+const ACTIVE_STATUSES = ['pending', 'accepted', 'in-progress', 'awaiting_confirmation', 'in_transit', 'arrived'];
+
+const getDateRange = (preset) => {
+  const now = new Date();
+  const sod = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  switch (preset) {
+    case 'today': return { start: sod, end: now };
+    case 'week': { const w = new Date(sod); w.setDate(w.getDate() - w.getDay()); return { start: w, end: now }; }
+    case 'month': return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: now };
+    case '3months': { const d = new Date(now); d.setMonth(d.getMonth() - 3); return { start: d, end: now }; }
+    case '6months': { const d = new Date(now); d.setMonth(d.getMonth() - 6); return { start: d, end: now }; }
+    case 'year': return { start: new Date(now.getFullYear(), 0, 1), end: now };
+    default: return null;
+  }
+};
+
+/* ── Stat Pill ─────────────────────────────────────────────────────── */
+const StatPill = ({ value, label, color, bgColor, icon }) => (
+  <View style={[styles.statPill, { backgroundColor: bgColor, borderColor: color + '30' }]}>
+    {icon}
+    <Text style={[styles.statValue, { color }]}>{value}</Text>
+    <Text style={[styles.statLabel, { color: color + 'CC' }]}>{label}</Text>
   </View>
 );
 
-/**
- * Stats Dashboard
- */
-const StatsDashboard = ({ stats }) => (
-  <View style={styles.statsContainer}>
-    <Text style={styles.statsTitle}>Your Performance</Text>
-    <View style={styles.statsGrid}>
-      <StatsCard
-        iconName="chart-bar"
-        value={stats?.total || 0}
-        label="Total Jobs"
-        color="#1a1a1a"
-        bgColor="#f5f5f5"
-      />
-      <StatsCard
-        iconName="wrench"
-        value={stats?.active || 0}
-        label="Active"
-        color="#8B5CF6"
-        bgColor="#EDE9FE"
-      />
-      <StatsCard
-        iconName="check-circle"
-        value={stats?.completed || 0}
-        label="Completed"
-        color="#10B981"
-        bgColor="#D1FAE5"
-      />
-      <StatsCard
-        iconName="star"
-        value={stats?.rating?.toFixed(1) || '0.0'}
-        label="Rating"
-        color={BRAND.primary}
-        bgColor={BRAND.primary + '20'}
-      />
-    </View>
-  </View>
-);
+/* ── OTP Modal ─────────────────────────────────────────────────────── */
+const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
+  const [otp, setOtp] = useState('');
+  useEffect(() => { if (visible) setOtp(''); }, [visible]);
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Enter Completion OTP</Text>
+            <TouchableOpacity onPress={onClose} style={styles.modalClose}>
+              <Icon name="close" size={22} color={C.textSec} />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.modalSubtitle}>Ask the customer for the 6-digit OTP to complete this service.</Text>
+          <TextInput style={styles.otpInput} value={otp} onChangeText={setOtp} placeholder="000000" placeholderTextColor="#D1D5DB" keyboardType="number-pad" maxLength={6} autoFocus />
+          {error ? <Text style={styles.otpError}>{error}</Text> : null}
+          <TouchableOpacity style={[styles.verifyBtn, otp.length !== 6 && styles.verifyBtnDisabled]} onPress={() => { if (otp.length === 6) onVerify(otp); }} disabled={otp.length !== 6 || isVerifying}>
+            {isVerifying ? <ActivityIndicator color="#fff" /> : <Text style={styles.verifyBtnText}>Verify & Complete</Text>}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
-/**
- * Filter Tabs
- */
-const FilterTabs = ({ activeFilter, onFilterChange }) => (
-  <View style={styles.filterContainer}>
-    {FILTER_TABS.map((tab) => (
-      <TouchableOpacity
-        key={tab.key}
-        style={[styles.filterTab, activeFilter === tab.key && styles.filterTabActive]}
-        onPress={() => onFilterChange(tab.key)}
-      >
-        <Text style={[styles.filterTabText, activeFilter === tab.key && styles.filterTabTextActive]}>{tab.label}</Text>
-      </TouchableOpacity>
-    ))}
-  </View>
-);
-
-/**
- * Service Request Card
- */
-const RequestCard = ({ request, onPress, onCall, onDirections }) => {
-  const status = STATUS_CONFIG[request.status] || STATUS_CONFIG['in-progress'];
+/* ── Request Card ──────────────────────────────────────────────────── */
+const RequestCard = ({ request, onPress, onCall, onDirections, onComplete, onCancel, onAccept, onReject, isAccepting, isRejecting }) => {
+  const status = STATUS_CONFIG[request.status] || STATUS_CONFIG.pending;
   const serviceDate = new Date(request.serviceDate || request.createdAt);
+  const shortId = (request.requestId || request._id || '').slice(-6).toUpperCase();
+  const isDone = ['completed', 'cancelled', 'rejected', 'expired'].includes(request.status);
+  const isActive = ['accepted', 'in-progress', 'in_transit', 'arrived'].includes(request.status);
+  const isPending = ['pending', 'awaiting_confirmation'].includes(request.status);
+  const hasLocation = request.location?.coordinates || request.location?.latitude;
+  const isLocationTrackable = !STATIC_NUMBER_SERVICES.includes(request.serviceType);
+  const isEvent = request.isEventService;
+  const isEmergency = request.isEmergencyService;
+  const serviceAddress = request.serviceAddress || request.location?.address || request.address;
 
   return (
-    <TouchableOpacity 
-      style={styles.requestCard} 
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
+    <TouchableOpacity style={[styles.card, isPending && styles.cardPending, isDone && styles.cardCompact]} onPress={onPress} activeOpacity={0.7}>
       {/* Header */}
-      <View style={styles.cardHeader}>
-        <View style={styles.serviceTypeContainer}>
-          <ServiceIcon serviceType={request.serviceType} size={28} />
-          <View style={styles.serviceTypeTextContainer}>
-            <Text style={styles.serviceType}>
-              {SERVICE_TYPE_LABELS[request.serviceType] || request.serviceType}
-            </Text>
-            <Text style={styles.requestId}>#{request.requestId}</Text>
+      <View style={[styles.cardTop, isDone && { marginBottom: 4 }]}>
+        <View style={styles.cardTopLeft}>
+          <View style={styles.svcIcon}>
+            <ServiceIcon serviceType={request.serviceType} size={22} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={styles.svcNameRow}>
+              <Text style={styles.svcName} numberOfLines={1}>{SERVICE_TYPE_LABELS[request.serviceType] || request.serviceType}</Text>
+              {isEvent && <View style={styles.typeBadge}><Text style={styles.typeBadgeText}>EVENT</Text></View>}
+              {isEmergency && <View style={[styles.typeBadge, { backgroundColor: '#FEE2E2' }]}><Text style={[styles.typeBadgeText, { color: '#DC2626' }]}>SOS</Text></View>}
+            </View>
+            <Text style={styles.svcId}>#{shortId}</Text>
           </View>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: status.bgColor }]}>
-          <StatusIcon status={request.status} size={14} />
-          <Text style={[styles.statusText, { color: status.color }]}>
-            {status.label}
-          </Text>
+          <View style={[styles.statusDot, { backgroundColor: status.dotColor }]} />
+          <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
         </View>
       </View>
 
-      {/* Cancellation info — shows who cancelled and reason */}
-      {request.status === 'cancelled' && (() => {
-        const cancelledBy = request.cancelledBy;
-        const reason = request.cancellationReason || request.cancelReason;
-        let label = '';
-        if (cancelledBy === 'user') {
-          label = 'Cancelled by Customer';
-        } else if (cancelledBy === 'provider') {
-          label = 'Cancelled by You';
-        } else if (cancelledBy === 'system') {
-          label = 'Cancelled by System';
-        } else {
-          label = reason || 'Request cancelled';
-        }
-        const genericReasons = ['user cancelled', 'cancelled by user', 'cancelled by provider', 'provider cancelled'];
-        const hasCustomReason = reason && !genericReasons.includes(reason.toLowerCase());
-        if (hasCustomReason && cancelledBy) {
-          label += ` — ${reason}`;
-        }
+      {/* Cancellation strip */}
+      {isDone && (request.cancellationReason || request.cancelReason || request.rejectReason) && (() => {
+        const by = request.cancelledBy;
+        const reason = request.rejectReason || request.cancellationReason || request.cancelReason;
+        let label = by === 'user' ? 'Cancelled by Customer' : by === 'provider' ? 'Cancelled by You' : by === 'system' ? 'Cancelled by System' : reason || 'Request cancelled';
+        const generic = ['user cancelled', 'cancelled by user', 'cancelled by provider', 'provider cancelled'];
+        if (reason && !generic.includes(reason.toLowerCase()) && by) label += ` \u2014 ${reason}`;
         return (
-          <View style={{ backgroundColor: '#FEF2F2', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6, marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Icon name="info" size={12} color="#B91C1C" />
-            <Text style={{ fontSize: 12, color: '#991B1B', flex: 1 }} numberOfLines={2}>
-              {label}
-            </Text>
+          <View style={styles.cancelStrip}>
+            <Icon name="info" size={13} color="#B91C1C" />
+            <Text style={styles.cancelStripText} numberOfLines={2}>{label}</Text>
           </View>
         );
       })()}
 
-      {/* Customer Info */}
-      {request.userDetails && (
-        <View style={styles.customerContainer}>
-          <View style={styles.customerInfo}>
-            <View style={styles.customerAvatar}>
-              <Text style={styles.customerInitial}>
-                {request.userDetails.name?.charAt(0).toUpperCase() || 'C'}
-              </Text>
-            </View>
-            <View style={styles.customerDetails}>
-              <Text style={styles.customerName}>
-                {request.userDetails.name || 'Customer'}
-              </Text>
-            </View>
-          </View>
-          
-          {/* Quick Actions - Only for active requests */}
-          {['pending', 'accepted', 'in-progress'].includes(request.status) && (
-            <View style={styles.quickActions}>
-              {request.userDetails && (
-                <TouchableOpacity
-                  style={styles.quickActionBtn}
-                  onPress={() => onCall(request)}
-                >
-                  <Icon name="phone" size={18} color="#10B981" />
-                </TouchableOpacity>
-              )}
-              {['accepted', 'in-progress'].includes(request.status) && request.location?.coordinates && (
-                <TouchableOpacity
-                  style={styles.quickActionBtn}
-                  onPress={() => onDirections(request.location)}
-                >
-                  <Icon name="directions" size={18} color={BRAND.secondary} />
-                </TouchableOpacity>
+      {/* Compact done row */}
+      {isDone && (
+        <View style={styles.compactRow}>
+          <Text style={styles.compactDate}>{serviceDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</Text>
+          {request.userDetails?.name && <Text style={styles.compactCustomer}>{request.userDetails.name}</Text>}
+        </View>
+      )}
+
+      {/* Active / Pending content */}
+      {!isDone && (
+        <>
+          {/* Customer */}
+          {request.userDetails && (
+            <View style={styles.customerRow}>
+              <View style={styles.customerAvatar}>
+                {request.userDetails.profilePicture ? (
+                  <Image source={{ uri: typeof request.userDetails.profilePicture === 'string' ? request.userDetails.profilePicture : request.userDetails.profilePicture?.url }} style={styles.customerAvatarImg} />
+                ) : (
+                  <Text style={styles.customerInitial}>{request.userDetails.name?.charAt(0).toUpperCase() || 'C'}</Text>
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.customerName} numberOfLines={1}>{request.userDetails.name || request.userName || 'Customer'}</Text>
+                {isActive && request.userDetails.phone && <Text style={styles.customerPhone}>{request.userDetails.phone}</Text>}
+              </View>
+              {(isActive || isPending) && (
+                <View style={styles.quickActions}>
+                  <TouchableOpacity style={styles.btnCall} onPress={() => onCall(request)}><Icon name="phone" size={15} color={C.white} /></TouchableOpacity>
+                  {isActive && hasLocation && isLocationTrackable && (
+                    <TouchableOpacity style={styles.btnDir} onPress={() => onDirections(request)}><Icon name="directions" size={15} color={C.white} /></TouchableOpacity>
+                  )}
+                </View>
               )}
             </View>
           )}
-        </View>
-      )}
 
-      {/* Location */}
-      {request.location?.address && (
-        <View style={styles.locationRow}>
-          <Icon name="location" size={16} color="#EF4444" />
-          <Text style={styles.locationText} numberOfLines={2}>
-            {request.location.address}
-          </Text>
-        </View>
-      )}
+          {/* Location */}
+          {serviceAddress && (
+            <View style={styles.locRow}>
+              <Icon name="location" size={14} color={C.danger} />
+              <Text style={styles.locText} numberOfLines={2}>{serviceAddress}</Text>
+            </View>
+          )}
 
-      {/* Date & Time */}
-      <View style={styles.dateRow}>
-        <View style={styles.dateItem}>
-          <Text style={styles.dateLabel}>Service Date</Text>
-          <Text style={styles.dateValue}>
-            {serviceDate.toLocaleDateString('en-IN', { 
-              day: 'numeric', 
-              month: 'short',
-              year: 'numeric',
-            })}
-          </Text>
-        </View>
-        {/* Service Time — for scheduled/future bookings */}
-        {request.serviceTime && (() => {
-          let h, m;
-          const asDate = new Date(request.serviceTime);
-          if (!isNaN(asDate.getTime()) && request.serviceTime.length > 5) {
-            h = asDate.getHours();
-            m = asDate.getMinutes();
-          } else {
-            [h, m] = String(request.serviceTime).split(':').map(Number);
-          }
-          if (isNaN(h) || isNaN(m)) return null;
-          const period = h >= 12 ? 'PM' : 'AM';
-          const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
-          return (
-            <>
-              <View style={styles.dateDivider} />
-              <View style={styles.dateItem}>
-                <Text style={styles.dateLabel}>Service Time</Text>
-                <Text style={styles.dateValue}>
-                  {`${displayHour}:${String(m).padStart(2, '0')} ${period}`}
-                </Text>
-              </View>
-            </>
-          );
-        })()}
-        {request.completedAt && (
-          <>
-            <View style={styles.dateDivider} />
-            <View style={styles.dateItem}>
-              <Text style={styles.dateLabel}>Completed</Text>
-              <Text style={styles.dateValue}>
-                {new Date(request.completedAt).toLocaleDateString('en-IN', { 
-                  day: 'numeric', 
-                  month: 'short',
-                })}
+          {/* Description */}
+          {request.description && (
+            <Text style={styles.descInline} numberOfLines={1}>{request.description}</Text>
+          )}
+
+          {/* Date/Time */}
+          <View style={styles.dtRow}>
+            <View style={styles.dtItem}>
+              <Text style={styles.dtLabel}>DATE</Text>
+              <Text style={styles.dtVal}>
+                {isEvent && request.eventDate
+                  ? new Date(request.eventDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+                  : serviceDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
               </Text>
             </View>
-          </>
-        )}
-      </View>
-
-      {/* Earnings (for completed) */}
-      {request.status === 'completed' && request.earnings && (
-        <View style={styles.earningsContainer}>
-          <View style={styles.earningsLabelRow}>
-            <Icon name="money" size={16} color="#10B981" />
-            <Text style={styles.earningsLabel}>Earnings</Text>
+            {request.serviceTime && !isEmergency && (() => {
+              let h, m;
+              const d = new Date(request.serviceTime);
+              if (!isNaN(d.getTime()) && request.serviceTime.length > 5) { h = d.getHours(); m = d.getMinutes(); }
+              else { [h, m] = String(request.serviceTime).split(':').map(Number); }
+              if (isNaN(h) || isNaN(m)) return null;
+              const p = h >= 12 ? 'PM' : 'AM';
+              const dh = h === 0 ? 12 : h > 12 ? h - 12 : h;
+              return (<><View style={styles.dtDiv} /><View style={styles.dtItem}><Text style={styles.dtLabel}>TIME</Text><Text style={styles.dtVal}>{dh}:{String(m).padStart(2, '0')} {p}</Text></View></>);
+            })()}
           </View>
-          <Text style={styles.earningsValue}>₹{request.earnings}</Text>
-        </View>
-      )}
 
-      {/* View Details */}
-      <View style={styles.viewDetails}>
-        <Text style={styles.viewDetailsText}>View Details</Text>
-        <Icon name="chevron-right" size={16} color={BRAND.secondary} />
-      </View>
+          {/* PENDING: Map + Accept/Reject in one row */}
+          {isPending && (
+            <View style={styles.pendingActionRow}>
+              {hasLocation && isLocationTrackable && (
+                <TouchableOpacity style={styles.viewMapBtnCompact} onPress={() => onDirections(request)} activeOpacity={0.7}>
+                  <Icon name="navigate" size={15} color={C.secondary} />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.rejectBtn, isRejecting && styles.btnDisabled]}
+                onPress={() => onReject(request)}
+                disabled={isRejecting || isAccepting}
+              >
+                {isRejecting ? <ActivityIndicator color={C.danger} size="small" /> : (
+                  <><Icon name="close" size={15} color={C.danger} /><Text style={styles.rejectBtnText}>Reject</Text></>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.acceptBtn, isAccepting && styles.btnDisabled]}
+                onPress={() => onAccept(request)}
+                disabled={isAccepting || isRejecting}
+              >
+                {isAccepting ? <ActivityIndicator color="#fff" size="small" /> : (
+                  <><Icon name="check" size={15} color="#fff" /><Text style={styles.acceptBtnText}>Accept</Text></>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* ACTIVE: Complete + Cancel */}
+          {isActive && (
+            <View style={styles.actionRow}>
+              <TouchableOpacity style={styles.completeBtn} onPress={() => onComplete(request)} activeOpacity={0.7}>
+                <Icon name="check-circle" size={15} color={C.white} />
+                <Text style={styles.completeBtnText}>Complete</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.cancelIconBtn} onPress={() => onCancel(request)} activeOpacity={0.7}>
+                <Icon name="close" size={17} color={C.danger} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* View details */}
+          <TouchableOpacity style={styles.detailsRow} onPress={onPress} activeOpacity={0.6}>
+            <Text style={styles.detailsText}>View Details</Text>
+            <Icon name="chevron-right" size={15} color={C.secondary} />
+          </TouchableOpacity>
+        </>
+      )}
     </TouchableOpacity>
   );
 };
 
-/**
- * Empty State
- */
+/* ── Empty State ───────────────────────────────────────────────────── */
 const EmptyState = ({ filter }) => {
-  const getMessage = () => {
-    switch (filter) {
-      case 'in-progress':
-        return 'No active jobs right now.\nAccept new requests to get started!';
-      case 'completed':
-        return 'No completed jobs yet.\nComplete your first job to see it here.';
-      case 'cancelled':
-        return 'No cancelled jobs.\nGreat job maintaining your service quality!';
-      default:
-        return 'No service history yet.\nStart accepting requests to build your history.';
-    }
-  };
-
+  const msg = filter === 'pending' ? 'No new requests right now.' : filter === 'active' ? 'No active jobs.' : filter === 'completed' ? 'No completed jobs yet.' : filter === 'cancelled' ? 'No cancelled jobs.' : 'No jobs yet. Stay online to receive requests!';
   return (
-    <View style={styles.emptyContainer}>
-      <Icon name="clipboard-list" size={64} color="#9CA3AF" />
+    <View style={styles.emptyWrap}>
+      <View style={styles.emptyCircle}><Icon name="clipboard-list" size={44} color={C.muted} /></View>
       <Text style={styles.emptyTitle}>No Jobs Found</Text>
-      <Text style={styles.emptyText}>{getMessage()}</Text>
+      <Text style={styles.emptyMsg}>{msg}</Text>
     </View>
   );
 };
 
-/**
- * Provider Service History Screen
- */
-const ProviderServiceHistoryScreen = ({ navigation }) => {
+/* ── Main Screen ───────────────────────────────────────────────────── */
+const ProviderServiceHistoryScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
   const { user, profile, userType, logout } = useApp();
+  const { dialog } = useDialog();
+  const appStateRef = useRef(AppState.currentState);
 
-  // State
+  const initialTab = route?.params?.tab || 'all';
+
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [requests, setRequests] = useState([]);
-  const [activeFilter, setActiveFilter] = useState('all');
-  const [stats, setStats] = useState({
-    total: 0,
-    active: 0,
-    completed: 0,
-    rating: 0,
-  });
+  const [allRequests, setAllRequests] = useState([]);
+  const [activeFilter, setActiveFilter] = useState(initialTab);
+  const [datePreset, setDatePreset] = useState('all');
+  const [showDateFilter, setShowDateFilter] = useState(false);
+  const [stats, setStats] = useState({ total: 0, active: 0, completed: 0, pending: 0, rating: 0 });
 
-  // Get provider ID
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+
+  const [acceptingId, setAcceptingId] = useState(null);
+  const [rejectingId, setRejectingId] = useState(null);
+
+  const [otpModalVisible, setOtpModalVisible] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [otpError, setOtpError] = useState('');
+
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelJob, setCancelJob] = useState(null);
+  const [cancellingId, setCancellingId] = useState(null);
+
   const displayData = { ...user, ...profile };
   const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
-  
-  console.log('[ProviderHistory] Provider ID resolution:', {
-    'user?.mongoId': user?.mongoId,
-    'profile?.mongoId': profile?.mongoId,
-    'user?._id': user?._id,
-    'profile?._id': profile?._id,
-    'resolved providerId': providerId,
-  });
+
+  // Load auto-refresh preference
+  useEffect(() => {
+    AsyncStorage.getItem('app_preferences').then(saved => {
+      if (saved) { const p = JSON.parse(saved); setAutoRefreshEnabled(p.autoRefresh !== false); }
+    }).catch(() => {});
+  }, []);
+
+  // Handle route params change (for deep linking)
+  useEffect(() => {
+    if (route?.params?.tab) setActiveFilter(route.params.tab);
+  }, [route?.params?.tab]);
 
   /**
-   * Fetch service history - includes both traditional and event services
+   * Fetch all jobs — traditional + event + emergency
    */
-  const fetchHistory = useCallback(async () => {
-    if (!providerId) {
-      setLoading(false);
-      return;
-    }
-    
-    console.log('[ProviderHistory] Fetching event services for providerId:', providerId);
-
+  const fetchJobs = useCallback(async (showLoading = true) => {
+    if (!providerId) { setLoading(false); return; }
+    if (showLoading) setLoading(true);
     try {
-      // Fetch both traditional services and event services
-      const [traditionalResult, eventResult] = await Promise.all([
-        getProviderRequests(providerId, {
-          limit: 100,
-          status: activeFilter !== 'all' ? activeFilter : undefined,
-        }),
+      const [traditionalResult, eventResult, emergencyResult] = await Promise.all([
+        getProviderRequests(providerId, { page: 1, limit: 500, sortBy: 'createdAt', sortOrder: 'desc' }),
         fetch(`${NODE_BASE_URL}/api/event-services/provider/${providerId}`).then(r => r.json()).catch(() => ({ data: [] })),
+        fetch(`${NODE_BASE_URL}/api/emergency-services/provider/${providerId}`).then(r => r.json()).catch(() => ({ data: [] })),
       ]);
-      
-      console.log('[ProviderHistory] Event services result:', eventResult);
 
-      // Format event services to match traditional service structure
-      const eventBookings = (eventResult.data || []).map(booking => ({
-        ...booking,
-        _id: booking._id,
-        requestId: booking.serviceId || booking._id,
-        serviceType: booking.serviceType,
-        status: booking.status,
-        createdAt: booking.createdAt,
-        isEventService: true, // Flag to identify event services
-        userName: booking.userName || 'Customer',
-        userPhone: booking.userPhone,
-        eventDate: booking.eventDate,
-        completionOtp: booking.completionOtp,
-      }));
-      
-      // Filter event bookings if filter is active
-      const filteredEventBookings = activeFilter === 'all' 
-        ? eventBookings 
-        : eventBookings.filter(b => b.status === activeFilter);
+      // Format event services
+      const eventBookings = (eventResult.data || []).map(b => {
+        const loc = b.eventLocation || b.location || {};
+        return {
+          ...b, _id: b._id, requestId: b.serviceId || b._id, serviceType: b.serviceType, status: b.status,
+          createdAt: b.createdAt, isEventService: true, completionOtp: b.completionOtp, eventDate: b.eventDate,
+          userDetails: b.userDetails || (b.userId ? { name: b.userName || 'Customer' } : null),
+          location: { address: loc.address || '', coordinates: loc.coordinates || null, landmark: loc.landmark || '' },
+          serviceAddress: loc.address || '',
+        };
+      });
 
-      // Combine and sort by date
-      const allRequests = [
+      // Format emergency services
+      const emergencyData = emergencyResult.requests || emergencyResult.data || [];
+      const emergencyBookings = emergencyData.map(b => {
+        const loc = b.location || {};
+        return {
+          ...b, _id: b._id, requestId: b.requestId || b._id, serviceType: b.serviceType, status: b.status,
+          createdAt: b.createdAt, isEmergencyService: true, completionOtp: b.completionOtp,
+          userDetails: b.userDetails || { name: 'Customer' },
+          location: { ...loc, address: loc.address || loc.landmark || '', coordinates: loc.latitude && loc.longitude ? [loc.longitude, loc.latitude] : null },
+          serviceAddress: loc.address || (loc.latitude ? `${loc.latitude.toFixed(4)}, ${loc.longitude.toFixed(4)}` : ''),
+          description: b.notes,
+        };
+      });
+
+      const combined = [
         ...(traditionalResult.success ? traditionalResult.requests : []),
-        ...filteredEventBookings,
+        ...eventBookings,
+        ...emergencyBookings,
       ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-      setRequests(allRequests);
-      
-      // Calculate stats from combined requests
+      setAllRequests(combined);
+
+      const rating = profile?.ratings?.average || profile?.rating || user?.rating || 0;
       setStats({
-        total: allRequests.length,
-        active: allRequests.filter(r => ['accepted', 'in-progress'].includes(r.status)).length,
-        completed: allRequests.filter(r => r.status === 'completed').length,
-        rating: user?.rating || profile?.rating || 0,
+        total: combined.length,
+        pending: combined.filter(r => ['pending', 'awaiting_confirmation'].includes(r.status)).length,
+        active: combined.filter(r => ['accepted', 'in-progress', 'in_transit', 'arrived'].includes(r.status)).length,
+        completed: combined.filter(r => r.status === 'completed').length,
+        rating,
       });
     } catch (error) {
-      console.error('Error fetching history:', error);
+      console.error('[ProviderJobs] Error:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [providerId, activeFilter]);
+  }, [providerId, profile, user]);
 
-  /**
-   * Handle refresh
-   */
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchHistory();
-    setRefreshing(false);
-  };
+  // Fetch on mount
+  useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
-  /**
-   * Handle filter change
-   */
-  const handleFilterChange = (filter) => {
-    setActiveFilter(filter);
-  };
+  // Auto-refresh on focus
+  useEffect(() => { if (isFocused && autoRefreshEnabled && !loading) fetchJobs(false); }, [isFocused]);
 
-  /**
-   * Handle call customer - direct phone dialing
-   */
-  const handleCall = (request) => {
-    const phone = request.userDetails?.phone || request.userDetails?.verifiedPhone || request.userPhone;
-    const customerName = request.userDetails?.name || request.userName || 'Customer';
-    
-    if (!phone) {
-      Alert.alert('Error', 'Customer phone number not available');
-      return;
-    }
-
-    const phoneNumber = phone.replace(/\s/g, '');
-    const url = `tel:${phoneNumber}`;
-
-    Alert.alert(
-      '📞 Call Customer',
-      `Call ${customerName} at ${phone}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Call Now',
-          onPress: () => {
-            Linking.openURL(url).catch(() => {
-              Alert.alert('Error', 'Unable to make phone calls on this device');
-            });
-          },
-        },
-      ]
-    );
-  };
-
-  /**
-   * Handle get directions
-   */
-  const handleDirections = (location) => {
-    const { latitude, longitude, lat, lng } = location.coordinates || location;
-    const destLat = latitude || lat;
-    const destLng = longitude || lng;
-    
-    if (!destLat || !destLng) {
-      Alert.alert('Error', 'Location coordinates not available');
-      return;
-    }
-
-    const url = Platform.select({
-      ios: `maps:?daddr=${destLat},${destLng}`,
-      android: `google.navigation:q=${destLat},${destLng}`,
-    });
-
-    Linking.openURL(url).catch(() => {
-      Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}`);
-    });
-  };
-
-  /**
-   * Handle view details
-   */
-  const handleViewDetails = (request) => {
-    // Pass both _id and requestId for maximum compatibility
-    // ServiceRequestDetailScreen will use requestId for API calls
-    navigation.navigate('ServiceRequestDetail', { 
-      requestId: request.requestId || request._id,
-      request: request, // Pass full request for immediate display
-    });
-  };
-
-  // Effects
+  // Periodic auto-refresh every 30s
   useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
+    if (!isFocused || !autoRefreshEnabled) return;
+    const interval = setInterval(() => fetchJobs(false), 30000);
+    return () => clearInterval(interval);
+  }, [isFocused, autoRefreshEnabled, fetchJobs]);
 
-  // Filter requests
-  const filteredRequests = activeFilter === 'all' 
-    ? requests 
-    : requests.filter(r => r.status === activeFilter || 
-        (activeFilter === 'in-progress' && ['accepted', 'in-progress'].includes(r.status)));
+  // AppState listener
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (ns) => {
+      if (appStateRef.current.match(/inactive|background/) && ns === 'active' && isFocused && autoRefreshEnabled) fetchJobs(false);
+      appStateRef.current = ns;
+    });
+    return () => sub.remove();
+  }, [isFocused, autoRefreshEnabled, fetchJobs]);
 
-  if (loading) {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BRAND.primary} />
-          <Text style={styles.loadingText}>Loading history...</Text>
-        </View>
-      </View>
-    );
-  }
+  // Socket listeners
+  useEffect(() => {
+    const cleanups = [
+      addSocketListener('new:request', () => { if (autoRefreshEnabled) fetchJobs(false); }),
+      addSocketListener('request:cancelled', () => { if (autoRefreshEnabled) fetchJobs(false); }),
+      addSocketListener('request:status', () => { if (autoRefreshEnabled) fetchJobs(false); }),
+      addSocketListener('request:accepted', () => { if (autoRefreshEnabled) fetchJobs(false); }),
+      addSocketListener('request:completed', () => { if (autoRefreshEnabled) fetchJobs(false); }),
+    ];
+    return () => cleanups.forEach(fn => fn());
+  }, [autoRefreshEnabled, fetchJobs]);
+
+  // FCM foreground listener
+  useEffect(() => {
+    const unsub = setupForegroundMessageListener(() => { if (autoRefreshEnabled) fetchJobs(false); });
+    return () => { if (unsub) unsub(); };
+  }, [autoRefreshEnabled, fetchJobs]);
+
+  const onRefresh = () => { setRefreshing(true); fetchJobs(false); };
+
+  // ── Accept ──
+  const handleAccept = (job) => {
+    dialog('Accept Request', `Accept this ${SERVICE_TYPE_LABELS[job.serviceType] || job.serviceType} request?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Accept', onPress: async () => {
+        setAcceptingId(job._id);
+        try {
+          let result;
+          if (job.isEmergencyService) {
+            const r = await authFetch(`${NODE_BASE_URL}/api/emergency-services/${job._id}/accept`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ providerId, estimatedArrival: 15 }) });
+            result = await r.json(); result.success = r.ok && result.success !== false;
+          } else if (job.isEventService) {
+            const r = await authFetch(`${NODE_BASE_URL}/api/event-services/${job._id}/accept`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ providerId }) });
+            result = await r.json(); result.success = r.ok && result.success !== false;
+          } else {
+            result = await acceptRequestAsProvider(job._id, providerId, job.userDetails?.email || '');
+          }
+          if (result.success) {
+            dialog('Accepted', 'Request accepted! Customer has been notified.');
+            fetchJobs(false);
+          } else {
+            const errMsg = (result.error || result.message || '').toLowerCase();
+            if (errMsg.includes('cancel')) {
+              dialog('Request Cancelled', 'This request was cancelled by the customer and is no longer available.');
+              // Optimistic update — remove from list
+              setAllRequests(prev => prev.filter(j => j._id !== job._id));
+            } else if (errMsg.includes('expired') || errMsg.includes('timeout')) {
+              dialog('Request Expired', 'This request has expired and is no longer available.');
+              setAllRequests(prev => prev.filter(j => j._id !== job._id));
+            } else if (errMsg.includes('already') || errMsg.includes('accepted')) {
+              dialog('Already Accepted', 'This request has already been accepted by another provider.');
+              setAllRequests(prev => prev.filter(j => j._id !== job._id));
+            } else if (errMsg.includes('cannot') || errMsg.includes('not valid') || errMsg.includes('invalid')) {
+              dialog('Request Unavailable', 'This request is no longer available. It may have been cancelled, expired, or accepted by another provider.');
+              fetchJobs(false);
+            } else {
+              dialog('Unable to Accept', result.error || result.message || 'This request could not be accepted. Please refresh and try again.');
+            }
+          }
+        } catch (e) {
+          const errMsg = (e.message || '').toLowerCase();
+          if (errMsg.includes('cancel')) {
+            dialog('Request Cancelled', 'This request was cancelled by the customer and is no longer available.');
+            setAllRequests(prev => prev.filter(j => j._id !== job._id));
+          } else if (errMsg.includes('cannot') || errMsg.includes('not valid')) {
+            dialog('Request Unavailable', 'This request is no longer available. It may have been cancelled or expired.');
+            fetchJobs(false);
+          } else {
+            dialog('Connection Error', 'Could not reach the server. Please check your internet connection and try again.');
+          }
+        }
+        finally { setAcceptingId(null); }
+      }},
+    ]);
+  };
+
+  // ── Reject ──
+  const handleReject = (job) => {
+    dialog('Reject Request', `Reject this ${SERVICE_TYPE_LABELS[job.serviceType] || job.serviceType} request?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Reject', style: 'destructive', onPress: async () => {
+        setRejectingId(job._id);
+        try {
+          let result;
+          if (job.isEmergencyService) {
+            const r = await authFetch(`${NODE_BASE_URL}/api/emergency-services/${job._id}/provider-reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ providerId }) });
+            result = await r.json(); result.success = result.success || r.ok;
+          } else if (job.isEventService) {
+            const r = await authFetch(`${NODE_BASE_URL}/api/event-services/${job._id}/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ providerId }) });
+            result = await r.json(); result.success = result.success || r.ok;
+          } else {
+            const r = await authFetch(`${NODE_BASE_URL}/api/traditional-services/${job._id}/provider-reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ providerId }) });
+            result = await r.json(); result.success = result.success || r.ok;
+          }
+          if (result.success) {
+            dialog('Rejected', 'Request rejected. The customer has been notified.');
+            setAllRequests(prev => prev.filter(j => j._id !== job._id));
+            setTimeout(() => fetchJobs(false), 1500);
+          } else {
+            const errMsg = (result.error || result.message || '').toLowerCase();
+            if (errMsg.includes('cancel')) {
+              dialog('Already Cancelled', 'This request was already cancelled by the customer.');
+              setAllRequests(prev => prev.filter(j => j._id !== job._id));
+            } else {
+              dialog('Unable to Reject', result.error || result.message || 'Could not reject this request. Please try again.');
+            }
+          }
+        } catch (e) {
+          dialog('Connection Error', 'Could not reach the server. Please check your internet connection and try again.');
+        }
+        finally { setRejectingId(null); }
+      }},
+    ]);
+  };
+
+  // ── Call ──
+  const handleCall = (req) => {
+    const phone = req.userDetails?.phone || req.userDetails?.verifiedPhone || req.userPhone;
+    if (!phone) { dialog('Error', 'Phone not available'); return; }
+    dialog('Call Customer', `Call ${req.userDetails?.name || 'Customer'} at ${phone}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Call Now', onPress: () => Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => dialog('Error', 'Cannot make calls')) },
+    ]);
+  };
+
+  // ── Directions ──
+  const handleDirections = (job) => {
+    let lat, lng;
+    if (job.location?.coordinates && Array.isArray(job.location.coordinates)) { [lng, lat] = job.location.coordinates; }
+    else if (job.location?.latitude && job.location?.longitude) { lat = job.location.latitude; lng = job.location.longitude; }
+    if (!lat || !lng) { dialog('Location Error', 'Coordinates not available'); return; }
+    const url = Platform.select({ ios: `maps:?daddr=${lat},${lng}`, android: `google.navigation:q=${lat},${lng}` });
+    Linking.openURL(url).catch(() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`));
+  };
+
+  const handleViewDetails = (req) => navigation.navigate('ServiceRequestDetail', {
+    requestId: req.requestId || req._id,
+    request: (req.isEventService || req.isEmergencyService) ? req : undefined,
+    isEventService: req.isEventService,
+    isEmergencyService: req.isEmergencyService,
+  });
+
+  // ── Complete (OTP) ──
+  const handleComplete = (req) => { setSelectedJob(req); setOtpError(''); setOtpModalVisible(true); };
+
+  const handleVerifyOtp = async (otp) => {
+    if (!selectedJob) return;
+    setIsVerifyingOtp(true); setOtpError('');
+    try {
+      let result;
+      if (selectedJob.isEmergencyService) {
+        const r = await authFetch(`${NODE_BASE_URL}/api/emergency-services/${selectedJob._id}/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ otp }) });
+        result = await r.json(); result.success = r.ok && result.success !== false;
+      } else if (selectedJob.isEventService) {
+        const r = await authFetch(`${NODE_BASE_URL}/api/event-services/${selectedJob._id}/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ otp }) });
+        result = await r.json(); result.success = r.ok && result.success !== false;
+      } else {
+        result = await verifyCompletionOtp(selectedJob._id, otp);
+      }
+      if (result.success) { setOtpModalVisible(false); setSelectedJob(null); dialog('Service Completed!', 'Great job!'); fetchJobs(false); }
+      else if (result.code === 'OTP_EXPIRED') setOtpError('OTP has expired.');
+      else setOtpError(result.error || result.message || 'Invalid OTP.');
+    } catch (e) { setOtpError(e.message || 'Failed to verify OTP.'); }
+    finally { setIsVerifyingOtp(false); }
+  };
+
+  // ── Cancel ──
+  const handleCancel = (req) => { setCancelJob(req); setCancelModalVisible(true); };
+
+  const executeCancellation = async (reason) => {
+    if (!cancelJob) return;
+    setCancellingId(cancelJob._id);
+    try {
+      let result;
+      if (cancelJob.isEmergencyService) {
+        const r = await authFetch(`${NODE_BASE_URL}/api/emergency-services/${cancelJob._id}/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cancelledBy: 'provider', reason }) });
+        result = await r.json(); result.success = result.success || r.ok;
+      } else if (cancelJob.isEventService) {
+        const r = await authFetch(`${NODE_BASE_URL}/api/event-services/${cancelJob._id}/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ providerId, reason }) });
+        result = await r.json(); result.success = result.success || r.ok;
+      } else {
+        result = await providerCancelRequest(cancelJob._id, providerId, reason);
+      }
+      if (result.success !== false) { setCancelModalVisible(false); setCancelJob(null); dialog('Cancelled', 'Request cancelled.'); fetchJobs(false); }
+      else dialog('Error', result.message || 'Failed to cancel.');
+    } catch (e) { dialog('Error', e.message || 'Failed to cancel.'); }
+    finally { setCancellingId(null); }
+  };
+
+  // ── Filter ──
+  const filteredRequests = useMemo(() => {
+    let f = allRequests;
+    switch (activeFilter) {
+      case 'all': break;
+      case 'pending': f = f.filter(r => ['pending', 'awaiting_confirmation'].includes(r.status)); break;
+      case 'active': f = f.filter(r => ['accepted', 'in-progress', 'in_transit', 'arrived'].includes(r.status)); break;
+      case 'completed': f = f.filter(r => r.status === 'completed'); break;
+      case 'cancelled': f = f.filter(r => ['cancelled', 'rejected', 'expired'].includes(r.status)); break;
+      default: break;
+    }
+    const dr = getDateRange(datePreset);
+    if (dr) f = f.filter(r => ACTIVE_STATUSES.includes(r.status) ? true : new Date(r.serviceDate || r.createdAt) >= dr.start && new Date(r.serviceDate || r.createdAt) <= dr.end);
+    return f;
+  }, [allRequests, activeFilter, datePreset]);
+
+  if (loading) return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.loaderWrap}><ActivityIndicator size="large" color={C.primary} /><Text style={styles.loaderText}>Loading jobs...</Text></View>
+    </View>
+  );
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header */}
       <View style={styles.header}>
-        <MenuButton onPress={() => setIsDrawerOpen(true)} />
-        <Text style={styles.headerTitle}>Service History</Text>
-        <AvatarButton 
-          name={displayData?.fullName} 
-          profilePicture={displayData?.profilePicture}
-          onPress={() => navigation.navigate('Profile')} 
-          isProvider={true}
-        />
+        <TouchableOpacity onPress={() => setIsDrawerOpen(true)} activeOpacity={0.7} style={styles.headerLogoBtn}>
+          <Image source={FIXHOMI_LOGO} style={styles.headerLogoImg} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>My Jobs</Text>
+        <AvatarButton name={displayData?.fullName} profilePicture={displayData?.profilePicture} onPress={() => navigation.navigate('Profile')} isProvider={true} />
       </View>
 
-      <FilterTabs activeFilter={activeFilter} onFilterChange={handleFilterChange} />
+      {/* Stats — fixed, no animation for cross-device consistency */}
+      <View style={styles.statsBar}>
+        <View style={styles.statsRow}>
+          <StatPill value={stats.total} label="Total" color={C.secondary} bgColor="#EFF6FF" icon={<Icon name="briefcase" size={14} color={C.secondary} />} />
+          <StatPill value={stats.pending} label="New" color={C.primary} bgColor="#FFF7ED" icon={<Icon name="inbox" size={14} color={C.primary} />} />
+          <StatPill value={stats.active} label="Active" color={C.purple} bgColor="#FAF5FF" icon={<Icon name="clock" size={14} color={C.purple} />} />
+          <StatPill value={stats.completed} label="Done" color={C.success} bgColor="#ECFDF5" icon={<Icon name="check-circle" size={14} color={C.success} />} />
+        </View>
+      </View>
 
+      {/* Filter Row */}
+      <View style={styles.filterBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll} style={{ flex: 1 }}>
+          {FILTER_TABS.map(t => {
+            const active = activeFilter === t.key;
+            return (
+              <TouchableOpacity key={t.key} style={[styles.filterPill, active && styles.filterPillActive]} onPress={() => setActiveFilter(t.key)} activeOpacity={0.7}>
+                <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>{t.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+        <View style={styles.filterIconSeparator} />
+        <TouchableOpacity style={[styles.filterIconBtn, showDateFilter && styles.filterIconBtnOn]} onPress={() => setShowDateFilter(v => !v)} activeOpacity={0.7}>
+          <Icon name={showDateFilter || datePreset !== 'all' ? 'filter-outline' : 'filter-off-outline'} size={18} color={showDateFilter ? C.white : C.textSec} />
+          {datePreset !== 'all' && <View style={styles.filterDot} />}
+        </TouchableOpacity>
+      </View>
+
+      {/* Date chips */}
+      {showDateFilter && (
+        <View style={styles.dateBar}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateScroll}>
+            {DATE_PRESETS.map(p => {
+              const a = datePreset === p.key;
+              return (
+                <TouchableOpacity key={p.key} style={[styles.dateChip, a && styles.dateChipOn]} onPress={() => setDatePreset(p.key)} activeOpacity={0.7}>
+                  <Text style={[styles.dateChipText, a && styles.dateChipTextOn]}>{p.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* List */}
       <FlatList
         data={filteredRequests}
-        keyExtractor={(item) => item.requestId || item._id}
-        ListHeaderComponent={<StatsDashboard stats={stats} />}
+        keyExtractor={item => item._id}
+        ListHeaderComponent={
+          (activeFilter !== 'all' || datePreset !== 'all') ? (
+            <Text style={styles.resultCount}>{filteredRequests.length} {filteredRequests.length === 1 ? 'job' : 'jobs'}</Text>
+          ) : null
+        }
         renderItem={({ item }) => (
           <RequestCard
             request={item}
             onPress={() => handleViewDetails(item)}
             onCall={handleCall}
             onDirections={handleDirections}
+            onComplete={handleComplete}
+            onCancel={handleCancel}
+            onAccept={handleAccept}
+            onReject={handleReject}
+            isAccepting={acceptingId === item._id}
+            isRejecting={rejectingId === item._id}
           />
         )}
         ListEmptyComponent={<EmptyState filter={activeFilter} />}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        contentContainerStyle={[styles.listPad, { paddingBottom: insets.bottom + 40 }]}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} />}
         showsVerticalScrollIndicator={false}
       />
 
-      <DrawerMenu
-        visible={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-        user={displayData}
-        userType={userType}
-        navigation={navigation}
-        onLogout={logout}
-        isVerified={displayData?.isPhoneVerified && displayData?.isEmailVerified}
-      />
+      <DrawerMenu visible={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} user={displayData} userType={userType} navigation={navigation} onLogout={logout} isVerified={displayData?.isPhoneVerified && displayData?.isEmailVerified} activeTab="jobs" />
+      <OTPModal visible={otpModalVisible} onClose={() => { setOtpModalVisible(false); setSelectedJob(null); setOtpError(''); }} onVerify={handleVerifyOtp} isVerifying={isVerifyingOtp} error={otpError} />
+      <CancellationReasonModal visible={cancelModalVisible} onClose={() => { setCancelModalVisible(false); setCancelJob(null); }} onSubmit={executeCancellation} loading={!!cancellingId} />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BRAND.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: BRAND.white, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937' },
-  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadingText: { marginTop: 12, fontSize: 16, color: '#666' },
-  listContent: { padding: 16, paddingBottom: 32 },
-  // Stats
-  statsContainer: { backgroundColor: BRAND.white, borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  statsTitle: { fontSize: 16, fontWeight: '600', color: '#1a1a1a', marginBottom: 12 },
-  statsGrid: { flexDirection: 'row', justifyContent: 'space-between' },
-  statsCard: { flex: 1, alignItems: 'center', padding: 12, borderRadius: 12, marginHorizontal: 4 },
-  statsIcon: { fontSize: 20, marginBottom: 4 },
-  statsValue: { fontSize: 20, fontWeight: '700' },
-  statsLabel: { fontSize: 11, color: '#666', marginTop: 2 },
-  // Filter
-  filterContainer: { flexDirection: 'row', backgroundColor: BRAND.white, paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  filterTab: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#F3F4F6', borderRadius: 20 },
-  filterTabActive: { backgroundColor: BRAND.primary },
-  filterTabText: { fontSize: 14, fontWeight: '600', color: '#374151' },
-  filterTabTextActive: { color: BRAND.white },
-  // Request Card
-  requestCard: {
-    backgroundColor: BRAND.white,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  serviceTypeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  serviceTypeIcon: {
-    fontSize: 32,
-    marginRight: 12,
-  },
-  serviceType: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    textTransform: 'capitalize',
-  },
-  requestId: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 2,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  statusIcon: {
-    fontSize: 12,
-    marginRight: 4,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
+  container: { flex: 1, backgroundColor: C.bg },
+
+  // Header
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 12, backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: C.border },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: C.text, letterSpacing: -0.3 },
+  headerLogoBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.95)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
+  headerLogoImg: { width: 30, height: 30, borderRadius: 8 },
+
+  // Loader
+  loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  loaderText: { marginTop: 12, fontSize: 14, fontWeight: '500', color: C.textSec },
+
+  // Stats — fixed (no animation)
+  statsBar: { backgroundColor: C.white, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.border },
+  statsRow: { flexDirection: 'row', gap: 8 },
+  statPill: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 14, borderWidth: 1, gap: 2 },
+  statValue: { fontSize: 20, fontWeight: '800', letterSpacing: -0.5 },
+  statLabel: { fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+
+  // Filter bar
+  filterBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: C.border },
+  filterScroll: { paddingHorizontal: 14, paddingVertical: 10, gap: 7 },
+  filterPill: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#F1F5F9', borderRadius: 22, borderWidth: 1, borderColor: '#E2E8F0' },
+  filterPillActive: { backgroundColor: C.primary, borderColor: C.primary, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
+  filterPillText: { fontSize: 13, fontWeight: '600', color: C.textSec },
+  filterPillTextActive: { color: C.white },
+  filterIconSeparator: { width: 1, height: 28, backgroundColor: '#E2E8F0', marginRight: 10 },
+  filterIconBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center', marginRight: 14, borderWidth: 1, borderColor: '#E2E8F0' },
+  filterIconBtnOn: { backgroundColor: C.secondary, borderColor: C.secondary },
+  filterDot: { position: 'absolute', top: 4, right: 4, width: 8, height: 8, borderRadius: 4, backgroundColor: C.primary, borderWidth: 2, borderColor: C.white },
+
+  // Date bar
+  dateBar: { backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: C.border, paddingTop: 4 },
+  dateScroll: { paddingHorizontal: 14, paddingBottom: 10, gap: 6 },
+  dateChip: { paddingHorizontal: 14, paddingVertical: 7, backgroundColor: '#F1F5F9', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0' },
+  dateChipOn: { backgroundColor: C.secondary, borderColor: C.secondary },
+  dateChipText: { fontSize: 12, fontWeight: '600', color: C.textSec },
+  dateChipTextOn: { color: C.white },
+
+  resultCount: { fontSize: 12, fontWeight: '600', color: C.muted, marginBottom: 6 },
+  listPad: { padding: 14 },
+
+  // Card
+  card: { backgroundColor: C.white, borderRadius: 20, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: C.border, shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 5 },
+  cardPending: { borderColor: C.primary + '50', borderWidth: 1.5, borderLeftWidth: 4, borderLeftColor: C.primary },
+  cardCompact: { padding: 14, marginBottom: 10 },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  cardTopLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 },
+  svcIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#FFF7ED', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  svcNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
+  svcName: { fontSize: 15, fontWeight: '700', color: C.text, textTransform: 'capitalize', flexShrink: 1 },
+  typeBadge: { backgroundColor: '#F3E8FF', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  typeBadgeText: { fontSize: 8, fontWeight: '800', color: C.purple, letterSpacing: 0.5 },
+  svcId: { fontSize: 11, fontWeight: '500', color: C.muted, marginTop: 1 },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, gap: 5 },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusText: { fontSize: 11, fontWeight: '700' },
+
+  // Cancel strip
+  cancelStrip: { backgroundColor: C.dangerBg, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cancelStripText: { fontSize: 11, fontWeight: '500', color: '#991B1B', flex: 1, lineHeight: 16 },
+
+  // Compact
+  compactRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 },
+  compactDate: { fontSize: 12, fontWeight: '500', color: C.muted },
+  compactCustomer: { fontSize: 12, fontWeight: '500', color: C.textSec },
+
   // Customer
-  customerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    marginBottom: 12,
-  },
-  customerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  customerAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: BRAND.secondary + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  customerInitial: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: BRAND.secondary,
-  },
-  customerDetails: {
-    flex: 1,
-  },
-  customerName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1a1a1a',
-  },
-  customerPhone: {
-    fontSize: 13,
-    color: '#666',
-    marginTop: 2,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  quickActionBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f5f5f5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickActionIcon: {
-    fontSize: 18,
-  },
+  customerRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: C.border, marginBottom: 10 },
+  customerAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.secondary + '18', alignItems: 'center', justifyContent: 'center', marginRight: 10, overflow: 'hidden' },
+  customerAvatarImg: { width: 36, height: 36, borderRadius: 18 },
+  customerInitial: { fontSize: 15, fontWeight: '700', color: C.secondary },
+  customerName: { fontSize: 14, fontWeight: '600', color: C.text },
+  customerPhone: { fontSize: 11, color: C.textSec, marginTop: 1 },
+  quickActions: { flexDirection: 'row', gap: 7 },
+  btnCall: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.success, alignItems: 'center', justifyContent: 'center', shadowColor: C.success, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
+  btnDir: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.secondary, alignItems: 'center', justifyContent: 'center', shadowColor: C.secondary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
+
   // Location
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  locationIcon: {
-    fontSize: 14,
-    marginRight: 8,
-    marginTop: 2,
-  },
-  locationText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#666',
-    lineHeight: 18,
-  },
-  // Date
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  dateItem: {
-    flex: 1,
-  },
-  dateLabel: {
-    fontSize: 11,
-    color: '#999',
-    marginBottom: 2,
-  },
-  dateValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
-  },
-  dateDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: '#e8e8e8',
-    marginHorizontal: 16,
-  },
-  // Earnings
-  earningsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#D1FAE5',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  earningsLabel: {
-    fontSize: 14,
-    color: '#059669',
-    fontWeight: '500',
-  },
-  earningsValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#059669',
-  },
-  // View Details
-  viewDetails: {
-    alignItems: 'flex-end',
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-  },
-  viewDetailsText: {
-    fontSize: 14,
-    color: BRAND.secondary,
-    fontWeight: '500',
-  },
-  viewDetails: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    marginTop: 12,
-  },
-  // Additional styles for icon integration
-  serviceTypeTextContainer: {
-    marginLeft: 10,
-  },
-  customerPhoneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
-  },
-  earningsLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  // Empty State
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-    marginTop: 16,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 22,
-    paddingHorizontal: 40,
-  },
+  locRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8, gap: 6 },
+  locText: { flex: 1, fontSize: 12, fontWeight: '500', color: C.textSec, lineHeight: 18 },
+  descInline: { fontSize: 12, color: C.textSec, marginBottom: 8 },
+
+  // Date/Time
+  dtRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: '#EEF2F6' },
+  dtItem: { flex: 1, alignItems: 'center' },
+  dtLabel: { fontSize: 9, fontWeight: '700', color: C.muted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 3 },
+  dtVal: { fontSize: 13, fontWeight: '600', color: C.text },
+  dtDiv: { width: 1, height: 28, backgroundColor: '#E2E8F0', marginHorizontal: 4 },
+
+  // Pending: Map + Accept/Reject row
+  pendingActionRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  viewMapBtnCompact: { width: 42, alignItems: 'center', justifyContent: 'center', backgroundColor: C.secondary + '12', borderRadius: 10, borderWidth: 1, borderColor: C.secondary + '30' },
+  rejectBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FEE2E2', paddingVertical: 11, borderRadius: 10, gap: 5, borderWidth: 1, borderColor: C.danger + '40' },
+  rejectBtnText: { color: C.danger, fontSize: 14, fontWeight: '600' },
+  acceptBtn: { flex: 1.3, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.primary, paddingVertical: 11, borderRadius: 10, gap: 5 },
+  acceptBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  btnDisabled: { opacity: 0.5 },
+
+  // Active: Complete + Cancel
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  completeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.success, borderRadius: 12, paddingVertical: 11, gap: 6, shadowColor: C.success, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
+  completeBtnText: { fontSize: 14, fontWeight: '700', color: C.white },
+  cancelIconBtn: { width: 42, height: 42, borderRadius: 12, borderWidth: 1.5, borderColor: C.danger, backgroundColor: C.dangerBg, alignItems: 'center', justifyContent: 'center' },
+
+  // Details row
+  detailsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border },
+  detailsText: { fontSize: 13, fontWeight: '600', color: C.secondary },
+
+  // Empty
+  emptyWrap: { alignItems: 'center', paddingVertical: 70, paddingHorizontal: 40 },
+  emptyCircle: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  emptyTitle: { fontSize: 18, fontWeight: '800', color: C.text, marginBottom: 6 },
+  emptyMsg: { fontSize: 13, fontWeight: '500', color: C.textSec, textAlign: 'center', lineHeight: 20 },
+
+  // OTP Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: C.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  modalTitle: { fontSize: 19, fontWeight: '800', color: C.text },
+  modalClose: { padding: 4 },
+  modalSubtitle: { fontSize: 13, fontWeight: '500', color: C.textSec, lineHeight: 19, marginBottom: 18 },
+  otpInput: { borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 14, fontSize: 26, fontWeight: '700', color: C.text, textAlign: 'center', paddingVertical: 14, letterSpacing: 10, marginBottom: 10 },
+  otpError: { fontSize: 12, fontWeight: '500', color: C.danger, textAlign: 'center', marginBottom: 10 },
+  verifyBtn: { backgroundColor: C.success, borderRadius: 14, paddingVertical: 15, alignItems: 'center', shadowColor: C.success, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
+  verifyBtnDisabled: { backgroundColor: '#94A3B8', shadowOpacity: 0, elevation: 0 },
+  verifyBtnText: { fontSize: 15, fontWeight: '700', color: C.white },
 });
 
 export default ProviderServiceHistoryScreen;

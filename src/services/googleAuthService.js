@@ -188,14 +188,36 @@ export const signInWithGoogle = async (role = GOOGLE_AUTH_ROLES.USER, mode = nul
 
     // Perform sign in — will now show full account picker
     const signInResult = await GoogleSignin.signIn();
-    
-    console.log('📧 [GoogleAuth] Google Sign-In successful:', signInResult.data?.user?.email);
 
-    // Get ID token - this is what the backend needs
-    const idToken = signInResult.data?.idToken;
-    
+    console.log('📧 [GoogleAuth] Google Sign-In result type:', signInResult.type);
+    console.log('📧 [GoogleAuth] Google Sign-In user:', signInResult.data?.user?.email);
+
+    if (signInResult.type === 'cancelled') {
+      return {
+        success: false,
+        error: {
+          code: GOOGLE_AUTH_CODES.SIGN_IN_CANCELLED,
+          message: 'Google Sign-In was cancelled.',
+        },
+      };
+    }
+
+    // Get ID token - try from signIn result first, then fallback to getTokens()
+    let idToken = signInResult.data?.idToken;
+
     if (!idToken) {
-      console.error('❌ [GoogleAuth] No ID token in sign-in result');
+      console.warn('⚠️ [GoogleAuth] No ID token from signIn result, trying getTokens() fallback...');
+      try {
+        const tokens = await GoogleSignin.getTokens();
+        idToken = tokens.idToken;
+        console.log('✅ [GoogleAuth] Got ID token from getTokens() fallback');
+      } catch (tokenError) {
+        console.error('❌ [GoogleAuth] getTokens() fallback also failed:', tokenError.message);
+      }
+    }
+
+    if (!idToken) {
+      console.error('❌ [GoogleAuth] No ID token from any source');
       return {
         success: false,
         error: {
@@ -415,9 +437,16 @@ export const revokeGoogleAccess = async () => {
  * @param {string} userData.profilePicture - Google profile picture URL
  * @returns {Promise<Object>} MongoDB profile creation response
  */
-export const syncGoogleUserToMongoDB = async (userData) => {
+export const syncGoogleUserToMongoDB = async (userData, accessToken = null) => {
   try {
     console.log('📝 [GoogleAuth] Syncing user profile to MongoDB...');
+
+    // Build request config — pass token explicitly to avoid race condition
+    // (tokens may not be in storage yet if called before handleAuthSuccess)
+    const config = {};
+    if (accessToken) {
+      config.headers = { Authorization: `Bearer ${accessToken}` };
+    }
 
     const response = await apiClient.post('/api/auth/google/sync-user', {
       javaUserId: userData.javaUserId,
@@ -425,7 +454,7 @@ export const syncGoogleUserToMongoDB = async (userData) => {
       fullName: userData.fullName,
       googleId: userData.googleId,
       profilePicture: userData.profilePicture,
-    });
+    }, config);
 
     console.log('✅ [GoogleAuth] User profile synced to MongoDB');
     return {
@@ -436,7 +465,7 @@ export const syncGoogleUserToMongoDB = async (userData) => {
   } catch (error) {
     const parsedError = parseApiError(error);
     console.error('❌ [GoogleAuth] Failed to sync user profile:', parsedError);
-    
+
     return {
       success: false,
       error: parsedError,
@@ -471,9 +500,16 @@ export const createUserProfileFromGoogle = async (userData) => {
  * @param {Object} providerData.location - Location coordinates (optional)
  * @returns {Promise<Object>} MongoDB profile creation response
  */
-export const syncGoogleProviderToMongoDB = async (providerData) => {
+export const syncGoogleProviderToMongoDB = async (providerData, accessToken = null) => {
   try {
     console.log('📝 [GoogleAuth] Syncing provider profile to MongoDB...');
+
+    // Build request config — pass token explicitly to avoid race condition
+    // (tokens may not be in storage yet if called before handleAuthSuccess)
+    const config = {};
+    if (accessToken) {
+      config.headers = { Authorization: `Bearer ${accessToken}` };
+    }
 
     const response = await apiClient.post('/api/auth/google/sync-provider', {
       javaUserId: providerData.javaUserId,
@@ -488,7 +524,7 @@ export const syncGoogleProviderToMongoDB = async (providerData) => {
       longitude: providerData.longitude,
       googleId: providerData.googleId,
       profilePicture: providerData.profilePicture,
-    });
+    }, config);
 
     console.log('✅ [GoogleAuth] Provider profile synced to MongoDB');
     return {
@@ -499,7 +535,7 @@ export const syncGoogleProviderToMongoDB = async (providerData) => {
   } catch (error) {
     const parsedError = parseApiError(error);
     console.error('❌ [GoogleAuth] Failed to sync provider profile:', parsedError);
-    
+
     return {
       success: false,
       error: parsedError,

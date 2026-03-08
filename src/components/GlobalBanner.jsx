@@ -28,12 +28,14 @@ import {
   Linking,
   Image,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Icon } from '../components';
 import { useApp } from '../context/AppContext';
 import { setupForegroundMessageListener } from '../services/fcmService';
 import { addEventListener } from '../services/socketService';
+import { playNotificationSound } from '../utils/notificationSound';
 
 // Brand colors
 const BRAND = {
@@ -100,11 +102,46 @@ const GlobalBanner = () => {
   const isProvider = userType === 'provider';
 
   /**
+   * Check if push notifications are enabled in user preferences
+   */
+  const isPushEnabledRef = useRef(true);
+
+  useEffect(() => {
+    const loadPushPref = async () => {
+      try {
+        const saved = await AsyncStorage.getItem('notification_preferences');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          isPushEnabledRef.current = parsed.pushEnabled !== false;
+        }
+      } catch (e) {
+        // Default to enabled
+      }
+    };
+    loadPushPref();
+    // Re-check when component re-renders (userType change etc.)
+    const interval = setInterval(loadPushPref, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  /**
    * Show the banner with slide-in animation
    */
   const showBanner = useCallback((data) => {
+    // Respect user's push notification preference
+    if (!isPushEnabledRef.current) {
+      console.log('[GlobalBanner] Push notifications disabled — suppressing banner');
+      return;
+    }
+
     // Vibrate to alert
     Vibration.vibrate([0, 400, 200, 400]);
+
+    // Play notification sound (respects user preference)
+    playNotificationSound({
+      title: data.title || 'Fixhomi',
+      body: data.body || '',
+    });
 
     setBannerData(data);
 
@@ -183,7 +220,7 @@ const GlobalBanner = () => {
           bannerType: 'accepted',
         });
       }
-      else if (msgType === 'REQUEST_REJECTED' || msgType === 'BOOKING_REJECTED' || msgType === 'EMERGENCY_REJECTED') {
+      else if (msgType === 'REQUEST_REJECTED' || msgType === 'BOOKING_REJECTED' || msgType === 'EMERGENCY_REJECTED' || msgType === 'PROVIDER_REJECTED') {
         showBannerDeduped({
           ...data,
           title: remoteMessage?.notification?.title || '❌ Request Rejected',

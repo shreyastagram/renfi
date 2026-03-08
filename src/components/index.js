@@ -37,3 +37,4 @@ export { default as CityAutocomplete } from './CityAutocomplete';
 
 // Global Overlays
 export { default as GlobalBanner } from './GlobalBanner';
+export { default as CustomDialog } from './CustomDialog';

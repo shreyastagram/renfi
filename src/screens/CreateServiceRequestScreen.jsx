@@ -23,7 +23,6 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
   Platform,
   Modal,
   FlatList,
@@ -33,6 +32,7 @@ import {
 import Geolocation from '@react-native-community/geolocation';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useApp } from '../context/AppContext';
+import { useDialog } from '../context/DialogContext';
 import {
   createServiceRequest,
   getNearbyProviders,
@@ -43,6 +43,7 @@ import {
 } from '../services/traditionalServiceService';
 import SavedAddresses from '../components/SavedAddresses';
 import { getSavedAddresses, getDefaultAddress } from '../services/addressService';
+import { formatDistance, formatDistanceFromMeters, useDistanceUnit } from '../utils/formatDistance';
 
 // Service type icons (using emoji for simplicity, replace with actual icons)
 const SERVICE_ICONS = {
@@ -60,8 +61,11 @@ const SERVICE_ICONS = {
   ac_repair: '❄️',
 };
 
-const CreateServiceRequestScreen = ({ navigation }) => {
+const CreateServiceRequestScreen = ({ navigation, route }) => {
   const { user, profile } = useApp();
+  const { dialog } = useDialog();
+  const useKm = useDistanceUnit();
+  const existingRequest = route?.params?.existingRequest;
   
   // Form state
   const [selectedService, setSelectedService] = useState(null);
@@ -93,6 +97,16 @@ const CreateServiceRequestScreen = ({ navigation }) => {
   
   // Get user's MongoDB ID
   const userId = user?.mongoId || profile?.id || profile?._id;
+
+  // If navigated with an existing request, skip creation and go to provider search
+  useEffect(() => {
+    if (existingRequest?._id) {
+      setCreatedRequest(existingRequest);
+      setSelectedService(existingRequest.serviceType);
+      // Auto-open provider search
+      setTimeout(() => handleFetchProviders(existingRequest._id), 300);
+    }
+  }, [existingRequest?._id]);
 
   // Fetch location on mount
   useEffect(() => {
@@ -178,7 +192,7 @@ const CreateServiceRequestScreen = ({ navigation }) => {
         // Code 3 (TIMEOUT) can happen on cold GPS start — don't treat as GPS-off.
         if (error.code === 2) {
           setLocationError('GPS is turned off');
-          Alert.alert(
+          dialog(
             'Location is Turned Off',
             'Please enable GPS to detect your location, or select a saved address for your service request.',
             [
@@ -242,19 +256,19 @@ const CreateServiceRequestScreen = ({ navigation }) => {
   const handleCreateRequest = async () => {
     // Validate
     if (!selectedService) {
-      Alert.alert('Error', 'Please select a service type');
+      dialog('Error', 'Please select a service type');
       return;
     }
     if (!serviceDate) {
-      Alert.alert('Error', 'Please select a service date');
+      dialog('Error', 'Please select a service date');
       return;
     }
     if (!location) {
-      Alert.alert('Error', 'Location is required. Please enable location services.');
+      dialog('Error', 'Location is required. Please enable location services.');
       return;
     }
     if (!userId) {
-      Alert.alert('Error', 'User not found. Please login again.');
+      dialog('Error', 'User not found. Please login again.');
       return;
     }
 
@@ -285,7 +299,7 @@ const CreateServiceRequestScreen = ({ navigation }) => {
         setCreatedRequest(result.request);
         
         // Show success prompt - user MUST select a provider or cancel
-        Alert.alert(
+        dialog(
           '✅ Request Created!',
           'Your service request has been created. Please find a provider to complete the booking.',
           [
@@ -311,11 +325,11 @@ const CreateServiceRequestScreen = ({ navigation }) => {
           { cancelable: false } // Force user to make a choice
         );
       } else {
-        Alert.alert('Error', result.error || 'Failed to create request');
+        dialog('Error', result.error || 'Failed to create request');
       }
     } catch (error) {
       console.error('[CreateRequest] Error:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      dialog('Error', 'Something went wrong. Please try again.');
     } finally {
       setIsCreating(false);
     }
@@ -325,7 +339,7 @@ const CreateServiceRequestScreen = ({ navigation }) => {
     const id = requestId || createdRequest?._id;
     
     if (!id) {
-      Alert.alert('Error', 'Request not found');
+      dialog('Error', 'Request not found');
       return;
     }
 
@@ -340,18 +354,18 @@ const CreateServiceRequestScreen = ({ navigation }) => {
         setSearchRadius(result.searchRadius);
         
         if (result.providers.length === 0) {
-          Alert.alert(
+          dialog(
             'No Providers Found',
-            `No providers were found within ${result.searchRadius / 1000}km of your location. Please try again later.`
+            `No providers were found within ${formatDistanceFromMeters(result.searchRadius, useKm)} of your location. Please try again later.`
           );
         }
       } else {
-        Alert.alert('Error', result.error || 'Failed to fetch providers');
+        dialog('Error', result.error || 'Failed to fetch providers');
         setShowProvidersModal(false);
       }
     } catch (error) {
       console.error('[FetchProviders] Error:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      dialog('Error', 'Something went wrong. Please try again.');
       setShowProvidersModal(false);
     } finally {
       setIsFetchingProviders(false);
@@ -363,11 +377,11 @@ const CreateServiceRequestScreen = ({ navigation }) => {
    */
   const handleCancelRequest = () => {
     if (!createdRequest?._id) {
-      Alert.alert('Error', 'No request to cancel');
+      dialog('Error', 'No request to cancel');
       return;
     }
 
-    Alert.alert(
+    dialog(
       '⚠️ Cancel Request',
       'Are you sure you want to cancel this service request?',
       [
@@ -387,7 +401,7 @@ const CreateServiceRequestScreen = ({ navigation }) => {
               );
 
               if (result.success) {
-                Alert.alert(
+                dialog(
                   '✅ Cancelled',
                   'Your service request has been cancelled.',
                   [
@@ -404,11 +418,11 @@ const CreateServiceRequestScreen = ({ navigation }) => {
                   ]
                 );
               } else {
-                Alert.alert('Error', result.error || 'Failed to cancel request');
+                dialog('Error', result.error || 'Failed to cancel request');
               }
             } catch (error) {
               console.error('[CancelRequest] Error:', error);
-              Alert.alert('Error', 'Something went wrong. Please try again.');
+              dialog('Error', 'Something went wrong. Please try again.');
             }
           },
         },
@@ -424,7 +438,7 @@ const CreateServiceRequestScreen = ({ navigation }) => {
    */
   const handleCallProvider = (phone, providerName, providerId) => {
     if (!phone) {
-      Alert.alert('Error', 'Phone number not available');
+      dialog('Error', 'Phone number not available');
       return;
     }
 
@@ -432,7 +446,7 @@ const CreateServiceRequestScreen = ({ navigation }) => {
     const phoneNumber = phone.replace(/\s/g, '');
     const url = `tel:${phoneNumber}`;
 
-    Alert.alert(
+    dialog(
       '📞 Call Provider',
       `Call ${providerName} at ${phone}?\n\nDiscuss your requirements before booking.`,
       [
@@ -449,12 +463,12 @@ const CreateServiceRequestScreen = ({ navigation }) => {
                 if (supported) {
                   return Linking.openURL(url);
                 } else {
-                  Alert.alert('Error', 'Unable to make phone calls');
+                  dialog('Error', 'Unable to make phone calls');
                 }
               })
               .catch((err) => {
                 console.error('[CallProvider] Error:', err);
-                Alert.alert('Error', 'Failed to open phone dialer');
+                dialog('Error', 'Failed to open phone dialer');
               });
           },
         },
@@ -469,23 +483,23 @@ const CreateServiceRequestScreen = ({ navigation }) => {
     const requestId = createdRequest?._id;
     
     if (!requestId) {
-      Alert.alert('Error', 'Service request not found');
+      dialog('Error', 'Service request not found');
       return;
     }
 
     if (!provider?._id) {
-      Alert.alert('Error', 'Provider information not found');
+      dialog('Error', 'Provider information not found');
       return;
     }
 
     // Require contact before booking
     if (!contactedProviderIds.has(provider._id)) {
-      Alert.alert('Call First', 'Please call the provider to discuss your requirement before booking.', [{ text: 'OK' }]);
+      dialog('Call First', 'Please call the provider to discuss your requirement before booking.', [{ text: 'OK' }]);
       return;
     }
 
     // Confirm booking
-    Alert.alert(
+    dialog(
       '📋 Book Provider',
       `Send your service request to ${provider.name}?\n\nThey will be notified and can accept your request.`,
       [
@@ -500,7 +514,7 @@ const CreateServiceRequestScreen = ({ navigation }) => {
               const result = await sendRequestToProvider(requestId, provider._id, provider.distance);
 
               if (result.success) {
-                Alert.alert(
+                dialog(
                   '✅ Request Sent!',
                   `Your request has been sent to ${provider.name}. They will review and accept it shortly.\n\n${result.notificationSent ? 'Provider has been notified.' : 'Provider will see your request when they check their app.'}`,
                   [
@@ -514,11 +528,11 @@ const CreateServiceRequestScreen = ({ navigation }) => {
                   ]
                 );
               } else {
-                Alert.alert('Error', result.error || 'Failed to send request to provider');
+                dialog('Error', result.error || 'Failed to send request to provider');
               }
             } catch (error) {
               console.error('[BookProvider] Error:', error);
-              Alert.alert('Error', 'Something went wrong. Please try again.');
+              dialog('Error', 'Something went wrong. Please try again.');
             } finally {
               setBookingProviderId(null);
             }
@@ -605,7 +619,7 @@ const CreateServiceRequestScreen = ({ navigation }) => {
             <View style={styles.statItem}>
               <Text style={styles.statIcon}>📍</Text>
               <Text style={styles.statText}>
-                {(provider.distance / 1000).toFixed(1)} km away
+                {formatDistanceFromMeters(provider.distance, useKm)} away
               </Text>
             </View>
           )}
@@ -683,7 +697,7 @@ const CreateServiceRequestScreen = ({ navigation }) => {
   const handleCloseProvidersModal = async () => {
     // If request exists but no provider was sent to, cancel it
     if (createdRequest && !createdRequest.lastSentProviderId) {
-      Alert.alert(
+      dialog(
         'Cancel Request?',
         'No provider was selected. The request will be cancelled.',
         [
@@ -744,7 +758,7 @@ const CreateServiceRequestScreen = ({ navigation }) => {
               <View style={styles.searchInfo}>
                 <Text style={styles.searchInfoText}>
                   Found {providers.length} provider{providers.length !== 1 ? 's' : ''} within{' '}
-                  {(searchRadius / 1000).toFixed(0)}km
+                  {formatDistanceFromMeters(searchRadius, useKm)}
                 </Text>
               </View>
             )}

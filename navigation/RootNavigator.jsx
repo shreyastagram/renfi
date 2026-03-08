@@ -36,9 +36,7 @@ import {
   VerificationScreen,
   EmailVerifyHandlerScreen,
   CreateServiceRequestScreen,
-  ProviderRequestsScreen,
   ProviderServiceHistoryScreen,
-  ProviderJobsScreen,
   UserServiceHistoryScreen,
   ServiceRequestDetailScreen,
   DocumentVerificationScreen,
@@ -53,6 +51,7 @@ import {
   PortfolioEditScreen,
   SubscriptionScreen,
   VerificationDashboardScreen,
+  InsuranceScreen,
 } from '../src/screens';
 
 const Stack = createNativeStackNavigator();
@@ -305,14 +304,14 @@ const ProviderTabNavigator = () => {
       />
       <Tab.Screen
         name="JobsTab"
-        component={ProviderJobsScreen}
+        component={ProviderServiceHistoryScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon 
-              focused={focused} 
-              iconFamily="MaterialCommunityIcons" 
-              iconName="briefcase-outline" 
-              label="Jobs" 
+            <TabIcon
+              focused={focused}
+              iconFamily="MaterialCommunityIcons"
+              iconName="briefcase-outline"
+              label="Jobs"
               isProvider={true}
             />
           ),
@@ -502,23 +501,22 @@ const ProviderMainNavigator = () => {
         component={VerificationScreen}
         options={{ animation: 'slide_from_bottom' }}
       />
-      <Stack.Screen 
-        name="ProviderJobs" 
-        component={ProviderJobsScreen}
+      <Stack.Screen
+        name="ProviderJobs"
+        component={ProviderServiceHistoryScreen}
         options={{ animation: 'slide_from_right' }}
       />
-      {/* Legacy routes - redirect to unified ProviderJobs */}
-      <Stack.Screen 
-        name="ProviderRequests" 
-        component={ProviderJobsScreen}
+      <Stack.Screen
+        name="ProviderRequests"
+        component={ProviderServiceHistoryScreen}
         options={{ animation: 'slide_from_right' }}
-        initialParams={{ tab: 'requests' }}
+        initialParams={{ tab: 'pending' }}
       />
-      <Stack.Screen 
-        name="ProviderServiceHistory" 
-        component={ProviderJobsScreen}
+      <Stack.Screen
+        name="ProviderServiceHistory"
+        component={ProviderServiceHistoryScreen}
         options={{ animation: 'slide_from_right' }}
-        initialParams={{ tab: 'history' }}
+        initialParams={{ tab: 'completed' }}
       />
       <Stack.Screen 
         name="ServiceRequestDetail" 
@@ -550,9 +548,14 @@ const ProviderMainNavigator = () => {
         component={SubscriptionScreen}
         options={{ animation: 'slide_from_right' }}
       />
-      <Stack.Screen 
-        name="VerificationDashboard" 
+      <Stack.Screen
+        name="VerificationDashboard"
         component={VerificationDashboardScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="Insurance"
+        component={InsuranceScreen}
         options={{ animation: 'slide_from_right' }}
       />
     </Stack.Navigator>

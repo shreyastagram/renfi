@@ -18,7 +18,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   Image,
   Modal,
   Dimensions,
@@ -40,6 +39,7 @@ import {
   State,
 } from 'react-native-gesture-handler';
 import { useApp } from '../context/AppContext';
+import { useDialog } from '../context/DialogContext';
 import { NODE_BASE_URL as API_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
 
@@ -458,6 +458,7 @@ const ZoomableImage = ({ uri, onClose }) => {
  */
 const DocumentPreviewModal = ({ visible, service, documents, status, rejectionReason, onClose }) => {
   const insets = useSafeAreaInsets();
+  const { dialog } = useDialog();
   const [selectedDocIndex, setSelectedDocIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
@@ -472,7 +473,7 @@ const DocumentPreviewModal = ({ visible, service, documents, status, rejectionRe
   const openPdfExternally = () => {
     if (currentDoc?.fileUrl) {
       Linking.openURL(currentDoc.fileUrl).catch(() => {
-        Alert.alert('Error', 'Unable to open PDF');
+        dialog('Error', 'Unable to open PDF');
       });
     }
   };
@@ -780,6 +781,7 @@ const StatsBanner = ({ approved, pending, rejected }) => (
 const ServiceApprovalsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, profile, refreshProfile } = useApp();
+  const { dialog } = useDialog();
 
   const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
 
@@ -858,7 +860,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
     } catch (error) {
       console.error('[ServiceApprovals] Error fetching data:', error);
       if (!refreshing) {
-        Alert.alert(
+        dialog(
           'Connection Error',
           'Unable to connect to server. Please check your internet connection.',
           [
@@ -935,7 +937,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
    * Handle cancel request
    */
   const handleCancelRequest = (serviceCategory) => {
-    Alert.alert(
+    dialog(
       'Cancel Request',
       `Are you sure you want to cancel your ${SERVICE_LABELS[serviceCategory]} approval request? You can reapply later.`,
       [
@@ -963,14 +965,14 @@ const ServiceApprovalsScreen = ({ navigation }) => {
               const result = await response.json();
 
               if (result.success) {
-                Alert.alert('Success', 'Request cancelled successfully.');
+                dialog('Success', 'Request cancelled successfully.');
                 refreshProfile?.();
                 fetchData();
               } else {
                 throw new Error(result.error || 'Failed to cancel request');
               }
             } catch (error) {
-              Alert.alert('Error', error.message || 'Failed to cancel. Please try again.');
+              dialog('Error', error.message || 'Failed to cancel. Please try again.');
             } finally {
               setLoading(false);
             }
@@ -998,11 +1000,11 @@ const ServiceApprovalsScreen = ({ navigation }) => {
 
     if (existingService) {
       if (existingService.status === 'pending' || existingService.status === 'under_review') {
-        Alert.alert('Under Review', 'This service is currently under review.');
+        dialog('Under Review', 'This service is currently under review.');
         return;
       }
       if (existingService.status === 'approved') {
-        Alert.alert('Already Approved', 'This service is already approved.');
+        dialog('Already Approved', 'This service is already approved.');
         return;
       }
     }
@@ -1028,7 +1030,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
    * Pick document
    */
   const pickDocument = async (serviceCategory, documentType) => {
-    Alert.alert(
+    dialog(
       'Upload Document',
       'Choose upload method',
       [
@@ -1053,7 +1055,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
         stageDocument(serviceCategory, documentType, result.assets[0]);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to capture image');
+      dialog('Error', 'Failed to capture image');
     }
   };
 
@@ -1070,7 +1072,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
         stageDocument(serviceCategory, documentType, result.assets[0]);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to pick image');
+      dialog('Error', 'Failed to pick image');
     }
   };
 
@@ -1088,7 +1090,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
       }
     } catch (error) {
       if (error?.code !== 'DOCUMENT_PICKER_CANCELED') {
-        Alert.alert('Error', 'Failed to pick PDF');
+        dialog('Error', 'Failed to pick PDF');
       }
     }
   };
@@ -1249,7 +1251,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
         }
       }
 
-      Alert.alert(
+      dialog(
         'Success',
         'Your documents have been submitted for review. We will notify you once verified.',
         [{ text: 'OK' }]
@@ -1259,7 +1261,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
       fetchData();
       setStep('list');
     } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to submit. Please try again.');
+      dialog('Error', error.message || 'Failed to submit. Please try again.');
     } finally {
       setSubmitting(false);
       setUploading(false);

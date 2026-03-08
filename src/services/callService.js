@@ -23,6 +23,7 @@
  */
 
 import { NODE_BASE_URL } from '../config/api';
+import { authFetch } from '../utils/authFetch';
 import { getTokens } from '../utils/storage';
 
 // ============================================
@@ -77,7 +78,7 @@ export const initiateCall = async ({
 
     const headers = await getAuthHeaders();
 
-    const response = await fetch(`${NODE_BASE_URL}/api/calls/initiate`, {
+    const response = await authFetch(`${NODE_BASE_URL}/api/calls/initiate`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -133,7 +134,7 @@ export const getCallStatus = async (callId) => {
 
     const headers = await getAuthHeaders();
 
-    const response = await fetch(`${NODE_BASE_URL}/api/calls/status/${callId}`, {
+    const response = await authFetch(`${NODE_BASE_URL}/api/calls/status/${callId}`, {
       method: 'GET',
       headers,
     });
@@ -178,7 +179,7 @@ export const checkContacted = async (providerId, serviceRequestId = null) => {
       url += `?serviceRequestId=${serviceRequestId}`;
     }
 
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'GET',
       headers,
     });
@@ -214,7 +215,7 @@ export const getContactedProviders = async (serviceRequestId) => {
 
     const headers = await getAuthHeaders();
 
-    const response = await fetch(
+    const response = await authFetch(
       `${NODE_BASE_URL}/api/calls/contacted-providers/${serviceRequestId}`,
       { method: 'GET', headers }
     );
@@ -258,7 +259,7 @@ export const getCallHistory = async ({ role = 'user', page = 1, limit = 20 } = {
   try {
     const headers = await getAuthHeaders();
 
-    const response = await fetch(
+    const response = await authFetch(
       `${NODE_BASE_URL}/api/calls/history?role=${role}&page=${page}&limit=${limit}`,
       { method: 'GET', headers }
     );

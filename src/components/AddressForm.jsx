@@ -18,13 +18,13 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   PermissionsAndroid,
   Linking,
 } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import { useDialog } from '../context/DialogContext';
 import Geolocation from '@react-native-community/geolocation';
 import { addAddress, updateAddress } from '../services/addressService';
 import MapPickerModal from './MapPickerModal';
@@ -146,6 +146,7 @@ const FormInput = ({
  * @param {Function} onClose - Callback to close form
  */
 const AddressForm = ({ userId, address, onSave, onClose }) => {
+  const { dialog } = useDialog();
   const isEditing = !!address;
   
   // Form state
@@ -194,7 +195,7 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
         );
         if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
           setGettingLocation(false);
-          Alert.alert(
+          dialog(
             'Permission Required',
             'Location permission is needed. Please enable it in settings.',
             [
@@ -263,7 +264,7 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
               resolved = true;
               console.error('[AddressForm] GPS error:', error);
               setGettingLocation(false);
-              Alert.alert(
+              dialog(
                 'Location Error',
                 'Could not detect your location. Make sure GPS is enabled and try again.',
                 [{ text: 'OK' }]
@@ -382,10 +383,10 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
       if (result.success) {
         onSave?.(result.address);
       } else {
-        Alert.alert('Error', result.error || 'Failed to save address');
+        dialog('Error', result.error || 'Failed to save address');
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to save address. Please try again.');
+      dialog('Error', 'Failed to save address. Please try again.');
     } finally {
       setSaving(false);
     }

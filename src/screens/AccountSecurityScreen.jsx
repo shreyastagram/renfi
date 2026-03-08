@@ -20,7 +20,6 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Alert,
   ActivityIndicator,
   Platform,
 } from 'react-native';
@@ -38,6 +37,7 @@ import {
   SESSION_STATUS,
 } from '../services/authInfraService';
 import { useApp } from '../context/AppContext';
+import { useDialog } from '../context/DialogContext';
 
 // ==================== COLORS ====================
 
@@ -158,6 +158,7 @@ const SessionCard = ({ session, isCurrentDevice, onRevoke, isRevoking }) => {
 const AccountSecurityScreen = () => {
   const navigation = useNavigation();
   const { user, logout } = useApp();
+  const { dialog } = useDialog();
   
   // State
   const [loading, setLoading] = useState(true);
@@ -217,7 +218,7 @@ const AccountSecurityScreen = () => {
    * Handle revoking a specific session
    */
   const handleRevokeSession = async (sessionId) => {
-    Alert.alert(
+    dialog(
       'Sign Out Device',
       'Are you sure you want to sign out this device? They will need to log in again.',
       [
@@ -232,9 +233,9 @@ const AccountSecurityScreen = () => {
             
             if (result.success) {
               setSessions(prev => prev.filter(s => (s.id || s.sessionId) !== sessionId));
-              Alert.alert('Success', 'Device signed out successfully');
+              dialog('Success', 'Device signed out successfully');
             } else {
-              Alert.alert('Error', result.error?.message || 'Failed to sign out device');
+              dialog('Error', result.error?.message || 'Failed to sign out device');
             }
           },
         },
@@ -246,7 +247,7 @@ const AccountSecurityScreen = () => {
    * Handle revoking all other sessions
    */
   const handleRevokeAll = async () => {
-    Alert.alert(
+    dialog(
       'Sign Out All Devices',
       'Are you sure you want to sign out all other devices? They will all need to log in again.',
       [
@@ -261,9 +262,9 @@ const AccountSecurityScreen = () => {
             
             if (result.success) {
               setSessions(prev => prev.filter(s => s.deviceId === currentDeviceId));
-              Alert.alert('Success', `Signed out ${result.revokedCount || 0} device(s)`);
+              dialog('Success', `Signed out ${result.revokedCount || 0} device(s)`);
             } else {
-              Alert.alert('Error', result.error?.message || 'Failed to sign out devices');
+              dialog('Error', result.error?.message || 'Failed to sign out devices');
             }
           },
         },
@@ -279,13 +280,13 @@ const AccountSecurityScreen = () => {
       const result = await untrustDevice(currentDeviceId);
       if (result.success) {
         setIsTrusted(false);
-        Alert.alert('Device Untrusted', 'This device is no longer trusted');
+        dialog('Device Untrusted', 'This device is no longer trusted');
       }
     } else {
       const result = await trustCurrentDevice();
       if (result.success) {
         setIsTrusted(true);
-        Alert.alert('Device Trusted', 'This device is now trusted for future logins');
+        dialog('Device Trusted', 'This device is now trusted for future logins');
       }
     }
   };

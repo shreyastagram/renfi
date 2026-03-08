@@ -149,6 +149,11 @@ const ICON_MAP = {
   error: { family: 'MaterialIcons', name: 'error' },
   favorite: { family: 'MaterialIcons', name: 'favorite' },
   'favorite-border': { family: 'MaterialIcons', name: 'favorite-border' },
+  'filter-outline': { family: 'MaterialCommunityIcons', name: 'filter-outline' },
+  'filter-off-outline': { family: 'MaterialCommunityIcons', name: 'filter-off-outline' },
+  filter: { family: 'MaterialCommunityIcons', name: 'filter-outline' },
+  list: { family: 'Feather', name: 'list' },
+  mail: { family: 'Feather', name: 'mail' },
 };
 
 /**

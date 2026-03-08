@@ -285,7 +285,7 @@ const RegisterScreen = ({ navigation }) => {
             fullName: user.fullName || user.name,
             googleId: user.googleId,
             profilePicture: user.profilePicture,
-          });
+          }, accessToken);
 
           if (!syncResult.success) {
             console.warn('⚠️ [RegisterScreen] MongoDB sync failed, but auth succeeded');

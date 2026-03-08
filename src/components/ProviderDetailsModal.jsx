@@ -25,6 +25,7 @@ import {
   Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useDialog } from '../context/DialogContext';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { getProviderDetails } from '../services/traditionalServiceService';
 import ImageViewerModal from './ImageViewerModal';
@@ -115,6 +116,7 @@ const ProviderDetailsModal = ({
   hasContacted = false,
 }) => {
   const insets = useSafeAreaInsets();
+  const { dialog } = useDialog();
   const [loading, setLoading] = useState(true);
   const [provider, setProvider] = useState(null);
   const [error, setError] = useState(null);
@@ -195,10 +197,6 @@ const ProviderDetailsModal = ({
   };
 
   const handleBook = () => {
-    if (!hasContacted) {
-      Alert.alert('Call First', 'Please call the provider to discuss your requirement before sending a booking request.', [{ text: 'OK' }]);
-      return;
-    }
     if (onBook && provider) {
       onBook(provider);
       onClose();
@@ -547,12 +545,12 @@ const ProviderDetailsModal = ({
                 <MaterialIcon name="phone" size={22} color={BRAND.success} />
                 <Text style={styles.callButtonText}>Call</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.bookButton, !hasContacted && { opacity: 0.5 }]} 
+              <TouchableOpacity
+                style={styles.bookButton}
                 onPress={handleBook}
               >
                 <MaterialIcon name="send" size={20} color={BRAND.white} />
-                <Text style={styles.bookButtonText}>{hasContacted ? 'Send Request' : 'Call First'}</Text>
+                <Text style={styles.bookButtonText}>Send Request</Text>
               </TouchableOpacity>
             </View>
           )}

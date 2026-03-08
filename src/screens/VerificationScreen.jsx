@@ -1,11 +1,11 @@
 /**
  * Verification Screen
- * 
+ *
  * Screen for verifying email or phone number after registration
  * Requires authentication (uses stored tokens)
  * Allows adding/editing phone or email if not set before verification
- * 
- * @version 1.1.0
+ *
+ * @version 2.0.0 — Premium UI revamp
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
@@ -18,28 +18,70 @@ import {
   TextInput,
   ActivityIndicator,
   Animated,
+  Platform,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { Button, Alert } from '../components';
-import { 
+import {
   sendPhoneVerificationOtp,
   verifyPhoneOtp,
   sendEmailVerification,
-  getErrorMessage, 
-  AUTH_CODES 
+  getErrorMessage,
+  AUTH_CODES
 } from '../services/authService';
 import { updateJavaAuthProfile } from '../services/profileService';
 import { useApp } from '../context/AppContext';
 
 const OTP_LENGTH = 6;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+const BRAND = {
+  primary: '#f67c16',
+  secondary: '#2b76bc',
+  bg: '#F1F5F9',
+  white: '#FFFFFF',
+  text: '#0F172A',
+  textSecondary: '#64748B',
+  textMuted: '#94A3B8',
+  border: '#E2E8F0',
+  successGreen: '#10B981',
+  amber: '#F59E0B',
+  red: '#DC2626',
+};
+
+/* ─── Premium card shadow helper ─────────────────────────────────── */
+const cardShadow = Platform.select({
+  ios: {
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+  },
+  android: {
+    elevation: 4,
+  },
+});
+
+const glowShadow = Platform.select({
+  ios: {
+    shadowColor: '#f67c16',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+  },
+  android: {
+    elevation: 8,
+  },
+});
 
 /**
  * VerificationScreen Component
- * 
+ *
  * @param {Object} props - Screen props
  */
-const VerificationScreen = ({ 
+const VerificationScreen = ({
   navigation,
   route,
   onVerificationComplete,
@@ -54,8 +96,8 @@ const VerificationScreen = ({
 
   // Check if already verified from current user state
   // If forceReVerify is true (phone changed after verification), bypass this check
-  const isAlreadyVerified = forceReVerify 
-    ? false 
+  const isAlreadyVerified = forceReVerify
+    ? false
     : (isEmailVerification ? user?.isEmailVerified : user?.isPhoneVerified);
 
   // Current value from user context
@@ -65,7 +107,7 @@ const VerificationScreen = ({
 
   // OTP input refs (for phone verification)
   const inputRefs = useRef([]);
-  
+
   // State
   const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
@@ -77,13 +119,13 @@ const VerificationScreen = ({
   const [countdown, setCountdown] = useState(0);
   const [canResend, setCanResend] = useState(true);
   const [verified, setVerified] = useState(isAlreadyVerified || false); // Initialize with current status
-  
+
   // Phone/email editing state
   const [isEditing, setIsEditing] = useState(!currentValue); // Auto-open edit if no value set
   const [editValue, setEditValue] = useState(currentValue);
   const [savingValue, setSavingValue] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
-  
+
   // Animations for OTP inputs
   const otpScales = useRef(Array(OTP_LENGTH).fill(null).map(() => new Animated.Value(1))).current;
   const otpBorderColors = useRef(Array(OTP_LENGTH).fill(null).map(() => new Animated.Value(0))).current;
@@ -174,14 +216,14 @@ const VerificationScreen = ({
       setSavingValue(true);
 
       // Update Java Auth first (this is where OTP is sent from)
-      const javaAuthUpdate = isEmailVerification 
+      const javaAuthUpdate = isEmailVerification
         ? { email: trimmedValue }
         : { phoneNumber: trimmedValue };
 
       console.log(`📝 [VerificationScreen] Saving ${verificationType}:`, trimmedValue);
-      
+
       const javaResult = await updateJavaAuthProfile(javaAuthUpdate);
-      
+
       if (!javaResult.success) {
         console.error('❌ [VerificationScreen] Failed to update Java Auth:', javaResult.error);
         showAlert(javaResult.error?.message || `Failed to update ${verificationType}. Please try again.`, 'error');
@@ -190,10 +232,10 @@ const VerificationScreen = ({
 
       // Also sync to MongoDB via profile update
       if (updateProfileWithAutoSync) {
-        const mongoUpdate = isEmailVerification 
+        const mongoUpdate = isEmailVerification
           ? { email: trimmedValue }
           : { phone: trimmedValue };
-        
+
         await updateProfileWithAutoSync(mongoUpdate);
       }
 
@@ -218,15 +260,15 @@ const VerificationScreen = ({
   const handleSendVerification = async () => {
     try {
       clearAlert();
-      
+
       // Check if phone/email is set before trying to send
-      const valueToVerify = isEmailVerification 
-        ? (user?.email || profile?.email) 
+      const valueToVerify = isEmailVerification
+        ? (user?.email || profile?.email)
         : (user?.phone || profile?.phone);
-      
+
       if (!valueToVerify) {
         showAlert(
-          isEmailVerification 
+          isEmailVerification
             ? 'Please add your email address first before requesting verification.'
             : 'Please add your phone number first before requesting verification.',
           'warning'
@@ -234,7 +276,7 @@ const VerificationScreen = ({
         setIsEditing(true); // Open edit mode
         return;
       }
-      
+
       setSendLoading(true);
 
       let result;
@@ -254,13 +296,13 @@ const VerificationScreen = ({
           setCountdown(5 * 60); // 5 minutes
           setCanResend(false);
           showAlert('OTP sent to ' + (result.maskedPhone || 'your phone'), 'success');
-          
+
           // Focus first input
           setTimeout(() => inputRefs.current[0]?.focus(), 100);
         }
       } else {
         const { error } = result;
-        
+
         // Check for "already verified" in error message
         const errorMsg = error.message?.toLowerCase() || '';
         if (errorMsg.includes('already verified')) {
@@ -269,21 +311,21 @@ const VerificationScreen = ({
           setVerified(true);
           return;
         }
-        
+
         // Check for rate limit (429) — code may come as 'TOO_MANY_REQUESTS' or 'Too Many Requests'
-        const isRateLimited = error.status === 429 || 
-          error.code === AUTH_CODES.TOO_MANY_REQUESTS || 
+        const isRateLimited = error.status === 429 ||
+          error.code === AUTH_CODES.TOO_MANY_REQUESTS ||
           error.code === 'Too Many Requests' ||
           (error.message || '').toLowerCase().includes('wait');
-        
+
         if (isRateLimited) {
           // Extract remaining seconds from message: "Please wait N seconds before..."
           const msg = error.message || '';
           const secMatch = msg.match(/wait\s+(\d+)\s+seconds/i);
-          const retrySec = secMatch 
-            ? parseInt(secMatch[1], 10) 
+          const retrySec = secMatch
+            ? parseInt(secMatch[1], 10)
             : (error.errors?.retryAfterSeconds ? parseInt(error.errors.retryAfterSeconds, 10) : null);
-          
+
           if (retrySec && retrySec > 0) {
             const m = Math.floor(retrySec / 60);
             const s = retrySec % 60;
@@ -309,14 +351,14 @@ const VerificationScreen = ({
    */
   const handleOtpChange = (value, index) => {
     clearAlert();
-    
+
     const digit = value.replace(/[^0-9]/g, '');
-    
+
     if (digit.length <= 1) {
       const newOtp = [...otp];
       newOtp[index] = digit;
       setOtp(newOtp);
-      
+
       if (digit && index < OTP_LENGTH - 1) {
         inputRefs.current[index + 1]?.focus();
       }
@@ -329,7 +371,7 @@ const VerificationScreen = ({
         }
       });
       setOtp(newOtp);
-      
+
       const lastIndex = Math.min(index + digits.length - 1, OTP_LENGTH - 1);
       inputRefs.current[lastIndex]?.focus();
     }
@@ -350,9 +392,9 @@ const VerificationScreen = ({
   const handleVerifyOtp = async () => {
     try {
       clearAlert();
-      
+
       const otpCode = otp.join('');
-      
+
       if (otpCode.length !== OTP_LENGTH) {
         showAlert('Please enter the complete OTP code', 'warning');
         return;
@@ -365,36 +407,36 @@ const VerificationScreen = ({
       if (result.success) {
         // Refresh verification status
         await refreshVerificationStatus();
-        
+
         // Show success state
         setVerified(true);
         showAlert('Phone number verified successfully!', 'success');
-        
+
         // Callback if provided
         if (onVerificationComplete) {
           onVerificationComplete();
         }
       } else {
         const { error } = result;
-        
+
         setOtp(Array(OTP_LENGTH).fill(''));
         inputRefs.current[0]?.focus();
-        
+
         switch (error.code) {
           case AUTH_CODES.INVALID_OTP:
             showAlert('Invalid OTP code. Please check and try again.', 'error');
             break;
-            
+
           case AUTH_CODES.OTP_EXPIRED:
             showAlert('OTP has expired. Please request a new one.', 'error');
             setOtpSent(false);
             break;
-            
+
           case AUTH_CODES.MAX_ATTEMPTS_EXCEEDED:
             showAlert('Maximum attempts exceeded. Please request a new OTP.', 'error');
             setOtpSent(false);
             break;
-            
+
           default:
             showAlert(error.message || 'Verification failed.', 'error');
         }
@@ -429,54 +471,118 @@ const VerificationScreen = ({
     }
   };
 
-  // Show success screen after verification
+  /* ─── Status Badge ─────────────────────────────────────────────── */
+  const StatusBadge = ({ status }) => {
+    let bg, color, label, icon;
+    switch (status) {
+      case 'verified':
+        bg = '#ECFDF5'; color = '#059669'; label = 'Verified'; icon = 'verified';
+        break;
+      case 'pending':
+        bg = '#FFFBEB'; color = '#D97706'; label = 'Pending'; icon = 'schedule';
+        break;
+      default:
+        bg = '#F1F5F9'; color = '#94A3B8'; label = 'Not Started'; icon = 'circle';
+    }
+    return (
+      <View style={[s.badge, { backgroundColor: bg }]}>
+        <MaterialIcon name={icon} size={14} color={color} />
+        <Text style={[s.badgeText, { color }]}>{label}</Text>
+      </View>
+    );
+  };
+
+  /* ─── Countdown Circle ─────────────────────────────────────────── */
+  const CountdownCircle = () => {
+    const totalTime = 5 * 60;
+    const progress = countdown / totalTime;
+    const expired = countdown <= 0;
+    return (
+      <View style={s.countdownRow}>
+        <View style={[s.countdownCircle, expired && s.countdownCircleExpired]}>
+          <View style={s.countdownInner}>
+            <MaterialIcon
+              name={expired ? 'error-outline' : 'timer'}
+              size={18}
+              color={expired ? BRAND.red : BRAND.secondary}
+            />
+          </View>
+        </View>
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          {expired ? (
+            <Text style={s.countdownExpiredText}>Code expired</Text>
+          ) : (
+            <>
+              <Text style={s.countdownLabel}>Code expires in</Text>
+              <Text style={s.countdownValue}>{formatTime(countdown)}</Text>
+            </>
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  // ──── Success Screen ────────────────────────────────────────────
   if (verified) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.successContainer}>
-          <View style={styles.successIconContainer}>
-            <View style={styles.successIconCircle}>
-              <MaterialIcon name="check" size={48} color="#FFFFFF" />
+      <SafeAreaView style={s.safeArea}>
+        <View style={s.successContainer}>
+          <View style={s.successIconOuter}>
+            <View style={s.successIconCircle}>
+              <MaterialIcon name="check" size={44} color={BRAND.white} />
             </View>
-            <View style={styles.successIconRing} />
+            <View style={s.successRing} />
+            <View style={s.successRingOuter} />
           </View>
-          <Text style={styles.successTitle}>
+          <Text style={s.successTitle}>
             {isEmailVerification ? 'Email Verified!' : 'Phone Verified!'}
           </Text>
-          <Text style={styles.successSubtitle}>
+          <Text style={s.successSubtitle}>
             Your {isEmailVerification ? 'email address' : 'phone number'} has been verified successfully.
           </Text>
           <TouchableOpacity
-            style={styles.successBackButton}
+            style={s.successBackBtn}
             onPress={handleGoBack}
             activeOpacity={0.8}
           >
-            <MaterialIcon name="arrow-back" size={20} color="#FFFFFF" />
-            <Text style={styles.successBackButtonText}>Back to Profile</Text>
+            <MaterialIcon name="arrow-back" size={20} color={BRAND.white} />
+            <Text style={s.successBackBtnText}>Back to Profile</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
 
+  // ──── Main Screen ───────────────────────────────────────────────
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView 
-        contentContainerStyle={styles.content}
+    <SafeAreaView style={s.safeArea}>
+      {/* Fixed Header */}
+      <View style={s.headerBar}>
+        <TouchableOpacity
+          style={s.backCircle}
+          onPress={() => navigation?.goBack?.()}
+          activeOpacity={0.7}
+        >
+          <MaterialIcon name="arrow-back" size={22} color={BRAND.text} />
+        </TouchableOpacity>
+        <Text style={s.headerTitle} numberOfLines={1} ellipsizeMode="tail">
+          {isEmailVerification ? 'Verify Email' : 'Verify Phone'}
+        </Text>
+        <View style={{ width: 44 }} />
+      </View>
+
+      <ScrollView
+        contentContainerStyle={s.scrollContent}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>
-            {isEmailVerification ? 'Verify Email' : 'Verify Phone'}
-          </Text>
-          <Text style={styles.subtitle}>
-            {isEmailVerification 
-              ? 'We\'ll send a verification link to your email address.'
-              : 'We\'ll send a 6-digit OTP to your phone number.'
-            }
-          </Text>
-        </View>
+        {/* Subtitle */}
+        <Text style={s.headerSubtitle}>
+          {isEmailVerification
+            ? 'We\'ll send a verification link to your email address.'
+            : 'We\'ll send a 6-digit OTP to your phone number.'
+          }
+        </Text>
 
         {/* Alert */}
         {alertMessage && (
@@ -484,267 +590,315 @@ const VerificationScreen = ({
             type={alertType}
             message={alertMessage}
             onDismiss={clearAlert}
-            style={styles.alert}
+            style={s.alert}
           />
         )}
 
-        {/* Email Verification */}
+        {/* ═══════════════ EMAIL VERIFICATION ═══════════════ */}
         {isEmailVerification && (
-          <View style={styles.emailSection}>
-            <View style={styles.infoCard}>
-              <Text style={styles.infoTitle}>📧 Email Verification</Text>
-              <Text style={styles.infoDescription}>
-                {currentEmail 
-                  ? 'Click the button below to receive a verification link at your email address.'
-                  : 'Please add your email address first, then we\'ll send a verification link.'}
-              </Text>
-            </View>
+          <View style={s.sectionWrap}>
+            {/* Email Info Card */}
+            <View style={[s.card, cardShadow]}>
+              <View style={s.cardHeaderRow}>
+                <View style={s.cardIconCircle}>
+                  <MaterialIcon name="email" size={22} color={BRAND.secondary} />
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={s.sectionLabel}>EMAIL VERIFICATION</Text>
+                  <Text style={s.cardDescription} numberOfLines={2} ellipsizeMode="tail">
+                    {currentEmail
+                      ? 'Send a verification link to your email address.'
+                      : 'Add your email address to receive a verification link.'}
+                  </Text>
+                </View>
+                <StatusBadge status={maskedValue ? 'pending' : 'not_started'} />
+              </View>
 
-            {/* Current email display / edit */}
-            <View style={styles.valueCard}>
+              {/* Value display / edit */}
               {isEditing ? (
-                <View style={styles.editContainer}>
-                  <Text style={styles.editLabel}>Email Address</Text>
+                <View style={s.editWrap}>
+                  <Text style={s.editLabel}>Email Address</Text>
                   <TextInput
-                    style={styles.editInput}
+                    style={s.editInput}
                     value={editValue}
                     onChangeText={setEditValue}
                     placeholder="Enter your email address"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={BRAND.textMuted}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoCorrect={false}
                     editable={!savingValue}
                   />
-                  <View style={styles.editActions}>
-                    <TouchableOpacity 
-                      style={styles.saveButton}
+                  <View style={s.editActions}>
+                    <TouchableOpacity
+                      style={s.ctaButton}
                       onPress={handleSaveValue}
                       disabled={savingValue}
+                      activeOpacity={0.8}
                     >
                       {savingValue ? (
-                        <ActivityIndicator size="small" color="#FFFFFF" />
+                        <ActivityIndicator size="small" color={BRAND.white} />
                       ) : (
-                        <Text style={styles.saveButtonText}>Save Email</Text>
+                        <Text style={s.ctaButtonText}>Save Email</Text>
                       )}
                     </TouchableOpacity>
                     {currentEmail ? (
-                      <TouchableOpacity 
-                        style={styles.cancelButton}
+                      <TouchableOpacity
+                        style={s.cancelBtn}
                         onPress={() => {
                           setIsEditing(false);
                           setEditValue(currentEmail);
                         }}
                       >
-                        <Text style={styles.cancelButtonText}>Cancel</Text>
+                        <Text style={s.cancelBtnText}>Cancel</Text>
                       </TouchableOpacity>
                     ) : null}
                   </View>
                 </View>
               ) : (
-                <View style={styles.displayContainer}>
-                  <View style={styles.displayRow}>
-                    <Text style={styles.displayLabel}>Email</Text>
-                    <Text style={styles.displayValue}>{currentEmail || 'Not set'}</Text>
+                <View style={s.valueDisplayRow}>
+                  <View style={s.valueLabelCol}>
+                    <Text style={s.valueLabelSmall}>EMAIL</Text>
+                    <Text style={s.valueText} numberOfLines={1} ellipsizeMode="middle">
+                      {currentEmail || 'Not set'}
+                    </Text>
                   </View>
-                  <TouchableOpacity 
-                    style={styles.editIcon}
+                  <TouchableOpacity
+                    style={s.editPill}
                     onPress={() => {
                       setEditValue(currentEmail);
                       setIsEditing(true);
                     }}
                   >
-                    <Text style={styles.editIconText}>✏️ Edit</Text>
+                    <MaterialIcon name="edit" size={16} color={BRAND.secondary} />
+                    <Text style={s.editPillText}>Edit</Text>
                   </TouchableOpacity>
                 </View>
               )}
             </View>
 
+            {/* Send Button */}
             {!isEditing && (
-              <Button
-                title={sendLoading ? 'Sending...' : 'Send Verification Email'}
+              <TouchableOpacity
+                style={[s.ctaButton, glowShadow, (!currentEmail || sendLoading) && s.ctaButtonDisabled]}
                 onPress={handleSendVerification}
-                loading={sendLoading}
                 disabled={sendLoading || !currentEmail}
-                style={styles.sendButton}
-              />
+                activeOpacity={0.8}
+              >
+                {sendLoading ? (
+                  <View style={s.ctaRow}>
+                    <ActivityIndicator size="small" color={BRAND.white} />
+                    <Text style={s.ctaButtonText}>Sending...</Text>
+                  </View>
+                ) : (
+                  <View style={s.ctaRow}>
+                    <MaterialIcon name="send" size={20} color={BRAND.white} />
+                    <Text style={s.ctaButtonText}>Send Verification Email</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
             )}
 
-            {maskedValue && (
-              <Text style={styles.sentText}>
-                Verification email sent to {maskedValue}
-              </Text>
-            )}
+            {/* Sent confirmation */}
+            {maskedValue ? (
+              <View style={s.sentCard}>
+                <MaterialIcon name="mark-email-read" size={20} color={BRAND.successGreen} />
+                <Text style={s.sentText} numberOfLines={2} ellipsizeMode="tail">
+                  Verification email sent to {maskedValue}
+                </Text>
+              </View>
+            ) : null}
           </View>
         )}
 
-        {/* Phone Verification */}
+        {/* ═══════════════ PHONE VERIFICATION ═══════════════ */}
         {!isEmailVerification && (
-          <View style={styles.phoneSection}>
+          <View style={s.sectionWrap}>
             {!otpSent ? (
               <>
-                <View style={styles.infoCard}>
-                  <Text style={styles.infoTitle}>📱 Phone Verification</Text>
-                  <Text style={styles.infoDescription}>
-                    {currentPhone 
-                      ? 'We\'ll send a 6-digit verification code to your phone number.'
-                      : 'Please add your phone number first, then we\'ll send a verification code.'}
-                  </Text>
-                </View>
+                {/* Phone Info Card */}
+                <View style={[s.card, cardShadow]}>
+                  <View style={s.cardHeaderRow}>
+                    <View style={[s.cardIconCircle, { backgroundColor: '#FFF7ED' }]}>
+                      <MaterialIcon name="phone-android" size={22} color={BRAND.primary} />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={s.sectionLabel}>PHONE VERIFICATION</Text>
+                      <Text style={s.cardDescription} numberOfLines={2} ellipsizeMode="tail">
+                        {currentPhone
+                          ? 'We\'ll send a 6-digit verification code to your phone.'
+                          : 'Add your phone number to receive a verification code.'}
+                      </Text>
+                    </View>
+                    <StatusBadge status="not_started" />
+                  </View>
 
-                {/* Current phone display / edit */}
-                <View style={styles.valueCard}>
+                  {/* Value display / edit */}
                   {isEditing ? (
-                    <View style={styles.editContainer}>
-                      <Text style={styles.editLabel}>Phone Number</Text>
-                      <TextInput
-                        style={styles.editInput}
-                        value={editValue}
-                        onChangeText={setEditValue}
-                        placeholder="Enter your 10-digit phone number"
-                        placeholderTextColor="#9CA3AF"
-                        keyboardType="phone-pad"
-                        maxLength={13}
-                        editable={!savingValue}
-                      />
-                      <Text style={styles.editHint}>Indian phone number starting with 6-9</Text>
-                      <View style={styles.editActions}>
-                        <TouchableOpacity 
-                          style={styles.saveButton}
+                    <View style={s.editWrap}>
+                      <Text style={s.editLabel}>Phone Number</Text>
+                      <View style={s.phoneInputRow}>
+                        <View style={s.countryCodeBox}>
+                          <Text style={s.countryCodeText}>+91</Text>
+                        </View>
+                        <TextInput
+                          style={[s.editInput, { flex: 1 }]}
+                          value={editValue}
+                          onChangeText={setEditValue}
+                          placeholder="Enter 10-digit number"
+                          placeholderTextColor={BRAND.textMuted}
+                          keyboardType="phone-pad"
+                          maxLength={13}
+                          editable={!savingValue}
+                        />
+                      </View>
+                      <Text style={s.editHint}>Indian phone number starting with 6-9</Text>
+                      <View style={s.editActions}>
+                        <TouchableOpacity
+                          style={s.ctaButton}
                           onPress={handleSaveValue}
                           disabled={savingValue}
+                          activeOpacity={0.8}
                         >
                           {savingValue ? (
-                            <ActivityIndicator size="small" color="#FFFFFF" />
+                            <ActivityIndicator size="small" color={BRAND.white} />
                           ) : (
-                            <Text style={styles.saveButtonText}>Save Phone</Text>
+                            <Text style={s.ctaButtonText}>Save Phone</Text>
                           )}
                         </TouchableOpacity>
                         {currentPhone ? (
-                          <TouchableOpacity 
-                            style={styles.cancelButton}
+                          <TouchableOpacity
+                            style={s.cancelBtn}
                             onPress={() => {
                               setIsEditing(false);
                               setEditValue(currentPhone);
                             }}
                           >
-                            <Text style={styles.cancelButtonText}>Cancel</Text>
+                            <Text style={s.cancelBtnText}>Cancel</Text>
                           </TouchableOpacity>
                         ) : null}
                       </View>
                     </View>
                   ) : (
-                    <View style={styles.displayContainer}>
-                      <View style={styles.displayRow}>
-                        <Text style={styles.displayLabel}>Phone</Text>
-                        <Text style={styles.displayValue}>{currentPhone || 'Not set'}</Text>
+                    <View style={s.valueDisplayRow}>
+                      <View style={s.valueLabelCol}>
+                        <Text style={s.valueLabelSmall}>PHONE</Text>
+                        <Text style={s.valueText} numberOfLines={1} ellipsizeMode="tail">
+                          {currentPhone || 'Not set'}
+                        </Text>
                       </View>
-                      <TouchableOpacity 
-                        style={styles.editIcon}
+                      <TouchableOpacity
+                        style={s.editPill}
                         onPress={() => {
                           setEditValue(currentPhone);
                           setIsEditing(true);
                         }}
                       >
-                        <Text style={styles.editIconText}>✏️ Edit</Text>
+                        <MaterialIcon name="edit" size={16} color={BRAND.secondary} />
+                        <Text style={s.editPillText}>Edit</Text>
                       </TouchableOpacity>
                     </View>
                   )}
                 </View>
 
+                {/* Send OTP Button */}
                 {!isEditing && (
-                  <Button
-                    title={sendLoading ? 'Sending OTP...' : 'Send OTP'}
+                  <TouchableOpacity
+                    style={[s.ctaButton, glowShadow, (!currentPhone || sendLoading) && s.ctaButtonDisabled]}
                     onPress={handleSendVerification}
-                    loading={sendLoading}
                     disabled={sendLoading || !currentPhone}
-                    style={styles.sendButton}
-                  />
+                    activeOpacity={0.8}
+                  >
+                    {sendLoading ? (
+                      <View style={s.ctaRow}>
+                        <ActivityIndicator size="small" color={BRAND.white} />
+                        <Text style={s.ctaButtonText}>Sending OTP...</Text>
+                      </View>
+                    ) : (
+                      <View style={s.ctaRow}>
+                        <MaterialIcon name="sms" size={20} color={BRAND.white} />
+                        <Text style={s.ctaButtonText}>Send OTP</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
                 )}
               </>
             ) : (
               <>
-                {/* Timer */}
-                <View style={styles.timerContainer}>
-                  {countdown > 0 ? (
-                    <View style={styles.timerPill}>
-                      <MaterialIcon name="timer" size={16} color="#2563EB" />
-                      <Text style={styles.timerText}>
-                        Code expires in <Text style={styles.timerValue}>{formatTime(countdown)}</Text>
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={[styles.timerPill, { backgroundColor: '#FEF2F2' }]}>
-                      <MaterialIcon name="error-outline" size={16} color="#DC2626" />
-                      <Text style={styles.timerExpired}>Code expired</Text>
-                    </View>
-                  )}
+                {/* OTP Entry Card */}
+                <View style={[s.card, cardShadow]}>
+                  {/* Countdown */}
+                  <CountdownCircle />
+
+                  {/* Separator */}
+                  <View style={s.separator} />
+
+                  {/* OTP Instruction */}
+                  <Text style={s.otpInstruction}>
+                    Enter the 6-digit code sent to your phone
+                  </Text>
+
+                  {/* OTP Input Boxes */}
+                  <Animated.View style={[
+                    s.otpContainer,
+                    { transform: [{ translateX: shakeAnim }] }
+                  ]}>
+                    {otp.map((digit, index) => {
+                      const isFocused = focusedIndex === index;
+                      const isFilled = !!digit;
+
+                      return (
+                        <Animated.View
+                          key={index}
+                          style={[
+                            s.otpBox,
+                            isFilled && s.otpBoxFilled,
+                            isFocused && s.otpBoxFocused,
+                            { transform: [{ scale: otpScales[index] }] },
+                          ]}
+                        >
+                          <TextInput
+                            ref={(ref) => (inputRefs.current[index] = ref)}
+                            style={[
+                              s.otpDigitInput,
+                              isFilled && s.otpDigitFilled,
+                              isFocused && s.otpDigitFocused,
+                              loading && s.otpDigitDisabled,
+                            ]}
+                            value={digit}
+                            onChangeText={(value) => {
+                              handleOtpChange(value, index);
+                              // Pulse animation on fill
+                              if (value) {
+                                Animated.sequence([
+                                  Animated.timing(otpScales[index], { toValue: 1.1, duration: 100, useNativeDriver: true }),
+                                  Animated.spring(otpScales[index], { toValue: 1, friction: 3, useNativeDriver: true }),
+                                ]).start();
+                              }
+                            }}
+                            onKeyPress={(event) => handleKeyPress(event, index)}
+                            onFocus={() => setFocusedIndex(index)}
+                            onBlur={() => setFocusedIndex(-1)}
+                            keyboardType="number-pad"
+                            maxLength={index === 0 ? OTP_LENGTH : 1}
+                            editable={!loading}
+                            selectTextOnFocus
+                          />
+                          {isFocused && !digit && (
+                            <Animated.View style={s.otpCursor} />
+                          )}
+                        </Animated.View>
+                      );
+                    })}
+                  </Animated.View>
                 </View>
 
-                {/* OTP Instruction */}
-                <Text style={styles.otpInstruction}>
-                  Enter the 6-digit code sent to your phone
-                </Text>
-
-                {/* OTP Input — Modern animated boxes */}
-                <Animated.View style={[
-                  styles.otpContainer,
-                  { transform: [{ translateX: shakeAnim }] }
-                ]}>
-                  {otp.map((digit, index) => {
-                    const isFocused = focusedIndex === index;
-                    const isFilled = !!digit;
-                    
-                    return (
-                      <Animated.View
-                        key={index}
-                        style={[
-                          styles.otpInputWrapper,
-                          isFilled && styles.otpInputWrapperFilled,
-                          isFocused && styles.otpInputWrapperFocused,
-                          { transform: [{ scale: otpScales[index] }] },
-                        ]}
-                      >
-                        <TextInput
-                          ref={(ref) => (inputRefs.current[index] = ref)}
-                          style={[
-                            styles.otpInput,
-                            isFilled && styles.otpInputFilled,
-                            isFocused && styles.otpInputFocused,
-                            loading && styles.otpInputDisabled,
-                          ]}
-                          value={digit}
-                          onChangeText={(value) => {
-                            handleOtpChange(value, index);
-                            // Pulse animation on fill
-                            if (value) {
-                              Animated.sequence([
-                                Animated.timing(otpScales[index], { toValue: 1.1, duration: 100, useNativeDriver: true }),
-                                Animated.spring(otpScales[index], { toValue: 1, friction: 3, useNativeDriver: true }),
-                              ]).start();
-                            }
-                          }}
-                          onKeyPress={(event) => handleKeyPress(event, index)}
-                          onFocus={() => setFocusedIndex(index)}
-                          onBlur={() => setFocusedIndex(-1)}
-                          keyboardType="number-pad"
-                          maxLength={index === 0 ? OTP_LENGTH : 1}
-                          editable={!loading}
-                          selectTextOnFocus
-                        />
-                        {isFocused && !digit && (
-                          <Animated.View style={styles.otpCursor} />
-                        )}
-                      </Animated.View>
-                    );
-                  })}
-                </Animated.View>
-
-                {/* Verify Button — Full-width gradient style */}
+                {/* Verify Button */}
                 <TouchableOpacity
                   style={[
-                    styles.verifyOtpButton,
-                    (loading || otp.join('').length !== OTP_LENGTH) && styles.verifyOtpButtonDisabled,
+                    s.ctaButton,
+                    glowShadow,
+                    (loading || otp.join('').length !== OTP_LENGTH) && s.ctaButtonDisabled,
                   ]}
                   onPress={() => {
                     if (otp.join('').length !== OTP_LENGTH) {
@@ -763,37 +917,38 @@ const VerificationScreen = ({
                   activeOpacity={0.8}
                 >
                   {loading ? (
-                    <View style={styles.verifyOtpButtonContent}>
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                      <Text style={styles.verifyOtpButtonText}>Verifying...</Text>
+                    <View style={s.ctaRow}>
+                      <ActivityIndicator size="small" color={BRAND.white} />
+                      <Text style={s.ctaButtonText}>Verifying...</Text>
                     </View>
                   ) : (
-                    <View style={styles.verifyOtpButtonContent}>
-                      <MaterialIcon name="verified" size={20} color="#FFFFFF" />
-                      <Text style={styles.verifyOtpButtonText}>Verify OTP</Text>
+                    <View style={s.ctaRow}>
+                      <MaterialIcon name="verified" size={20} color={BRAND.white} />
+                      <Text style={s.ctaButtonText}>Verify OTP</Text>
                     </View>
                   )}
                 </TouchableOpacity>
 
-                {/* Resend — Cleaner layout */}
-                <View style={styles.resendContainer}>
-                  <Text style={styles.resendText}>Didn't receive the code?</Text>
+                {/* Resend */}
+                <View style={s.resendRow}>
+                  <Text style={s.resendLabel}>Didn't receive the code?</Text>
                   <TouchableOpacity
                     onPress={handleSendVerification}
                     disabled={!canResend || sendLoading || loading}
                     style={[
-                      styles.resendButton,
-                      (!canResend || sendLoading) && styles.resendButtonDisabled,
+                      s.resendBtn,
+                      (!canResend || sendLoading) && s.resendBtnDisabled,
                     ]}
+                    activeOpacity={0.7}
                   >
                     {sendLoading ? (
-                      <ActivityIndicator size="small" color="#f67c16" />
+                      <ActivityIndicator size="small" color={BRAND.primary} />
                     ) : (
                       <>
-                        <MaterialIcon name="refresh" size={16} color={(!canResend || sendLoading) ? '#9CA3AF' : '#f67c16'} />
+                        <MaterialIcon name="refresh" size={16} color={(!canResend || sendLoading) ? BRAND.textMuted : BRAND.primary} />
                         <Text style={[
-                          styles.resendLink,
-                          (!canResend || sendLoading) && styles.resendLinkDisabled,
+                          s.resendBtnText,
+                          (!canResend || sendLoading) && s.resendBtnTextDisabled,
                         ]}>
                           Resend OTP
                         </Text>
@@ -807,18 +962,21 @@ const VerificationScreen = ({
         )}
 
         {/* Skip Button */}
-        <TouchableOpacity 
-          style={styles.skipButton} 
+        <TouchableOpacity
+          style={s.skipBtn}
           onPress={handleSkip}
           disabled={loading || sendLoading}
+          activeOpacity={0.7}
         >
-          <Text style={styles.skipText}>Skip for now</Text>
+          <Text style={s.skipBtnText}>Skip for now</Text>
+          <MaterialIcon name="chevron-right" size={18} color={BRAND.textMuted} />
         </TouchableOpacity>
 
-        {/* Info */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            {isEmailVerification 
+        {/* Footer Tip */}
+        <View style={[s.footerCard, cardShadow]}>
+          <MaterialIcon name="info-outline" size={18} color={BRAND.textMuted} />
+          <Text style={s.footerText}>
+            {isEmailVerification
               ? 'Check your spam folder if you don\'t see the email. You can edit your email above if needed.'
               : 'You can edit your phone number above if it\'s incorrect or not set.'
             }
@@ -829,202 +987,319 @@ const VerificationScreen = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
+/* ═══════════════════════════════════════════════════════════════════
+   STYLES
+   ═══════════════════════════════════════════════════════════════════ */
+const s = StyleSheet.create({
+  /* ─── Layout ───────────────────────────────────────────────────── */
+  safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: BRAND.bg,
   },
-  content: {
+  scrollContent: {
     flexGrow: 1,
-    padding: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
   },
-  header: {
-    marginBottom: 32,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6B7280',
-    lineHeight: 24,
-  },
-  alert: {
+  sectionWrap: {
     marginBottom: 16,
   },
-  infoCard: {
-    backgroundColor: '#F8FAFC',
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  infoTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 8,
-  },
-  infoDescription: {
-    fontSize: 14,
-    color: '#64748B',
-    lineHeight: 22,
-  },
-  emailSection: {
-    marginBottom: 32,
-  },
-  phoneSection: {
-    marginBottom: 32,
-  },
-  // Phone/Email value display & editing
-  valueCard: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  displayContainer: {
+
+  /* ─── Header Bar ───────────────────────────────────────────────── */
+  headerBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    backgroundColor: BRAND.bg,
   },
-  displayRow: {
+  backCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: BRAND.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+      },
+      android: { elevation: 2 },
+    }),
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: BRAND.text,
+    textAlign: 'center',
     flex: 1,
   },
-  displayLabel: {
+  headerSubtitle: {
+    fontSize: 15,
+    color: BRAND.textSecondary,
+    lineHeight: 22,
+    marginBottom: 20,
+    paddingHorizontal: 4,
+  },
+
+  /* ─── Alert ────────────────────────────────────────────────────── */
+  alert: {
+    marginBottom: 16,
+    borderRadius: 16,
+  },
+
+  /* ─── Card ─────────────────────────────────────────────────────── */
+  card: {
+    backgroundColor: BRAND.white,
+    borderRadius: 22,
+    padding: 20,
+    marginBottom: 16,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  cardIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionLabel: {
     fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '600',
-    marginBottom: 4,
-    textTransform: 'uppercase',
+    fontWeight: '700',
+    color: BRAND.textMuted,
     letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 4,
   },
-  displayValue: {
-    fontSize: 17,
-    color: '#1E293B',
-    fontWeight: '600',
-  },
-  editIcon: {
-    padding: 10,
-    borderRadius: 10,
-    backgroundColor: '#F1F5F9',
-  },
-  editIconText: {
+  cardDescription: {
     fontSize: 14,
-    color: '#2563EB',
-    fontWeight: '500',
+    color: BRAND.textSecondary,
+    lineHeight: 20,
   },
-  editContainer: {
+  separator: {
+    height: 1,
+    backgroundColor: BRAND.border,
+    marginVertical: 16,
+  },
+
+  /* ─── Status Badge ─────────────────────────────────────────────── */
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  /* ─── Value Display ────────────────────────────────────────────── */
+  valueDisplayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: BRAND.border,
+  },
+  valueLabelCol: {
+    flex: 1,
+    marginRight: 12,
+  },
+  valueLabelSmall: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: BRAND.textMuted,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 3,
+  },
+  valueText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: BRAND.text,
+  },
+  editPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#EFF6FF',
+  },
+  editPillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: BRAND.secondary,
+  },
+
+  /* ─── Edit Mode ────────────────────────────────────────────────── */
+  editWrap: {
+    marginTop: 4,
   },
   editLabel: {
     fontSize: 13,
-    color: '#374151',
-    fontWeight: '600',
+    fontWeight: '700',
+    color: BRAND.text,
     marginBottom: 8,
   },
   editInput: {
     borderWidth: 1.5,
-    borderColor: '#D1D5DB',
-    borderRadius: 12,
-    padding: 14,
+    borderColor: BRAND.border,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     fontSize: 16,
-    color: '#1F2937',
-    backgroundColor: '#F9FAFB',
-    marginBottom: 6,
+    color: BRAND.text,
+    backgroundColor: '#F8FAFC',
   },
   editHint: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: BRAND.textMuted,
+    marginTop: 6,
     marginBottom: 12,
   },
   editActions: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 4,
+    marginTop: 8,
   },
-  saveButton: {
-    flex: 1,
-    backgroundColor: '#f67c16',
-    paddingVertical: 13,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 46,
-    shadowColor: '#f67c16',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#F1F5F9',
-    paddingVertical: 13,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelButtonText: {
-    color: '#64748B',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  sendButton: {
-    marginBottom: 16,
-  },
-  sentText: {
-    fontSize: 14,
-    color: '#059669',
-    textAlign: 'center',
-  },
-  // Timer
-  timerContainer: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  timerPill: {
+  phoneInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 24,
   },
-  timerText: {
-    fontSize: 14,
-    color: '#475569',
-    fontWeight: '500',
+  countryCodeBox: {
+    height: 52,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: BRAND.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  timerValue: {
-    color: '#2563EB',
+  countryCodeText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: BRAND.text,
+  },
+
+  /* ─── CTA Button ───────────────────────────────────────────────── */
+  ctaButton: {
+    flex: 1,
+    backgroundColor: BRAND.primary,
+    height: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  ctaButtonDisabled: {
+    backgroundColor: '#CBD5E1',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  ctaButtonText: {
+    color: BRAND.white,
+    fontSize: 16,
     fontWeight: '700',
   },
-  timerExpired: {
-    fontSize: 14,
-    color: '#DC2626',
+  ctaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  cancelBtn: {
+    flex: 1,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnText: {
+    color: BRAND.textSecondary,
+    fontSize: 15,
     fontWeight: '600',
   },
-  // OTP — Modern design
+
+  /* ─── Sent confirmation ────────────────────────────────────────── */
+  sentCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#ECFDF5',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 8,
+  },
+  sentText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#065F46',
+    lineHeight: 20,
+  },
+
+  /* ─── Countdown ────────────────────────────────────────────────── */
+  countdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  countdownCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 3,
+    borderColor: BRAND.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countdownCircleExpired: {
+    borderColor: BRAND.red,
+    backgroundColor: '#FEF2F2',
+  },
+  countdownInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countdownLabel: {
+    fontSize: 12,
+    color: BRAND.textMuted,
+    fontWeight: '500',
+  },
+  countdownValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: BRAND.secondary,
+  },
+  countdownExpiredText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: BRAND.red,
+  },
+
+  /* ─── OTP Input ────────────────────────────────────────────────── */
   otpInstruction: {
     fontSize: 14,
-    color: '#64748B',
+    color: BRAND.textSecondary,
     textAlign: 'center',
     marginBottom: 20,
     fontWeight: '500',
@@ -1033,222 +1308,230 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 10,
-    marginBottom: 32,
   },
-  otpInputWrapper: {
-    width: 52,
-    height: 64,
-    borderRadius: 14,
+  otpBox: {
+    width: (SCREEN_WIDTH - 40 - 20 - 60) / 6, // adaptive sizing
+    minWidth: 44,
+    maxWidth: 54,
+    height: 60,
+    borderRadius: 16,
     borderWidth: 2,
-    borderColor: '#E2E8F0',
+    borderColor: BRAND.border,
     backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 4,
+      },
+      android: { elevation: 1 },
+    }),
   },
-  otpInputWrapperFilled: {
-    borderColor: '#2563EB',
+  otpBoxFilled: {
+    borderColor: BRAND.secondary,
     backgroundColor: '#EFF6FF',
-    shadowColor: '#2563EB',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: BRAND.secondary,
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+      },
+      android: { elevation: 3 },
+    }),
   },
-  otpInputWrapperFocused: {
-    borderColor: '#f67c16',
+  otpBoxFocused: {
+    borderColor: BRAND.primary,
     backgroundColor: '#FFFBF5',
-    shadowColor: '#f67c16',
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: BRAND.primary,
+        shadowOpacity: 0.18,
+        shadowRadius: 10,
+      },
+      android: { elevation: 4 },
+    }),
   },
-  otpInput: {
+  otpDigitInput: {
     width: '100%',
     height: '100%',
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '800',
     textAlign: 'center',
-    color: '#1E293B',
+    color: BRAND.text,
     padding: 0,
   },
-  otpInputFilled: {
-    color: '#2563EB',
+  otpDigitFilled: {
+    color: BRAND.secondary,
   },
-  otpInputFocused: {
-    color: '#f67c16',
+  otpDigitFocused: {
+    color: BRAND.primary,
   },
-  otpInputDisabled: {
-    color: '#94A3B8',
+  otpDigitDisabled: {
+    color: BRAND.textMuted,
   },
   otpCursor: {
     position: 'absolute',
     width: 2,
-    height: 28,
-    backgroundColor: '#f67c16',
+    height: 26,
+    backgroundColor: BRAND.primary,
     borderRadius: 1,
   },
-  // Verify button — modern gradient style
-  verifyOtpButton: {
-    backgroundColor: '#f67c16',
-    borderRadius: 14,
-    paddingVertical: 16,
-    marginBottom: 24,
-    shadowColor: '#f67c16',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  verifyOtpButtonDisabled: {
-    backgroundColor: '#CBD5E1',
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  verifyOtpButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-  },
-  verifyOtpButtonText: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  // Resend
-  resendContainer: {
+
+  /* ─── Resend ───────────────────────────────────────────────────── */
+  resendRow: {
     alignItems: 'center',
     gap: 10,
     marginBottom: 8,
+    marginTop: 4,
   },
-  resendText: {
+  resendLabel: {
     fontSize: 14,
-    color: '#94A3B8',
+    color: BRAND.textMuted,
     fontWeight: '500',
   },
-  resendButton: {
+  resendBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+    borderRadius: 12,
     backgroundColor: '#FFF7ED',
   },
-  resendButtonDisabled: {
+  resendBtnDisabled: {
     backgroundColor: '#F1F5F9',
   },
-  resendLink: {
+  resendBtnText: {
     fontSize: 14,
-    color: '#f67c16',
+    color: BRAND.primary,
     fontWeight: '700',
   },
-  resendLinkDisabled: {
-    color: '#94A3B8',
+  resendBtnTextDisabled: {
+    color: BRAND.textMuted,
   },
-  // Skip
-  skipButton: {
+
+  /* ─── Skip ─────────────────────────────────────────────────────── */
+  skipBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    marginBottom: 24,
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 16,
+    marginBottom: 16,
   },
-  skipText: {
+  skipBtnText: {
     fontSize: 14,
-    color: '#94A3B8',
+    color: BRAND.textMuted,
     fontWeight: '500',
   },
-  footer: {
-    padding: 18,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+
+  /* ─── Footer ───────────────────────────────────────────────────── */
+  footerCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: BRAND.white,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
   },
   footerText: {
+    flex: 1,
     fontSize: 13,
-    color: '#94A3B8',
-    textAlign: 'center',
+    color: BRAND.textMuted,
     lineHeight: 20,
   },
-  // Success screen — Modern design
+
+  /* ─── Success Screen ───────────────────────────────────────────── */
   successContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
+    backgroundColor: BRAND.bg,
   },
-  successIconContainer: {
-    width: 100,
-    height: 100,
+  successIconOuter: {
+    width: 120,
+    height: 120,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 28,
+    marginBottom: 32,
   },
   successIconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#10B981',
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: BRAND.successGreen,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: BRAND.successGreen,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.35,
+        shadowRadius: 16,
+      },
+      android: { elevation: 8 },
+    }),
   },
-  successIconRing: {
+  successRing: {
     position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 108,
+    height: 108,
+    borderRadius: 54,
     borderWidth: 2,
-    borderColor: '#10B981',
-    opacity: 0.2,
+    borderColor: BRAND.successGreen,
+    opacity: 0.25,
+  },
+  successRingOuter: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 1.5,
+    borderColor: BRAND.successGreen,
+    opacity: 0.12,
   },
   successTitle: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#1E293B',
+    color: BRAND.text,
     marginBottom: 12,
     textAlign: 'center',
   },
   successSubtitle: {
     fontSize: 16,
-    color: '#64748B',
+    color: BRAND.textSecondary,
     textAlign: 'center',
     marginBottom: 40,
     lineHeight: 24,
     paddingHorizontal: 16,
   },
-  successBackButton: {
+  successBackBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#2563EB',
+    backgroundColor: BRAND.secondary,
     paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 14,
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    height: 56,
+    borderRadius: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: BRAND.secondary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+      },
+      android: { elevation: 6 },
+    }),
   },
-  successBackButtonText: {
+  successBackBtnText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  verifyButton: {
-    marginBottom: 24,
-  },
-  backButton: {
-    minWidth: 200,
+    color: BRAND.white,
   },
 });
 

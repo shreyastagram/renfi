@@ -1,6 +1,6 @@
 /**
  * User Home Screen
- * 
+ *
  * Production-grade home screen with:
  * - Full screen map with user location
  * - Hamburger menu + Avatar for profile
@@ -9,7 +9,7 @@
  * - Find nearby providers integration
  * - Global location context with 30-second refresh
  * - Address management icon
- * 
+ *
  * @version 3.0.0 - Global Location Context + Address Management
  */
 
@@ -24,7 +24,6 @@ import {
   FlatList,
   ActivityIndicator,
   Linking,
-  Alert,
   ScrollView,
   Animated,
   PanResponder,
@@ -42,6 +41,7 @@ import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 import { useApp } from '../context/AppContext';
+import { useDialog } from '../context/DialogContext';
 import { useLocation } from '../context/LocationContext';
 import {
   createServiceRequest,
@@ -49,9 +49,11 @@ import {
   sendRequestToProvider,
   cancelRequest,
   getProviderDetails,
+  getRequestDetails,
   skipProvider,
   retryProviderSearch,
 } from '../services/traditionalServiceService';
+import { formatDistance, formatDistanceFromMeters, useDistanceUnit } from '../utils/formatDistance';
 // Direct phone dialing - Exotel call masking removed
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -88,43 +90,66 @@ const SERVICE_CATEGORIES = [
   { id: 'ac_repair', name: 'AC Repair', iconName: 'ac_repair' },
 ];
 
-const ServiceCard = ({ service, onPress }) => (
-  <TouchableOpacity
-    style={styles.serviceCard}
-    onPress={() => onPress(service)}
-    activeOpacity={0.7}
-  >
-    <View style={styles.serviceIconContainer}>
-      <ServiceIcon serviceType={service.id} size={24} color={BRAND.secondary} />
-    </View>
-    <Text style={styles.serviceName}>{service.name}</Text>
-  </TouchableOpacity>
-);
+const ServiceCard = ({ service, onPress }) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const onPressIn = () => Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true, friction: 8 }).start();
+  const onPressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, friction: 8 }).start();
 
-const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, contacted, calling, skipping }) => (
-  <TouchableOpacity 
-    style={[styles.providerCard, skipping && styles.providerCardSkipping]} 
+  return (
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <TouchableOpacity
+        style={styles.serviceCard}
+        onPress={() => onPress(service)}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        activeOpacity={0.85}
+      >
+        <View style={styles.serviceIconContainer}>
+          <ServiceIcon serviceType={service.id} size={26} color={BRAND.secondary} />
+        </View>
+        <Text style={styles.serviceName}>{service.name}</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, contacted, calling, skipping }) => {
+  const useKm = useDistanceUnit();
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const onPressIn = () => Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true, friction: 8 }).start();
+  const onPressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, friction: 8 }).start();
+
+  return (
+  <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+  <TouchableOpacity
+    style={[styles.providerCard, skipping && styles.providerCardSkipping]}
     onPress={onPress}
-    activeOpacity={0.7}
+    onPressIn={onPressIn}
+    onPressOut={onPressOut}
+    activeOpacity={0.85}
     disabled={skipping}
   >
     <View style={styles.providerInfo}>
       {/* Profile Picture or Avatar */}
       {provider.profilePicture?.url ? (
-        <Image 
-          source={{ uri: provider.profilePicture.url }} 
-          style={styles.providerAvatarImage} 
-        />
+        <View style={styles.providerAvatarRing}>
+          <Image
+            source={{ uri: provider.profilePicture.url }}
+            style={styles.providerAvatarImage}
+          />
+        </View>
       ) : (
-        <View style={styles.providerAvatar}>
-          <Text style={styles.providerInitial}>{provider.name?.charAt(0)?.toUpperCase() || 'P'}</Text>
+        <View style={styles.providerAvatarRing}>
+          <View style={styles.providerAvatar}>
+            <Text style={styles.providerInitial}>{provider.name?.charAt(0)?.toUpperCase() || 'P'}</Text>
+          </View>
         </View>
       )}
       <View style={styles.providerDetails}>
         <View style={styles.providerNameRow}>
-          <Text style={styles.providerName}>{provider.name}</Text>
+          <Text style={styles.providerName} numberOfLines={1}>{provider.name}</Text>
           {(provider.verified || provider.verification?.isVerified) && (
-            <MaterialIcon name="verified" size={16} color="#2563EB" style={styles.verifiedBadge} />
+            <MaterialIcon name="verified" size={17} color="#2563EB" style={styles.verifiedBadge} />
           )}
           {contacted && (
             <View style={styles.contactedBadge}>
@@ -134,10 +159,10 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
           )}
         </View>
         <View style={styles.providerDistanceRow}>
-          <Icon name="location" size={14} color="#6B7280" />
+          <Icon name="location" size={14} color="#94A3B8" />
           <Text style={styles.providerDistance}>
-            {provider.distanceKm ? `${provider.distanceKm} km away` : 
-             typeof provider.distance === 'number' ? `${(provider.distance / 1000).toFixed(2)} km away` : 
+            {provider.distanceKm ? `${formatDistance(provider.distanceKm, useKm)} away` :
+             typeof provider.distance === 'number' ? `${formatDistanceFromMeters(provider.distance, useKm)} away` :
              'Nearby'}
           </Text>
         </View>
@@ -153,17 +178,17 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
           </View>
         )}
       </View>
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.viewDetailsIcon}
         onPress={onPress}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       >
-        <MaterialIcon name="chevron-right" size={24} color="#9CA3AF" />
+        <MaterialIcon name="chevron-right" size={26} color="#CBD5E1" />
       </TouchableOpacity>
     </View>
     <View style={styles.providerActions}>
-      <TouchableOpacity 
-        style={[styles.callButton, calling && styles.callButtonCalling]} 
+      <TouchableOpacity
+        style={[styles.callButton, calling && styles.callButtonCalling]}
         onPress={(e) => {
           e.stopPropagation();
           onCall(provider);
@@ -176,22 +201,16 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
           <Icon name="phone" size={22} color="#FFFFFF" />
         )}
       </TouchableOpacity>
-      {contacted ? (
-        <TouchableOpacity 
-          style={[styles.bookButton, booking && styles.bookButtonLoading]} 
-          onPress={(e) => {
-            e.stopPropagation();
-            onBook(provider);
-          }} 
-          disabled={booking}
-        >
-          {booking ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.bookButtonText}>Send Request</Text>}
-        </TouchableOpacity>
-      ) : (
-        <View style={[styles.bookButton, { backgroundColor: '#E5E7EB' }]}>
-          <Text style={[styles.bookButtonText, { color: '#9CA3AF', fontSize: 13 }]}>Call first to book</Text>
-        </View>
-      )}
+      <TouchableOpacity
+        style={[styles.bookButton, booking && styles.bookButtonLoading]}
+        onPress={(e) => {
+          e.stopPropagation();
+          onBook(provider);
+        }}
+        disabled={booking}
+      >
+        {booking ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.bookButtonText}>Send Request</Text>}
+      </TouchableOpacity>
       {/* Skip / Remove Provider Button */}
       <TouchableOpacity
         style={[styles.skipButton, skipping && styles.skipButtonLoading]}
@@ -210,22 +229,26 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
       </TouchableOpacity>
     </View>
   </TouchableOpacity>
-);
+  </Animated.View>
+  );
+};
 
 const UserHomeScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
+  const { dialog } = useDialog();
+  const useKm = useDistanceUnit();
   // Cap sheet max height — 80% of screen ensures it stays below the top bar icons
   const safeMaxHeight = SHEET_MAX_HEIGHT;
   const mapRef = useRef(null);
-  const { user, profile, userType, logout } = useApp();
-  
+  const { user, profile, userType, logout, isProfileLoading, isAuthLoading } = useApp();
+
   // Use global location context (fetches once, updates every 30 sec)
-  const { 
-    currentLocation, 
-    locationAddress, 
-    displayAddress, 
-    locationLoading, 
-    locationError, 
+  const {
+    currentLocation,
+    locationAddress,
+    displayAddress,
+    locationLoading,
+    locationError,
     locationPermission: globalLocationPermission,
     locationServicesEnabled,
     refreshLocation,
@@ -245,16 +268,16 @@ const UserHomeScreen = ({ navigation, route }) => {
   const [fetchingProviders, setFetchingProviders] = useState(false);
   const [bookingProvider, setBookingProvider] = useState(null);
   const [allProvidersRejected, setAllProvidersRejected] = useState(false);
-  
+
   // Provider details modal state
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [providerDetailsVisible, setProviderDetailsVisible] = useState(false);
-  
+
   // Permission states (use global for location, local for notifications)
   const [locationPermission, setLocationPermission] = useState(globalLocationPermission);
   // locationServicesEnabled comes from LocationContext (detects GPS on/off)
   const [notificationPermission, setNotificationPermission] = useState('unknown');
-  
+
   // Sync location permission from global context
   useEffect(() => {
     setLocationPermission(globalLocationPermission);
@@ -282,7 +305,7 @@ const UserHomeScreen = ({ navigation, route }) => {
   const currentHeightRef = useRef(SHEET_MID_HEIGHT);
 
   // Pan responder for swipe gestures on the bottom sheet handle
-  const panResponder = useMemo(() => 
+  const panResponder = useMemo(() =>
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gestureState) => {
@@ -307,9 +330,9 @@ const UserHomeScreen = ({ navigation, route }) => {
         const velocity = gestureState.vy;
         const currentValue = currentHeightRef.current - gestureState.dy;
         const dragDistance = gestureState.dy;
-        
+
         let targetHeight = SHEET_MID_HEIGHT;
-        
+
         // Very low velocity threshold for easier swiping in both directions
         if (Math.abs(velocity) > 0.15) {
           if (velocity < 0) {
@@ -340,7 +363,7 @@ const UserHomeScreen = ({ navigation, route }) => {
           // Snap to nearest position based on current position
           const midPoint1 = (SHEET_MIN_HEIGHT + SHEET_MID_HEIGHT) / 2;
           const midPoint2 = (SHEET_MID_HEIGHT + safeMaxHeight) / 2;
-          
+
           if (currentValue < midPoint1) {
             targetHeight = SHEET_MIN_HEIGHT;
           } else if (currentValue < midPoint2) {
@@ -349,7 +372,7 @@ const UserHomeScreen = ({ navigation, route }) => {
             targetHeight = safeMaxHeight;
           }
         }
-        
+
         currentHeightRef.current = targetHeight;
         Animated.spring(sheetHeight, {
           toValue: targetHeight,
@@ -383,19 +406,79 @@ const UserHomeScreen = ({ navigation, route }) => {
     }
   }, [step, animateSheetTo, safeMaxHeight]);
 
+  // Refs to avoid stale closures in focus listener
+  const createdRequestRef = useRef(null);
+  const stepRef = useRef('select');
+  useEffect(() => { createdRequestRef.current = createdRequest; }, [createdRequest]);
+  useEffect(() => { stepRef.current = step; }, [step]);
+
+  // Handle resumeRequest param — resume provider search from history/detail screen
+  useEffect(() => {
+    const resumeRequest = route?.params?.resumeRequest;
+    if (resumeRequest?._id) {
+      setCreatedRequest(resumeRequest);
+      setSelectedService(SERVICE_CATEGORIES.find(s => s.id === resumeRequest.serviceType) || null);
+      setStep('providers');
+      animateSheetTo(SHEET_MAX_HEIGHT);
+      // Trigger provider search
+      setTimeout(() => fetchProviders(resumeRequest._id), 300);
+      // Clear the param so it doesn't re-trigger
+      navigation.setParams({ resumeRequest: undefined });
+    }
+  }, [route?.params?.resumeRequest]);
+
+  // When returning to home screen, check if active request was cancelled elsewhere
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', async () => {
+      const req = createdRequestRef.current;
+      if (!req?._id || stepRef.current !== 'providers') return;
+      try {
+        const result = await getRequestDetails(req._id);
+        if (result.success && result.request) {
+          const { status } = result.request;
+          if (status === 'cancelled' || status === 'completed' || status === 'accepted') {
+            // Request was handled elsewhere — reset the home screen flow
+            setStep('select');
+            setSelectedService(null);
+            setSelectedDateTime(null);
+            setServiceLocation(null);
+            setServiceDescription('');
+            setCreatedRequest(null);
+            setProviders([]);
+            setProviderDetailsVisible(false);
+            setSelectedProvider(null);
+            setAllProvidersRejected(false);
+            animateSheetTo(SHEET_MID_HEIGHT);
+          }
+        } else {
+          // Request not found — reset
+          setStep('select');
+          setCreatedRequest(null);
+          setProviders([]);
+          animateSheetTo(SHEET_MID_HEIGHT);
+        }
+      } catch {
+        // Silently ignore — don't disrupt UX for network errors
+      }
+    });
+    return unsubscribe;
+  }, [navigation, animateSheetTo]);
+
   const displayData = { ...user, ...profile };
   const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+  // Only consider unverified if profile has actually loaded (not still loading)
+  const profileReady = !isAuthLoading && !isProfileLoading && profile !== null;
   const isVerified = displayData?.isPhoneVerified && displayData?.isEmailVerified;
 
   // Check and request location permission
   const checkLocationPermission = useCallback(async () => {
     try {
-      const permission = Platform.OS === 'ios' 
-        ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE 
+      const permission = Platform.OS === 'ios'
+        ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
         : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
-      
+
       const result = await check(permission);
-      
+
       if (result === RESULTS.GRANTED) {
         setLocationPermission('granted');
         return true;
@@ -415,12 +498,12 @@ const UserHomeScreen = ({ navigation, route }) => {
 
   const requestLocationPermission = useCallback(async () => {
     try {
-      const permission = Platform.OS === 'ios' 
-        ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE 
+      const permission = Platform.OS === 'ios'
+        ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
         : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
-      
+
       const result = await request(permission);
-      
+
       if (result === RESULTS.GRANTED) {
         setLocationPermission('granted');
         // Refresh location from global context after permission granted
@@ -428,7 +511,7 @@ const UserHomeScreen = ({ navigation, route }) => {
         return true;
       } else if (result === RESULTS.BLOCKED) {
         setLocationPermission('blocked');
-        Alert.alert(
+        dialog(
           'Location Permission Required',
           'Please enable location permission in your device settings to use this app effectively.',
           [
@@ -493,7 +576,7 @@ const UserHomeScreen = ({ navigation, route }) => {
           return true;
         } else if (result === RESULTS.BLOCKED) {
           setNotificationPermission('blocked');
-          Alert.alert(
+          dialog(
             'Notifications Required',
             'Notifications are required for you to receive updates about your service requests. Please enable them in settings.',
             [
@@ -523,19 +606,19 @@ const UserHomeScreen = ({ navigation, route }) => {
           // Notification is blocked - show persistent warning
         }
       }
-      
+
       // Check location permission (for UI state)
       // Actual location fetching is handled by LocationContext
       await checkLocationPermission();
     };
-    
+
     initializePermissions();
   }, [checkLocationPermission, checkNotificationPermission, requestNotificationPermission]);
 
   // Handle location change - no longer needed as we use global context
   // Kept for compatibility but now just logs
   const handleLocationChange = useCallback((location) => {
-    console.log('📍 [UserHomeScreen] Location updated from context');
+    console.log('[UserHomeScreen] Location updated from context');
   }, []);
 
   // Animate map to selected service location (marker + camera fly)
@@ -546,23 +629,25 @@ const UserHomeScreen = ({ navigation, route }) => {
       serviceLocation.latitude &&
       serviceLocation.longitude
     ) {
-      console.log('📍 [UserHomeScreen] Flying map to service location:', serviceLocation.shortAddress || serviceLocation.address);
+      console.log('[UserHomeScreen] Flying map to service location:', serviceLocation.shortAddress || serviceLocation.address);
       mapRef.current?.animateToLocation(serviceLocation, 1000);
     }
   }, [serviceLocation]);
 
   const handleServiceSelect = (service) => {
-    if (!isVerified) {
-      Alert.alert('Verification Required', 'Please verify your phone and email to book services.', [
+    // Only block for verification if profile has fully loaded and user is genuinely unverified
+    // Don't show verification popup while data is still loading — bad UX
+    if (profileReady && !isVerified) {
+      dialog('Verification Required', 'Please verify your phone and email to book services.', [
         { text: 'Later', style: 'cancel' },
         { text: 'Verify Now', onPress: () => navigation.navigate('Profile') },
       ]);
       return;
     }
-    
+
     // Check if location services are enabled — show popup if GPS is off
     if (!locationServicesEnabled && !currentLocation) {
-      Alert.alert(
+      dialog(
         'Location is Turned Off',
         'Please enable location services to find nearby service providers. You can also select a saved address during booking.',
         [
@@ -591,7 +676,7 @@ const UserHomeScreen = ({ navigation, route }) => {
       );
       return;
     }
-    
+
     setSelectedService(service);
     setStep('date');
     animateSheetTo(safeMaxHeight);
@@ -609,25 +694,25 @@ const UserHomeScreen = ({ navigation, route }) => {
 
   const handleCreateRequest = async () => {
     if (!selectedService || !selectedDateTime) {
-      Alert.alert('Error', 'Please select service and date/time');
+      dialog('Error', 'Please select service and date/time');
       return;
     }
-    
+
     // Determine location to use:
     // 1. If user explicitly selected "Other Location" (saved addr, search, map pin) → use those coordinates
     // 2. Otherwise → use current GPS location
     // CRITICAL: Check for latitude/longitude presence, not just isCurrentLocation flag
-    const hasServiceLocation = serviceLocation && 
-      serviceLocation.latitude && 
-      serviceLocation.longitude && 
+    const hasServiceLocation = serviceLocation &&
+      serviceLocation.latitude &&
+      serviceLocation.longitude &&
       serviceLocation.isCurrentLocation !== true; // undefined or false both count as "other"
-    
+
     const locationToUse = hasServiceLocation ? serviceLocation : currentLocation;
-    
+
     if (!locationToUse) {
       // No location at all — GPS might be off
       if (!locationServicesEnabled) {
-        Alert.alert(
+        dialog(
           'Location Required',
           'Location services are turned off. Please enable GPS or select a saved address.',
           [
@@ -647,17 +732,17 @@ const UserHomeScreen = ({ navigation, route }) => {
           ]
         );
       } else {
-        Alert.alert('Location Required', 'Please wait for your location to be detected, or select a saved address.');
+        dialog('Location Required', 'Please wait for your location to be detected, or select a saved address.');
       }
       return;
     }
-    
+
     // Validate location has actual coordinates (not just loading/partial)
     if (!locationToUse.latitude || !locationToUse.longitude) {
-      Alert.alert('Location Incomplete', 'Your location is still being detected. Please wait a moment and try again.');
+      dialog('Location Incomplete', 'Your location is still being detected. Please wait a moment and try again.');
       return;
     }
-    
+
     // Build a descriptive service address
     const serviceAddr = hasServiceLocation
       ? (serviceLocation.address || serviceLocation.shortAddress || serviceLocation.addressLine1 || null)
@@ -679,24 +764,24 @@ const UserHomeScreen = ({ navigation, route }) => {
       });
       if (result.success) {
         setCreatedRequest(result.request);
-        const alertMessage = selectedDateTime.isInstant 
+        const alertMessage = selectedDateTime.isInstant
           ? 'Instant request created! Find nearby available providers now?'
           : 'Request created! Find nearby providers now?';
-        Alert.alert('Request Created', alertMessage, [
+        dialog('Request Created', alertMessage, [
           { text: 'Later', onPress: resetFlow },
           { text: 'Find Providers', onPress: () => fetchProviders(result.request._id) },
         ]);
       } else if (result.code === 'OUTSIDE_SERVICE_ZONE') {
-        Alert.alert(
-          '📍 Service Unavailable in Your Area',
+        dialog(
+          'Service Unavailable in Your Area',
           result.suggestion || 'Our services are currently available only in Yavatmal City, Maharashtra. We\'re expanding soon!',
           [{ text: 'OK', onPress: resetFlow }]
         );
       } else {
-        Alert.alert('Error', result.error || 'Failed to create request');
+        dialog('Error', result.error || 'Failed to create request');
       }
     } catch (error) {
-      Alert.alert('Error', 'Something went wrong');
+      dialog('Error', 'Something went wrong');
     } finally {
       setCreatingRequest(false);
     }
@@ -712,21 +797,21 @@ const UserHomeScreen = ({ navigation, route }) => {
         if (result.code === 'ALL_PROVIDERS_REJECTED') {
           setProviders([]);
           setAllProvidersRejected(true);
-          Alert.alert(
-            '🔄 All Providers Reviewed',
+          dialog(
+            'All Providers Reviewed',
             result.suggestion || 'You have reviewed all available providers. Start a fresh search to see them again.',
           );
         } else {
           setAllProvidersRejected(false);
           setProviders(result.providers || []);
           setSearchRadius(result.searchRadius || 0);
-          if (!result.providers?.length) Alert.alert('No Providers Found', `No providers within ${(result.searchRadius / 1000).toFixed(1)}km. Try again later.`);
+          if (!result.providers?.length) dialog('No Providers Found', `No providers within ${formatDistanceFromMeters(result.searchRadius, useKm)}. Try again later.`);
         }
       } else {
-        Alert.alert('Error', result.error || 'Failed to find providers');
+        dialog('Error', result.error || 'Failed to find providers');
       }
     } catch (error) {
-      Alert.alert('Error', 'Something went wrong');
+      dialog('Error', 'Something went wrong');
     } finally {
       setFetchingProviders(false);
     }
@@ -740,14 +825,14 @@ const UserHomeScreen = ({ navigation, route }) => {
    */
   const handleRetrySearch = async () => {
     if (!createdRequest?._id) return;
-    
+
     setFetchingProviders(true);
     try {
       if (allProvidersRejected) {
         // Step 1: Clear rejected list on backend
         const resetResult = await retryProviderSearch(createdRequest._id, userId);
         if (!resetResult.success) {
-          Alert.alert('Error', resetResult.error || 'Failed to reset search. Try again.');
+          dialog('Error', resetResult.error || 'Failed to reset search. Try again.');
           setFetchingProviders(false);
           return;
         }
@@ -761,8 +846,8 @@ const UserHomeScreen = ({ navigation, route }) => {
         if (result.code === 'ALL_PROVIDERS_REJECTED') {
           setProviders([]);
           setAllProvidersRejected(true);
-          Alert.alert(
-            '🔄 All Providers Reviewed',
+          dialog(
+            'All Providers Reviewed',
             result.suggestion || 'All providers reviewed. Try again later when new providers come online.',
           );
         } else {
@@ -771,14 +856,14 @@ const UserHomeScreen = ({ navigation, route }) => {
           setSearchRadius(result.searchRadius || 0);
           setContactedProviderIds(new Set()); // Reset contacted state for fresh list
           if (!result.providers?.length) {
-            Alert.alert('No Providers Found', 'No providers are currently available in your area. Try again in a few minutes.');
+            dialog('No Providers Found', 'No providers are currently available in your area. Try again in a few minutes.');
           }
         }
       } else {
-        Alert.alert('No Providers Found', result.error || 'No providers available right now. Try again shortly.');
+        dialog('No Providers Found', result.error || 'No providers available right now. Try again shortly.');
       }
     } catch (error) {
-      Alert.alert('Error', 'Something went wrong');
+      dialog('Error', 'Something went wrong');
     } finally {
       setFetchingProviders(false);
     }
@@ -800,7 +885,7 @@ const UserHomeScreen = ({ navigation, route }) => {
    * The replacement slides into the list in place of the skipped provider.
    */
   const handleSkipProvider = (provider) => {
-    Alert.alert(
+    dialog(
       'Skip Provider',
       `Remove ${provider.name || 'this provider'} from your list?`,
       [
@@ -845,10 +930,10 @@ const UserHomeScreen = ({ navigation, route }) => {
                   // No toast or alert — the empty list component handles this
                 }
               } else {
-                Alert.alert('Error', result.error || 'Failed to skip provider');
+                dialog('Error', result.error || 'Failed to skip provider');
               }
             } catch (error) {
-              Alert.alert('Error', 'Something went wrong while skipping');
+              dialog('Error', 'Something went wrong while skipping');
             } finally {
               setSkippingProviderId(null);
             }
@@ -866,9 +951,9 @@ const UserHomeScreen = ({ navigation, route }) => {
     // Robust phone resolution: check all possible phone fields
     const phone = provider?.phone || provider?.verifiedPhone || provider?.mobileNumber || '';
     const cleanPhone = phone.replace(/[\s\-()]/g, '');
-    
+
     if (!cleanPhone) {
-      Alert.alert(
+      dialog(
         'Phone Not Available',
         'This provider\'s phone number is not yet available. Please try viewing their full profile or try again later.',
         [{ text: 'OK' }]
@@ -876,8 +961,8 @@ const UserHomeScreen = ({ navigation, route }) => {
       return;
     }
 
-    Alert.alert(
-      '📞 Call Provider',
+    dialog(
+      'Call Provider',
       `Call ${provider.name || 'Provider'} at ${phone}?`,
       [
         { text: 'Cancel', style: 'cancel' },
@@ -886,7 +971,7 @@ const UserHomeScreen = ({ navigation, route }) => {
           onPress: () => {
             setContactedProviderIds(prev => new Set(prev).add(provider._id));
             Linking.openURL(`tel:${cleanPhone}`).catch(() => {
-              Alert.alert('Error', 'Unable to make phone calls on this device');
+              dialog('Error', 'Unable to make phone calls on this device');
             });
           },
         },
@@ -918,26 +1003,39 @@ const UserHomeScreen = ({ navigation, route }) => {
     handleBookProvider(provider);
   };
 
-  const handleBookProvider = async (provider) => {
-    if (!createdRequest?._id) { Alert.alert('Error', 'Request not found'); return; }
-    if (!contactedProviderIds.has(provider._id)) {
-      Alert.alert('Call First', 'Please call the provider to discuss your requirement before sending a booking request.', [{ text: 'OK' }]);
-      return;
-    }
+  const executeBookProvider = async (provider) => {
     setBookingProvider(provider._id);
     try {
       // Pass distance from provider object (from getNearbyProviders response)
       const result = await sendRequestToProvider(createdRequest._id, provider._id, provider.distance);
       if (result.success) {
-        Alert.alert('Request Sent', `Your request has been sent to ${provider.name}.`, [{ text: 'OK', onPress: resetFlow }]);
+        dialog('Request Sent', `Your request has been sent to ${provider.name}.`, [{ text: 'OK', onPress: resetFlow }]);
       } else {
-        Alert.alert('Error', result.error || 'Failed to send request');
+        dialog('Error', result.error || 'Failed to send request');
       }
     } catch (error) {
-      Alert.alert('Error', 'Something went wrong');
+      dialog('Error', 'Something went wrong');
     } finally {
       setBookingProvider(null);
     }
+  };
+
+  const handleBookProvider = async (provider) => {
+    if (!createdRequest?._id) { dialog('Error', 'Request not found'); return; }
+    if (!contactedProviderIds.has(provider._id)) {
+      // Show confirmation popup instead of blocking
+      dialog(
+        'Contact Provider First?',
+        'We recommend having a quick talk with your provider before booking to discuss your requirements.',
+        [
+          { text: 'Call Provider', onPress: () => handleCallProvider(provider) },
+          { text: 'Book Anyway', onPress: () => executeBookProvider(provider), style: 'default' },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+      return;
+    }
+    executeBookProvider(provider);
   };
 
   const resetFlow = () => {
@@ -980,14 +1078,14 @@ const UserHomeScreen = ({ navigation, route }) => {
       const result = await cancelRequest(createdRequest._id, userId, reason);
       setCancelModalVisible(false);
       if (result.success) {
-        Alert.alert('Request Cancelled', 'Your request has been cancelled.', [
+        dialog('Request Cancelled', 'Your request has been cancelled.', [
           { text: 'OK', onPress: resetFlow }
         ]);
       } else {
-        Alert.alert('Error', result.error || 'Failed to cancel request');
+        dialog('Error', result.error || 'Failed to cancel request');
       }
     } catch (error) {
-      Alert.alert('Error', 'Something went wrong');
+      dialog('Error', 'Something went wrong');
     } finally {
       setCancellingRequest(false);
     }
@@ -1004,15 +1102,17 @@ const UserHomeScreen = ({ navigation, route }) => {
             {/* Header: Back + Selected Service (compact row) */}
             <View style={styles.dateStepHeader}>
               <TouchableOpacity style={styles.backRow} onPress={resetFlow}>
-                <Icon name="arrow_back" size={20} color="#2563EB" />
-                <Text style={styles.backText}>Back</Text>
+                <View style={styles.backPill}>
+                  <Icon name="arrow_back" size={18} color={BRAND.secondary} />
+                  <Text style={styles.backText}>Back</Text>
+                </View>
               </TouchableOpacity>
               <View style={styles.dateStepServiceChip}>
                 <ServiceIcon serviceType={selectedService.id} size={20} color={BRAND.secondary} />
                 <Text style={styles.dateStepServiceName} numberOfLines={1}>{selectedService.name}</Text>
               </View>
             </View>
-            
+
             {/* Service Location Card — always visible at top of sheet (like Ola destination) */}
             <View style={styles.serviceAtCard}>
               <View style={styles.serviceAtIconCol}>
@@ -1020,12 +1120,12 @@ const UserHomeScreen = ({ navigation, route }) => {
                 <View style={styles.serviceAtDotBlue} />
                 <View style={styles.serviceAtDottedLine} />
                 {/* "To" pin */}
-                <MaterialIcon name="place" size={20} color={BRAND.primary} />
+                <MaterialIcon name="place" size={22} color={BRAND.primary} />
               </View>
               <View style={styles.serviceAtInfoCol}>
                 {/* Current location row */}
                 <View style={styles.serviceAtRow}>
-                  <Text style={styles.serviceAtRowLabel}>Your location</Text>
+                  <Text style={styles.serviceAtRowLabel}>YOUR LOCATION</Text>
                   <Text style={styles.serviceAtRowValue} numberOfLines={1}>
                     {displayAddress || (currentLocation ? 'Location detected' : 'Detecting...')}
                   </Text>
@@ -1033,7 +1133,7 @@ const UserHomeScreen = ({ navigation, route }) => {
                 <View style={styles.serviceAtRowDivider} />
                 {/* Service location row */}
                 <View style={styles.serviceAtRow}>
-                  <Text style={styles.serviceAtRowLabel}>Service at</Text>
+                  <Text style={styles.serviceAtRowLabel}>SERVICE AT</Text>
                   <Text style={[styles.serviceAtRowValue, serviceLocation && serviceLocation.isCurrentLocation !== true && { color: BRAND.primary, fontWeight: '700' }]} numberOfLines={1}>
                     {serviceLocation && serviceLocation.isCurrentLocation !== true
                       ? (serviceLocation.shortAddress || serviceLocation.address || 'Selected address')
@@ -1055,48 +1155,48 @@ const UserHomeScreen = ({ navigation, route }) => {
                 </TouchableOpacity>
               )}
             </View>
-            
+
             {/* Date & Time Picker */}
             <DateTimePicker
               onDateTimeChange={handleDateTimeChange}
               initialDate={selectedDateTime?.date}
               initialTime={selectedDateTime?.time}
             />
-            
+
             {/* Location Picker — Change Service Location */}
             <View style={styles.sectionDivider} />
-            <Text style={styles.sectionTitle}>Change Service Location</Text>
+            <Text style={styles.sectionTitle}>CHANGE SERVICE LOCATION</Text>
             <LocationPicker
               onLocationChange={handleServiceLocationChange}
               currentLocation={currentLocation}
               currentLocationAddress={displayAddress}
             />
-            
+
             {/* Create Request Button */}
             <View style={styles.createButtonContainer}>
               {/* Location status hint */}
               {!currentLocation && !serviceLocation && !locationServicesEnabled && (
                 <View style={styles.locationHintRow}>
                   <MaterialIcon name="location-off" size={16} color="#EF4444" />
-                  <Text style={[styles.locationHintText, { color: '#EF4444' }]}>GPS is off — select a saved address above</Text>
+                  <Text style={[styles.locationHintText, { color: '#EF4444' }]}>GPS is off -- select a saved address above</Text>
                 </View>
               )}
               {!currentLocation && !serviceLocation && locationServicesEnabled && (
                 <View style={styles.locationHintRow}>
-                  <ActivityIndicator size="small" color="#6B7280" />
+                  <ActivityIndicator size="small" color="#94A3B8" />
                   <Text style={styles.locationHintText}>Detecting your location...</Text>
                 </View>
               )}
-              <TouchableOpacity 
-                style={[styles.createButton, (!selectedDateTime || (!currentLocation && !serviceLocation)) && styles.createButtonDisabled]} 
-                onPress={handleCreateRequest} 
+              <TouchableOpacity
+                style={[styles.createButton, (!selectedDateTime || (!currentLocation && !serviceLocation)) && styles.createButtonDisabled]}
+                onPress={handleCreateRequest}
                 disabled={!selectedDateTime || creatingRequest || (!currentLocation && !serviceLocation)}
               >
                 {creatingRequest ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <>
-                    <Icon name="check" size={20} color="#FFFFFF" />
+                    <MaterialIcon name="check-circle" size={22} color="#FFFFFF" />
                     <Text style={styles.createButtonText}>Create Request</Text>
                   </>
                 )}
@@ -1111,16 +1211,16 @@ const UserHomeScreen = ({ navigation, route }) => {
               <View style={styles.providerHeaderActions}>
                 {/* No "Done" button — it would leave the request in pending with no provider assigned.
                     After booking, the success Alert already calls resetFlow automatically. */}
-                <TouchableOpacity style={styles.cancelRow} onPress={handleCancelRequest}>
-                  <Icon name="cancel" size={20} color="#EF4444" />
-                  <Text style={styles.cancelText}>Cancel Request</Text>
+                <TouchableOpacity style={styles.cancelPill} onPress={handleCancelRequest}>
+                  <MaterialIcon name="cancel" size={16} color="#FFFFFF" />
+                  <Text style={styles.cancelPillText}>Cancel Request</Text>
                 </TouchableOpacity>
               </View>
               <Text style={styles.providersTitle}>{fetchingProviders ? 'Finding Providers...' : `${providers.length} Provider${providers.length !== 1 ? 's' : ''} Found`}</Text>
               {searchRadius > 0 && (
-                <View style={styles.radiusRow}>
-                  <Icon name="location" size={14} color="#6B7280" />
-                  <Text style={styles.radiusText}>Within {(searchRadius / 1000).toFixed(1)}km</Text>
+                <View style={styles.radiusPill}>
+                  <Icon name="location" size={13} color={BRAND.secondary} />
+                  <Text style={styles.radiusPillText}>Within {formatDistanceFromMeters(searchRadius, useKm)}</Text>
                 </View>
               )}
               {/* Contact-first tip */}
@@ -1133,7 +1233,7 @@ const UserHomeScreen = ({ navigation, route }) => {
             </View>
             {fetchingProviders ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#2563EB" />
+                <ActivityIndicator size="large" color={BRAND.primary} />
                 <Text style={styles.loadingText}>Searching nearby providers...</Text>
               </View>
             ) : (
@@ -1141,9 +1241,9 @@ const UserHomeScreen = ({ navigation, route }) => {
                 data={providers}
                 keyExtractor={(item) => item._id}
                 renderItem={({ item }) => (
-                  <ProviderCard 
-                    provider={item} 
-                    onCall={handleCallProvider} 
+                  <ProviderCard
+                    provider={item}
+                    onCall={handleCallProvider}
                     onBook={handleBookProvider}
                     onSkip={handleSkipProvider}
                     onPress={() => handleViewProviderDetails(item)}
@@ -1155,13 +1255,15 @@ const UserHomeScreen = ({ navigation, route }) => {
                 )}
                 ListEmptyComponent={
                   <View style={styles.emptyContainer}>
-                    <FixhomiLogo size={64} color="#D1D5DB" />
+                    <View style={styles.emptyIconWrap}>
+                      <FixhomiLogo size={64} color="#CBD5E1" />
+                    </View>
                     {allProvidersRejected ? (
                       <>
                         <Text style={styles.emptyText}>All providers reviewed</Text>
                         <Text style={styles.emptySubtext}>You've gone through all available providers. Start a fresh search to see them again.</Text>
-                        <TouchableOpacity 
-                          style={[styles.retryButton, { backgroundColor: BRAND.primary }]} 
+                        <TouchableOpacity
+                          style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
                           onPress={handleRetrySearch}
                         >
                           <Icon name="refresh" size={20} color="#FFFFFF" />
@@ -1172,8 +1274,8 @@ const UserHomeScreen = ({ navigation, route }) => {
                       <>
                         <Text style={styles.emptyText}>No providers found nearby</Text>
                         <Text style={styles.emptySubtext}>We're searching for providers to fix your home</Text>
-                        <TouchableOpacity 
-                          style={styles.retryButton} 
+                        <TouchableOpacity
+                          style={styles.retryButton}
                           onPress={handleRetrySearch}
                         >
                           <Icon name="refresh" size={20} color="#FFFFFF" />
@@ -1191,8 +1293,8 @@ const UserHomeScreen = ({ navigation, route }) => {
         );
       default:
         return (
-          <ScrollView 
-            style={styles.sheetContent} 
+          <ScrollView
+            style={styles.sheetContent}
             showsVerticalScrollIndicator={false}
             bounces={true}
             alwaysBounceVertical={true}
@@ -1203,51 +1305,51 @@ const UserHomeScreen = ({ navigation, route }) => {
               <Text style={styles.welcomeText}>Hello, {displayData?.fullName?.split(' ')[0] || 'there'}!</Text>
               <Text style={styles.welcomeSubtext}>What service do you need?</Text>
             </View>
-            
-            {/* Quick Access Buttons - Using MaterialIcon instead of emoji */}
+
+            {/* Quick Access Buttons */}
             <View style={styles.quickAccessRow}>
-              <TouchableOpacity 
-                style={[styles.quickAccessCard, styles.quickAccessEmergency]} 
+              <QuickAccessCard
+                iconName="warning"
+                iconColor="#DC2626"
+                label="Emergency"
+                borderColor="#FECACA"
+                bgColor="#FEF2F2"
+                iconBg="rgba(220, 38, 38, 0.1)"
                 onPress={() => navigation.navigate('EmergencyServices')}
-              >
-                <View style={styles.quickAccessIconContainer}>
-                  <Icon name="warning" size={24} color="#DC2626" />
-                </View>
-                <Text style={styles.quickAccessLabel}>Emergency</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.quickAccessCard, styles.quickAccessEvent]} 
+              />
+              <QuickAccessCard
+                iconName="camera"
+                iconColor="#7C3AED"
+                label="Events"
+                borderColor="#C7D2FE"
+                bgColor="#EEF2FF"
+                iconBg="rgba(124, 58, 237, 0.1)"
                 onPress={() => navigation.navigate('EventServices')}
-              >
-                <View style={styles.quickAccessIconContainer}>
-                  <Icon name="camera" size={24} color="#7C3AED" />
-                </View>
-                <Text style={styles.quickAccessLabel}>Events</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.quickAccessCard, styles.quickAccessFavorites]} 
+              />
+              <QuickAccessCard
+                iconName="heart"
+                iconColor="#F59E0B"
+                label="Favorites"
+                borderColor="#FDE68A"
+                bgColor="#FFFBEB"
+                iconBg="rgba(245, 158, 11, 0.1)"
                 onPress={() => navigation.navigate('Favorites')}
-              >
-                <View style={styles.quickAccessIconContainer}>
-                  <Icon name="heart" size={24} color="#F59E0B" />
-                </View>
-                <Text style={styles.quickAccessLabel}>Favorites</Text>
-              </TouchableOpacity>
+              />
             </View>
-            
-            <Text style={styles.servicesSectionTitle}>Traditional Services</Text>
+
+            <Text style={styles.servicesSectionTitle}>TRADITIONAL SERVICES</Text>
             <View style={styles.servicesGrid}>
               {SERVICE_CATEGORIES.map((service) => (
                 <ServiceCard key={service.id} service={service} onPress={handleServiceSelect} />
               ))}
             </View>
             <View style={styles.quickActions}>
-              <TouchableOpacity 
-                style={styles.quickActionButton} 
+              <TouchableOpacity
+                style={styles.quickActionButton}
                 onPress={() => navigation.navigate('HistoryTab')}
               >
-                <Icon name="history" size={20} color="#374151" />
-                <Text style={styles.quickActionText}>History</Text>
+                <MaterialIcon name="history" size={20} color="#475569" />
+                <Text style={styles.quickActionText}>View History</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -1258,31 +1360,33 @@ const UserHomeScreen = ({ navigation, route }) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-      <LocationMap 
-        ref={mapRef} 
-        onLocationChange={handleLocationChange} 
-        showUserLocation 
-        showSearchRadius={step === 'providers'} 
+      <LocationMap
+        ref={mapRef}
+        onLocationChange={handleLocationChange}
+        showUserLocation
+        showSearchRadius={step === 'providers'}
         searchRadius={searchRadius}
         externalLocation={currentLocation}
         selectedLocation={
-          serviceLocation && 
-          serviceLocation.isCurrentLocation !== true && 
-          serviceLocation.latitude && 
+          serviceLocation &&
+          serviceLocation.isCurrentLocation !== true &&
+          serviceLocation.latitude &&
           serviceLocation.longitude
             ? serviceLocation
             : null
         }
       />
-      
+
       {/* Permission Warning Bars */}
       {(locationPermission === 'denied' || locationPermission === 'blocked') && locationServicesEnabled && (
         <View style={[styles.permissionBar, { top: insets.top + 60 }]}>
-          <Icon name="location" size={18} color="#F59E0B" />
+          <View style={styles.permissionBarIconWrap}>
+            <Icon name="location" size={18} color="#F59E0B" />
+          </View>
           <Text style={styles.permissionBarText}>
             Location permission needed for finding nearby providers.
           </Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.permissionBarButton}
             onPress={locationPermission === 'blocked' ? () => openSettings() : requestLocationPermission}
           >
@@ -1294,11 +1398,13 @@ const UserHomeScreen = ({ navigation, route }) => {
       )}
       {!locationServicesEnabled && (
         <View style={[styles.permissionBar, { top: insets.top + ((locationPermission === 'denied' || locationPermission === 'blocked') && locationServicesEnabled ? 110 : 60) }]}>
-          <Icon name="location" size={18} color="#F59E0B" />
+          <View style={styles.permissionBarIconWrap}>
+            <Icon name="location" size={18} color="#F59E0B" />
+          </View>
           <Text style={styles.permissionBarText}>
             Location is turned off. Turn it on for better experience.
           </Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.permissionBarButton}
             onPress={() => openSettings()}
           >
@@ -1306,14 +1412,16 @@ const UserHomeScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
       )}
-      
+
       {notificationPermission === 'blocked' && (
         <View style={[styles.permissionBar, styles.permissionBarDanger, { top: insets.top + ((locationPermission === 'denied' || locationPermission === 'blocked') || !locationServicesEnabled ? 110 : 60) }]}>
-          <Icon name="notification" size={18} color="#EF4444" />
+          <View style={[styles.permissionBarIconWrap, { backgroundColor: '#FEE2E2' }]}>
+            <Icon name="notification" size={18} color="#EF4444" />
+          </View>
           <Text style={[styles.permissionBarText, styles.permissionBarTextDanger]}>
             Notifications required for service updates
           </Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.permissionBarButton, styles.permissionBarButtonDanger]}
             onPress={() => openSettings()}
           >
@@ -1321,35 +1429,38 @@ const UserHomeScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
       )}
-      
+
+      {/* Top Bar - Premium frosted glass */}
       <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => setIsDrawerOpen(true)} activeOpacity={0.7} style={styles.topBarLogoBtn}>
           <Image source={FIXHOMI_LOGO} style={styles.topBarLogoImg} />
         </TouchableOpacity>
         <View style={styles.topBarSpacer} />
         {/* Address Management Icon */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.addressManageButton}
           onPress={() => navigation.navigate('Profile', { scrollToAddresses: true })}
           activeOpacity={0.7}
         >
-          <MaterialIcon name="bookmark" size={24} color="#374151" />
+          <MaterialIcon name="bookmark" size={22} color="#475569" />
         </TouchableOpacity>
-        <AvatarButton 
-          name={displayData?.fullName} 
+        <AvatarButton
+          name={displayData?.fullName}
           profilePicture={displayData?.profilePicture}
-          onPress={handleProfilePress} 
-          isProvider={false} 
+          onPress={handleProfilePress}
+          isProvider={false}
         />
       </View>
-      <Animated.View style={[styles.bottomSheet, { height: sheetHeight, paddingBottom: insets.bottom + 16 }]}>
+
+      {/* Bottom Sheet */}
+      <Animated.View style={[styles.bottomSheet, { height: sheetHeight, paddingBottom: 8 }]}>
         <View style={styles.sheetHandle} {...panResponder.panHandlers}>
           <View style={styles.sheetHandleBar} />
         </View>
         {renderSheetContent()}
       </Animated.View>
-      <DrawerMenu visible={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} user={displayData} userType={userType} navigation={navigation} onLogout={handleLogout} isVerified={isVerified} />
-      
+      <DrawerMenu visible={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} user={displayData} userType={userType} navigation={navigation} onLogout={handleLogout} isVerified={isVerified} activeTab="home" />
+
       {/* Notification Permission Required Modal */}
       <Modal
         visible={notificationPermission === 'blocked'}
@@ -1366,7 +1477,7 @@ const UserHomeScreen = ({ navigation, route }) => {
             <Text style={styles.permissionModalMessage}>
               FixHomi needs notification permission to send you real-time updates about your service requests, provider arrival, and payment confirmations.
             </Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.permissionModalButton}
               onPress={() => openSettings()}
             >
@@ -1378,7 +1489,7 @@ const UserHomeScreen = ({ navigation, route }) => {
           </View>
         </View>
       </Modal>
-      
+
       {/* Provider Details Modal */}
       <ProviderDetailsModal
         visible={providerDetailsVisible}
@@ -1398,8 +1509,8 @@ const UserHomeScreen = ({ navigation, route }) => {
           // Fall back to selectedProvider data if phone arg is empty
           if (phone) {
             const phoneNumber = phone.replace(/[\s\-()]/g, '');
-            Alert.alert(
-              '📞 Call Provider',
+            dialog(
+              'Call Provider',
               `Call ${selectedProvider?.name || 'Provider'} at ${phone}?`,
               [
                 { text: 'Cancel', style: 'cancel' },
@@ -1410,7 +1521,7 @@ const UserHomeScreen = ({ navigation, route }) => {
                       setContactedProviderIds(prev => new Set(prev).add(selectedProvider._id));
                     }
                     Linking.openURL(`tel:${phoneNumber}`).catch(() => {
-                      Alert.alert('Error', 'Unable to make phone calls on this device');
+                      dialog('Error', 'Unable to make phone calls on this device');
                     });
                   },
                 },
@@ -1436,337 +1547,925 @@ const UserHomeScreen = ({ navigation, route }) => {
   );
 };
 
+// QuickAccessCard sub-component with press animation
+const QuickAccessCard = ({ iconName, iconColor, label, borderColor, bgColor, iconBg, onPress }) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const onPressIn = () => Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true, friction: 8 }).start();
+  const onPressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, friction: 8 }).start();
+
+  return (
+    <Animated.View style={[{ flex: 1, transform: [{ scale: scaleAnim }] }]}>
+      <TouchableOpacity
+        style={[styles.quickAccessCard, { backgroundColor: bgColor, borderColor }]}
+        onPress={onPress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        activeOpacity={0.85}
+      >
+        <View style={[styles.quickAccessIconContainer, { backgroundColor: iconBg }]}>
+          <Icon name={iconName} size={24} color={iconColor} />
+        </View>
+        <Text style={styles.quickAccessLabel}>{label}</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BRAND.background },
-  topBar: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, zIndex: 10 },
-  topBarLogoBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.95)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
-  topBarLogoImg: { width: 30, height: 30, borderRadius: 8 },
-  // Date step header (back + service chip in one row)
+  container: {
+    flex: 1,
+    backgroundColor: BRAND.background,
+  },
+
+  // ─── Top Bar ───────────────────────────────────────────────
+  topBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    zIndex: 10,
+    paddingBottom: 12,
+  },
+  topBarLogoBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: BRAND.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: BRAND.primary + '30',
+    ...Platform.select({
+      ios: {
+        shadowColor: BRAND.primary,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  topBarLogoImg: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+  },
+  topBarSpacer: {
+    flex: 1,
+  },
+  addressManageButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: BRAND.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+
+  // ─── Bottom Sheet ──────────────────────────────────────────
+  bottomSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: BRAND.white,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    zIndex: 5,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: -6 },
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 10,
+      },
+    }),
+  },
+  sheetHandle: {
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingBottom: 10,
+    minHeight: 44,
+  },
+  sheetHandleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 2,
+  },
+  sheetContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+
+  // ─── Date Step ─────────────────────────────────────────────
   dateStepHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  dateStepServiceChip: {
+  backRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: BRAND.secondary + '12',
+  },
+  backPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: BRAND.secondary + '10',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: BRAND.secondary + '25',
+    borderColor: BRAND.secondary + '20',
+  },
+  backText: {
+    fontSize: 14,
+    color: BRAND.secondary,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  dateStepServiceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
   },
   dateStepServiceName: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     color: BRAND.secondary,
-    maxWidth: 120,
+    maxWidth: 110,
   },
-  // Service-at card (Ola/Uber-style origin → destination inside sheet)
+
+  // ─── Service At Card ───────────────────────────────────────
   serviceAtCard: {
     flexDirection: 'row',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 16,
+    backgroundColor: BRAND.white,
+    borderRadius: 22,
+    padding: 16,
+    marginBottom: 18,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#F1F5F9',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   serviceAtIconCol: {
     alignItems: 'center',
-    width: 24,
-    marginRight: 12,
+    width: 26,
+    marginRight: 14,
     paddingTop: 4,
   },
   serviceAtDotBlue: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: '#2563EB',
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: '#93C5FD',
   },
   serviceAtDottedLine: {
     width: 2,
     flex: 1,
     borderLeftWidth: 2,
-    borderLeftColor: '#D1D5DB',
+    borderLeftColor: '#CBD5E1',
     borderStyle: 'dashed',
     marginVertical: 4,
-    minHeight: 18,
+    minHeight: 20,
   },
   serviceAtInfoCol: {
     flex: 1,
   },
   serviceAtRow: {
-    paddingVertical: 6,
+    paddingVertical: 7,
   },
   serviceAtRowLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#9CA3AF',
+    fontWeight: '700',
+    color: '#94A3B8',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
+    letterSpacing: 0.8,
+    marginBottom: 3,
   },
   serviceAtRowValue: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#1F2937',
+    fontWeight: '600',
+    color: '#1E293B',
+    letterSpacing: -0.2,
   },
   serviceAtRowDivider: {
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#F1F5F9',
     marginVertical: 4,
   },
   serviceAtMapBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: BRAND.secondary + '15',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: BRAND.secondary + '12',
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
-    marginLeft: 8,
+    marginLeft: 10,
+    borderWidth: 1,
+    borderColor: BRAND.secondary + '20',
   },
-  // Location hint row
+
+  // ─── Location Hint ─────────────────────────────────────────
   locationHintRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
     gap: 6,
   },
   locationHintText: {
-    fontSize: 12,
-    color: '#6B7280',
+    fontSize: 13,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+
+  // ─── Section Titles / Dividers ─────────────────────────────
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 8,
+  },
+
+  // ─── Create Request Button ─────────────────────────────────
+  createButtonContainer: {
+    paddingVertical: 20,
+    paddingBottom: 40,
+  },
+  createButton: {
+    backgroundColor: BRAND.primary,
+    height: 56,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: BRAND.primary,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  createButtonDisabled: {
+    backgroundColor: '#CBD5E1',
+    ...Platform.select({
+      ios: {
+        shadowOpacity: 0,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
+  },
+  createButtonText: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: BRAND.white,
+    letterSpacing: -0.3,
+  },
+
+  // ─── Welcome Section ──────────────────────────────────────
+  welcomeSection: {
+    marginBottom: 20,
+  },
+  welcomeText: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.5,
+  },
+  welcomeSubtext: {
+    fontSize: 15,
+    color: '#94A3B8',
+    marginTop: 4,
     fontWeight: '500',
   },
-  addressManageButton: { 
-    width: 44, 
-    height: 44, 
-    borderRadius: 22, 
-    backgroundColor: 'rgba(255,255,255,0.95)', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    marginRight: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  topBarSpacer: { flex: 1 },
-  bottomSheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: BRAND.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 8, zIndex: 5 },
-  sheetHandle: { alignItems: 'center', paddingTop: 10, paddingBottom: 10, minHeight: 44 },
-  sheetHandleBar: { width: 48, height: 5, backgroundColor: '#C5C8CE', borderRadius: 3 },
-  sheetContent: { flex: 1, paddingHorizontal: 16 },
-  backRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 6 },
-  backText: { fontSize: 16, color: BRAND.secondary, fontWeight: '600' },
-  cancelRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 6 },
-  cancelText: { fontSize: 14, color: '#EF4444', fontWeight: '600' },
-  providerHeaderActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  welcomeSection: { marginBottom: 16 },
-  welcomeText: { fontSize: 22, fontWeight: '700', color: '#1F2937' },
-  welcomeSubtext: { fontSize: 15, color: '#6B7280', marginTop: 4 },
-  
-  // Quick Access Row
-  quickAccessRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    marginBottom: 20,
+
+  // ─── Quick Access ──────────────────────────────────────────
+  quickAccessRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
     gap: 10,
   },
   quickAccessCard: {
-    flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    borderRadius: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 10,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  quickAccessEmergency: {
-    backgroundColor: '#FEE2E2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-  },
-  quickAccessEvent: {
-    backgroundColor: '#E0E7FF',
-    borderWidth: 1,
-    borderColor: '#C7D2FE',
-  },
-  quickAccessFavorites: {
-    backgroundColor: '#FEF3C7',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderWidth: 1.5,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   quickAccessIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   quickAccessLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#374151',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E293B',
+    letterSpacing: -0.2,
   },
-  
+
+  // ─── Services Section ─────────────────────────────────────
   servicesSectionTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 12,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 14,
   },
-  
-  servicesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
-  serviceCard: { 
-    width: Math.floor((SCREEN_WIDTH - 52) / 3), 
-    paddingVertical: 16, 
-    paddingHorizontal: 6, 
-    borderRadius: 16, 
+  servicesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 20,
+  },
+  serviceCard: {
+    width: Math.floor((SCREEN_WIDTH - 64) / 3),
+    paddingVertical: 18,
+    paddingHorizontal: 6,
+    borderRadius: 18,
     alignItems: 'center',
     backgroundColor: BRAND.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    borderColor: '#F1F5F9',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
-  serviceIconContainer: { 
-    width: 48, 
-    height: 48, 
-    borderRadius: 14, 
-    backgroundColor: BRAND.secondary + '10',
-    justifyContent: 'center', 
-    alignItems: 'center', 
+  serviceIconContainer: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: BRAND.secondary + '0D',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: BRAND.primary + '15',
+    borderColor: BRAND.secondary + '15',
   },
-  serviceName: { fontSize: 11, fontWeight: '600', color: '#374151', textAlign: 'center', lineHeight: 14 },
-  quickActions: { flexDirection: 'row', justifyContent: 'center', paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
-  quickActionButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, gap: 8 },
-  quickActionText: { fontSize: 14, fontWeight: '600', color: '#374151' },
+  serviceName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E293B',
+    textAlign: 'center',
+    lineHeight: 15,
+    letterSpacing: -0.2,
+  },
 
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#374151', marginBottom: 12, marginTop: 8 },
-  sectionDivider: { height: 1, backgroundColor: '#E5E7EB', marginVertical: 16 },
-  createButtonContainer: { paddingVertical: 20, paddingBottom: 40 },
-  createButton: { 
-    backgroundColor: BRAND.primary, 
-    height: 52, 
-    borderRadius: 14, 
+  // ─── Quick Actions ─────────────────────────────────────────
+  quickActions: {
     flexDirection: 'row',
-    alignItems: 'center', 
     justifyContent: 'center',
-    gap: 8,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
-  createButtonDisabled: { backgroundColor: '#9CA3AF' },
-  createButtonText: { fontSize: 17, fontWeight: '700', color: BRAND.white },
-  providersHeader: { marginBottom: 16 },
-  providersTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937', marginTop: 8 },
-  radiusRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  radiusText: { fontSize: 13, color: '#6B7280' },
-  providersList: { paddingBottom: 20 },
-  providerCard: { backgroundColor: '#F9FAFB', borderRadius: 14, padding: 14, marginBottom: 12 },
-  providerInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  providerAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: BRAND.secondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  providerAvatarImage: { width: 48, height: 48, borderRadius: 24, marginRight: 12 },
-  providerInitial: { fontSize: 20, fontWeight: '700', color: BRAND.white },
-  providerDetails: { flex: 1 },
-  providerNameRow: { flexDirection: 'row', alignItems: 'center' },
-  providerName: { fontSize: 16, fontWeight: '700', color: '#1F2937' },
-  verifiedBadge: { marginLeft: 4 },
-  providerDistanceRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  providerDistance: { fontSize: 13, color: '#6B7280' },
-  providerRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  providerRating: { fontSize: 13, color: BRAND.primary, fontWeight: '600' },
-  providerRatingCount: { fontSize: 12, color: '#6B7280', fontWeight: '400' },
-  viewDetailsIcon: { padding: 4 },
-  contactedBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#10B981', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 6, gap: 2 },
-  contactedBadgeText: { fontSize: 10, fontWeight: '600', color: '#FFFFFF' },
-  providerActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  callButton: { width: 48, height: 44, backgroundColor: '#10B981', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  callButtonCalling: { backgroundColor: '#6B7280' },
-  bookButton: { flex: 1, height: 44, backgroundColor: BRAND.primary, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  bookButtonLoading: { backgroundColor: BRAND.primary + '80' },
-  bookButtonText: { fontSize: 15, fontWeight: '600', color: BRAND.white },
-  // Skip / Remove provider button
-  skipButton: { width: 40, height: 44, borderRadius: 12, borderWidth: 1.5, borderColor: '#FCA5A5', backgroundColor: '#FEF2F2', alignItems: 'center', justifyContent: 'center' },
-  skipButtonLoading: { opacity: 0.5 },
-  providerCardSkipping: { opacity: 0.5 },
-  // Provider tip row
-  providerTipRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', borderRadius: 8, padding: 10, marginTop: 8, gap: 8 },
-  providerTipText: { flex: 1, fontSize: 12, color: '#92400E', lineHeight: 17 },
-  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
-  loadingText: { fontSize: 15, color: '#6B7280', marginTop: 12 },
-  emptyContainer: { alignItems: 'center', paddingVertical: 40 },
-  emptyText: { fontSize: 16, fontWeight: '600', color: '#374151', marginTop: 12 },
-  emptySubtext: { fontSize: 14, color: '#6B7280', marginTop: 4 },
-  retryButton: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: BRAND.secondary, 
-    paddingHorizontal: 20, 
-    paddingVertical: 12, 
-    borderRadius: 12, 
-    marginTop: 16,
+  quickActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 22,
     gap: 8,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
-  retryButtonText: { fontSize: 15, fontWeight: '600', color: BRAND.white },
-  servicesScrollContent: { paddingBottom: 80 },
-  // Permission bars
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#475569',
+    letterSpacing: -0.2,
+  },
+  servicesScrollContent: {
+    paddingBottom: 80,
+  },
+
+  // ─── Providers Section ─────────────────────────────────────
+  providersHeader: {
+    marginBottom: 16,
+  },
+  providerHeaderActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  cancelPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 4,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#EF4444',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  cancelPillText: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  providersTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 10,
+    letterSpacing: -0.5,
+  },
+  radiusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 6,
+    backgroundColor: BRAND.secondary + '0D',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: BRAND.secondary + '18',
+  },
+  radiusPillText: {
+    fontSize: 13,
+    color: BRAND.secondary,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  providerTipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 10,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  providerTipText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#92400E',
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+  providersList: {
+    paddingBottom: 20,
+  },
+
+  // ─── Provider Card ─────────────────────────────────────────
+  providerCard: {
+    backgroundColor: BRAND.white,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  providerCardSkipping: {
+    opacity: 0.5,
+  },
+  providerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  providerAvatarRing: {
+    padding: 2,
+    borderRadius: 28,
+    borderWidth: 2,
+    borderColor: BRAND.secondary + '40',
+    marginRight: 12,
+  },
+  providerAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: BRAND.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  providerAvatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  providerInitial: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: BRAND.white,
+  },
+  providerDetails: {
+    flex: 1,
+  },
+  providerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  providerName: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.3,
+    maxWidth: '60%',
+  },
+  verifiedBadge: {
+    marginLeft: 5,
+  },
+  contactedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#10B981',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginLeft: 6,
+    gap: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#10B981',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  contactedBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  providerDistanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  providerDistance: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  providerRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
+  },
+  providerRating: {
+    fontSize: 13,
+    color: BRAND.primary,
+    fontWeight: '700',
+  },
+  providerRatingCount: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontWeight: '400',
+  },
+  viewDetailsIcon: {
+    padding: 6,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+  },
+
+  // ─── Provider Actions ──────────────────────────────────────
+  providerActions: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+  },
+  callButton: {
+    width: 50,
+    height: 46,
+    backgroundColor: '#10B981',
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#10B981',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  callButtonCalling: {
+    backgroundColor: '#94A3B8',
+    ...Platform.select({
+      ios: {
+        shadowOpacity: 0,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
+  },
+  bookButton: {
+    flex: 1,
+    height: 46,
+    backgroundColor: BRAND.primary,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: BRAND.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  bookButtonLoading: {
+    backgroundColor: BRAND.primary + '80',
+    ...Platform.select({
+      ios: {
+        shadowOpacity: 0,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
+  },
+  bookButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: BRAND.white,
+    letterSpacing: -0.2,
+  },
+  skipButton: {
+    width: 42,
+    height: 46,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  skipButtonLoading: {
+    opacity: 0.5,
+  },
+
+  // ─── Loading / Empty States ────────────────────────────────
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#64748B',
+    marginTop: 14,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 20,
+  },
+  emptyIconWrap: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1E293B',
+    marginTop: 14,
+    letterSpacing: -0.3,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#94A3B8',
+    marginTop: 6,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: BRAND.secondary,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 16,
+    marginTop: 20,
+    gap: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: BRAND.secondary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  retryButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: BRAND.white,
+    letterSpacing: -0.2,
+  },
+
+  // ─── Permission Bars ───────────────────────────────────────
   permissionBar: {
     position: 'absolute',
     left: 16,
     right: 16,
-    backgroundColor: '#FEF3C7',
-    borderRadius: 12,
+    backgroundColor: '#FFFBEB',
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     zIndex: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
-    gap: 8,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   permissionBarDanger: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
+  permissionBarIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   permissionBarText: {
     flex: 1,
     fontSize: 13,
     color: '#92400E',
-    fontWeight: '500',
+    fontWeight: '600',
+    lineHeight: 18,
   },
   permissionBarTextDanger: {
     color: '#991B1B',
   },
   permissionBarButton: {
     backgroundColor: '#F59E0B',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#F59E0B',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   permissionBarButtonDanger: {
     backgroundColor: '#EF4444',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#EF4444',
+      },
+    }),
   },
   permissionBarButtonText: {
     fontSize: 12,
@@ -1776,69 +2475,89 @@ const styles = StyleSheet.create({
   permissionBarButtonTextDanger: {
     color: '#FFFFFF',
   },
-  
-  // Notification Permission Modal
+
+  // ─── Notification Permission Modal ─────────────────────────
   permissionModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   permissionModalContent: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 32,
+    borderRadius: 28,
+    padding: 36,
     alignItems: 'center',
     maxWidth: 360,
     width: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.25,
+        shadowRadius: 24,
+      },
+      android: {
+        elevation: 12,
+      },
+    }),
   },
   permissionModalIcon: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     backgroundColor: '#FEE2E2',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
   },
   permissionModalTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1F2937',
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0F172A',
     marginBottom: 12,
     textAlign: 'center',
+    letterSpacing: -0.3,
   },
   permissionModalMessage: {
     fontSize: 15,
-    color: '#6B7280',
+    color: '#64748B',
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 23,
     marginBottom: 28,
   },
   permissionModalButton: {
-    backgroundColor: '#2563EB',
-    paddingVertical: 14,
+    backgroundColor: BRAND.secondary,
+    paddingVertical: 16,
     paddingHorizontal: 32,
-    borderRadius: 12,
+    borderRadius: 16,
     width: '100%',
     marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: BRAND.secondary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   permissionModalButtonText: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#FFFFFF',
     textAlign: 'center',
+    letterSpacing: -0.2,
   },
   permissionModalNote: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: '#94A3B8',
     textAlign: 'center',
+    fontWeight: '500',
   },
 });
 

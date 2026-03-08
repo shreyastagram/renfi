@@ -20,7 +20,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   Image,
   Platform,
 } from 'react-native';
@@ -29,6 +28,7 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { pick, types } from '@react-native-documents/picker';
 import { useApp } from '../context/AppContext';
+import { useDialog } from '../context/DialogContext';
 import { Icon } from '../components';
 import { NODE_BASE_URL as API_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
@@ -196,6 +196,7 @@ const DocumentUploadCard = ({ documentType, document, onUpload, onRemove, requir
 const DocumentVerificationScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, profile, refreshProfile } = useApp();
+  const { dialog } = useDialog();
   
   const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
   
@@ -305,7 +306,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('[DocumentVerification] Error fetching data:', error);
-      Alert.alert(
+      dialog(
         'Connection Error', 
         'Unable to connect to server. Please check your internet connection and try again.',
         [
@@ -326,7 +327,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
     
     // Don't allow selecting services that are pending or under review
     if (status === 'pending' || status === 'under_review') {
-      Alert.alert(
+      dialog(
         'Under Review',
         'This service is currently under review. Please wait for the verification to complete.',
         [{ text: 'OK' }]
@@ -346,7 +347,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
    * Pick document (image or PDF)
    */
   const pickDocument = async (serviceCategory, documentType) => {
-    Alert.alert(
+    dialog(
       'Upload Document',
       'Choose how you want to upload',
       [
@@ -387,7 +388,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Camera error:', error);
-      Alert.alert('Error', 'Failed to capture image');
+      dialog('Error', 'Failed to capture image');
     }
   };
   
@@ -408,7 +409,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Gallery error:', error);
-      Alert.alert('Error', 'Failed to pick image');
+      dialog('Error', 'Failed to pick image');
     }
   };
   
@@ -433,7 +434,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
       // Check if it's a cancel error - the new API throws an error with code property
       if (error?.code !== 'DOCUMENT_PICKER_CANCELED' && !error?.message?.includes('cancel')) {
         console.error('[DocumentVerification] Document picker error:', error);
-        Alert.alert('Error', 'Failed to pick document');
+        dialog('Error', 'Failed to pick document');
       }
     }
   };
@@ -548,7 +549,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
    */
   const handleNext = () => {
     if (!isCurrentServiceComplete()) {
-      Alert.alert('Missing Documents', 'Please upload all required documents before proceeding.');
+      dialog('Missing Documents', 'Please upload all required documents before proceeding.');
       return;
     }
     
@@ -636,7 +637,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
         }
       }
       
-      Alert.alert(
+      dialog(
         'Documents Submitted',
         'Your documents have been submitted for verification.\n\n' +
         'Verification usually takes 3-5 business days.\n\n' +
@@ -655,7 +656,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
     } catch (error) {
       console.error('[DocumentVerification] Submit error:', error.message);
       setUploading(false);
-      Alert.alert(
+      dialog(
         'Submission Failed', 
         error.message || 'Failed to submit documents. Please check your internet connection and try again.',
         [
@@ -674,7 +675,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
    */
   const proceedToUpload = () => {
     if (selectedServices.length === 0) {
-      Alert.alert('No Services Selected', 'Please select at least one service to proceed.');
+      dialog('No Services Selected', 'Please select at least one service to proceed.');
       return;
     }
     setCurrentServiceIndex(0);
@@ -694,7 +695,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
    * Cancel verification for a service
    */
   const cancelVerification = async (serviceCategory) => {
-    Alert.alert(
+    dialog(
       'Cancel Verification',
       `Are you sure you want to cancel verification for ${SERVICE_LABELS[serviceCategory]}? You will need to resubmit documents if you want to verify this service later.`,
       [
@@ -722,7 +723,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
               const result = await response.json();
               
               if (result.success) {
-                Alert.alert('Success', 'Verification cancelled successfully.');
+                dialog('Success', 'Verification cancelled successfully.');
                 refreshProfile?.();
                 fetchData();
               } else {
@@ -730,7 +731,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
               }
             } catch (error) {
               console.error('[DocumentVerification] Cancel error:', error.message);
-              Alert.alert('Error', error.message || 'Failed to cancel verification. Please try again.');
+              dialog('Error', error.message || 'Failed to cancel verification. Please try again.');
             } finally {
               setLoading(false);
             }

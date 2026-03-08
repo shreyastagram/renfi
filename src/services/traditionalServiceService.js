@@ -15,6 +15,7 @@
  */
 
 import { NODE_BASE_URL, API_ENDPOINTS } from '../config/api';
+import { authFetch } from '../utils/authFetch';
 
 // Allowed service types (matches backend enum)
 export const SERVICE_TYPES = {
@@ -167,7 +168,7 @@ export const createServiceRequest = async ({
 
     const url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.CREATE}`;
     
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -232,7 +233,7 @@ export const getNearbyProviders = async (requestId, limit = 20) => {
 
     const url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.NEARBY_PROVIDERS}/${requestId}/providers`;
     
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -323,7 +324,7 @@ export const skipProvider = async (requestId, providerId, currentProviderIds = [
 
     const url = `${NODE_BASE_URL}/api/traditional-services/${requestId}/skip-provider`;
 
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ providerId, currentProviderIds }),
@@ -379,7 +380,7 @@ export const retryProviderSearch = async (requestId, userId) => {
 
     const url = `${NODE_BASE_URL}/api/traditional-services/${requestId}/retry-search`;
     
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -434,7 +435,7 @@ export const getRequestDetails = async (requestId) => {
 
     const url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.GET_REQUEST}/${requestId}`;
     
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -491,7 +492,7 @@ export const cancelRequest = async (requestId, userId, reason = '') => {
 
     const url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.CANCEL}/${requestId}/cancel`;
     
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -552,7 +553,7 @@ export const providerCancelRequest = async (requestId, providerId, reason = '') 
 
     const url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.CANCEL}/${requestId}/provider-cancel`;
     
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -626,7 +627,7 @@ export const getUserRequests = async (userId, filters = {}) => {
       url += `?${queryParams.toString()}`;
     }
     
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -697,7 +698,7 @@ export const sendRequestToProvider = async (requestId, providerId, distance = nu
       requestBody.distance = distance;
     }
     
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -759,7 +760,7 @@ export const acceptRequestAsProvider = async (requestId, providerId, userEmail =
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 45000);
 
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -842,7 +843,7 @@ export const getProviderRequests = async (providerId, options = {}) => {
     
     url += `?${queryParams.toString()}`;
     
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -899,7 +900,7 @@ export const verifyCompletionOtp = async (requestId, otp) => {
 
     const url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.VERIFY_OTP}/${requestId}/verify-otp`;
     
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -952,7 +953,7 @@ export const resendCompletionOtp = async (requestId) => {
 
     const url = `${NODE_BASE_URL}${API_ENDPOINTS.TRADITIONAL_SERVICE.RESEND_OTP}/${requestId}/resend-otp`;
     
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1011,7 +1012,7 @@ export const submitRating = async (requestId, userId, rating, review = '', provi
     const body = { userId, rating: Math.round(rating), review };
     if (providerId) body.providerId = providerId;
 
-    const response = await fetch(`${NODE_BASE_URL}/api/ratings/${requestId}/rate`, {
+    const response = await authFetch(`${NODE_BASE_URL}/api/ratings/${requestId}/rate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -1021,6 +1022,15 @@ export const submitRating = async (requestId, userId, rating, review = '', provi
 
     if (!response.ok) {
       console.error('[Rating] Failed:', data);
+      // If already rated, treat as success to update UI gracefully
+      if (data.code === 'ALREADY_RATED') {
+        return {
+          success: true,
+          alreadyRated: true,
+          message: 'You have already rated this service',
+          existingRating: data.existingRating,
+        };
+      }
       return {
         success: false,
         error: data.error || data.message || 'Failed to submit rating',
@@ -1054,8 +1064,13 @@ export const submitEventRating = submitRating;
  */
 export const checkRatingStatus = async (serviceRequestId) => {
   try {
-    const response = await fetch(`${NODE_BASE_URL}/api/ratings/check/${serviceRequestId}`);
+    const response = await authFetch(`${NODE_BASE_URL}/api/ratings/check/${serviceRequestId}`);
     const data = await response.json();
+    // Handle both ok and non-ok — backend may return rated info in error response too
+    if (data.data?.rated) return data.data;
+    if (data.code === 'ALREADY_RATED' || data.existingRating) {
+      return { rated: true, rating: { rating: data.existingRating || 0 } };
+    }
     if (!response.ok) return { rated: false };
     return data.data || { rated: false };
   } catch (error) {
@@ -1072,7 +1087,7 @@ export const getProviderDetails = async (providerId) => {
   try {
     console.log('[TraditionalService] Fetching provider details:', providerId);
 
-    const response = await fetch(`${NODE_BASE_URL}/api/traditional-services/provider/${providerId}/details`, {
+    const response = await authFetch(`${NODE_BASE_URL}/api/traditional-services/provider/${providerId}/details`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -1145,7 +1160,7 @@ export const verifyEventCompletionOtp = async (requestId, otp) => {
 
     const url = `${NODE_BASE_URL}/api/event-services/${requestId}/verify-otp`;
     
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1194,7 +1209,7 @@ export const verifyEventCompletionOtp = async (requestId, otp) => {
 export const toggleLocationSharing = async (requestId, providerId, enabled, serviceCategory = 'traditional') => {
   try {
     const baseRoute = serviceCategory === 'event' ? 'event-services' : 'traditional-services';
-    const response = await fetch(`${NODE_BASE_URL}/api/${baseRoute}/${requestId}/location-sharing/toggle`, {
+    const response = await authFetch(`${NODE_BASE_URL}/api/${baseRoute}/${requestId}/location-sharing/toggle`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ providerId, enabled, serviceCategory }),
@@ -1217,7 +1232,7 @@ export const toggleLocationSharing = async (requestId, providerId, enabled, serv
 export const updateRequestProviderLocation = async (requestId, providerId, location, serviceCategory = 'traditional') => {
   try {
     const baseRoute = serviceCategory === 'event' ? 'event-services' : 'traditional-services';
-    const response = await fetch(`${NODE_BASE_URL}/api/${baseRoute}/${requestId}/location-sharing/update`, {
+    const response = await authFetch(`${NODE_BASE_URL}/api/${baseRoute}/${requestId}/location-sharing/update`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1244,7 +1259,7 @@ export const updateRequestProviderLocation = async (requestId, providerId, locat
 export const getRequestProviderLocation = async (requestId, serviceCategory = 'traditional') => {
   try {
     const baseRoute = serviceCategory === 'event' ? 'event-services' : 'traditional-services';
-    const response = await fetch(
+    const response = await authFetch(
       `${NODE_BASE_URL}/api/${baseRoute}/${requestId}/provider-location?serviceCategory=${serviceCategory}`,
       { method: 'GET', headers: { 'Content-Type': 'application/json' } }
     );

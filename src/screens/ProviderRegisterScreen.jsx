@@ -435,7 +435,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
             pincode: formData.pincode?.trim() || undefined,
             latitude: location?.latitude,
             longitude: location?.longitude,
-          });
+          }, accessToken);
 
           if (!syncResult.success) {
             console.warn('⚠️ [ProviderRegisterScreen] MongoDB sync failed, but auth succeeded');

@@ -23,12 +23,12 @@ import {
   Platform,
   KeyboardAvoidingView,
   ScrollView,
-  Alert,
   Linking,
   PermissionsAndroid,
 } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 import Icon from './Icon';
+import { useDialog } from '../context/DialogContext';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import MapPickerModal from './MapPickerModal';
 import { useApp } from '../context/AppContext';
@@ -76,8 +76,8 @@ const requestLocationPermission = async () => {
 /**
  * Show location settings prompt
  */
-const showLocationSettingsAlert = () => {
-  Alert.alert(
+const showLocationSettingsAlert = (dialog) => {
+  dialog(
     'Location Services Disabled',
     'Please enable location services in your device settings to use this feature.',
     [
@@ -323,6 +323,15 @@ const LocationPicker = ({
   placeholder = 'Where do you need the service?',
   error,
 }) => {
+  const { dialog } = useDialog();
+
+  // Guard against background geocoding race conditions:
+  // Incremented each time the user explicitly selects a location.
+  // Background callbacks compare the version they captured at launch
+  // against the current value — if it changed, a newer user selection
+  // happened and the stale callback is silently dropped.
+  const selectionVersionRef = useRef(0);
+
   // Support both onChange and onLocationChange
   const handleChange = useCallback((locationData) => {
     if (onChangeProp) {
@@ -374,6 +383,7 @@ const LocationPicker = ({
    * Handle map picker location selection
    */
   const handleMapPickerSelect = useCallback((location) => {
+    selectionVersionRef.current += 1; // Invalidate pending background geocoding
     setLocationType('other');
     // CRITICAL: Mark as non-current-location so booking uses these coordinates
     const locationData = { ...location, isCurrentLocation: false };
@@ -390,13 +400,14 @@ const LocationPicker = ({
    * 3. Background-refine address via reverse geocode (non-blocking)
    */
   const handleUseCurrentLocation = useCallback(async () => {
+    selectionVersionRef.current += 1; // Mark this as a user-initiated selection
     setLocationType('current');
-    
+
     // ── INSTANT PATH: Context already has location (Ola/Uber-like) ──
     // LocationContext refreshes every 30s, so this is always fresh
     if (currentLocation?.latitude && currentLocation?.longitude) {
       console.log('📍 Instant location from context:', currentLocation.latitude.toFixed(6), currentLocation.longitude.toFixed(6));
-      
+
       // Set immediately with whatever address we have — zero latency
       const locationData = {
         latitude: currentLocation.latitude,
@@ -409,11 +420,13 @@ const LocationPicker = ({
       handleChange(locationData);
       // Don't show loader — location is already set
       setGettingLocation(false);
-      
+
       // Silently refine address in background (non-blocking)
+      const versionAtLaunch = selectionVersionRef.current;
       reverseGeocode(currentLocation.latitude, currentLocation.longitude)
         .then(refined => {
-          if (refined) {
+          // Only apply if user hasn't made a different selection since
+          if (refined && selectionVersionRef.current === versionAtLaunch) {
             const refinedData = { ...refined, isCurrentLocation: true };
             setInternalValue(refinedData);
             handleChange(refinedData);
@@ -430,7 +443,7 @@ const LocationPicker = ({
     const hasPermission = await requestLocationPermission();
     if (!hasPermission) {
       setGettingLocation(false);
-      Alert.alert(
+      dialog(
         'Permission Required',
         'Location permission is needed to get your current location. Please enable it in settings.',
         [
@@ -448,21 +461,37 @@ const LocationPicker = ({
     }
     
     let locationReceived = false;
-    
+    const gpsVersionAtLaunch = selectionVersionRef.current;
+
     const handleLocationSuccess = async (position) => {
       if (locationReceived) return;
       locationReceived = true;
-      
+
+      // If user made a different selection while GPS was resolving, skip
+      if (selectionVersionRef.current !== gpsVersionAtLaunch) {
+        setGettingLocation(false);
+        return;
+      }
+
       const { latitude, longitude, accuracy } = position.coords;
       console.log('📍 GPS location received:', latitude.toFixed(6), longitude.toFixed(6), 'accuracy:', accuracy?.toFixed(0) || 'unknown', 'm');
-      
+
       try {
         const locationData = await reverseGeocode(latitude, longitude);
+        // Re-check after async geocoding
+        if (selectionVersionRef.current !== gpsVersionAtLaunch) {
+          setGettingLocation(false);
+          return;
+        }
         locationData.isCurrentLocation = true;
         locationData.accuracy = accuracy;
         setInternalValue(locationData);
         handleChange(locationData);
       } catch (err) {
+        if (selectionVersionRef.current !== gpsVersionAtLaunch) {
+          setGettingLocation(false);
+          return;
+        }
         const locationData = {
           latitude,
           longitude,
@@ -487,7 +516,7 @@ const LocationPicker = ({
             if (!locationReceived) {
               locationReceived = true;
               setGettingLocation(false);
-              Alert.alert(
+              dialog(
                 'Location Unavailable',
                 'Could not determine your location. Please ensure GPS is enabled or search for your location manually.',
                 [
@@ -584,6 +613,7 @@ const LocationPicker = ({
   
   // Handle search result selection
   const handleSelectResult = useCallback((result) => {
+    selectionVersionRef.current += 1; // Invalidate pending background geocoding
     setLocationType('other');
     result.isCurrentLocation = false;
     setInternalValue(result);
@@ -607,12 +637,14 @@ const LocationPicker = ({
       };
       setInternalValue(locationData);
       handleChange(locationData);
-      
+
       // Background-refine address if context didn't provide one
       if (!currentLocationAddress) {
+        const versionAtLaunch = selectionVersionRef.current;
         reverseGeocode(currentLocation.latitude, currentLocation.longitude)
           .then(refined => {
-            if (refined) {
+            // Only apply if user hasn't made a manual selection since this was launched
+            if (refined && selectionVersionRef.current === versionAtLaunch) {
               const refinedData = { ...refined, isCurrentLocation: true };
               setInternalValue(refinedData);
               handleChange(refinedData);

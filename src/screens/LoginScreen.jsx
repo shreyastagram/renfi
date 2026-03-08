@@ -223,9 +223,9 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
                 ...syncData,
                 name: user.fullName,
                 address: '',
-              });
+              }, accessToken);
             } else {
-              await syncGoogleUserToMongoDB(syncData);
+              await syncGoogleUserToMongoDB(syncData, accessToken);
             }
             console.log('✅ [LoginScreen] MongoDB profile sync OK');
           } catch (syncError) {

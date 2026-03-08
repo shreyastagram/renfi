@@ -1,14 +1,16 @@
 /**
  * Event Services Screen
- * 
+ *
  * Handles event-based services (Photographer, Influencer)
  * These services are NOT location-based, instead showcase portfolio/social links
  * Production-grade booking flow for photographers and influencers
- * 
- * @version 2.0.0
+ *
+ * Premium design language v3.0
+ *
+ * @version 3.0.0
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,7 +19,6 @@ import {
   ScrollView,
   FlatList,
   ActivityIndicator,
-  Alert,
   Linking,
   Modal,
   Image,
@@ -26,28 +27,68 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useApp } from '../context/AppContext';
+import { useDialog } from '../context/DialogContext';
 import { useLocation } from '../context/LocationContext';
 import { NODE_BASE_URL } from '../config/api';
+import { authFetch } from '../utils/authFetch';
 import { addToFavorites, checkIsFavorite } from '../services/favoritesService';
 import MapPickerModal from '../components/MapPickerModal';
 import ImageViewerModal from '../components/ImageViewerModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// Brand colors
-const BRAND = {
+// Premium design tokens
+const COLORS = {
+  darkHero: '#0F172A',
+  background: '#F1F5F9',
+  cardWhite: '#FFFFFF',
   primary: '#f67c16',
+  primaryLight: '#FFF7ED',
   secondary: '#2b76bc',
-  background: '#faf7f7',
-  white: '#FFFFFF',
+  secondaryLight: '#EFF6FF',
+  muted: '#94A3B8',
+  textPrimary: '#1E293B',
+  textSecondary: '#64748B',
   success: '#10B981',
-  neutral: '#6B7280',
+  successLight: '#ECFDF5',
+  divider: '#E2E8F0',
+  iconBg: '#F1F5F9',
+  white: '#FFFFFF',
+  star: '#F59E0B',
+  verified: '#2563EB',
+  purple: '#7C3AED',
+  purpleLight: '#F5F3FF',
 };
+
+const SHADOWS = Platform.select({
+  ios: {
+    shadowColor: COLORS.darkHero,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+  },
+  android: {
+    elevation: 5,
+  },
+});
+
+const SHADOW_LIGHT = Platform.select({
+  ios: {
+    shadowColor: COLORS.darkHero,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+  },
+  android: {
+    elevation: 3,
+  },
+});
 
 // Event service types - using MaterialIcon names
 const EVENT_SERVICES = [
@@ -66,23 +107,73 @@ const PLATFORM_ICONS = {
 };
 
 /**
- * Service Card Component - Using MaterialIcon instead of emoji
+ * Animated Press Wrapper - provides spring scale effect
+ */
+const AnimatedPressable = ({ children, onPress, style, disabled }) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      useNativeDriver: true,
+      speed: 50,
+      bounciness: 4,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 50,
+      bounciness: 4,
+    }).start();
+  };
+
+  return (
+    <TouchableOpacity
+      activeOpacity={1}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={onPress}
+      disabled={disabled}
+    >
+      <Animated.View style={[style, { transform: [{ scale: scaleAnim }] }]}>
+        {children}
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
+
+/**
+ * Section Header with left accent bar
+ */
+const SectionHeader = ({ title, style: customStyle }) => (
+  <View style={[styles.sectionHeaderRow, customStyle]}>
+    <View style={styles.sectionAccentBar} />
+    <Text style={styles.sectionHeaderText}>{title}</Text>
+  </View>
+);
+
+/**
+ * Service Card Component - Premium design
  */
 const ServiceCard = ({ service, onPress }) => (
-  <TouchableOpacity
+  <AnimatedPressable
     style={styles.serviceCard}
     onPress={() => onPress(service)}
-    activeOpacity={0.7}
   >
     <View style={styles.serviceIconContainer}>
-      <MaterialIcon name={service.icon} size={28} color={BRAND.secondary} />
+      <MaterialIcon name={service.icon} size={24} color={COLORS.secondary} />
     </View>
     <View style={styles.serviceInfo}>
       <Text style={styles.serviceName}>{service.name}</Text>
       <Text style={styles.serviceDescription}>{service.description}</Text>
     </View>
-    <MaterialIcon name="chevron-right" size={24} color="#9CA3AF" />
-  </TouchableOpacity>
+    <View style={styles.serviceChevronWrap}>
+      <MaterialIcon name="chevron-right" size={22} color={COLORS.muted} />
+    </View>
+  </AnimatedPressable>
 );
 
 /**
@@ -94,10 +185,10 @@ const PortfolioLink = ({ platform, url, onPress }) => (
     onPress={() => onPress(url)}
     activeOpacity={0.7}
   >
-    <MaterialIcon 
-      name={PLATFORM_ICONS[platform] || 'link'} 
-      size={20} 
-      color={BRAND.secondary} 
+    <MaterialIcon
+      name={PLATFORM_ICONS[platform] || 'link'}
+      size={18}
+      color={COLORS.secondary}
     />
     <Text style={styles.portfolioLinkText}>
       {platform.charAt(0).toUpperCase() + platform.slice(1)}
@@ -106,146 +197,148 @@ const PortfolioLink = ({ platform, url, onPress }) => (
 );
 
 /**
- * Provider Card for Event Services
+ * Provider Card for Event Services - Premium with animated press
  */
 const EventProviderCard = ({ provider, onViewDetails, onContact }) => {
   // Get profile picture URL - backend returns profilePicture as string or profilePicture.url
-  const profilePictureUrl = typeof provider.profilePicture === 'string' 
-    ? provider.profilePicture 
+  const profilePictureUrl = typeof provider.profilePicture === 'string'
+    ? provider.profilePicture
     : provider.profilePicture?.url || provider.profileImage;
-  
+
   return (
-  <TouchableOpacity 
-    style={styles.providerCard}
-    onPress={() => onViewDetails(provider)}
-    activeOpacity={0.7}
-  >
-    <View style={styles.providerHeader}>
-      <View style={styles.providerAvatar}>
-        {profilePictureUrl ? (
-          <Image 
-            source={{ uri: profilePictureUrl }} 
-            style={styles.providerAvatarImage}
-          />
-        ) : (
-          <Text style={styles.providerInitial}>
-            {provider.name?.charAt(0)?.toUpperCase() || 'P'}
-          </Text>
-        )}
-        {provider.isFavorite && (
-          <View style={styles.favoriteBadge}>
-            <MaterialIcon name="star" size={10} color="#F59E0B" />
-          </View>
-        )}
-      </View>
-      
-      <View style={styles.providerInfo}>
-        <View style={styles.providerNameRow}>
-          <Text style={styles.providerName}>{provider.name}</Text>
-          {provider.verified && (
-            <MaterialIcon name="verified" size={16} color="#2563EB" />
+    <AnimatedPressable
+      style={styles.providerCard}
+      onPress={() => onViewDetails(provider)}
+    >
+      <View style={styles.providerHeader}>
+        <View style={styles.providerAvatar}>
+          {profilePictureUrl ? (
+            <Image
+              source={{ uri: profilePictureUrl }}
+              style={styles.providerAvatarImage}
+            />
+          ) : (
+            <Text style={styles.providerInitial}>
+              {provider.name?.charAt(0)?.toUpperCase() || 'P'}
+            </Text>
+          )}
+          {provider.isFavorite && (
+            <View style={styles.favoriteBadge}>
+              <MaterialIcon name="star" size={10} color={COLORS.star} />
+            </View>
           )}
         </View>
-        
-        {provider.bio && (
-          <Text style={styles.providerBio} numberOfLines={2}>
-            {provider.bio}
-          </Text>
-        )}
-        
-        {(provider.rating > 0 || provider.ratings?.average > 0) && (
-          <View style={styles.ratingRow}>
-            <MaterialIcon name="star" size={14} color="#F59E0B" />
-            <Text style={styles.ratingText}>
-              {(provider.ratings?.average || provider.rating || 0).toFixed(1)}
-            </Text>
-            {provider.ratings?.total > 0 && (
-              <Text style={styles.ratingCount}>({provider.ratings.total} reviews)</Text>
+
+        <View style={styles.providerInfo}>
+          <View style={styles.providerNameRow}>
+            <Text style={styles.providerName}>{provider.name}</Text>
+            {provider.verified && (
+              <MaterialIcon name="verified" size={16} color={COLORS.verified} />
             )}
           </View>
-        )}
-      </View>
-    </View>
-    
-    {/* Specializations */}
-    {provider.specializations && provider.specializations.length > 0 && (
-      <View style={styles.specializationsContainer}>
-        {provider.specializations.slice(0, 3).map((spec, index) => (
-          <View key={index} style={styles.specializationTag}>
-            <Text style={styles.specializationText}>{spec}</Text>
-          </View>
-        ))}
-        {provider.specializations.length > 3 && (
-          <View style={styles.specializationTag}>
-            <Text style={styles.specializationText}>
-              +{provider.specializations.length - 3}
+
+          {provider.bio && (
+            <Text style={styles.providerBio} numberOfLines={2}>
+              {provider.bio}
             </Text>
-          </View>
-        )}
-      </View>
-    )}
-    
-    {/* Portfolio Links Preview */}
-    {provider.portfolioLinks && Object.keys(provider.portfolioLinks).length > 0 && (
-      <View style={styles.linksPreview}>
-        {Object.keys(provider.portfolioLinks).slice(0, 4).map((platform) => (
-          provider.portfolioLinks[platform] && (
-            <View key={platform} style={styles.linkIcon}>
-              <MaterialIcon 
-                name={PLATFORM_ICONS[platform] || 'link'} 
-                size={16} 
-                color={BRAND.secondary} 
-              />
+          )}
+
+          {(provider.rating > 0 || provider.ratings?.average > 0) && (
+            <View style={styles.ratingRow}>
+              <MaterialIcon name="star" size={14} color={COLORS.star} />
+              <Text style={styles.ratingText}>
+                {(provider.ratings?.average || provider.rating || 0).toFixed(1)}
+              </Text>
+              {provider.ratings?.total > 0 && (
+                <Text style={styles.ratingCount}>({provider.ratings.total} reviews)</Text>
+              )}
             </View>
-          )
-        ))}
+          )}
+        </View>
       </View>
-    )}
-    
-    <View style={styles.providerActions}>
-      <TouchableOpacity 
-        style={styles.viewButton}
-        onPress={() => onViewDetails(provider)}
-      >
-        <Text style={styles.viewButtonText}>View Details</Text>
-      </TouchableOpacity>
-      <TouchableOpacity 
-        style={styles.contactButton}
-        onPress={() => onContact(provider)}
-      >
-        <MaterialIcon name="phone" size={18} color={BRAND.white} />
-        <Text style={styles.contactButtonText}>Call</Text>
-      </TouchableOpacity>
-    </View>
-  </TouchableOpacity>
-);
+
+      {/* Specializations */}
+      {provider.specializations && provider.specializations.length > 0 && (
+        <View style={styles.specializationsContainer}>
+          {provider.specializations.slice(0, 3).map((spec, index) => (
+            <View key={index} style={styles.specializationTag}>
+              <Text style={styles.specializationText}>{spec}</Text>
+            </View>
+          ))}
+          {provider.specializations.length > 3 && (
+            <View style={styles.specializationTag}>
+              <Text style={styles.specializationText}>
+                +{provider.specializations.length - 3}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Portfolio Links Preview */}
+      {provider.portfolioLinks && Object.keys(provider.portfolioLinks).length > 0 && (
+        <View style={styles.linksPreview}>
+          {Object.keys(provider.portfolioLinks).slice(0, 4).map((platform) => (
+            provider.portfolioLinks[platform] && (
+              <View key={platform} style={styles.linkIcon}>
+                <MaterialIcon
+                  name={PLATFORM_ICONS[platform] || 'link'}
+                  size={16}
+                  color={COLORS.secondary}
+                />
+              </View>
+            )
+          ))}
+        </View>
+      )}
+
+      <View style={styles.providerActions}>
+        <TouchableOpacity
+          style={styles.viewButton}
+          onPress={() => onViewDetails(provider)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.viewButtonText}>View Details</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.contactButton}
+          onPress={() => onContact(provider)}
+          activeOpacity={0.7}
+        >
+          <MaterialIcon name="phone" size={18} color={COLORS.white} />
+          <Text style={styles.contactButtonText}>Call</Text>
+        </TouchableOpacity>
+      </View>
+    </AnimatedPressable>
+  );
 };
 
 /**
- * Provider Details Modal - Production Grade
+ * Provider Details Modal - Premium Design
  * Shows comprehensive provider information for event services
  */
 const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContactProvider, sending, hasContacted }) => {
+  const { dialog } = useDialog();
   const [galleryViewerVisible, setGalleryViewerVisible] = useState(false);
   const [galleryViewerIndex, setGalleryViewerIndex] = useState(0);
-  
+
   if (!provider) return null;
-  
+
   const openLink = (urlInput) => {
     if (!urlInput) return;
-    
+
     // Handle both string URLs and object URLs { url: '...' }
     let url = typeof urlInput === 'string' ? urlInput : urlInput?.url;
     if (!url) return;
-    
+
     // Ensure URL has protocol
     let finalUrl = url;
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       finalUrl = 'https://' + url;
     }
-    
+
     Linking.openURL(finalUrl).catch(() => {
-      Alert.alert('Error', 'Could not open link');
+      dialog('Error', 'Could not open link');
     });
   };
 
@@ -253,9 +346,9 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
   const getMemberSince = () => {
     if (provider.memberSince) return provider.memberSince;
     if (provider.createdAt) {
-      return new Date(provider.createdAt).toLocaleDateString('en-IN', { 
-        month: 'short', 
-        year: 'numeric' 
+      return new Date(provider.createdAt).toLocaleDateString('en-IN', {
+        month: 'short',
+        year: 'numeric'
       });
     }
     return null;
@@ -272,7 +365,26 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
 
   const profileImageUrl = getProfileImageUrl();
   const memberSince = getMemberSince();
-  
+
+  /**
+   * Handle book now with popup if not called
+   */
+  const handleBookPress = () => {
+    if (!hasContacted) {
+      dialog(
+        'Contact Provider First?',
+        'We recommend having a quick talk with your provider before booking to discuss your requirements.',
+        [
+          { text: 'Call Provider', onPress: () => onContactProvider(provider) },
+          { text: 'Book Anyway', onPress: () => onBookNow(provider), style: 'default' },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+      return;
+    }
+    onBookNow(provider);
+  };
+
   return (
     <Modal
       visible={visible}
@@ -286,18 +398,18 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
             {/* Header with Close Button */}
             <View style={styles.detailsHeaderBar}>
               <TouchableOpacity style={styles.closeDetailButton} onPress={onClose}>
-                <MaterialIcon name="close" size={24} color="#6B7280" />
+                <MaterialIcon name="close" size={24} color={COLORS.muted} />
               </TouchableOpacity>
               <Text style={styles.detailsHeaderTitle}>Provider Details</Text>
               <View style={{ width: 40 }} />
             </View>
 
-            {/* Profile Section - Production Grade */}
+            {/* Profile Section - Premium */}
             <View style={styles.detailsProfileSection}>
               <View style={styles.detailsAvatarContainer}>
                 {profileImageUrl ? (
-                  <Image 
-                    source={{ uri: profileImageUrl }} 
+                  <Image
+                    source={{ uri: profileImageUrl }}
                     style={styles.detailsAvatarImage}
                   />
                 ) : (
@@ -309,18 +421,18 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                 )}
                 {provider.isVerified && (
                   <View style={styles.verifiedBadge}>
-                    <MaterialIcon name="verified" size={20} color="#10B981" />
+                    <MaterialIcon name="verified" size={20} color={COLORS.success} />
                   </View>
                 )}
               </View>
-              
+
               <View style={styles.detailsNameSection}>
                 <Text style={styles.detailsName}>{provider.name}</Text>
-                
+
                 {/* Rating Row */}
                 {(provider.rating > 0 || provider.ratings?.average > 0) && (
                   <View style={styles.detailsRating}>
-                    <MaterialIcon name="star" size={18} color="#F59E0B" />
+                    <MaterialIcon name="star" size={18} color={COLORS.star} />
                     <Text style={styles.detailsRatingText}>
                       {(provider.ratings?.average || provider.rating || 0).toFixed(1)}
                     </Text>
@@ -335,7 +447,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                 {/* Experience */}
                 {provider.experience && (
                   <View style={styles.infoRow}>
-                    <MaterialIcon name="work" size={14} color="#6B7280" />
+                    <MaterialIcon name="work" size={14} color={COLORS.muted} />
                     <Text style={styles.infoText}>{provider.experience} experience</Text>
                   </View>
                 )}
@@ -343,7 +455,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                 {/* Member Since */}
                 {memberSince && (
                   <View style={styles.infoRow}>
-                    <MaterialIcon name="calendar-today" size={14} color="#6B7280" />
+                    <MaterialIcon name="calendar-today" size={14} color={COLORS.muted} />
                     <Text style={styles.infoText}>Member since {memberSince}</Text>
                   </View>
                 )}
@@ -351,7 +463,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                 {/* Location */}
                 {(provider.city || provider.address) && (
                   <View style={styles.infoRow}>
-                    <MaterialIcon name="location-on" size={14} color="#6B7280" />
+                    <MaterialIcon name="location-on" size={14} color={COLORS.muted} />
                     <Text style={styles.infoText}>
                       {provider.city || provider.address}
                     </Text>
@@ -375,8 +487,8 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
-                <Text style={[styles.statValue, { 
-                  color: provider.isOnline || provider.isAvailable ? '#10B981' : '#9CA3AF' 
+                <Text style={[styles.statValue, {
+                  color: provider.isOnline || provider.isAvailable ? COLORS.success : COLORS.muted
                 }]}>
                   {provider.isOnline || provider.isAvailable ? 'Online' : 'Offline'}
                 </Text>
@@ -387,36 +499,36 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
             {/* Bio */}
             {provider.bio && (
               <View style={styles.detailsSection}>
-                <Text style={styles.sectionTitle}>About</Text>
+                <SectionHeader title="About" />
                 <View style={styles.bioContainer}>
                   <Text style={styles.detailsBio}>{provider.bio}</Text>
                 </View>
               </View>
             )}
-            
+
             {/* Specializations */}
             {provider.specializations && provider.specializations.length > 0 && (
               <View style={styles.detailsSection}>
-                <Text style={styles.sectionTitle}>Specializations</Text>
+                <SectionHeader title="Specializations" />
                 <View style={styles.specializationsGrid}>
                   {provider.specializations.map((spec, index) => (
                     <View key={index} style={styles.specTagLarge}>
-                      <MaterialIcon name="auto-awesome" size={14} color="#7C3AED" />
+                      <MaterialIcon name="auto-awesome" size={14} color={COLORS.purple} />
                       <Text style={styles.specTagText}>{spec}</Text>
                     </View>
                   ))}
                 </View>
               </View>
             )}
-            
+
             {/* Portfolio Links */}
             {provider.portfolioLinks && Object.keys(provider.portfolioLinks).filter(k => provider.portfolioLinks[k]).length > 0 && (
               <View style={styles.detailsSection}>
-                <Text style={styles.sectionTitle}>Portfolio & Social</Text>
+                <SectionHeader title="Portfolio & Social" />
                 <View style={styles.linksGrid}>
                   {Object.entries(provider.portfolioLinks).map(([platform, url]) => (
                     url && (
-                      <PortfolioLink 
+                      <PortfolioLink
                         key={platform}
                         platform={platform}
                         url={url}
@@ -427,20 +539,21 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                 </View>
               </View>
             )}
-            
+
             {/* Gallery Preview */}
             {provider.portfolioGallery && provider.portfolioGallery.length > 0 && (
               <View style={styles.detailsSection}>
-                <Text style={styles.sectionTitle}>Gallery ({provider.portfolioGallery.length})</Text>
-                <ScrollView 
-                  horizontal 
+                <SectionHeader title={`Gallery (${provider.portfolioGallery.length})`} />
+                <ScrollView
+                  horizontal
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.galleryContainer}
                 >
                   {provider.portfolioGallery.slice(0, 6).map((item, index) => (
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       key={index}
                       style={styles.galleryItem}
+                      activeOpacity={0.8}
                       onPress={() => {
                         if (item.type === 'video') {
                           // Videos still open in browser
@@ -452,8 +565,8 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                         }
                       }}
                     >
-                      <Image 
-                        source={{ uri: item.thumbnail || item.url || item }} 
+                      <Image
+                        source={{ uri: item.thumbnail || item.url || item }}
                         style={styles.galleryImage}
                       />
                       {item.type === 'video' && (
@@ -464,7 +577,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
-                
+
                 {/* In-App Image Viewer */}
                 <ImageViewerModal
                   visible={galleryViewerVisible}
@@ -474,48 +587,48 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                 />
               </View>
             )}
-            
+
             {/* Contact - masked call */}
             {provider && (
               <View style={styles.detailsSection}>
-                <Text style={styles.sectionTitle}>Contact</Text>
-                <TouchableOpacity 
+                <SectionHeader title="Contact" />
+                <TouchableOpacity
                   style={styles.phoneButton}
                   onPress={() => onContactProvider(provider)}
+                  activeOpacity={0.7}
                 >
-                  <MaterialIcon name="phone" size={20} color={BRAND.success} />
+                  <View style={styles.phoneIconWrap}>
+                    <MaterialIcon name="phone" size={18} color={COLORS.success} />
+                  </View>
                   <Text style={styles.phoneText}>Call Provider</Text>
+                  <MaterialIcon name="chevron-right" size={20} color={COLORS.muted} />
                 </TouchableOpacity>
               </View>
             )}
           </ScrollView>
-          
-          {/* Action Buttons */}
+
+          {/* Action Buttons - Book always active */}
           <View style={styles.detailsActions}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.callProviderBtn}
               onPress={() => provider && onContactProvider(provider)}
+              activeOpacity={0.7}
             >
-              <MaterialIcon name="phone" size={22} color={BRAND.success} />
+              <MaterialIcon name="phone" size={22} color={COLORS.success} />
               <Text style={styles.callProviderText}>Call</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.sendRequestButton, !hasContacted && { opacity: 0.5 }]}
-              onPress={() => {
-                if (!hasContacted) {
-                  Alert.alert('Call First', 'Please call the provider to discuss your requirements before booking.', [{ text: 'OK' }]);
-                  return;
-                }
-                onBookNow(provider);
-              }}
+            <TouchableOpacity
+              style={styles.sendRequestButton}
+              onPress={handleBookPress}
               disabled={sending}
+              activeOpacity={0.7}
             >
               {sending ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <>
                   <MaterialIcon name="event" size={20} color="#FFFFFF" />
-                  <Text style={styles.sendRequestText}>{hasContacted ? 'Book Now' : 'Call First'}</Text>
+                  <Text style={styles.sendRequestText}>Book Now</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -529,10 +642,11 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
 const EventServicesScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, profile } = useApp();
-  
+  const { dialog } = useDialog();
+
   // User ID
   const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
-  
+
   // State
   const [selectedService, setSelectedService] = useState(null);
   const [step, setStep] = useState('select'); // select, providers, booking
@@ -542,7 +656,7 @@ const EventServicesScreen = ({ navigation }) => {
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
   const [sendingRequest, setSendingRequest] = useState(false);
-  
+
   // Booking flow state
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [eventDate, setEventDate] = useState(new Date());
@@ -551,13 +665,13 @@ const EventServicesScreen = ({ navigation }) => {
   const [eventVenue, setEventVenue] = useState('');
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [venueCoords, setVenueCoords] = useState(null); // { latitude, longitude }
-  
+
   // Track which providers the user has called (call-before-book enforcement)
   const [contactedProviderIds, setContactedProviderIds] = useState(new Set());
-  
+
   // Get user location from context
   const { selectedLocation } = useLocation();
-  
+
   /**
    * Fetch providers for service type
    */
@@ -565,15 +679,15 @@ const EventServicesScreen = ({ navigation }) => {
     console.log('========== FETCH EVENT PROVIDERS ==========');
     console.log('ServiceType:', serviceType);
     console.log('API URL:', `${NODE_BASE_URL}/api/event-services/providers`);
-    
+
     if (refresh) {
       setRefreshing(true);
     } else {
       setIsLoading(true);
     }
-    
+
     try {
-      const response = await fetch(`${NODE_BASE_URL}/api/event-services/providers`, {
+      const response = await authFetch(`${NODE_BASE_URL}/api/event-services/providers`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -583,11 +697,11 @@ const EventServicesScreen = ({ navigation }) => {
           userId,
         }),
       });
-      
+
       const data = await response.json();
       console.log('Response status:', response.status);
       console.log('Response data:', JSON.stringify(data, null, 2));
-      
+
       if (response.ok && data.success) {
         // Response structure: { success: true, providers: [...] }
         const providersList = data.providers || [];
@@ -595,18 +709,18 @@ const EventServicesScreen = ({ navigation }) => {
         setProviders(providersList);
       } else {
         console.log('Error response:', data.error);
-        Alert.alert('Error', data.error || 'Failed to fetch providers');
+        dialog('Error', data.error || 'Failed to fetch providers');
       }
     } catch (error) {
       console.error('Fetch providers error:', error);
-      Alert.alert('Error', 'Failed to fetch providers');
+      dialog('Error', 'Failed to fetch providers');
     } finally {
       setIsLoading(false);
       setRefreshing(false);
     }
     console.log('=============================================');
   };
-  
+
   /**
    * Handle service selection
    */
@@ -615,7 +729,7 @@ const EventServicesScreen = ({ navigation }) => {
     setStep('providers');
     fetchProviders(service.id);
   };
-  
+
   /**
    * Handle view provider details
    */
@@ -623,23 +737,23 @@ const EventServicesScreen = ({ navigation }) => {
     setSelectedProvider(provider);
     setShowDetails(true);
   };
-  
+
   /**
    * Handle contact provider (direct phone call)
    */
   const handleContactProvider = async (provider) => {
     const phone = provider?.phone || provider?.verifiedPhone;
     if (!phone) {
-      Alert.alert('Error', 'Provider phone number not available');
+      dialog('Error', 'Provider phone number not available');
       return;
     }
 
     // Clean phone number — ensure it starts with country code
     const cleanPhone = phone.replace(/[\s\-()]/g, '');
-    const phoneNumber = cleanPhone.startsWith('+') ? cleanPhone : 
+    const phoneNumber = cleanPhone.startsWith('+') ? cleanPhone :
                         cleanPhone.startsWith('91') ? `+${cleanPhone}` : `+91${cleanPhone}`;
 
-    Alert.alert(
+    dialog(
       'Contact Provider',
       `Call ${provider.name}?`,
       [
@@ -650,27 +764,18 @@ const EventServicesScreen = ({ navigation }) => {
             // Track that user has contacted this provider
             setContactedProviderIds(prev => new Set(prev).add(provider._id));
             Linking.openURL(`tel:${phoneNumber}`).catch(() => {
-              Alert.alert('Error', 'Unable to make a call. Please check your phone settings.');
+              dialog('Error', 'Unable to make a call. Please check your phone settings.');
             });
           },
         },
       ]
     );
   };
-  
+
   /**
-   * Open booking modal - Production-grade booking flow
+   * Execute the actual booking (open booking modal)
    */
-  const handleOpenBooking = (provider) => {
-    // Enforce call-before-book: user must call provider first
-    if (!contactedProviderIds.has(provider._id)) {
-      Alert.alert(
-        'Call First',
-        'Please call the provider to discuss your requirements before booking.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
+  const executeBooking = (provider) => {
     setSelectedProvider(provider);
     setShowDetails(false);
     setEventDate(new Date());
@@ -679,29 +784,50 @@ const EventServicesScreen = ({ navigation }) => {
     setVenueCoords(null);
     setShowBookingModal(true);
   };
-  
+
+  /**
+   * Open booking modal - with contact-first recommendation popup
+   */
+  const handleOpenBooking = (provider) => {
+    // If user has already called, go straight to booking
+    if (contactedProviderIds.has(provider._id)) {
+      executeBooking(provider);
+      return;
+    }
+    // Otherwise show recommendation popup
+    dialog(
+      'Contact Provider First?',
+      'We recommend having a quick talk with your provider before booking to discuss your requirements.',
+      [
+        { text: 'Call Provider', onPress: () => handleContactProvider(provider) },
+        { text: 'Book Anyway', onPress: () => executeBooking(provider), style: 'default' },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
   /**
    * Handle send booking request with all required fields
    * Production-grade implementation
    */
   const handleSendRequest = async () => {
     if (!selectedProvider) {
-      Alert.alert('Error', 'Please select a provider');
+      dialog('Error', 'Please select a provider');
       return;
     }
-    
+
     if (!eventDate) {
-      Alert.alert('Error', 'Please select an event date');
+      dialog('Error', 'Please select an event date');
       return;
     }
-    
+
     if (!eventVenue.trim()) {
-      Alert.alert('Error', 'Please select the event venue using the map');
+      dialog('Error', 'Please select the event venue using the map');
       return;
     }
-    
+
     setSendingRequest(true);
-    
+
     try {
       // Build location data from map-picked venue coordinates
       const locationData = {
@@ -715,9 +841,9 @@ const EventServicesScreen = ({ navigation }) => {
         ] : null),
         landmark: '',
       };
-      
+
       // Create service request with ALL required fields including location
-      const createResponse = await fetch(`${NODE_BASE_URL}/api/event-services/create-service`, {
+      const createResponse = await authFetch(`${NODE_BASE_URL}/api/event-services/create-service`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -731,29 +857,29 @@ const EventServicesScreen = ({ navigation }) => {
           location: locationData,
         }),
       });
-      
+
       const createData = await createResponse.json();
       console.log('[EventServices] Create response:', createData);
-      
+
       // Backend returns { statusCode: 201, message: '...', data: {...} }
       if (!createResponse.ok || (createData.statusCode && createData.statusCode >= 400)) {
         // Handle geofence rejection with user-friendly message
         if (createData.code === 'OUTSIDE_SERVICE_ZONE') {
           const suggestion = createData.details?.suggestion || 'Event services are currently available only in Yavatmal City, Maharashtra. We\'re expanding soon!';
-          Alert.alert('📍 Service Unavailable in Your Area', suggestion, [{ text: 'OK' }]);
+          dialog('Service Unavailable in Your Area', suggestion, [{ text: 'OK' }]);
           setSendingRequest(false);
           return;
         }
         throw new Error(createData.message || createData.error || 'Failed to create request');
       }
-      
+
       const serviceId = createData.data?._id || createData._id;
       if (!serviceId) {
         throw new Error('No service ID returned from creation');
       }
-      
+
       // Then send to provider
-      const sendResponse = await fetch(
+      const sendResponse = await authFetch(
         `${NODE_BASE_URL}/api/event-services/${serviceId}/send-to-provider`,
         {
           method: 'POST',
@@ -765,15 +891,15 @@ const EventServicesScreen = ({ navigation }) => {
           }),
         }
       );
-      
+
       const sendData = await sendResponse.json();
       console.log('[EventServices] Send response:', sendData);
-      
+
       // Backend returns { statusCode: 200, message: '...', data: {...} }
       if (sendResponse.ok && (!sendData.statusCode || sendData.statusCode < 400)) {
         setShowBookingModal(false);
-        Alert.alert(
-          '🎉 Request Sent!',
+        dialog(
+          'Request Sent!',
           `Your booking request has been sent to ${selectedProvider.name}.\n\nEvent Date: ${eventDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}\n\nThey will contact you soon to confirm.`,
           [
             {
@@ -789,7 +915,7 @@ const EventServicesScreen = ({ navigation }) => {
       } else {
         // Send failed - cancel the created request to avoid orphan pending requests
         try {
-          await fetch(`${NODE_BASE_URL}/api/event-services/${serviceId}/cancel`, {
+          await authFetch(`${NODE_BASE_URL}/api/event-services/${serviceId}/cancel`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, reason: 'Failed to send to provider' }),
@@ -802,12 +928,12 @@ const EventServicesScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('[EventServices] Booking error:', error);
-      Alert.alert('Error', error.message || 'Failed to send booking request');
+      dialog('Error', error.message || 'Failed to send booking request');
     } finally {
       setSendingRequest(false);
     }
   };
-  
+
   /**
    * Handle add to favorites — with duplicate prevention
    */
@@ -815,9 +941,9 @@ const EventServicesScreen = ({ navigation }) => {
     // Check if already favorited (by providerId only — prevents cross-service duplicates)
     const checkResult = await checkIsFavorite(userId, provider._id);
     if (checkResult.success && checkResult.isFavorite) {
-      Alert.alert('Already Favorited', `${provider.name} is already in your favorites`);
+      dialog('Already Favorited', `${provider.name} is already in your favorites`);
       // Update UI to reflect correct state
-      setProviders(prev => prev.map(p => 
+      setProviders(prev => prev.map(p =>
         p._id === provider._id ? { ...p, isFavorite: true } : p
       ));
       if (selectedProvider?._id === provider._id) {
@@ -831,31 +957,31 @@ const EventServicesScreen = ({ navigation }) => {
       provider._id,
       selectedService.id
     );
-    
+
     if (result.success) {
       // Update provider in list
-      setProviders(prev => prev.map(p => 
+      setProviders(prev => prev.map(p =>
         p._id === provider._id ? { ...p, isFavorite: true } : p
       ));
-      
+
       // Update selected provider
       if (selectedProvider?._id === provider._id) {
         setSelectedProvider({ ...selectedProvider, isFavorite: true });
       }
-      
-      Alert.alert('Added!', `${provider.name} added to favorites`);
+
+      dialog('Added!', `${provider.name} added to favorites`);
     } else {
-      Alert.alert('Error', result.error || 'Failed to add to favorites');
+      dialog('Error', result.error || 'Failed to add to favorites');
     }
   };
-  
+
   /**
-   * Render header
+   * Render premium header with safe area
    */
   const renderHeader = () => (
-    <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-      <TouchableOpacity 
-        style={styles.backButton} 
+    <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <TouchableOpacity
+        style={styles.backButton}
         onPress={() => {
           if (step === 'select') {
             navigation.goBack();
@@ -866,8 +992,9 @@ const EventServicesScreen = ({ navigation }) => {
             setContactedProviderIds(new Set()); // Reset per search session
           }
         }}
+        activeOpacity={0.7}
       >
-        <MaterialIcon name="arrow-back" size={24} color="#1F2937" />
+        <MaterialIcon name="arrow-back" size={24} color={COLORS.white} />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>
         {step === 'select' ? 'Event Services' : selectedService?.name || 'Providers'}
@@ -875,12 +1002,12 @@ const EventServicesScreen = ({ navigation }) => {
       <View style={styles.headerSpacer} />
     </View>
   );
-  
+
   /**
    * Render service selection
    */
   const renderServiceSelection = () => (
-    <ScrollView 
+    <ScrollView
       style={styles.content}
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
@@ -891,9 +1018,9 @@ const EventServicesScreen = ({ navigation }) => {
           Browse portfolios and connect with photographers & influencers for your events
         </Text>
       </View>
-      
+
       {EVENT_SERVICES.map(service => (
-        <ServiceCard 
+        <ServiceCard
           key={service.id}
           service={service}
           onPress={handleServiceSelect}
@@ -901,7 +1028,7 @@ const EventServicesScreen = ({ navigation }) => {
       ))}
     </ScrollView>
   );
-  
+
   /**
    * Render providers list
    */
@@ -909,12 +1036,16 @@ const EventServicesScreen = ({ navigation }) => {
     <View style={styles.providersContainer}>
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BRAND.primary} />
+          <View style={styles.loadingSpinnerWrap}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          </View>
           <Text style={styles.loadingText}>Finding {selectedService?.name}s...</Text>
         </View>
       ) : providers.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <MaterialIcon name="search-off" size={64} color="#D1D5DB" />
+          <View style={styles.emptyIconWrap}>
+            <MaterialIcon name="search-off" size={48} color={COLORS.muted} />
+          </View>
           <Text style={styles.emptyText}>No {selectedService?.name}s found</Text>
           <Text style={styles.emptySubtext}>
             Check back later for more providers
@@ -937,21 +1068,22 @@ const EventServicesScreen = ({ navigation }) => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => fetchProviders(selectedService.id, true)}
-              colors={[BRAND.primary]}
+              colors={[COLORS.primary]}
+              tintColor={COLORS.primary}
             />
           }
         />
       )}
     </View>
   );
-  
+
   return (
     <View style={styles.container}>
       {renderHeader()}
-      
+
       {step === 'select' ? renderServiceSelection() : renderProvidersList()}
-      
-      {/* Provider Details Modal - Production Grade */}
+
+      {/* Provider Details Modal - Premium */}
       <ProviderDetailsModal
         visible={showDetails}
         provider={selectedProvider}
@@ -969,24 +1101,25 @@ const EventServicesScreen = ({ navigation }) => {
         transparent={true}
         onRequestClose={() => setShowBookingModal(false)}
       >
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           style={styles.bookingModalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <View style={styles.bookingModalContent}>
             {/* Header */}
             <View style={styles.bookingModalHeader}>
-              <TouchableOpacity 
-                style={styles.closeDetailButton}
+              <TouchableOpacity
+                style={styles.bookingCloseButton}
                 onPress={() => setShowBookingModal(false)}
+                activeOpacity={0.7}
               >
-                <MaterialIcon name="close" size={24} color="#6B7280" />
+                <MaterialIcon name="close" size={22} color={COLORS.muted} />
               </TouchableOpacity>
               <Text style={styles.bookingModalTitle}>Book {selectedService?.name}</Text>
               <View style={{ width: 40 }} />
             </View>
 
-            <ScrollView 
+            <ScrollView
               style={styles.bookingModalScroll}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
@@ -996,8 +1129,8 @@ const EventServicesScreen = ({ navigation }) => {
                 <View style={styles.bookingProviderCard}>
                   <View style={styles.bookingProviderAvatar}>
                     {(typeof selectedProvider.profilePicture === 'string' ? selectedProvider.profilePicture : selectedProvider.profilePicture?.url) || selectedProvider.profileImage ? (
-                      <Image 
-                        source={{ uri: typeof selectedProvider.profilePicture === 'string' ? selectedProvider.profilePicture : (selectedProvider.profilePicture?.url || selectedProvider.profileImage) }} 
+                      <Image
+                        source={{ uri: typeof selectedProvider.profilePicture === 'string' ? selectedProvider.profilePicture : (selectedProvider.profilePicture?.url || selectedProvider.profileImage) }}
                         style={styles.bookingProviderImage}
                       />
                     ) : (
@@ -1010,7 +1143,7 @@ const EventServicesScreen = ({ navigation }) => {
                     <Text style={styles.bookingProviderName}>{selectedProvider.name}</Text>
                     {selectedProvider.ratings?.average > 0 && (
                       <View style={styles.bookingRatingRow}>
-                        <MaterialIcon name="star" size={14} color="#F59E0B" />
+                        <MaterialIcon name="star" size={14} color={COLORS.star} />
                         <Text style={styles.bookingRatingText}>
                           {selectedProvider.ratings.average.toFixed(1)} ({selectedProvider.ratings.total} reviews)
                         </Text>
@@ -1022,14 +1155,18 @@ const EventServicesScreen = ({ navigation }) => {
 
               {/* Event Date Selection */}
               <View style={styles.bookingSection}>
-                <Text style={styles.bookingSectionTitle}>
-                  <MaterialIcon name="event" size={16} color={BRAND.primary} /> Event Date *
-                </Text>
-                <TouchableOpacity 
+                <View style={styles.bookingSectionTitleRow}>
+                  <View style={styles.bookingSectionIconWrap}>
+                    <MaterialIcon name="event" size={18} color={COLORS.primary} />
+                  </View>
+                  <Text style={styles.bookingSectionTitle}>Event Date *</Text>
+                </View>
+                <TouchableOpacity
                   style={styles.datePickerButton}
                   onPress={() => setShowDatePicker(true)}
+                  activeOpacity={0.7}
                 >
-                  <MaterialIcon name="calendar-today" size={20} color={BRAND.secondary} />
+                  <MaterialIcon name="calendar-today" size={20} color={COLORS.secondary} />
                   <Text style={styles.datePickerText}>
                     {eventDate.toLocaleDateString('en-IN', {
                       weekday: 'long',
@@ -1038,19 +1175,22 @@ const EventServicesScreen = ({ navigation }) => {
                       year: 'numeric'
                     })}
                   </Text>
-                  <MaterialIcon name="edit" size={18} color="#9CA3AF" />
+                  <MaterialIcon name="edit" size={18} color={COLORS.muted} />
                 </TouchableOpacity>
               </View>
 
               {/* Event Description */}
               <View style={styles.bookingSection}>
-                <Text style={styles.bookingSectionTitle}>
-                  <MaterialIcon name="description" size={16} color={BRAND.primary} /> Event Details (Optional)
-                </Text>
+                <View style={styles.bookingSectionTitleRow}>
+                  <View style={styles.bookingSectionIconWrap}>
+                    <MaterialIcon name="description" size={18} color={COLORS.primary} />
+                  </View>
+                  <Text style={styles.bookingSectionTitle}>Event Details (Optional)</Text>
+                </View>
                 <TextInput
                   style={styles.eventDescriptionInput}
                   placeholder="Describe your event (e.g., Wedding, Birthday Party, Corporate Event...)"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={COLORS.muted}
                   value={eventDescription}
                   onChangeText={setEventDescription}
                   multiline
@@ -1061,10 +1201,13 @@ const EventServicesScreen = ({ navigation }) => {
 
               {/* Event Venue/Location - Map Picker */}
               <View style={styles.bookingSection}>
-                <Text style={styles.bookingSectionTitle}>
-                  <MaterialIcon name="location-on" size={16} color={BRAND.primary} /> Event Venue *
-                </Text>
-                
+                <View style={styles.bookingSectionTitleRow}>
+                  <View style={styles.bookingSectionIconWrap}>
+                    <MaterialIcon name="location-on" size={18} color={COLORS.primary} />
+                  </View>
+                  <Text style={styles.bookingSectionTitle}>Event Venue *</Text>
+                </View>
+
                 {/* Selected venue display */}
                 {eventVenue ? (
                   <TouchableOpacity
@@ -1074,7 +1217,7 @@ const EventServicesScreen = ({ navigation }) => {
                   >
                     <View style={styles.venueSelectedRow}>
                       <View style={styles.venueIconWrap}>
-                        <MaterialIcon name="place" size={24} color={BRAND.primary} />
+                        <MaterialIcon name="place" size={22} color={COLORS.primary} />
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.venueSelectedAddress} numberOfLines={2}>
@@ -1086,7 +1229,7 @@ const EventServicesScreen = ({ navigation }) => {
                           </Text>
                         )}
                       </View>
-                      <MaterialIcon name="edit" size={18} color="#9CA3AF" />
+                      <MaterialIcon name="edit" size={18} color={COLORS.muted} />
                     </View>
                   </TouchableOpacity>
                 ) : (
@@ -1095,11 +1238,12 @@ const EventServicesScreen = ({ navigation }) => {
                     <TouchableOpacity
                       style={styles.venueMapButton}
                       onPress={() => setShowMapPicker(true)}
+                      activeOpacity={0.7}
                     >
-                      <MaterialIcon name="map" size={22} color={BRAND.white} />
+                      <MaterialIcon name="map" size={20} color={COLORS.white} />
                       <Text style={styles.venueMapButtonText}>Pick on Map</Text>
                     </TouchableOpacity>
-                    
+
                     {/* Use Current Location */}
                     {selectedLocation?.coordinates && (
                       <TouchableOpacity
@@ -1111,14 +1255,15 @@ const EventServicesScreen = ({ navigation }) => {
                             longitude: selectedLocation.coordinates.longitude,
                           });
                         }}
+                        activeOpacity={0.7}
                       >
-                        <MaterialIcon name="my-location" size={22} color={BRAND.secondary} />
+                        <MaterialIcon name="my-location" size={20} color={COLORS.secondary} />
                         <Text style={styles.venueCurrentButtonText}>Current Location</Text>
                       </TouchableOpacity>
                     )}
                   </View>
                 )}
-                
+
                 {/* MapPickerModal */}
                 <MapPickerModal
                   visible={showMapPicker}
@@ -1150,7 +1295,7 @@ const EventServicesScreen = ({ navigation }) => {
                   <Text style={styles.summaryLabel}>Provider</Text>
                   <Text style={styles.summaryValue}>{selectedProvider?.name}</Text>
                 </View>
-                <View style={styles.summaryRow}>
+                <View style={[styles.summaryRow, { borderBottomWidth: 0 }]}>
                   <Text style={styles.summaryLabel}>Event Date</Text>
                   <Text style={styles.summaryValue}>
                     {eventDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -1161,10 +1306,11 @@ const EventServicesScreen = ({ navigation }) => {
 
             {/* Action Button */}
             <View style={styles.bookingActions}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.confirmBookingButton}
                 onPress={handleSendRequest}
                 disabled={sendingRequest}
+                activeOpacity={0.7}
               >
                 {sendingRequest ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
@@ -1203,127 +1349,151 @@ const EventServicesScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  // ─── Container ───
   container: {
     flex: 1,
-    backgroundColor: BRAND.background,
+    backgroundColor: COLORS.background,
   },
+
+  // ─── Premium Header (dark hero) ───
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 16,
-    backgroundColor: BRAND.white,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    backgroundColor: COLORS.darkHero,
   },
   backButton: {
-    padding: 8,
-    marginLeft: -8,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
     flex: 1,
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontSize: 20,
+    fontWeight: '800',
+    color: COLORS.white,
     textAlign: 'center',
     marginHorizontal: 8,
   },
   headerSpacer: {
-    width: 40,
+    width: 42,
   },
+
+  // ─── Content ───
   content: {
     flex: 1,
   },
   contentContainer: {
-    padding: 16,
+    padding: 20,
     paddingBottom: 32,
   },
   introSection: {
-    marginBottom: 24,
+    marginBottom: 28,
   },
   introTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1F2937',
+    fontSize: 26,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
     marginBottom: 8,
   },
   introSubtitle: {
     fontSize: 15,
-    color: '#6B7280',
+    color: COLORS.textSecondary,
     lineHeight: 22,
   },
-  
-  // Service Card
+
+  // ─── Section Header with accent bar ───
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  sectionAccentBar: {
+    width: 4,
+    height: 20,
+    borderRadius: 2,
+    backgroundColor: COLORS.primary,
+    marginRight: 10,
+  },
+  sectionHeaderText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+  },
+
+  // ─── Service Card (premium) ───
   serviceCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: BRAND.white,
-    borderRadius: 16,
+    backgroundColor: COLORS.cardWhite,
+    borderRadius: 22,
     padding: 20,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    marginBottom: 14,
+    ...SHADOWS,
   },
   serviceIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: '#FFF7ED',
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: COLORS.iconBg,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
-  },
-  serviceIconEmoji: {
-    fontSize: 28,
   },
   serviceInfo: {
     flex: 1,
   },
   serviceName: {
     fontSize: 17,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontWeight: '800',
+    color: COLORS.textPrimary,
     marginBottom: 4,
   },
   serviceDescription: {
     fontSize: 13,
-    color: '#6B7280',
+    color: COLORS.textSecondary,
+    lineHeight: 18,
   },
-  
-  // Providers
+  serviceChevronWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: COLORS.iconBg,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // ─── Providers ───
   providersContainer: {
     flex: 1,
   },
   providersList: {
-    padding: 16,
+    padding: 20,
     paddingBottom: 32,
   },
   providerCard: {
-    backgroundColor: BRAND.white,
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: COLORS.cardWhite,
+    borderRadius: 22,
+    padding: 18,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    ...SHADOWS,
   },
   providerHeader: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   providerAvatar: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: BRAND.secondary,
+    backgroundColor: COLORS.secondary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   providerAvatarImage: {
     width: 56,
@@ -1332,8 +1502,8 @@ const styles = StyleSheet.create({
   },
   providerInitial: {
     fontSize: 24,
-    fontWeight: '600',
-    color: BRAND.white,
+    fontWeight: '800',
+    color: COLORS.white,
   },
   favoriteBadge: {
     position: 'absolute',
@@ -1342,11 +1512,11 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: BRAND.white,
+    backgroundColor: COLORS.white,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#F59E0B',
+    borderWidth: 1.5,
+    borderColor: COLORS.star,
   },
   providerInfo: {
     flex: 1,
@@ -1358,15 +1528,15 @@ const styles = StyleSheet.create({
   },
   providerName: {
     fontSize: 17,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontWeight: '800',
+    color: COLORS.textPrimary,
     marginRight: 6,
   },
   providerBio: {
     fontSize: 13,
-    color: '#6B7280',
+    color: COLORS.textSecondary,
     lineHeight: 18,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   ratingRow: {
     flexDirection: 'row',
@@ -1374,97 +1544,106 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
+    fontWeight: '600',
+    color: COLORS.textPrimary,
     marginLeft: 4,
   },
   ratingCount: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: COLORS.muted,
     marginLeft: 4,
   },
-  
-  // Specializations
+
+  // ─── Specializations ───
   specializationsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   specializationTag: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    backgroundColor: COLORS.secondaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: 12,
     marginRight: 6,
     marginBottom: 6,
   },
   specializationText: {
     fontSize: 12,
-    color: BRAND.secondary,
-    fontWeight: '500',
+    color: COLORS.secondary,
+    fontWeight: '600',
   },
-  
-  // Links Preview
+
+  // ─── Links Preview ───
   linksPreview: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   linkIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#EFF6FF',
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    backgroundColor: COLORS.secondaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
   },
-  
-  // Provider Actions
+
+  // ─── Provider Actions ───
   providerActions: {
     flexDirection: 'row',
+    gap: 10,
   },
   viewButton: {
     flex: 1,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: BRAND.secondary,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: COLORS.secondary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
   },
   viewButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: BRAND.secondary,
+    color: COLORS.secondary,
   },
   contactButton: {
     flex: 1,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: BRAND.primary,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: COLORS.primary,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
+    gap: 6,
   },
   contactButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: BRAND.white,
-    marginLeft: 6,
+    color: COLORS.white,
   },
-  
-  // Loading & Empty
+
+  // ─── Loading & Empty ───
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loadingSpinnerWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 22,
+    backgroundColor: COLORS.cardWhite,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...SHADOWS,
+  },
   loadingText: {
-    marginTop: 16,
+    marginTop: 18,
     fontSize: 16,
-    color: '#6B7280',
+    fontWeight: '600',
+    color: COLORS.textSecondary,
   },
   emptyContainer: {
     flex: 1,
@@ -1472,275 +1651,123 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 32,
   },
+  emptyIconWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 28,
+    backgroundColor: COLORS.cardWhite,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...SHADOWS,
+  },
   emptyText: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#374151',
-    marginTop: 16,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    marginTop: 20,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#6B7280',
+    color: COLORS.textSecondary,
     textAlign: 'center',
     marginTop: 8,
+    lineHeight: 20,
   },
-  
-  // Modal
+
+  // ─── Details Modal ───
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
     justifyContent: 'flex-end',
   },
   detailsModalContent: {
-    backgroundColor: BRAND.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
+    backgroundColor: COLORS.cardWhite,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '92%',
   },
-  detailsHeader: {
+  detailsHeaderBar: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 16,
-    paddingHorizontal: 24,
-    paddingBottom: 20,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: COLORS.divider,
   },
   closeDetailButton: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    padding: 4,
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: COLORS.iconBg,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  detailsHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+  },
+  detailsProfileSection: {
+    flexDirection: 'row',
+    padding: 20,
+    alignItems: 'flex-start',
   },
   detailsAvatarContainer: {
     position: 'relative',
-    marginBottom: 12,
   },
   detailsAvatar: {
     width: 80,
     height: 80,
-    borderRadius: 40,
-    backgroundColor: BRAND.secondary,
+    borderRadius: 28,
+    backgroundColor: COLORS.secondary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   detailsAvatarImage: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: 28,
   },
   detailsAvatarInitial: {
     fontSize: 32,
-    fontWeight: '600',
-    color: BRAND.white,
-  },
-  favoriteButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: -8,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: BRAND.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  detailsName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  detailsBio: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 8,
-    paddingHorizontal: 16,
-  },
-  detailsRating: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  detailsRatingText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-    marginLeft: 4,
-  },
-  detailsRatingCount: {
-    fontSize: 13,
-    color: '#9CA3AF',
-    marginLeft: 4,
-  },
-  
-  // Details Sections
-  detailsSection: {
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 12,
-  },
-  specializationsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  specTagLarge: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 16,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  specTagText: {
-    fontSize: 13,
-    color: BRAND.secondary,
-    fontWeight: '500',
-  },
-  
-  // Portfolio Links
-  linksGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  portfolioLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  portfolioLinkText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: BRAND.secondary,
-    marginLeft: 6,
-  },
-  
-  // Gallery
-  galleryContainer: {
-    paddingRight: 16,
-  },
-  galleryItem: {
-    width: 100,
-    height: 100,
-    borderRadius: 12,
-    marginRight: 8,
-    overflow: 'hidden',
-  },
-  galleryImage: {
-    width: '100%',
-    height: '100%',
-  },
-  videoOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  
-  // Phone
-  phoneButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  phoneText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: BRAND.success,
-    marginLeft: 8,
-  },
-  
-  // Actions
-  detailsActions: {
-    flexDirection: 'row',
-    padding: 16,
-    paddingBottom: 24,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    gap: 12,
-  },
-  callProviderBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#ECFDF5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: BRAND.success,
-  },
-  callProviderText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: BRAND.success,
-  },
-  sendRequestButton: {
-    flex: 2,
-    flexDirection: 'row',
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: BRAND.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  sendRequestText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: BRAND.white,
-  },
-
-  // Enhanced Provider Details Modal
-  detailsHeaderBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  detailsHeaderTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  detailsProfileSection: {
-    flexDirection: 'row',
-    padding: 16,
-    alignItems: 'flex-start',
-  },
-  detailsNameSection: {
-    flex: 1,
-    marginLeft: 16,
+    fontWeight: '800',
+    color: COLORS.white,
   },
   verifiedBadge: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.white,
     borderRadius: 12,
     padding: 2,
+    ...SHADOW_LIGHT,
+  },
+  detailsNameSection: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  detailsName: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    marginBottom: 6,
+  },
+  detailsRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  detailsRatingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    marginLeft: 4,
+  },
+  detailsRatingCount: {
+    fontSize: 13,
+    color: COLORS.muted,
+    marginLeft: 4,
   },
   infoRow: {
     flexDirection: 'row',
@@ -1750,13 +1777,15 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: COLORS.textSecondary,
   },
+
+  // ─── Stats Row ───
   statsRow: {
     flexDirection: 'row',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    marginHorizontal: 16,
+    backgroundColor: COLORS.iconBg,
+    borderRadius: 18,
+    marginHorizontal: 20,
     marginBottom: 16,
     padding: 16,
   },
@@ -1766,87 +1795,243 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#1F2937',
+    fontWeight: '800',
+    color: COLORS.textPrimary,
   },
   statLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    fontWeight: '600',
+    color: COLORS.muted,
     marginTop: 4,
   },
   statDivider: {
     width: 1,
-    backgroundColor: '#E5E7EB',
-  },
-  bioContainer: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: COLORS.divider,
   },
 
-  // Booking Modal Styles
+  // ─── Details Sections ───
+  detailsSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  bioContainer: {
+    backgroundColor: COLORS.iconBg,
+    borderRadius: 16,
+    padding: 14,
+  },
+  detailsBio: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    lineHeight: 22,
+  },
+  specializationsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  specTagLarge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.purpleLight,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 14,
+    marginRight: 8,
+    marginBottom: 8,
+    gap: 6,
+  },
+  specTagText: {
+    fontSize: 13,
+    color: COLORS.purple,
+    fontWeight: '600',
+  },
+
+  // ─── Portfolio Links ───
+  linksGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  portfolioLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.secondaryLight,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    marginRight: 8,
+    marginBottom: 8,
+    gap: 6,
+  },
+  portfolioLinkText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.secondary,
+  },
+
+  // ─── Gallery ───
+  galleryContainer: {
+    paddingRight: 16,
+  },
+  galleryItem: {
+    width: 100,
+    height: 100,
+    borderRadius: 16,
+    marginRight: 10,
+    overflow: 'hidden',
+  },
+  galleryImage: {
+    width: '100%',
+    height: '100%',
+  },
+  videoOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // ─── Phone / Contact ───
+  phoneButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.successLight,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 16,
+    gap: 10,
+  },
+  phoneIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: COLORS.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  phoneText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.success,
+  },
+
+  // ─── Detail Actions (bottom bar) ───
+  detailsActions: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    paddingBottom: 28,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.divider,
+    gap: 12,
+  },
+  callProviderBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: COLORS.successLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: COLORS.success,
+  },
+  callProviderText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.success,
+  },
+  sendRequestButton: {
+    flex: 2,
+    flexDirection: 'row',
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    ...SHADOW_LIGHT,
+  },
+  sendRequestText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: COLORS.white,
+  },
+
+  // ─── Booking Modal ───
   bookingModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
     justifyContent: 'flex-end',
   },
   bookingModalContent: {
-    backgroundColor: BRAND.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
+    backgroundColor: COLORS.cardWhite,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '92%',
   },
   bookingModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: COLORS.divider,
+  },
+  bookingCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: COLORS.iconBg,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   bookingModalTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
+    fontWeight: '800',
+    color: COLORS.textPrimary,
   },
   bookingModalScroll: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
   bookingProviderCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 16,
+    backgroundColor: COLORS.iconBg,
+    borderRadius: 22,
     padding: 16,
-    marginBottom: 20,
+    marginBottom: 24,
   },
   bookingProviderAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: BRAND.secondary,
+    width: 52,
+    height: 52,
+    borderRadius: 18,
+    backgroundColor: COLORS.secondary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   bookingProviderImage: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 52,
+    height: 52,
+    borderRadius: 18,
   },
   bookingProviderInitial: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: BRAND.white,
+    fontSize: 22,
+    fontWeight: '800',
+    color: COLORS.white,
   },
   bookingProviderInfo: {
     flex: 1,
   },
   bookingProviderName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
+    fontSize: 17,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
   },
   bookingRatingRow: {
     flexDirection: 'row',
@@ -1855,54 +2040,62 @@ const styles = StyleSheet.create({
   },
   bookingRatingText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: COLORS.textSecondary,
     marginLeft: 4,
   },
+
+  // ─── Booking Sections ───
   bookingSection: {
-    marginBottom: 20,
+    marginBottom: 22,
+  },
+  bookingSectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  bookingSectionIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    backgroundColor: COLORS.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   bookingSectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
-    marginBottom: 10,
+    color: COLORS.textPrimary,
   },
   datePickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
+    backgroundColor: COLORS.cardWhite,
+    borderRadius: 16,
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderWidth: 1.5,
+    borderColor: COLORS.divider,
     gap: 12,
   },
   datePickerText: {
     flex: 1,
     fontSize: 15,
-    color: '#1F2937',
-    fontWeight: '500',
+    color: COLORS.textPrimary,
+    fontWeight: '600',
   },
   eventDescriptionInput: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
+    backgroundColor: COLORS.cardWhite,
+    borderRadius: 16,
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderWidth: 1.5,
+    borderColor: COLORS.divider,
     fontSize: 15,
-    color: '#1F2937',
-    minHeight: 80,
+    color: COLORS.textPrimary,
+    minHeight: 90,
+    lineHeight: 22,
   },
-  eventVenueInput: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    fontSize: 15,
-    color: '#1F2937',
-    minHeight: 60,
-  },
+
+  // ─── Venue ───
   venueButtonsRow: {
     flexDirection: 'row',
     gap: 10,
@@ -1912,127 +2105,123 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: BRAND.primary,
-    borderRadius: 14,
+    backgroundColor: COLORS.primary,
+    borderRadius: 16,
     paddingVertical: 14,
     gap: 8,
+    ...SHADOW_LIGHT,
   },
   venueMapButtonText: {
     fontSize: 15,
-    fontWeight: '700',
-    color: BRAND.white,
+    fontWeight: '800',
+    color: COLORS.white,
   },
   venueCurrentButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EFF6FF',
-    borderRadius: 14,
+    backgroundColor: COLORS.secondaryLight,
+    borderRadius: 16,
     paddingVertical: 14,
     gap: 8,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#BFDBFE',
   },
   venueCurrentButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: BRAND.secondary,
+    color: COLORS.secondary,
   },
   venueSelectedCard: {
-    backgroundColor: '#F0FDF4',
-    borderRadius: 14,
+    backgroundColor: COLORS.successLight,
+    borderRadius: 18,
     padding: 14,
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderWidth: 1.5,
+    borderColor: '#A7F3D0',
   },
   venueSelectedRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   venueIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FEF3C7',
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: COLORS.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   venueSelectedAddress: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1F2937',
+    color: COLORS.textPrimary,
     lineHeight: 20,
   },
   venueCoordsText: {
     fontSize: 11,
-    color: '#6B7280',
+    color: COLORS.muted,
     marginTop: 2,
   },
-  useCurrentLocationBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    padding: 8,
-    gap: 6,
-  },
-  useCurrentLocationText: {
-    fontSize: 13,
-    color: BRAND.secondary,
-    fontWeight: '500',
-  },
+
+  // ─── Booking Summary ───
   bookingSummary: {
-    backgroundColor: '#FEF9F4',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#FED7AA',
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: 22,
+    padding: 18,
+    marginBottom: 24,
+    borderWidth: 1.5,
+    borderColor: '#FDBA74',
   },
   bookingSummaryTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: BRAND.primary,
-    marginBottom: 12,
+    fontSize: 13,
+    fontWeight: '800',
+    color: COLORS.primary,
+    marginBottom: 14,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#FED7AA',
+    borderBottomColor: '#FDBA74',
   },
   summaryLabel: {
     fontSize: 14,
-    color: '#6B7280',
+    color: COLORS.textSecondary,
+    fontWeight: '600',
   },
   summaryValue: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontWeight: '800',
+    color: COLORS.textPrimary,
   },
+
+  // ─── Booking Actions ───
   bookingActions: {
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     paddingBottom: 32,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: COLORS.divider,
   },
   confirmBookingButton: {
     flexDirection: 'row',
     height: 56,
-    borderRadius: 28,
-    backgroundColor: BRAND.primary,
+    borderRadius: 18,
+    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+    ...SHADOWS,
   },
   confirmBookingText: {
     fontSize: 17,
-    fontWeight: '700',
-    color: BRAND.white,
+    fontWeight: '800',
+    color: COLORS.white,
   },
 });
 

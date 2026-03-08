@@ -126,13 +126,15 @@ const MapPickerModal = ({
   const [centerLocation, setCenterLocation] = useState(getValidInitialLocation());
   const [isLoading, setIsLoading] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState(null);
-  const [isMapMoving, setIsMapMoving] = useState(false);
-  
+  // Use ref for moving state to avoid re-renders during drag
+  const isMapMovingRef = useRef(false);
+  const [pinLifted, setPinLifted] = useState(false);
+
   // Use a ref to track center during drag — avoids re-renders that cause jitter
   const centerRef = useRef(getValidInitialLocation());
   // Debounce timer for geocoding
   const geocodeTimer = useRef(null);
-  
+
   // Animation for pin bounce
   const pinBounce = useRef(new Animated.Value(0)).current;
   
@@ -143,7 +145,8 @@ const MapPickerModal = ({
       setCenterLocation(startLocation);
       centerRef.current = startLocation;
       setSelectedAddress(null);
-      setIsMapMoving(false);
+      isMapMovingRef.current = false;
+      setPinLifted(false);
       
       // Initial geocode
       handleRegionChange(startLocation.latitude, startLocation.longitude);
@@ -155,7 +158,7 @@ const MapPickerModal = ({
   
   // Animate pin when map is moving
   useEffect(() => {
-    if (isMapMoving) {
+    if (pinLifted) {
       Animated.spring(pinBounce, {
         toValue: -10,
         friction: 8,
@@ -170,17 +173,17 @@ const MapPickerModal = ({
         useNativeDriver: true,
       }).start();
     }
-  }, [isMapMoving]);
+  }, [pinLifted]);
   
   /**
    * Handle map region change (when user drags the map)
    * Only called on idle — does reverse geocoding
+   * Does NOT update centerLocation state to avoid Camera re-render jitter
    */
   const handleRegionChange = useCallback(async (latitude, longitude) => {
-    setCenterLocation({ latitude, longitude });
     centerRef.current = { latitude, longitude };
     setIsLoading(true);
-    
+
     try {
       const result = await reverseGeocode(latitude, longitude);
       setSelectedAddress(result);
@@ -210,7 +213,8 @@ const MapPickerModal = ({
    * Read from ref (always fresh) instead of stale state closure
    */
   const onMapIdle = useCallback(() => {
-    setIsMapMoving(false);
+    isMapMovingRef.current = false;
+    setPinLifted(false);
     // Clear any pending geocode
     if (geocodeTimer.current) clearTimeout(geocodeTimer.current);
     // Small debounce to avoid rapid successive geocode calls
@@ -272,7 +276,12 @@ const MapPickerModal = ({
             rotateEnabled={false}
             onCameraChanged={onCameraChanged}
             onMapIdle={onMapIdle}
-            onTouchStart={() => setIsMapMoving(true)}
+            onTouchStart={() => {
+              if (!isMapMovingRef.current) {
+                isMapMovingRef.current = true;
+                setPinLifted(true);
+              }
+            }}
           >
             <Mapbox.Camera
               ref={cameraRef}

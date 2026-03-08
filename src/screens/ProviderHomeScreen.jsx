@@ -1,16 +1,16 @@
 /**
  * Provider Home Screen
- * 
+ *
  * Dashboard for providers with:
  * - Stats overview
  * - Incoming requests
  * - Availability toggle
  * - Quick navigation
- * 
+ *
  * @version 1.0.0
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -21,20 +21,23 @@ import {
   RefreshControl,
   Switch,
   Dimensions,
-  Alert,
   ActivityIndicator,
   Image,
+  Animated,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useIsFocused } from '@react-navigation/native';
 import { useApp } from '../context/AppContext';
+import { useDialog } from '../context/DialogContext';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 import { Icon } from '../components';
-import { 
-  initializeSocket, 
-  disconnectSocket, 
-  startLocationTracking, 
+import {
+  initializeSocket,
+  disconnectSocket,
+  startLocationTracking,
   stopLocationTracking,
   isConnected,
   addEventListener,
@@ -50,8 +53,11 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BRAND = {
   primary: '#f67c16', // Orange
   secondary: '#2b76bc', // Blue
-  background: '#faf7f7',
+  background: '#F1F5F9',
   white: '#FFFFFF',
+  dark: '#0F172A',
+  muted: '#94A3B8',
+  darkText: '#0F172A',
 };
 
 // Service category labels
@@ -89,60 +95,228 @@ const formatServiceName = (service) => {
 };
 
 /**
+ * Reusable press animation hook
+ */
+const usePressAnimation = () => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      useNativeDriver: true,
+      speed: 50,
+      bounciness: 4,
+    }).start();
+  };
+
+  const onPressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 50,
+      bounciness: 4,
+    }).start();
+  };
+
+  return { scaleAnim, onPressIn, onPressOut };
+};
+
+/**
+ * Pulsing dot component for online status
+ */
+const PulsingDot = ({ isOnline }) => {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const opacityAnim = useRef(new Animated.Value(0.6)).current;
+
+  useEffect(() => {
+    if (isOnline) {
+      const pulse = Animated.loop(
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(pulseAnim, {
+              toValue: 1.8,
+              duration: 1200,
+              useNativeDriver: true,
+            }),
+            Animated.timing(pulseAnim, {
+              toValue: 1,
+              duration: 0,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.sequence([
+            Animated.timing(opacityAnim, {
+              toValue: 0,
+              duration: 1200,
+              useNativeDriver: true,
+            }),
+            Animated.timing(opacityAnim, {
+              toValue: 0.6,
+              duration: 0,
+              useNativeDriver: true,
+            }),
+          ]),
+        ])
+      );
+      pulse.start();
+      return () => pulse.stop();
+    }
+  }, [isOnline, pulseAnim, opacityAnim]);
+
+  return (
+    <View style={styles.pulsingDotContainer}>
+      {isOnline && (
+        <Animated.View
+          style={[
+            styles.pulsingRing,
+            {
+              transform: [{ scale: pulseAnim }],
+              opacity: opacityAnim,
+              backgroundColor: '#22C55E',
+            },
+          ]}
+        />
+      )}
+      <View
+        style={[
+          styles.statusDotInner,
+          { backgroundColor: isOnline ? '#22C55E' : '#94A3B8' },
+        ]}
+      />
+    </View>
+  );
+};
+
+/**
+ * Shimmer loading placeholder
+ */
+const ShimmerBlock = ({ width, height, borderRadius = 8, style }) => {
+  const shimmerAnim = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    const shimmer = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, {
+          toValue: 0.7,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmerAnim, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    shimmer.start();
+    return () => shimmer.stop();
+  }, [shimmerAnim]);
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width,
+          height,
+          borderRadius,
+          backgroundColor: '#CBD5E1',
+          opacity: shimmerAnim,
+        },
+        style,
+      ]}
+    />
+  );
+};
+
+/**
  * Stats Card Component
  */
-const StatsCard = ({ iconName, value, label, color, bgColor }) => (
-  <View style={[styles.statsCard, { backgroundColor: bgColor }]}>
-    <Icon name={iconName} size={24} color={color} />
-    <Text style={[styles.statsValue, { color }]}>{value}</Text>
-    <Text style={styles.statsLabel}>{label}</Text>
-  </View>
-);
+const StatsCard = ({ iconName, value, label, color, bgColor }) => {
+  const { scaleAnim, onPressIn, onPressOut } = usePressAnimation();
+
+  return (
+    <Animated.View style={[styles.statsCard, { transform: [{ scale: scaleAnim }] }]}>
+      <TouchableOpacity
+        activeOpacity={1}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        style={styles.statsCardInner}
+      >
+        <View style={[styles.statsIconCircle, { backgroundColor: bgColor }]}>
+          <Icon name={iconName} size={20} color={color} />
+        </View>
+        <Text style={[styles.statsValue, { color: BRAND.darkText }]}>{value}</Text>
+        <Text style={styles.statsLabel}>{label}</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
 
 /**
  * Quick Action Card
  */
-const ActionCard = ({ iconName, title, subtitle, onPress, color }) => (
-  <TouchableOpacity
-    style={[styles.actionCard, { borderLeftColor: color }]}
-    onPress={onPress}
-    activeOpacity={0.7}
-  >
-    <View style={[styles.actionIconContainer, { backgroundColor: `${color}15` }]}>
-      <Icon name={iconName} size={24} color={color} />
-    </View>
-    <View style={styles.actionTextContainer}>
-      <Text style={styles.actionTitle}>{title}</Text>
-      <Text style={styles.actionSubtitle}>{subtitle}</Text>
-    </View>
-    <Icon name="chevron-right" size={20} color="#9CA3AF" />
-  </TouchableOpacity>
-);
+const ActionCard = ({ iconName, title, subtitle, onPress, color }) => {
+  const { scaleAnim, onPressIn, onPressOut } = usePressAnimation();
+
+  return (
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <TouchableOpacity
+        style={styles.actionCard}
+        onPress={onPress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        activeOpacity={1}
+      >
+        <View style={[styles.actionIconContainer, { backgroundColor: `${color}18` }]}>
+          <Icon name={iconName} size={22} color={color} />
+        </View>
+        <View style={styles.actionTextContainer}>
+          <Text style={styles.actionTitle}>{title}</Text>
+          <Text style={styles.actionSubtitle}>{subtitle}</Text>
+        </View>
+        <View style={styles.actionArrowCircle}>
+          <Icon name="chevron-right" size={16} color={BRAND.muted} />
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
 
 /**
- * Verification Status Card — shows progress on ProviderHomeScreen
+ * Verification Status Card -- shows progress on ProviderHomeScreen
  */
 const VerificationStatusCard = ({ dashboard, onPress, isLoading = false }) => {
+  const { scaleAnim, onPressIn, onPressOut } = usePressAnimation();
+
   // Show loading skeleton while dashboard is being fetched
   if (!dashboard) {
     if (!isLoading) return null;
     return (
-      <TouchableOpacity 
-        style={[styles.verificationCard, { backgroundColor: '#FFF7ED', borderColor: BRAND.primary + '30' }]}
-        onPress={onPress}
-        activeOpacity={0.7}
-      >
-        <View style={styles.verificationCardContent}>
-          <View style={[styles.verificationProgress, { borderColor: BRAND.primary + '40' }]}>
-            <ActivityIndicator size="small" color={BRAND.primary} />
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+        <TouchableOpacity
+          style={[styles.verificationCard, { backgroundColor: '#FFF7ED', borderColor: BRAND.primary + '30' }]}
+          onPress={onPress}
+          onPressIn={onPressIn}
+          onPressOut={onPressOut}
+          activeOpacity={1}
+        >
+          <View style={styles.verificationCardContent}>
+            <View style={[styles.verificationProgress, { borderColor: BRAND.primary + '40' }]}>
+              <ActivityIndicator size="small" color={BRAND.primary} />
+            </View>
+            <View style={styles.verificationTextContent}>
+              <ShimmerBlock width={180} height={14} borderRadius={6} />
+              <ShimmerBlock width={140} height={11} borderRadius={6} style={{ marginTop: 6 }} />
+            </View>
+            <Icon name="chevron-right" size={20} color={BRAND.primary} />
           </View>
-          <View style={styles.verificationTextContent}>
-            <Text style={styles.verificationCardTitle}>Loading verification status...</Text>
-            <Text style={styles.verificationCardSubtitle}>Checking your profile completion</Text>
+          <View style={styles.verificationStepDots}>
+            {[1, 2, 3, 4, 5].map(i => (
+              <ShimmerBlock key={i} width={null} height={5} borderRadius={3} style={{ flex: 1 }} />
+            ))}
           </View>
-          <Icon name="chevron-right" size={20} color={BRAND.primary} />
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </Animated.View>
     );
   }
 
@@ -176,59 +350,72 @@ const VerificationStatusCard = ({ dashboard, onPress, isLoading = false }) => {
   // Build title and subtitle based on actual status
   let title, subtitle;
   if (isFullyReady) {
-    title = '✅ Fully Verified & Active';
-    subtitle = `Premium active · ${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining · Visible in all searches`;
+    title = 'Fully Verified & Active';
+    subtitle = `Premium active - ${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining - Visible in all searches`;
   } else if (identityDone && !isPremium && hasEmergencyCategory) {
-    title = `✅ Identity Verified · ${percentage}%`;
-    subtitle = '🆓 Visible in Emergency searches (free) · Subscribe to Premium for Traditional & Event';
+    title = `Identity Verified - ${percentage}%`;
+    subtitle = 'Visible in Emergency searches (free) - Subscribe to Premium for Traditional & Event';
   } else if (identityDone && !isPremium) {
-    title = `✅ Identity Verified · ${percentage}%`;
-    subtitle = '⚠️ Not visible in searches · Subscribe to Premium to appear in results';
+    title = `Identity Verified - ${percentage}%`;
+    subtitle = 'Not visible in searches - Subscribe to Premium to appear in results';
   } else {
     title = `Verification: ${completed}/${total} complete`;
     subtitle = 'Complete all steps to appear in customer searches';
   }
 
   return (
-    <TouchableOpacity 
-      style={[styles.verificationCard, { backgroundColor: cardBg, borderColor: cardBorder }]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <View style={styles.verificationCardContent}>
-        {/* Progress indicator */}
-        <View style={[styles.verificationProgress, { borderColor: accentColor + '40' }]}>
-          <Text style={[styles.verificationPercent, { color: accentColor }]}>
-            {percentage}%
-          </Text>
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <TouchableOpacity
+        style={[styles.verificationCard, { backgroundColor: cardBg, borderColor: cardBorder }]}
+        onPress={onPress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        activeOpacity={1}
+      >
+        <View style={styles.verificationCardContent}>
+          {/* Progress indicator */}
+          <View style={[styles.verificationProgress, { borderColor: accentColor + '40' }]}>
+            <Text style={[styles.verificationPercent, { color: accentColor }]}>
+              {percentage}%
+            </Text>
+          </View>
+
+          <View style={styles.verificationTextContent}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {isFullyReady && (
+                <View style={styles.verifiedBadgeSmall}>
+                  <Icon name="check-circle" size={14} color="#10B981" />
+                </View>
+              )}
+              <Text style={styles.verificationCardTitle}>
+                {title}
+              </Text>
+            </View>
+            <Text style={[styles.verificationCardSubtitle, identityDone && !isPremium && hasEmergencyCategory && { color: BRAND.secondary }, identityDone && !isPremium && !hasEmergencyCategory && { color: BRAND.primary }]}>
+              {subtitle}
+            </Text>
+          </View>
+
+          <View style={[styles.verificationArrow, { backgroundColor: accentColor + '15' }]}>
+            <Icon name="chevron-right" size={18} color={accentColor} />
+          </View>
         </View>
 
-        <View style={styles.verificationTextContent}>
-          <Text style={styles.verificationCardTitle}>
-            {title}
-          </Text>
-          <Text style={[styles.verificationCardSubtitle, identityDone && !isPremium && hasEmergencyCategory && { color: BRAND.secondary }, identityDone && !isPremium && !hasEmergencyCategory && { color: BRAND.primary }]}>
-            {subtitle}
-          </Text>
+        {/* Mini step indicators */}
+        <View style={styles.verificationStepDots}>
+          {steps.map((step, i) => (
+            <View
+              key={step.id}
+              style={[
+                styles.verificationDot,
+                step.completed ? styles.verificationDotComplete : styles.verificationDotPending,
+                step.id === 'premium' && !step.completed && identityDone && styles.verificationDotPremium,
+              ]}
+            />
+          ))}
         </View>
-
-        <Icon name="chevron-right" size={20} color={accentColor} />
-      </View>
-
-      {/* Mini step indicators */}
-      <View style={styles.verificationStepDots}>
-        {steps.map((step, i) => (
-          <View
-            key={step.id}
-            style={[
-              styles.verificationDot,
-              step.completed ? styles.verificationDotComplete : styles.verificationDotPending,
-              step.id === 'premium' && !step.completed && identityDone && styles.verificationDotPremium,
-            ]}
-          />
-        ))}
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </Animated.View>
   );
 };
 
@@ -237,7 +424,9 @@ const VerificationStatusCard = ({ dashboard, onPress, isLoading = false }) => {
  */
 const ProviderHomeScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { user, profile, logout, updateProviderAvailability, isProfileLoading } = useApp();
+  const isFocused = useIsFocused();
+  const { user, profile, logout, updateProviderAvailability, isProfileLoading, refreshProfile, userType } = useApp();
+  const { dialog } = useDialog();
 
   // State - derive from profile/user for single source of truth
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -254,7 +443,7 @@ const ProviderHomeScreen = ({ navigation }) => {
 
   // Combined user data - single source of truth for availability
   const displayData = { ...user, ...profile };
-  // Default to false (offline) until the DB value loads — prevents toggle flashing ON
+  // Default to false (offline) until the DB value loads -- prevents toggle flashing ON
   const isAvailable = displayData?.isAvailable ?? displayData?.isOnline ?? false;
 
   /**
@@ -275,16 +464,16 @@ const ProviderHomeScreen = ({ navigation }) => {
           .then(r => r.json())
           .catch(() => ({ requests: [] }))
       ]);
-      
+
       // Combine all requests from all three categories
-      const traditionalRequests = traditionalResult.success && Array.isArray(traditionalResult.requests) 
+      const traditionalRequests = traditionalResult.success && Array.isArray(traditionalResult.requests)
         ? traditionalResult.requests : [];
       const eventRequests = Array.isArray(eventResult.data) ? eventResult.data : [];
-      const emergencyRequests = Array.isArray(emergencyResult.requests) ? emergencyResult.requests 
+      const emergencyRequests = Array.isArray(emergencyResult.requests) ? emergencyResult.requests
         : Array.isArray(emergencyResult.data) ? emergencyResult.data : [];
       const allRequests = [...traditionalRequests, ...eventRequests, ...emergencyRequests];
-      
-      const pendingCount = allRequests.filter(r => 
+
+      const pendingCount = allRequests.filter(r =>
         r.status === 'pending' || r.status === 'accepted'
       ).length;
       const completedCount = allRequests.filter(r => r.status === 'completed').length;
@@ -328,12 +517,28 @@ const ProviderHomeScreen = ({ navigation }) => {
     }
   }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id]);
 
+  // Refresh profile + stats when screen comes into focus
+  useEffect(() => {
+    if (isFocused) {
+      const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+      if (providerId && userType === 'provider') {
+        refreshProfile(userType, providerId);
+      }
+      fetchStats();
+    }
+  }, [isFocused]);
+
   /**
    * Handle refresh
    */
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([fetchStats(), fetchVerificationData()]);
+    const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+    await Promise.all([
+      fetchStats(),
+      fetchVerificationData(),
+      providerId ? refreshProfile(userType, providerId, { force: true }) : Promise.resolve(),
+    ]);
     setRefreshing(false);
   };
 
@@ -342,30 +547,30 @@ const ProviderHomeScreen = ({ navigation }) => {
    */
   const handleAvailabilityToggle = async (value) => {
     if (isUpdatingAvailability) return; // Prevent double-tap
-    
+
+    // Optimistic update -- toggle UI immediately
+    const previousValue = isAvailable;
+    updateProviderAvailability(value, true); // optimistic flag
+
     setIsUpdatingAvailability(true);
-    
+
     try {
       const result = await updateProviderAvailability(value);
-      
+
       if (!result.success) {
-        // Parse error for user-friendly messaging
+        // Revert optimistic update
+        updateProviderAvailability(previousValue, true);
+
         const errorMsg = result.error || 'Failed to update availability';
         const isNetworkError = /unable to connect|network|timeout|unavailable|ECONNREFUSED/i.test(errorMsg);
         const isAuthError = /not authorized|token|auth|401|403/i.test(errorMsg);
-        
+
         if (isNetworkError) {
-          Alert.alert(
-            'Connection Issue',
-            'Unable to reach the server. Please check your internet connection and try again.',
-          );
+          dialog('Connection Issue', 'Unable to reach the server. Please check your internet connection and try again.');
         } else if (isAuthError) {
-          Alert.alert(
-            'Session Expired',
-            'Your session has expired. Please log out and log back in.',
-          );
+          dialog('Session Expired', 'Your session has expired. Please log out and log back in.');
         } else {
-          Alert.alert('Error', errorMsg);
+          dialog('Error', errorMsg);
         }
       } else {
         // Start/stop location tracking based on availability
@@ -376,19 +581,16 @@ const ProviderHomeScreen = ({ navigation }) => {
           stopLocationTracking();
         }
 
-        // Show visibility warnings if any — tells provider why they might not appear in searches
         if (value && result.visibilityWarnings && result.visibilityWarnings.length > 0) {
           const warningText = result.visibilityWarnings.map((w, i) => `${i + 1}. ${w}`).join('\n');
-          Alert.alert(
-            '⚠️ Profile Visibility',
-            `You are now online, but your profile may not appear in search results yet:\n\n${warningText}`,
-            [{ text: 'Got It' }]
-          );
+          dialog('Profile Visibility', `You are now online, but your profile may not appear in search results yet:\n\n${warningText}`, [{ text: 'Got It' }]);
         }
       }
     } catch (error) {
+      // Revert on failure
+      updateProviderAvailability(previousValue, true);
       console.error('Failed to update availability:', error);
-      Alert.alert('Error', 'Something went wrong. Please check your internet connection and try again.');
+      dialog('Error', 'Something went wrong. Please check your internet connection and try again.');
     } finally {
       setIsUpdatingAvailability(false);
     }
@@ -411,41 +613,41 @@ const ProviderHomeScreen = ({ navigation }) => {
     const locationTrackingEnabled = displayData?.locationTracking?.enabled === true;
     // Check if provider has valid location set (null lat/lng = never reported)
     const hasLocation = displayData?.location?.latitude != null && displayData?.location?.longitude != null;
-    
+
     if (providerId) {
-      // Initialize socket connection — fetch token from secure storage
+      // Initialize socket connection -- fetch token from secure storage
       // (accessToken is NOT stored in the user state object, only in AsyncStorage)
       const initSocket = async () => {
         try {
           const tokens = await getTokens();
           if (tokens?.accessToken) {
-            console.log('🔌 [ProviderHome] Initializing socket for provider:', providerId);
+            console.log('[ProviderHome] Initializing socket for provider:', providerId);
             initializeSocket('provider', providerId, tokens.accessToken);
           } else {
-            console.warn('⚠️ [ProviderHome] No access token available — socket NOT initialized');
+            console.warn('[ProviderHome] No access token available -- socket NOT initialized');
           }
         } catch (err) {
-          console.error('❌ [ProviderHome] Failed to get token for socket:', err.message);
+          console.error('[ProviderHome] Failed to get token for socket:', err.message);
         }
       };
       initSocket();
-      
+
       // Start location tracking if:
       // 1. Explicitly enabled in settings, OR
-      // 2. Provider has NO location yet (first time — must report location to appear in searches)
+      // 2. Provider has NO location yet (first time -- must report location to appear in searches)
       if (locationTrackingEnabled || !hasLocation) {
         if (!hasLocation) {
-          console.log('📍 [ProviderHome] No location set yet — auto-starting tracking so provider appears in searches');
+          console.log('[ProviderHome] No location set yet -- auto-starting tracking so provider appears in searches');
         } else {
-          console.log('📍 [ProviderHome] Starting location tracking (enabled in settings)');
+          console.log('[ProviderHome] Starting location tracking (enabled in settings)');
         }
         startLocationTracking(providerId);
       } else {
-        console.log('📍 [ProviderHome] Location tracking not enabled in settings');
+        console.log('[ProviderHome] Location tracking not enabled in settings');
         // Don't call stopLocationTracking here on initial mount - only on explicit toggle off
       }
     }
-    
+
     // Cleanup on unmount
     return () => {
       stopLocationTracking();
@@ -456,21 +658,21 @@ const ProviderHomeScreen = ({ navigation }) => {
   useEffect(() => {
     // When a new request arrives, refresh stats so pending count updates
     const removeNewReq = addEventListener('new:request', () => {
-      console.log('📦 [ProviderHome] Socket: new:request — refreshing stats');
+      console.log('[ProviderHome] Socket: new:request -- refreshing stats');
       fetchStats();
     });
 
     // When a request is accepted/completed/cancelled, refresh stats
     const removeAccepted = addEventListener('request:accepted', () => {
-      console.log('✅ [ProviderHome] Socket: request:accepted — refreshing stats');
+      console.log('[ProviderHome] Socket: request:accepted -- refreshing stats');
       fetchStats();
     });
     const removeCompleted = addEventListener('request:completed', () => {
-      console.log('🎉 [ProviderHome] Socket: request:completed — refreshing stats');
+      console.log('[ProviderHome] Socket: request:completed -- refreshing stats');
       fetchStats();
     });
     const removeCancelled = addEventListener('request:cancelled', () => {
-      console.log('❌ [ProviderHome] Socket: request:cancelled — refreshing stats');
+      console.log('[ProviderHome] Socket: request:cancelled -- refreshing stats');
       fetchStats();
     });
 
@@ -491,7 +693,7 @@ const ProviderHomeScreen = ({ navigation }) => {
   // This handles Google signup where MongoDB profile is auto-synced asynchronously
   useEffect(() => {
     if (!isProfileLoading && !verificationDashboard && (user?.mongoId || profile?.mongoId)) {
-      console.log('🔄 [ProviderHome] Profile loaded but verification dashboard empty — retrying...');
+      console.log('[ProviderHome] Profile loaded but verification dashboard empty -- retrying...');
       fetchVerificationData();
     }
   }, [isProfileLoading, verificationDashboard, user?.mongoId, profile?.mongoId, fetchVerificationData]);
@@ -504,143 +706,183 @@ const ProviderHomeScreen = ({ navigation }) => {
     return unsubscribe;
   }, [navigation, fetchVerificationData]);
 
+  const firstName = displayData?.fullName?.split(' ')[0] || 'Provider';
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      
+      <StatusBar barStyle="light-content" backgroundColor={BRAND.dark} />
+
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 }]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFFFFF" />}
+        showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => setIsDrawerOpen(true)} activeOpacity={0.7} style={styles.headerLogoBtn}>
-            <Image source={FIXHOMI_LOGO} style={styles.headerLogoImg} />
-          </TouchableOpacity>
-          
-          <View style={styles.headerContent}>
-            <Text style={styles.greeting}>Hello, {displayData?.fullName?.split(' ')[0] || 'Provider'}</Text>
+        {/* Hero Header */}
+        <View style={[styles.heroHeader, { paddingTop: insets.top + 16 }]}>
+          {/* Decorative circles */}
+          <View style={[styles.decorCircle, styles.decorCircle1]} />
+          <View style={[styles.decorCircle, styles.decorCircle2]} />
+          <View style={[styles.decorCircle, styles.decorCircle3]} />
+
+          <View style={styles.headerRow}>
+            <TouchableOpacity onPress={() => setIsDrawerOpen(true)} activeOpacity={0.7} style={styles.headerLogoBtn}>
+              <Image source={FIXHOMI_LOGO} style={styles.headerLogoImg} />
+            </TouchableOpacity>
+
+            <AvatarButton
+              name={displayData?.fullName}
+              profilePicture={displayData?.profilePicture}
+              onPress={() => navigation.navigate('Profile')}
+              isProvider={true}
+            />
           </View>
 
-          <AvatarButton 
-            name={displayData?.fullName} 
-            profilePicture={displayData?.profilePicture}
-            onPress={() => navigation.navigate('Profile')}
-            isProvider={true}
-          />
+          <View style={styles.heroTextBlock}>
+            <Text style={styles.heroGreetingSmall}>Welcome back,</Text>
+            <Text style={styles.heroName}>{firstName}</Text>
+            <Text style={styles.heroSubtext}>Manage your services and requests</Text>
+          </View>
         </View>
 
-        {/* Availability Toggle */}
-        <View style={styles.availabilityCard}>
-          <View style={styles.availabilityContent}>
-            <View style={[styles.availabilityDot, isAvailable && styles.availabilityDotOnline]} />
-            <View>
-              <Text style={styles.availabilityTitle}>
-                {isAvailable ? 'You\'re Online' : 'You\'re Offline'}
-              </Text>
-              <Text style={styles.availabilitySubtitle}>
-                {isAvailable ? 'Customers can see you' : 'Go online to receive requests'}
-              </Text>
+        {/* Content area with padding */}
+        <View style={styles.contentArea}>
+          {/* Availability Toggle Card */}
+          <View style={[
+            styles.availabilityCard,
+            isAvailable && styles.availabilityCardOnline,
+          ]}>
+            <View style={styles.availabilityContent}>
+              <PulsingDot isOnline={isAvailable} />
+              <View style={styles.availabilityTextBlock}>
+                <Text style={styles.availabilityTitle}>
+                  {isAvailable ? "You're Online" : "You're Offline"}
+                </Text>
+                <Text style={styles.availabilitySubtitle}>
+                  {isAvailable ? 'Customers can find you in searches' : 'Go online to receive new requests'}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.switchWrapper}>
+              {isUpdatingAvailability && (
+                <ActivityIndicator size="small" color={BRAND.primary} style={{ marginRight: 8 }} />
+              )}
+              <Switch
+                value={isAvailable}
+                onValueChange={handleAvailabilityToggle}
+                trackColor={{ false: '#CBD5E1', true: '#86EFAC' }}
+                thumbColor={isAvailable ? '#22C55E' : '#94A3B8'}
+                ios_backgroundColor="#CBD5E1"
+              />
             </View>
           </View>
-          <Switch
-            value={isAvailable}
-            onValueChange={handleAvailabilityToggle}
-            trackColor={{ false: '#E5E7EB', true: BRAND.primary + '50' }}
-            thumbColor={isAvailable ? BRAND.primary : '#9CA3AF'}
-            disabled={isUpdatingAvailability}
+
+          {/* Verification Status Card */}
+          <VerificationStatusCard
+            dashboard={verificationDashboard}
+            onPress={() => navigation.navigate('VerificationDashboard')}
+            isLoading={verificationLoading || isProfileLoading}
           />
-        </View>
 
-        {/* Verification Status Card */}
-        <VerificationStatusCard
-          dashboard={verificationDashboard}
-          onPress={() => navigation.navigate('VerificationDashboard')}
-          isLoading={verificationLoading || isProfileLoading}
-        />
+          {/* Stats Grid */}
+          <Text style={styles.sectionTitle}>OVERVIEW</Text>
+          <View style={styles.statsGrid}>
+            <StatsCard
+              iconName="clipboard-list"
+              value={stats.pending}
+              label="Pending"
+              color={BRAND.primary}
+              bgColor={BRAND.primary + '18'}
+            />
+            <StatsCard
+              iconName="check-circle"
+              value={stats.completed}
+              label="Completed"
+              color={BRAND.secondary}
+              bgColor={BRAND.secondary + '18'}
+            />
+            <StatsCard
+              iconName="star"
+              value={stats.rating.toFixed(1)}
+              label="Rating"
+              color="#EAB308"
+              bgColor="#EAB30818"
+            />
+          </View>
 
-        {/* Stats Grid - Unified Brand Colors */}
-        <View style={styles.statsGrid}>
-          <StatsCard
+          {/* Quick Actions */}
+          <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
+
+          <ActionCard
             iconName="clipboard-list"
-            value={stats.pending}
-            label="Pending"
-            color={BRAND.primary}
-            bgColor="#FFF7ED"
-          />
-          <StatsCard
-            iconName="check-circle"
-            value={stats.completed}
-            label="Completed"
+            title="My Jobs"
+            subtitle="View requests, active jobs & history"
+            onPress={() => navigation.navigate('ProviderJobs')}
             color={BRAND.secondary}
-            bgColor="#EFF6FF"
           />
-          <StatsCard
-            iconName="star"
-            value={stats.rating.toFixed(1)}
-            label="Rating"
-            color={BRAND.primary}
-            bgColor="#FFF7ED"
-          />
-        </View>
 
-        {/* Quick Actions */}
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        
-        <ActionCard
-          iconName="clipboard-list"
-          title="My Jobs"
-          subtitle="View requests, active jobs & history"
-          onPress={() => navigation.navigate('ProviderJobs')}
-          color={BRAND.secondary}
-        />
-
-        {/* Service Categories - Only show verified services */}
-        <Text style={styles.sectionTitle}>Your Services</Text>
-        <View style={styles.servicesContainer}>
-          {/* Show Verified Services */}
-          {(displayData?.verifiedServiceCategories?.length > 0) && (
-            displayData.verifiedServiceCategories.map((cat, index) => (
-              <View key={`verified-${index}`} style={styles.serviceTag}>
-                <Icon name="verified" size={12} color={BRAND.secondary} />
-                <Text style={styles.serviceTagText}>{formatServiceName(cat)}</Text>
-              </View>
-            ))
-          )}
-          {/* Show Pending Services (in serviceCategories but not in verifiedServiceCategories) */}
-          {(displayData?.serviceCategories?.length > 0) && (
-            displayData.serviceCategories
-              .filter(cat => !(displayData?.verifiedServiceCategories || []).includes(cat))
-              .map((cat, index) => (
-                <View key={`pending-${index}`} style={[styles.serviceTag, styles.serviceTagPending]}>
-                  <Icon name="clock" size={12} color={BRAND.primary} />
-                  <Text style={[styles.serviceTagText, styles.serviceTagTextPending]}>{formatServiceName(cat)}</Text>
-                  <Text style={styles.pendingBadge}>Pending</Text>
+          {/* Service Categories - Only show verified services */}
+          <Text style={styles.sectionTitle}>YOUR SERVICES</Text>
+          <View style={styles.servicesContainer}>
+            {/* Show Verified Services */}
+            {(displayData?.verifiedServiceCategories?.length > 0) && (
+              displayData.verifiedServiceCategories.map((cat, index) => (
+                <View key={`verified-${index}`} style={styles.serviceTag}>
+                  <View style={styles.serviceTagIconCircle}>
+                    <Icon name="verified" size={13} color={BRAND.secondary} />
+                  </View>
+                  <Text style={styles.serviceTagText}>{formatServiceName(cat)}</Text>
                 </View>
               ))
-          )}
-          {/* Show Add Services button only if no services at all */}
-          {(!displayData?.verifiedServiceCategories?.length && !displayData?.serviceCategories?.length) && (
-            <TouchableOpacity 
-              style={styles.noServicesCard}
-              onPress={() => navigation.navigate('DocumentVerification')}
-              activeOpacity={0.8}
-            >
-              <Icon name="add-circle" size={20} color={BRAND.primary} />
-              <Text style={styles.noServicesText}>Get verified for services</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+            )}
+            {/* Show Pending Services (in serviceCategories but not in verifiedServiceCategories) */}
+            {(displayData?.serviceCategories?.length > 0) && (
+              displayData.serviceCategories
+                .filter(cat => !(displayData?.verifiedServiceCategories || []).includes(cat))
+                .map((cat, index) => (
+                  <View key={`pending-${index}`} style={[styles.serviceTag, styles.serviceTagPending]}>
+                    <View style={[styles.serviceTagIconCircle, styles.serviceTagIconCirclePending]}>
+                      <Icon name="clock" size={13} color={BRAND.primary} />
+                    </View>
+                    <Text style={[styles.serviceTagText, styles.serviceTagTextPending]}>{formatServiceName(cat)}</Text>
+                    <View style={styles.pendingBadge}>
+                      <Text style={styles.pendingBadgeText}>PENDING</Text>
+                    </View>
+                  </View>
+                ))
+            )}
+            {/* Show Add Services button only if no services at all */}
+            {(!displayData?.verifiedServiceCategories?.length && !displayData?.serviceCategories?.length) && (
+              <TouchableOpacity
+                style={styles.noServicesCard}
+                onPress={() => navigation.navigate('DocumentVerification')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.noServicesIconCircle}>
+                  <Icon name="add-circle" size={22} color={BRAND.primary} />
+                </View>
+                <View>
+                  <Text style={styles.noServicesTitle}>Get Verified</Text>
+                  <Text style={styles.noServicesText}>Add services to start receiving jobs</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
 
-        {/* Tips Section */}
-        <View style={styles.tipsCard}>
-          <Icon name="lightbulb" size={24} color="#F59E0B" />
-          <View style={styles.tipsContent}>
-            <Text style={styles.tipsTitle}>Pro Tip</Text>
-            <Text style={styles.tipsText}>
-              Stay online during peak hours (9 AM - 6 PM) to receive more requests!
-            </Text>
+          {/* Tips Section */}
+          <View style={styles.tipsCard}>
+            {/* Decorative elements */}
+            <View style={styles.tipsDecorCircle1} />
+            <View style={styles.tipsDecorCircle2} />
+            <View style={styles.tipsIconCircle}>
+              <Icon name="lightbulb" size={22} color="#FFFFFF" />
+            </View>
+            <View style={styles.tipsContent}>
+              <Text style={styles.tipsBadge}>PRO TIP</Text>
+              <Text style={styles.tipsText}>
+                Stay online during peak hours (9 AM - 6 PM) to receive more requests!
+              </Text>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -654,6 +896,7 @@ const ProviderHomeScreen = ({ navigation }) => {
         navigation={navigation}
         onLogout={handleLogout}
         isVerified={displayData?.isPhoneVerified && displayData?.isEmailVerified}
+        activeTab="home"
       />
     </View>
   );
@@ -662,336 +905,528 @@ const ProviderHomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BRAND.background,
+    backgroundColor: BRAND.dark,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
+    paddingBottom: 32,
   },
 
-  // Header
-  header: {
+  // ===== Hero Header =====
+  heroHeader: {
+    backgroundColor: BRAND.dark,
+    paddingHorizontal: 20,
+    paddingBottom: 32,
+    overflow: 'hidden',
+  },
+  decorCircle: {
+    position: 'absolute',
+    borderRadius: 999,
+  },
+  decorCircle1: {
+    width: 200,
+    height: 200,
+    backgroundColor: BRAND.primary + '12',
+    top: -60,
+    right: -40,
+  },
+  decorCircle2: {
+    width: 140,
+    height: 140,
+    backgroundColor: BRAND.secondary + '10',
+    bottom: -30,
+    left: -30,
+  },
+  decorCircle3: {
+    width: 80,
+    height: 80,
+    backgroundColor: BRAND.primary + '08',
+    top: 40,
+    left: SCREEN_WIDTH * 0.4,
+  },
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 24,
-    gap: 12,
   },
   headerLogoBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   headerLogoImg: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
   },
-  headerContent: {
-    flex: 1,
-    marginLeft: 4,
+  heroTextBlock: {
+    paddingLeft: 2,
   },
-  greeting: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1F2937',
+  heroGreetingSmall: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: BRAND.muted,
+    letterSpacing: 0.3,
   },
-  subGreeting: {
-    fontSize: 13,
-    color: '#6B7280',
+  heroName: {
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
     marginTop: 2,
   },
-  avatarContainer: {
-    width: 48,
-    height: 48,
-    backgroundColor: '#FEF3C7',
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#F59E0B',
+  heroSubtext: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.45)',
+    marginTop: 4,
+    letterSpacing: 0.1,
   },
 
-  // Availability Card
+  // ===== Content Area =====
+  contentArea: {
+    paddingHorizontal: 18,
+    paddingTop: 20,
+  },
+
+  // ===== Availability Card =====
   availabilityCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: BRAND.white,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderRadius: 22,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.08,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  availabilityCardOnline: {
+    borderColor: '#22C55E20',
+    backgroundColor: '#F7FEF9',
   },
   availabilityContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
-  availabilityDot: {
+  pulsingDotContainer: {
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  pulsingRing: {
+    position: 'absolute',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+  },
+  statusDotInner: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#9CA3AF',
-    marginRight: 12,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
-  availabilityDotOnline: {
-    backgroundColor: BRAND.primary,
+  availabilityTextBlock: {
+    flex: 1,
   },
   availabilityTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontWeight: '700',
+    color: BRAND.darkText,
+    letterSpacing: -0.2,
   },
   availabilitySubtitle: {
     fontSize: 13,
-    color: '#6B7280',
+    color: BRAND.muted,
     marginTop: 2,
+    fontWeight: '500',
+  },
+  switchWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 
-  // Verification Status Card
+  // ===== Verification Status Card =====
   verificationCard: {
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 20,
+    borderRadius: 22,
+    padding: 16,
+    marginBottom: 16,
     borderWidth: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   verificationCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   verificationProgress: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 2.5,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 3,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    marginRight: 12,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    marginRight: 14,
   },
   verificationPercent: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
+    letterSpacing: -0.3,
   },
   verificationTextContent: {
     flex: 1,
   },
+  verifiedBadgeSmall: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   verificationCardTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1F2937',
+    color: BRAND.darkText,
+    letterSpacing: -0.2,
   },
   verificationCardSubtitle: {
     fontSize: 12,
-    color: '#6B7280',
-    marginTop: 2,
-    lineHeight: 16,
+    color: '#64748B',
+    marginTop: 3,
+    lineHeight: 17,
+    fontWeight: '500',
+  },
+  verificationArrow: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   verificationStepDots: {
     flexDirection: 'row',
-    marginTop: 10,
+    marginTop: 12,
     gap: 6,
   },
   verificationDot: {
     flex: 1,
-    height: 4,
-    borderRadius: 2,
+    height: 5,
+    borderRadius: 3,
   },
   verificationDotComplete: {
     backgroundColor: '#10B981',
   },
   verificationDotPending: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#E2E8F0',
   },
   verificationDotPremium: {
     backgroundColor: BRAND.secondary + '60',
   },
 
-  // Stats Grid
+  // ===== Section Title =====
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: BRAND.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 14,
+    marginTop: 8,
+  },
+
+  // ===== Stats Grid =====
   statsGrid: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
     marginBottom: 24,
   },
   statsCard: {
     flex: 1,
-    padding: 12,
-    borderRadius: 14,
-    alignItems: 'center',
+    backgroundColor: BRAND.white,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.04)',
+    borderColor: '#F1F5F9',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.08,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
-  statsIcon: {
-    fontSize: 24,
-    marginBottom: 8,
+  statsCardInner: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  statsIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
   },
   statsValue: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   statsLabel: {
-    fontSize: 11,
-    color: '#6B7280',
+    fontSize: 12,
+    color: BRAND.muted,
     marginTop: 2,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
 
-  // Section Title
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#374151',
-    marginBottom: 12,
-  },
-
-  // Action Cards
+  // ===== Action Cards =====
   actionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
+    backgroundColor: BRAND.white,
+    borderRadius: 22,
+    padding: 18,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.08,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   actionIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
-  },
-  actionIcon: {
-    fontSize: 20,
   },
   actionTextContainer: {
     flex: 1,
   },
   actionTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontSize: 16,
+    fontWeight: '700',
+    color: BRAND.darkText,
+    letterSpacing: -0.2,
   },
   actionSubtitle: {
     fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
+    color: BRAND.muted,
+    marginTop: 3,
+    fontWeight: '500',
   },
-  actionArrow: {
-    fontSize: 20,
-    color: '#9CA3AF',
+  actionArrowCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
-  // Services Container
+  // ===== Services Container =====
   servicesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
     marginBottom: 24,
   },
   serviceTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 8,
     backgroundColor: '#EFF6FF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: BRAND.secondary + '30',
+    borderColor: BRAND.secondary + '20',
+  },
+  serviceTagIconCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: BRAND.secondary + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  serviceTagIconCirclePending: {
+    backgroundColor: BRAND.primary + '15',
   },
   serviceTagPending: {
     backgroundColor: '#FFF7ED',
-    borderColor: BRAND.primary + '30',
+    borderColor: BRAND.primary + '20',
   },
   serviceTagText: {
-    fontSize: 12,
+    fontSize: 13,
     color: BRAND.secondary,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: -0.1,
   },
   serviceTagTextPending: {
     color: BRAND.primary,
   },
   pendingBadge: {
+    backgroundColor: BRAND.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginLeft: 2,
+  },
+  pendingBadgeText: {
     fontSize: 9,
     color: '#FFFFFF',
-    fontWeight: '700',
-    backgroundColor: BRAND.primary,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    marginLeft: 4,
-    textTransform: 'uppercase',
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   noServicesCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 14,
     backgroundColor: BRAND.white,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: BRAND.primary + '40',
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: BRAND.primary + '30',
     borderStyle: 'dashed',
+    width: '100%',
+  },
+  noServicesIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: BRAND.primary + '12',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noServicesTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: BRAND.darkText,
+    letterSpacing: -0.2,
   },
   noServicesText: {
     fontSize: 13,
-    color: BRAND.primary,
-    fontWeight: '600',
+    color: BRAND.muted,
+    fontWeight: '500',
+    marginTop: 2,
   },
 
-  // Tips Card
+  // ===== Tips Card =====
   tipsCard: {
     flexDirection: 'row',
-    backgroundColor: BRAND.primary + '10',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: BRAND.primary,
+    borderRadius: 22,
+    padding: 20,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: BRAND.primary + '20',
+    overflow: 'hidden',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: BRAND.primary,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
-  tipsIcon: {
-    fontSize: 24,
-    marginRight: 12,
+  tipsDecorCircle1: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    top: -40,
+    right: -20,
+  },
+  tipsDecorCircle2: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    bottom: -20,
+    left: 30,
+  },
+  tipsIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
   },
   tipsContent: {
     flex: 1,
   },
-  tipsTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: BRAND.primary,
+  tipsBadge: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: 'rgba(255,255,255,0.7)',
+    letterSpacing: 1,
     marginBottom: 4,
   },
   tipsText: {
-    fontSize: 13,
-    color: '#6B7280',
-    lineHeight: 18,
+    fontSize: 14,
+    color: '#FFFFFF',
+    lineHeight: 20,
+    fontWeight: '600',
+    letterSpacing: -0.1,
   },
 
-  // Drawer styles (same as UserHomeScreen)
+  // ===== Drawer styles (same as UserHomeScreen) =====
   drawerBackdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

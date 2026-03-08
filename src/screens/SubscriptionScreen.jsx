@@ -20,7 +20,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   RefreshControl,
   Modal,
   Dimensions,
@@ -29,6 +28,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useApp } from '../context/AppContext';
+import { useDialog } from '../context/DialogContext';
 import { Icon } from '../components';
 import {
   getSubscriptionStatus,
@@ -410,6 +410,7 @@ const modalStyles = StyleSheet.create({
 const SubscriptionScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { userType } = useApp();
+  const { dialog } = useDialog();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -440,7 +441,7 @@ const SubscriptionScreen = ({ navigation }) => {
       if (transactionsResult.success) setTransactions(transactionsResult.transactions);
     } catch (error) {
       console.error('[SubscriptionScreen] Load error:', error);
-      Alert.alert('Error', 'Failed to load subscription data');
+      dialog('Error', 'Failed to load subscription data');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -456,7 +457,7 @@ const SubscriptionScreen = ({ navigation }) => {
 
   const handleSubscribe = useCallback(async () => {
     if (!selectedPlan) {
-      Alert.alert('Select Plan', 'Please select a subscription plan');
+      dialog('Select Plan', 'Please select a subscription plan');
       return;
     }
     setSubscribing(true);
@@ -466,7 +467,7 @@ const SubscriptionScreen = ({ navigation }) => {
         setSubscriptionStatus(status);
       });
       if (result.success) {
-        Alert.alert(
+        dialog(
           '\uD83C\uDF89 Welcome to Premium!',
           result.message || 'Your premium subscription is now active.',
           [{ text: 'Great!', onPress: () => loadData() }]
@@ -474,13 +475,13 @@ const SubscriptionScreen = ({ navigation }) => {
       } else if (result.cancelled) {
         setSubscriptionStatus('');
       } else {
-        Alert.alert(
+        dialog(
           'Payment Failed',
           result.error || 'Unable to process payment. Please try again.'
         );
       }
     } catch (error) {
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      dialog('Error', 'Something went wrong. Please try again.');
     } finally {
       setSubscribing(false);
       setSubscriptionStatus('');
@@ -493,7 +494,7 @@ const SubscriptionScreen = ({ navigation }) => {
   }, []);
 
   const handleResetPremium = useCallback(async () => {
-    Alert.alert(
+    dialog(
       '\u26A0\uFE0F Reset Premium',
       'This will remove your premium status. Continue?',
       [
@@ -506,13 +507,13 @@ const SubscriptionScreen = ({ navigation }) => {
               setLoading(true);
               const result = await resetPremium();
               if (result.success) {
-                Alert.alert('Success', result.message || 'Premium reset');
+                dialog('Success', result.message || 'Premium reset');
                 loadData();
               } else {
-                Alert.alert('Error', result.error || 'Failed to reset');
+                dialog('Error', result.error || 'Failed to reset');
               }
             } catch (e) {
-              Alert.alert('Error', 'Something went wrong');
+              dialog('Error', 'Something went wrong');
             } finally {
               setLoading(false);
             }

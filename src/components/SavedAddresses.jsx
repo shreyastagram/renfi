@@ -1,17 +1,19 @@
 /**
  * SavedAddresses Component
- * 
+ *
  * Displays and manages saved addresses like Ola/Uber
  * - View all saved addresses
  * - Add new address
  * - Edit existing address
  * - Delete address
  * - Set default address
- * 
- * @version 1.0.0
+ *
+ * Premium Design Language
+ *
+ * @version 2.0.0
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -20,10 +22,13 @@ import {
   FlatList,
   Modal,
   ActivityIndicator,
-  Alert,
   RefreshControl,
+  Animated,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import { useDialog } from '../context/DialogContext';
 import {
   getSavedAddresses,
   deleteAddress as deleteAddressApi,
@@ -33,17 +38,62 @@ import {
 } from '../services/addressService';
 import AddressForm from './AddressForm';
 
-// Brand colors - User side uses blue as accent
-const BRAND = {
-  primary: '#f67c16', // Orange
-  secondary: '#2b76bc', // Blue - user side accent
-  background: '#faf7f7',
-  white: '#FFFFFF',
-  neutral: '#6B7280',
+// Premium Design Tokens
+const COLORS = {
+  darkHero: '#0F172A',
+  background: '#F1F5F9',
+  cardWhite: '#FFFFFF',
+  primary: '#f67c16',
+  secondary: '#2b76bc',
+  muted: '#94A3B8',
+  textPrimary: '#1E293B',
+  textSecondary: '#64748B',
+  danger: '#EF4444',
+  dangerLight: '#FEF2F2',
+  success: '#10B981',
+  successLight: '#ECFDF5',
+  iconBg: '#F1F5F9',
+  border: '#E2E8F0',
+};
+
+const SHADOWS = {
+  card: Platform.select({
+    ios: {
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.08,
+      shadowRadius: 20,
+    },
+    android: {
+      elevation: 5,
+    },
+  }),
+  float: Platform.select({
+    ios: {
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.18,
+      shadowRadius: 24,
+    },
+    android: {
+      elevation: 12,
+    },
+  }),
+  header: Platform.select({
+    ios: {
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.06,
+      shadowRadius: 12,
+    },
+    android: {
+      elevation: 4,
+    },
+  }),
 };
 
 /**
- * Address Card Component
+ * Address Card Component with animated press
  */
 const AddressCard = ({
   address,
@@ -55,92 +105,170 @@ const AddressCard = ({
   selectable = false,
 }) => {
   const labelInfo = getAddressLabel(address.label, address.customLabel);
-  
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () =>
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      useNativeDriver: true,
+      friction: 8,
+    }).start();
+
+  const onPressOut = () =>
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 8,
+    }).start();
+
   return (
-    <TouchableOpacity
-      style={[styles.addressCard, isDefault && styles.addressCardDefault]}
-      onPress={() => selectable ? onSelect?.(address) : onEdit?.(address)}
-      activeOpacity={0.7}
-    >
-      <View style={[styles.addressIconContainer, isDefault && { backgroundColor: BRAND.secondary + '15' }]}>
-        <MaterialIcon 
-          name={labelInfo.icon} 
-          size={24} 
-          color={isDefault ? BRAND.secondary : BRAND.neutral} 
-        />
-      </View>
-      
-      <View style={styles.addressContent}>
-        <View style={styles.addressHeader}>
-          <Text style={[styles.addressLabel, isDefault && styles.addressLabelDefault]}>
-            {labelInfo.text}
-          </Text>
-          {isDefault && (
-            <View style={styles.defaultBadge}>
-              <Text style={styles.defaultBadgeText}>Default</Text>
-            </View>
-          )}
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <TouchableOpacity
+        style={[styles.addressCard, isDefault && styles.addressCardDefault]}
+        onPress={() => (selectable ? onSelect?.(address) : onEdit?.(address))}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        activeOpacity={0.85}
+      >
+        <View
+          style={[
+            styles.addressIconContainer,
+            isDefault && { backgroundColor: COLORS.secondary + '15' },
+          ]}
+        >
+          <MaterialIcon
+            name={labelInfo.icon}
+            size={22}
+            color={isDefault ? COLORS.secondary : COLORS.muted}
+          />
         </View>
-        
-        <Text style={styles.addressLine1} numberOfLines={1}>
-          {address.addressLine1}
-        </Text>
-        
-        <Text style={styles.addressDetails} numberOfLines={1}>
-          {[address.landmark, address.city, address.pincode]
-            .filter(Boolean)
-            .join(', ')}
-        </Text>
-      </View>
-      
-      <View style={styles.addressActions}>
-        {!isDefault && (
+
+        <View style={styles.addressContent}>
+          <View style={styles.addressHeader}>
+            <Text
+              style={[
+                styles.addressLabel,
+                isDefault && styles.addressLabelDefault,
+              ]}
+            >
+              {labelInfo.text}
+            </Text>
+            {isDefault && (
+              <View style={styles.defaultBadge}>
+                <MaterialIcon name="star" size={10} color={COLORS.secondary} />
+                <Text style={styles.defaultBadgeText}>Default</Text>
+              </View>
+            )}
+          </View>
+
+          <Text style={styles.addressLine1} numberOfLines={1}>
+            {address.addressLine1}
+          </Text>
+
+          <Text style={styles.addressDetails} numberOfLines={1}>
+            {[address.landmark, address.city, address.pincode]
+              .filter(Boolean)
+              .join(', ')}
+          </Text>
+        </View>
+
+        <View style={styles.addressActions}>
+          {!isDefault && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => onSetDefault?.(address._id)}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <MaterialIcon name="star-border" size={18} color={COLORS.muted} />
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => onSetDefault?.(address._id)}
+            onPress={() => onEdit?.(address)}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           >
-            <MaterialIcon name="star-border" size={20} color="#6B7280" />
+            <MaterialIcon name="edit" size={18} color={COLORS.textSecondary} />
           </TouchableOpacity>
-        )}
-        
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => onEdit?.(address)}
-        >
-          <MaterialIcon name="edit" size={20} color="#6B7280" />
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => onDelete?.(address._id)}
-        >
-          <MaterialIcon name="delete-outline" size={20} color="#EF4444" />
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: COLORS.dangerLight }]}
+            onPress={() => onDelete?.(address._id)}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          >
+            <MaterialIcon name="delete-outline" size={18} color={COLORS.danger} />
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
   );
 };
 
 /**
  * Empty State Component
  */
-const EmptyState = ({ onAddNew }) => (
-  <View style={styles.emptyState}>
-    <MaterialIcon name="location-off" size={64} color="#D1D5DB" />
-    <Text style={styles.emptyTitle}>No saved addresses</Text>
-    <Text style={styles.emptySubtitle}>
-      Save your frequently used addresses for quick booking
-    </Text>
-    <TouchableOpacity style={styles.addButton} onPress={onAddNew}>
-      <MaterialIcon name="add" size={20} color="#FFFFFF" />
-      <Text style={styles.addButtonText}>Add New Address</Text>
-    </TouchableOpacity>
+const EmptyState = ({ onAddNew }) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () =>
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      useNativeDriver: true,
+      friction: 8,
+    }).start();
+
+  const onPressOut = () =>
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 8,
+    }).start();
+
+  return (
+    <View style={styles.emptyState}>
+      <View style={styles.emptyIconCircle}>
+        <View style={styles.emptyIconInner}>
+          <MaterialIcon name="location-off" size={48} color={COLORS.muted} />
+        </View>
+      </View>
+      <Text style={styles.emptyTitle}>No Saved Addresses</Text>
+      <Text style={styles.emptySubtitle}>
+        Save your frequently used addresses for quick and easy booking
+      </Text>
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={onAddNew}
+          onPressIn={onPressIn}
+          onPressOut={onPressOut}
+          activeOpacity={0.85}
+        >
+          <MaterialIcon name="add-location-alt" size={20} color="#FFFFFF" />
+          <Text style={styles.addButtonText}>Add New Address</Text>
+        </TouchableOpacity>
+      </Animated.View>
+    </View>
+  );
+};
+
+/**
+ * Section Header with accent bar
+ */
+const SectionHeaderBar = ({ title, count }) => (
+  <View style={styles.sectionHeader}>
+    <View style={styles.sectionAccentBar} />
+    <Text style={styles.sectionTitle}>{title}</Text>
+    {count > 0 && (
+      <View style={styles.sectionCountBadge}>
+        <Text style={styles.sectionCountText}>{count}</Text>
+      </View>
+    )}
   </View>
 );
 
 /**
  * SavedAddresses Component
- * 
+ *
  * @param {string} userId - MongoDB user ID
  * @param {Function} onSelectAddress - Callback when address is selected (for booking flow)
  * @param {boolean} selectable - Whether addresses can be selected (booking mode)
@@ -153,20 +281,22 @@ const SavedAddresses = ({
   onClose,
   showHeader = true,
 }) => {
+  const insets = useSafeAreaInsets();
+  const { dialog } = useDialog();
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null);
-  
+
   /**
    * Load saved addresses
    */
   const loadAddresses = useCallback(async (showLoader = true) => {
     if (!userId) return;
-    
+
     if (showLoader) setLoading(true);
-    
+
     try {
       const result = await getSavedAddresses(userId);
       if (result.success) {
@@ -181,12 +311,12 @@ const SavedAddresses = ({
       setRefreshing(false);
     }
   }, [userId]);
-  
+
   // Load addresses on mount
   useEffect(() => {
     loadAddresses();
   }, [loadAddresses]);
-  
+
   /**
    * Handle refresh
    */
@@ -194,7 +324,7 @@ const SavedAddresses = ({
     setRefreshing(true);
     loadAddresses(false);
   }, [loadAddresses]);
-  
+
   /**
    * Handle add new address
    */
@@ -202,7 +332,7 @@ const SavedAddresses = ({
     setEditingAddress(null);
     setShowAddressForm(true);
   }, []);
-  
+
   /**
    * Handle edit address
    */
@@ -210,12 +340,12 @@ const SavedAddresses = ({
     setEditingAddress(address);
     setShowAddressForm(true);
   }, []);
-  
+
   /**
    * Handle delete address
    */
   const handleDelete = useCallback(async (addressId) => {
-    Alert.alert(
+    dialog(
       'Delete Address',
       'Are you sure you want to delete this address?',
       [
@@ -229,17 +359,17 @@ const SavedAddresses = ({
               if (result.success) {
                 loadAddresses(false);
               } else {
-                Alert.alert('Error', result.error || 'Failed to delete address');
+                dialog('Error', result.error || 'Failed to delete address');
               }
             } catch (error) {
-              Alert.alert('Error', 'Failed to delete address');
+              dialog('Error', 'Failed to delete address');
             }
           },
         },
       ]
     );
   }, [userId, loadAddresses]);
-  
+
   /**
    * Handle set default address
    */
@@ -249,13 +379,13 @@ const SavedAddresses = ({
       if (result.success) {
         loadAddresses(false);
       } else {
-        Alert.alert('Error', result.error || 'Failed to set default address');
+        dialog('Error', result.error || 'Failed to set default address');
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to set default address');
+      dialog('Error', 'Failed to set default address');
     }
   }, [userId, loadAddresses]);
-  
+
   /**
    * Handle address form save
    */
@@ -263,13 +393,13 @@ const SavedAddresses = ({
     setShowAddressForm(false);
     setEditingAddress(null);
     loadAddresses(false);
-    
+
     // If in selectable mode and adding new address, select it
     if (selectable && !editingAddress && onSelectAddress) {
       onSelectAddress(savedAddress);
     }
   }, [selectable, editingAddress, onSelectAddress, loadAddresses]);
-  
+
   /**
    * Handle address selection (booking flow)
    */
@@ -278,7 +408,7 @@ const SavedAddresses = ({
       onSelectAddress(address);
     }
   }, [onSelectAddress]);
-  
+
   /**
    * Render address item
    */
@@ -293,32 +423,46 @@ const SavedAddresses = ({
       selectable={selectable}
     />
   ), [handleSelect, handleEdit, handleDelete, handleSetDefault, selectable]);
-  
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={BRAND.secondary} />
-        <Text style={styles.loadingText}>Loading addresses...</Text>
+        <View style={styles.loadingCard}>
+          <ActivityIndicator size="large" color={COLORS.secondary} />
+          <Text style={styles.loadingText}>Loading addresses...</Text>
+        </View>
       </View>
     );
   }
-  
+
   return (
     <View style={styles.container}>
       {showHeader && (
-        <View style={styles.header}>
+        <View
+          style={[
+            styles.header,
+            { paddingTop: insets.top + 8 },
+          ]}
+        >
           {onClose && (
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <MaterialIcon name="arrow-back" size={24} color="#374151" />
+              <MaterialIcon name="arrow-back-ios" size={20} color={COLORS.textPrimary} />
             </TouchableOpacity>
           )}
-          <Text style={styles.headerTitle}>Saved Addresses</Text>
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle}>Saved Addresses</Text>
+            {addresses.length > 0 && (
+              <View style={styles.headerBadge}>
+                <Text style={styles.headerBadgeText}>{addresses.length}</Text>
+              </View>
+            )}
+          </View>
           <TouchableOpacity onPress={handleAddNew} style={styles.addIconButton}>
-            <MaterialIcon name="add" size={24} color={BRAND.secondary} />
+            <MaterialIcon name="add" size={22} color={COLORS.secondary} />
           </TouchableOpacity>
         </View>
       )}
-      
+
       {addresses.length === 0 ? (
         <EmptyState onAddNew={handleAddNew} />
       ) : (
@@ -328,17 +472,23 @@ const SavedAddresses = ({
             renderItem={renderAddressItem}
             keyExtractor={(item) => item._id}
             contentContainerStyle={styles.listContainer}
+            ListHeaderComponent={
+              <SectionHeaderBar
+                title="Your Addresses"
+                count={addresses.length}
+              />
+            }
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={handleRefresh}
-                colors={[BRAND.secondary]}
-                tintColor={BRAND.secondary}
+                colors={[COLORS.secondary]}
+                tintColor={COLORS.secondary}
               />
             }
             showsVerticalScrollIndicator={false}
           />
-          
+
           {/* Floating Add Button */}
           <TouchableOpacity
             style={styles.floatingButton}
@@ -349,7 +499,7 @@ const SavedAddresses = ({
           </TouchableOpacity>
         </>
       )}
-      
+
       {/* Address Form Modal */}
       <Modal
         visible={showAddressForm}
@@ -376,36 +526,54 @@ const SavedAddresses = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BRAND.background,
+    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: BRAND.white,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    backgroundColor: COLORS.cardWhite,
+    ...SHADOWS.header,
+  },
+  headerCenter: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
+    fontWeight: '800',
+    color: COLORS.darkHero,
+    letterSpacing: -0.3,
+  },
+  headerBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    backgroundColor: COLORS.secondary + '15',
+  },
+  headerBadgeText: {
+    fontSize: 12,
     fontWeight: '700',
-    color: '#1F2937',
+    color: COLORS.secondary,
   },
   closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: COLORS.iconBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   addIconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: BRAND.secondary + '15',
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: COLORS.secondary + '12',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -413,42 +581,77 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: BRAND.background,
+    backgroundColor: COLORS.background,
+  },
+  loadingCard: {
+    backgroundColor: COLORS.cardWhite,
+    borderRadius: 22,
+    paddingHorizontal: 40,
+    paddingVertical: 32,
+    alignItems: 'center',
+    ...SHADOWS.card,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: BRAND.neutral,
+    marginTop: 16,
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.muted,
   },
   listContainer: {
-    padding: 16,
+    padding: 20,
     paddingBottom: 100,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionAccentBar: {
+    width: 4,
+    height: 22,
+    borderRadius: 2,
+    backgroundColor: COLORS.secondary,
+    marginRight: 10,
+  },
+  sectionTitle: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '800',
+    color: COLORS.darkHero,
+    letterSpacing: -0.2,
+  },
+  sectionCountBadge: {
+    minWidth: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.iconBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  sectionCountText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
   },
   addressCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: BRAND.white,
-    borderRadius: 16,
+    backgroundColor: COLORS.cardWhite,
+    borderRadius: 22,
     marginBottom: 12,
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    ...SHADOWS.card,
   },
   addressCardDefault: {
-    borderColor: BRAND.secondary,
-    borderWidth: 2,
-    backgroundColor: BRAND.secondary + '08',
+    borderWidth: 1.5,
+    borderColor: COLORS.secondary + '40',
   },
   addressIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F3F4F6',
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: COLORS.iconBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -459,51 +662,56 @@ const styles = StyleSheet.create({
   addressHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 5,
   },
   addressLabel: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#374151',
+    fontWeight: '800',
+    color: COLORS.textPrimary,
   },
   addressLabelDefault: {
-    color: BRAND.secondary,
+    color: COLORS.secondary,
   },
   defaultBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
     marginLeft: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 3,
-    backgroundColor: BRAND.secondary + '20',
-    borderRadius: 12,
+    backgroundColor: COLORS.secondary + '15',
+    borderRadius: 8,
   },
   defaultBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: BRAND.secondary,
+    color: COLORS.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   addressLine1: {
     fontSize: 14,
-    color: '#1F2937',
+    fontWeight: '500',
+    color: COLORS.textPrimary,
     marginBottom: 3,
     lineHeight: 20,
   },
   addressDetails: {
     fontSize: 12,
-    color: BRAND.neutral,
+    color: COLORS.muted,
     lineHeight: 18,
   },
   addressActions: {
     flexDirection: 'column',
     alignItems: 'center',
     gap: 6,
+    marginLeft: 8,
   },
   actionButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F3F4F6',
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    backgroundColor: COLORS.iconBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -511,20 +719,39 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 40,
+  },
+  emptyIconCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: COLORS.cardWhite,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    ...SHADOWS.card,
+  },
+  emptyIconInner: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: COLORS.iconBg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#374151',
+    fontSize: 22,
+    fontWeight: '800',
+    color: COLORS.darkHero,
     marginTop: 20,
+    letterSpacing: -0.3,
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: BRAND.neutral,
+    fontSize: 15,
+    color: COLORS.muted,
     textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 22,
+    marginTop: 10,
+    lineHeight: 23,
   },
   addButton: {
     flexDirection: 'row',
@@ -533,18 +760,24 @@ const styles = StyleSheet.create({
     marginTop: 28,
     paddingHorizontal: 28,
     paddingVertical: 14,
-    backgroundColor: BRAND.secondary,
-    borderRadius: 14,
-    shadowColor: BRAND.secondary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: COLORS.secondary,
+    borderRadius: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.secondary,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   addButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: BRAND.white,
+    color: '#FFFFFF',
   },
   floatingButton: {
     position: 'absolute',
@@ -552,15 +785,21 @@ const styles = StyleSheet.create({
     right: 20,
     width: 60,
     height: 60,
-    borderRadius: 30,
-    backgroundColor: BRAND.secondary,
+    borderRadius: 20,
+    backgroundColor: COLORS.secondary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: BRAND.secondary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.secondary,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.35,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 12,
+      },
+    }),
   },
 });
 

@@ -111,24 +111,29 @@ const RatingModal = ({
   const [rating, setRating] = useState(0);
   const [review, setReview] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = useCallback(async () => {
-    if (rating === 0) return;
-    
-    const result = await onSubmit(requestId, rating, review);
-    if (result?.success) {
-      setSubmitted(true);
-      // Auto close after 2 seconds
-      setTimeout(() => {
-        handleClose();
-      }, 2000);
+    if (rating === 0 || submitting) return;
+    setSubmitting(true);
+    try {
+      const result = await onSubmit(requestId, rating, review);
+      if (result?.success) {
+        setSubmitted(true);
+        setTimeout(() => {
+          handleClose();
+        }, 2000);
+      }
+    } finally {
+      setSubmitting(false);
     }
-  }, [rating, review, requestId, onSubmit]);
+  }, [rating, review, requestId, onSubmit, submitting]);
 
   const handleClose = useCallback(() => {
     setRating(0);
     setReview('');
     setSubmitted(false);
+    setSubmitting(false);
     onClose();
   }, [onClose]);
 
@@ -183,18 +188,23 @@ const RatingModal = ({
           >
             {/* Provider Info */}
             <View style={styles.providerInfo}>
-              {providerProfilePicture?.url ? (
-                <Image
-                  source={{ uri: providerProfilePicture.url }}
-                  style={styles.providerImage}
-                />
-              ) : (
-                <View style={styles.providerAvatar}>
-                  <Text style={styles.providerInitial}>
-                    {providerName?.charAt(0)?.toUpperCase() || 'P'}
-                  </Text>
-                </View>
-              )}
+              {(() => {
+                const picUrl = typeof providerProfilePicture === 'string' && providerProfilePicture.length > 0
+                  ? providerProfilePicture
+                  : providerProfilePicture?.url || null;
+                return picUrl ? (
+                  <Image
+                    source={{ uri: picUrl }}
+                    style={styles.providerImage}
+                  />
+                ) : (
+                  <View style={styles.providerAvatar}>
+                    <Text style={styles.providerInitial}>
+                      {providerName?.charAt(0)?.toUpperCase() || 'P'}
+                    </Text>
+                  </View>
+                );
+              })()}
               <View style={styles.providerDetails}>
                 <Text style={styles.providerName}>{providerName || 'Provider'}</Text>
                 <Text style={styles.serviceName}>{serviceName || 'Service'}</Text>
@@ -234,12 +244,12 @@ const RatingModal = ({
             <TouchableOpacity
               style={[
                 styles.submitButton,
-                rating === 0 && styles.submitButtonDisabled,
+                (rating === 0 || submitting) && styles.submitButtonDisabled,
               ]}
               onPress={handleSubmit}
-              disabled={rating === 0 || loading}
+              disabled={rating === 0 || submitting || loading}
             >
-              {loading ? (
+              {submitting || loading ? (
                 <ActivityIndicator size="small" color={BRAND.white} />
               ) : (
                 <>

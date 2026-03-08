@@ -1,16 +1,16 @@
 /**
  * Verification Dashboard Screen
- * 
+ *
  * Full-screen verification checklist for providers showing:
  * - 5-step verification progress (phone, email, aadhaar, service approval, premium)
  * - Search visibility capabilities
  * - Quick actions to complete each step
  * - Sync button to refresh status from Java Auth
- * 
- * @version 1.0.0
+ *
+ * @version 2.0.0 — Premium design language
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -19,28 +19,56 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
-  Alert,
   Dimensions,
+  Animated,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
+import { useDialog } from '../context/DialogContext';
 import { Icon, AadhaarVerificationModal } from '../components';
 import { getVerificationDashboard, syncVerificationStatus } from '../services/verificationService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// Brand colors - consistent with rest of app
+// Premium design-language tokens
 const BRAND = {
   primary: '#f67c16',
   secondary: '#2b76bc',
-  background: '#faf7f7',
+  hero: '#0F172A',
+  background: '#F1F5F9',
   white: '#FFFFFF',
   success: '#10B981',
   warning: '#F59E0B',
   danger: '#EF4444',
-  gray: '#6B7280',
-  grayLight: '#F3F4F6',
+  muted: '#94A3B8',
+  textPrimary: '#1E293B',
+  grayLight: '#F1F5F9',
 };
+
+const CARD_SHADOW = Platform.select({
+  ios: {
+    shadowColor: BRAND.hero,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+  },
+  android: {
+    elevation: 5,
+  },
+});
+
+const CARD_SHADOW_LIGHT = Platform.select({
+  ios: {
+    shadowColor: BRAND.hero,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+  },
+  android: {
+    elevation: 3,
+  },
+});
 
 // Step configuration for icons and actions
 const STEP_CONFIG = {
@@ -82,67 +110,124 @@ const STEP_CONFIG = {
 };
 
 /**
- * Circular progress indicator
+ * Animated pressable wrapper with spring scale effect
+ */
+const AnimatedPressable = ({ children, onPress, disabled, style }) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      friction: 8,
+      tension: 100,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const onPressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 5,
+      tension: 40,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <TouchableOpacity
+      activeOpacity={1}
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      disabled={disabled}
+    >
+      <Animated.View style={[style, { transform: [{ scale: scaleAnim }] }]}>
+        {children}
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
+
+/**
+ * Circular progress indicator — premium style
  */
 const ProgressCircle = ({ completed, total }) => {
   const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
   const isComplete = completed === total;
-  
+
   return (
     <View style={[styles.progressCircle, isComplete && styles.progressCircleComplete]}>
-      <Text style={[styles.progressPercentage, isComplete && styles.progressPercentageComplete]}>
-        {percentage}%
-      </Text>
-      <Text style={[styles.progressLabel, isComplete && styles.progressLabelComplete]}>
-        {completed}/{total}
-      </Text>
+      <View style={[styles.progressCircleInner, isComplete && styles.progressCircleInnerComplete]}>
+        <Text style={[styles.progressPercentage, isComplete && styles.progressPercentageComplete]}>
+          {percentage}%
+        </Text>
+        <Text style={[styles.progressLabel, isComplete && styles.progressLabelComplete]}>
+          {completed}/{total}
+        </Text>
+      </View>
     </View>
   );
 };
 
 /**
- * Verification step card
+ * Section header with left accent bar
+ */
+const SectionHeader = ({ title, subtitle }) => (
+  <View style={styles.sectionHeaderRow}>
+    <View style={styles.sectionAccentBar} />
+    <View style={styles.sectionHeaderContent}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
+    </View>
+  </View>
+);
+
+/**
+ * Verification step card — premium card style
  */
 const StepCard = ({ step, config, onAction, isLast }) => {
   const isCompleted = step.completed;
-  const hasWarning = step.phoneChanged; // Phone changed after verification
-  const statusColor = isCompleted 
-    ? (hasWarning ? BRAND.warning : BRAND.success) 
-    : BRAND.warning;
-  
+  const hasWarning = step.phoneChanged;
+  const statusColor = isCompleted
+    ? (hasWarning ? BRAND.warning : BRAND.success)
+    : BRAND.primary;
+
   return (
     <View style={[styles.stepCard, !isLast && styles.stepCardWithConnector]}>
-      {/* Step indicator */}
+      {/* Step indicator column */}
       <View style={styles.stepIndicatorColumn}>
         <View style={[styles.stepDot, { backgroundColor: statusColor }]}>
-          <Icon 
-            name={isCompleted && !hasWarning ? 'check' : hasWarning ? 'warning' : config.icon} 
-            size={isCompleted ? 14 : 16} 
-            color="#FFFFFF" 
+          <Icon
+            name={isCompleted && !hasWarning ? 'check' : hasWarning ? 'warning' : config.icon}
+            size={isCompleted ? 14 : 16}
+            color="#FFFFFF"
           />
         </View>
         {!isLast && (
           <View style={[styles.stepConnector, isCompleted && !hasWarning && styles.stepConnectorComplete]} />
         )}
       </View>
-      
-      {/* Step content */}
-      <View style={styles.stepContent}>
+
+      {/* Step content card */}
+      <View style={[styles.stepContent, isCompleted && !hasWarning && styles.stepContentComplete]}>
         <View style={styles.stepHeader}>
+          <View style={[styles.stepIconContainer, { backgroundColor: statusColor + '12' }]}>
+            <Icon name={config.icon} size={18} color={statusColor} />
+          </View>
           <Text style={[styles.stepTitle, isCompleted && !hasWarning && styles.stepTitleComplete]}>
             {step.label}
           </Text>
           <View style={[styles.statusBadge, { backgroundColor: statusColor + '15' }]}>
             <Text style={[styles.statusBadgeText, { color: statusColor }]}>
-              {hasWarning ? 'Re-verify' : isCompleted ? 'Completed' : 'Pending'}
+              {hasWarning ? 'Re-verify' : isCompleted ? 'Verified' : 'Pending'}
             </Text>
           </View>
         </View>
-        
+
         <Text style={styles.stepDescription}>
           {step.description || config.description}
         </Text>
-        
+
         {/* Phone changed warning */}
         {step.phoneChanged && (
           <View style={styles.stepWarning}>
@@ -152,7 +237,7 @@ const StepCard = ({ step, config, onAction, isLast }) => {
             </Text>
           </View>
         )}
-        
+
         {/* Aadhaar name + lock info */}
         {step.id === 'aadhaar' && step.completed && step.aadhaarName && (
           <View style={styles.stepVerifiedInfo}>
@@ -164,13 +249,13 @@ const StepCard = ({ step, config, onAction, isLast }) => {
         )}
         {step.id === 'aadhaar' && step.isNameLocked && (
           <View style={styles.stepLockInfo}>
-            <Icon name="lock" size={11} color="#6B7280" />
+            <Icon name="lock" size={11} color={BRAND.muted} />
             <Text style={styles.stepLockInfoText}>
               Name locked after verification
             </Text>
           </View>
         )}
-        
+
         {/* Contextual details based on step type */}
         {step.id === 'service_approval' && step.approvedServices?.length > 0 && (
           <Text style={styles.stepDetails}>
@@ -197,19 +282,18 @@ const StepCard = ({ step, config, onAction, isLast }) => {
             Verified on {new Date(step.verifiedAt).toLocaleDateString('en-IN')}
           </Text>
         )}
-        
+
         {/* Action button for incomplete steps or phone re-verify */}
         {(!isCompleted || step.phoneChanged) && (
-          <TouchableOpacity
-            style={styles.stepAction}
+          <AnimatedPressable
             onPress={() => onAction(step.id, config)}
-            activeOpacity={0.7}
+            style={styles.stepActionButton}
           >
             <Text style={styles.stepActionText}>
               {step.phoneChanged ? 'Re-verify Phone' : config.actionLabel}
             </Text>
-            <Icon name="chevron-right" size={16} color={BRAND.primary} />
-          </TouchableOpacity>
+            <Icon name="chevron-right" size={16} color={BRAND.white} />
+          </AnimatedPressable>
         )}
       </View>
     </View>
@@ -217,12 +301,12 @@ const StepCard = ({ step, config, onAction, isLast }) => {
 };
 
 /**
- * Capability card showing search visibility
+ * Capability card showing search visibility — premium style
  */
 const CapabilityCard = ({ iconName, title, enabled, description }) => (
   <View style={[styles.capabilityCard, enabled && styles.capabilityCardEnabled]}>
-    <View style={[styles.capabilityIcon, { backgroundColor: enabled ? BRAND.success + '15' : '#F3F4F6' }]}>
-      <Icon name={iconName} size={20} color={enabled ? BRAND.success : '#9CA3AF'} />
+    <View style={[styles.capabilityIcon, { backgroundColor: enabled ? BRAND.success + '12' : BRAND.grayLight }]}>
+      <Icon name={iconName} size={20} color={enabled ? BRAND.success : BRAND.muted} />
     </View>
     <View style={styles.capabilityContent}>
       <Text style={[styles.capabilityTitle, enabled && styles.capabilityTitleEnabled]}>
@@ -230,11 +314,11 @@ const CapabilityCard = ({ iconName, title, enabled, description }) => (
       </Text>
       <Text style={styles.capabilityDescription}>{description}</Text>
     </View>
-    <View style={[styles.capabilityStatus, { backgroundColor: enabled ? BRAND.success + '15' : '#FEF2F2' }]}>
-      <Icon 
-        name={enabled ? 'check-circle' : 'close'} 
-        size={16} 
-        color={enabled ? BRAND.success : BRAND.danger} 
+    <View style={[styles.capabilityStatus, { backgroundColor: enabled ? BRAND.success + '12' : BRAND.danger + '10' }]}>
+      <Icon
+        name={enabled ? 'check-circle' : 'close'}
+        size={16}
+        color={enabled ? BRAND.success : BRAND.danger}
       />
     </View>
   </View>
@@ -246,28 +330,32 @@ const CapabilityCard = ({ iconName, title, enabled, description }) => (
 const VerificationDashboardScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, profile, refreshProfile } = useApp();
-  
+  const { dialog } = useDialog();
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [dashboard, setDashboard] = useState(null);
   const [error, setError] = useState(null);
   const [showAadhaarModal, setShowAadhaarModal] = useState(false);
-  
+
+  // Animated sync icon rotation
+  const spinAnim = useRef(new Animated.Value(0)).current;
+
   const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
-  
+
   /**
    * Fetch dashboard data
    */
   const fetchDashboard = useCallback(async (showLoader = true) => {
     if (!providerId) return;
-    
+
     if (showLoader) setLoading(true);
     setError(null);
-    
+
     try {
       const result = await getVerificationDashboard(providerId);
-      
+
       if (result.success) {
         setDashboard(result.data);
       } else {
@@ -279,7 +367,7 @@ const VerificationDashboardScreen = ({ navigation }) => {
       setLoading(false);
     }
   }, [providerId]);
-  
+
   /**
    * Handle pull-to-refresh
    */
@@ -288,34 +376,44 @@ const VerificationDashboardScreen = ({ navigation }) => {
     await fetchDashboard(false);
     setRefreshing(false);
   };
-  
+
   /**
    * Sync verification from Java Auth
    */
   const handleSync = async () => {
     if (!providerId || syncing) return;
-    
+
+    // Spin animation
+    Animated.loop(
+      Animated.timing(spinAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+    ).start();
+
     setSyncing(true);
     try {
       const result = await syncVerificationStatus(providerId);
-      
+
       if (result.success) {
         setDashboard(result.data);
-        // Also refresh the global profile context
         if (refreshProfile) {
           refreshProfile();
         }
-        Alert.alert('Synced', 'Verification status updated successfully.');
+        dialog('Synced', 'Verification status updated successfully.');
       } else {
-        Alert.alert('Sync Failed', result.error?.message || 'Could not sync verification status.');
+        dialog('Sync Failed', result.error?.message || 'Could not sync verification status.');
       }
     } catch (err) {
-      Alert.alert('Error', 'Failed to sync. Please check your connection.');
+      dialog('Error', 'Failed to sync. Please check your connection.');
     } finally {
       setSyncing(false);
+      spinAnim.stopAnimation();
+      spinAnim.setValue(0);
     }
   };
-  
+
   /**
    * Handle step action — navigate to the relevant screen or open modal
    */
@@ -325,10 +423,10 @@ const VerificationDashboardScreen = ({ navigation }) => {
       setShowAadhaarModal(true);
       return;
     }
-    
+
     if (config.navTarget) {
       const params = { ...(config.navParams || {}) };
-      
+
       // If phone step has phoneChanged flag, pass forceReVerify
       if (stepKey === 'phone') {
         const phoneStep = steps.find(s => s.id === 'phone');
@@ -336,23 +434,23 @@ const VerificationDashboardScreen = ({ navigation }) => {
           params.forceReVerify = true;
         }
       }
-      
+
       navigation.navigate(config.navTarget, params);
     }
   };
-  
+
   // Fetch dashboard on mount and when returning from another screen
   useEffect(() => {
     fetchDashboard();
   }, [fetchDashboard]);
-  
+
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       fetchDashboard(false);
     });
     return unsubscribe;
   }, [navigation, fetchDashboard]);
-  
+
   // Compute derived values
   const steps = dashboard?.steps || [];
   const completedSteps = steps.filter(s => s.completed).length;
@@ -360,55 +458,81 @@ const VerificationDashboardScreen = ({ navigation }) => {
   const capabilities = dashboard?.capabilities || {};
   const isFullyVerified = dashboard?.isFullyVerified || false;
   const isPremium = dashboard?.isPremium || false;
-  
+
+  const spinRotation = spinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
   // Loading state
   if (loading && !dashboard) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={BRAND.primary} />
+        <View style={styles.loadingIconContainer}>
+          <ActivityIndicator size="large" color={BRAND.primary} />
+        </View>
         <Text style={styles.loadingText}>Loading verification status...</Text>
       </View>
     );
   }
-  
+
   // Error state
   if (error && !dashboard) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <Icon name="error" size={48} color={BRAND.danger} />
+        <View style={styles.errorIconContainer}>
+          <Icon name="error" size={36} color={BRAND.danger} />
+        </View>
+        <Text style={styles.errorTitle}>Something went wrong</Text>
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => fetchDashboard()}>
-          <Text style={styles.retryButtonText}>Retry</Text>
-        </TouchableOpacity>
+        <AnimatedPressable onPress={() => fetchDashboard()} style={styles.retryButton}>
+          <Text style={styles.retryButtonText}>Try Again</Text>
+        </AnimatedPressable>
       </View>
     );
   }
-  
+
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Icon name="arrow_back" size={24} color="#1F2937" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Verification Status</Text>
-        <TouchableOpacity 
-          style={styles.syncButton} 
-          onPress={handleSync}
-          disabled={syncing}
-        >
-          {syncing ? (
-            <ActivityIndicator size="small" color={BRAND.primary} />
-          ) : (
-            <Icon name="refresh" size={22} color={BRAND.primary} />
-          )}
-        </TouchableOpacity>
+      {/* Premium Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
+        <View style={styles.headerContent}>
+          <AnimatedPressable onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Icon name="arrow_back" size={22} color={BRAND.white} />
+          </AnimatedPressable>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle}>Verification Status</Text>
+            <Text style={styles.headerSubtitle}>
+              {isFullyVerified ? 'All steps complete' : `${completedSteps} of ${totalSteps} verified`}
+            </Text>
+          </View>
+          <AnimatedPressable
+            onPress={handleSync}
+            disabled={syncing}
+            style={styles.syncButton}
+          >
+            {syncing ? (
+              <Animated.View style={{ transform: [{ rotate: spinRotation }] }}>
+                <Icon name="refresh" size={20} color={BRAND.white} />
+              </Animated.View>
+            ) : (
+              <Icon name="refresh" size={20} color={BRAND.white} />
+            )}
+          </AnimatedPressable>
+        </View>
       </View>
-      
+
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={BRAND.primary}
+            colors={[BRAND.primary]}
+          />
+        }
         showsVerticalScrollIndicator={false}
       >
         {/* Progress Overview Card */}
@@ -417,8 +541,8 @@ const VerificationDashboardScreen = ({ navigation }) => {
             <ProgressCircle completed={completedSteps} total={totalSteps} />
             <View style={styles.overviewText}>
               <Text style={styles.overviewTitle}>
-                {isFullyVerified 
-                  ? '🎉 Fully Verified!' 
+                {isFullyVerified
+                  ? 'Fully Verified!'
                   : `${totalSteps - completedSteps} step${totalSteps - completedSteps !== 1 ? 's' : ''} remaining`
                 }
               </Text>
@@ -428,9 +552,24 @@ const VerificationDashboardScreen = ({ navigation }) => {
                   : 'Complete all steps to appear in customer searches'
                 }
               </Text>
+
+              {/* Progress bar */}
+              <View style={styles.progressBarContainer}>
+                <View style={styles.progressBarTrack}>
+                  <View
+                    style={[
+                      styles.progressBarFill,
+                      {
+                        width: totalSteps > 0 ? `${(completedSteps / totalSteps) * 100}%` : '0%',
+                        backgroundColor: isFullyVerified ? BRAND.success : BRAND.primary,
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
             </View>
           </View>
-          
+
           {/* Premium status indicator */}
           {isPremium && (
             <View style={styles.premiumBadge}>
@@ -439,9 +578,9 @@ const VerificationDashboardScreen = ({ navigation }) => {
             </View>
           )}
         </View>
-        
+
         {/* Verification Steps */}
-        <Text style={styles.sectionTitle}>Verification Checklist</Text>
+        <SectionHeader title="Verification Checklist" />
         <View style={styles.stepsContainer}>
           {steps.map((step, index) => {
             const config = STEP_CONFIG[step.id] || {
@@ -449,7 +588,7 @@ const VerificationDashboardScreen = ({ navigation }) => {
               actionLabel: 'Complete',
               description: step.label,
             };
-            
+
             return (
               <StepCard
                 key={step.id}
@@ -461,27 +600,27 @@ const VerificationDashboardScreen = ({ navigation }) => {
             );
           })}
         </View>
-        
+
         {/* Search Visibility Section */}
-        <Text style={styles.sectionTitle}>Search Visibility</Text>
-        <Text style={styles.sectionSubtitle}>
-          Where customers can find you based on your verification status
-        </Text>
-        
+        <SectionHeader
+          title="Search Visibility"
+          subtitle="Where customers can find you based on your verification status"
+        />
+
         <CapabilityCard
           iconName="build"
           title="Traditional Services"
           enabled={capabilities.canAppearInTraditionalSearch}
           description="Electrician, Plumber, Carpenter, etc."
         />
-        
+
         <CapabilityCard
           iconName="camera"
           title="Event Services"
           enabled={capabilities.canAppearInEventSearch}
           description="Photographer, Influencer, etc."
         />
-        
+
         {/* Only show Emergency capability if provider has emergency categories */}
         {capabilities.hasEmergencyCategory && (
           <CapabilityCard
@@ -491,10 +630,12 @@ const VerificationDashboardScreen = ({ navigation }) => {
             description="Snake Catcher, Ambulance, Mortuary Van (Free · 24/7)"
           />
         )}
-        
+
         {/* Info note */}
         <View style={styles.infoCard}>
-          <Icon name="info" size={20} color={BRAND.secondary} />
+          <View style={styles.infoIconContainer}>
+            <Icon name="info" size={18} color={BRAND.secondary} />
+          </View>
           <View style={styles.infoContent}>
             <Text style={styles.infoTitle}>How Verification Works</Text>
             <Text style={styles.infoText}>
@@ -508,7 +649,7 @@ const VerificationDashboardScreen = ({ navigation }) => {
           </View>
         </View>
       </ScrollView>
-      
+
       {/* Aadhaar Verification Modal — same flow as ProfileScreen */}
       <AadhaarVerificationModal
         visible={showAadhaarModal}
@@ -534,87 +675,135 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 32,
   },
-  
-  // Header
+
+  // ─── Premium Header ────────────────────────────────────────
   header: {
+    backgroundColor: BRAND.hero,
+    paddingBottom: 18,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: BRAND.hero,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.25,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    backgroundColor: BRAND.white,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  headerTitleContainer: {
+    flex: 1,
+    marginLeft: 14,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
+    fontSize: 20,
+    fontWeight: '800',
+    color: BRAND.white,
+    letterSpacing: 0.2,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 2,
   },
   syncButton: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
-  // Scroll
+
+  // ─── Scroll ────────────────────────────────────────────────
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
-  
-  // Loading & Error
+
+  // ─── Loading & Error ───────────────────────────────────────
+  loadingIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: BRAND.primary + '10',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   loadingText: {
-    marginTop: 12,
-    fontSize: 15,
-    color: BRAND.gray,
-  },
-  errorText: {
-    marginTop: 12,
-    fontSize: 15,
-    color: BRAND.danger,
-    textAlign: 'center',
-  },
-  retryButton: {
     marginTop: 16,
-    backgroundColor: BRAND.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
+    color: BRAND.muted,
   },
-  
-  // Overview Card
+  errorIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: BRAND.danger + '10',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  errorTitle: {
+    marginTop: 16,
+    fontSize: 18,
+    fontWeight: '800',
+    color: BRAND.textPrimary,
+  },
+  errorText: {
+    marginTop: 6,
+    fontSize: 14,
+    color: BRAND.muted,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  retryButton: {
+    marginTop: 20,
+    backgroundColor: BRAND.primary,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 16,
+    ...CARD_SHADOW_LIGHT,
+  },
+  retryButtonText: {
+    color: BRAND.white,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  // ─── Overview Card ─────────────────────────────────────────
   overviewCard: {
     backgroundColor: BRAND.white,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    borderRadius: 22,
+    padding: 22,
+    marginBottom: 28,
+    ...CARD_SHADOW,
   },
   overviewCardComplete: {
-    borderColor: BRAND.success + '40',
-    backgroundColor: BRAND.success + '05',
+    borderWidth: 1.5,
+    borderColor: BRAND.success + '30',
   },
   overviewContent: {
     flexDirection: 'row',
@@ -622,50 +811,91 @@ const styles = StyleSheet.create({
   },
   overviewText: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 18,
   },
   overviewTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
+    fontWeight: '800',
+    color: BRAND.textPrimary,
     marginBottom: 4,
   },
   overviewSubtitle: {
     fontSize: 13,
-    color: BRAND.gray,
+    fontWeight: '500',
+    color: BRAND.muted,
     lineHeight: 18,
+  },
+  progressBarContainer: {
+    marginTop: 12,
+  },
+  progressBarTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: BRAND.grayLight,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: 6,
+    borderRadius: 3,
   },
   premiumBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
     backgroundColor: '#FEF3C7',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 12,
-    marginTop: 12,
-    gap: 4,
+    marginTop: 14,
+    gap: 6,
   },
   premiumBadgeText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#92400E',
   },
-  
-  // Progress Circle
+
+  // ─── Progress Circle ───────────────────────────────────────
   progressCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: BRAND.primary + '10',
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: BRAND.primary + '12',
     borderWidth: 3,
-    borderColor: BRAND.primary + '30',
+    borderColor: BRAND.primary + '25',
     justifyContent: 'center',
     alignItems: 'center',
   },
   progressCircleComplete: {
-    backgroundColor: BRAND.success + '10',
-    borderColor: BRAND.success + '30',
+    backgroundColor: BRAND.success + '12',
+    borderColor: BRAND.success + '25',
+  },
+  progressCircleInner: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: BRAND.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: BRAND.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  progressCircleInnerComplete: {
+    ...Platform.select({
+      ios: {
+        shadowColor: BRAND.success,
+      },
+      android: {},
+    }),
   },
   progressPercentage: {
     fontSize: 20,
@@ -677,30 +907,48 @@ const styles = StyleSheet.create({
   },
   progressLabel: {
     fontSize: 11,
-    color: BRAND.gray,
+    fontWeight: '600',
+    color: BRAND.muted,
     marginTop: -2,
   },
   progressLabelComplete: {
     color: BRAND.success,
   },
-  
-  // Section
+
+  // ─── Section Header ────────────────────────────────────────
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 14,
+  },
+  sectionAccentBar: {
+    width: 4,
+    height: 22,
+    borderRadius: 2,
+    backgroundColor: BRAND.primary,
+    marginRight: 10,
+    marginTop: 1,
+  },
+  sectionHeaderContent: {
+    flex: 1,
+  },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '800',
+    color: BRAND.textPrimary,
+    letterSpacing: 0.1,
   },
   sectionSubtitle: {
     fontSize: 13,
-    color: BRAND.gray,
-    marginBottom: 12,
+    fontWeight: '500',
+    color: BRAND.muted,
+    marginTop: 3,
+    lineHeight: 18,
   },
-  
-  // Steps Container
+
+  // ─── Steps Container ───────────────────────────────────────
   stepsContainer: {
-    marginBottom: 24,
-    marginTop: 8,
+    marginBottom: 28,
   },
   stepCard: {
     flexDirection: 'row',
@@ -708,202 +956,253 @@ const styles = StyleSheet.create({
   stepCardWithConnector: {
     marginBottom: 0,
   },
-  
+
   // Step Indicator
   stepIndicatorColumn: {
     width: 40,
     alignItems: 'center',
   },
   stepDot: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   stepConnector: {
-    width: 2,
+    width: 2.5,
     flex: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#E2E8F0',
     minHeight: 20,
+    borderRadius: 1.25,
   },
   stepConnectorComplete: {
     backgroundColor: BRAND.success + '40',
   },
-  
+
   // Step Content
   stepContent: {
     flex: 1,
     backgroundColor: BRAND.white,
-    borderRadius: 12,
-    padding: 14,
-    marginLeft: 8,
-    marginBottom: 8,
+    borderRadius: 18,
+    padding: 16,
+    marginLeft: 10,
+    marginBottom: 10,
+    ...CARD_SHADOW_LIGHT,
+  },
+  stepContentComplete: {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: BRAND.success + '20',
   },
   stepHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 8,
+  },
+  stepIconContainer: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
   },
   stepTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontSize: 15,
+    fontWeight: '700',
+    color: BRAND.textPrimary,
     flex: 1,
   },
   stepTitleComplete: {
     color: BRAND.success,
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
     marginLeft: 8,
   },
   statusBadgeText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   stepDescription: {
-    fontSize: 12,
-    color: BRAND.gray,
-    lineHeight: 16,
-    marginBottom: 4,
+    fontSize: 13,
+    color: BRAND.muted,
+    lineHeight: 18,
+    marginBottom: 6,
+    marginLeft: 44,
   },
   stepDetails: {
-    fontSize: 11,
-    color: '#9CA3AF',
+    fontSize: 12,
+    color: BRAND.muted,
     fontStyle: 'italic',
     marginBottom: 4,
+    marginLeft: 44,
   },
   stepWarning: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FEF3C7',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 6,
-    marginBottom: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    marginBottom: 6,
+    marginLeft: 44,
     gap: 6,
   },
   stepWarningText: {
     flex: 1,
     fontSize: 11,
     color: '#92400E',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   stepVerifiedInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     marginBottom: 4,
+    marginLeft: 44,
   },
   stepVerifiedInfoText: {
-    fontSize: 11,
+    fontSize: 12,
     color: BRAND.success,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   stepLockInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     marginBottom: 4,
+    marginLeft: 44,
   },
   stepLockInfoText: {
     fontSize: 11,
-    color: '#6B7280',
+    color: BRAND.muted,
     fontStyle: 'italic',
   },
-  stepAction: {
+  stepActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    marginTop: 6,
-    paddingVertical: 4,
+    marginTop: 8,
+    marginLeft: 44,
+    backgroundColor: BRAND.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 4,
+    ...Platform.select({
+      ios: {
+        shadowColor: BRAND.primary,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   stepActionText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: BRAND.primary,
-    marginRight: 4,
+    fontWeight: '700',
+    color: BRAND.white,
   },
-  
-  // Capability Card
+
+  // ─── Capability Card ───────────────────────────────────────
   capabilityCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: BRAND.white,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 12,
+    ...CARD_SHADOW_LIGHT,
   },
   capabilityCardEnabled: {
-    borderColor: BRAND.success + '30',
-    backgroundColor: BRAND.success + '03',
+    borderWidth: 1,
+    borderColor: BRAND.success + '25',
   },
   capabilityIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   capabilityContent: {
     flex: 1,
   },
   capabilityTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
+    fontSize: 15,
+    fontWeight: '700',
+    color: BRAND.textPrimary,
   },
   capabilityTitleEnabled: {
     color: BRAND.success,
   },
   capabilityDescription: {
     fontSize: 12,
-    color: BRAND.gray,
+    fontWeight: '500',
+    color: BRAND.muted,
     marginTop: 2,
   },
   capabilityStatus: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
+    marginLeft: 10,
   },
-  
-  // Info Card
+
+  // ─── Info Card ─────────────────────────────────────────────
   infoCard: {
     flexDirection: 'row',
     backgroundColor: BRAND.secondary + '08',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 14,
+    borderRadius: 18,
+    padding: 18,
+    marginTop: 16,
     borderWidth: 1,
-    borderColor: BRAND.secondary + '15',
+    borderColor: BRAND.secondary + '12',
+  },
+  infoIconContainer: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: BRAND.secondary + '12',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   infoContent: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 14,
   },
   infoTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     color: BRAND.secondary,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   infoText: {
     fontSize: 12,
-    color: BRAND.gray,
-    lineHeight: 20,
+    fontWeight: '500',
+    color: BRAND.muted,
+    lineHeight: 21,
   },
 });
 

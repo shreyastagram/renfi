@@ -11,6 +11,7 @@
 
 import { io } from 'socket.io-client';
 import { NODE_BASE_URL } from '../config/api';
+import { authFetch } from '../utils/authFetch';
 import Geolocation from '@react-native-community/geolocation';
 
 // Socket instance
@@ -315,12 +316,9 @@ const sendLocationUpdate = async (providerId, coords) => {
 
   // Also persist via REST API
   try {
-    const { NODE_BASE_URL } = require('../config/api');
-    await fetch(`${NODE_BASE_URL}/api/auth/provider/location`, {
+    const { NODE_BASE_URL: baseUrl } = require('../config/api');
+    await authFetch(`${baseUrl}/api/auth/provider/location`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({
         providerId,
         latitude: coords.latitude,
@@ -381,9 +379,9 @@ export const startRequestLocationTracking = (requestId, providerId, onLocationUp
       });
     }
 
-    // REST persistence fallback (async, fire-and-forget)
+    // REST persistence fallback — uses authFetch for proper JWT auth
     try {
-      fetch(`${NODE_BASE_URL}/api/traditional-services/${requestId}/location-sharing/update`, {
+      authFetch(`${NODE_BASE_URL}/api/traditional-services/${requestId}/location-sharing/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -392,9 +390,13 @@ export const startRequestLocationTracking = (requestId, providerId, onLocationUp
           longitude: coords.longitude,
           accuracy: coords.accuracy,
         }),
-      }).catch(() => {});
+      }).then(res => {
+        if (!res.ok) console.log('[Socket] Location REST fallback failed:', res.status);
+      }).catch((err) => {
+        console.log('[Socket] Location REST fallback error:', err.message);
+      });
     } catch (e) {
-      // Silent
+      console.log('[Socket] Location REST fallback exception:', e.message);
     }
   };
 

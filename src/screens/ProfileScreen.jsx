@@ -18,7 +18,6 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
@@ -32,10 +31,12 @@ import { useFocusEffect } from '@react-navigation/native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { useApp } from '../context/AppContext';
+import { useDialog } from '../context/DialogContext';
 import { Icon, AadhaarVerificationModal } from '../components';
 import { updateUserProfile, updateProviderProfile } from '../services/profileService';
 import { SERVICE_CATEGORIES } from '../services/authService';
 import { NODE_BASE_URL } from '../config/api';
+import { authFetch } from '../utils/authFetch';
 import { getTokens } from '../utils/storage';
 import { 
   sendPhoneVerificationOtp,
@@ -111,23 +112,38 @@ const getErrorMessage = (error, fallback = 'An error occurred') => {
 };
 
 /**
+ * Premium card shadow helper
+ */
+const CARD_SHADOW = Platform.select({
+  ios: {
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+  },
+  android: {
+    elevation: 5,
+  },
+});
+
+/**
  * Section Header
  */
-const SectionHeader = ({ title }) => (
+const SectionHeader = React.memo(({ title }) => (
   <Text style={styles.sectionHeader}>{title}</Text>
-);
+));
 
 /**
  * Info Row (Read-only)
  */
-const InfoRow = ({ label, value, iconName, verified, onVerify, isLoading }) => (
+const InfoRow = React.memo(({ label, value, iconName, verified, onVerify, isLoading }) => (
   <View style={styles.infoRow}>
     <View style={styles.infoIconContainer}>
-      <Icon name={iconName} size={20} color="#6B7280" />
+      <Icon name={iconName} size={20} color="#64748B" />
     </View>
     <View style={styles.infoContent}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value || 'Not set'}</Text>
+      <Text style={styles.infoLabel} numberOfLines={1} ellipsizeMode="tail">{label}</Text>
+      <Text style={styles.infoValue} numberOfLines={2} ellipsizeMode="tail">{value || 'Not set'}</Text>
     </View>
     {verified !== undefined && (
       verified ? (
@@ -138,7 +154,7 @@ const InfoRow = ({ label, value, iconName, verified, onVerify, isLoading }) => (
       ) : (
         <TouchableOpacity style={styles.verifyButton} onPress={onVerify} disabled={isLoading}>
           {isLoading ? (
-            <ActivityIndicator size="small" color="#2563EB" />
+            <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
             <Text style={styles.verifyButtonText}>Verify</Text>
           )}
@@ -146,12 +162,12 @@ const InfoRow = ({ label, value, iconName, verified, onVerify, isLoading }) => (
       )
     )}
   </View>
-);
+));
 
 /**
  * Editable Field
  */
-const EditableField = ({ label, value, onChangeText, placeholder, editable = true, locked = false, lockMessage, keyboardType = 'default', maxLength, containerStyle }) => (
+const EditableField = React.memo(({ label, value, onChangeText, placeholder, editable = true, locked = false, lockMessage, keyboardType = 'default', maxLength, containerStyle }) => (
   <View style={[styles.fieldContainer, containerStyle]}>
     <View style={styles.fieldLabelRow}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -176,13 +192,14 @@ const EditableField = ({ label, value, onChangeText, placeholder, editable = tru
       <Text style={styles.fieldLockMessage}>{lockMessage}</Text>
     )}
   </View>
-);
+));
 
 /**
  * Profile Screen Component
  */
 const ProfileScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
+  const { dialog } = useDialog();
   const { user, profile, userType, refreshVerificationStatus, refreshProfile, aadhaarStatus, setAadhaarStatus, premiumStatus, setPremiumStatus } = useApp();
   
   // Check if we should scroll to/open addresses section
@@ -262,7 +279,7 @@ const ProfileScreen = ({ navigation, route }) => {
       }
 
       if (permStatus !== RESULTS.GRANTED && permStatus !== RESULTS.LIMITED) {
-        Alert.alert(
+        dialog(
           'Location Permission Required',
           'Please enable location permission in your device settings to use this feature.',
           [{ text: 'OK' }]
@@ -293,7 +310,7 @@ const ProfileScreen = ({ navigation, route }) => {
       const data = await response.json();
 
       if (!data.features || data.features.length === 0) {
-        Alert.alert('Location Not Found', 'Could not determine your address. Please enter it manually.');
+        dialog('Location Not Found', 'Could not determine your address. Please enter it manually.');
         setDetectingLocation(false);
         return;
       }
@@ -329,7 +346,7 @@ const ProfileScreen = ({ navigation, route }) => {
         detectedState ? `🗺️ State: ${detectedState}` : '',
       ].filter(Boolean).join('\n\n');
 
-      Alert.alert(
+      dialog(
         'Detected Location',
         `We detected the following from your current location:\n\n${confirmMsg}\n\nWould you like to use this?`,
         [
@@ -354,7 +371,7 @@ const ProfileScreen = ({ navigation, route }) => {
       if (errCode === 1) errMsg = 'Location permission denied. Please enable it in Settings.';
       else if (errCode === 2) errMsg = 'Location unavailable. Make sure GPS is turned on.';
       else if (errCode === 3) errMsg = 'Location request timed out. Please try again.';
-      Alert.alert('Location Error', errMsg);
+      dialog('Location Error', errMsg);
     } finally {
       setDetectingLocation(false);
     }
@@ -473,7 +490,7 @@ const ProfileScreen = ({ navigation, route }) => {
     const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
     
     if (!userId) {
-      Alert.alert('Error', 'User ID not found');
+      dialog('Error', 'User ID not found');
       return;
     }
 
@@ -486,7 +503,7 @@ const ProfileScreen = ({ navigation, route }) => {
     // Warn user if phone is being changed — verification will reset
     if (phoneChanged) {
       return new Promise((resolve) => {
-        Alert.alert(
+        dialog(
           'Phone Number Change',
           'Changing your phone number will reset your phone verification. You will need to re-verify with OTP.\n\nDo you want to continue?',
           [
@@ -529,7 +546,7 @@ const ProfileScreen = ({ navigation, route }) => {
       }
       
       if (result.success) {
-        Alert.alert('Success', 'Profile updated successfully');
+        dialog('Success', 'Profile updated successfully');
         setIsEditing(false);
         // Refresh profile data to reflect changes immediately
         await refreshProfile(userType, userId);
@@ -539,7 +556,7 @@ const ProfileScreen = ({ navigation, route }) => {
         const errorCode = result.error?.code || result.error?.response?.data?.code;
         
         if (errorCode === 'PHONE_ALREADY_EXISTS') {
-          Alert.alert(
+          dialog(
             'Number Already Registered',
             'This mobile number is already associated with another account. Please use a different number.',
             [
@@ -550,23 +567,23 @@ const ProfileScreen = ({ navigation, route }) => {
             ]
           );
         } else if (errorCode === 'PROFILE_CONFLICT') {
-          Alert.alert(
+          dialog(
             'Update Conflict',
             result.error?.message || 'This information conflicts with another account. Please try different values.',
             [{ text: 'OK' }]
           );
         } else if (errorCode === 'NAME_LOCKED') {
-          Alert.alert(
+          dialog(
             'Name Locked',
             'Your name has been locked after Aadhaar verification and cannot be changed. This ensures your profile matches your verified identity.',
             [{ text: 'OK' }]
           );
         } else {
-          Alert.alert('Error', getErrorMessage(result.error, 'Failed to update profile'));
+          dialog('Error', getErrorMessage(result.error, 'Failed to update profile'));
         }
       }
     } catch (error) {
-      Alert.alert('Error', 'Something went wrong');
+      dialog('Error', 'Something went wrong');
     } finally {
       setSaving(false);
     }
@@ -577,7 +594,7 @@ const ProfileScreen = ({ navigation, route }) => {
    */
   const handlePhoneVerify = async () => {
     if (!displayData?.phone) {
-      Alert.alert('Error', 'No phone number found. Please update your profile.');
+      dialog('Error', 'No phone number found. Please update your profile.');
       return;
     }
 
@@ -587,12 +604,12 @@ const ProfileScreen = ({ navigation, route }) => {
       
       if (result.success) {
         setPhoneOtpSent(true);
-        Alert.alert('OTP Sent', `Verification code sent to ${displayData.phone}`);
+        dialog('OTP Sent', `Verification code sent to ${displayData.phone}`);
       } else {
-        Alert.alert('Error', getErrorMessage(result.error, 'Failed to send OTP'));
+        dialog('Error', getErrorMessage(result.error, 'Failed to send OTP'));
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to send verification code');
+      dialog('Error', 'Failed to send verification code');
     } finally {
       setVerifyingPhone(false);
     }
@@ -611,7 +628,7 @@ const ProfileScreen = ({ navigation, route }) => {
         Animated.timing(otpShakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
         Animated.timing(otpShakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
       ]).start();
-      Alert.alert('Error', 'Please enter a valid 6-digit OTP');
+      dialog('Error', 'Please enter a valid 6-digit OTP');
       return;
     }
 
@@ -621,7 +638,7 @@ const ProfileScreen = ({ navigation, route }) => {
       const result = await verifyPhoneOtp(otpCode);
       
       if (result.success) {
-        Alert.alert('Success', 'Phone number verified successfully!');
+        dialog('Success', 'Phone number verified successfully!');
         setPhoneOtpSent(false);
         setPhoneOtp(Array(6).fill(''));
         await refreshVerificationStatus();
@@ -635,10 +652,10 @@ const ProfileScreen = ({ navigation, route }) => {
         ]).start();
         setPhoneOtp(Array(6).fill(''));
         otpInputRefs.current[0]?.focus();
-        Alert.alert('Error', getErrorMessage(result.error, 'Invalid OTP'));
+        dialog('Error', getErrorMessage(result.error, 'Invalid OTP'));
       }
     } catch (error) {
-      Alert.alert('Error', 'Verification failed');
+      dialog('Error', 'Verification failed');
     } finally {
       setVerifyingPhone(false);
     }
@@ -691,7 +708,7 @@ const ProfileScreen = ({ navigation, route }) => {
    */
   const handleEmailVerify = async () => {
     if (!displayData?.email) {
-      Alert.alert('Error', 'No email found');
+      dialog('Error', 'No email found');
       return;
     }
 
@@ -700,7 +717,7 @@ const ProfileScreen = ({ navigation, route }) => {
       const result = await sendEmailVerification();
       
       if (result.success) {
-        Alert.alert(
+        dialog(
           '✅ Verification Email Sent',
           `Please check your email at ${displayData.email} and click the verification link.\n\nAlso check your spam/junk folder if you don't see it.`
         );
@@ -721,22 +738,22 @@ const ProfileScreen = ({ navigation, route }) => {
             const mins = Math.floor(retrySeconds / 60);
             const secs = retrySeconds % 60;
             const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-            Alert.alert(
+            dialog(
               '⏳ Email Already Sent',
               `A verification email was recently sent to ${displayData.email}.\n\nPlease check your inbox (and spam folder). You can request another in ${timeStr}.`
             );
           } else {
-            Alert.alert(
+            dialog(
               '⏳ Email Already Sent',
               `A verification email was recently sent to ${displayData.email}.\n\nPlease check your inbox (and spam folder) and wait a couple of minutes before requesting another.`
             );
           }
         } else {
-          Alert.alert('Error', getErrorMessage(result.error, 'Failed to send verification email'));
+          dialog('Error', getErrorMessage(result.error, 'Failed to send verification email'));
         }
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to send verification email. Please try again.');
+      dialog('Error', 'Failed to send verification email. Please try again.');
     } finally {
       setVerifyingEmail(false);
     }
@@ -796,17 +813,12 @@ const ProfileScreen = ({ navigation, route }) => {
     if (!userId) return { success: false, error: 'User ID not found' };
 
     try {
-      const { accessToken } = await getTokens();
-      const endpoint = isProvider 
+      const endpoint = isProvider
         ? `${NODE_BASE_URL}/api/provider/profile-picture/${userId}`
         : `${NODE_BASE_URL}/api/user/profile-picture/${userId}`;
 
-      const response = await fetch(endpoint, {
+      const response = await authFetch(endpoint, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-        },
         body: JSON.stringify({ url, publicId }),
       });
 
@@ -836,7 +848,7 @@ const ProfileScreen = ({ navigation, route }) => {
       
       if (result.didCancel) return;
       if (result.errorCode) {
-        Alert.alert('Error', result.errorMessage || 'Failed to select image');
+        dialog('Error', result.errorMessage || 'Failed to select image');
         return;
       }
 
@@ -845,7 +857,7 @@ const ProfileScreen = ({ navigation, route }) => {
         await uploadProfilePicture(asset.uri);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to select image');
+      dialog('Error', 'Failed to select image');
     }
   };
 
@@ -868,7 +880,7 @@ const ProfileScreen = ({ navigation, route }) => {
       
       if (result.didCancel) return;
       if (result.errorCode) {
-        Alert.alert('Error', result.errorMessage || 'Failed to take photo');
+        dialog('Error', result.errorMessage || 'Failed to take photo');
         return;
       }
 
@@ -877,7 +889,7 @@ const ProfileScreen = ({ navigation, route }) => {
         await uploadProfilePicture(asset.uri);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to take photo');
+      dialog('Error', 'Failed to take photo');
     }
   };
 
@@ -892,7 +904,7 @@ const ProfileScreen = ({ navigation, route }) => {
       const uploadResult = await uploadToCloudinary(imageUri);
       
       if (!uploadResult.success) {
-        Alert.alert('Error', uploadResult.error || 'Failed to upload image');
+        dialog('Error', uploadResult.error || 'Failed to upload image');
         return;
       }
 
@@ -900,17 +912,17 @@ const ProfileScreen = ({ navigation, route }) => {
       const saveResult = await saveProfilePictureToBackend(uploadResult.url, uploadResult.publicId);
       
       if (saveResult.success) {
-        Alert.alert('Success', 'Profile picture updated!');
+        dialog('Success', 'Profile picture updated!');
         // Refresh profile
         const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
         if (userId) {
           await refreshProfile(userType, userId);
         }
       } else {
-        Alert.alert('Error', saveResult.message || 'Failed to save profile picture');
+        dialog('Error', saveResult.message || 'Failed to save profile picture');
       }
     } catch (error) {
-      Alert.alert('Error', 'Something went wrong');
+      dialog('Error', 'Something went wrong');
     } finally {
       setUploadingPicture(false);
     }
@@ -918,10 +930,10 @@ const ProfileScreen = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      {/* Header — Elevated with subtle gradient feel */}
+      {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Icon name="arrow_back" size={22} color="#1F2937" />
+          <Icon name="arrow_back" size={22} color="#0F172A" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>
         {!isEditing ? (
@@ -930,8 +942,8 @@ const ProfileScreen = ({ navigation, route }) => {
             <Text style={styles.editButtonText}>Edit</Text>
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity 
-            style={[styles.editButton, styles.editButtonCancel]} 
+          <TouchableOpacity
+            style={[styles.editButton, styles.editButtonCancel]}
             onPress={() => setIsEditing(false)}
           >
             <MaterialIcon name="undo" size={18} color="#EF4444" />
@@ -940,64 +952,65 @@ const ProfileScreen = ({ navigation, route }) => {
         )}
       </View>
 
-      <KeyboardAvoidingView 
-        style={{ flex: 1 }} 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
           style={styles.content}
-          contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 20 }]}
+          contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 30 }]}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#f67c16" />
           }
           showsVerticalScrollIndicator={false}
         >
           {/* ─── Premium Profile Card ─── */}
           <View style={styles.profileCard}>
-            {/* Gradient-like colored header band */}
+            {/* Colored header band */}
             <View style={[styles.profileCardHeader, isProvider ? styles.profileCardHeaderProvider : styles.profileCardHeaderUser]}>
-              {/* Decorative glass circles */}
               <View style={styles.profileDecorCircle1} />
               <View style={styles.profileDecorCircle2} />
               <View style={styles.profileDecorCircle3} />
             </View>
 
-            {/* Avatar — sits OUTSIDE header to avoid overflow:hidden clipping */}
+            {/* Avatar */}
             <View style={styles.profileAvatarWrap}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.avatarContainer}
                 onPress={() => setShowImagePickerModal(true)}
                 disabled={uploadingPicture}
               >
-                {displayData?.profilePicture?.url ? (
-                  <Image 
-                    source={{ uri: displayData.profilePicture.url }} 
-                    style={styles.avatarImage}
-                  />
-                ) : (
-                  <View style={[styles.avatar, isProvider && styles.avatarProvider]}>
-                    <Text style={styles.avatarText}>
-                      {displayData?.fullName?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?'}
-                    </Text>
-                  </View>
-                )}
+                {/* Outer ring */}
+                <View style={[styles.avatarRing, isProvider && styles.avatarRingProvider]}>
+                  {displayData?.profilePicture?.url ? (
+                    <Image
+                      source={{ uri: displayData.profilePicture.url }}
+                      style={styles.avatarImage}
+                    />
+                  ) : (
+                    <View style={[styles.avatar, isProvider && styles.avatarProvider]}>
+                      <Text style={styles.avatarText}>
+                        {displayData?.fullName?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
                 {/* Camera overlay */}
                 <View style={[styles.cameraIconOverlay, isProvider && styles.cameraIconOverlayProvider]}>
                   {uploadingPicture ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
-                    <MaterialIcon name="camera-alt" size={14} color="#FFFFFF" />
+                    <MaterialIcon name="camera-alt" size={15} color="#FFFFFF" />
                   )}
                 </View>
               </TouchableOpacity>
             </View>
 
-            {/* Body: name, badges, verification */}
-            <View style={[styles.profileCardBody, { borderBottomLeftRadius: 22, borderBottomRightRadius: 22, overflow: 'hidden' }]}>
-              {/* Subtle accent strip at top of body */}
+            {/* Body */}
+            <View style={styles.profileCardBody}>
               <View style={[styles.profileBodyAccent, isProvider ? { backgroundColor: '#FFF7ED' } : { backgroundColor: '#EFF6FF' }]} />
               <View style={styles.profileNameRow}>
-                <Text style={styles.profileName} numberOfLines={2}>{displayData?.fullName || 'User'}</Text>
+                <Text style={styles.profileName} numberOfLines={2} ellipsizeMode="tail">{displayData?.fullName || 'User'}</Text>
                 {isProvider && isPremiumActive && (
                   <View style={styles.proBadge}>
                     <MaterialIcon name="workspace-premium" size={14} color="#F59E0B" />
@@ -1005,23 +1018,27 @@ const ProfileScreen = ({ navigation, route }) => {
                   </View>
                 )}
               </View>
-              
-              {/* Email / phone subtitle */}
-              <Text style={styles.profileSubtext} numberOfLines={1}>
-                {displayData?.email || displayData?.phone || ''}
+
+              {/* Email */}
+              <Text style={styles.profileEmail} numberOfLines={1} ellipsizeMode="tail" adjustsFontSizeToFit minimumFontScale={0.8}>
+                {displayData?.email || ''}
+              </Text>
+              {/* Phone */}
+              <Text style={styles.profilePhone} numberOfLines={1} ellipsizeMode="tail">
+                {displayData?.phone || ''}
               </Text>
 
               {/* Type badge */}
               <View style={styles.profileBadgeRow}>
                 <View style={[styles.typeBadge, isProvider && styles.typeBadgeProvider]}>
                   <Icon name={isProvider ? 'provider' : 'user'} size={13} color={isProvider ? '#f67c16' : '#2b76bc'} />
-                  <Text style={[styles.typeBadgeText, isProvider && styles.typeBadgeTextProvider]}>
+                  <Text style={[styles.typeBadgeText, isProvider && styles.typeBadgeTextProvider]} numberOfLines={1}>
                     {isProvider ? 'Service Provider' : 'User'}
                   </Text>
                 </View>
               </View>
 
-              {/* ─── Verification pills ─── */}
+              {/* Verification pills */}
               <View style={styles.verificationSummary}>
                 <View style={[
                   styles.verificationItem,
@@ -1031,7 +1048,7 @@ const ProfileScreen = ({ navigation, route }) => {
                   <Text style={[
                     styles.verificationLabel,
                     displayData?.isPhoneVerified && styles.verificationLabelVerified
-                  ]}>
+                  ]} numberOfLines={1}>
                     {displayData?.isPhoneVerified ? 'Phone ✓' : 'Phone'}
                   </Text>
                 </View>
@@ -1043,7 +1060,7 @@ const ProfileScreen = ({ navigation, route }) => {
                   <Text style={[
                     styles.verificationLabel,
                     displayData?.isEmailVerified && styles.verificationLabelVerified
-                  ]}>
+                  ]} numberOfLines={1}>
                     {displayData?.isEmailVerified ? 'Email ✓' : 'Email'}
                   </Text>
                 </View>
@@ -1056,7 +1073,7 @@ const ProfileScreen = ({ navigation, route }) => {
                     <Text style={[
                       styles.verificationLabel,
                       isAadhaarVerified && styles.verificationLabelVerified
-                    ]}>
+                    ]} numberOfLines={1}>
                       {isAadhaarVerified ? 'KYC ✓' : 'KYC'}
                     </Text>
                   </View>
@@ -1066,7 +1083,7 @@ const ProfileScreen = ({ navigation, route }) => {
               {!isVerified && (
                 <View style={styles.verifyWarning}>
                   <Icon name="warning" size={15} color="#f67c16" />
-                  <Text style={styles.verifyWarningText}>
+                  <Text style={styles.verifyWarningText} numberOfLines={2} ellipsizeMode="tail">
                     Verify phone & email to unlock all features
                   </Text>
                 </View>
@@ -1174,126 +1191,6 @@ const ProfileScreen = ({ navigation, route }) => {
             </TouchableOpacity>
           </Modal>
 
-          {/* Verification Section */}
-          <View style={styles.section}>
-            <SectionHeader title="Verification" />
-            
-            <InfoRow
-              iconName="phone"
-              label="Phone Number"
-              value={displayData?.phone || 'Not set'}
-              verified={displayData?.isPhoneVerified}
-              onVerify={handlePhoneVerify}
-              isLoading={verifyingPhone && !phoneOtpSent}
-            />
-
-            {/* Phone OTP Input — Modern 6-box design */}
-            {phoneOtpSent && (
-              <View style={styles.otpSectionModern}>
-                <Text style={styles.otpSectionLabel}>Enter the 6-digit code</Text>
-                <Animated.View style={[
-                  styles.otpBoxesRow,
-                  { transform: [{ translateX: otpShakeAnim }] }
-                ]}>
-                  {phoneOtp.map((digit, index) => {
-                    const isFocused = otpFocusedIndex === index;
-                    const isFilled = !!digit;
-                    
-                    return (
-                      <Animated.View
-                        key={index}
-                        style={[
-                          styles.otpBoxWrapper,
-                          isFilled && styles.otpBoxWrapperFilled,
-                          isFocused && styles.otpBoxWrapperFocused,
-                          { transform: [{ scale: otpScaleAnims[index] }] },
-                        ]}
-                      >
-                        <TextInput
-                          ref={(ref) => (otpInputRefs.current[index] = ref)}
-                          style={[
-                            styles.otpBoxInput,
-                            isFilled && styles.otpBoxInputFilled,
-                            isFocused && styles.otpBoxInputFocused,
-                          ]}
-                          value={digit}
-                          onChangeText={(value) => handleProfileOtpChange(value, index)}
-                          onKeyPress={(event) => handleProfileOtpKeyPress(event, index)}
-                          onFocus={() => setOtpFocusedIndex(index)}
-                          onBlur={() => setOtpFocusedIndex(-1)}
-                          keyboardType="number-pad"
-                          maxLength={index === 0 ? 6 : 1}
-                          selectTextOnFocus
-                        />
-                      </Animated.View>
-                    );
-                  })}
-                </Animated.View>
-                <TouchableOpacity 
-                  style={[
-                    styles.otpVerifyButton,
-                    (verifyingPhone || phoneOtp.join('').length !== 6) && styles.otpVerifyButtonDisabled,
-                  ]}
-                  onPress={handleVerifyPhoneOtp}
-                  disabled={verifyingPhone}
-                  activeOpacity={0.8}
-                >
-                  {verifyingPhone ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <View style={styles.otpVerifyButtonContent}>
-                      <MaterialIcon name="verified" size={18} color="#FFFFFF" />
-                      <Text style={styles.otpVerifyButtonText}>Verify</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
-
-            <InfoRow
-              iconName="email"
-              label="Email"
-              value={displayData?.email || 'Not set'}
-              verified={displayData?.isEmailVerified}
-              onVerify={handleEmailVerify}
-              isLoading={verifyingEmail}
-            />
-            
-            {/* Aadhaar Verification - Providers Only */}
-            {isProvider && (
-              <InfoRow
-                iconName="verified_user"
-                label="Aadhaar (KYC)"
-                value={isAadhaarVerified 
-                  ? `Verified${aadhaarName ? ` as ${aadhaarName}` : ''}` 
-                  : 'Not Verified'}
-                verified={isAadhaarVerified}
-                onVerify={() => setShowAadhaarModal(true)}
-                isLoading={false}
-              />
-            )}
-            
-            {/* Name locked notice after Aadhaar */}
-            {isProvider && isNameLocked && (
-              <View style={styles.nameLockNotice}>
-                <MaterialIcon name="lock" size={14} color="#2b76bc" />
-                <Text style={styles.nameLockNoticeText}>
-                  Name locked after Aadhaar verification
-                </Text>
-              </View>
-            )}
-            
-            {/* Provider Aadhaar verification notice */}
-            {isProvider && !isAadhaarVerified && (
-              <View style={styles.aadhaarNotice}>
-                <Icon name="warning" size={16} color="#f67c16" />
-                <Text style={styles.aadhaarNoticeText}>
-                  Verify your Aadhaar to receive service requests
-                </Text>
-              </View>
-            )}
-          </View>
-          
           {/* Aadhaar Verification Modal */}
           <AadhaarVerificationModal
             visible={showAadhaarModal}
@@ -1720,11 +1617,219 @@ const ProfileScreen = ({ navigation, route }) => {
             </View>
           )}
 
-          {/* Saved Addresses Section - Like Ola/Uber */}
+          {/* Verification Section — Users (below profile details) */}
+          {!isProvider && (
+            <View style={styles.section}>
+              <SectionHeader title="Verification" />
+
+              <InfoRow
+                iconName="phone"
+                label="Phone Number"
+                value={displayData?.phone || 'Not set'}
+                verified={displayData?.isPhoneVerified}
+                onVerify={handlePhoneVerify}
+                isLoading={verifyingPhone && !phoneOtpSent}
+              />
+
+              {/* Phone OTP Input — Modern 6-box design */}
+              {phoneOtpSent && (
+                <View style={styles.otpSectionModern}>
+                  <Text style={styles.otpSectionLabel}>Enter the 6-digit code</Text>
+                  <Animated.View style={[
+                    styles.otpBoxesRow,
+                    { transform: [{ translateX: otpShakeAnim }] }
+                  ]}>
+                    {phoneOtp.map((digit, index) => {
+                      const isFocused = otpFocusedIndex === index;
+                      const isFilled = !!digit;
+
+                      return (
+                        <Animated.View
+                          key={index}
+                          style={[
+                            styles.otpBoxWrapper,
+                            isFilled && styles.otpBoxWrapperFilled,
+                            isFocused && styles.otpBoxWrapperFocused,
+                            { transform: [{ scale: otpScaleAnims[index] }] },
+                          ]}
+                        >
+                          <TextInput
+                            ref={(ref) => (otpInputRefs.current[index] = ref)}
+                            style={[
+                              styles.otpBoxInput,
+                              isFilled && styles.otpBoxInputFilled,
+                              isFocused && styles.otpBoxInputFocused,
+                            ]}
+                            value={digit}
+                            onChangeText={(value) => handleProfileOtpChange(value, index)}
+                            onKeyPress={(event) => handleProfileOtpKeyPress(event, index)}
+                            onFocus={() => setOtpFocusedIndex(index)}
+                            onBlur={() => setOtpFocusedIndex(-1)}
+                            keyboardType="number-pad"
+                            maxLength={index === 0 ? 6 : 1}
+                            selectTextOnFocus
+                          />
+                        </Animated.View>
+                      );
+                    })}
+                  </Animated.View>
+                  <TouchableOpacity
+                    style={[
+                      styles.otpVerifyButton,
+                      (verifyingPhone || phoneOtp.join('').length !== 6) && styles.otpVerifyButtonDisabled,
+                    ]}
+                    onPress={handleVerifyPhoneOtp}
+                    disabled={verifyingPhone}
+                    activeOpacity={0.8}
+                  >
+                    {verifyingPhone ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <View style={styles.otpVerifyButtonContent}>
+                        <MaterialIcon name="verified" size={18} color="#FFFFFF" />
+                        <Text style={styles.otpVerifyButtonText}>Verify</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              <InfoRow
+                iconName="email"
+                label="Email"
+                value={displayData?.email || 'Not set'}
+                verified={displayData?.isEmailVerified}
+                onVerify={handleEmailVerify}
+                isLoading={verifyingEmail}
+              />
+            </View>
+          )}
+
+          {/* Verification Section — Providers (below profile details) */}
+          {isProvider && (
+            <View style={styles.section}>
+              <SectionHeader title="Verification" />
+
+              <InfoRow
+                iconName="phone"
+                label="Phone Number"
+                value={displayData?.phone || 'Not set'}
+                verified={displayData?.isPhoneVerified}
+                onVerify={handlePhoneVerify}
+                isLoading={verifyingPhone && !phoneOtpSent}
+              />
+
+              {/* Phone OTP Input — Modern 6-box design */}
+              {phoneOtpSent && (
+                <View style={styles.otpSectionModern}>
+                  <Text style={styles.otpSectionLabel}>Enter the 6-digit code</Text>
+                  <Animated.View style={[
+                    styles.otpBoxesRow,
+                    { transform: [{ translateX: otpShakeAnim }] }
+                  ]}>
+                    {phoneOtp.map((digit, index) => {
+                      const isFocused = otpFocusedIndex === index;
+                      const isFilled = !!digit;
+
+                      return (
+                        <Animated.View
+                          key={index}
+                          style={[
+                            styles.otpBoxWrapper,
+                            isFilled && styles.otpBoxWrapperFilled,
+                            isFocused && styles.otpBoxWrapperFocused,
+                            { transform: [{ scale: otpScaleAnims[index] }] },
+                          ]}
+                        >
+                          <TextInput
+                            ref={(ref) => (otpInputRefs.current[index] = ref)}
+                            style={[
+                              styles.otpBoxInput,
+                              isFilled && styles.otpBoxInputFilled,
+                              isFocused && styles.otpBoxInputFocused,
+                            ]}
+                            value={digit}
+                            onChangeText={(value) => handleProfileOtpChange(value, index)}
+                            onKeyPress={(event) => handleProfileOtpKeyPress(event, index)}
+                            onFocus={() => setOtpFocusedIndex(index)}
+                            onBlur={() => setOtpFocusedIndex(-1)}
+                            keyboardType="number-pad"
+                            maxLength={index === 0 ? 6 : 1}
+                            selectTextOnFocus
+                          />
+                        </Animated.View>
+                      );
+                    })}
+                  </Animated.View>
+                  <TouchableOpacity
+                    style={[
+                      styles.otpVerifyButton,
+                      (verifyingPhone || phoneOtp.join('').length !== 6) && styles.otpVerifyButtonDisabled,
+                    ]}
+                    onPress={handleVerifyPhoneOtp}
+                    disabled={verifyingPhone}
+                    activeOpacity={0.8}
+                  >
+                    {verifyingPhone ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <View style={styles.otpVerifyButtonContent}>
+                        <MaterialIcon name="verified" size={18} color="#FFFFFF" />
+                        <Text style={styles.otpVerifyButtonText}>Verify</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              <InfoRow
+                iconName="email"
+                label="Email"
+                value={displayData?.email || 'Not set'}
+                verified={displayData?.isEmailVerified}
+                onVerify={handleEmailVerify}
+                isLoading={verifyingEmail}
+              />
+
+              {/* Aadhaar Verification - Providers Only */}
+              <InfoRow
+                iconName="verified_user"
+                label="Aadhaar (KYC)"
+                value={isAadhaarVerified
+                  ? `Verified${aadhaarName ? ` as ${aadhaarName}` : ''}`
+                  : 'Not Verified'}
+                verified={isAadhaarVerified}
+                onVerify={() => setShowAadhaarModal(true)}
+                isLoading={false}
+              />
+
+              {/* Name locked notice after Aadhaar */}
+              {isNameLocked && (
+                <View style={styles.nameLockNotice}>
+                  <MaterialIcon name="lock" size={14} color="#2b76bc" />
+                  <Text style={styles.nameLockNoticeText}>
+                    Name locked after Aadhaar verification
+                  </Text>
+                </View>
+              )}
+
+              {/* Provider Aadhaar verification notice */}
+              {!isAadhaarVerified && (
+                <View style={styles.aadhaarNotice}>
+                  <Icon name="warning" size={16} color="#f67c16" />
+                  <Text style={styles.aadhaarNoticeText}>
+                    Verify your Aadhaar to receive service requests
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Saved Addresses Section */}
           {!isProvider && (
             <View style={styles.section}>
               <SectionHeader title="Saved Addresses" />
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.addressesCard}
                 onPress={() => setShowAddressesModal(true)}
                 activeOpacity={0.7}
@@ -1733,21 +1838,21 @@ const ProfileScreen = ({ navigation, route }) => {
                   <MaterialIcon name="location-on" size={24} color="#2b76bc" />
                 </View>
                 <View style={styles.addressesContent}>
-                  <Text style={styles.addressesTitle}>Manage Addresses</Text>
-                  <Text style={styles.addressesSubtitle}>
+                  <Text style={styles.addressesTitle} numberOfLines={1} ellipsizeMode="tail">Manage Addresses</Text>
+                  <Text style={styles.addressesSubtitle} numberOfLines={2} ellipsizeMode="tail">
                     Add, edit or delete your saved addresses
                   </Text>
                 </View>
-                <MaterialIcon name="chevron-right" size={24} color="#9CA3AF" />
+                <MaterialIcon name="chevron-right" size={22} color="#94A3B8" />
               </TouchableOpacity>
             </View>
           )}
 
-          {/* Favorites Section - For Users */}
+          {/* Favorites Section */}
           {!isProvider && (
             <View style={styles.section}>
               <SectionHeader title="My Favorites" />
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.addressesCard}
                 onPress={() => navigation.navigate('Favorites')}
                 activeOpacity={0.7}
@@ -1756,12 +1861,12 @@ const ProfileScreen = ({ navigation, route }) => {
                   <MaterialIcon name="favorite" size={24} color="#F59E0B" />
                 </View>
                 <View style={styles.addressesContent}>
-                  <Text style={styles.addressesTitle}>Saved Providers</Text>
-                  <Text style={styles.addressesSubtitle}>
+                  <Text style={styles.addressesTitle} numberOfLines={1} ellipsizeMode="tail">Saved Providers</Text>
+                  <Text style={styles.addressesSubtitle} numberOfLines={2} ellipsizeMode="tail">
                     View and manage your favorite service providers
                   </Text>
                 </View>
-                <MaterialIcon name="chevron-right" size={24} color="#9CA3AF" />
+                <MaterialIcon name="chevron-right" size={22} color="#94A3B8" />
               </TouchableOpacity>
             </View>
           )}
@@ -1850,7 +1955,7 @@ const ProfileScreen = ({ navigation, route }) => {
             <InfoRow
               iconName="user"
               label="User ID"
-              value={displayData?.javaUserId?.toString() || displayData?.mongoId?.slice(-8) || 'N/A'}
+              value={displayData?.javaUserId?.toString() || (displayData?.mongoId ? String(displayData.mongoId).slice(-8) : 'N/A')}
             />
             <InfoRow
               iconName="calendar"
@@ -1892,27 +1997,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     paddingVertical: 14,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 2,
+    borderBottomWidth: 0,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 19,
+    fontSize: 20,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: -0.3,
@@ -1921,10 +2031,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     backgroundColor: '#EFF6FF',
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#DBEAFE',
   },
@@ -1948,7 +2058,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 16,
   },
-  
+
   // Row fields for city/pincode
   rowFields: {
     flexDirection: 'row',
@@ -1959,9 +2069,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   readOnlySection: {
-    backgroundColor: '#F1F5F9',
-    padding: 12,
-    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    padding: 14,
+    borderRadius: 14,
     marginTop: 8,
     marginBottom: 16,
     borderWidth: 1,
@@ -1973,23 +2083,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Profile Card — Premium elevated card with colored header
+  // Profile Card
   profileCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 22,
     marginBottom: 20,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    // NO overflow:'hidden' — so the avatar can straddle header/body
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.1,
+        shadowRadius: 28,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   profileCardHeader: {
-    height: 100,
-    overflow: 'hidden', // clips decorative circles within header only
+    height: 110,
+    overflow: 'hidden',
     position: 'relative',
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
@@ -2004,41 +2117,47 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -30,
     right: -20,
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
   profileDecorCircle2: {
     position: 'absolute',
     bottom: -20,
     left: -15,
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.07)',
   },
   profileDecorCircle3: {
     position: 'absolute',
     top: 10,
     left: '40%',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
   profileAvatarWrap: {
     alignSelf: 'center',
-    marginTop: -46,  // pulls avatar up to overlap header by ~half its height
+    marginTop: -52,
     zIndex: 10,
-    elevation: 10,
-    marginBottom: -2,
+    ...Platform.select({
+      ios: {},
+      android: { elevation: 10 },
+    }),
+    marginBottom: 0,
   },
   profileCardBody: {
-    paddingTop: 8,
-    paddingHorizontal: 22,
-    paddingBottom: 22,
+    paddingTop: 10,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
     alignItems: 'center',
+    borderBottomLeftRadius: 22,
+    borderBottomRightRadius: 22,
+    overflow: 'hidden',
   },
   profileBodyAccent: {
     position: 'absolute',
@@ -2046,83 +2165,106 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 60,
-    opacity: 0.5,
-  },
-  profileTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
+    opacity: 0.45,
   },
   avatarContainer: {
     position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    elevation: 8,
+  },
+  avatarRing: {
+    width: 108,
+    height: 108,
+    borderRadius: 54,
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  avatarRingProvider: {
+    borderColor: '#FFFFFF',
   },
   avatar: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     backgroundColor: '#2b76bc',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 4,
-    borderColor: '#FFFFFF',
   },
   avatarImage: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    borderWidth: 4,
-    borderColor: '#FFFFFF',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
   },
   cameraIconOverlay: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    bottom: 2,
+    right: 2,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#2b76bc',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2.5,
+    borderWidth: 3,
     borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   cameraIconOverlayProvider: {
     backgroundColor: '#f67c16',
-  },
-  profileInfoColumn: {
-    marginLeft: 18,
-    flex: 1,
-    minWidth: 0,
   },
   avatarProvider: {
     backgroundColor: '#f67c16',
   },
   avatarText: {
     color: '#FFFFFF',
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '800',
   },
   profileBadgeRow: {
-    marginTop: 10,
+    marginTop: 12,
     marginBottom: 14,
     alignItems: 'center',
   },
-  profileSubtext: {
-    fontSize: 13.5,
+  profileEmail: {
+    fontSize: 13,
     color: '#94A3B8',
     marginTop: 4,
+    letterSpacing: 0.1,
+    flexShrink: 1,
+    maxWidth: '90%',
+    textAlign: 'center',
+  },
+  profilePhone: {
+    fontSize: 13,
+    color: '#94A3B8',
+    marginTop: 2,
     marginBottom: 2,
     letterSpacing: 0.1,
+    flexShrink: 1,
+    maxWidth: '90%',
+    textAlign: 'center',
   },
   profileNameRow: {
     flexDirection: 'row',
@@ -2130,10 +2272,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     marginBottom: 2,
-    marginTop: 6,
+    marginTop: 8,
+    maxWidth: '100%',
   },
   profileName: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: -0.4,
@@ -2150,11 +2293,17 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     borderWidth: 1,
     borderColor: '#FDE68A',
-    shadowColor: '#F59E0B',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#F59E0B',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   proBadgeText: {
     fontSize: 11.5,
@@ -2167,11 +2316,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'center',
-    gap: 5,
+    gap: 6,
     backgroundColor: '#EFF6FF',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#DBEAFE',
   },
@@ -2180,54 +2329,57 @@ const styles = StyleSheet.create({
     borderColor: '#FED7AA',
   },
   typeBadgeText: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '700',
     color: '#2b76bc',
   },
   typeBadgeTextProvider: {
     color: '#f67c16',
   },
-  // Image Picker Modal — iOS-style bottom sheet
+
+  // Image Picker Modal
   imagePickerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15,23,42,0.55)',
+    backgroundColor: 'rgba(15,23,42,0.6)',
     justifyContent: 'flex-end',
   },
   imagePickerModal: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingHorizontal: 22,
+    paddingTop: 14,
     paddingBottom: 40,
   },
   imagePickerDragBar: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
+    width: 40,
+    height: 5,
+    borderRadius: 3,
     backgroundColor: '#D1D5DB',
     alignSelf: 'center',
-    marginBottom: 16,
+    marginBottom: 18,
   },
   imagePickerTitle: {
     fontSize: 20,
     fontWeight: '800',
     color: '#0F172A',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 22,
     letterSpacing: -0.3,
   },
   imagePickerOption: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
-    paddingHorizontal: 4,
+    paddingHorizontal: 6,
     gap: 14,
+    borderRadius: 14,
+    marginBottom: 4,
   },
   imagePickerIconWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2242,13 +2394,13 @@ const styles = StyleSheet.create({
   imagePickerOptionHint: {
     fontSize: 12.5,
     color: '#94A3B8',
-    marginTop: 1,
+    marginTop: 2,
   },
   imagePickerCancelBtn: {
-    marginTop: 12,
-    paddingVertical: 14,
+    marginTop: 14,
+    paddingVertical: 15,
     backgroundColor: '#F1F5F9',
-    borderRadius: 14,
+    borderRadius: 16,
     alignItems: 'center',
   },
   imagePickerCancelText: {
@@ -2257,7 +2409,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // View Photo Modal — Full-screen centered preview
+  // View Photo Modal
   viewPhotoOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.92)',
@@ -2285,15 +2437,16 @@ const styles = StyleSheet.create({
   viewPhotoImage: {
     width: SCREEN_WIDTH * 0.85,
     height: SCREEN_WIDTH * 0.85,
-    borderRadius: 20,
+    borderRadius: 22,
   },
   viewPhotoName: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#FFFFFF',
-    marginTop: 20,
-    letterSpacing: 0.2,
+    marginTop: 22,
+    letterSpacing: -0.2,
   },
+
   verificationSummary: {
     flexDirection: 'row',
     gap: 8,
@@ -2307,7 +2460,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F1F5F9',
     paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingVertical: 8,
     borderRadius: 20,
     gap: 5,
     borderWidth: 1,
@@ -2331,14 +2484,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     backgroundColor: '#FFF7ED',
-    padding: 12,
-    borderRadius: 12,
-    marginTop: 10,
+    padding: 14,
+    borderRadius: 14,
+    marginTop: 12,
     borderWidth: 1,
     borderColor: '#FED7AA',
   },
   verifyWarningText: {
     flex: 1,
+    flexShrink: 1,
     fontSize: 12.5,
     color: '#C2410C',
     fontWeight: '500',
@@ -2350,7 +2504,7 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: '#FFF7ED',
     padding: 14,
-    borderRadius: 12,
+    borderRadius: 14,
     marginTop: 12,
     borderLeftWidth: 4,
     borderLeftColor: '#f67c16',
@@ -2359,36 +2513,41 @@ const styles = StyleSheet.create({
   },
   aadhaarNoticeText: {
     flex: 1,
+    flexShrink: 1,
     fontSize: 13,
     color: '#9A3412',
     fontWeight: '500',
     lineHeight: 18,
   },
 
-  // Section — Elevated card design
+  // Section
   section: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 18,
+    borderRadius: 22,
+    padding: 20,
     marginBottom: 16,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.08,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   sectionHeader: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#94A3B8',
-    marginBottom: 14,
+    marginBottom: 16,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 1,
   },
 
-  // Info Row — Better spacing and visual weight
+  // Info Row
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2397,9 +2556,9 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F1F5F9',
   },
   infoIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2407,48 +2566,59 @@ const styles = StyleSheet.create({
   },
   infoContent: {
     flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
   },
   infoLabel: {
     fontSize: 11,
     color: '#94A3B8',
     marginBottom: 3,
-    fontWeight: '600',
+    fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.3,
+    letterSpacing: 0.4,
   },
   infoValue: {
-    fontSize: 16,
+    fontSize: 15.5,
     color: '#0F172A',
     fontWeight: '600',
+    flexShrink: 1,
   },
   verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#F0FDF4',
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#DBEAFE',
+    borderColor: '#BBF7D0',
+    flexShrink: 0,
   },
   verifiedText: {
     fontSize: 12,
-    color: '#2b76bc',
+    color: '#16A34A',
     fontWeight: '700',
   },
   verifyButton: {
     backgroundColor: '#f67c16',
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 10,
-    minWidth: 75,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 12,
+    minWidth: 78,
     alignItems: 'center',
-    shadowColor: '#f67c16',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
+    flexShrink: 0,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#f67c16',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   verifyButtonText: {
     fontSize: 13,
@@ -2456,13 +2626,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // OTP Section — Modern 6-box design
+  // OTP Section
   otpSectionModern: {
-    paddingVertical: 16,
-    paddingHorizontal: 4,
+    paddingVertical: 18,
+    paddingHorizontal: 6,
     backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    marginTop: -4,
+    borderRadius: 16,
+    marginTop: -2,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -2472,19 +2642,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#64748B',
     textAlign: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
   },
   otpBoxesRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 8,
-    marginBottom: 14,
+    marginBottom: 16,
     paddingHorizontal: 4,
   },
   otpBoxWrapper: {
-    width: 44,
-    height: 52,
-    borderRadius: 12,
+    width: 46,
+    height: 54,
+    borderRadius: 14,
     borderWidth: 2,
     borderColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
@@ -2494,20 +2664,28 @@ const styles = StyleSheet.create({
   otpBoxWrapperFilled: {
     borderColor: '#2b76bc',
     backgroundColor: '#EFF6FF',
-    shadowColor: '#2b76bc',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#2b76bc',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.12,
+        shadowRadius: 6,
+      },
+      android: { elevation: 2 },
+    }),
   },
   otpBoxWrapperFocused: {
     borderColor: '#f67c16',
     backgroundColor: '#FFFBF5',
-    shadowColor: '#f67c16',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#f67c16',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.18,
+        shadowRadius: 8,
+      },
+      android: { elevation: 3 },
+    }),
   },
   otpBoxInput: {
     width: '100%',
@@ -2526,19 +2704,25 @@ const styles = StyleSheet.create({
   },
   otpVerifyButton: {
     backgroundColor: '#f67c16',
-    borderRadius: 12,
-    paddingVertical: 13,
+    borderRadius: 14,
+    paddingVertical: 14,
     marginHorizontal: 12,
-    shadowColor: '#f67c16',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#f67c16',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+      },
+      android: { elevation: 4 },
+    }),
   },
   otpVerifyButtonDisabled: {
     backgroundColor: '#CBD5E1',
-    shadowOpacity: 0,
-    elevation: 0,
+    ...Platform.select({
+      ios: { shadowOpacity: 0 },
+      android: { elevation: 0 },
+    }),
   },
   otpVerifyButtonContent: {
     flexDirection: 'row',
@@ -2552,7 +2736,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // Editable Field — Cleaner inputs
+  // Editable Field
   fieldContainer: {
     marginBottom: 18,
   },
@@ -2564,10 +2748,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
   },
   fieldInput: {
-    height: 50,
+    height: 52,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    borderRadius: 12,
+    borderRadius: 14,
     paddingHorizontal: 16,
     fontSize: 16,
     color: '#0F172A',
@@ -2608,14 +2792,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: '#FEF3C7',
-    padding: 12,
-    borderRadius: 8,
+    padding: 14,
+    borderRadius: 12,
     marginBottom: 16,
     marginTop: -8,
     gap: 8,
   },
   phoneChangeWarningText: {
     flex: 1,
+    flexShrink: 1,
     fontSize: 12,
     color: '#92400E',
     lineHeight: 18,
@@ -2624,48 +2809,57 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#EFF6FF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginTop: -4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    marginTop: -2,
     marginBottom: 8,
-    marginLeft: 44,
+    marginLeft: 56,
+    marginRight: 16,
     gap: 6,
   },
   nameLockNoticeText: {
     fontSize: 12,
     color: '#2b76bc',
     fontWeight: '500',
+    flexShrink: 1,
   },
 
-  // Save Button — Premium look
+  // Save Button
   saveButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
     backgroundColor: '#f67c16',
-    height: 54,
-    borderRadius: 14,
-    marginTop: 16,
-    shadowColor: '#f67c16',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 5,
+    height: 56,
+    borderRadius: 16,
+    marginTop: 18,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#f67c16',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   saveButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800',
+    letterSpacing: -0.2,
   },
-  
+
   // Service Categories Styles
   categoriesSection: {
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: '#F1F5F9',
   },
   categoriesSectionHeader: {
     flexDirection: 'row',
@@ -2678,7 +2872,7 @@ const styles = StyleSheet.create({
   },
   categoriesHint: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#94A3B8',
     marginBottom: 12,
   },
   categoriesGrid: {
@@ -2691,11 +2885,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 14,
+    borderRadius: 22,
+    backgroundColor: '#F1F5F9',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
   },
   categoryChipVerified: {
     backgroundColor: '#EFF6FF',
@@ -2722,15 +2916,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginTop: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     backgroundColor: '#EFF6FF',
-    borderRadius: 10,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#93C5FD',
   },
   documentVerificationLinkText: {
     flex: 1,
+    flexShrink: 1,
     fontSize: 14,
     color: '#2b76bc',
     fontWeight: '600',
@@ -2739,16 +2934,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#F3F4F6',
-    padding: 12,
-    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
+    padding: 14,
+    borderRadius: 12,
     marginTop: 4,
   },
   noCategoriesText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#94A3B8',
   },
-  
+
   // Service Categories Display (View Mode)
   serviceCategoriesDisplay: {
     marginBottom: 0,
@@ -2768,9 +2963,9 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   categoryDisplayChip: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 12,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 14,
     backgroundColor: '#EFF6FF',
   },
   categoryDisplayText: {
@@ -2781,9 +2976,9 @@ const styles = StyleSheet.create({
   categoryDisplayChipVerified: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 14,
     backgroundColor: '#EFF6FF',
     gap: 4,
   },
@@ -2795,9 +2990,9 @@ const styles = StyleSheet.create({
   categoryDisplayChipPending: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 14,
     backgroundColor: '#FFF7ED',
     gap: 4,
   },
@@ -2816,14 +3011,16 @@ const styles = StyleSheet.create({
   servicesLabelVerified: {
     fontSize: 11,
     color: '#2b76bc',
-    fontWeight: '600',
+    fontWeight: '700',
     textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   servicesLabelPending: {
     fontSize: 11,
     color: '#f67c16',
-    fontWeight: '600',
+    fontWeight: '700',
     textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   addMoreServicesLink: {
     flexDirection: 'row',
@@ -2832,7 +3029,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: '#F1F5F9',
   },
   addMoreServicesText: {
     fontSize: 13,
@@ -2846,7 +3043,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     backgroundColor: '#FFF7ED',
-    borderRadius: 8,
+    borderRadius: 10,
     marginTop: 8,
     alignSelf: 'flex-start',
   },
@@ -2862,7 +3059,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
     backgroundColor: '#EFF6FF',
-    borderRadius: 8,
+    borderRadius: 10,
     marginTop: 8,
     alignSelf: 'flex-start',
   },
@@ -2871,46 +3068,51 @@ const styles = StyleSheet.create({
     color: '#2b76bc',
     fontWeight: '600',
   },
-  
-  // Saved Addresses Card — Modern actionable card
+
+  // Saved Addresses Card
   addressesCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#FAFBFC',
-    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
   },
   addressesIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 50,
+    height: 50,
+    borderRadius: 18,
     backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
+    flexShrink: 0,
   },
   addressesContent: {
     flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
   },
   addressesTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: '#0F172A',
+    letterSpacing: -0.2,
   },
   addressesSubtitle: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#94A3B8',
     marginTop: 3,
+    lineHeight: 18,
   },
-  
+
   // Portfolio Section Styles
   portfolioSection: {
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: '#F1F5F9',
   },
   portfolioHeader: {
     flexDirection: 'row',
@@ -2918,9 +3120,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   portfolioIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     backgroundColor: '#F3E8FF',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2931,23 +3133,24 @@ const styles = StyleSheet.create({
   },
   portfolioTitle: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontWeight: '700',
+    color: '#0F172A',
+    letterSpacing: -0.2,
   },
   portfolioSubtitle: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#94A3B8',
     marginTop: 2,
   },
   portfolioEditButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FAFAFA',
-    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
   },
   portfolioEditContent: {
     flex: 1,
@@ -2958,14 +3161,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   portfolioLinkBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
   },
   portfolioEditText: {
     fontSize: 13,
@@ -2975,18 +3178,18 @@ const styles = StyleSheet.create({
   },
   portfolioAddText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#94A3B8',
   },
   bioPreview: {
     marginTop: 12,
-    padding: 12,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
+    padding: 14,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
   },
   bioPreviewLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#9CA3AF',
+    fontWeight: '700',
+    color: '#94A3B8',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 4,
@@ -3001,8 +3204,8 @@ const styles = StyleSheet.create({
   },
   specializationsLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#9CA3AF',
+    fontWeight: '700',
+    color: '#94A3B8',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 8,
@@ -3015,20 +3218,21 @@ const styles = StyleSheet.create({
   },
   specializationChip: {
     backgroundColor: '#F3E8FF',
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 18,
   },
   specializationChipText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#7C3AED',
   },
   moreSpecializations: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: '#94A3B8',
     fontWeight: '500',
   },
+
   // Detect My Location
   locationSectionHeader: {
     flexDirection: 'row',
@@ -3039,47 +3243,57 @@ const styles = StyleSheet.create({
   },
   locationSectionTitle: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#374151',
-    letterSpacing: 0.2,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.2,
   },
   detectLocationBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
+    backgroundColor: '#2b76bc',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 22,
     gap: 6,
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#2b76bc',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+      },
+      android: { elevation: 4 },
+    }),
   },
   detectLocationBtnDisabled: {
     backgroundColor: '#93C5FD',
   },
   detectLocationBtnText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: 0.2,
   },
 
-  // ─── Premium Subscription Section ───
+  // Premium Subscription Section
   premiumSection: {
     marginBottom: 16,
   },
-  // Loading skeleton for premium card
   premiumCardLoading: {
     borderRadius: 22,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
     paddingVertical: 38,
     alignItems: 'center',
     justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.08,
+        shadowRadius: 20,
+      },
+      android: { elevation: 5 },
+    }),
   },
   premiumLoadingShimmer: {
     alignItems: 'center',
@@ -3090,18 +3304,19 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     fontWeight: '500',
   },
-  // Active premium card
   premiumCardActive: {
     borderRadius: 22,
     backgroundColor: '#FFFFFF',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+      },
+      android: { elevation: 6 },
+    }),
   },
   premiumActiveHeader: {
     backgroundColor: '#0F172A',
@@ -3211,15 +3426,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#64748B',
   },
-  // Inactive / Upgrade card
   premiumCardInactive: {
     borderRadius: 22,
     overflow: 'hidden',
-    shadowColor: '#4338CA',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#4338CA',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.2,
+        shadowRadius: 20,
+      },
+      android: { elevation: 6 },
+    }),
   },
   premiumInactiveGradient: {
     backgroundColor: '#1E293B',
@@ -3270,11 +3488,15 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     marginTop: 22,
     gap: 8,
-    shadowColor: '#f67c16',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#f67c16',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+      },
+      android: { elevation: 5 },
+    }),
   },
   premiumInactiveBtnText: {
     fontSize: 16,

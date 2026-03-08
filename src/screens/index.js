@@ -44,9 +44,7 @@ export { default as ServiceRequestDetailScreen } from './ServiceRequestDetailScr
 export { default as LiveTrackingScreen } from './LiveTrackingScreen';
 
 // Service Requests - Provider
-export { default as ProviderRequestsScreen } from './ProviderRequestsScreen';
 export { default as ProviderServiceHistoryScreen } from './ProviderServiceHistoryScreen';
-export { default as ProviderJobsScreen } from './ProviderJobsScreen';
 
 // Settings
 export { default as SettingsScreen } from './SettingsScreen';
@@ -75,3 +73,6 @@ export { default as SubscriptionScreen } from './SubscriptionScreen';
 
 // Verification Dashboard (Provider only)
 export { default as VerificationDashboardScreen } from './VerificationDashboardScreen';
+
+// Insurance (Provider only)
+export { default as InsuranceScreen } from './InsuranceScreen';

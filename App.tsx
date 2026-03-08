@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
 import { AppProvider } from './src/context/AppContext';
 import { LocationProvider } from './src/context/LocationContext';
+import { DialogProvider } from './src/context/DialogContext';
 import RootNavigator, { linking as navLinking } from './navigation/RootNavigator';
 import SplashScreen from './src/components/SplashScreen';
 import GlobalBanner from './src/components/GlobalBanner';
@@ -227,8 +228,9 @@ export default function App() {
       <SafeAreaProvider>
       <AppProvider>
         <LocationProvider>
+          <DialogProvider>
           <View style={{ flex: 1 }}>
-            <NavigationContainer 
+            <NavigationContainer
               ref={navigationRef}
               linking={linking}
               onStateChange={(state) => {
@@ -239,13 +241,14 @@ export default function App() {
               {/* Global notification banner — overlays all screens */}
               <GlobalBanner />
             </NavigationContainer>
-            
+
             {/* Splash Screen - shows on app launch */}
-            <SplashScreen 
-              visible={showSplash} 
-              onFinish={() => setShowSplash(false)} 
+            <SplashScreen
+              visible={showSplash}
+              onFinish={() => setShowSplash(false)}
             />
           </View>
+          </DialogProvider>
         </LocationProvider>
       </AppProvider>
       </SafeAreaProvider>

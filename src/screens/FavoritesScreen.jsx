@@ -10,17 +10,16 @@
  *   - Event (photographer, influencer) -> /api/event-services/create-service
  *   - Emergency (snake_catcher, private_ambulance, mortuary_van) -> emergencyServicesService
  *
- * @version 3.0.0
+ * @version 4.0.0
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   Linking,
   RefreshControl,
   SectionList,
@@ -30,10 +29,12 @@ import {
   Image,
   StatusBar,
   Platform,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useApp } from '../context/AppContext';
+import { useDialog } from '../context/DialogContext';
 import { useLocation } from '../context/LocationContext';
 import { getFavorites, removeFromFavorites } from '../services/favoritesService';
 import { ProviderDetailsModal } from '../components';
@@ -46,24 +47,26 @@ import {
   assignEmergencyProvider,
 } from '../services/emergencyServicesService';
 import { NODE_BASE_URL } from '../config/api';
+import { authFetch } from '../utils/authFetch';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// Design Tokens
+// Premium Design Tokens
 const COLORS = {
-  primary: '#FF6B00',
-  primaryLight: '#FFF0E5',
-  primaryDark: '#E05A00',
-  secondary: '#1A73E8',
-  secondaryLight: '#E8F0FE',
-  surface: '#FFFFFF',
-  background: '#F5F5F7',
-  backgroundAlt: '#FAFAFA',
-  text: '#1A1A2E',
-  textSecondary: '#5F6368',
-  textTertiary: '#9AA0A6',
-  border: '#E8EAED',
-  borderLight: '#F1F3F4',
+  darkHero: '#0F172A',
+  background: '#F1F5F9',
+  cardWhite: '#FFFFFF',
+  primary: '#f67c16',
+  primaryLight: '#FFF7ED',
+  secondary: '#2b76bc',
+  secondaryLight: '#EFF6FF',
+  muted: '#94A3B8',
+  textPrimary: '#1E293B',
+  textSecondary: '#64748B',
+  textTertiary: '#94A3B8',
+  border: '#E2E8F0',
+  borderLight: '#F1F5F9',
+  iconBg: '#F1F5F9',
   success: '#0D9488',
   successLight: '#CCFBF1',
   danger: '#EF4444',
@@ -74,23 +77,55 @@ const COLORS = {
   purpleLight: '#EDE9FE',
 };
 
+const SHADOWS = {
+  card: Platform.select({
+    ios: {
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.08,
+      shadowRadius: 20,
+    },
+    android: { elevation: 5 },
+  }),
+  sm: Platform.select({
+    ios: {
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.04,
+      shadowRadius: 8,
+    },
+    android: { elevation: 2 },
+  }),
+  header: Platform.select({
+    ios: {
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.06,
+      shadowRadius: 12,
+    },
+    android: { elevation: 4 },
+  }),
+  xl: Platform.select({
+    ios: {
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.14,
+      shadowRadius: 28,
+    },
+    android: { elevation: 12 },
+  }),
+};
+
 const FONTS = {
-  h1: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5, color: COLORS.text },
-  h2: { fontSize: 20, fontWeight: '700', letterSpacing: -0.3, color: COLORS.text },
-  h3: { fontSize: 17, fontWeight: '600', letterSpacing: -0.2, color: COLORS.text },
-  body: { fontSize: 15, fontWeight: '400', lineHeight: 22, color: COLORS.text },
-  bodyMedium: { fontSize: 15, fontWeight: '500', color: COLORS.text },
+  h1: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5, color: COLORS.darkHero },
+  h2: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3, color: COLORS.darkHero },
+  h3: { fontSize: 17, fontWeight: '600', letterSpacing: -0.2, color: COLORS.textPrimary },
+  body: { fontSize: 15, fontWeight: '400', lineHeight: 22, color: COLORS.textPrimary },
+  bodyMedium: { fontSize: 15, fontWeight: '500', color: COLORS.textPrimary },
   caption: { fontSize: 13, fontWeight: '400', color: COLORS.textSecondary },
   captionMedium: { fontSize: 13, fontWeight: '500', color: COLORS.textSecondary },
   small: { fontSize: 11, fontWeight: '500', letterSpacing: 0.2, color: COLORS.textTertiary },
   button: { fontSize: 15, fontWeight: '600', letterSpacing: 0.3 },
-};
-
-const SHADOWS = {
-  sm: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 },
-  md: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
-  lg: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 6 },
-  xl: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 24, elevation: 10 },
 };
 
 // Service Type Routing
@@ -175,114 +210,124 @@ const ProviderCard = ({ provider, onCall, onRemove, onBook, onViewProfile }) => 
     : provider.profilePicture?.url || provider.profileImage || null;
   const hasProfilePic = !!profilePicUrl;
 
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const onPressIn = () =>
+    Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true, friction: 8 }).start();
+  const onPressOut = () =>
+    Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, friction: 8 }).start();
+
   return (
-    <View style={cardStyles.card}>
-      <View style={cardStyles.cardTop}>
-        <TouchableOpacity
-          style={cardStyles.avatarTouchable}
-          onPress={() => onViewProfile(provider)}
-          activeOpacity={0.75}
-        >
-          {hasProfilePic ? (
-            <Image source={{ uri: profilePicUrl }} style={cardStyles.avatarImage} />
-          ) : (
-            <View style={cardStyles.avatarFallback}>
-              <Text style={cardStyles.avatarInitial}>
-                {(provider.name || 'P').charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
-          <View style={cardStyles.avatarBadge}>
-            <MaterialIcon name="open-in-new" size={10} color={COLORS.surface} />
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={cardStyles.cardInfo}
-          onPress={() => onViewProfile(provider)}
-          activeOpacity={0.75}
-        >
-          <View style={cardStyles.nameRow}>
-            <Text style={cardStyles.providerName} numberOfLines={1}>
-              {provider.name || 'Provider'}
-            </Text>
-            {verifiedCount > 0 && (
-              <View style={cardStyles.proBadge}>
-                <MaterialIcon name="verified" size={11} color={COLORS.surface} />
-                <Text style={cardStyles.proBadgeText}>PRO</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={cardStyles.metaRow}>
-            {(provider.rating > 0 || (provider.ratings && provider.ratings.average > 0)) && (
-              <View style={cardStyles.ratingChip}>
-                <MaterialIcon name="star" size={13} color="#F59E0B" />
-                <Text style={cardStyles.ratingValue}>
-                  {((provider.ratings && provider.ratings.average) || provider.rating || 0).toFixed(1)}
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <View style={cardStyles.card}>
+        <View style={cardStyles.cardTop}>
+          <TouchableOpacity
+            style={cardStyles.avatarTouchable}
+            onPress={() => onViewProfile(provider)}
+            onPressIn={onPressIn}
+            onPressOut={onPressOut}
+            activeOpacity={0.85}
+          >
+            {hasProfilePic ? (
+              <Image source={{ uri: profilePicUrl }} style={cardStyles.avatarImage} />
+            ) : (
+              <View style={cardStyles.avatarFallback}>
+                <Text style={cardStyles.avatarInitial}>
+                  {(provider.name || 'P').charAt(0).toUpperCase()}
                 </Text>
-                {(provider.totalRatings > 0 || (provider.ratings && provider.ratings.total > 0)) && (
-                  <Text style={cardStyles.ratingCount}>
-                    ({provider.totalRatings || (provider.ratings && provider.ratings.total) || 0})
+              </View>
+            )}
+            <View style={cardStyles.avatarBadge}>
+              <MaterialIcon name="open-in-new" size={10} color={COLORS.cardWhite} />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={cardStyles.cardInfo}
+            onPress={() => onViewProfile(provider)}
+            activeOpacity={0.75}
+          >
+            <View style={cardStyles.nameRow}>
+              <Text style={cardStyles.providerName} numberOfLines={1}>
+                {provider.name || 'Provider'}
+              </Text>
+              {verifiedCount > 0 && (
+                <View style={cardStyles.proBadge}>
+                  <MaterialIcon name="verified" size={11} color={COLORS.cardWhite} />
+                  <Text style={cardStyles.proBadgeText}>PRO</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={cardStyles.metaRow}>
+              {(provider.rating > 0 || (provider.ratings && provider.ratings.average > 0)) && (
+                <View style={cardStyles.ratingChip}>
+                  <MaterialIcon name="star" size={13} color="#F59E0B" />
+                  <Text style={cardStyles.ratingValue}>
+                    {((provider.ratings && provider.ratings.average) || provider.rating || 0).toFixed(1)}
                   </Text>
-                )}
-              </View>
+                  {(provider.totalRatings > 0 || (provider.ratings && provider.ratings.total > 0)) && (
+                    <Text style={cardStyles.ratingCount}>
+                      ({provider.totalRatings || (provider.ratings && provider.ratings.total) || 0})
+                    </Text>
+                  )}
+                </View>
+              )}
+              {verifiedCount > 0 && (
+                <View style={cardStyles.serviceCountChip}>
+                  <MaterialIcon name="build" size={11} color={COLORS.textTertiary} />
+                  <Text style={cardStyles.serviceCountText}>{verifiedCount} verified</Text>
+                </View>
+              )}
+            </View>
+
+            {provider.lastServiceDate && (
+              <Text style={cardStyles.lastServiceText}>
+                {'Last booked '}
+                {new Date(provider.lastServiceDate).toLocaleDateString('en-IN', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                })}
+              </Text>
             )}
-            {verifiedCount > 0 && (
-              <View style={cardStyles.serviceCountChip}>
-                <MaterialIcon name="build" size={11} color={COLORS.textTertiary} />
-                <Text style={cardStyles.serviceCountText}>{verifiedCount} verified</Text>
-              </View>
-            )}
-          </View>
+          </TouchableOpacity>
 
-          {provider.lastServiceDate && (
-            <Text style={cardStyles.lastServiceText}>
-              {'Last booked '}
-              {new Date(provider.lastServiceDate).toLocaleDateString('en-IN', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
-              })}
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={cardStyles.heartButton}
-          onPress={() => onRemove(provider)}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <MaterialIcon name="favorite" size={22} color={COLORS.danger} />
-        </TouchableOpacity>
-      </View>
-
-      {provider.notes ? (
-        <View style={cardStyles.notesRow}>
-          <MaterialIcon name="sticky-note-2" size={14} color={COLORS.textTertiary} />
-          <Text style={cardStyles.notesText} numberOfLines={2}>
-            {provider.notes}
-          </Text>
+          <TouchableOpacity
+            style={cardStyles.heartButton}
+            onPress={() => onRemove(provider)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <MaterialIcon name="favorite" size={20} color={COLORS.danger} />
+          </TouchableOpacity>
         </View>
-      ) : null}
 
-      <View style={cardStyles.actions}>
-        <TouchableOpacity style={cardStyles.callBtn} onPress={() => onCall(provider)} activeOpacity={0.8}>
-          <MaterialIcon name="phone" size={18} color={COLORS.success} />
-          <Text style={cardStyles.callBtnText}>Call</Text>
-        </TouchableOpacity>
+        {provider.notes ? (
+          <View style={cardStyles.notesRow}>
+            <MaterialIcon name="sticky-note-2" size={14} color={COLORS.textTertiary} />
+            <Text style={cardStyles.notesText} numberOfLines={2}>
+              {provider.notes}
+            </Text>
+          </View>
+        ) : null}
 
-        <TouchableOpacity style={cardStyles.bookBtn} onPress={() => onBook(provider)} activeOpacity={0.8}>
-          <MaterialIcon name="bolt" size={18} color={COLORS.surface} />
-          <Text style={cardStyles.bookBtnText}>Book Now</Text>
-        </TouchableOpacity>
+        <View style={cardStyles.actions}>
+          <TouchableOpacity style={cardStyles.callBtn} onPress={() => onCall(provider)} activeOpacity={0.8}>
+            <MaterialIcon name="phone" size={18} color={COLORS.success} />
+            <Text style={cardStyles.callBtnText}>Call</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={cardStyles.bookBtn} onPress={() => onBook(provider)} activeOpacity={0.8}>
+            <MaterialIcon name="bolt" size={18} color={COLORS.cardWhite} />
+            <Text style={cardStyles.bookBtnText}>Book Now</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </Animated.View>
   );
 };
 
 // =============================================================================
-// Section Header
+// Section Header with accent bar
 // =============================================================================
 const SectionHeader = ({ category, count }) => {
   const flow = getServiceFlow(category);
@@ -296,6 +341,7 @@ const SectionHeader = ({ category, count }) => {
 
   return (
     <View style={sectionStyles.sectionHeader}>
+      <View style={sectionStyles.accentBar} />
       <View style={[sectionStyles.sectionIcon, { backgroundColor: iconBg }]}>
         <MaterialIcon name={SERVICE_ICONS[category] || 'star'} size={20} color={iconColor} />
       </View>
@@ -322,6 +368,7 @@ const SectionHeader = ({ category, count }) => {
 const FavoritesScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, profile } = useApp();
+  const { dialog } = useDialog();
   const { currentLocation } = useLocation();
 
   const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
@@ -414,7 +461,7 @@ const FavoritesScreen = ({ navigation }) => {
   // View Provider Profile
   const handleViewProfile = (provider) => {
     if (!provider._id) {
-      Alert.alert('Error', 'Provider information not available');
+      dialog('Error', 'Provider information not available');
       return;
     }
     setSelectedProviderForDetails(provider);
@@ -427,7 +474,7 @@ const FavoritesScreen = ({ navigation }) => {
     const cleanPhone = phone.replace(/[^0-9+]/g, '');
 
     if (!cleanPhone) {
-      Alert.alert(
+      dialog(
         'Phone Not Available',
         "This provider's phone number is not available yet.",
         [{ text: 'OK' }]
@@ -435,7 +482,7 @@ const FavoritesScreen = ({ navigation }) => {
       return;
     }
 
-    Alert.alert(
+    dialog(
       'Call Provider',
       'Call ' + (provider.name || 'Provider') + ' at ' + phone + '?',
       [
@@ -444,7 +491,7 @@ const FavoritesScreen = ({ navigation }) => {
           text: 'Call Now',
           onPress: () =>
             Linking.openURL('tel:' + cleanPhone).catch(() =>
-              Alert.alert('Error', 'Unable to make calls on this device')
+              dialog('Error', 'Unable to make calls on this device')
             ),
         },
       ]
@@ -455,11 +502,11 @@ const FavoritesScreen = ({ navigation }) => {
   const handleRemoveFavorite = (provider) => {
     const providerId = provider._id;
     if (!userId || !providerId) {
-      Alert.alert('Error', 'Unable to remove. Please try refreshing.');
+      dialog('Error', 'Unable to remove. Please try refreshing.');
       return;
     }
 
-    Alert.alert(
+    dialog(
       'Remove Favorite',
       'Remove ' + (provider.name || 'this provider') + ' from favorites?',
       [
@@ -489,7 +536,7 @@ const FavoritesScreen = ({ navigation }) => {
                   .filter((sec) => sec.data.length > 0)
               );
             } else {
-              Alert.alert('Error', result.error || 'Failed to remove');
+              dialog('Error', result.error || 'Failed to remove');
             }
           },
         },
@@ -506,7 +553,7 @@ const FavoritesScreen = ({ navigation }) => {
       allServices.length > 0 ? allServices : [provider.serviceCategory];
 
     if (available.length === 0) {
-      Alert.alert(
+      dialog(
         'Not Available',
         'This provider has no registered services yet.',
         [{ text: 'OK' }]
@@ -544,7 +591,7 @@ const FavoritesScreen = ({ navigation }) => {
       flowLabel = ' (Emergency Service)';
     }
 
-    Alert.alert(
+    dialog(
       'Send Service Request',
       'Send a ' +
         name +
@@ -578,7 +625,7 @@ const FavoritesScreen = ({ navigation }) => {
   // =================================================================
   const handleSendRequest = async (serviceId, provider) => {
     if (!currentLocation || !currentLocation.latitude || !currentLocation.longitude) {
-      Alert.alert('Location Required', 'Please enable GPS and try again.', [
+      dialog('Location Required', 'Please enable GPS and try again.', [
         { text: 'OK' },
       ]);
       return;
@@ -614,7 +661,7 @@ const FavoritesScreen = ({ navigation }) => {
 
         if (!createResult.success) {
           if (createResult.code === 'OUTSIDE_SERVICE_ZONE') {
-            Alert.alert(
+            dialog(
               'Service Unavailable',
               createResult.suggestion || 'Not available in your area.',
               [{ text: 'OK' }]
@@ -650,7 +697,7 @@ const FavoritesScreen = ({ navigation }) => {
           landmark: '',
         };
 
-        var createResp = await fetch(
+        var createResp = await authFetch(
           NODE_BASE_URL + '/api/event-services/create-service',
           {
             method: 'POST',
@@ -673,7 +720,7 @@ const FavoritesScreen = ({ navigation }) => {
           (createData.statusCode && createData.statusCode >= 400)
         ) {
           if (createData.code === 'OUTSIDE_SERVICE_ZONE') {
-            Alert.alert(
+            dialog(
               'Service Unavailable',
               (createData.details && createData.details.suggestion) ||
                 'Not available in your area.',
@@ -694,7 +741,7 @@ const FavoritesScreen = ({ navigation }) => {
           throw new Error('No event request ID returned');
         }
 
-        var sendResp = await fetch(
+        var sendResp = await authFetch(
           NODE_BASE_URL +
             '/api/event-services/' +
             serviceRequestId +
@@ -713,7 +760,7 @@ const FavoritesScreen = ({ navigation }) => {
         if (!success) {
           // Cancel orphan request on failure
           try {
-            await fetch(
+            await authFetch(
               NODE_BASE_URL +
                 '/api/event-services/' +
                 serviceRequestId +
@@ -755,7 +802,7 @@ const FavoritesScreen = ({ navigation }) => {
 
         if (!emergencyResult.success) {
           if (emergencyResult.code === 'OUTSIDE_SERVICE_ZONE') {
-            Alert.alert(
+            dialog(
               'Service Unavailable',
               emergencyResult.suggestion || 'Not available in your area.',
               [{ text: 'OK' }]
@@ -785,7 +832,7 @@ const FavoritesScreen = ({ navigation }) => {
       // Show result
       if (success) {
         var serviceName = SERVICE_CATEGORY_LABELS[serviceId] || serviceId;
-        Alert.alert(
+        dialog(
           'Request Sent!',
           'Your ' +
             serviceName +
@@ -802,11 +849,11 @@ const FavoritesScreen = ({ navigation }) => {
           ]
         );
       } else {
-        Alert.alert('Error', errorMsg || 'Failed to send request');
+        dialog('Error', errorMsg || 'Failed to send request');
       }
     } catch (error) {
       console.error('[Favorites] Send request error:', error);
-      Alert.alert(
+      dialog(
         'Error',
         error.message || 'Something went wrong. Please try again.'
       );
@@ -836,7 +883,7 @@ const FavoritesScreen = ({ navigation }) => {
   // =================================================================
   return (
     <View style={screenStyles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.cardWhite} />
 
       {/* Header */}
       <View style={[screenStyles.header, { paddingTop: insets.top + 8 }]}>
@@ -844,7 +891,7 @@ const FavoritesScreen = ({ navigation }) => {
           style={screenStyles.backBtn}
           onPress={() => navigation.goBack()}
         >
-          <MaterialIcon name="arrow-back-ios" size={22} color={COLORS.text} />
+          <MaterialIcon name="arrow-back-ios" size={20} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <View style={screenStyles.headerCenter}>
           <Text style={screenStyles.headerTitle}>Favorites</Text>
@@ -875,19 +922,23 @@ const FavoritesScreen = ({ navigation }) => {
       {/* Content */}
       {isLoading ? (
         <View style={screenStyles.center}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={[FONTS.caption, { marginTop: 16 }]}>
-            Loading your favorites...
-          </Text>
+          <View style={screenStyles.loadingCard}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={screenStyles.loadingText}>
+              Loading your favorites...
+            </Text>
+          </View>
         </View>
       ) : sections.length === 0 ? (
         <View style={screenStyles.emptyState}>
-          <View style={screenStyles.emptyCircle}>
-            <MaterialIcon
-              name="favorite-border"
-              size={56}
-              color={COLORS.textTertiary}
-            />
+          <View style={screenStyles.emptyCircleOuter}>
+            <View style={screenStyles.emptyCircleInner}>
+              <MaterialIcon
+                name="favorite-border"
+                size={48}
+                color={COLORS.muted}
+              />
+            </View>
           </View>
           <Text style={screenStyles.emptyTitle}>No Favorites Yet</Text>
           <Text style={screenStyles.emptyBody}>
@@ -899,7 +950,7 @@ const FavoritesScreen = ({ navigation }) => {
             onPress={() => navigation.goBack()}
             activeOpacity={0.8}
           >
-            <MaterialIcon name="search" size={18} color={COLORS.surface} />
+            <MaterialIcon name="search" size={18} color={COLORS.cardWhite} />
             <Text style={screenStyles.emptyBtnText}>Find Services</Text>
           </TouchableOpacity>
         </View>
@@ -967,7 +1018,7 @@ const FavoritesScreen = ({ navigation }) => {
                 <View style={modalStyles.modalHeaderIcon}>
                   <MaterialIcon
                     name="handyman"
-                    size={24}
+                    size={22}
                     color={COLORS.primary}
                   />
                 </View>
@@ -1118,7 +1169,7 @@ const FavoritesScreen = ({ navigation }) => {
         onCall={(phone) => {
           if (phone) {
             var cleaned = phone.replace(/[^0-9+]/g, '');
-            Alert.alert(
+            dialog(
               'Call Provider',
               'Call ' +
                 (selectedProviderForDetails
@@ -1133,7 +1184,7 @@ const FavoritesScreen = ({ navigation }) => {
                   text: 'Call Now',
                   onPress: () =>
                     Linking.openURL('tel:' + cleaned).catch(() =>
-                      Alert.alert('Error', 'Unable to make calls')
+                      dialog('Error', 'Unable to make calls')
                     ),
                 },
               ]
@@ -1159,17 +1210,16 @@ const screenStyles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-    backgroundColor: COLORS.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.borderLight,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    backgroundColor: COLORS.cardWhite,
+    ...SHADOWS.header,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.background,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: COLORS.iconBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1184,8 +1234,8 @@ const screenStyles = StyleSheet.create({
     ...FONTS.h2,
   },
   headerBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
     borderRadius: 10,
     backgroundColor: COLORS.primaryLight,
   },
@@ -1194,25 +1244,40 @@ const screenStyles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.primary,
   },
-  headerRight: { width: 40 },
+  headerRight: { width: 42 },
+
+  loadingCard: {
+    backgroundColor: COLORS.cardWhite,
+    borderRadius: 22,
+    paddingHorizontal: 40,
+    paddingVertical: 32,
+    alignItems: 'center',
+    ...SHADOWS.card,
+  },
+  loadingText: {
+    ...FONTS.caption,
+    fontWeight: '600',
+    marginTop: 16,
+    color: COLORS.muted,
+  },
 
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(15,23,42,0.45)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 200,
   },
   overlayCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 24,
+    backgroundColor: COLORS.cardWhite,
+    borderRadius: 22,
     padding: 36,
     alignItems: 'center',
     width: SCREEN_WIDTH * 0.72,
     ...SHADOWS.xl,
   },
   overlayIconWrap: { marginBottom: 20 },
-  overlayTitle: { ...FONTS.h3, marginBottom: 6 },
+  overlayTitle: { ...FONTS.h3, fontWeight: '800', marginBottom: 6 },
   overlaySubtitle: { ...FONTS.caption, textAlign: 'center' },
 
   emptyState: {
@@ -1221,14 +1286,23 @@ const screenStyles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 44,
   },
-  emptyCircle: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: COLORS.borderLight,
+  emptyCircleOuter: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: COLORS.cardWhite,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 8,
+    ...SHADOWS.card,
+  },
+  emptyCircleInner: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: COLORS.iconBg,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   emptyTitle: { ...FONTS.h2, marginBottom: 12, textAlign: 'center' },
   emptyBody: {
@@ -1242,27 +1316,33 @@ const screenStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
     paddingVertical: 14,
-    borderRadius: 14,
+    borderRadius: 16,
     gap: 8,
-    ...SHADOWS.md,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+      },
+      android: { elevation: 6 },
+    }),
   },
-  emptyBtnText: { ...FONTS.button, color: COLORS.surface },
+  emptyBtnText: { ...FONTS.button, color: COLORS.cardWhite },
 
-  listContent: { padding: 16, paddingBottom: 40 },
+  listContent: { padding: 20, paddingBottom: 40 },
 });
 
 // Card styles
 const cardStyles = StyleSheet.create({
   card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 20,
+    backgroundColor: COLORS.cardWhite,
+    borderRadius: 22,
     padding: 18,
     marginBottom: 14,
-    borderWidth: 1,
-    borderColor: COLORS.borderLight,
-    ...SHADOWS.md,
+    ...SHADOWS.card,
   },
   cardTop: {
     flexDirection: 'row',
@@ -1289,7 +1369,7 @@ const cardStyles = StyleSheet.create({
   avatarInitial: {
     fontSize: 21,
     fontWeight: '700',
-    color: COLORS.surface,
+    color: COLORS.cardWhite,
   },
   avatarBadge: {
     position: 'absolute',
@@ -1302,7 +1382,7 @@ const cardStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: COLORS.surface,
+    borderColor: COLORS.cardWhite,
   },
   cardInfo: { flex: 1, paddingTop: 2 },
   nameRow: {
@@ -1311,7 +1391,7 @@ const cardStyles = StyleSheet.create({
     gap: 8,
     marginBottom: 4,
   },
-  providerName: { ...FONTS.h3, flex: 1 },
+  providerName: { ...FONTS.h3, fontWeight: '800', flex: 1 },
   proBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1319,12 +1399,12 @@ const cardStyles = StyleSheet.create({
     backgroundColor: COLORS.secondary,
     paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 8,
   },
   proBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: COLORS.surface,
+    color: COLORS.cardWhite,
     letterSpacing: 0.5,
   },
   metaRow: {
@@ -1334,15 +1414,15 @@ const cardStyles = StyleSheet.create({
     marginBottom: 2,
   },
   ratingChip: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  ratingValue: { fontSize: 13, fontWeight: '600', color: COLORS.text },
+  ratingValue: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
   ratingCount: { fontSize: 11, color: COLORS.textTertiary },
   serviceCountChip: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   serviceCountText: { ...FONTS.small },
   lastServiceText: { ...FONTS.small, marginTop: 2 },
   heartButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 38,
+    height: 38,
+    borderRadius: 14,
     backgroundColor: COLORS.dangerLight,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1352,9 +1432,9 @@ const cardStyles = StyleSheet.create({
   notesRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: COLORS.backgroundAlt,
-    padding: 10,
-    borderRadius: 10,
+    backgroundColor: COLORS.iconBg,
+    padding: 12,
+    borderRadius: 14,
     marginTop: 12,
     marginBottom: 4,
     gap: 8,
@@ -1368,28 +1448,36 @@ const cardStyles = StyleSheet.create({
   callBtn: {
     flex: 1,
     flexDirection: 'row',
-    height: 44,
-    borderRadius: 12,
+    height: 46,
+    borderRadius: 14,
     backgroundColor: COLORS.successLight,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
-    borderColor: COLORS.success + '30',
+    borderColor: COLORS.success + '25',
   },
   callBtnText: { ...FONTS.button, color: COLORS.success },
   bookBtn: {
     flex: 2,
     flexDirection: 'row',
-    height: 44,
-    borderRadius: 12,
+    height: 46,
+    borderRadius: 14,
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
-    ...SHADOWS.sm,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 10,
+      },
+      android: { elevation: 4 },
+    }),
   },
-  bookBtnText: { ...FONTS.button, color: COLORS.surface },
+  bookBtnText: { ...FONTS.button, color: COLORS.cardWhite },
 });
 
 // Section styles
@@ -1397,43 +1485,50 @@ const sectionStyles = StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 22,
     marginBottom: 14,
     paddingHorizontal: 4,
   },
+  accentBar: {
+    width: 4,
+    height: 24,
+    borderRadius: 2,
+    backgroundColor: COLORS.secondary,
+    marginRight: 10,
+  },
   sectionIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   sectionTitleCol: { flex: 1 },
-  sectionTitle: { ...FONTS.h3 },
+  sectionTitle: { fontSize: 17, fontWeight: '800', color: COLORS.darkHero, letterSpacing: -0.2 },
   sectionFlowLabel: { ...FONTS.small, marginTop: 1 },
   sectionCount: {
-    minWidth: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: COLORS.borderLight,
+    minWidth: 30,
+    height: 30,
+    borderRadius: 10,
+    backgroundColor: COLORS.iconBg,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
   },
-  sectionCountText: { ...FONTS.captionMedium, color: COLORS.text },
+  sectionCountText: { ...FONTS.captionMedium, fontWeight: '600', color: COLORS.textPrimary },
 });
 
 // Modal styles
 const modalStyles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(15,23,42,0.5)',
     justifyContent: 'flex-end',
   },
   modalDismiss: { flex: 1 },
   modalSheet: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.cardWhite,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 20,
@@ -1465,18 +1560,18 @@ const modalStyles = StyleSheet.create({
     gap: 12,
   },
   modalHeaderIcon: {
-    width: 44,
-    height: 44,
+    width: 42,
+    height: 42,
     borderRadius: 14,
     backgroundColor: COLORS.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalClose: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: COLORS.backgroundAlt,
+    width: 38,
+    height: 38,
+    borderRadius: 14,
+    backgroundColor: COLORS.iconBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 12,
@@ -1491,21 +1586,21 @@ const modalStyles = StyleSheet.create({
     borderBottomColor: COLORS.borderLight,
   },
   modalItemIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 13,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
   },
   modalItemInfo: { flex: 1 },
-  modalItemName: { ...FONTS.bodyMedium, marginBottom: 4 },
+  modalItemName: { ...FONTS.bodyMedium, fontWeight: '600', marginBottom: 4 },
   modalItemMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   verifiedTag: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   verifiedTagText: { ...FONTS.small, color: COLORS.success },
   pendingTag: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   pendingTagText: { ...FONTS.small, color: COLORS.warning },
-  flowTag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  flowTag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   flowTagText: { fontSize: 10, fontWeight: '600', letterSpacing: 0.3 },
   modalHint: {
     flexDirection: 'row',
@@ -1513,7 +1608,7 @@ const modalStyles = StyleSheet.create({
     backgroundColor: COLORS.secondaryLight,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 12,
     gap: 8,
     marginTop: 8,
     marginBottom: 8,
@@ -1521,7 +1616,7 @@ const modalStyles = StyleSheet.create({
   modalHintText: {
     flex: 1,
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
     color: COLORS.secondary,
   },
 });

@@ -7,6 +7,7 @@
  */
 
 import { NODE_BASE_URL } from '../config/api';
+import { authFetch } from '../utils/authFetch';
 
 const API_BASE = `${NODE_BASE_URL}/api/emergency-services`;
 
@@ -68,7 +69,7 @@ export const getStaticEmergencyNumbers = async (type = null) => {
       url += `?type=${encodeURIComponent(type)}`;
     }
 
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -112,7 +113,7 @@ export const createEmergencyRequest = async ({ userId, serviceType, location, no
       };
     }
 
-    const response = await fetch(`${API_BASE}/create`, {
+    const response = await authFetch(`${API_BASE}/create`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -164,7 +165,7 @@ export const createEmergencyRequest = async ({ userId, serviceType, location, no
  */
 export const getNearbyEmergencyProviders = async (requestId, limit = 10) => {
   try {
-    const response = await fetch(`${API_BASE}/${requestId}/providers`, {
+    const response = await authFetch(`${API_BASE}/${requestId}/providers`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -204,7 +205,7 @@ export const getNearbyEmergencyProviders = async (requestId, limit = 10) => {
  */
 export const assignEmergencyProvider = async (requestId, providerId, userEmail) => {
   try {
-    const response = await fetch(`${API_BASE}/${requestId}/assign-provider`, {
+    const response = await authFetch(`${API_BASE}/${requestId}/assign-provider`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -246,7 +247,7 @@ export const assignEmergencyProvider = async (requestId, providerId, userEmail) 
  */
 export const acceptEmergencyRequest = async (requestId, providerId, estimatedArrival, userEmail) => {
   try {
-    const response = await fetch(`${API_BASE}/${requestId}/accept`, {
+    const response = await authFetch(`${API_BASE}/${requestId}/accept`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -286,7 +287,7 @@ export const acceptEmergencyRequest = async (requestId, providerId, estimatedArr
  */
 export const rejectEmergencyProvider = async (requestId, providerId) => {
   try {
-    const response = await fetch(`${API_BASE}/${requestId}/reject-provider`, {
+    const response = await authFetch(`${API_BASE}/${requestId}/reject-provider`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -321,7 +322,7 @@ export const rejectEmergencyProvider = async (requestId, providerId) => {
  */
 export const getProviderLocation = async (requestId) => {
   try {
-    const response = await fetch(`${API_BASE}/${requestId}`, {
+    const response = await authFetch(`${API_BASE}/${requestId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -357,7 +358,7 @@ export const getProviderLocation = async (requestId) => {
  */
 export const markArrived = async (requestId, providerId) => {
   try {
-    const response = await fetch(`${API_BASE}/${requestId}/arrived`, {
+    const response = await authFetch(`${API_BASE}/${requestId}/arrived`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -393,7 +394,7 @@ export const markArrived = async (requestId, providerId) => {
  */
 export const verifyEmergencyOtp = async (requestId, otp) => {
   try {
-    const response = await fetch(`${API_BASE}/${requestId}/verify-otp`, {
+    const response = await authFetch(`${API_BASE}/${requestId}/verify-otp`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -404,7 +405,11 @@ export const verifyEmergencyOtp = async (requestId, otp) => {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || 'Failed to verify OTP');
+      return {
+        success: false,
+        code: data.code || null,
+        error: data.error || 'Failed to verify OTP'
+      };
     }
 
     return {
@@ -430,7 +435,7 @@ export const verifyEmergencyOtp = async (requestId, otp) => {
  */
 export const cancelEmergencyRequest = async (requestId, reason, cancelledBy = 'user') => {
   try {
-    const response = await fetch(`${API_BASE}/${requestId}/cancel`, {
+    const response = await authFetch(`${API_BASE}/${requestId}/cancel`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -471,7 +476,7 @@ export const getUserEmergencyRequests = async (userId, status = null) => {
       url += `?status=${encodeURIComponent(status)}`;
     }
 
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -512,7 +517,7 @@ export const getProviderEmergencyRequests = async (providerId, status = null) =>
       url += `?status=${encodeURIComponent(status)}`;
     }
 
-    const response = await fetch(url, {
+    const response = await authFetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

@@ -11,9 +11,10 @@
  * @version 2.0.0 - Optimized for speed
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Platform, PermissionsAndroid, Alert, Linking, AppState } from 'react-native';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Platform, PermissionsAndroid, Linking, AppState } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
+import { useDialog } from './DialogContext';
 import DeviceInfo from 'react-native-device-info';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import { requestNotificationPermission } from '../services/fcmService';
@@ -121,6 +122,8 @@ const LocationContext = createContext(null);
  * Location Provider Component
  */
 export const LocationProvider = ({ children }) => {
+  const { dialog } = useDialog();
+
   // Location state
   const [currentLocation, setCurrentLocation] = useState(null);
   const [locationAddress, setLocationAddress] = useState(null);
@@ -211,7 +214,7 @@ export const LocationProvider = ({ children }) => {
     // Blocked (user selected "Never ask again") → send to Settings
     if (currentStatus === 'blocked') {
       console.log('🔒 [LocationContext] Location permission blocked, directing to Settings');
-      Alert.alert(
+      dialog(
         'Location Permission Required',
         'FixHomi needs location access to find nearby service providers. Please enable it in Settings.',
         [
@@ -317,7 +320,7 @@ export const LocationProvider = ({ children }) => {
     setLocationLoading(false);
     setLocationError('Location services are turned off');
     
-    Alert.alert(
+    dialog(
       'Location is Turned Off',
       'Please enable location services to find nearby service providers and use FixHomi effectively.',
       [
@@ -645,31 +648,40 @@ export const LocationProvider = ({ children }) => {
     return await fetchLocation(true);
   }, [fetchLocation]);
   
-  // Context value
-  const value = {
-    // Location data
+  // Memoize context value to prevent unnecessary re-renders of consumers
+  const displayAddress = locationAddress?.shortAddress ||
+    locationAddress?.city ||
+    (currentLocation ? 'Location detected ✓' : 'Getting location...');
+
+  const value = useMemo(() => ({
     currentLocation,
     locationAddress,
-    
-    // Status
     locationLoading,
     locationError,
     locationPermission,
     locationServicesEnabled,
     isEmulator,
-    
-    // Actions
     refreshLocation,
     requestPermission,
     checkPermissionStatus,
     openLocationSettings,
     showGpsOffAlert,
-    
-    // Formatted display — prefer short address, never show raw coordinates
-    displayAddress: locationAddress?.shortAddress || 
-      locationAddress?.city ||
-      (currentLocation ? 'Location detected ✓' : 'Getting location...'),
-  };
+    displayAddress,
+  }), [
+    currentLocation,
+    locationAddress,
+    locationLoading,
+    locationError,
+    locationPermission,
+    locationServicesEnabled,
+    isEmulator,
+    refreshLocation,
+    requestPermission,
+    checkPermissionStatus,
+    openLocationSettings,
+    showGpsOffAlert,
+    displayAddress,
+  ]);
   
   return (
     <LocationContext.Provider value={value}>
