@@ -31,6 +31,7 @@ import {
   Animated,
   Dimensions,
 } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -51,6 +52,7 @@ import { subscribeToRequest, unsubscribeFromRequest, addEventListener as addSock
 import { setupForegroundMessageListener } from '../services/fcmService';
 import { NODE_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
+import { getUserEmergencyRequests } from '../services/emergencyServicesService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -77,8 +79,11 @@ const C = {
 
 const STATUS_CONFIG = {
   pending: { label: 'Pending', color: '#D97706', bgColor: '#FEF3C7', dotColor: '#D97706' },
+  awaiting_confirmation: { label: 'Awaiting', color: '#D97706', bgColor: '#FEF3C7', dotColor: '#D97706' },
   accepted: { label: 'Accepted', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
   'in-progress': { label: 'In Progress', color: C.purple, bgColor: C.purpleBg, dotColor: C.purple },
+  in_transit: { label: 'On the Way', color: C.purple, bgColor: C.purpleBg, dotColor: C.purple },
+  arrived: { label: 'Arrived', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
   completed: { label: 'Completed', color: '#059669', bgColor: '#D1FAE5', dotColor: '#059669' },
   cancelled: { label: 'Cancelled', color: '#DC2626', bgColor: '#FEE2E2', dotColor: '#DC2626' },
   rejected: { label: 'Rejected', color: '#DC2626', bgColor: '#FEE2E2', dotColor: '#DC2626' },
@@ -93,6 +98,13 @@ const FILTER_TABS = [
   { key: 'cancelled', label: 'Cancelled' },
 ];
 
+const CATEGORY_TABS = [
+  { key: 'all', label: 'All Types' },
+  { key: 'traditional', label: 'Services' },
+  { key: 'event', label: 'Events' },
+  { key: 'emergency', label: 'Emergency' },
+];
+
 const DATE_PRESETS = [
   { key: 'all', label: 'All Time' },
   { key: 'today', label: 'Today' },
@@ -103,7 +115,7 @@ const DATE_PRESETS = [
   { key: 'year', label: 'This Year' },
 ];
 
-const ACTIVE_STATUSES = ['pending', 'accepted', 'in-progress', 'awaiting_confirmation'];
+const ACTIVE_STATUSES = ['pending', 'accepted', 'in-progress', 'awaiting_confirmation', 'in_transit', 'arrived'];
 const PAGE_SIZE = 20;
 const STATS_HEIGHT = 100;
 
@@ -122,11 +134,18 @@ const getDateRange = (preset) => {
 };
 
 /* -- Stat Pill ----------------------------------------------------------- */
-const StatPill = ({ value, label, color, bgColor, icon }) => (
-  <View style={[styles.statPill, { backgroundColor: bgColor, borderColor: color + '30' }]}>
-    {icon}
+const StatPill = ({ value, label, color, bgColor }) => (
+  <View style={[styles.statPill, { backgroundColor: bgColor }]}>
+    <View style={styles.statSvgBg}>
+      <Svg width="100%" height="100%" viewBox="0 0 100 70" preserveAspectRatio="xMidYMid slice">
+        <Circle cx="85" cy="-5" r="35" fill={color} opacity={0.06} />
+        <Circle cx="90" cy="60" r="20" fill={color} opacity={0.05} />
+        <Path d="M0 50 Q25 30 50 45 T100 35" stroke={color} strokeWidth="1" fill="none" opacity={0.1} />
+        <Path d="M0 60 Q30 40 60 55 T100 50" stroke={color} strokeWidth="0.8" fill="none" opacity={0.07} />
+      </Svg>
+    </View>
     <Text style={[styles.statValue, { color }]}>{value}</Text>
-    <Text style={[styles.statLabel, { color: color + 'CC' }]}>{label}</Text>
+    <Text style={[styles.statLabel, { color: color + 'B0' }]}>{label}</Text>
   </View>
 );
 
@@ -226,7 +245,7 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
         {isDone && (
           <View style={styles.compactRow}>
             <Text style={styles.compactDate}>{serviceDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</Text>
-            {hasProvider && <Text style={styles.compactProvider}>{request.providerDetails.name}</Text>}
+            {hasProvider && request.providerDetails?.name && <Text style={styles.compactProvider}>{request.providerDetails.name}</Text>}
           </View>
         )}
 
@@ -453,6 +472,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [allRequests, setAllRequests] = useState([]);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [datePreset, setDatePreset] = useState('all');
   const [showDateFilter, setShowDateFilter] = useState(false);
   const [stats, setStats] = useState({ total: 0, active: 0, completed: 0 });
@@ -476,16 +496,36 @@ const UserServiceHistoryScreen = ({ navigation }) => {
   const statsOpacity = scrollY.interpolate({ inputRange: [0, 100], outputRange: [1, 0], extrapolate: 'clamp' });
   const statsHeight = scrollY.interpolate({ inputRange: [0, 120], outputRange: [STATS_HEIGHT, 0], extrapolate: 'clamp' });
 
+  // Prevent concurrent fetches from multiple triggers
+  const fetchInProgressRef = useRef(false);
+  const hasMountedRef = useRef(false);
+  const refreshDebounceRef = useRef(null);
+
   const fetchRequests = useCallback(async (pageNum = 1, append = false) => {
     if (!userId) { setLoading(false); return; }
+    // Guard against concurrent calls (except pagination appends)
+    if (!append && fetchInProgressRef.current) return;
+    fetchInProgressRef.current = true;
     try {
+      // Fetch all three service types in parallel using authenticated calls
       const fetchPromises = [
         getUserRequests(userId, { limit: PAGE_SIZE, page: pageNum, sortBy: 'createdAt', sortOrder: 'desc' }),
       ];
       if (pageNum === 1) {
         fetchPromises.push(
-          fetch(`${NODE_BASE_URL}/api/event-services/user/${userId}`).then(r => r.json()).catch(() => ({ data: [] })),
-          fetch(`${NODE_BASE_URL}/api/emergency-services/user/${userId}?limit=500`).then(r => r.json()).catch(() => ({ requests: [] })),
+          // Event services — use authFetch for proper auth headers
+          authFetch(`${NODE_BASE_URL}/api/event-services/user/${userId}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          }).then(r => r.json()).catch(err => {
+            console.warn('[History] Event services fetch failed:', err.message);
+            return { data: [] };
+          }),
+          // Emergency services — use the dedicated service function
+          getUserEmergencyRequests(userId).catch(err => {
+            console.warn('[History] Emergency services fetch failed:', err.message);
+            return { success: false, requests: [] };
+          }),
         );
       }
 
@@ -494,20 +534,33 @@ const UserServiceHistoryScreen = ({ navigation }) => {
       const eventResult = pageNum === 1 ? results[1] : null;
       const emergencyResult = pageNum === 1 ? results[2] : null;
 
-      const eventBookings = eventResult
-        ? (eventResult.data || []).map(b => ({
-            ...b, _id: b._id, requestId: b.serviceId || b._id, serviceType: b.serviceType, status: b.status, createdAt: b.createdAt, isEventService: true,
-            providerDetails: b.providerDetails || (b.providerId ? { _id: b.providerId, name: b.providerName || 'Provider' } : null),
-            assignedProviderId: b.providerId, providerId: b.providerId, completionOtp: b.completionOtp, eventDate: b.eventDate,
-          }))
-        : [];
+      // Parse event bookings — handle both { data: [...] } and { services: [...] } response shapes
+      const eventRaw = eventResult ? (eventResult.data || eventResult.services || []) : [];
+      const eventBookings = (Array.isArray(eventRaw) ? eventRaw : []).map(b => {
+        const loc = b.eventLocation || b.location || {};
+        let coords = null;
+        if (Array.isArray(loc.coordinates) && loc.coordinates.length === 2) { coords = loc.coordinates; }
+        else if (loc.latitude && loc.longitude) { coords = [loc.longitude, loc.latitude]; }
+        return {
+          ...b, _id: b._id, requestId: b.requestId || b._id, serviceType: b.serviceType, status: b.status, createdAt: b.createdAt, isEventService: true,
+          providerDetails: b.providerDetails || (b.providerId ? { _id: b.providerId, name: b.providerName || 'Provider' } : null),
+          assignedProviderId: b.providerId, providerId: b.providerId, completionOtp: b.completionOtp, eventDate: b.eventDate,
+          location: { address: loc.address || '', coordinates: coords, landmark: loc.landmark || '', latitude: loc.latitude, longitude: loc.longitude },
+          serviceAddress: loc.address || '',
+        };
+      });
 
-      const emergencyData = emergencyResult ? (emergencyResult.requests || emergencyResult.data || []) : [];
-      const emergencyBookings = emergencyData.map(b => ({
+      // Parse emergency bookings — handle both { requests: [...] } and { data: [...] } response shapes
+      const emergencyRaw = emergencyResult ? (emergencyResult.requests || emergencyResult.data || []) : [];
+      const emergencyBookings = (Array.isArray(emergencyRaw) ? emergencyRaw : []).map(b => ({
         ...b, _id: b._id, requestId: b.requestId || b._id, serviceType: b.serviceType, status: b.status, createdAt: b.createdAt, isEmergencyService: true,
         providerDetails: b.providerDetails || (b.providerId ? { _id: b.providerId, name: b.providerInfo?.name || 'Provider', phone: b.providerInfo?.phone } : null),
         assignedProviderId: b.providerId, providerId: b.providerId, completionOtp: b.completionOtp, location: b.location, notes: b.notes,
       }));
+
+      if (__DEV__) {
+        console.log('[History] Fetched:', { traditional: (traditionalResult.success ? traditionalResult.requests : []).length, event: eventBookings.length, emergency: emergencyBookings.length });
+      }
 
       const newTraditional = traditionalResult.success ? traditionalResult.requests : [];
       const pagination = traditionalResult.pagination;
@@ -522,27 +575,38 @@ const UserServiceHistoryScreen = ({ navigation }) => {
       } else {
         const combined = [...newTraditional, ...eventBookings, ...emergencyBookings].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setAllRequests(combined);
-        // Set initial stats from loaded data
-        setStats({
-          total: combined.length,
-          active: combined.filter(r => ACTIVE_STATUSES.includes(r.status)).length,
-          completed: combined.filter(r => r.status === 'completed').length,
-        });
-      }
 
-      // If there are more traditional requests than loaded, fetch ALL for accurate stats
-      if (pageNum === 1 && (traditionalResult.count || 0) > PAGE_SIZE) {
-        getUserRequests(userId, { limit: 500, page: 1 }).then(allResult => {
-          if (allResult.success) {
-            const allTraditional = allResult.requests || [];
-            const allCombined = [...allTraditional, ...eventBookings, ...emergencyBookings];
-            setStats({
-              total: allCombined.length,
-              active: allCombined.filter(r => ACTIVE_STATUSES.includes(r.status)).length,
-              completed: allCombined.filter(r => r.status === 'completed').length,
-            });
-          }
-        }).catch(() => {});
+        // If there are more traditional requests than loaded, fetch ALL for accurate stats before setting
+        if ((traditionalResult.count || 0) > PAGE_SIZE) {
+          getUserRequests(userId, { limit: 500, page: 1 }).then(allResult => {
+            if (allResult.success) {
+              const allTraditional = allResult.requests || [];
+              const allCombined = [...allTraditional, ...eventBookings, ...emergencyBookings];
+              const ns = {
+                total: allCombined.length,
+                active: allCombined.filter(r => ACTIVE_STATUSES.includes(r.status)).length,
+                completed: allCombined.filter(r => r.status === 'completed').length,
+              };
+              setStats(prev => prev.total === ns.total && prev.active === ns.active && prev.completed === ns.completed ? prev : ns);
+            }
+          }).catch(() => {
+            // Fallback to partial stats if full fetch fails
+            const ns = {
+              total: combined.length,
+              active: combined.filter(r => ACTIVE_STATUSES.includes(r.status)).length,
+              completed: combined.filter(r => r.status === 'completed').length,
+            };
+            setStats(prev => prev.total === ns.total && prev.active === ns.active && prev.completed === ns.completed ? prev : ns);
+          });
+        } else {
+          // All data already loaded — set stats once
+          const ns = {
+            total: combined.length,
+            active: combined.filter(r => ACTIVE_STATUSES.includes(r.status)).length,
+            completed: combined.filter(r => r.status === 'completed').length,
+          };
+          setStats(prev => prev.total === ns.total && prev.active === ns.active && prev.completed === ns.completed ? prev : ns);
+        }
       }
       setPage(pageNum);
     } catch (error) {
@@ -550,6 +614,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
     } finally {
       setLoading(false);
       setLoadingMore(false);
+      fetchInProgressRef.current = false;
     }
   }, [userId]);
 
@@ -561,7 +626,8 @@ const UserServiceHistoryScreen = ({ navigation }) => {
 
   const onRefresh = async () => { setRefreshing(true); setPage(1); setHasMore(true); await fetchRequests(1, false); setRefreshing(false); };
 
-  useEffect(() => { fetchRequests(1, false); }, [fetchRequests]);
+  // Initial fetch on mount
+  useEffect(() => { fetchRequests(1, false); hasMountedRef.current = true; }, [fetchRequests]);
 
   // Rating statuses
   useEffect(() => {
@@ -586,41 +652,59 @@ const UserServiceHistoryScreen = ({ navigation }) => {
     }).catch(() => {});
   }, []);
 
-  // Auto-refresh on focus
-  useEffect(() => { if (isFocused && autoRefreshEnabled && !loading) fetchRequests(); }, [isFocused]);
+  /**
+   * Debounced refresh — coalesces multiple rapid triggers (socket, FCM, focus, appstate)
+   * into a single API call. Waits 500ms after the last trigger before firing.
+   */
+  const debouncedRefresh = useCallback(() => {
+    if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current);
+    refreshDebounceRef.current = setTimeout(() => {
+      refreshDebounceRef.current = null;
+      fetchRequests();
+    }, 500);
+  }, [fetchRequests]);
 
-  // Periodic refresh
+  // Cleanup debounce on unmount
+  useEffect(() => () => { if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current); }, []);
+
+  // Auto-refresh on focus (skip initial mount — mount effect handles it)
+  useEffect(() => {
+    if (!hasMountedRef.current) return;
+    if (isFocused && autoRefreshEnabled && !loading) debouncedRefresh();
+  }, [isFocused]);
+
+  // Periodic refresh — 30s interval (only when focused)
   useEffect(() => {
     if (!isFocused || !autoRefreshEnabled) return;
     const interval = setInterval(() => fetchRequests(), 30000);
     return () => clearInterval(interval);
   }, [isFocused, autoRefreshEnabled, fetchRequests]);
 
-  // AppState listener
+  // AppState listener — refresh when returning to foreground
   useEffect(() => {
     const sub = AppState.addEventListener('change', (ns) => {
-      if (appStateRef.current.match(/inactive|background/) && ns === 'active' && isFocused && autoRefreshEnabled) fetchRequests();
+      if (appStateRef.current.match(/inactive|background/) && ns === 'active' && isFocused && autoRefreshEnabled) debouncedRefresh();
       appStateRef.current = ns;
     });
     return () => sub.remove();
-  }, [isFocused, autoRefreshEnabled, fetchRequests]);
+  }, [isFocused, autoRefreshEnabled, debouncedRefresh]);
 
-  // Socket listeners
+  // Socket listeners — debounced to coalesce rapid events
   useEffect(() => {
     const cleanups = [
-      addSocketListener('request:accepted', () => { if (autoRefreshEnabled) fetchRequests(); }),
-      addSocketListener('request:completed', () => { if (autoRefreshEnabled) fetchRequests(); }),
-      addSocketListener('request:status', () => { if (autoRefreshEnabled) fetchRequests(); }),
-      addSocketListener('provider:assigned', () => { if (autoRefreshEnabled) fetchRequests(); }),
+      addSocketListener('request:accepted', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
+      addSocketListener('request:completed', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
+      addSocketListener('request:status', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
+      addSocketListener('provider:assigned', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
     ];
     return () => cleanups.forEach(fn => fn());
-  }, [autoRefreshEnabled, fetchRequests]);
+  }, [autoRefreshEnabled, debouncedRefresh]);
 
-  // FCM foreground
+  // FCM foreground — debounced
   useEffect(() => {
-    const unsub = setupForegroundMessageListener(() => { if (autoRefreshEnabled) fetchRequests(); });
+    const unsub = setupForegroundMessageListener(() => { if (autoRefreshEnabled) debouncedRefresh(); });
     return () => { if (unsub) unsub(); };
-  }, [autoRefreshEnabled, fetchRequests]);
+  }, [autoRefreshEnabled, debouncedRefresh]);
 
   const handleCallProvider = (request) => {
     const phone = request.providerDetails?.phone || request.providerDetails?.verifiedPhone;
@@ -727,16 +811,21 @@ const UserServiceHistoryScreen = ({ navigation }) => {
 
   const filteredRequests = useMemo(() => {
     let f = allRequests;
+    // Category filter
+    if (categoryFilter === 'emergency') f = f.filter(r => r.isEmergencyService);
+    else if (categoryFilter === 'event') f = f.filter(r => r.isEventService);
+    else if (categoryFilter === 'traditional') f = f.filter(r => !r.isEmergencyService && !r.isEventService);
+    // Status filter
     switch (activeFilter) {
       case 'all': break;
-      case 'accepted': f = f.filter(r => ['accepted', 'in-progress'].includes(r.status)); break;
+      case 'accepted': f = f.filter(r => ['accepted', 'in-progress', 'awaiting_confirmation', 'in_transit', 'arrived'].includes(r.status)); break;
       case 'cancelled': f = f.filter(r => ['cancelled', 'expired', 'rejected'].includes(r.status)); break;
       default: f = f.filter(r => r.status === activeFilter); break;
     }
     const dr = getDateRange(datePreset);
     if (dr) f = f.filter(r => ACTIVE_STATUSES.includes(r.status) ? true : new Date(r.serviceDate || r.createdAt) >= dr.start && new Date(r.serviceDate || r.createdAt) <= dr.end);
     return f;
-  }, [allRequests, activeFilter, datePreset]);
+  }, [allRequests, activeFilter, categoryFilter, datePreset]);
 
   if (loading) return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -756,36 +845,51 @@ const UserServiceHistoryScreen = ({ navigation }) => {
       </View>
 
       {/* Collapsible Stats */}
-      <Animated.View style={[styles.statsBar, { height: statsHeight, opacity: statsOpacity }]}>
-        <View style={styles.statsRow}>
-          <StatPill value={stats.total} label="Total" color={C.primary} bgColor="#FFF7ED" icon={<Icon name="list" size={14} color={C.primary} />} />
-          <StatPill value={stats.active} label="Active" color={C.success} bgColor={C.successBg} icon={<Icon name="clock" size={14} color={C.success} />} />
-          <StatPill value={stats.completed} label="Done" color={C.secondary} bgColor="#EFF6FF" icon={<Icon name="check-circle" size={14} color={C.secondary} />} />
+      <Animated.View style={{ height: statsHeight, overflow: 'hidden' }}>
+        <View style={styles.statsBar}>
+          <Animated.View style={[styles.statsRow, { opacity: statsOpacity }]}>
+            <StatPill value={stats.total} label="Total" color={C.primary} bgColor="#FFF7ED" />
+            <StatPill value={stats.active} label="Active" color={C.success} bgColor={C.successBg} />
+            <StatPill value={stats.completed} label="Done" color={C.secondary} bgColor="#EFF6FF" />
+          </Animated.View>
         </View>
       </Animated.View>
 
-      {/* Filter Row — tabs with filter button separated */}
-      <View style={styles.filterBar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll} style={{ flex: 1 }}>
-          {FILTER_TABS.map(t => {
-            const active = activeFilter === t.key;
+      {/* Filter Section */}
+      <View style={styles.filterSection}>
+        {/* Status filters */}
+        <View style={styles.filterRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll} style={{ flex: 1 }}>
+            {FILTER_TABS.map(t => {
+              const active = activeFilter === t.key;
+              return (
+                <TouchableOpacity key={t.key} style={[styles.filterPill, active && styles.filterPillActive]} onPress={() => setActiveFilter(t.key)} activeOpacity={0.7}>
+                  <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>{t.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          <View style={styles.filterIconSeparator} />
+          <TouchableOpacity style={[styles.filterIconBtn, showDateFilter && styles.filterIconBtnOn]} onPress={() => setShowDateFilter(v => !v)} activeOpacity={0.7}>
+            <Icon name={showDateFilter || datePreset !== 'all' ? 'filter-outline' : 'filter-off-outline'} size={18} color={showDateFilter ? C.white : C.textSec} />
+            {datePreset !== 'all' && <View style={styles.filterDot} />}
+          </TouchableOpacity>
+        </View>
+
+        {/* Category filters */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
+          {CATEGORY_TABS.map(t => {
+            const active = categoryFilter === t.key;
             return (
-              <TouchableOpacity key={t.key} style={[styles.filterPill, active && styles.filterPillActive]} onPress={() => setActiveFilter(t.key)} activeOpacity={0.7}>
-                <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>{t.label}</Text>
+              <TouchableOpacity key={t.key} style={[styles.categoryChip, active && styles.categoryChipActive]} onPress={() => setCategoryFilter(t.key)} activeOpacity={0.7}>
+                <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>{t.label}</Text>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
-        <View style={styles.filterIconSeparator} />
-        <TouchableOpacity style={[styles.filterIconBtn, showDateFilter && styles.filterIconBtnOn]} onPress={() => setShowDateFilter(v => !v)} activeOpacity={0.7}>
-          <Icon name={showDateFilter || datePreset !== 'all' ? 'filter-outline' : 'filter-off-outline'} size={18} color={showDateFilter ? C.white : C.textSec} />
-          {datePreset !== 'all' && <View style={styles.filterDot} />}
-        </TouchableOpacity>
-      </View>
 
-      {/* Date chips */}
-      {showDateFilter && (
-        <View style={styles.dateBar}>
+        {/* Date chips */}
+        {showDateFilter && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateScroll}>
             {DATE_PRESETS.map(p => {
               const a = datePreset === p.key;
@@ -796,8 +900,8 @@ const UserServiceHistoryScreen = ({ navigation }) => {
               );
             })}
           </ScrollView>
-        </View>
-      )}
+        )}
+      </View>
 
       {/* List */}
       <Animated.FlatList
@@ -806,7 +910,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
         scrollEventThrottle={8}
         ListHeaderComponent={
-          (activeFilter !== 'all' || datePreset !== 'all') ? (
+          (activeFilter !== 'all' || categoryFilter !== 'all' || datePreset !== 'all') ? (
             <Text style={styles.resultCount}>{filteredRequests.length} {filteredRequests.length === 1 ? 'booking' : 'bookings'}</Text>
           ) : null
         }
@@ -859,7 +963,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F0F2F5' },
 
   // Header
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 12, backgroundColor: C.white, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 5, zIndex: 10 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 14, backgroundColor: C.white, zIndex: 10 },
   headerTitle: { fontSize: 20, fontWeight: '800', color: C.text, letterSpacing: -0.3 },
   logoBtn: { width: 40, height: 40, borderRadius: 20, overflow: 'hidden' },
   logoImg: { width: 40, height: 40, borderRadius: 20 },
@@ -869,28 +973,36 @@ const styles = StyleSheet.create({
   loaderText: { marginTop: 12, fontSize: 14, fontWeight: '500', color: C.textSec },
 
   // Collapsible Stats
-  statsBar: { backgroundColor: C.white, paddingHorizontal: 14, paddingVertical: 4, justifyContent: 'center', overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 2 },
+  statsBar: { backgroundColor: C.white, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 12, justifyContent: 'center' },
   statsRow: { flexDirection: 'row', gap: 8 },
-  statPill: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 14, borderWidth: 1, gap: 2 },
-  statValue: { fontSize: 20, fontWeight: '800', letterSpacing: -0.5 },
-  statLabel: { fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  statPill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 16, overflow: 'hidden', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3 },
+  statSvgBg: { ...StyleSheet.absoluteFillObject },
+  statValue: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5, marginBottom: 1 },
+  statLabel: { fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
 
-  // Filter bar
-  filterBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.white, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 3, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  filterScroll: { paddingHorizontal: 14, paddingVertical: 6, gap: 8 },
-  filterPill: { paddingHorizontal: 18, paddingVertical: 9, backgroundColor: '#F1F5F9', borderRadius: 22, borderWidth: 1, borderColor: '#E2E8F0' },
-  filterPillActive: { backgroundColor: C.primary, borderColor: C.primary, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
+  // Filter section — unified container
+  filterSection: { backgroundColor: C.white, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: '#E8ECF0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 3 },
+  filterRow: { flexDirection: 'row', alignItems: 'center' },
+  filterScroll: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
+  filterPill: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#F1F5F9', borderRadius: 20, borderWidth: 1, borderColor: '#E2E8F0' },
+  filterPillActive: { backgroundColor: C.primary, borderColor: C.primary },
   filterPillText: { fontSize: 13, fontWeight: '600', color: C.textSec },
   filterPillTextActive: { color: C.white },
-  filterIconSeparator: { width: 1, height: 28, backgroundColor: '#E2E8F0', marginRight: 10 },
-  filterIconBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center', marginRight: 14, borderWidth: 1, borderColor: '#E2E8F0' },
+  filterIconSeparator: { width: 1, height: 24, backgroundColor: '#E2E8F0', marginRight: 10 },
+  filterIconBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center', marginRight: 14, borderWidth: 1, borderColor: '#E2E8F0' },
   filterIconBtnOn: { backgroundColor: C.secondary, borderColor: C.secondary },
-  filterDot: { position: 'absolute', top: 4, right: 4, width: 8, height: 8, borderRadius: 4, backgroundColor: C.primary, borderWidth: 2, borderColor: C.white },
+  filterDot: { position: 'absolute', top: 3, right: 3, width: 7, height: 7, borderRadius: 4, backgroundColor: C.primary, borderWidth: 1.5, borderColor: C.white },
 
-  // Date bar
-  dateBar: { backgroundColor: '#FAFBFC', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 8 },
-  dateScroll: { paddingHorizontal: 14, paddingBottom: 10, gap: 6 },
-  dateChip: { paddingHorizontal: 14, paddingVertical: 7, backgroundColor: '#F1F5F9', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0' },
+  // Category chips
+  categoryScroll: { paddingHorizontal: 16, paddingTop: 2, paddingBottom: 8, gap: 6 },
+  categoryChip: { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0' },
+  categoryChipActive: { backgroundColor: '#EFF6FF', borderColor: C.secondary },
+  categoryChipText: { fontSize: 12, fontWeight: '600', color: C.muted },
+  categoryChipTextActive: { color: C.secondary },
+
+  // Date chips
+  dateScroll: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8, gap: 6 },
+  dateChip: { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0' },
   dateChipOn: { backgroundColor: C.secondary, borderColor: C.secondary },
   dateChipText: { fontSize: 12, fontWeight: '600', color: C.textSec },
   dateChipTextOn: { color: C.white },

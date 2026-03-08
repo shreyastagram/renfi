@@ -727,6 +727,15 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
       if (result.success && result.request) {
         const req = result.request;
         if (req.providerInfo && !req.providerDetails) req.providerDetails = req.providerInfo;
+        // Normalize location: ensure request.location is populated for event/emergency services
+        if (!req.location && req.eventLocation) {
+          req.location = req.eventLocation;
+        }
+        if (req.location && !req.location.coordinates) {
+          if (req.location.latitude && req.location.longitude) {
+            req.location.coordinates = [req.location.longitude, req.location.latitude];
+          }
+        }
         setRequest(req);
       } else {
         console.error('[RequestDetail] Fetch failed:', result.error);
@@ -1234,15 +1243,21 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
 
         {/* Provider Compact Action Card — Directions | Call | Location Toggle | OTP */}
         {isProvider && ['accepted', 'in-progress'].includes(request.status) && (() => {
-          const hasCoords = request.location?.coordinates || request.location?.latitude;
+          const hasCoords = request.location?.coordinates || request.location?.latitude || request.eventLocation?.coordinates || request.eventLocation?.latitude;
           const handleDirections = () => {
             let lat, lng;
-            if (request.location?.coordinates && Array.isArray(request.location.coordinates)) {
+            if (request.location?.coordinates && Array.isArray(request.location.coordinates) && request.location.coordinates.length === 2) {
               [lng, lat] = request.location.coordinates;
             } else if (request.location?.latitude && request.location?.longitude) {
               lat = request.location.latitude; lng = request.location.longitude;
+            } else if (request.eventLocation?.coordinates) {
+              const coords = request.eventLocation.coordinates;
+              if (Array.isArray(coords) && coords.length === 2) { [lng, lat] = coords; }
+              else if (coords.latitude && coords.longitude) { lat = coords.latitude; lng = coords.longitude; }
+            } else if (request.eventLocation?.latitude && request.eventLocation?.longitude) {
+              lat = request.eventLocation.latitude; lng = request.eventLocation.longitude;
             }
-            if (lat && lng) {
+            if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
               const label = encodeURIComponent(request.serviceAddress || request.location?.address || 'Service Location');
               const url = Platform.select({ ios: `maps:0,0?q=${lat},${lng}(${label})`, android: `google.navigation:q=${lat},${lng}` });
               Linking.openURL(url).catch(() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`));
@@ -1553,38 +1568,47 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                 )}
               </View>
             )}
-            {(request.location?.coordinates || request.location?.latitude || request.serviceAddress || request.location?.address) && ['pending', 'awaiting_confirmation', 'accepted', 'in-progress'].includes(request.status) && (
-              <View style={s.serviceLocationBox}>
-                <Text style={s.serviceLocationLabel}>SERVICE LOCATION</Text>
-                <View style={[s.rowCenter, { gap: 8, marginBottom: 8 }]}><Icon name="pin" size={13} color={BRAND.primary} /><Text style={{ flex: 1, fontSize: 12, color: BRAND.text, lineHeight: 17 }}>{request.serviceAddress || request.location?.address || request.address || 'Service Location'}</Text></View>
-                <TouchableOpacity
-                  style={s.openInMapsBtn}
-                  onPress={() => {
-                    let lat, lng;
-                    if (request.location?.coordinates && Array.isArray(request.location.coordinates)) {
-                      [lng, lat] = request.location.coordinates;
-                    } else if (request.location?.latitude && request.location?.longitude) {
-                      lat = request.location.latitude;
-                      lng = request.location.longitude;
-                    }
-                    if (lat && lng) {
-                      const label = encodeURIComponent(request.location.address || 'Service Location');
-                      const url = Platform.select({
-                        ios: `maps:0,0?q=${lat},${lng}(${label})`,
-                        android: `google.navigation:q=${lat},${lng}`,
-                      });
-                      Linking.openURL(url).catch(() => {
-                        Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`);
-                      });
-                    }
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Icon name="directions" size={14} color={BRAND.secondary} />
-                  <Text style={s.openInMapsBtnText}>Open in Maps</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            {(() => {
+              const loc = request.location || request.eventLocation;
+              const locAddr = request.serviceAddress || loc?.address || request.eventLocation?.address || request.address;
+              if (!(loc?.coordinates || loc?.latitude || locAddr) || !['pending', 'awaiting_confirmation', 'accepted', 'in-progress'].includes(request.status)) return null;
+              return (
+                <View style={s.serviceLocationBox}>
+                  <Text style={s.serviceLocationLabel}>SERVICE LOCATION</Text>
+                  <View style={[s.rowCenter, { gap: 8, marginBottom: 8 }]}><Icon name="pin" size={13} color={BRAND.primary} /><Text style={{ flex: 1, fontSize: 12, color: BRAND.text, lineHeight: 17 }}>{locAddr || 'Service Location'}</Text></View>
+                  <TouchableOpacity
+                    style={s.openInMapsBtn}
+                    onPress={() => {
+                      let lat, lng;
+                      const l = request.location || request.eventLocation;
+                      if (l?.coordinates && Array.isArray(l.coordinates) && l.coordinates.length === 2) {
+                        [lng, lat] = l.coordinates;
+                      } else if (l?.latitude && l?.longitude) {
+                        lat = l.latitude; lng = l.longitude;
+                      } else if (request.eventLocation?.coordinates) {
+                        const coords = request.eventLocation.coordinates;
+                        if (Array.isArray(coords) && coords.length === 2) { [lng, lat] = coords; }
+                        else if (coords.latitude && coords.longitude) { lat = coords.latitude; lng = coords.longitude; }
+                      }
+                      if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+                        const label = encodeURIComponent(locAddr || 'Service Location');
+                        const url = Platform.select({
+                          ios: `maps:0,0?q=${lat},${lng}(${label})`,
+                          android: `google.navigation:q=${lat},${lng}`,
+                        });
+                        Linking.openURL(url).catch(() => {
+                          Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`);
+                        });
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Icon name="directions" size={14} color={BRAND.secondary} />
+                    <Text style={s.openInMapsBtnText}>Open in Maps</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })()}
             {['pending', 'awaiting_confirmation', 'accepted', 'in-progress'].includes(request.status) && (
               <TouchableOpacity style={s.callCustomerBtn} onPress={handleCall}>
                 <Icon name="phone" size={15} color="#FFFFFF" /><Text style={s.callCustomerBtnText}>Call Customer</Text>
@@ -1630,7 +1654,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
 
         {/* Location Map — provider only, at bottom after request details */}
         {isProvider && ['pending', 'awaiting_confirmation', 'accepted', 'in-progress'].includes(request.status) && (request.location?.coordinates || request.location?.latitude) && (
-          <LocationMapPreview location={request.location} address={request.serviceAddress || request.location?.address || request.address || 'Service Location'} />
+          <LocationMapPreview location={request.location || request.eventLocation} address={request.serviceAddress || request.location?.address || request.eventLocation?.address || request.address || 'Service Location'} />
         )}
 
         {/* Pricing */}

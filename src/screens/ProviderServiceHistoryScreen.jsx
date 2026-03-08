@@ -31,6 +31,7 @@ import {
   AppState,
   Image,
 } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -47,7 +48,7 @@ import {
 } from '../services/traditionalServiceService';
 import { addEventListener as addSocketListener } from '../services/socketService';
 import { setupForegroundMessageListener } from '../services/fcmService';
-import { STATIC_NUMBER_SERVICES } from '../services/emergencyServicesService';
+import { STATIC_NUMBER_SERVICES, getProviderEmergencyRequests } from '../services/emergencyServicesService';
 import { authFetch } from '../utils/authFetch';
 import { NODE_BASE_URL } from '../config/api';
 
@@ -95,6 +96,13 @@ const FILTER_TABS = [
   { key: 'cancelled', label: 'Cancelled' },
 ];
 
+const CATEGORY_TABS = [
+  { key: 'all', label: 'All Types' },
+  { key: 'traditional', label: 'Services' },
+  { key: 'event', label: 'Events' },
+  { key: 'emergency', label: 'Emergency' },
+];
+
 const DATE_PRESETS = [
   { key: 'all', label: 'All Time' },
   { key: 'today', label: 'Today' },
@@ -122,11 +130,18 @@ const getDateRange = (preset) => {
 };
 
 /* ── Stat Pill ─────────────────────────────────────────────────────── */
-const StatPill = ({ value, label, color, bgColor, icon }) => (
-  <View style={[styles.statPill, { backgroundColor: bgColor, borderColor: color + '30' }]}>
-    {icon}
+const StatPill = ({ value, label, color, bgColor }) => (
+  <View style={[styles.statPill, { backgroundColor: bgColor }]}>
+    <View style={styles.statSvgBg}>
+      <Svg width="100%" height="100%" viewBox="0 0 100 70" preserveAspectRatio="xMidYMid slice">
+        <Circle cx="85" cy="-5" r="35" fill={color} opacity={0.06} />
+        <Circle cx="90" cy="60" r="20" fill={color} opacity={0.05} />
+        <Path d="M0 50 Q25 30 50 45 T100 35" stroke={color} strokeWidth="1" fill="none" opacity={0.1} />
+        <Path d="M0 60 Q30 40 60 55 T100 50" stroke={color} strokeWidth="0.8" fill="none" opacity={0.07} />
+      </Svg>
+    </View>
     <Text style={[styles.statValue, { color }]}>{value}</Text>
-    <Text style={[styles.statLabel, { color: color + 'CC' }]}>{label}</Text>
+    <Text style={[styles.statLabel, { color: color + 'B0' }]}>{label}</Text>
   </View>
 );
 
@@ -351,6 +366,8 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
   const { user, profile, userType, logout } = useApp();
   const { dialog } = useDialog();
   const appStateRef = useRef(AppState.currentState);
+  const fetchInProgressRef = useRef(false);
+  const refreshDebounceRef = useRef(null);
 
   const initialTab = route?.params?.tab || 'all';
 
@@ -359,6 +376,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [allRequests, setAllRequests] = useState([]);
   const [activeFilter, setActiveFilter] = useState(initialTab);
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [datePreset, setDatePreset] = useState('all');
   const [showDateFilter, setShowDateFilter] = useState(false);
   const [stats, setStats] = useState({ total: 0, active: 0, completed: 0, pending: 0, rating: 0 });
@@ -397,28 +415,47 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
    */
   const fetchJobs = useCallback(async (showLoading = true) => {
     if (!providerId) { setLoading(false); return; }
+    if (fetchInProgressRef.current) return;
+    fetchInProgressRef.current = true;
     if (showLoading) setLoading(true);
     try {
       const [traditionalResult, eventResult, emergencyResult] = await Promise.all([
         getProviderRequests(providerId, { page: 1, limit: 500, sortBy: 'createdAt', sortOrder: 'desc' }),
-        fetch(`${NODE_BASE_URL}/api/event-services/provider/${providerId}`).then(r => r.json()).catch(() => ({ data: [] })),
-        fetch(`${NODE_BASE_URL}/api/emergency-services/provider/${providerId}`).then(r => r.json()).catch(() => ({ data: [] })),
+        authFetch(`${NODE_BASE_URL}/api/event-services/provider/${providerId}`, {
+          method: 'GET', headers: { 'Content-Type': 'application/json' },
+        }).then(r => r.json()).catch(err => {
+          console.warn('[ProviderJobs] Event services fetch failed:', err.message);
+          return { data: [] };
+        }),
+        getProviderEmergencyRequests(providerId).catch(err => {
+          console.warn('[ProviderJobs] Emergency services fetch failed:', err.message);
+          return { success: false, requests: [] };
+        }),
       ]);
 
       // Format event services
-      const eventBookings = (eventResult.data || []).map(b => {
+      const eventData = Array.isArray(eventResult.data) ? eventResult.data : [];
+      const eventBookings = eventData.map(b => {
         const loc = b.eventLocation || b.location || {};
+        // Extract coordinates: try GeoJSON array, then separate lat/lng fields
+        let coords = null;
+        if (Array.isArray(loc.coordinates) && loc.coordinates.length === 2) {
+          coords = loc.coordinates;
+        } else if (loc.latitude && loc.longitude) {
+          coords = [loc.longitude, loc.latitude];
+        }
         return {
-          ...b, _id: b._id, requestId: b.serviceId || b._id, serviceType: b.serviceType, status: b.status,
+          ...b, _id: b._id, requestId: b.requestId || b._id, serviceType: b.serviceType, status: b.status,
           createdAt: b.createdAt, isEventService: true, completionOtp: b.completionOtp, eventDate: b.eventDate,
           userDetails: b.userDetails || (b.userId ? { name: b.userName || 'Customer' } : null),
-          location: { address: loc.address || '', coordinates: loc.coordinates || null, landmark: loc.landmark || '' },
+          location: { address: loc.address || '', coordinates: coords, landmark: loc.landmark || '', latitude: loc.latitude, longitude: loc.longitude },
           serviceAddress: loc.address || '',
         };
       });
 
       // Format emergency services
-      const emergencyData = emergencyResult.requests || emergencyResult.data || [];
+      const rawEmergencyData = emergencyResult.requests || emergencyResult.data || [];
+      const emergencyData = Array.isArray(rawEmergencyData) ? rawEmergencyData : [];
       const emergencyBookings = emergencyData.map(b => {
         const loc = b.location || {};
         return {
@@ -440,60 +477,76 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
       setAllRequests(combined);
 
       const rating = profile?.ratings?.average || profile?.rating || user?.rating || 0;
-      setStats({
+      const newStats = {
         total: combined.length,
         pending: combined.filter(r => ['pending', 'awaiting_confirmation'].includes(r.status)).length,
         active: combined.filter(r => ['accepted', 'in-progress', 'in_transit', 'arrived'].includes(r.status)).length,
         completed: combined.filter(r => r.status === 'completed').length,
         rating,
-      });
+      };
+      setStats(prev =>
+        prev.total === newStats.total && prev.pending === newStats.pending &&
+        prev.active === newStats.active && prev.completed === newStats.completed &&
+        prev.rating === newStats.rating ? prev : newStats
+      );
     } catch (error) {
       console.error('[ProviderJobs] Error:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
+      fetchInProgressRef.current = false;
     }
   }, [providerId, profile, user]);
+
+  const debouncedRefresh = useCallback(() => {
+    if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current);
+    refreshDebounceRef.current = setTimeout(() => {
+      refreshDebounceRef.current = null;
+      fetchJobs(false);
+    }, 500);
+  }, [fetchJobs]);
+
+  useEffect(() => () => { if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current); }, []);
 
   // Fetch on mount
   useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
-  // Auto-refresh on focus
-  useEffect(() => { if (isFocused && autoRefreshEnabled && !loading) fetchJobs(false); }, [isFocused]);
+  // Auto-refresh on focus (debounced to avoid duplicate calls)
+  useEffect(() => { if (isFocused && autoRefreshEnabled && !loading) debouncedRefresh(); }, [isFocused]);
 
   // Periodic auto-refresh every 30s
   useEffect(() => {
     if (!isFocused || !autoRefreshEnabled) return;
-    const interval = setInterval(() => fetchJobs(false), 30000);
+    const interval = setInterval(() => debouncedRefresh(), 30000);
     return () => clearInterval(interval);
-  }, [isFocused, autoRefreshEnabled, fetchJobs]);
+  }, [isFocused, autoRefreshEnabled, debouncedRefresh]);
 
   // AppState listener
   useEffect(() => {
     const sub = AppState.addEventListener('change', (ns) => {
-      if (appStateRef.current.match(/inactive|background/) && ns === 'active' && isFocused && autoRefreshEnabled) fetchJobs(false);
+      if (appStateRef.current.match(/inactive|background/) && ns === 'active' && isFocused && autoRefreshEnabled) debouncedRefresh();
       appStateRef.current = ns;
     });
     return () => sub.remove();
-  }, [isFocused, autoRefreshEnabled, fetchJobs]);
+  }, [isFocused, autoRefreshEnabled, debouncedRefresh]);
 
-  // Socket listeners
+  // Socket listeners (debounced to coalesce rapid events)
   useEffect(() => {
     const cleanups = [
-      addSocketListener('new:request', () => { if (autoRefreshEnabled) fetchJobs(false); }),
-      addSocketListener('request:cancelled', () => { if (autoRefreshEnabled) fetchJobs(false); }),
-      addSocketListener('request:status', () => { if (autoRefreshEnabled) fetchJobs(false); }),
-      addSocketListener('request:accepted', () => { if (autoRefreshEnabled) fetchJobs(false); }),
-      addSocketListener('request:completed', () => { if (autoRefreshEnabled) fetchJobs(false); }),
+      addSocketListener('new:request', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
+      addSocketListener('request:cancelled', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
+      addSocketListener('request:status', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
+      addSocketListener('request:accepted', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
+      addSocketListener('request:completed', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
     ];
     return () => cleanups.forEach(fn => fn());
-  }, [autoRefreshEnabled, fetchJobs]);
+  }, [autoRefreshEnabled, debouncedRefresh]);
 
-  // FCM foreground listener
+  // FCM foreground listener (debounced)
   useEffect(() => {
-    const unsub = setupForegroundMessageListener(() => { if (autoRefreshEnabled) fetchJobs(false); });
+    const unsub = setupForegroundMessageListener(() => { if (autoRefreshEnabled) debouncedRefresh(); });
     return () => { if (unsub) unsub(); };
-  }, [autoRefreshEnabled, fetchJobs]);
+  }, [autoRefreshEnabled, debouncedRefresh]);
 
   const onRefresh = () => { setRefreshing(true); fetchJobs(false); };
 
@@ -605,9 +658,18 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
   // ── Directions ──
   const handleDirections = (job) => {
     let lat, lng;
-    if (job.location?.coordinates && Array.isArray(job.location.coordinates)) { [lng, lat] = job.location.coordinates; }
-    else if (job.location?.latitude && job.location?.longitude) { lat = job.location.latitude; lng = job.location.longitude; }
-    if (!lat || !lng) { dialog('Location Error', 'Coordinates not available'); return; }
+    if (job.location?.coordinates && Array.isArray(job.location.coordinates) && job.location.coordinates.length === 2) {
+      [lng, lat] = job.location.coordinates;
+    } else if (job.location?.latitude && job.location?.longitude) {
+      lat = job.location.latitude; lng = job.location.longitude;
+    } else if (job.eventLocation?.coordinates) {
+      const coords = job.eventLocation.coordinates;
+      if (Array.isArray(coords) && coords.length === 2) { [lng, lat] = coords; }
+      else if (coords.latitude && coords.longitude) { lat = coords.latitude; lng = coords.longitude; }
+    } else if (job.eventLocation?.latitude && job.eventLocation?.longitude) {
+      lat = job.eventLocation.latitude; lng = job.eventLocation.longitude;
+    }
+    if (!lat || !lng || isNaN(lat) || isNaN(lng)) { dialog('Location Error', 'Coordinates not available for this service.'); return; }
     const url = Platform.select({ ios: `maps:?daddr=${lat},${lng}`, android: `google.navigation:q=${lat},${lng}` });
     Linking.openURL(url).catch(() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`));
   };
@@ -669,6 +731,11 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
   // ── Filter ──
   const filteredRequests = useMemo(() => {
     let f = allRequests;
+    // Category filter
+    if (categoryFilter === 'emergency') f = f.filter(r => r.isEmergencyService);
+    else if (categoryFilter === 'event') f = f.filter(r => r.isEventService);
+    else if (categoryFilter === 'traditional') f = f.filter(r => !r.isEmergencyService && !r.isEventService);
+    // Status filter
     switch (activeFilter) {
       case 'all': break;
       case 'pending': f = f.filter(r => ['pending', 'awaiting_confirmation'].includes(r.status)); break;
@@ -680,7 +747,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
     const dr = getDateRange(datePreset);
     if (dr) f = f.filter(r => ACTIVE_STATUSES.includes(r.status) ? true : new Date(r.serviceDate || r.createdAt) >= dr.start && new Date(r.serviceDate || r.createdAt) <= dr.end);
     return f;
-  }, [allRequests, activeFilter, datePreset]);
+  }, [allRequests, activeFilter, categoryFilter, datePreset]);
 
   if (loading) return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -699,38 +766,51 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
         <AvatarButton name={displayData?.fullName} profilePicture={displayData?.profilePicture} onPress={() => navigation.navigate('Profile')} isProvider={true} />
       </View>
 
-      {/* Stats — fixed, no animation for cross-device consistency */}
+      {/* Stats */}
       <View style={styles.statsBar}>
         <View style={styles.statsRow}>
-          <StatPill value={stats.total} label="Total" color={C.secondary} bgColor="#EFF6FF" icon={<Icon name="briefcase" size={14} color={C.secondary} />} />
-          <StatPill value={stats.pending} label="New" color={C.primary} bgColor="#FFF7ED" icon={<Icon name="inbox" size={14} color={C.primary} />} />
-          <StatPill value={stats.active} label="Active" color={C.purple} bgColor="#FAF5FF" icon={<Icon name="clock" size={14} color={C.purple} />} />
-          <StatPill value={stats.completed} label="Done" color={C.success} bgColor="#ECFDF5" icon={<Icon name="check-circle" size={14} color={C.success} />} />
+          <StatPill value={stats.total} label="Total" color={C.secondary} bgColor="#EFF6FF" />
+          <StatPill value={stats.pending} label="New" color={C.primary} bgColor="#FFF7ED" />
+          <StatPill value={stats.active} label="Active" color={C.purple} bgColor="#FAF5FF" />
+          <StatPill value={stats.completed} label="Done" color={C.success} bgColor="#ECFDF5" />
         </View>
       </View>
 
-      {/* Filter Row */}
-      <View style={styles.filterBar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll} style={{ flex: 1 }}>
-          {FILTER_TABS.map(t => {
-            const active = activeFilter === t.key;
+      {/* Filter Section */}
+      <View style={styles.filterSection}>
+        {/* Status filters */}
+        <View style={styles.filterRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll} style={{ flex: 1 }}>
+            {FILTER_TABS.map(t => {
+              const active = activeFilter === t.key;
+              return (
+                <TouchableOpacity key={t.key} style={[styles.filterPill, active && styles.filterPillActive]} onPress={() => setActiveFilter(t.key)} activeOpacity={0.7}>
+                  <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>{t.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          <View style={styles.filterIconSeparator} />
+          <TouchableOpacity style={[styles.filterIconBtn, showDateFilter && styles.filterIconBtnOn]} onPress={() => setShowDateFilter(v => !v)} activeOpacity={0.7}>
+            <Icon name={showDateFilter || datePreset !== 'all' ? 'filter-outline' : 'filter-off-outline'} size={18} color={showDateFilter ? C.white : C.textSec} />
+            {datePreset !== 'all' && <View style={styles.filterDot} />}
+          </TouchableOpacity>
+        </View>
+
+        {/* Category filters */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
+          {CATEGORY_TABS.map(t => {
+            const active = categoryFilter === t.key;
             return (
-              <TouchableOpacity key={t.key} style={[styles.filterPill, active && styles.filterPillActive]} onPress={() => setActiveFilter(t.key)} activeOpacity={0.7}>
-                <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>{t.label}</Text>
+              <TouchableOpacity key={t.key} style={[styles.categoryChip, active && styles.categoryChipActive]} onPress={() => setCategoryFilter(t.key)} activeOpacity={0.7}>
+                <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>{t.label}</Text>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
-        <View style={styles.filterIconSeparator} />
-        <TouchableOpacity style={[styles.filterIconBtn, showDateFilter && styles.filterIconBtnOn]} onPress={() => setShowDateFilter(v => !v)} activeOpacity={0.7}>
-          <Icon name={showDateFilter || datePreset !== 'all' ? 'filter-outline' : 'filter-off-outline'} size={18} color={showDateFilter ? C.white : C.textSec} />
-          {datePreset !== 'all' && <View style={styles.filterDot} />}
-        </TouchableOpacity>
-      </View>
 
-      {/* Date chips */}
-      {showDateFilter && (
-        <View style={styles.dateBar}>
+        {/* Date chips */}
+        {showDateFilter && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateScroll}>
             {DATE_PRESETS.map(p => {
               const a = datePreset === p.key;
@@ -741,15 +821,15 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
               );
             })}
           </ScrollView>
-        </View>
-      )}
+        )}
+      </View>
 
       {/* List */}
       <FlatList
         data={filteredRequests}
         keyExtractor={item => item._id}
         ListHeaderComponent={
-          (activeFilter !== 'all' || datePreset !== 'all') ? (
+          (activeFilter !== 'all' || categoryFilter !== 'all' || datePreset !== 'all') ? (
             <Text style={styles.resultCount}>{filteredRequests.length} {filteredRequests.length === 1 ? 'job' : 'jobs'}</Text>
           ) : null
         }
@@ -784,7 +864,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
 
   // Header
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 12, backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: C.border },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 14, backgroundColor: C.white },
   headerTitle: { fontSize: 20, fontWeight: '800', color: C.text, letterSpacing: -0.3 },
   headerLogoBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.95)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
   headerLogoImg: { width: 30, height: 30, borderRadius: 8 },
@@ -793,29 +873,37 @@ const styles = StyleSheet.create({
   loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loaderText: { marginTop: 12, fontSize: 14, fontWeight: '500', color: C.textSec },
 
-  // Stats — fixed (no animation)
-  statsBar: { backgroundColor: C.white, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.border },
+  // Stats
+  statsBar: { backgroundColor: C.white, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 12 },
   statsRow: { flexDirection: 'row', gap: 8 },
-  statPill: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 14, borderWidth: 1, gap: 2 },
-  statValue: { fontSize: 20, fontWeight: '800', letterSpacing: -0.5 },
-  statLabel: { fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  statPill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 16, overflow: 'hidden', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3 },
+  statSvgBg: { ...StyleSheet.absoluteFillObject },
+  statValue: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5, marginBottom: 1 },
+  statLabel: { fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
 
-  // Filter bar
-  filterBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: C.border },
-  filterScroll: { paddingHorizontal: 14, paddingVertical: 10, gap: 7 },
-  filterPill: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#F1F5F9', borderRadius: 22, borderWidth: 1, borderColor: '#E2E8F0' },
-  filterPillActive: { backgroundColor: C.primary, borderColor: C.primary, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
+  // Filter section — unified container
+  filterSection: { backgroundColor: C.white, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: '#E8ECF0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 3 },
+  filterRow: { flexDirection: 'row', alignItems: 'center' },
+  filterScroll: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
+  filterPill: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#F1F5F9', borderRadius: 20, borderWidth: 1, borderColor: '#E2E8F0' },
+  filterPillActive: { backgroundColor: C.primary, borderColor: C.primary },
   filterPillText: { fontSize: 13, fontWeight: '600', color: C.textSec },
   filterPillTextActive: { color: C.white },
-  filterIconSeparator: { width: 1, height: 28, backgroundColor: '#E2E8F0', marginRight: 10 },
-  filterIconBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center', marginRight: 14, borderWidth: 1, borderColor: '#E2E8F0' },
+  filterIconSeparator: { width: 1, height: 24, backgroundColor: '#E2E8F0', marginRight: 10 },
+  filterIconBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center', marginRight: 14, borderWidth: 1, borderColor: '#E2E8F0' },
   filterIconBtnOn: { backgroundColor: C.secondary, borderColor: C.secondary },
-  filterDot: { position: 'absolute', top: 4, right: 4, width: 8, height: 8, borderRadius: 4, backgroundColor: C.primary, borderWidth: 2, borderColor: C.white },
+  filterDot: { position: 'absolute', top: 3, right: 3, width: 7, height: 7, borderRadius: 4, backgroundColor: C.primary, borderWidth: 1.5, borderColor: C.white },
 
-  // Date bar
-  dateBar: { backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: C.border, paddingTop: 4 },
-  dateScroll: { paddingHorizontal: 14, paddingBottom: 10, gap: 6 },
-  dateChip: { paddingHorizontal: 14, paddingVertical: 7, backgroundColor: '#F1F5F9', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0' },
+  // Category chips
+  categoryScroll: { paddingHorizontal: 16, paddingTop: 2, paddingBottom: 8, gap: 6 },
+  categoryChip: { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0' },
+  categoryChipActive: { backgroundColor: '#EFF6FF', borderColor: C.secondary },
+  categoryChipText: { fontSize: 12, fontWeight: '600', color: C.muted },
+  categoryChipTextActive: { color: C.secondary },
+
+  // Date chips
+  dateScroll: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8, gap: 6 },
+  dateChip: { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0' },
   dateChipOn: { backgroundColor: C.secondary, borderColor: C.secondary },
   dateChipText: { fontSize: 12, fontWeight: '600', color: C.textSec },
   dateChipTextOn: { color: C.white },

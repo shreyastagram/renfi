@@ -8,7 +8,7 @@
  * @version 2.0.0 — Premium UI revamp
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,9 @@ import {
   Image,
   Animated,
   Platform,
+  PanResponder,
+  Dimensions,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -90,6 +93,8 @@ const SHADOWS = Platform.select({
 
 const CARD_RADIUS = 22;
 
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
+
 /**
  * Animated press wrapper for premium spring scale effect
  */
@@ -115,17 +120,16 @@ const AnimatedPressable = ({ children, onPress, style, disabled }) => {
   };
 
   return (
-    <TouchableOpacity
+    <AnimatedTouchable
       activeOpacity={1}
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={disabled}
+      style={[style, { transform: [{ scale }] }]}
     >
-      <Animated.View style={[style, { transform: [{ scale }] }]}>
-        {children}
-      </Animated.View>
-    </TouchableOpacity>
+      {children}
+    </AnimatedTouchable>
   );
 };
 
@@ -279,7 +283,9 @@ const StaticNumbersModal = ({ visible, onClose, numbers, serviceType }) => (
     <View style={styles.modalOverlay}>
       <View style={styles.modalContent}>
         {/* Drag handle */}
-        <View style={styles.modalDragHandle} />
+        <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+          <View style={styles.modalDragHandle} />
+        </View>
         <View style={styles.modalHeader}>
           <View style={styles.modalHeaderLeft}>
             <View style={styles.modalIconWrap}>
@@ -306,18 +312,23 @@ const StaticNumbersModal = ({ visible, onClose, numbers, serviceType }) => (
           ) : (
             numbers.map((item, index) => (
               <View key={index} style={[styles.numberCard, index === numbers.length - 1 && { borderBottomWidth: 0 }]}>
-                <View style={styles.numberInfo}>
-                  <Text style={styles.numberLabel}>{item.label || item.name}</Text>
-                  {item.description && (
-                    <Text style={styles.numberDescription}>{item.description}</Text>
-                  )}
+                <View style={styles.numberCardLeft}>
+                  <View style={styles.numberIconWrap}>
+                    <MaterialIcon name="phone" size={20} color={COLORS.danger} />
+                  </View>
+                  <View style={styles.numberInfo}>
+                    <Text style={styles.numberLabel}>{item.label || item.name}</Text>
+                    {item.description && (
+                      <Text style={styles.numberDescription}>{item.description}</Text>
+                    )}
+                  </View>
                 </View>
                 <TouchableOpacity
                   style={styles.callNumberButton}
                   onPress={() => Linking.openURL(`tel:${item.number}`)}
                   activeOpacity={0.8}
                 >
-                  <MaterialIcon name="phone" size={18} color={COLORS.white} />
+                  <MaterialIcon name="phone" size={20} color={COLORS.white} />
                   <Text style={styles.callNumberText}>{item.number}</Text>
                 </TouchableOpacity>
               </View>
@@ -615,6 +626,11 @@ const EmergencyServicesScreen = ({ navigation }) => {
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [cancellingRequest, setCancellingRequest] = useState(false);
 
+  // Loading timeout state for provider search
+  const [loadingElapsed, setLoadingElapsed] = useState(0);
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+  const loadingTimerRef = useRef(null);
+
   // Service categories
   const locationBasedServices = LOCATION_BASED_SERVICES.map(id => ({
     id,
@@ -633,10 +649,8 @@ const EmergencyServicesScreen = ({ navigation }) => {
     setSelectedService(service);
 
     if (STATIC_NUMBER_SERVICES.includes(service.id)) {
-      // Static service - fetch numbers
-      setIsLoading(true);
+      // Static service - fetch numbers without showing full-screen loading
       const result = await getStaticEmergencyNumbers(service.id);
-      setIsLoading(false);
 
       if (result.success) {
         // Handle both array format and object format
@@ -654,6 +668,43 @@ const EmergencyServicesScreen = ({ navigation }) => {
     }
   };
 
+  const SEARCH_TIMEOUT_MS = 60000; // 60 seconds
+
+  const startLoadingTimer = useCallback(() => {
+    setLoadingElapsed(0);
+    setLoadingTimedOut(false);
+    if (loadingTimerRef.current) clearInterval(loadingTimerRef.current);
+    const startTime = Date.now();
+    loadingTimerRef.current = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      setLoadingElapsed(elapsed);
+      if (elapsed >= SEARCH_TIMEOUT_MS) {
+        setLoadingTimedOut(true);
+        clearInterval(loadingTimerRef.current);
+        loadingTimerRef.current = null;
+      }
+    }, 1000);
+  }, []);
+
+  const stopLoadingTimer = useCallback(() => {
+    if (loadingTimerRef.current) {
+      clearInterval(loadingTimerRef.current);
+      loadingTimerRef.current = null;
+    }
+  }, []);
+
+  // Cleanup timer on unmount
+  useEffect(() => () => stopLoadingTimer(), []);
+
+  /** Wrap a promise with a timeout */
+  const withTimeout = (promise, ms, label) =>
+    Promise.race([
+      promise,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)
+      ),
+    ]);
+
   /**
    * Create emergency request and fetch providers
    */
@@ -666,51 +717,117 @@ const EmergencyServicesScreen = ({ navigation }) => {
 
     setIsLoading(true);
     setShowNotesInput(false);
+    startLoadingTimer();
 
-    // Create request
-    const createResult = await createEmergencyRequest({
-      userId,
-      serviceType: selectedService.id,
-      location: {
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
-        address: displayAddress,
-      },
-      notes,
-    });
+    try {
+      // Create request — 30s timeout
+      const createResult = await withTimeout(
+        createEmergencyRequest({
+          userId,
+          serviceType: selectedService.id,
+          location: {
+            latitude: currentLocation.latitude,
+            longitude: currentLocation.longitude,
+            address: displayAddress,
+          },
+          notes,
+        }),
+        30000,
+        'Creating request',
+      );
 
-    if (!createResult.success) {
-      setIsLoading(false);
-      if (createResult.code === 'OUTSIDE_SERVICE_ZONE') {
-        dialog(
-          'Service Unavailable in Your Area',
-          createResult.suggestion || 'Emergency services are currently available only in Yavatmal City, Maharashtra. For emergencies outside this zone, please call 112.',
-          [{ text: 'OK' }]
-        );
-      } else {
-        dialog('Error', createResult.error || 'Failed to create request');
+      if (!createResult.success) {
+        stopLoadingTimer();
+        setIsLoading(false);
+        if (createResult.code === 'OUTSIDE_SERVICE_ZONE') {
+          dialog(
+            'Service Unavailable in Your Area',
+            createResult.suggestion || 'Emergency services are currently available only in Yavatmal City, Maharashtra. For emergencies outside this zone, please call 112.',
+            [{ text: 'OK' }]
+          );
+        } else {
+          dialog('Error', createResult.error || 'Failed to create request');
+        }
+        return;
       }
+
+      setCreatedRequest(createResult.data);
+
+      // Fetch nearby providers — 30s timeout
+      const providersResult = await withTimeout(
+        getNearbyEmergencyProviders(createResult.data._id),
+        30000,
+        'Finding providers',
+      );
+
+      stopLoadingTimer();
+      setIsLoading(false);
+
+      if (providersResult.success && providersResult.providers?.length > 0) {
+        setProviders(providersResult.providers);
+        setStep('providers');
+      } else {
+        dialog('No Providers', providersResult.error || 'No providers available nearby. Please try again.');
+      }
+    } catch (error) {
+      stopLoadingTimer();
+      setIsLoading(false);
+      setLoadingTimedOut(false);
+      dialog(
+        'Request Failed',
+        error.message?.includes('timed out')
+          ? 'The server took too long to respond. Please check your connection and try again.'
+          : (error.message || 'Something went wrong. Please try again.'),
+      );
+    }
+  };
+
+  /** Retry fetching providers for an existing request */
+  const handleRetryProviders = async () => {
+    if (!createdRequest?._id) {
+      // No existing request — restart from scratch
+      handleCreateRequest();
       return;
     }
 
-    setCreatedRequest(createResult.data);
+    setLoadingTimedOut(false);
+    setIsLoading(true);
+    startLoadingTimer();
 
-    // Fetch nearby providers
-    const providersResult = await getNearbyEmergencyProviders(createResult.data._id);
-    setIsLoading(false);
+    try {
+      const providersResult = await withTimeout(
+        getNearbyEmergencyProviders(createdRequest._id),
+        30000,
+        'Finding providers',
+      );
 
-    console.log('[EmergencyScreen] Providers result:', {
-      success: providersResult.success,
-      providersCount: providersResult.providers?.length,
-      providers: providersResult.providers
-    });
+      stopLoadingTimer();
+      setIsLoading(false);
 
-    if (providersResult.success && providersResult.providers?.length > 0) {
-      setProviders(providersResult.providers);
-      setStep('providers');
-    } else {
-      dialog('No Providers', providersResult.error || 'No providers available nearby');
+      if (providersResult.success && providersResult.providers?.length > 0) {
+        setProviders(providersResult.providers);
+        setStep('providers');
+      } else {
+        dialog('No Providers', providersResult.error || 'No providers available nearby. Please try again.');
+      }
+    } catch (error) {
+      stopLoadingTimer();
+      setIsLoading(false);
+      dialog(
+        'Retry Failed',
+        error.message?.includes('timed out')
+          ? 'Still unable to reach the server. Please try again.'
+          : (error.message || 'Something went wrong.'),
+      );
     }
+  };
+
+  /** Cancel search and go back to service selection */
+  const handleCancelSearch = () => {
+    stopLoadingTimer();
+    setIsLoading(false);
+    setLoadingTimedOut(false);
+    setLoadingElapsed(0);
   };
 
   /**
@@ -1096,37 +1213,141 @@ const EmergencyServicesScreen = ({ navigation }) => {
   );
 
   /**
-   * Render notes input modal
+   * Notes input modal — bottom sheet with swipe-to-dismiss
+   * Self-managed animation (no animationType="slide") to avoid flicker.
    */
+  const SCREEN_HEIGHT = Dimensions.get('window').height;
+  const notesSheetTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const notesOverlayOpacity = useRef(new Animated.Value(0)).current;
+  const isDismissing = useRef(false);
+
+  // Animate in when modal opens
+  useEffect(() => {
+    if (showNotesInput) {
+      isDismissing.current = false;
+      notesSheetTranslateY.setValue(SCREEN_HEIGHT);
+      notesOverlayOpacity.setValue(0);
+      Animated.parallel([
+        Animated.spring(notesSheetTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+          tension: 50,
+          friction: 7,
+          overshootClamping: true,
+        }),
+        Animated.timing(notesOverlayOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [showNotesInput]);
+
+  const dismissNotesModal = useCallback(() => {
+    if (isDismissing.current) return;
+    isDismissing.current = true;
+    Animated.parallel([
+      Animated.spring(notesSheetTranslateY, {
+        toValue: SCREEN_HEIGHT,
+        useNativeDriver: true,
+        tension: 50,
+        friction: 7,
+        overshootClamping: true,
+      }),
+      Animated.timing(notesOverlayOpacity, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setShowNotesInput(false);
+      setSelectedService(null);
+    });
+  }, []);
+
+  const notesPanResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dy) > 3,
+    onPanResponderGrant: () => {
+      notesSheetTranslateY.stopAnimation();
+    },
+    onPanResponderMove: (_, gs) => {
+      if (gs.dy > 0) notesSheetTranslateY.setValue(gs.dy);
+    },
+    onPanResponderRelease: (_, gs) => {
+      if (gs.dy > 80 || gs.vy > 0.15) {
+        dismissNotesModal();
+      } else {
+        Animated.spring(notesSheetTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+          tension: 50,
+          friction: 7,
+          overshootClamping: true,
+        }).start();
+      }
+    },
+  }), []);
+
   const renderNotesInput = () => (
     <Modal
       visible={showNotesInput}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={() => setShowNotesInput(false)}
+      animationType="none"
+      transparent
+      statusBarTranslucent
+      onRequestClose={dismissNotesModal}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.notesModalContent}>
-          {/* Drag handle */}
-          <View style={styles.modalDragHandle} />
+      <View style={{ flex: 1 }}>
+        <Animated.View
+          style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(15, 23, 42, 0.6)', opacity: notesOverlayOpacity }]}
+        >
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            activeOpacity={1}
+            onPress={dismissNotesModal}
+          />
+        </Animated.View>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}
+          pointerEvents="box-none"
+        >
+        <Animated.View
+          style={[
+            styles.notesModalContent,
+            {
+              paddingBottom: insets.bottom + 20,
+              transform: [{ translateY: notesSheetTranslateY }],
+            },
+          ]}
+        >
+          {/* Swipeable drag handle */}
+          <View {...notesPanResponder.panHandlers} style={styles.dragHandleZone}>
+            <View style={styles.modalDragHandle} />
+          </View>
+
+          {/* Service icon + title */}
           <View style={styles.notesModalHeader}>
             <View style={styles.notesModalIconWrap}>
               <MaterialIcon
                 name={EMERGENCY_SERVICE_ICONS[selectedService?.id] || 'warning'}
-                size={22}
+                size={24}
                 color={COLORS.primary}
               />
             </View>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.notesModalTitle}>
                 {EMERGENCY_SERVICE_LABELS[selectedService?.id]} Request
               </Text>
               <Text style={styles.notesModalSubtitle}>
-                Add any details that might help the provider
+                Describe the situation so nearby providers can help faster
               </Text>
             </View>
           </View>
 
+          {/* Notes label + input */}
+          <Text style={styles.notesLabel}>Details (optional)</Text>
           <TextInput
             style={styles.notesInput}
             placeholder={EMERGENCY_NOTES_PLACEHOLDERS[selectedService?.id] || 'Add details to help the provider...'}
@@ -1138,28 +1359,31 @@ const EmergencyServicesScreen = ({ navigation }) => {
             textAlignVertical="top"
           />
 
+          {/* Location preview */}
           <View style={styles.locationPreview}>
             <View style={styles.locationIconWrap}>
-              <MaterialIcon name="location-on" size={16} color={COLORS.primary} />
+              <MaterialIcon name="my-location" size={16} color={COLORS.primary} />
             </View>
-            <Text style={styles.locationText} numberOfLines={2}>
-              {displayAddress || 'Fetching location...'}
-            </Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.locationLabel}>Your Location</Text>
+              <Text style={styles.locationText} numberOfLines={2}>
+                {displayAddress || 'Fetching location...'}
+              </Text>
+            </View>
+            {locationLoading && <ActivityIndicator size="small" color={COLORS.primary} />}
           </View>
 
+          {/* Action buttons */}
           <View style={styles.notesModalActions}>
             <TouchableOpacity
               style={styles.notesModalCancelButton}
-              onPress={() => {
-                setShowNotesInput(false);
-                setSelectedService(null);
-              }}
+              onPress={dismissNotesModal}
               activeOpacity={0.8}
             >
               <Text style={styles.notesModalCancelText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.notesModalConfirmButton}
+              style={[styles.notesModalConfirmButton, (isLoading || locationLoading) && { opacity: 0.7 }]}
               onPress={handleCreateRequest}
               disabled={isLoading || locationLoading}
               activeOpacity={0.8}
@@ -1168,13 +1392,14 @@ const EmergencyServicesScreen = ({ navigation }) => {
                 <ActivityIndicator size="small" color={COLORS.white} />
               ) : (
                 <>
-                  <MaterialIcon name="search" size={18} color={COLORS.white} style={{ marginRight: 6 }} />
+                  <MaterialIcon name="search" size={20} color={COLORS.white} style={{ marginRight: 8 }} />
                   <Text style={styles.notesModalConfirmText}>Find Providers</Text>
                 </>
               )}
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
@@ -1185,11 +1410,41 @@ const EmergencyServicesScreen = ({ navigation }) => {
 
       {isLoading && step === 'select' ? (
         <View style={styles.loadingContainer}>
-          <View style={styles.loadingIconCircle}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
-          </View>
-          <Text style={styles.loadingText}>Finding providers...</Text>
-          <Text style={styles.loadingSubtext}>Searching nearby emergency services</Text>
+          {loadingTimedOut ? (
+            <>
+              <View style={[styles.loadingIconCircle, { backgroundColor: '#FEF2F2' }]}>
+                <MaterialIcon name="error-outline" size={40} color={COLORS.danger} />
+              </View>
+              <Text style={styles.loadingText}>Taking too long</Text>
+              <Text style={styles.loadingSubtext}>
+                The server is not responding. This could be a network issue or the service may be temporarily unavailable.
+              </Text>
+              <TouchableOpacity style={styles.retryButton} onPress={handleRetryProviders} activeOpacity={0.8}>
+                <MaterialIcon name="refresh" size={20} color={COLORS.white} />
+                <Text style={styles.retryButtonText}>Try Again</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.cancelSearchButton} onPress={handleCancelSearch} activeOpacity={0.8}>
+                <Text style={styles.cancelSearchText}>Go Back</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <View style={styles.loadingIconCircle}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+              </View>
+              <Text style={styles.loadingText}>Finding providers...</Text>
+              <Text style={styles.loadingSubtext}>
+                {loadingElapsed < 10000
+                  ? 'Searching nearby emergency services'
+                  : loadingElapsed < 30000
+                    ? 'Still searching — this may take a moment'
+                    : 'Almost there — please hold on'}
+              </Text>
+              <TouchableOpacity style={styles.cancelSearchButton} onPress={handleCancelSearch} activeOpacity={0.8}>
+                <Text style={styles.cancelSearchText}>Cancel</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       ) : step === 'select' ? (
         renderServiceSelection()
@@ -1562,9 +1817,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   callButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
+    width: 54,
+    height: 54,
+    borderRadius: 16,
     backgroundColor: COLORS.success,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1581,8 +1836,8 @@ const styles = StyleSheet.create({
   },
   bookButton: {
     flex: 1,
-    height: 46,
-    borderRadius: 14,
+    height: 54,
+    borderRadius: 16,
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1734,6 +1989,34 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.muted,
     marginTop: 4,
+    textAlign: 'center',
+    paddingHorizontal: 32,
+    lineHeight: 19,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 14,
+    marginTop: 24,
+    gap: 8,
+  },
+  retryButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  cancelSearchButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    marginTop: 12,
+  },
+  cancelSearchText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.muted,
   },
 
   // ── Modal Common ────────────────────────────────────────
@@ -1744,12 +2027,10 @@ const styles = StyleSheet.create({
   },
   modalDragHandle: {
     width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: COLORS.divider,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#CBD5E1',
     alignSelf: 'center',
-    marginTop: 12,
-    marginBottom: 8,
   },
   modalContent: {
     backgroundColor: COLORS.cardWhite,
@@ -1815,52 +2096,67 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   numberCard: {
+    backgroundColor: COLORS.background,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderBottomWidth: 0,
+  },
+  numberCardLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.background,
+    marginBottom: 14,
+  },
+  numberIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: COLORS.dangerLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   numberInfo: {
     flex: 1,
-    marginRight: 16,
   },
   numberLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: COLORS.textPrimary,
   },
   numberDescription: {
     fontSize: 13,
     color: COLORS.muted,
     marginTop: 3,
+    lineHeight: 18,
   },
   callNumberButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: COLORS.danger,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 20,
+    height: 52,
     borderRadius: 14,
     ...Platform.select({
       ios: {
         shadowColor: COLORS.danger,
-        shadowOffset: { width: 0, height: 3 },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
-        shadowRadius: 6,
+        shadowRadius: 8,
       },
-      android: { elevation: 3 },
+      android: { elevation: 4 },
     }),
   },
   callNumberText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
     color: COLORS.white,
-    marginLeft: 8,
+    marginLeft: 10,
+    letterSpacing: 0.5,
   },
   closeModalButton: {
-    marginTop: 16,
+    marginTop: 8,
     height: 52,
     borderRadius: 14,
     backgroundColor: COLORS.background,
@@ -1874,23 +2170,28 @@ const styles = StyleSheet.create({
   },
 
   // ── Notes Modal ─────────────────────────────────────────
+  dragHandleZone: {
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingBottom: 10,
+    minHeight: 44,
+  },
   notesModalContent: {
     backgroundColor: COLORS.cardWhite,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 24,
-    paddingBottom: 24,
   },
   notesModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
     paddingTop: 4,
   },
   notesModalIconWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
+    width: 50,
+    height: 50,
+    borderRadius: 16,
     backgroundColor: '#FFF7ED',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1904,16 +2205,25 @@ const styles = StyleSheet.create({
   notesModalSubtitle: {
     fontSize: 13,
     color: COLORS.muted,
-    marginTop: 2,
+    marginTop: 3,
+    lineHeight: 18,
+  },
+  notesLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   notesInput: {
     borderWidth: 1.5,
     borderColor: COLORS.divider,
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 16,
+    padding: 16,
     fontSize: 15,
     color: COLORS.textPrimary,
-    minHeight: 110,
+    minHeight: 120,
     backgroundColor: COLORS.inputBg,
     lineHeight: 22,
   },
@@ -1923,16 +2233,26 @@ const styles = StyleSheet.create({
     marginTop: 16,
     padding: 14,
     backgroundColor: '#FFF7ED',
-    borderRadius: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#FFEDD5',
   },
   locationIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     backgroundColor: '#FFEDD5',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: 12,
+  },
+  locationLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
   },
   locationText: {
     flex: 1,
@@ -1942,26 +2262,26 @@ const styles = StyleSheet.create({
   },
   notesModalActions: {
     flexDirection: 'row',
-    marginTop: 20,
+    marginTop: 24,
+    gap: 12,
   },
   notesModalCancelButton: {
     flex: 1,
-    height: 52,
-    borderRadius: 14,
+    height: 56,
+    borderRadius: 16,
     backgroundColor: COLORS.background,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
   },
   notesModalCancelText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: COLORS.textSecondary,
   },
   notesModalConfirmButton: {
     flex: 2,
-    height: 52,
-    borderRadius: 14,
+    height: 56,
+    borderRadius: 16,
     backgroundColor: COLORS.primary,
     flexDirection: 'row',
     justifyContent: 'center',
@@ -1978,7 +2298,7 @@ const styles = StyleSheet.create({
     }),
   },
   notesModalConfirmText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: COLORS.white,
   },
@@ -2197,23 +2517,25 @@ const detailStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.successLight,
-    padding: 14,
-    borderRadius: 14,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
   },
   phoneIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     backgroundColor: COLORS.white,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   phoneButtonText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 15,
     color: COLORS.success,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   noPhoneText: {
     fontSize: 14,
@@ -2224,7 +2546,8 @@ const detailStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 16,
+    paddingBottom: 24,
     borderTopWidth: 1,
     borderTopColor: COLORS.background,
     backgroundColor: COLORS.cardWhite,
@@ -2233,26 +2556,27 @@ const detailStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 22,
-    height: 52,
-    borderRadius: 14,
+    paddingHorizontal: 24,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: COLORS.successLight,
     borderWidth: 1.5,
     borderColor: COLORS.success,
     marginRight: 12,
   },
   callActionText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: COLORS.success,
-    marginLeft: 6,
+    marginLeft: 8,
   },
   bookActionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 52,
-    borderRadius: 14,
+    height: 56,
+    borderRadius: 16,
     backgroundColor: COLORS.primary,
     ...Platform.select({
       ios: {
@@ -2265,7 +2589,7 @@ const detailStyles = StyleSheet.create({
     }),
   },
   bookActionText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: COLORS.white,
     marginLeft: 8,

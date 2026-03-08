@@ -30,6 +30,7 @@ import {
   StatusBar,
   Platform,
   Animated,
+  PanResponder,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -864,13 +865,81 @@ const FavoritesScreen = ({ navigation }) => {
     }
   };
 
-  const closeModal = () => {
-    setServiceModalVisible(false);
-    setTimeout(() => {
+  // Self-managed modal animation (no animationType="slide") to avoid flicker
+  const FAV_SCREEN_HEIGHT = Dimensions.get('window').height;
+  const modalSheetTranslateY = useRef(new Animated.Value(FAV_SCREEN_HEIGHT)).current;
+  const modalOverlayOpacity = useRef(new Animated.Value(0)).current;
+  const isModalDismissing = useRef(false);
+
+  // Animate in when modal opens
+  useEffect(() => {
+    if (serviceModalVisible) {
+      isModalDismissing.current = false;
+      modalSheetTranslateY.setValue(FAV_SCREEN_HEIGHT);
+      modalOverlayOpacity.setValue(0);
+      Animated.parallel([
+        Animated.spring(modalSheetTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+          tension: 50,
+          friction: 7,
+          overshootClamping: true,
+        }),
+        Animated.timing(modalOverlayOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [serviceModalVisible]);
+
+  const closeModal = useCallback(() => {
+    if (isModalDismissing.current) return;
+    isModalDismissing.current = true;
+    Animated.parallel([
+      Animated.spring(modalSheetTranslateY, {
+        toValue: FAV_SCREEN_HEIGHT,
+        useNativeDriver: true,
+        tension: 50,
+        friction: 7,
+        overshootClamping: true,
+      }),
+      Animated.timing(modalOverlayOpacity, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setServiceModalVisible(false);
       setBookingProvider(null);
       setAvailableServicesForModal([]);
-    }, 300);
-  };
+    });
+  }, []);
+
+  const modalPanResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dy) > 3,
+    onPanResponderGrant: () => {
+      modalSheetTranslateY.stopAnimation();
+    },
+    onPanResponderMove: (_, gs) => {
+      if (gs.dy > 0) modalSheetTranslateY.setValue(gs.dy);
+    },
+    onPanResponderRelease: (_, gs) => {
+      if (gs.dy > 80 || gs.vy > 0.15) {
+        closeModal();
+      } else {
+        Animated.spring(modalSheetTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+          tension: 50,
+          friction: 7,
+          overshootClamping: true,
+        }).start();
+      }
+    },
+  })).current;
 
   // Total count
   var totalFavorites = sections.reduce(
@@ -992,24 +1061,33 @@ const FavoritesScreen = ({ navigation }) => {
       {/* Service Selection Modal */}
       <Modal
         visible={serviceModalVisible}
-        animationType="slide"
+        animationType="none"
         transparent
         statusBarTranslucent
         onRequestClose={closeModal}
       >
-        <View style={modalStyles.modalOverlay}>
-          <TouchableOpacity
-            style={modalStyles.modalDismiss}
-            activeOpacity={1}
-            onPress={closeModal}
-          />
-          <View
+        <View style={{ flex: 1 }}>
+          <Animated.View style={[modalStyles.modalOverlay, { opacity: modalOverlayOpacity }]}>
+            <TouchableOpacity
+              style={modalStyles.modalDismiss}
+              activeOpacity={1}
+              onPress={closeModal}
+            />
+          </Animated.View>
+          <Animated.View
             style={[
               modalStyles.modalSheet,
-              { paddingBottom: insets.bottom + 20 },
+              {
+                paddingBottom: insets.bottom + 20,
+                transform: [{ translateY: modalSheetTranslateY }],
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+              },
             ]}
           >
-            <View style={modalStyles.modalGrabber}>
+            <View {...modalPanResponder.panHandlers} style={modalStyles.modalGrabber}>
               <View style={modalStyles.modalGrabberBar} />
             </View>
 
@@ -1141,7 +1219,7 @@ const FavoritesScreen = ({ navigation }) => {
                 Select a service to send a booking request
               </Text>
             </View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
@@ -1522,9 +1600,8 @@ const sectionStyles = StyleSheet.create({
 // Modal styles
 const modalStyles = StyleSheet.create({
   modalOverlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(15,23,42,0.5)',
-    justifyContent: 'flex-end',
   },
   modalDismiss: { flex: 1 },
   modalSheet: {
@@ -1537,7 +1614,8 @@ const modalStyles = StyleSheet.create({
   modalGrabber: {
     alignItems: 'center',
     paddingTop: 12,
-    paddingBottom: 4,
+    paddingBottom: 10,
+    minHeight: 44,
   },
   modalGrabberBar: {
     width: 36,
