@@ -25,6 +25,7 @@ import {
   Animated,
   Linking,
   RefreshControl,
+  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -539,6 +540,7 @@ const InsuranceScreen = ({ navigation }) => {
   if (loading) {
     return (
       <View style={[s.container, { paddingTop: insets.top }]}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <View style={s.heroHeader}>
           <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
             <Icon name="back" size={22} color={C.card} />
@@ -557,6 +559,7 @@ const InsuranceScreen = ({ navigation }) => {
   // ─── Render ────────────────────────────────────────────────────
   return (
     <View style={[s.container, { paddingTop: insets.top }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       {/* ── Dark Hero Header ──────────────────────────────────── */}
       <View style={s.heroHeader}>
         <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
@@ -687,7 +690,7 @@ const InsuranceScreen = ({ navigation }) => {
 
       {/* ── Sticky Submit Button ──────────────────────────── */}
       {canSubmit && (
-        <View style={[s.stickyFooter, { paddingBottom: insets.bottom + 12 }]}>
+        <View style={[s.stickyFooter, { bottom: insets.bottom, paddingBottom: insets.bottom + 12 }]}>
           <TouchableOpacity
             style={[s.submitBtn, (!hasPAN || !hasAddressProof) && s.submitBtnDisabled]}
             onPress={handleSubmit}

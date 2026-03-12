@@ -22,6 +22,7 @@ import {
   ActivityIndicator,
   Image,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -307,11 +308,11 @@ const DocumentVerificationScreen = ({ navigation }) => {
     } catch (error) {
       console.error('[DocumentVerification] Error fetching data:', error);
       dialog(
-        'Connection Error', 
-        'Unable to connect to server. Please check your internet connection and try again.',
+        'Connection Issue',
+        'Couldn\'t load verification data. Please try again.',
         [
-          { text: 'Retry', onPress: () => fetchData() },
           { text: 'Cancel', style: 'cancel' },
+          { text: 'Retry', onPress: () => fetchData() },
         ]
       );
     } finally {
@@ -658,7 +659,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
       setUploading(false);
       dialog(
         'Submission Failed', 
-        error.message || 'Failed to submit documents. Please check your internet connection and try again.',
+        'Couldn\'t submit your documents. Please try again.',
         [
           { text: 'Retry', onPress: () => handleSubmit() },
           { text: 'Cancel', style: 'cancel' },
@@ -744,6 +745,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
   if (loading) {
     return (
       <View style={[styles.container, styles.centered]}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <ActivityIndicator size="large" color="#3B82F6" />
         <Text style={styles.loadingText}>Loading service data...</Text>
       </View>
@@ -757,6 +759,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
     
     return (
       <View style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <MaterialIcon name="arrow-back" size={24} color="#1F2937" />
@@ -850,6 +853,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
   if (step === 'select') {
     return (
       <View style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <MaterialIcon name="arrow-back" size={24} color="#1F2937" />
@@ -874,7 +878,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
           ))}
         </ScrollView>
         
-        <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+        <View style={[styles.footer, { bottom: insets.bottom, paddingBottom: insets.bottom + 16 }]}>
           <TouchableOpacity
             style={[styles.primaryButton, selectedServices.length === 0 && styles.buttonDisabled]}
             onPress={proceedToUpload}
@@ -897,9 +901,10 @@ const DocumentVerificationScreen = ({ navigation }) => {
   
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity 
-          style={styles.backButton} 
+        <TouchableOpacity
+          style={styles.backButton}
           onPress={() => {
             if (currentServiceIndex > 0) {
               setCurrentServiceIndex(prev => prev - 1);
@@ -942,7 +947,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
         )}
       </ScrollView>
       
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+      <View style={[styles.footer, { bottom: insets.bottom, paddingBottom: insets.bottom + 16 }]}>
         <TouchableOpacity
           style={[
             styles.primaryButton,

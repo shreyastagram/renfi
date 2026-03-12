@@ -28,6 +28,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Animated,
+  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -1079,6 +1080,7 @@ const EventServicesScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       {renderHeader()}
 
       {step === 'select' ? renderServiceSelection() : renderProvidersList()}

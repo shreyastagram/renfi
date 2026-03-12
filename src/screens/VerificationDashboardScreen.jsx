@@ -22,6 +22,7 @@ import {
   Dimensions,
   Animated,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
@@ -468,6 +469,7 @@ const VerificationDashboardScreen = ({ navigation }) => {
   if (loading && !dashboard) {
     return (
       <View style={[styles.container, styles.centered]}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <View style={styles.loadingIconContainer}>
           <ActivityIndicator size="large" color={BRAND.primary} />
         </View>
@@ -480,6 +482,7 @@ const VerificationDashboardScreen = ({ navigation }) => {
   if (error && !dashboard) {
     return (
       <View style={[styles.container, styles.centered]}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <View style={styles.errorIconContainer}>
           <Icon name="error" size={36} color={BRAND.danger} />
         </View>
@@ -494,6 +497,7 @@ const VerificationDashboardScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       {/* Premium Header */}
       <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
         <View style={styles.headerContent}>

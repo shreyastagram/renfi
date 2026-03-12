@@ -63,6 +63,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
   const [errors, setErrors] = useState({});
   const [alertMessage, setAlertMessage] = useState(null);
   const [alertType, setAlertType] = useState('error');
+  const [alertHint, setAlertHint] = useState(null);
 
   // Account exists modal state
   const [showAccountExistsModal, setShowAccountExistsModal] = useState(false);
@@ -253,9 +254,10 @@ const ProviderRegisterScreen = ({ navigation }) => {
    * @param {string} message - Alert message
    * @param {string} type - Alert type (error, success, warning, info)
    */
-  const showAlert = useCallback((message, type = 'error') => {
+  const showAlert = useCallback((message, type = 'error', hint = null) => {
     setAlertMessage(message);
     setAlertType(type);
+    setAlertHint(hint);
   }, []);
 
   /**
@@ -263,6 +265,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
    */
   const clearAlert = useCallback(() => {
     setAlertMessage(null);
+    setAlertHint(null);
   }, []);
 
   /**
@@ -375,15 +378,18 @@ const ProviderRegisterScreen = ({ navigation }) => {
             
           case AUTH_CODES.AUTH_SERVICE_UNAVAILABLE:
           case AUTH_CODES.MONGODB_SYNC_FAILED:
-            showAlert(getErrorMessage(error.code, error.message), 'error');
+            showAlert(error.message || getErrorMessage(error.code), 'error', error.hint);
             break;
-            
+
           case AUTH_CODES.NETWORK_ERROR:
-            showAlert(getErrorMessage(error.code, error.message), 'error');
+          case AUTH_CODES.SERVER_UNREACHABLE:
+          case AUTH_CODES.SERVER_TIMEOUT:
+          case AUTH_CODES.NO_INTERNET:
+            showAlert(error.message || getErrorMessage(error.code), 'error', error.hint);
             break;
-            
+
           default:
-            showAlert(error.message || 'Registration failed. Please try again.', 'error');
+            showAlert(error.message || 'Registration failed. Please try again.', 'error', error.hint);
         }
       }
     } catch (err) {
@@ -423,7 +429,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
         if (isNewUser && user) {
           console.log('🆕 [ProviderRegisterScreen] New provider - syncing to MongoDB...');
           
-          const syncResult = await syncGoogleProviderToMongoDB({
+          const syncPayload = {
             javaUserId: user.id || user.userId,
             email: user.email,
             name: user.fullName || user.name || user.email.split('@')[0],
@@ -435,10 +441,20 @@ const ProviderRegisterScreen = ({ navigation }) => {
             pincode: formData.pincode?.trim() || undefined,
             latitude: location?.latitude,
             longitude: location?.longitude,
-          }, accessToken);
+          };
+
+          let syncResult = await syncGoogleProviderToMongoDB(syncPayload, accessToken);
+
+          // Retry once on failure — backend may still be warming up
+          if (!syncResult.success) {
+            console.warn('⚠️ [ProviderRegisterScreen] MongoDB sync failed, retrying in 2s...');
+            await new Promise(r => setTimeout(r, 2000));
+            syncResult = await syncGoogleProviderToMongoDB(syncPayload, accessToken);
+          }
 
           if (!syncResult.success) {
-            console.warn('⚠️ [ProviderRegisterScreen] MongoDB sync failed, but auth succeeded');
+            console.warn('⚠️ [ProviderRegisterScreen] MongoDB sync failed after retry, auth still succeeded');
+            showAlert('Your account is ready! Profile setup will complete shortly.', 'warning');
           }
         }
 
@@ -542,6 +558,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
             <Alert
               type={alertType}
               message={alertMessage}
+              hint={alertHint}
               onClose={clearAlert}
             />
           )}

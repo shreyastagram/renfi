@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Linking, View } from 'react-native';
+import { Alert, Linking, StatusBar, View } from 'react-native';
 import { NavigationContainer, NavigationContainerRef, ParamListBase } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -10,9 +10,11 @@ import { DialogProvider } from './src/context/DialogContext';
 import RootNavigator, { linking as navLinking } from './navigation/RootNavigator';
 import SplashScreen from './src/components/SplashScreen';
 import GlobalBanner from './src/components/GlobalBanner';
-import { 
-  setupNotificationOpenedHandler, 
-  getAppInitialNotification 
+import AppUpdateModal from './src/components/AppUpdateModal';
+import { checkForAppUpdate } from './src/services/appUpdateService';
+import {
+  setupNotificationOpenedHandler,
+  getAppInitialNotification
 } from './src/services/fcmService';
 import { configureGoogleSignIn } from './src/services/googleAuthService';
 
@@ -177,13 +179,18 @@ const handleNotificationData = (remoteMessage: any) => {
       }
       break;
       
+    case 'APP_UPDATE':
+      // App update notification — will be handled by version check on next launch
+      console.log('📩 [FCM] App update notification received');
+      break;
+
     default:
       console.log('📩 [FCM] Unknown notification type:', type);
       // If we have a requestId, navigate to details anyway
       if (requestId) {
-        navigate('ServiceRequestDetail', { 
+        navigate('ServiceRequestDetail', {
           requestId,
-          fromNotification: true 
+          fromNotification: true
         });
       }
   }
@@ -191,11 +198,21 @@ const handleNotificationData = (remoteMessage: any) => {
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
+  const [updateInfo, setUpdateInfo] = useState<any>(null);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   useEffect(() => {
     // Configure Google Sign-In on app start
     configureGoogleSignIn();
-    
+
+    // Check for app updates on launch
+    checkForAppUpdate().then((info) => {
+      if (info) {
+        setUpdateInfo(info);
+        setShowUpdateModal(true);
+      }
+    });
+
     // Set up notification opened handler (when app is in background)
     const unsubscribe = setupNotificationOpenedHandler((remoteMessage: any) => {
       console.log('📩 [FCM] App opened via notification tap');
@@ -213,7 +230,7 @@ export default function App() {
         }, 1000);
       }
     };
-    
+
     checkInitialNotification();
 
     return () => {
@@ -230,6 +247,7 @@ export default function App() {
         <LocationProvider>
           <DialogProvider>
           <View style={{ flex: 1 }}>
+            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
             <NavigationContainer
               ref={navigationRef}
               linking={linking}
@@ -241,6 +259,13 @@ export default function App() {
               {/* Global notification banner — overlays all screens */}
               <GlobalBanner />
             </NavigationContainer>
+
+            {/* App Update Modal — shown above everything when update needed */}
+            <AppUpdateModal
+              visible={showUpdateModal && !showSplash}
+              updateInfo={updateInfo}
+              onDismiss={() => setShowUpdateModal(false)}
+            />
 
             {/* Splash Screen - shows on app launch */}
             <SplashScreen

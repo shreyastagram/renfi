@@ -48,6 +48,7 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
   const [errors, setErrors] = useState({});
   const [alertMessage, setAlertMessage] = useState(null);
   const [alertType, setAlertType] = useState('error');
+  const [alertHint, setAlertHint] = useState(null);
 
   /**
    * Update form field
@@ -65,9 +66,10 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
   /**
    * Show alert message
    */
-  const showAlert = useCallback((message, type = 'error') => {
+  const showAlert = useCallback((message, type = 'error', hint = null) => {
     setAlertMessage(message);
     setAlertType(type);
+    setAlertHint(hint);
   }, []);
 
   /**
@@ -75,6 +77,7 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
    */
   const clearAlert = useCallback(() => {
     setAlertMessage(null);
+    setAlertHint(null);
   }, []);
 
   /**
@@ -170,7 +173,10 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
             break;
             
           case AUTH_CODES.NETWORK_ERROR:
-            showAlert(getErrorMessage(error.code, error.message), 'error');
+          case AUTH_CODES.SERVER_UNREACHABLE:
+          case AUTH_CODES.SERVER_TIMEOUT:
+          case AUTH_CODES.NO_INTERNET:
+            showAlert(error.message || getErrorMessage(error.code), 'error', error.hint);
             break;
             
           default:
@@ -233,6 +239,7 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
             <Alert
               type={alertType}
               message={alertMessage}
+              hint={alertHint}
               onDismiss={clearAlert}
               style={styles.alert}
             />

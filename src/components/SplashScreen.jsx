@@ -23,6 +23,7 @@ import {
   Image,
   Easing,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -103,6 +104,7 @@ const FloatingDot = ({ delay, startX, startY, size, duration }) => {
  * Main Splash Screen
  */
 const SplashScreen = ({ visible = true, onFinish }) => {
+  const insets = useSafeAreaInsets();
   // === Animation values ===
   const logoScale = useRef(new Animated.Value(0)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
@@ -370,7 +372,7 @@ const SplashScreen = ({ visible = true, onFinish }) => {
       </View>
 
       {/* Footer */}
-      <Animated.View style={[styles.footer, { opacity: footerOpacity }]}>
+      <Animated.View style={[styles.footer, { opacity: footerOpacity, bottom: 50 + insets.bottom }]}>
         <Text style={styles.footerText}>Connecting you with trusted professionals</Text>
         <Text style={styles.footerVersion}>v1.5</Text>
       </Animated.View>

@@ -67,6 +67,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
   const [error, setError] = useState(null);
   const [alertMessage, setAlertMessage] = useState(null);
   const [alertType, setAlertType] = useState('error');
+  const [alertHint, setAlertHint] = useState(null);
   const [maskedPhone, setMaskedPhone] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -78,9 +79,10 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
   /**
    * Show alert message
    */
-  const showAlert = useCallback((message, type = 'error') => {
+  const showAlert = useCallback((message, type = 'error', hint = null) => {
     setAlertMessage(message);
     setAlertType(type);
+    setAlertHint(hint);
   }, []);
 
   /**
@@ -88,6 +90,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
    */
   const clearAlert = useCallback(() => {
     setAlertMessage(null);
+    setAlertHint(null);
   }, []);
 
   /**
@@ -203,16 +206,21 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
         setPasswordResetSuccess(true);
         showAlert('Password reset successfully!', 'success');
       } else {
-        const errorMessage = result.error?.message || 'Failed to reset password';
-        
-        if (errorMessage.includes('Invalid OTP')) {
-          showAlert(errorMessage);
-        } else if (errorMessage.includes('Maximum')) {
+        const errorCode = result.error?.code || '';
+
+        if (errorCode === 'INVALID_OTP' || errorCode === AUTH_CODES.INVALID_OTP) {
+          showAlert('The OTP you entered is incorrect. Please check and try again.');
+          setOtp(['', '', '', '', '', '']);
+        } else if (errorCode === AUTH_CODES.OTP_EXPIRED) {
+          showAlert('This OTP has expired. Please request a new one.');
+          setStep(1);
+          setOtp(['', '', '', '', '', '']);
+        } else if (errorCode === AUTH_CODES.MAX_ATTEMPTS_EXCEEDED) {
           showAlert('Too many attempts. Please request a new OTP.');
           setStep(1);
           setOtp(['', '', '', '', '', '']);
         } else {
-          showAlert(errorMessage);
+          showAlert(getErrorMessage(errorCode, 'Password reset failed. Please try again.'));
         }
       }
     } catch (err) {
@@ -436,6 +444,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
             <Alert
               message={alertMessage}
               type={alertType}
+              hint={alertHint}
               onDismiss={clearAlert}
               style={styles.alert}
             />

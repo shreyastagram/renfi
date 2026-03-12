@@ -34,6 +34,7 @@ import {
 } from 'react-native';
 import RazorpayCheckout from 'react-native-razorpay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { LocationMap, Icon, ServiceIcon, DateTimePicker, LocationPicker, ProviderDetailsModal, FixhomiLogo, CancellationReasonModal } from '../components';
@@ -236,6 +237,15 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
 const UserHomeScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
+
+  // Set status bar for light background when this tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      StatusBar.setBarStyle('dark-content');
+      if (Platform.OS === 'android') StatusBar.setBackgroundColor('transparent');
+    }, [])
+  );
+
   const useKm = useDistanceUnit();
   // Cap sheet max height — 80% of screen ensures it stays below the top bar icons
   const safeMaxHeight = SHEET_MAX_HEIGHT;
@@ -1359,7 +1369,6 @@ const UserHomeScreen = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <LocationMap
         ref={mapRef}
         onLocationChange={handleLocationChange}

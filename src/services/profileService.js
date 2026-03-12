@@ -165,29 +165,32 @@ export const updateJavaAuthProfile = async (updates) => {
 /**
  * Update user profile in MongoDB
  * Also syncs name and phone changes to Java Auth (PostgreSQL) for consistency
- * 
+ *
+ * IMPORTANT: Only pass fields that actually CHANGED to avoid unnecessary
+ * Java Auth sync calls. ProfileScreen computes the diff before calling this.
+ *
  * @param {string} userId - MongoDB user _id
- * @param {Object} updates - Profile updates
+ * @param {Object} updates - Only the changed profile fields
  * @returns {Promise<Object>} Updated profile data
  */
 export const updateUserProfile = async (userId, updates) => {
   try {
-    console.log(`📝 [ProfileService] Updating user profile: ${userId}`, updates);
-    
+    console.log(`📝 [ProfileService] Updating user profile: ${userId}`, Object.keys(updates));
+
     if (!userId) {
       return {
         success: false,
         error: { message: 'User ID is required', code: 'MISSING_USER_ID' },
       };
     }
-    
+
     // If name is being updated, sync to Java Auth first
     if (updates.name || updates.fullName) {
       const nameToSync = updates.name || updates.fullName;
       console.log(`🔄 [ProfileService] Syncing name to Java Auth: ${nameToSync}`);
-      
+
       const javaAuthResult = await updateJavaAuthProfile({ fullName: nameToSync });
-      
+
       if (!javaAuthResult.success) {
         const errorStatus = javaAuthResult.error?.status;
         const isDuplicate = errorStatus === 409;
@@ -207,19 +210,19 @@ export const updateUserProfile = async (userId, updates) => {
         console.log('✅ [ProfileService] Name synced to Java Auth');
       }
     }
-    
-    // If phone is being updated, sync to Java Auth FIRST (blocking)
+
+    // If phone is being updated, sync to Java Auth FIRST (blocking for duplicates)
     if (updates.phone || updates.phoneNumber) {
       const phoneToSync = updates.phone || updates.phoneNumber;
       console.log(`🔄 [ProfileService] Syncing phone to Java Auth: ${phoneToSync}`);
-      
+
       const javaAuthResult = await updateJavaAuthProfile({ phoneNumber: phoneToSync });
-      
+
       if (!javaAuthResult.success) {
         const errorStatus = javaAuthResult.error?.status;
         const errorMsg = javaAuthResult.error?.message || '';
         const isDuplicate = errorStatus === 409 || errorMsg.includes('already exists');
-        
+
         if (isDuplicate) {
           console.error('🚫 [ProfileService] Phone already exists in Java Auth — blocking MongoDB update');
           return {
@@ -237,11 +240,11 @@ export const updateUserProfile = async (userId, updates) => {
         console.log('✅ [ProfileService] Phone synced to Java Auth');
       }
     }
-    
+
     const response = await apiClient.put(`${ENDPOINTS.PROFILE.UPDATE_USER}/${userId}`, updates);
-    
+
     console.log('✅ [ProfileService] User profile updated:', response.data);
-    
+
     return {
       success: true,
       data: response.data.data || response.data,

@@ -382,7 +382,7 @@ const exchangeGoogleTokenForAuth = async (idToken, role, mode = null) => {
       success: false,
       error: {
         code: GOOGLE_AUTH_CODES.BACKEND_ERROR,
-        message: parsedError.message || 'Authentication failed. Please try again.',
+        message: parsedError.message || 'Sign in failed. Please try again.',
         originalError: parsedError,
       },
     };
@@ -627,7 +627,7 @@ export const getGoogleAuthErrorMessage = (code, defaultMessage) => {
     [GOOGLE_AUTH_CODES.ACCOUNT_EXISTS_WITH_PASSWORD]: 'An account with this email already exists. Please login with your password.',
     [GOOGLE_AUTH_CODES.SIGN_IN_FAILED]: 'Google Sign-In failed. Please try again.',
     [GOOGLE_AUTH_CODES.BACKEND_ERROR]: 'Could not complete sign-in. Please try again.',
-    [GOOGLE_AUTH_CODES.NETWORK_ERROR]: 'No internet connection. Please check your network.',
+    [GOOGLE_AUTH_CODES.NETWORK_ERROR]: 'Something went wrong. Please try again.',
   };
 
   return messages[code] || defaultMessage || 'An error occurred. Please try again.';

@@ -28,8 +28,10 @@ import {
   FlatList,
   RefreshControl,
   Linking,
+  StatusBar,
 } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
@@ -62,6 +64,7 @@ const SERVICE_ICONS = {
 };
 
 const CreateServiceRequestScreen = ({ navigation, route }) => {
+  const insets = useSafeAreaInsets();
   const { user, profile } = useApp();
   const { dialog } = useDialog();
   const useKm = useDistanceUnit();
@@ -791,7 +794,8 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
   );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: 40 + insets.bottom }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <Text style={styles.title}>Create Service Request</Text>
       <Text style={styles.subtitle}>
         Select a service and we'll find providers near you

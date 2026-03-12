@@ -22,6 +22,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import {
@@ -302,6 +303,7 @@ const AccountSecurityScreen = () => {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.loadingText}>Loading security settings...</Text>
       </View>
@@ -315,6 +317,7 @@ const AccountSecurityScreen = () => {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       {/* Auth Health Section */}
       <SectionHeader title="Account Status" />
       <View style={styles.card}>

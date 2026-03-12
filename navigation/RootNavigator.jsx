@@ -177,20 +177,28 @@ const TabIcon = ({ focused, iconFamily, iconName, label, isProvider = false }) =
 /**
  * Shared Tab Bar Styles - Production Grade
  */
-const getTabBarStyle = (insets, isProvider = false) => ({
-  height: 65 + (Platform.OS === 'ios' ? insets.bottom : 0),
-  paddingTop: 10,
-  paddingBottom: Platform.OS === 'ios' ? insets.bottom : 12,
-  paddingHorizontal: 8,
-  backgroundColor: BRAND.white,
-  borderTopWidth: 1,
-  borderTopColor: BRAND.border,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: -4 },
-  shadowOpacity: 0.08,
-  shadowRadius: 12,
-  elevation: 16,
-});
+const getTabBarStyle = (insets, isProvider = false) => {
+  // Android 15+ (API 35+) ENFORCES edge-to-edge — the app draws behind
+  // the system navigation bar. insets.bottom tells us how much space the
+  // 3-button / 2-button nav bar occupies (0 for gesture navigation).
+  // We must add that inset as padding so the tab bar sits above it.
+  const bottomPadding = Math.max(12, insets.bottom);
+
+  return {
+    height: 65 + bottomPadding,
+    paddingTop: 10,
+    paddingBottom: bottomPadding,
+    paddingHorizontal: 8,
+    backgroundColor: BRAND.white,
+    borderTopWidth: 1,
+    borderTopColor: BRAND.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 16,
+  };
+};
 
 /**
  * User Tab Navigator - Clean Production Tab Bar

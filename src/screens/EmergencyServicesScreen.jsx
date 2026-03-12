@@ -27,6 +27,7 @@ import {
   PanResponder,
   Dimensions,
   KeyboardAvoidingView,
+  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -1202,7 +1203,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
       )}
 
       <TouchableOpacity
-        style={styles.cancelButton}
+        style={[styles.cancelButton, { bottom: 16 + insets.bottom }]}
         onPress={handleCancelRequest}
         activeOpacity={0.8}
       >
@@ -1310,7 +1311,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
         </Animated.View>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}
+          style={{ position: 'absolute', bottom: insets.bottom, left: 0, right: 0 }}
           pointerEvents="box-none"
         >
         <Animated.View
@@ -1406,6 +1407,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       {renderHeader()}
 
       {isLoading && step === 'select' ? (

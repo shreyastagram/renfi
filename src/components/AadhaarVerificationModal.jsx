@@ -170,7 +170,7 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
           // Stop after 20 attempts (1 minute)
           clearInterval(pollingRef.current);
           pollingRef.current = null;
-          setError('Verification timeout. Please try again.');
+          setError('Verification is taking too long. Please try again.');
           setStep(STEPS.ERROR);
           return prev;
         }
@@ -256,7 +256,7 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
       }
     } catch (err) {
       console.error('Start verification error:', err);
-      setError('Something went wrong. Please try again.');
+      setError('Verification couldn\'t be completed. Please try again.');
       setStep(STEPS.ERROR);
     } finally {
       setLoading(false);

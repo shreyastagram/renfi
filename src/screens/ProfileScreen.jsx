@@ -25,6 +25,8 @@ import {
   Image,
   Animated,
   Dimensions,
+  Linking,
+  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -269,7 +271,15 @@ const ProfileScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
   const { user, profile, userType, refreshVerificationStatus, refreshProfile, aadhaarStatus, setAadhaarStatus, premiumStatus, setPremiumStatus, isProfileLoading } = useApp();
-  
+
+  // Set status bar for light background when this tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      StatusBar.setBarStyle('dark-content');
+      if (Platform.OS === 'android') StatusBar.setBackgroundColor('transparent');
+    }, [])
+  );
+
   // Check if we should scroll to/open addresses section
   const scrollToAddresses = route?.params?.scrollToAddresses;
 
@@ -288,6 +298,7 @@ const ProfileScreen = ({ navigation, route }) => {
     pincode: '',
     experience: '',
   });
+  const originalFormData = useRef({});
   
   // Provider service categories are now managed via Document Verification screen
 
@@ -356,12 +367,21 @@ const ProfileScreen = ({ navigation, route }) => {
         return;
       }
 
-      // 2. Get current GPS position
+      // 2. Get current GPS position — use network location first (fast, ~1-3s),
+      //    then try GPS for better accuracy. For reverse geocoding, network accuracy is sufficient.
       const position = await new Promise((resolve, reject) => {
+        let resolved = false;
+        // Fast attempt: network/cell location (low accuracy but near-instant)
         Geolocation.getCurrentPosition(
-          resolve,
-          reject,
-          { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+          (pos) => { if (!resolved) { resolved = true; resolve(pos); } },
+          () => {}, // Ignore fast-path errors, GPS attempt will handle it
+          { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+        );
+        // GPS attempt: higher accuracy, longer timeout
+        Geolocation.getCurrentPosition(
+          (pos) => { if (!resolved) { resolved = true; resolve(pos); } },
+          (err) => { if (!resolved) { resolved = true; reject(err); } },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
         );
       });
 
@@ -435,11 +455,33 @@ const ProfileScreen = ({ navigation, route }) => {
     } catch (error) {
       console.error('[DetectLocation] Error:', error);
       const errCode = error?.code;
-      let errMsg = 'Could not detect your location. Please try again or enter manually.';
-      if (errCode === 1) errMsg = 'Location permission denied. Please enable it in Settings.';
-      else if (errCode === 2) errMsg = 'Location unavailable. Make sure GPS is turned on.';
-      else if (errCode === 3) errMsg = 'Location request timed out. Please try again.';
-      dialog('Location Error', errMsg);
+
+      if (errCode === 2) {
+        // GPS is turned off — offer to open settings
+        dialog(
+          'Location is Turned Off',
+          'Please enable GPS to detect your location, or enter your address manually.',
+          [
+            { text: 'Enter Manually', style: 'cancel' },
+            {
+              text: 'Enable GPS',
+              onPress: () => {
+                if (Platform.OS === 'ios') {
+                  Linking.openURL('app-settings:');
+                } else {
+                  Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS').catch(() => {
+                    Linking.openSettings();
+                  });
+                }
+              },
+            },
+          ]
+        );
+      } else if (errCode === 1) {
+        dialog('Permission Denied', 'Location permission is required. Please enable it in your device settings.');
+      } else {
+        dialog('Location Error', 'Could not detect your location. Please try again or enter manually.');
+      }
     } finally {
       setDetectingLocation(false);
     }
@@ -464,14 +506,16 @@ const ProfileScreen = ({ navigation, route }) => {
   // Initialize form data
   useEffect(() => {
     const phoneValue = displayData?.phone || displayData?.phoneNumber || '';
-    setFormData({
+    const initial = {
       fullName: displayData?.fullName || '',
       phone: phoneValue,
       address: displayData?.address || '',
       city: displayData?.city || '',
       pincode: displayData?.pincode || '',
       experience: String(displayData?.experience || ''),
-    });
+    };
+    setFormData(initial);
+    originalFormData.current = initial;
     setOriginalPhone(phoneValue);
   }, [displayData?.fullName, displayData?.phone, displayData?.phoneNumber, displayData?.address, displayData?.city, displayData?.pincode, displayData?.experience]);
 
@@ -558,7 +602,7 @@ const ProfileScreen = ({ navigation, route }) => {
     const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
     
     if (!userId) {
-      dialog('Error', 'User ID not found');
+      dialog('Error', 'Something unexpected happened. Please try again.');
       return;
     }
 
@@ -596,23 +640,39 @@ const ProfileScreen = ({ navigation, route }) => {
     setSaving(true);
     try {
       let result;
-      
+
+      // Compute only the fields that actually changed to avoid unnecessary
+      // Java Auth sync calls (which can fail independently of the main update)
+      const orig = originalFormData.current;
+      const changedFields = {};
+      for (const key of Object.keys(formData)) {
+        if (formData[key] !== orig[key]) {
+          changedFields[key] = formData[key];
+        }
+      }
+
+      if (Object.keys(changedFields).length === 0) {
+        dialog('No Changes', 'No changes were made to your profile.');
+        setSaving(false);
+        return;
+      }
+
       if (isProvider) {
         // For providers, update via provider profile endpoint
         // Note: serviceCategories are managed via Document Verification, not editable here
-        result = await updateProviderProfile(userId, {
-          name: formData.fullName,
-          phone: formData.phone, // Include phone number
-          address: formData.address,
-          city: formData.city,
-          pincode: formData.pincode,
-          experience: formData.experience ? parseInt(formData.experience, 10) : undefined,
-        });
+        const providerUpdates = {};
+        if (changedFields.fullName !== undefined) providerUpdates.name = changedFields.fullName;
+        if (changedFields.phone !== undefined) providerUpdates.phone = changedFields.phone;
+        if (changedFields.address !== undefined) providerUpdates.address = changedFields.address;
+        if (changedFields.city !== undefined) providerUpdates.city = changedFields.city;
+        if (changedFields.pincode !== undefined) providerUpdates.pincode = changedFields.pincode;
+        if (changedFields.experience !== undefined) providerUpdates.experience = parseInt(changedFields.experience, 10) || undefined;
+        result = await updateProviderProfile(userId, providerUpdates);
       } else {
-        // For users, use user profile endpoint (formData includes phone)
-        result = await updateUserProfile(userId, formData);
+        // For users, send only changed fields
+        result = await updateUserProfile(userId, changedFields);
       }
-      
+
       if (result.success) {
         dialog('Success', 'Profile updated successfully');
         setIsEditing(false);
@@ -622,7 +682,7 @@ const ProfileScreen = ({ navigation, route }) => {
       } else {
         // Handle specific error codes from backend
         const errorCode = result.error?.code || result.error?.response?.data?.code;
-        
+
         if (errorCode === 'PHONE_ALREADY_EXISTS') {
           dialog(
             'Number Already Registered',
@@ -646,12 +706,22 @@ const ProfileScreen = ({ navigation, route }) => {
             'Your name has been locked after Aadhaar verification and cannot be changed. This ensures your profile matches your verified identity.',
             [{ text: 'OK' }]
           );
+        } else if (result.error?.isTransient) {
+          // Transient network error — offer retry
+          dialog(
+            'Connection Issue',
+            'We\'re having trouble connecting. Please try again.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Retry', onPress: () => performSave(userId) },
+            ]
+          );
         } else {
-          dialog('Error', getErrorMessage(result.error, 'Failed to update profile'));
+          dialog('Couldn\'t Save', getErrorMessage(result.error, 'Your changes couldn\'t be saved. Please try again.'));
         }
       }
     } catch (error) {
-      dialog('Error', 'Something went wrong');
+      dialog('Couldn\'t Save', 'Your changes couldn\'t be saved. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -662,7 +732,7 @@ const ProfileScreen = ({ navigation, route }) => {
    */
   const handlePhoneVerify = async () => {
     if (!displayData?.phone) {
-      dialog('Error', 'No phone number found. Please update your profile.');
+      dialog('Error', 'Add a phone number to your profile first.');
       return;
     }
 
@@ -674,10 +744,10 @@ const ProfileScreen = ({ navigation, route }) => {
         setPhoneOtpSent(true);
         dialog('OTP Sent', `Verification code sent to ${displayData.phone}`);
       } else {
-        dialog('Error', getErrorMessage(result.error, 'Failed to send OTP'));
+        dialog('Error', getErrorMessage(result.error, 'Couldn\'t send verification code. Please try again.'));
       }
     } catch (error) {
-      dialog('Error', 'Failed to send verification code');
+      dialog('Error', 'Couldn\'t send verification code. Please try again.');
     } finally {
       setVerifyingPhone(false);
     }
@@ -723,7 +793,7 @@ const ProfileScreen = ({ navigation, route }) => {
         dialog('Error', getErrorMessage(result.error, 'Invalid OTP'));
       }
     } catch (error) {
-      dialog('Error', 'Verification failed');
+      dialog('Error', 'Verification didn\'t go through. Please try again.');
     } finally {
       setVerifyingPhone(false);
     }
@@ -817,11 +887,11 @@ const ProfileScreen = ({ navigation, route }) => {
             );
           }
         } else {
-          dialog('Error', getErrorMessage(result.error, 'Failed to send verification email'));
+          dialog('Error', getErrorMessage(result.error, 'Couldn\'t send verification email. Please try again.'));
         }
       }
     } catch (error) {
-      dialog('Error', 'Failed to send verification email. Please try again.');
+      dialog('Error', 'Couldn\'t send verification email. Please try again.');
     } finally {
       setVerifyingEmail(false);
     }
@@ -916,7 +986,7 @@ const ProfileScreen = ({ navigation, route }) => {
       
       if (result.didCancel) return;
       if (result.errorCode) {
-        dialog('Error', result.errorMessage || 'Failed to select image');
+        dialog('Error', 'Couldn\'t access your photos. Please check app permissions.');
         return;
       }
 
@@ -925,7 +995,7 @@ const ProfileScreen = ({ navigation, route }) => {
         await uploadProfilePicture(asset.uri);
       }
     } catch (error) {
-      dialog('Error', 'Failed to select image');
+      dialog('Error', 'Couldn\'t access your photos. Please check app permissions.');
     }
   };
 
@@ -948,7 +1018,7 @@ const ProfileScreen = ({ navigation, route }) => {
       
       if (result.didCancel) return;
       if (result.errorCode) {
-        dialog('Error', result.errorMessage || 'Failed to take photo');
+        dialog('Error', 'Couldn\'t access your photos. Please check app permissions.');
         return;
       }
 
@@ -957,7 +1027,7 @@ const ProfileScreen = ({ navigation, route }) => {
         await uploadProfilePicture(asset.uri);
       }
     } catch (error) {
-      dialog('Error', 'Failed to take photo');
+      dialog('Error', 'Couldn\'t access your photos. Please check app permissions.');
     }
   };
 
@@ -972,7 +1042,7 @@ const ProfileScreen = ({ navigation, route }) => {
       const uploadResult = await uploadToCloudinary(imageUri);
       
       if (!uploadResult.success) {
-        dialog('Error', uploadResult.error || 'Failed to upload image');
+        dialog('Error', 'Couldn\'t upload your photo. Please try again.');
         return;
       }
 
@@ -987,10 +1057,10 @@ const ProfileScreen = ({ navigation, route }) => {
           await refreshProfile(userType, userId);
         }
       } else {
-        dialog('Error', saveResult.message || 'Failed to save profile picture');
+        dialog('Error', 'Photo uploaded but couldn\'t save. Please try again.');
       }
     } catch (error) {
-      dialog('Error', 'Something went wrong');
+      dialog('Error', 'Something unexpected happened. Please try again.');
     } finally {
       setUploadingPicture(false);
     }
@@ -1036,6 +1106,8 @@ const ProfileScreen = ({ navigation, route }) => {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#f67c16" />
           }
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
         >
           {/* ─── Premium Profile Card ─── */}
           <View style={styles.profileCard}>

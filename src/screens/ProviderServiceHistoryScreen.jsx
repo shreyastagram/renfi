@@ -30,10 +30,11 @@ import {
   ScrollView,
   AppState,
   Image,
+  StatusBar,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
@@ -365,6 +366,15 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
   const isFocused = useIsFocused();
   const { user, profile, userType, logout } = useApp();
   const { dialog } = useDialog();
+
+  // Set status bar for light background when this tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      StatusBar.setBarStyle('dark-content');
+      if (Platform.OS === 'android') StatusBar.setBackgroundColor('transparent');
+    }, [])
+  );
+
   const appStateRef = useRef(AppState.currentState);
   const fetchInProgressRef = useRef(false);
   const refreshDebounceRef = useRef(null);
@@ -598,7 +608,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
             dialog('Request Unavailable', 'This request is no longer available. It may have been cancelled or expired.');
             fetchJobs(false);
           } else {
-            dialog('Connection Error', 'Could not reach the server. Please check your internet connection and try again.');
+            dialog('Connection Error', 'We\'re having trouble connecting. Please try again.');
           }
         }
         finally { setAcceptingId(null); }
@@ -638,7 +648,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
             }
           }
         } catch (e) {
-          dialog('Connection Error', 'Could not reach the server. Please check your internet connection and try again.');
+          dialog('Connection Error', 'We\'re having trouble connecting. Please try again.');
         }
         finally { setRejectingId(null); }
       }},

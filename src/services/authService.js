@@ -100,6 +100,9 @@ export const AUTH_CODES = {
   MONGODB_SYNC_FAILED: 'MONGODB_SYNC_FAILED',
   INTERNAL_SERVER_ERROR: 'INTERNAL_SERVER_ERROR',
   NETWORK_ERROR: 'NETWORK_ERROR',
+  SERVER_UNREACHABLE: 'SERVER_UNREACHABLE',
+  SERVER_TIMEOUT: 'SERVER_TIMEOUT',
+  NO_INTERNET: 'NO_INTERNET',
 };
 
 // ==================== REGISTRATION ====================
@@ -901,8 +904,11 @@ export const getErrorMessage = (code, defaultMessage) => {
     [AUTH_CODES.SAME_PASSWORD]: 'New password must be different from current password.',
     
     // Server errors
-    [AUTH_CODES.AUTH_SERVICE_UNAVAILABLE]: 'Service is temporarily unavailable. Please try again later.',
-    [AUTH_CODES.NETWORK_ERROR]: 'Unable to connect. Please check your internet connection.',
+    [AUTH_CODES.AUTH_SERVICE_UNAVAILABLE]: 'We\'re having trouble right now. Please try again in a moment.',
+    [AUTH_CODES.NETWORK_ERROR]: 'Something went wrong. Please try again.',
+    [AUTH_CODES.SERVER_UNREACHABLE]: 'We\'re having trouble connecting. Please try again in a moment.',
+    [AUTH_CODES.SERVER_TIMEOUT]: 'This is taking longer than usual. Please try again.',
+    [AUTH_CODES.NO_INTERNET]: 'No internet connection. Please check your WiFi or mobile data.',
     [AUTH_CODES.VALIDATION_FAILED]: 'Please check your input and try again.',
   };
   

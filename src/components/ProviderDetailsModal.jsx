@@ -162,11 +162,11 @@ const ProviderDetailsModal = ({
         setProvider(result.provider);
       } else {
         console.error('[ProviderDetailsModal] Failed to load:', result.error);
-        setError(result.error || 'Failed to load provider details');
+        setError(result.error || 'Couldn\'t load provider details. Please try again.');
       }
     } catch (err) {
       console.error('[ProviderDetailsModal] Exception:', err);
-      setError(err.message || 'Failed to load provider details');
+      setError(err.message || 'Couldn\'t load provider details. Please try again.');
     } finally {
       setLoading(false);
     }

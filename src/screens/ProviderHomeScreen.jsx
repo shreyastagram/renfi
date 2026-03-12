@@ -27,7 +27,7 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
@@ -234,7 +234,7 @@ const ShimmerBlock = ({ width, height, borderRadius = 8, style }) => {
  */
 const HomeSkeletonLoader = ({ insets }) => (
   <View style={styles.container}>
-    <StatusBar barStyle="light-content" backgroundColor={BRAND.dark} />
+
     <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]} scrollEnabled={false}>
       {/* Hero Header skeleton */}
       <View style={[styles.heroHeader, { paddingTop: insets.top + 16 }]}>
@@ -504,6 +504,14 @@ const ProviderHomeScreen = ({ navigation }) => {
   const { user, profile, logout, updateProviderAvailability, isProfileLoading, refreshProfile, userType } = useApp();
   const { dialog } = useDialog();
 
+  // Set status bar for dark hero header when this tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      StatusBar.setBarStyle('light-content');
+      if (Platform.OS === 'android') StatusBar.setBackgroundColor('transparent');
+    }, [])
+  );
+
   // State - derive from profile/user for single source of truth
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -667,7 +675,7 @@ const ProviderHomeScreen = ({ navigation }) => {
         const isAuthError = /not authorized|token|auth|401|403/i.test(errorMsg);
 
         if (isNetworkError) {
-          dialog('Connection Issue', 'Unable to reach the server. Please check your internet connection and try again.');
+          dialog('Connection Issue', 'We\'re having trouble connecting. Please try again.');
         } else if (isAuthError) {
           dialog('Session Expired', 'Your session has expired. Please log out and log back in.');
         } else {
@@ -695,7 +703,7 @@ const ProviderHomeScreen = ({ navigation }) => {
       AsyncStorage.setItem('provider_availability', String(previousValue));
       updateProviderAvailability(previousValue, true);
       console.error('Failed to update availability:', error);
-      dialog('Error', 'Something went wrong. Please check your internet connection and try again.');
+      dialog('Error', 'Couldn\'t update your availability. Please try again.');
     } finally {
       setIsUpdatingAvailability(false);
     }
@@ -820,7 +828,7 @@ const ProviderHomeScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={BRAND.dark} />
+  
 
       <ScrollView
         style={styles.scrollView}

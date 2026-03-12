@@ -20,7 +20,7 @@ import {
   ActivityIndicator,
   Keyboard,
   Platform,
-  ScrollView,
+  FlatList,
 } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
@@ -167,18 +167,16 @@ const CityAutocomplete = ({
       {showSuggestions && (
         <View style={styles.suggestionsContainer}>
           {suggestions.length > 0 ? (
-            <ScrollView
+            <FlatList
+              data={suggestions}
+              keyExtractor={(item) => item.id}
+              renderItem={renderSuggestion}
+              style={styles.suggestionsList}
               keyboardShouldPersistTaps="handled"
               nestedScrollEnabled
               showsVerticalScrollIndicator={false}
-            >
-              {suggestions.map((item, index) => (
-                <React.Fragment key={item.id}>
-                  {index > 0 && <View style={styles.separator} />}
-                  {renderSuggestion({ item })}
-                </React.Fragment>
-              ))}
-            </ScrollView>
+              ItemSeparatorComponent={() => <View style={styles.separator} />}
+            />
           ) : !loading && query.length >= 2 ? (
             <View style={styles.noResults}>
               <Text style={styles.noResultsText}>No cities found</Text>
@@ -241,6 +239,9 @@ const styles = StyleSheet.create({
         elevation: 10,
       },
     }),
+  },
+  suggestionsList: {
+    maxHeight: 190,
   },
   suggestionItem: {
     flexDirection: 'row',

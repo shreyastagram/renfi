@@ -77,6 +77,7 @@ const ResetPasswordScreen = ({ navigation, route, token: propToken, onGoToLogin 
   const [errors, setErrors] = useState({});
   const [alertMessage, setAlertMessage] = useState(null);
   const [alertType, setAlertType] = useState('error');
+  const [alertHint, setAlertHint] = useState(null);
   const [resetComplete, setResetComplete] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -128,9 +129,10 @@ const ResetPasswordScreen = ({ navigation, route, token: propToken, onGoToLogin 
   /**
    * Show alert message
    */
-  const showAlert = useCallback((message, type = 'error') => {
+  const showAlert = useCallback((message, type = 'error', hint = null) => {
     setAlertMessage(message);
     setAlertType(type);
+    setAlertHint(hint);
   }, []);
 
   /**
@@ -138,6 +140,7 @@ const ResetPasswordScreen = ({ navigation, route, token: propToken, onGoToLogin 
    */
   const clearAlert = useCallback(() => {
     setAlertMessage(null);
+    setAlertHint(null);
   }, []);
 
   /**
@@ -420,6 +423,7 @@ const ResetPasswordScreen = ({ navigation, route, token: propToken, onGoToLogin 
             <Alert
               message={alertMessage}
               type={alertType}
+              hint={alertHint}
               onDismiss={clearAlert}
               style={styles.alert}
             />

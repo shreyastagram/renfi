@@ -101,6 +101,7 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
   const [errors, setErrors] = useState({});
   const [alertMessage, setAlertMessage] = useState(null);
   const [alertType, setAlertType] = useState('error');
+  const [alertHint, setAlertHint] = useState(null);
   const [changeComplete, setChangeComplete] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -109,9 +110,10 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
   /**
    * Show alert message
    */
-  const showAlert = useCallback((message, type = 'error') => {
+  const showAlert = useCallback((message, type = 'error', hint = null) => {
     setAlertMessage(message);
     setAlertType(type);
+    setAlertHint(hint);
   }, []);
 
   /**
@@ -119,6 +121,7 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
    */
   const clearAlert = useCallback(() => {
     setAlertMessage(null);
+    setAlertHint(null);
   }, []);
 
   /**
@@ -307,11 +310,16 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
           setTimeout(() => onSuccess(), 2000);
         }
       } else {
-        const errorMessage = result.error?.message || 'Failed to reset password';
-        if (errorMessage.toLowerCase().includes('otp') || errorMessage.toLowerCase().includes('code')) {
-          showAlert('Invalid or expired OTP. Please try again.');
+        const errorCode = result.error?.code || '';
+
+        if (errorCode === 'INVALID_OTP' || errorCode === AUTH_CODES.INVALID_OTP) {
+          showAlert('The OTP you entered is incorrect. Please check and try again.');
+        } else if (errorCode === AUTH_CODES.OTP_EXPIRED) {
+          showAlert('This OTP has expired. Please request a new one.');
+        } else if (errorCode === AUTH_CODES.MAX_ATTEMPTS_EXCEEDED) {
+          showAlert('Too many attempts. Please request a new OTP.');
         } else {
-          showAlert(errorMessage);
+          showAlert(getErrorMessage(errorCode, 'Password reset failed. Please try again.'));
         }
       }
     } catch (err) {
@@ -693,6 +701,7 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
             <Alert
               message={alertMessage}
               type={alertType}
+              hint={alertHint}
               onDismiss={clearAlert}
               style={styles.alert}
             />

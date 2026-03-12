@@ -359,10 +359,10 @@ const SavedAddresses = ({
               if (result.success) {
                 loadAddresses(false);
               } else {
-                dialog('Error', result.error || 'Failed to delete address');
+                dialog('Error', result.error || 'Couldn\'t delete this address. Please try again.');
               }
             } catch (error) {
-              dialog('Error', 'Failed to delete address');
+              dialog('Error', 'Couldn\'t delete this address. Please try again.');
             }
           },
         },
@@ -379,10 +379,10 @@ const SavedAddresses = ({
       if (result.success) {
         loadAddresses(false);
       } else {
-        dialog('Error', result.error || 'Failed to set default address');
+        dialog('Error', result.error || 'Couldn\'t set default address. Please try again.');
       }
     } catch (error) {
-      dialog('Error', 'Failed to set default address');
+      dialog('Error', 'Couldn\'t set default address. Please try again.');
     }
   }, [userId, loadAddresses]);
 
@@ -471,7 +471,7 @@ const SavedAddresses = ({
             data={addresses}
             renderItem={renderAddressItem}
             keyExtractor={(item) => item._id}
-            contentContainerStyle={styles.listContainer}
+            contentContainerStyle={[styles.listContainer, { paddingBottom: 100 + insets.bottom }]}
             ListHeaderComponent={
               <SectionHeaderBar
                 title="Your Addresses"
@@ -491,7 +491,7 @@ const SavedAddresses = ({
 
           {/* Floating Add Button */}
           <TouchableOpacity
-            style={styles.floatingButton}
+            style={[styles.floatingButton, { bottom: 32 + insets.bottom }]}
             onPress={handleAddNew}
             activeOpacity={0.8}
           >
@@ -781,7 +781,7 @@ const styles = StyleSheet.create({
   },
   floatingButton: {
     position: 'absolute',
-    bottom: 32,
+    bottom: 32, // Overridden inline with insets.bottom
     right: 20,
     width: 60,
     height: 60,

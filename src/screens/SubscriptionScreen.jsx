@@ -24,6 +24,7 @@ import {
   Modal,
   Dimensions,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -527,6 +528,7 @@ const SubscriptionScreen = ({ navigation }) => {
   if (userType !== 'provider') {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <MaterialIcon name="arrow-back-ios-new" size={20} color="#0F172A" />
@@ -546,6 +548,7 @@ const SubscriptionScreen = ({ navigation }) => {
   if (loading) {
     return (
       <View style={[styles.container, styles.center]}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <ActivityIndicator size="large" color="#f67c16" />
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
@@ -556,6 +559,7 @@ const SubscriptionScreen = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <MaterialIcon name="arrow-back-ios-new" size={20} color="#0F172A" />

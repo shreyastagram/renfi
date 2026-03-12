@@ -27,8 +27,10 @@ import {
   Vibration,
   Image,
   Animated,
+  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
@@ -39,6 +41,7 @@ import { NODE_BASE_URL, JAVA_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
 import { getTokens } from '../utils/storage';
 import { playNotificationSound } from '../utils/notificationSound';
+import { getAutoUpdateEnabled, setAutoUpdateEnabled, getCurrentAppVersion, checkForAppUpdate, openStorePage } from '../services/appUpdateService';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
@@ -231,6 +234,14 @@ const SettingsScreen = ({ navigation }) => {
   const { user, profile, userType, logout, refreshProfile, updateProviderAvailability, updateProviderLocationTracking } = useApp();
   const { dialog } = useDialog();
 
+  // Set status bar for dark hero header when this tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      StatusBar.setBarStyle('light-content');
+      if (Platform.OS === 'android') StatusBar.setBackgroundColor('transparent');
+    }, [])
+  );
+
   const displayData = { ...user, ...profile };
   const isProvider = userType === 'provider';
   const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
@@ -267,6 +278,10 @@ const SettingsScreen = ({ navigation }) => {
     notificationSound: true,
     distanceInKm: true,
   });
+
+  // Auto-update state
+  const [autoUpdateEnabled, setAutoUpdateEnabledState] = useState(false);
+  const [checkingForUpdate, setCheckingForUpdate] = useState(false);
 
   // Provider-specific state
   const [workingHours, setWorkingHours] = useState(displayData?.availability?.workingHours || {});
@@ -319,6 +334,10 @@ const SettingsScreen = ({ navigation }) => {
           setAppPreferences(prev => ({ ...prev, distanceInKm: bp.distanceInKm }));
         }
       }
+
+      // Load auto-update preference
+      const autoUpdate = await getAutoUpdateEnabled();
+      setAutoUpdateEnabledState(autoUpdate);
     } catch (error) {
       console.log('Error loading preferences:', error);
     }
@@ -447,6 +466,43 @@ const SettingsScreen = ({ navigation }) => {
     // Haptic feedback when toggling haptics ON
     if (key === 'hapticFeedback' && value) {
       Vibration.vibrate(10);
+    }
+  };
+
+  /**
+   * Handle auto-update toggle
+   */
+  const handleAutoUpdateChange = async (value) => {
+    setAutoUpdateEnabledState(value);
+    await setAutoUpdateEnabled(value);
+    if (appPreferences.hapticFeedback) {
+      Vibration.vibrate(10);
+    }
+  };
+
+  /**
+   * Manually check for updates
+   */
+  const handleCheckForUpdate = async () => {
+    setCheckingForUpdate(true);
+    try {
+      const info = await checkForAppUpdate();
+      if (info && info.updateRequired) {
+        dialog(
+          'Update Available',
+          `Version ${info.latestVersion} is available.`,
+          [
+            { text: 'Later', style: 'cancel' },
+            { text: 'Update Now', onPress: () => openStorePage(info.storeUrl) },
+          ]
+        );
+      } else {
+        dialog('Up to Date', `You're on the latest version (${getCurrentAppVersion()}).`);
+      }
+    } catch {
+      dialog('Error', 'Could not check for updates. Please try again.');
+    } finally {
+      setCheckingForUpdate(false);
     }
   };
 
@@ -765,11 +821,16 @@ const SettingsScreen = ({ navigation }) => {
           [{ text: 'OK', onPress: () => logout() }]
         );
       } else {
-        dialog('Error', result.message || 'Invalid OTP or deletion failed. Please try again.');
+        const msgLower = (result.message || '').toLowerCase();
+        if (msgLower.includes('otp') || msgLower.includes('verification') || msgLower.includes('invalid')) {
+          dialog('Incorrect OTP', 'The OTP you entered is incorrect. Please check and try again.');
+        } else {
+          dialog('Unable to Delete', 'Something went wrong. Please try again.');
+        }
       }
     } catch (error) {
       console.error('Delete account error:', error);
-      dialog('Error', 'Failed to delete account. Please check your connection and try again.');
+      dialog('Unable to Delete', 'Something went wrong. Please try again.');
     } finally {
       setIsDeletingAccount(false);
     }
@@ -972,14 +1033,31 @@ const SettingsScreen = ({ navigation }) => {
         <View style={styles.section}>
           <SectionHeader title="App" />
 
+          <ToggleRow
+            iconName="settings"
+            title="Auto-Update"
+            subtitle={autoUpdateEnabled
+              ? 'Opens store automatically when updates are available'
+              : 'Manually check for updates'}
+            value={autoUpdateEnabled}
+            onValueChange={handleAutoUpdateChange}
+          />
+
+          <ActionRow
+            iconName="settings"
+            title="Check for Updates"
+            subtitle={checkingForUpdate ? 'Checking...' : `Current version ${getCurrentAppVersion()}`}
+            onPress={handleCheckForUpdate}
+          />
+
           <ActionRow
             iconName="info"
             title="About FixHomi"
-            subtitle="Version 1.5"
+            subtitle={`Version ${getCurrentAppVersion()}`}
             onPress={() => {
               dialog(
                 'About FixHomi',
-                'FixHomi - Your trusted home services partner.\n\nVersion 1.5\nBuild 2026.03.04\n\n\u00A9 2026 FixHomi. All rights reserved.',
+                `FixHomi - Your trusted home services partner.\n\nVersion ${getCurrentAppVersion()}\n\n\u00A9 2026 FixHomi. All rights reserved.`,
                 [{ text: 'OK' }]
               );
             }}

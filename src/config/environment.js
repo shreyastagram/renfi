@@ -44,12 +44,12 @@ export const USE_PRODUCTION_JAVA_AUTH = true;
 
 export const PRODUCTION_CONFIG = {
   // Node.js Backend (Railway)
-  NODE_API_URL: 'https://noefix-production.up.railway.app',
+  NODE_API_URL: 'https://noefix.onrender.com',
   
   // Java Auth Service (Render)
   JAVA_AUTH_URL: 'https://jauth.onrender.com',
   
-  // Razorpay Key (same for both environments)
+  // TODO: Replace with live Razorpay key (rzp_live_...) before production release
   RAZORPAY_KEY_ID: 'rzp_test_SDn3j2JcoVMF3R',
 };
 

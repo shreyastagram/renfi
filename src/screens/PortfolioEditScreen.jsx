@@ -23,6 +23,7 @@ import {
   Platform,
   Image,
   Linking,
+  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -379,6 +380,7 @@ const PortfolioEditScreen = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 

@@ -240,7 +240,7 @@ authClient.interceptors.request.use(
  */
 const handleResponseError = async (error, client) => {
   const originalRequest = error.config;
-  
+
   // Detailed error logging
   const errorInfo = {
     url: error.config?.url,
@@ -253,12 +253,24 @@ const handleResponseError = async (error, client) => {
     code: error.code,
   };
   console.error('❌ [API] Response error:', errorInfo);
-  
-  // Log network errors specifically
-  if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
-    console.error('🚫 [API] Cannot connect to server. Is the backend running?');
+
+  // ──────────────────────────────────────────────────────────────────
+  // AUTO-RETRY for transient network errors (no response received)
+  // Handles: cold-start connections, mobile DNS flakiness, TLS init
+  // This is the same pattern Uber/Zomato/Swiggy use on mobile apps
+  // ──────────────────────────────────────────────────────────────────
+  if (!error.response && error.request && isTransientNetworkError(error) && !originalRequest._networkRetry) {
+    originalRequest._networkRetry = true;
+    console.log(`🔄 [API] Transient network error (${error.code || 'unknown'}), auto-retrying in 1.5s...`);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    return client(originalRequest);
   }
-  
+
+  // Log network errors specifically (after retry exhausted)
+  if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+    console.error('🚫 [API] Cannot connect to server after retry. Is the backend running?');
+  }
+
   // Handle 503 Service Unavailable — auth service temporarily down (e.g., Render cold start)
   // Do NOT treat as auth failure, do NOT trigger token refresh/clearing
   if (error.response?.status === 503 && error.response?.data?.isTransient) {
@@ -343,7 +355,7 @@ const handleResponseError = async (error, client) => {
                 response: {
                   status: 503,
                   data: {
-                    message: 'Authentication server is temporarily unavailable. Please try again in a moment.',
+                    message: 'We\'re having trouble connecting. Please try again in a moment.',
                     code: 'AUTH_SERVER_UNAVAILABLE',
                   },
                 },
@@ -424,9 +436,9 @@ export const parseApiError = (error) => {
     return {
       status: error.response.status,
       code: error.response.data?.code || 'AUTH_SERVER_UNAVAILABLE',
-      message: error.response.data?.message || 'Authentication server is temporarily unavailable. Please try again.',
+      message: error.response.data?.message || 'We\'re having trouble connecting. Please try again in a moment.',
       errors: null,
-      hint: 'The server is warming up. Please wait a moment and try again.',
+      hint: 'Please wait a moment and try again.',
       isTransient: true,
     };
   }
@@ -434,34 +446,61 @@ export const parseApiError = (error) => {
   if (error.response) {
     // Server responded with error status
     const { data, status } = error.response;
+    let code = data.code || data.error || 'UNKNOWN_ERROR';
+    let message = data.message || 'An error occurred';
+
+    // Java Auth sometimes returns 500 for OTP/verification errors instead of 400.
+    // Detect these by URL + message and map to proper codes so screens can handle them.
+    const url = error.config?.url || '';
+    const msgLower = (data.message || '').toLowerCase();
+    if (status === 500 && (url.includes('/verify') || url.includes('/otp'))) {
+      if (msgLower.includes('verification') || msgLower.includes('otp') || msgLower.includes('invalid')) {
+        code = 'INVALID_OTP';
+        message = 'The OTP you entered is incorrect. Please check and try again.';
+      }
+    }
+
+    // Map generic 500 errors to user-friendly messages
+    if (status === 500 && code === 'UNKNOWN_ERROR') {
+      message = 'Something went wrong on our end. Please try again.';
+    }
+
     return {
       status,
-      code: data.code || data.error || 'UNKNOWN_ERROR',
-      message: data.message || 'An error occurred',
+      code,
+      message,
       errors: data.errors || null,
       hint: data.hint || null,
       success: data.success ?? false,
     };
   } else if (error.request) {
-    // Request made but no response
-    let message = 'Unable to connect to server. Please try again.';
-    let hint = 'Please check your internet connection and try again';
-    
+    // Request made but no response — differentiate server-side vs client-side
+    let message = 'Something went wrong. Please try again.';
+    let hint = 'If the problem persists, try again in a few minutes';
+    let code = 'NETWORK_ERROR';
+
     // Check for specific network errors
     if (error.code === 'ECONNREFUSED') {
-      message = 'Cannot connect to backend server.';
-      hint = 'Make sure the backend is running';
+      code = 'SERVER_UNREACHABLE';
+      message = 'We\'re having trouble connecting. Please try again in a moment.';
+      hint = 'Please try again in a moment';
     } else if (error.code === 'ENOTFOUND') {
-      message = 'Cannot find backend server.';
-      hint = 'Check your network connection and backend URL';
+      code = 'SERVER_UNREACHABLE';
+      message = 'Please check your internet connection and try again.';
+      hint = 'Make sure WiFi or mobile data is on';
     } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
-      message = 'Connection timed out. The server may be starting up.';
-      hint = 'Please wait a moment and try again';
+      code = 'SERVER_TIMEOUT';
+      message = 'This is taking longer than usual. Please try again.';
+      hint = 'Wait a moment and try again';
+    } else if (error.code === 'ERR_NETWORK' || error.code === 'ENETUNREACH') {
+      code = 'NO_INTERNET';
+      message = 'No internet connection. Please check your WiFi or mobile data.';
+      hint = 'Make sure WiFi or mobile data is turned on';
     }
-    
+
     return {
       status: 0,
-      code: 'NETWORK_ERROR',
+      code,
       message,
       errors: null,
       hint,
@@ -477,6 +516,38 @@ export const parseApiError = (error) => {
       errors: null,
       hint: null,
     };
+  }
+};
+
+/**
+ * Warm up the React Native networking stack.
+ *
+ * On mobile, the FIRST HTTP request after app launch initializes DNS resolution,
+ * TLS session negotiation, and the native connection pool (OkHttp on Android,
+ * NSURLSession on iOS). This initialization can cause the first user-triggered
+ * request to fail with ERR_NETWORK before it even leaves the device.
+ *
+ * This function sends lightweight HEAD requests to both backend URLs during
+ * app startup, so by the time the user taps "Create Account" or "Login",
+ * the networking stack is fully warm and ready.
+ *
+ * Called from AppContext.initializeAuth() on every app start.
+ */
+export const warmUpNetworkStack = async () => {
+  try {
+    console.log('🌐 [API] Warming up network stack...');
+
+    // Fire both warm-up requests in parallel — we don't care about the response
+    const warmups = [
+      axios.head(API_CONFIG.BASE_URL, { timeout: 10000 }).catch(() => {}),
+      axios.head(API_CONFIG.JAVA_AUTH_URL, { timeout: 10000 }).catch(() => {}),
+    ];
+
+    await Promise.allSettled(warmups);
+    console.log('✅ [API] Network stack warmed up');
+  } catch {
+    // Swallow all errors — this is a best-effort optimization
+    console.log('⚠️ [API] Network warm-up failed (non-critical)');
   }
 };
 

@@ -114,6 +114,7 @@ const VerificationScreen = ({
   const [sendLoading, setSendLoading] = useState(false);
   const [alertMessage, setAlertMessage] = useState(null);
   const [alertType, setAlertType] = useState('error');
+  const [alertHint, setAlertHint] = useState(null);
   const [otpSent, setOtpSent] = useState(false);
   const [maskedValue, setMaskedValue] = useState('');
   const [countdown, setCountdown] = useState(0);
@@ -161,9 +162,10 @@ const VerificationScreen = ({
   /**
    * Show alert message
    */
-  const showAlert = useCallback((message, type = 'error') => {
+  const showAlert = useCallback((message, type = 'error', hint = null) => {
     setAlertMessage(message);
     setAlertType(type);
+    setAlertHint(hint);
   }, []);
 
   /**
@@ -171,6 +173,7 @@ const VerificationScreen = ({
    */
   const clearAlert = useCallback(() => {
     setAlertMessage(null);
+    setAlertHint(null);
   }, []);
 
   /**
@@ -424,21 +427,22 @@ const VerificationScreen = ({
 
         switch (error.code) {
           case AUTH_CODES.INVALID_OTP:
-            showAlert('Invalid OTP code. Please check and try again.', 'error');
+          case 'INVALID_OTP':
+            showAlert('The OTP you entered is incorrect. Please check and try again.', 'error');
             break;
 
           case AUTH_CODES.OTP_EXPIRED:
-            showAlert('OTP has expired. Please request a new one.', 'error');
+            showAlert('This OTP has expired. Please request a new one.', 'error');
             setOtpSent(false);
             break;
 
           case AUTH_CODES.MAX_ATTEMPTS_EXCEEDED:
-            showAlert('Maximum attempts exceeded. Please request a new OTP.', 'error');
+            showAlert('Too many attempts. Please request a new OTP.', 'error');
             setOtpSent(false);
             break;
 
           default:
-            showAlert(error.message || 'Verification failed.', 'error');
+            showAlert(getErrorMessage(error.code, 'Verification failed. Please try again.'), 'error');
         }
       }
     } catch (error) {
@@ -589,6 +593,7 @@ const VerificationScreen = ({
           <Alert
             type={alertType}
             message={alertMessage}
+            hint={alertHint}
             onDismiss={clearAlert}
             style={s.alert}
           />

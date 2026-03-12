@@ -23,6 +23,7 @@ import {
   Image,
   Animated,
   Dimensions,
+  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Mapbox from '@rnmapbox/maps';
@@ -370,6 +371,7 @@ const LiveTrackingScreen = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       {/* Map loading overlay */}
       {!isMapReady && (
         <View style={styles.mapOverlay}>
@@ -434,7 +436,7 @@ const LiveTrackingScreen = ({ navigation, route }) => {
       </View>
 
       {/* Bottom Sheet */}
-      <Animated.View style={[styles.sheet, { paddingBottom: insets.bottom + 16, transform: [{ translateY: sheetTranslate }] }]}>
+      <Animated.View style={[styles.sheet, { bottom: insets.bottom, paddingBottom: insets.bottom + 16, transform: [{ translateY: sheetTranslate }] }]}>
         {isLoading ? (
           <View style={styles.sheetCenter}>
             <ActivityIndicator size="large" color={C.primary} />

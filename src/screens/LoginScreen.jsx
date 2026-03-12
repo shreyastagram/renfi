@@ -54,6 +54,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
   const [errors, setErrors] = useState({});
   const [alertMessage, setAlertMessage] = useState(null);
   const [alertType, setAlertType] = useState('error');
+  const [alertHint, setAlertHint] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
 
   // Cross-role dialog state
@@ -77,9 +78,10 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
   /**
    * Show alert message
    */
-  const showAlert = useCallback((message, type = 'error') => {
+  const showAlert = useCallback((message, type = 'error', hint = null) => {
     setAlertMessage(message);
     setAlertType(type);
+    setAlertHint(hint);
   }, []);
 
   /**
@@ -87,6 +89,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
    */
   const clearAlert = useCallback(() => {
     setAlertMessage(null);
+    setAlertHint(null);
   }, []);
 
   /**
@@ -166,11 +169,14 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
             break;
             
           case AUTH_CODES.NETWORK_ERROR:
-            showAlert(getErrorMessage(error.code, error.message), 'error');
+          case AUTH_CODES.SERVER_UNREACHABLE:
+          case AUTH_CODES.SERVER_TIMEOUT:
+          case AUTH_CODES.NO_INTERNET:
+            showAlert(error.message || getErrorMessage(error.code), 'error', error.hint);
             break;
-            
+
           default:
-            showAlert(error.message || 'Login failed. Please try again.', 'error');
+            showAlert(error.message || 'Login failed. Please try again.', 'error', error.hint);
         }
       }
     } catch (error) {
@@ -218,18 +224,31 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
           };
           
           try {
-            if (isProvider) {
-              await syncGoogleProviderToMongoDB({
-                ...syncData,
-                name: user.fullName,
-                address: '',
-              }, accessToken);
-            } else {
-              await syncGoogleUserToMongoDB(syncData, accessToken);
+            let syncOk = false;
+            for (let attempt = 1; attempt <= 2 && !syncOk; attempt++) {
+              try {
+                if (isProvider) {
+                  await syncGoogleProviderToMongoDB({
+                    ...syncData,
+                    name: user.fullName,
+                    address: '',
+                  }, accessToken);
+                } else {
+                  await syncGoogleUserToMongoDB(syncData, accessToken);
+                }
+                syncOk = true;
+                console.log('✅ [LoginScreen] MongoDB profile sync OK');
+              } catch (err) {
+                if (attempt < 2) {
+                  console.warn(`⚠️ [LoginScreen] MongoDB sync attempt ${attempt} failed, retrying in 2s...`);
+                  await new Promise(r => setTimeout(r, 2000));
+                } else {
+                  throw err;
+                }
+              }
             }
-            console.log('✅ [LoginScreen] MongoDB profile sync OK');
           } catch (syncError) {
-            console.warn('⚠️ [LoginScreen] MongoDB sync warning:', syncError.message);
+            console.warn('⚠️ [LoginScreen] MongoDB sync failed after retry:', syncError.message);
             // Don't fail login — auth middleware auto-sync will handle it
           }
         }
@@ -341,6 +360,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
             <Alert
               type={alertType}
               message={alertMessage}
+              hint={alertHint}
               onDismiss={clearAlert}
               style={styles.alert}
             />

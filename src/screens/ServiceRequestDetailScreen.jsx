@@ -28,6 +28,7 @@ import {
   Switch,
   AppState,
   Animated,
+  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
@@ -863,7 +864,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     } catch (error) {
       setCancelling(false);
       console.error('[Cancel] Error:', error);
-      dialog('Connection Error', 'Could not reach the server. Please check your internet connection and try again.');
+      dialog('Connection Error', 'We\'re having trouble connecting. Please try again.');
     }
   }, [request, getUserId, navigation, isEventService, isEmergencyService, isProvider]);
 
@@ -974,7 +975,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             } else if (errMsg.includes('cannot') || errMsg.includes('not valid')) {
               dialog('Request Unavailable', 'This request is no longer available. It may have been cancelled or expired.');
             } else {
-              dialog('Connection Error', 'Could not reach the server. Please check your internet connection and try again.');
+              dialog('Connection Error', 'We\'re having trouble connecting. Please try again.');
             }
           } finally { setAccepting(false); }
         },
@@ -1023,7 +1024,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             }
           } catch (error) {
             console.error('[RequestDetail] Reject error:', error);
-            dialog('Connection Error', 'Could not reach the server. Please check your internet connection and try again.');
+            dialog('Connection Error', 'We\'re having trouble connecting. Please try again.');
           }
           finally { setRejecting(false); }
         },
@@ -1149,6 +1150,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     const insets = useSafeAreaInsets();
     return (
       <View style={[s.screenContainer, { paddingTop: insets.top }]}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <View style={s.loadingWrap}><ActivityIndicator size="large" color={BRAND.primary} /><Text style={s.loadingText}>Loading details...</Text></View>
       </View>
     );
@@ -1157,6 +1159,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     const insets = useSafeAreaInsets();
     return (
       <View style={[s.screenContainer, { paddingTop: insets.top }]}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <View style={s.errorWrap}>
           <Icon name="error" size={52} color="#EF4444" />
           <Text style={s.errorTitle}>Request Not Found</Text>
@@ -1179,6 +1182,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
 
   return (
     <View style={s.screenContainer}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       {/* ─── Simple Fixed Header ────────────────────────────────── */}
       <View style={[s.headerOuter, { paddingTop: insets.top + 8 }]}>
         <View style={s.headerTopRow}>

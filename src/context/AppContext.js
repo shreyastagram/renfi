@@ -22,7 +22,7 @@ import { logout as apiLogout } from '../services/authService';
 import { syncPhoneToMongoDB } from '../services/authService';
 import { fetchFullProfile, getCurrentUser, updateProviderOnlineStatus as apiUpdateOnlineStatus, updateProviderProfile as apiUpdateProviderProfile } from '../services/profileService';
 import { saveFcmTokenForUser, saveFcmTokenForProvider, setupForegroundMessageListener, setupTokenRefreshListener } from '../services/fcmService';
-import { validateAndRefreshTokens } from '../services/apiClient';
+import { validateAndRefreshTokens, warmUpNetworkStack } from '../services/apiClient';
 import { signOutFromGoogle } from '../services/googleAuthService';
 import { performFullSync, processSyncQueue, isSyncDue, updateProfileWithSync, SYNC_STATUS } from '../services/profileSyncService';
 import { checkAuthHealth, addAuthStateListener, getDeviceInfo, AUTH_HEALTH } from '../services/authInfraService';
@@ -422,7 +422,12 @@ export const AppProvider = ({ children }) => {
   const initializeAuth = async () => {
     try {
       console.log('🔄 [AppContext] Initializing auth state...');
-      
+
+      // Warm up networking stack in the background (non-blocking).
+      // This initialises DNS, TLS sessions, and connection pools so the
+      // first user-triggered request (e.g. registration) doesn't fail.
+      warmUpNetworkStack();
+
       const [storedUserData, storedUserType] = await Promise.all([
         getUserData(),
         getUserType(),

@@ -306,6 +306,11 @@ export const ENDPOINTS = {
     RESEND_OTP: '/api/traditional-services', // + /:id/resend-otp
   },
 
+  // App Version Check (via Node.js backend, public endpoint)
+  APP_VERSION: {
+    CHECK: '/api/admin/app-version/check',
+  },
+
   // Call Masking endpoints (Exotel integration)
   CALLS: {
     INITIATE: '/api/calls/initiate',

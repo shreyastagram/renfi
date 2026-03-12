@@ -546,7 +546,7 @@ const DocumentPreviewModal = ({ visible, service, documents, status, rejectionRe
           )}
 
           {/* Bottom Info Bar */}
-          <View style={[styles.fullscreenInfoBar, { paddingBottom: insets.bottom + 16 }]}>
+          <View style={[styles.fullscreenInfoBar, { bottom: insets.bottom, paddingBottom: insets.bottom + 16 }]}>
             <Text style={styles.fullscreenDocName} numberOfLines={1}>
               {DOCUMENT_LABELS[currentDoc.documentType] || currentDoc.documentType}
             </Text>
@@ -861,11 +861,11 @@ const ServiceApprovalsScreen = ({ navigation }) => {
       console.error('[ServiceApprovals] Error fetching data:', error);
       if (!refreshing) {
         dialog(
-          'Connection Error',
-          'Unable to connect to server. Please check your internet connection.',
+          'Connection Issue',
+          'Couldn\'t load approvals. Please try again.',
           [
-            { text: 'Retry', onPress: () => fetchData() },
             { text: 'Cancel', style: 'cancel' },
+            { text: 'Retry', onPress: () => fetchData() },
           ]
         );
       }
@@ -1275,6 +1275,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
   if (loading) {
     return (
       <View style={[styles.container, styles.centered]}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <ActivityIndicator size="large" color={BRAND.primary} />
         <Text style={styles.loadingText}>Loading your services...</Text>
       </View>
@@ -1285,6 +1286,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
   if (step === 'list') {
     return (
       <View style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         {/* Header */}
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
@@ -1388,6 +1390,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
 
     return (
       <View style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity style={styles.backButton} onPress={() => setStep('list')}>
             <MaterialIcon name="arrow-back" size={24} color="#1F2937" />
@@ -1466,7 +1469,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
           })}
         </ScrollView>
 
-        <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+        <View style={[styles.footer, { bottom: insets.bottom, paddingBottom: insets.bottom + 16 }]}>
           <TouchableOpacity
             style={[styles.primaryButton, selectedServices.length === 0 && styles.buttonDisabled]}
             onPress={() => setStep('upload')}
@@ -1489,6 +1492,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity
           style={styles.backButton}
@@ -1630,7 +1634,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
         </View>
       )}
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+      <View style={[styles.footer, { bottom: insets.bottom, paddingBottom: insets.bottom + 16 }]}>
         <TouchableOpacity
           style={[
             styles.primaryButton,

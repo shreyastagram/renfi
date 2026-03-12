@@ -66,6 +66,7 @@ const OTPVerifyScreen = ({
   const [resendLoading, setResendLoading] = useState(false);
   const [alertMessage, setAlertMessage] = useState(null);
   const [alertType, setAlertType] = useState('error');
+  const [alertHint, setAlertHint] = useState(null);
   const [countdown, setCountdown] = useState(_expiresInMinutes * 60);
   const [canResend, setCanResend] = useState(false);
 
@@ -105,9 +106,10 @@ const OTPVerifyScreen = ({
   /**
    * Show alert message
    */
-  const showAlert = useCallback((message, type = 'error') => {
+  const showAlert = useCallback((message, type = 'error', hint = null) => {
     setAlertMessage(message);
     setAlertType(type);
+    setAlertHint(hint);
   }, []);
 
   /**
@@ -115,6 +117,7 @@ const OTPVerifyScreen = ({
    */
   const clearAlert = useCallback(() => {
     setAlertMessage(null);
+    setAlertHint(null);
   }, []);
 
   /**
@@ -208,23 +211,28 @@ const OTPVerifyScreen = ({
         
         switch (error.code) {
           case AUTH_CODES.INVALID_OTP:
-            showAlert('Invalid OTP code. Please check and try again.', 'error');
+          case 'INVALID_OTP':
+            showAlert('The OTP you entered is incorrect. Please check and try again.', 'error');
             break;
-            
+
           case AUTH_CODES.OTP_EXPIRED:
-            showAlert('OTP has expired. Please request a new one.', 'error');
+            showAlert('This OTP has expired. Please request a new one.', 'error');
             break;
-            
+
           case AUTH_CODES.MAX_ATTEMPTS_EXCEEDED:
-            showAlert('Maximum attempts exceeded. Please request a new OTP.', 'error');
+            showAlert('Too many attempts. Please request a new OTP.', 'error');
             break;
-            
+
           case AUTH_CODES.ACCOUNT_DISABLED:
             showAlert('Your account has been disabled. Please contact support.', 'error');
             break;
-            
+
+          case AUTH_CODES.USER_NOT_FOUND:
+            showAlert('No account found with this ' + (_method === 'phone' ? 'phone number' : 'email') + '. Please register first.', 'error');
+            break;
+
           default:
-            showAlert(error.message || 'Verification failed. Please try again.', 'error');
+            showAlert(getErrorMessage(error.code, 'Verification failed. Please try again.'), 'error');
         }
       }
     } catch (error) {
@@ -325,6 +333,7 @@ const OTPVerifyScreen = ({
             <Alert
               type={alertType}
               message={alertMessage}
+              hint={alertHint}
               onDismiss={clearAlert}
               style={styles.alert}
             />

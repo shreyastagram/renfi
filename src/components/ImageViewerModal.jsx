@@ -28,6 +28,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useDialog } from '../context/DialogContext';
 import Share from 'react-native-share';
@@ -69,7 +70,7 @@ const ImageSlide = ({ item, width }) => {
       {error ? (
         <View style={styles.errorContainer}>
           <MaterialIcon name="broken-image" size={64} color="#6B7280" />
-          <Text style={styles.errorText}>Failed to load image</Text>
+          <Text style={styles.errorText}>Couldn't load this image.</Text>
         </View>
       ) : (
         <Image
@@ -97,6 +98,7 @@ const ImageSlide = ({ item, width }) => {
  * @param {function} onClose - Close handler
  */
 const ImageViewerModal = ({ visible, images = [], initialIndex = 0, onClose }) => {
+  const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const flatListRef = useRef(null);
@@ -252,7 +254,7 @@ const ImageViewerModal = ({ visible, images = [], initialIndex = 0, onClose }) =
 
         {/* Caption Bar */}
         {normalizedImages[currentIndex]?.caption && (
-          <View style={styles.captionBar}>
+          <View style={[styles.captionBar, { bottom: 80 + insets.bottom }]}>
             <Text style={styles.captionText} numberOfLines={3}>
               {normalizedImages[currentIndex].caption}
             </Text>
@@ -261,7 +263,7 @@ const ImageViewerModal = ({ visible, images = [], initialIndex = 0, onClose }) =
 
         {/* Dot Indicators (for small galleries) */}
         {normalizedImages.length > 1 && normalizedImages.length <= 10 && (
-          <View style={styles.dotsContainer}>
+          <View style={[styles.dotsContainer, { bottom: 50 + insets.bottom }]}>
             {normalizedImages.map((_, index) => (
               <View
                 key={index}

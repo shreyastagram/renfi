@@ -30,10 +30,11 @@ import {
   AppState,
   Animated,
   Dimensions,
+  StatusBar,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
@@ -464,6 +465,15 @@ const UserServiceHistoryScreen = ({ navigation }) => {
   const isFocused = useIsFocused();
   const { user, profile, userType, logout } = useApp();
   const { dialog } = useDialog();
+
+  // Set status bar for light background when this tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      StatusBar.setBarStyle('dark-content');
+      if (Platform.OS === 'android') StatusBar.setBackgroundColor('transparent');
+    }, [])
+  );
+
   const appStateRef = useRef(AppState.currentState);
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -786,7 +796,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
         }
       }
     } catch (e) {
-      dialog('Connection Error', 'Could not reach the server. Please check your internet connection and try again.');
+      dialog('Connection Error', 'We\'re having trouble connecting. Please try again.');
     }
     finally { setCancellingRequest(false); setRequestToCancel(null); }
   };
