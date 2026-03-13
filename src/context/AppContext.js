@@ -227,6 +227,22 @@ export const AppProvider = ({ children }) => {
         }));
         
         profileLastFetched.current = Date.now();
+
+        // Sync premium status from profile for providers
+        if (effectiveType === 'provider' && result.data) {
+          const p = result.data;
+          if (p.isPremium !== undefined) {
+            const daysLeft = p.premiumExpiresAt
+              ? Math.max(0, Math.ceil((new Date(p.premiumExpiresAt) - new Date()) / (1000 * 60 * 60 * 24)))
+              : 0;
+            setPremiumStatus({
+              isPremiumActive: p.isPremium === true && daysLeft > 0,
+              premiumDaysLeft: daysLeft,
+              premiumLoaded: true,
+            });
+          }
+        }
+
         console.log('✅ [AppContext] Profile refreshed');
         return result.data;
       } else {

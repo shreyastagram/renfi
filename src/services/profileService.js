@@ -441,6 +441,13 @@ export const fetchFullProfile = async (userType, mongoId) => {
         verifiedPhone: mongoData.verifiedPhone || null,
         aadhaarVerification: mongoData.aadhaarVerification || {},
         emergencyServicesEnabled: mongoData.emergencyServicesEnabled ?? false,
+        // Premium & verification status
+        isPremium: mongoData.isPremium ?? false,
+        premiumExpiresAt: mongoData.premiumExpiresAt || null,
+        isFullyVerified: mongoData.isFullyVerified ?? false,
+        firstApprovalBonusPending: mongoData.firstApprovalBonusPending ?? false,
+        phoneVerified: mongoData.phoneVerified ?? false,
+        emailVerified: mongoData.emailVerified ?? false,
         // Portfolio fields for Photographers/Influencers
         bio: mongoData.bio || '',
         portfolioLinks: mongoData.portfolioLinks || {},

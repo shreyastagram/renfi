@@ -502,7 +502,7 @@ const VerificationStatusCard = ({ dashboard, onPress, isLoading = false }) => {
 const ProviderHomeScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
-  const { user, profile, logout, updateProviderAvailability, isProfileLoading, refreshProfile, userType } = useApp();
+  const { user, profile, logout, updateProviderAvailability, isProfileLoading, refreshProfile, userType, setPremiumStatus } = useApp();
   const { dialog } = useDialog();
 
   // Set status bar for dark hero header when this tab is focused
@@ -525,6 +525,9 @@ const ProviderHomeScreen = ({ navigation }) => {
   });
   const [verificationDashboard, setVerificationDashboard] = useState(null);
   const [verificationLoading, setVerificationLoading] = useState(true);
+  const verificationLastFetched = useRef(0);
+  const bonusPopupShownRef = useRef(false);
+  const VERIFICATION_STALE_THRESHOLD = 30000; // 30 seconds, matches profile SWR pattern
 
   // Combined user data - single source of truth for availability
   const displayData = { ...user, ...profile };
@@ -606,22 +609,32 @@ const ProviderHomeScreen = ({ navigation }) => {
   /**
    * Fetch verification dashboard data
    */
-  const fetchVerificationData = useCallback(async () => {
+  const fetchVerificationData = useCallback(async ({ force = false } = {}) => {
     const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
     if (!providerId) return;
 
+    // SWR: Skip fetch if data is fresh (< 30s old) unless forced
+    const now = Date.now();
+    if (!force && verificationDashboard && (now - verificationLastFetched.current) < VERIFICATION_STALE_THRESHOLD) {
+      return;
+    }
+
     try {
-      setVerificationLoading(true);
+      // Only show loading spinner on first load (no cached data yet)
+      if (!verificationDashboard) {
+        setVerificationLoading(true);
+      }
       const result = await getVerificationDashboard(providerId);
       if (result.success) {
         setVerificationDashboard(result.data);
+        verificationLastFetched.current = Date.now();
       }
     } catch (error) {
       console.log('[ProviderHome] Verification dashboard fetch error:', error.message);
     } finally {
       setVerificationLoading(false);
     }
-  }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id]);
+  }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id, verificationDashboard]);
 
   // Refresh profile + stats + verification when screen comes into focus
   useEffect(() => {
@@ -643,7 +656,7 @@ const ProviderHomeScreen = ({ navigation }) => {
     const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
     await Promise.all([
       fetchStats(),
-      fetchVerificationData(),
+      fetchVerificationData({ force: true }),
       providerId ? refreshProfile(userType, providerId, { force: true }) : Promise.resolve(),
     ]);
     setRefreshing(false);
@@ -812,6 +825,43 @@ const ProviderHomeScreen = ({ navigation }) => {
       fetchVerificationData();
     }
   }, [isProfileLoading, verificationDashboard, user?.mongoId, profile?.mongoId, fetchVerificationData]);
+
+  // First Approval Bonus popup — show congratulations when firstApprovalBonusPending flag is set
+  useEffect(() => {
+    if (profile?.firstApprovalBonusPending !== true) return;
+    if (bonusPopupShownRef.current) return;
+    bonusPopupShownRef.current = true;
+
+    dialog(
+      'Welcome to Premium!',
+      'Congratulations! Your first service got approved. Enjoy 60 days of FIXHOMI Premium on us!',
+      [{
+        text: 'Awesome!',
+        onPress: async () => {
+          const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+          if (!providerId) return;
+          try {
+            await authFetch(`${NODE_BASE_URL}/api/provider/${providerId}/clear-bonus-popup`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+            });
+          } catch (err) {
+            console.warn('[ProviderHome] Failed to clear bonus popup flag:', err.message);
+          }
+          // Update premium status in context
+          setPremiumStatus({
+            isPremiumActive: true,
+            premiumDaysLeft: 60,
+            premiumLoaded: true,
+          });
+          // Refresh profile so firstApprovalBonusPending becomes false in context
+          // This prevents the popup from re-showing on component remount
+          refreshProfile(userType, providerId, { force: true });
+          fetchVerificationData({ force: true });
+        },
+      }]
+    );
+  }, [profile?.firstApprovalBonusPending]);
 
   const firstName = displayData?.fullName?.split(' ')[0] || 'Provider';
 

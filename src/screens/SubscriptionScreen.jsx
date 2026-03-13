@@ -410,7 +410,7 @@ const modalStyles = StyleSheet.create({
 // ============================================
 const SubscriptionScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { userType } = useApp();
+  const { userType, profile } = useApp();
   const { dialog } = useDialog();
 
   const [loading, setLoading] = useState(true);
@@ -457,6 +457,16 @@ const SubscriptionScreen = ({ navigation }) => {
   }, [loadData]);
 
   const handleSubscribe = useCallback(async () => {
+    // Gate: Provider must have at least one approved service before subscribing
+    if (!profile?.verifiedServiceCategories || profile.verifiedServiceCategories.length === 0) {
+      dialog(
+        'Approved Services Required',
+        'Get at least one service approved before subscribing to Premium.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     if (!selectedPlan) {
       dialog('Select Plan', 'Please select a subscription plan');
       return;
@@ -487,7 +497,7 @@ const SubscriptionScreen = ({ navigation }) => {
       setSubscribing(false);
       setSubscriptionStatus('');
     }
-  }, [selectedPlan, loadData]);
+  }, [selectedPlan, loadData, profile]);
 
   const handleTransactionPress = useCallback((tx) => {
     setSelectedTransaction(tx);

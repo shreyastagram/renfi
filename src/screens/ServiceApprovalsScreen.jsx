@@ -984,8 +984,18 @@ const ServiceApprovalsScreen = ({ navigation }) => {
 
   /**
    * Start new service request
+   * Gate: Provider must have phone, email, and Aadhaar verified before submitting
    */
   const startNewRequest = () => {
+    const isIdentityVerified = profile?.phoneVerified && profile?.emailVerified && profile?.aadhaarVerification?.isVerified;
+    if (!isIdentityVerified) {
+      dialog(
+        'Verification Required',
+        'Complete phone, email, and Aadhaar verification before submitting documents for service approval.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
     setSelectedServices([]);
     setDocuments({});
     setCurrentServiceIndex(0);
