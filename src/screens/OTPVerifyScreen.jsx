@@ -18,7 +18,7 @@ import {
   AppState,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, Alert } from '../components';
+import { Button, Alert, FixhomiLogo } from '../components';
 import {
   verifyPhoneLoginOtp,
   verifyEmailLoginOtp,
@@ -278,6 +278,12 @@ const OTPVerifyScreen = ({
             <Text style={styles.backButtonText}>{'<'} Back</Text>
           </TouchableOpacity>
 
+          {/* Logo */}
+          <View style={styles.logoContainer}>
+            <FixhomiLogo size={44} />
+          </View>
+          <Text style={styles.brandName}>FixHomi</Text>
+
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>Enter OTP</Text>
@@ -401,6 +407,31 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 24,
+  },
+  logoContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+    shadowColor: '#f67c16',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#f67c1615',
+    marginBottom: 8,
+  },
+  brandName: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#f67c16',
+    textAlign: 'center',
+    marginBottom: 16,
+    letterSpacing: 1,
   },
   backButton: {
     marginBottom: 16,

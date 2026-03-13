@@ -13,14 +13,11 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import { FixhomiLogo } from '../components';
 import { useApp } from '../context/AppContext';
-
-// Logo image
-const LOGO_IMAGE = require('../assets/fixhomi_logo.jpg');
 
 // Brand colors
 const COLORS = {
@@ -60,11 +57,7 @@ const UserTypeScreen = ({ navigation }) => {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <Image
-              source={LOGO_IMAGE}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
+            <FixhomiLogo size={72} />
           </View>
           <Text style={styles.logo}>FixHomi</Text>
           <Text style={styles.title}>Welcome!</Text>
@@ -136,9 +129,9 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logoContainer: {
-    width: 90,
-    height: 90,
-    borderRadius: 24,
+    width: 100,
+    height: 100,
+    borderRadius: 28,
     backgroundColor: COLORS.white,
     justifyContent: 'center',
     alignItems: 'center',
@@ -148,12 +141,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 16,
     elevation: 8,
-    overflow: 'hidden',
-  },
-  logoImage: {
-    width: 90,
-    height: 90,
-    borderRadius: 24,
   },
   logo: {
     fontSize: 32,

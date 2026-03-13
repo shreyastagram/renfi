@@ -456,7 +456,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
         }
         return {
           ...b, _id: b._id, requestId: b.requestId || b._id, serviceType: b.serviceType, status: b.status,
-          createdAt: b.createdAt, isEventService: true, completionOtp: b.completionOtp, eventDate: b.eventDate,
+          createdAt: b.createdAt, isEventService: true, eventDate: b.eventDate,
           userDetails: b.userDetails || (b.userId ? { name: b.userName || 'Customer' } : null),
           location: { address: loc.address || '', coordinates: coords, landmark: loc.landmark || '', latitude: loc.latitude, longitude: loc.longitude },
           serviceAddress: loc.address || '',
@@ -470,7 +470,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
         const loc = b.location || {};
         return {
           ...b, _id: b._id, requestId: b.requestId || b._id, serviceType: b.serviceType, status: b.status,
-          createdAt: b.createdAt, isEmergencyService: true, completionOtp: b.completionOtp,
+          createdAt: b.createdAt, isEmergencyService: true,
           userDetails: b.userDetails || { name: 'Customer' },
           location: { ...loc, address: loc.address || loc.landmark || '', coordinates: loc.latitude && loc.longitude ? [loc.longitude, loc.latitude] : null },
           serviceAddress: loc.address || (loc.latitude ? `${loc.latitude.toFixed(4)}, ${loc.longitude.toFixed(4)}` : ''),
@@ -727,7 +727,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
         const r = await authFetch(`${NODE_BASE_URL}/api/emergency-services/${cancelJob._id}/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cancelledBy: 'provider', reason }) });
         result = await r.json(); result.success = result.success || r.ok;
       } else if (cancelJob.isEventService) {
-        const r = await authFetch(`${NODE_BASE_URL}/api/event-services/${cancelJob._id}/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ providerId, reason }) });
+        const r = await authFetch(`${NODE_BASE_URL}/api/event-services/${cancelJob._id}/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: providerId, reason, cancelledBy: 'provider' }) });
         result = await r.json(); result.success = result.success || r.ok;
       } else {
         result = await providerCancelRequest(cancelJob._id, providerId, reason);

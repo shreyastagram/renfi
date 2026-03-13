@@ -974,7 +974,7 @@ export const resendCompletionOtp = async (requestId) => {
     return {
       success: true,
       message: data.message || 'OTP sent successfully',
-      otp: data.data?.completionOtp || null,
+      otp: null,
       expiresAt: data.data?.otpExpiresAt || null,
       warning: data.warning || false,
     };

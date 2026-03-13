@@ -135,6 +135,33 @@ const STATUS_CONFIG = {
     providerDescription: 'This request was rejected',
     step: 0,
   },
+  awaiting_confirmation: {
+    label: 'Awaiting Confirmation',
+    color: BRAND.primary,
+    bgColor: '#FEF3C7',
+    iconName: 'hourglass-empty',
+    userDescription: 'Waiting for the provider to confirm',
+    providerDescription: 'Please confirm this emergency request',
+    step: 1,
+  },
+  in_transit: {
+    label: 'On the Way',
+    color: BRAND.secondary,
+    bgColor: '#DBEAFE',
+    iconName: 'directions-car',
+    userDescription: 'The provider is on the way to you',
+    providerDescription: 'You are on the way to the customer',
+    step: 2,
+  },
+  arrived: {
+    label: 'Arrived',
+    color: BRAND.success,
+    bgColor: '#D1FAE5',
+    iconName: 'location-on',
+    userDescription: 'The provider has arrived at your location',
+    providerDescription: 'You have arrived at the customer location',
+    step: 3,
+  },
 };
 
 const getStatusDescription = (status, isProvider, cancelledBy) => {
@@ -513,7 +540,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     EMERGENCY_SERVICE_TYPES.includes(initialRequest?.serviceType) ||
     EMERGENCY_SERVICE_TYPES.includes(route.params?.serviceType);
 
-  const serviceCategory = isEventService ? 'event' : 'traditional';
+  const serviceCategory = isEventService ? 'event' : isEmergencyService ? 'emergency' : 'traditional';
 
   const [request, setRequest] = useState(initialRequest);
   const [loading, setLoading] = useState(!initialRequest);

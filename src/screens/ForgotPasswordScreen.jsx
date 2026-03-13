@@ -546,8 +546,9 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
 
           {/* Logo */}
           <View style={styles.logoContainer}>
-            <FixhomiLogo size={80} />
+            <FixhomiLogo size={44} />
           </View>
+          <Text style={styles.brandName}>FixHomi</Text>
 
           {/* Content */}
           {passwordResetSuccess
@@ -578,9 +579,30 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   logoContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
     alignItems: 'center',
+    alignSelf: 'center',
+    shadowColor: '#f67c16',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#f67c1615',
     marginTop: 20,
-    marginBottom: 40,
+    marginBottom: 8,
+  },
+  brandName: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#f67c16',
+    textAlign: 'center',
+    marginBottom: 24,
+    letterSpacing: 1,
   },
 
   formContainer: {

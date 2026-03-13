@@ -222,7 +222,9 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
         >
           {/* Header */}
           <View style={styles.header}>
-            <FixhomiLogo size={56} color="#f67c16" />
+            <View style={styles.logoContainer}>
+              <FixhomiLogo size={44} />
+            </View>
             <Text style={styles.brandName}>FixHomi</Text>
             <Text style={styles.title}>Sign In with OTP</Text>
             <Text style={styles.subtitle}>
@@ -342,11 +344,26 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     alignItems: 'center',
   },
+  logoContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#f67c16',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#f67c1615',
+  },
   brandName: {
     fontSize: 22,
     fontWeight: '700',
     color: '#f67c16',
-    marginTop: 8,
+    marginTop: 10,
     marginBottom: 16,
     letterSpacing: 1,
   },
