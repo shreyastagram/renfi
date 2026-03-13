@@ -14,6 +14,11 @@ if linkage != nil
   use_frameworks! :linkage => linkage.to_sym
 end
 
+
+# react-native-permissions: declare which iOS permissions to include
+require_relative '../node_modules/react-native-permissions/scripts/setup'
+setup_permissions(['Camera', 'PhotoLibrary', 'LocationWhenInUse', 'LocationAlways', 'Notifications'])
+
 target 'renfi' do
   config = use_native_modules!
 

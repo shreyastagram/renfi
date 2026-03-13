@@ -31,6 +31,9 @@ import {
   AppState,
   Image,
   StatusBar,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -48,7 +51,7 @@ import {
   providerCancelRequest,
   SERVICE_TYPE_LABELS,
 } from '../services/traditionalServiceService';
-import { addEventListener as addSocketListener } from '../services/socketService';
+import { addEventListener as addSocketListener, startRequestLocationTracking, stopRequestLocationTracking } from '../services/socketService';
 import { setupForegroundMessageListener } from '../services/fcmService';
 import { STATIC_NUMBER_SERVICES, getProviderEmergencyRequests } from '../services/emergencyServicesService';
 import { authFetch } from '../utils/authFetch';
@@ -150,25 +153,71 @@ const StatPill = ({ value, label, color, bgColor }) => (
 /* ── OTP Modal ─────────────────────────────────────────────────────── */
 const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
   const [otp, setOtp] = useState('');
-  useEffect(() => { if (visible) setOtp(''); }, [visible]);
+  const [attempts, setAttempts] = useState(0);
+  const MAX_ATTEMPTS = 5;
+  const isLocked = attempts >= MAX_ATTEMPTS;
+
+  useEffect(() => { if (visible) { setOtp(''); setAttempts(0); } }, [visible]);
+
+  const handleOtpChange = (text) => {
+    // Security: Only allow numeric digits
+    const sanitized = text.replace(/[^0-9]/g, '');
+    if (sanitized.length <= 6) setOtp(sanitized);
+  };
+
+  const handleVerify = () => {
+    if (otp.length !== 6 || isVerifying || isLocked) return;
+    setAttempts(prev => prev + 1);
+    onVerify(otp);
+  };
+
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Enter Completion OTP</Text>
-            <TouchableOpacity onPress={onClose} style={styles.modalClose}>
-              <Icon name="close" size={22} color={C.textSec} />
-            </TouchableOpacity>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Enter Completion OTP</Text>
+                <TouchableOpacity onPress={onClose} style={styles.modalClose}>
+                  <Icon name="close" size={22} color={C.textSec} />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.modalSubtitle}>Ask the customer for the 6-digit OTP to complete this service.</Text>
+              <TextInput
+                style={[styles.otpInput, isLocked && { borderColor: '#EF4444', backgroundColor: '#FEF2F2' }]}
+                value={otp}
+                onChangeText={handleOtpChange}
+                placeholder="000000"
+                placeholderTextColor="#D1D5DB"
+                keyboardType="number-pad"
+                maxLength={6}
+                autoFocus
+                editable={!isLocked && !isVerifying}
+                secureTextEntry={false}
+                autoComplete="one-time-code"
+                textContentType="oneTimeCode"
+                returnKeyType="done"
+                onSubmitEditing={handleVerify}
+              />
+              {error ? <Text style={styles.otpError}>{error}</Text> : null}
+              {isLocked && (
+                <Text style={styles.otpError}>Too many attempts. Please close and try again later.</Text>
+              )}
+              {attempts > 0 && attempts < MAX_ATTEMPTS && !error && (
+                <Text style={[styles.otpHintText, { color: C.muted }]}>{MAX_ATTEMPTS - attempts} attempts remaining</Text>
+              )}
+              <TouchableOpacity
+                style={[styles.verifyBtn, (otp.length !== 6 || isLocked) && styles.verifyBtnDisabled]}
+                onPress={handleVerify}
+                disabled={otp.length !== 6 || isVerifying || isLocked}
+              >
+                {isVerifying ? <ActivityIndicator color="#fff" /> : <Text style={styles.verifyBtnText}>Verify & Complete</Text>}
+              </TouchableOpacity>
+            </View>
           </View>
-          <Text style={styles.modalSubtitle}>Ask the customer for the 6-digit OTP to complete this service.</Text>
-          <TextInput style={styles.otpInput} value={otp} onChangeText={setOtp} placeholder="000000" placeholderTextColor="#D1D5DB" keyboardType="number-pad" maxLength={6} autoFocus />
-          {error ? <Text style={styles.otpError}>{error}</Text> : null}
-          <TouchableOpacity style={[styles.verifyBtn, otp.length !== 6 && styles.verifyBtnDisabled]} onPress={() => { if (otp.length === 6) onVerify(otp); }} disabled={otp.length !== 6 || isVerifying}>
-            {isVerifying ? <ActivityIndicator color="#fff" /> : <Text style={styles.verifyBtnText}>Verify & Complete</Text>}
-          </TouchableOpacity>
-        </View>
-      </View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -579,6 +628,15 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
             result = await acceptRequestAsProvider(job._id, providerId, job.userDetails?.email || '');
           }
           if (result.success) {
+            // Start location tracking only for emergency (immediate) or services within 45 min
+            const category = job.isEmergencyService ? 'emergency' : job.isEventService ? 'event' : 'traditional';
+            const serviceTime = job.scheduledDateTime || job.eventDate || job.serviceDate;
+            const parsedMs = serviceTime ? new Date(serviceTime).getTime() : null;
+            const serviceMs = parsedMs && !isNaN(parsedMs) ? parsedMs : null;
+            const isImminent = job.isEmergencyService || (serviceMs && (serviceMs - Date.now()) <= 45 * 60 * 1000);
+            if (isImminent) {
+              startRequestLocationTracking(job._id, providerId, null, category);
+            }
             dialog('Accepted', 'Request accepted! Customer has been notified.');
             fetchJobs(false);
           } else {
@@ -686,7 +744,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
   };
 
   const handleViewDetails = (req) => navigation.navigate('ServiceRequestDetail', {
-    requestId: req.requestId || req._id,
+    requestId: req._id,
     request: (req.isEventService || req.isEmergencyService) ? req : undefined,
     isEventService: req.isEventService,
     isEmergencyService: req.isEmergencyService,
@@ -696,20 +754,21 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
   const handleComplete = (req) => { setSelectedJob(req); setOtpError(''); setOtpModalVisible(true); };
 
   const handleVerifyOtp = async (otp) => {
-    if (!selectedJob) return;
+    const job = selectedJob; // Capture in local variable to avoid stale closure
+    if (!job) return;
     setIsVerifyingOtp(true); setOtpError('');
     try {
       let result;
-      if (selectedJob.isEmergencyService) {
-        const r = await authFetch(`${NODE_BASE_URL}/api/emergency-services/${selectedJob._id}/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ otp }) });
+      if (job.isEmergencyService) {
+        const r = await authFetch(`${NODE_BASE_URL}/api/emergency-services/${job._id}/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ otp }) });
         result = await r.json(); result.success = r.ok && result.success !== false;
-      } else if (selectedJob.isEventService) {
-        const r = await authFetch(`${NODE_BASE_URL}/api/event-services/${selectedJob._id}/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ otp }) });
+      } else if (job.isEventService) {
+        const r = await authFetch(`${NODE_BASE_URL}/api/event-services/${job._id}/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ otp }) });
         result = await r.json(); result.success = r.ok && result.success !== false;
       } else {
-        result = await verifyCompletionOtp(selectedJob._id, otp);
+        result = await verifyCompletionOtp(job._id, otp);
       }
-      if (result.success) { setOtpModalVisible(false); setSelectedJob(null); dialog('Service Completed!', 'Great job!'); fetchJobs(false); }
+      if (result.success) { stopRequestLocationTracking(job._id); setOtpModalVisible(false); setSelectedJob(null); dialog('Service Completed!', 'Great job!'); fetchJobs(false); }
       else if (result.code === 'OTP_EXPIRED') setOtpError('OTP has expired.');
       else setOtpError(result.error || result.message || 'Invalid OTP.');
     } catch (e) { setOtpError(e.message || 'Failed to verify OTP.'); }
@@ -733,7 +792,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
       } else {
         result = await providerCancelRequest(cancelJob._id, providerId, reason);
       }
-      if (result.success !== false) { setCancelModalVisible(false); setCancelJob(null); dialog('Cancelled', 'Request cancelled.'); fetchJobs(false); }
+      if (result.success !== false) { stopRequestLocationTracking(cancelJob._id); setCancelModalVisible(false); setCancelJob(null); dialog('Cancelled', 'Request cancelled.'); fetchJobs(false); }
       else dialog('Error', result.message || 'Failed to cancel.');
     } catch (e) { dialog('Error', e.message || 'Failed to cancel.'); }
     finally { setCancellingId(null); }
@@ -1004,6 +1063,7 @@ const styles = StyleSheet.create({
   modalSubtitle: { fontSize: 13, fontWeight: '500', color: C.textSec, lineHeight: 19, marginBottom: 18 },
   otpInput: { borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 14, fontSize: 26, fontWeight: '700', color: C.text, textAlign: 'center', paddingVertical: 14, letterSpacing: 10, marginBottom: 10 },
   otpError: { fontSize: 12, fontWeight: '500', color: C.danger, textAlign: 'center', marginBottom: 10 },
+  otpHintText: { fontSize: 11, fontWeight: '500', textAlign: 'center', marginBottom: 10 },
   verifyBtn: { backgroundColor: C.success, borderRadius: 14, paddingVertical: 15, alignItems: 'center', shadowColor: C.success, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
   verifyBtnDisabled: { backgroundColor: '#94A3B8', shadowOpacity: 0, elevation: 0 },
   verifyBtnText: { fontSize: 15, fontWeight: '700', color: C.white },

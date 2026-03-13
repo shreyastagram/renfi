@@ -40,7 +40,6 @@ import {
   disconnectSocket,
   startLocationTracking,
   stopLocationTracking,
-  isConnected,
   addEventListener,
 } from '../services/socketService';
 import { getProviderRequests } from '../services/traditionalServiceService';
@@ -743,6 +742,10 @@ const ProviderHomeScreen = ({ navigation }) => {
       stopLocationTracking();
     };
   }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id, displayData?.locationTracking?.enabled, displayData?.location?.latitude]);
+
+  // ─── Per-request location tracking lifecycle is now managed by
+  //     LocationSharingContext (always-mounted, screen-independent).
+  //     ProviderHomeScreen only listens for socket events to refresh stats. ───
 
   // Listen for socket events so provider's dashboard refreshes in real-time
   useEffect(() => {

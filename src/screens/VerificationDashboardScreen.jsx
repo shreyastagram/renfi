@@ -646,7 +646,7 @@ const VerificationDashboardScreen = ({ navigation }) => {
               • Service approval is granted after document review{'\n'}
               • Premium subscription is required for Traditional & Event services{'\n'}
               • Emergency services (Snake Catcher, Ambulance, Mortuary Van) are free — no premium needed{'\n'}
-              • Emergency Hours toggle (in Settings) lets you be searchable during 12 AM – 6 AM
+              • Emergency Hours toggle (in Settings) lets you be searchable during 10 PM – 7 AM
             </Text>
           </View>
         </View>

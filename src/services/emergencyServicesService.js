@@ -140,6 +140,7 @@ export const createEmergencyRequest = async ({ userId, serviceType, location, no
         code: errorCode,
         suggestion,
         statusCode: response.status,
+        retryAfter: data.retryAfter || null,
       };
     }
 

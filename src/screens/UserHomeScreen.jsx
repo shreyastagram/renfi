@@ -786,6 +786,8 @@ const UserHomeScreen = ({ navigation, route }) => {
           result.suggestion || 'Our services are currently available only in Yavatmal City, Maharashtra. We\'re expanding soon!',
           [{ text: 'OK', onPress: resetFlow }]
         );
+      } else if (result.code === 'RATE_LIMITED' && result.retryAfter) {
+        dialog('Please Wait', `You've made too many requests. Try again in ${result.retryAfter} seconds.`);
       } else {
         dialog('Error', result.error || 'Failed to create request');
       }

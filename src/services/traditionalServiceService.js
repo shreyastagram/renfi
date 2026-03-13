@@ -190,6 +190,7 @@ export const createServiceRequest = async ({
         code: errorCode,
         suggestion,
         statusCode: response.status,
+        retryAfter: data.retryAfter || null,
       };
     }
 
@@ -1204,11 +1205,11 @@ export const verifyEventCompletionOtp = async (requestId, otp) => {
  * @param {string} requestId — request _id
  * @param {string} providerId — assigned provider ID
  * @param {boolean} enabled — turn sharing on or off
- * @param {string} serviceCategory — 'traditional' | 'event'
+ * @param {string} serviceCategory — 'traditional' | 'event' | 'emergency'
  */
 export const toggleLocationSharing = async (requestId, providerId, enabled, serviceCategory = 'traditional') => {
   try {
-    const baseRoute = serviceCategory === 'event' ? 'event-services' : 'traditional-services';
+    const baseRoute = serviceCategory === 'event' ? 'event-services' : serviceCategory === 'emergency' ? 'emergency-services' : 'traditional-services';
     const response = await authFetch(`${NODE_BASE_URL}/api/${baseRoute}/${requestId}/location-sharing/toggle`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1227,11 +1228,11 @@ export const toggleLocationSharing = async (requestId, providerId, enabled, serv
  * @param {string} requestId — request _id
  * @param {string} providerId — assigned provider ID
  * @param {{ latitude: number, longitude: number, accuracy?: number }} location
- * @param {string} serviceCategory — 'traditional' | 'event'
+ * @param {string} serviceCategory — 'traditional' | 'event' | 'emergency'
  */
 export const updateRequestProviderLocation = async (requestId, providerId, location, serviceCategory = 'traditional') => {
   try {
-    const baseRoute = serviceCategory === 'event' ? 'event-services' : 'traditional-services';
+    const baseRoute = serviceCategory === 'event' ? 'event-services' : serviceCategory === 'emergency' ? 'emergency-services' : 'traditional-services';
     const response = await authFetch(`${NODE_BASE_URL}/api/${baseRoute}/${requestId}/location-sharing/update`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1254,11 +1255,11 @@ export const updateRequestProviderLocation = async (requestId, providerId, locat
 /**
  * Get provider location status for a specific request
  * @param {string} requestId — request _id
- * @param {string} serviceCategory — 'traditional' | 'event'
+ * @param {string} serviceCategory — 'traditional' | 'event' | 'emergency'
  */
 export const getRequestProviderLocation = async (requestId, serviceCategory = 'traditional') => {
   try {
-    const baseRoute = serviceCategory === 'event' ? 'event-services' : 'traditional-services';
+    const baseRoute = serviceCategory === 'event' ? 'event-services' : serviceCategory === 'emergency' ? 'emergency-services' : 'traditional-services';
     const response = await authFetch(
       `${NODE_BASE_URL}/api/${baseRoute}/${requestId}/provider-location?serviceCategory=${serviceCategory}`,
       { method: 'GET', headers: { 'Content-Type': 'application/json' } }

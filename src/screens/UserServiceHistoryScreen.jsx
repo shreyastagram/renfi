@@ -24,7 +24,6 @@ import {
   RefreshControl,
   Linking,
   Platform,
-  Clipboard,
   ScrollView,
   Image,
   AppState,
@@ -33,6 +32,7 @@ import {
   StatusBar,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import Clipboard from '@react-native-clipboard/clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -40,7 +40,7 @@ import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
 import { Icon, ServiceIcon, StatusIcon, RatingModal, FixhomiLogo, CancellationReasonModal } from '../components';
-import ScreenShimmer from '../components/ShimmerLoader';
+import ScreenShimmer, { useShimmerAnimation, ShimmerBlock } from '../components/ShimmerLoader';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 import {
@@ -48,6 +48,7 @@ import {
   cancelRequest,
   submitRating,
   checkRatingStatus,
+  resendCompletionOtp,
   SERVICE_TYPE_LABELS,
 } from '../services/traditionalServiceService';
 import { subscribeToRequest, unsubscribeFromRequest, addEventListener as addSocketListener } from '../services/socketService';
@@ -152,16 +153,17 @@ const StatPill = ({ value, label, color, bgColor }) => (
 );
 
 /* -- Request Card -------------------------------------------------------- */
-const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvider, onRate, onFindProviders, ratingStatus }) => {
+const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvider, onRate, onFindProviders, ratingStatus, onResendOtp, resendingOtpId }) => {
   const { dialog } = useDialog();
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const shimmerAnim = useShimmerAnimation();
   const status = STATUS_CONFIG[request.status] || STATUS_CONFIG.pending;
-  const isActive = ['accepted', 'in-progress'].includes(request.status);
+  const isActive = ['accepted', 'in-progress', 'in_transit', 'arrived'].includes(request.status);
   const isCompleted = request.status === 'completed';
-  const isPending = request.status === 'pending';
+  const isPending = ['pending', 'awaiting_confirmation'].includes(request.status);
   const isCancelled = ['cancelled', 'rejected', 'expired'].includes(request.status);
   const isDone = isCompleted || isCancelled;
-  const hasProvider = request.assignedProviderId || request.providerId || (request.providerDetails && request.providerDetails._id);
+  const hasProvider = request.assignedProviderId || request.providerId || request.lastSentProviderId || (request.providerDetails && request.providerDetails._id);
   const isSentToProvider = !!request.lastSentProviderId || !!request.sentAt;
   const ratingChecking = ratingStatus === undefined;
   const hasRated = request.ratings?.userRating > 0 || request._rated || ratingStatus?.rated;
@@ -169,12 +171,14 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
   const isEventService = request.isEventService;
   const isEmergencyService = request.isEmergencyService;
   const serviceDate = new Date(request.serviceDate || request.createdAt);
+  const isOtpExpired = request.otpExpiresAt && new Date(request.otpExpiresAt) < new Date();
+  const isResendingThis = resendingOtpId === request._id;
 
   const providerProfilePicture = request.providerDetails?.profilePicture ||
     (typeof request.providerDetails?.profilePicture === 'string' ? request.providerDetails?.profilePicture : request.providerDetails?.profilePicture?.url);
 
   const handleCopyOtp = () => {
-    if (request.completionOtp) {
+    if (request.completionOtp && !isOtpExpired && !isResendingThis) {
       Clipboard.setString(request.completionOtp);
       dialog('Copied!', 'OTP copied to clipboard');
     }
@@ -374,13 +378,23 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
                     Waiting for provider to accept
                   </Text>
                 </View>
-                <TouchableOpacity
-                  style={styles.cancelSentStripBtn}
-                  onPress={() => onCancel(request)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.cancelSentStripBtnText}>Cancel</Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  <TouchableOpacity
+                    style={styles.findProvidersBtn}
+                    onPress={() => onFindProviders(request)}
+                    activeOpacity={0.7}
+                  >
+                    <Icon name="search" size={12} color={C.white} />
+                    <Text style={styles.findProvidersBtnText}>Find</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.cancelSentStripBtn}
+                    onPress={() => onCancel(request)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.cancelSentStripBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
 
@@ -410,16 +424,43 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
 
             {/* OTP */}
             {isActive && request.completionOtp && (
-              <TouchableOpacity style={styles.otpBar} onPress={handleCopyOtp} activeOpacity={0.7}>
-                <View style={styles.otpLeft}>
-                  <Icon name="lock" size={14} color={C.purple} />
-                  <Text style={styles.otpLabel}>Completion OTP</Text>
+              isResendingThis ? (
+                <View style={styles.otpBar}>
+                  <View style={styles.otpLeft}>
+                    <Icon name="lock" size={14} color={C.purple} />
+                    <Text style={styles.otpLabel}>Generating OTP...</Text>
+                  </View>
+                  <View style={styles.otpRight}>
+                    <ShimmerBlock width={120} height={22} borderRadius={6} shimmerAnim={shimmerAnim} />
+                  </View>
                 </View>
-                <View style={styles.otpRight}>
-                  <Text style={styles.otpDigits}>{request.completionOtp}</Text>
-                  <Icon name="copy" size={13} color={C.purple} />
+              ) : isOtpExpired ? (
+                <View style={[styles.otpBar, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}>
+                  <View style={styles.otpLeft}>
+                    <Icon name="clock" size={14} color={C.danger} />
+                    <Text style={[styles.otpLabel, { color: C.danger }]}>OTP Expired</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.otpResendBtn}
+                    onPress={() => onResendOtp(request)}
+                    activeOpacity={0.7}
+                  >
+                    <Icon name="refresh" size={12} color={C.white} />
+                    <Text style={styles.otpResendBtnText}>Resend</Text>
+                  </TouchableOpacity>
                 </View>
-              </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.otpBar} onPress={handleCopyOtp} activeOpacity={0.7}>
+                  <View style={styles.otpLeft}>
+                    <Icon name="lock" size={14} color={C.purple} />
+                    <Text style={styles.otpLabel}>Completion OTP</Text>
+                  </View>
+                  <View style={styles.otpRight}>
+                    <Text style={styles.otpDigits}>{request.completionOtp}</Text>
+                    <Icon name="copy" size={13} color={C.purple} />
+                  </View>
+                </TouchableOpacity>
+              )
             )}
 
             {/* Cancel */}
@@ -495,6 +536,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [requestToRate, setRequestToRate] = useState(null);
+  const [resendingOtpId, setResendingOtpId] = useState(null);
   const [ratingStatuses, setRatingStatuses] = useState({});
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [cancellingRequest, setCancellingRequest] = useState(false);
@@ -503,9 +545,10 @@ const UserServiceHistoryScreen = ({ navigation }) => {
   const displayData = { ...user, ...profile };
   const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
 
-  // Animated collapse — wider inputRange + no scale to prevent vibration
-  const statsOpacity = scrollY.interpolate({ inputRange: [0, 100], outputRange: [1, 0], extrapolate: 'clamp' });
-  const statsHeight = scrollY.interpolate({ inputRange: [0, 120], outputRange: [STATS_HEIGHT, 0], extrapolate: 'clamp' });
+  // Animated collapse — fade + translate for smooth visual instead of height clip
+  const statsOpacity = scrollY.interpolate({ inputRange: [0, 60], outputRange: [1, 0], extrapolate: 'clamp' });
+  const statsHeight = scrollY.interpolate({ inputRange: [0, 100], outputRange: [STATS_HEIGHT, 0], extrapolate: 'clamp' });
+  const statsTranslateY = scrollY.interpolate({ inputRange: [0, 100], outputRange: [0, -20], extrapolate: 'clamp' });
 
   // Prevent concurrent fetches from multiple triggers
   const fetchInProgressRef = useRef(false);
@@ -555,7 +598,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
         return {
           ...b, _id: b._id, requestId: b.requestId || b._id, serviceType: b.serviceType, status: b.status, createdAt: b.createdAt, isEventService: true,
           providerDetails: b.providerDetails || (b.providerId ? { _id: b.providerId, name: b.providerName || 'Provider' } : null),
-          assignedProviderId: b.providerId, providerId: b.providerId, completionOtp: b.completionOtp, eventDate: b.eventDate,
+          assignedProviderId: b.providerId, providerId: b.providerId, completionOtp: b.completionOtp, otpExpiresAt: b.otpExpiresAt || b.completionOtpExpiresAt, eventDate: b.eventDate,
           location: { address: loc.address || '', coordinates: coords, landmark: loc.landmark || '', latitude: loc.latitude, longitude: loc.longitude },
           serviceAddress: loc.address || '',
         };
@@ -563,11 +606,21 @@ const UserServiceHistoryScreen = ({ navigation }) => {
 
       // Parse emergency bookings — handle both { requests: [...] } and { data: [...] } response shapes
       const emergencyRaw = emergencyResult ? (emergencyResult.requests || emergencyResult.data || []) : [];
-      const emergencyBookings = (Array.isArray(emergencyRaw) ? emergencyRaw : []).map(b => ({
-        ...b, _id: b._id, requestId: b.requestId || b._id, serviceType: b.serviceType, status: b.status, createdAt: b.createdAt, isEmergencyService: true,
-        providerDetails: b.providerDetails || (b.providerId ? { _id: b.providerId, name: b.providerInfo?.name || 'Provider', phone: b.providerInfo?.phone } : null),
-        assignedProviderId: b.providerId, providerId: b.providerId, completionOtp: b.completionOtp, location: b.location, notes: b.notes,
-      }));
+      const emergencyBookings = (Array.isArray(emergencyRaw) ? emergencyRaw : []).map(b => {
+        // Build providerDetails — ensure _id is always set for hasProvider checks
+        let pDetails = b.providerDetails || null;
+        if (pDetails && b.providerId && !pDetails._id) {
+          pDetails = { ...pDetails, _id: b.providerId };
+        }
+        if (!pDetails && b.providerId) {
+          pDetails = { _id: b.providerId, name: b.providerInfo?.name || 'Provider', phone: b.providerInfo?.phone };
+        }
+        return {
+          ...b, _id: b._id, requestId: b.requestId || b._id, serviceType: b.serviceType, status: b.status, createdAt: b.createdAt, isEmergencyService: true,
+          providerDetails: pDetails,
+          assignedProviderId: b.providerId, providerId: b.providerId, completionOtp: b.completionOtp, otpExpiresAt: b.otpExpiresAt || b.completionOtpExpiresAt, location: b.location, notes: b.notes,
+        };
+      });
 
       if (__DEV__) {
         console.log('[History] Fetched:', { traditional: (traditionalResult.success ? traditionalResult.requests : []).length, event: eventBookings.length, emergency: emergencyBookings.length });
@@ -739,13 +792,15 @@ const UserServiceHistoryScreen = ({ navigation }) => {
       else if (Array.isArray(coords) && coords.length === 2) serviceCoords = { latitude: coords[1], longitude: coords[0] };
     }
     navigation.navigate('LiveTracking', {
-      requestId: request.requestId || request._id,
+      requestId: request._id,
       providerId: request.assignedProviderId || request.providerId,
       providerName: request.providerDetails?.name || request.providerName,
       providerPhone: request.providerDetails?.phone,
       serviceCategory: request.serviceType || request.serviceCategory || request.category,
       serviceLocation: serviceCoords,
       serviceAddress: request.serviceAddress || request.address || request.location?.address || request.eventLocation?.address,
+      isEmergencyService: request.isEmergencyService,
+      isEventService: request.isEventService,
     });
   };
 
@@ -802,9 +857,38 @@ const UserServiceHistoryScreen = ({ navigation }) => {
     finally { setCancellingRequest(false); setRequestToCancel(null); }
   };
 
-  const handleViewDetails = (request) => navigation.navigate('ServiceRequestDetail', { requestId: request.requestId || request._id, request });
+  const handleViewDetails = (request) => navigation.navigate('ServiceRequestDetail', { requestId: request._id, request });
 
   const handleFindProviders = (request) => navigation.navigate('HomeTab', { resumeRequest: request });
+
+  const handleResendOtp = useCallback(async (request) => {
+    setResendingOtpId(request._id);
+    try {
+      let result;
+      if (request.isEventService) {
+        const response = await authFetch(`${NODE_BASE_URL}/api/event-services/${request._id}/resend-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        result = await response.json();
+        if (!response.ok) result.success = false;
+      } else if (request.isEmergencyService) {
+        const response = await authFetch(`${NODE_BASE_URL}/api/emergency-services/${request._id}/resend-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        result = await response.json();
+        if (!response.ok) result.success = false;
+      } else {
+        result = await resendCompletionOtp(request._id);
+      }
+      if (result.success) {
+        await fetchRequests(1, false);
+        dialog('OTP Sent', 'A new completion OTP has been generated.');
+      } else {
+        dialog('Error', result.error || result.message || 'Failed to resend OTP. Please try again.');
+      }
+    } catch (error) {
+      console.error('[History ResendOTP] Error:', error);
+      dialog('Error', 'Something went wrong. Please check your connection and try again.');
+    } finally {
+      setResendingOtpId(null);
+    }
+  }, [fetchRequests]);
 
   const handleOpenRating = (request) => { setRequestToRate(request); setRatingModalVisible(true); };
 
@@ -856,14 +940,14 @@ const UserServiceHistoryScreen = ({ navigation }) => {
       </View>
 
       {/* Collapsible Stats */}
-      <Animated.View style={{ height: statsHeight, overflow: 'hidden' }}>
-        <View style={styles.statsBar}>
-          <Animated.View style={[styles.statsRow, { opacity: statsOpacity }]}>
+      <Animated.View style={{ height: statsHeight, overflow: 'hidden', backgroundColor: C.white }}>
+        <Animated.View style={[styles.statsBar, { opacity: statsOpacity, transform: [{ translateY: statsTranslateY }] }]}>
+          <View style={styles.statsRow}>
             <StatPill value={stats.total} label="Total" color={C.primary} bgColor="#FFF7ED" />
             <StatPill value={stats.active} label="Active" color={C.success} bgColor={C.successBg} />
             <StatPill value={stats.completed} label="Done" color={C.secondary} bgColor="#EFF6FF" />
-          </Animated.View>
-        </View>
+          </View>
+        </Animated.View>
       </Animated.View>
 
       {/* Filter Section */}
@@ -935,6 +1019,8 @@ const UserServiceHistoryScreen = ({ navigation }) => {
             onRate={handleOpenRating}
             onFindProviders={handleFindProviders}
             ratingStatus={ratingStatuses[item._id]}
+            onResendOtp={handleResendOtp}
+            resendingOtpId={resendingOtpId}
           />
         )}
         ListEmptyComponent={<EmptyState filter={activeFilter} onBookService={() => navigation.navigate('Home')} />}
@@ -1084,6 +1170,8 @@ const styles = StyleSheet.create({
   otpLabel: { fontSize: 12, fontWeight: '600', color: C.purple },
   otpRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   otpDigits: { fontSize: 20, fontWeight: '800', color: C.text, letterSpacing: 6 },
+  otpResendBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: C.danger, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  otpResendBtnText: { fontSize: 12, fontWeight: '700', color: C.white },
 
   // Cancel request
   cancelRequestBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, backgroundColor: '#FEF2F2', paddingVertical: 11, borderRadius: 12, borderWidth: 1, borderColor: '#FECACA', marginBottom: 10 },

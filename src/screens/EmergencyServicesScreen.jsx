@@ -746,6 +746,8 @@ const EmergencyServicesScreen = ({ navigation }) => {
             createResult.suggestion || 'Emergency services are currently available only in Yavatmal City, Maharashtra. For emergencies outside this zone, please call 112.',
             [{ text: 'OK' }]
           );
+        } else if (createResult.code === 'RATE_LIMITED' && createResult.retryAfter) {
+          dialog('Please Wait', `You've made too many requests. Try again in ${createResult.retryAfter} seconds.`);
         } else {
           dialog('Error', createResult.error || 'Failed to create request');
         }
@@ -1063,7 +1065,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
   const renderServiceSelection = () => (
     <ScrollView
       style={styles.content}
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[styles.contentContainer, { paddingBottom: 40 + insets.bottom }]}
       showsVerticalScrollIndicator={false}
     >
       {/* Location-based Services */}
@@ -1148,10 +1150,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
           {refreshing ? (
             <ActivityIndicator size="small" color={COLORS.primary} />
           ) : (
-            <>
-              <MaterialIcon name="refresh" size={16} color={COLORS.primary} />
-              <Text style={styles.retryButtonText}>Refresh</Text>
-            </>
+            <MaterialIcon name="refresh" size={20} color={COLORS.primary} />
           )}
         </TouchableOpacity>
       </View>
@@ -1189,7 +1188,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
               hasContacted={contactedProviderIds.has(item._id)}
             />
           )}
-          contentContainerStyle={styles.providersList}
+          contentContainerStyle={[styles.providersList, { paddingBottom: 80 + insets.bottom }]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl

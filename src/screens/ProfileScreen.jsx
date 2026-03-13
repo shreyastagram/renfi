@@ -50,6 +50,7 @@ import { getAadhaarStatus } from '../services/aadhaarService';
 import { getVerificationDashboard } from '../services/verificationService';
 import Geolocation from '@react-native-community/geolocation';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
+import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
 import SavedAddresses from '../components/SavedAddresses';
 import AddressAutocomplete from '../components/AddressAutocomplete';
 import CityAutocomplete from '../components/CityAutocomplete';
@@ -1026,7 +1027,10 @@ const ProfileScreen = ({ navigation, route }) => {
    */
   const handleSelectFromGallery = async () => {
     setShowImagePickerModal(false);
-    
+
+    const granted = await requestGalleryPermission(dialog);
+    if (!granted) return;
+
     const options = {
       mediaType: 'photo',
       quality: 0.8,
@@ -1036,7 +1040,7 @@ const ProfileScreen = ({ navigation, route }) => {
 
     try {
       const result = await launchImageLibrary(options);
-      
+
       if (result.didCancel) return;
       if (result.errorCode) {
         dialog('Error', 'Couldn\'t access your photos. Please check app permissions.');
@@ -1057,7 +1061,10 @@ const ProfileScreen = ({ navigation, route }) => {
    */
   const handleTakePhoto = async () => {
     setShowImagePickerModal(false);
-    
+
+    const granted = await requestCameraPermission(dialog);
+    if (!granted) return;
+
     const options = {
       mediaType: 'photo',
       quality: 0.8,
@@ -1068,7 +1075,7 @@ const ProfileScreen = ({ navigation, route }) => {
 
     try {
       const result = await launchCamera(options);
-      
+
       if (result.didCancel) return;
       if (result.errorCode) {
         dialog('Error', 'Couldn\'t access your photos. Please check app permissions.');

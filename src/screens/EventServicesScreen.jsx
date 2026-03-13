@@ -321,6 +321,7 @@ const EventProviderCard = ({ provider, onViewDetails, onContact }) => {
  */
 const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContactProvider, sending, hasContacted }) => {
   const { dialog } = useDialog();
+  const insets = useSafeAreaInsets();
   const [galleryViewerVisible, setGalleryViewerVisible] = useState(false);
   const [galleryViewerIndex, setGalleryViewerIndex] = useState(0);
 
@@ -478,7 +479,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>
-                  {provider.stats?.completedRequests || provider.completedJobs || 0}
+                  {provider.stats?.completedRequests || provider.completedJobs || provider.completedRequests || provider.totalCompletedRequests || provider.jobsCompleted || 0}
                 </Text>
                 <Text style={styles.statLabel}>Jobs Done</Text>
               </View>
@@ -610,7 +611,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
           </ScrollView>
 
           {/* Action Buttons - Book always active */}
-          <View style={styles.detailsActions}>
+          <View style={[styles.detailsActions, { paddingBottom: Math.max(28, insets.bottom + 12) }]}>
             <TouchableOpacity
               style={styles.callProviderBtn}
               onPress={() => provider && onContactProvider(provider)}
@@ -872,6 +873,11 @@ const EventServicesScreen = ({ navigation }) => {
           setSendingRequest(false);
           return;
         }
+        if (createData.code === 'RATE_LIMITED' && createData.retryAfter) {
+          dialog('Please Wait', `You've made too many requests. Try again in ${createData.retryAfter} seconds.`);
+          setSendingRequest(false);
+          return;
+        }
         throw new Error(createData.message || createData.error || 'Failed to create request');
       }
 
@@ -906,7 +912,7 @@ const EventServicesScreen = ({ navigation }) => {
           [
             {
               text: 'View My Bookings',
-              onPress: () => navigation.navigate('History'),
+              onPress: () => navigation.navigate('UserTabs', { screen: 'HistoryTab' }),
             },
             {
               text: 'OK',

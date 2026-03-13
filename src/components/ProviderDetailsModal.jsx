@@ -540,7 +540,7 @@ const ProviderDetailsModal = ({
 
           {/* Action Buttons */}
           {provider && !loading && !error && (
-            <View style={styles.actionButtons}>
+            <View style={[styles.actionButtons, { paddingBottom: Math.max(16, insets.bottom + 8) }]}>
               <TouchableOpacity style={styles.callButton} onPress={handleCall}>
                 <MaterialIcon name="phone" size={22} color={BRAND.success} />
                 <Text style={styles.callButtonText}>Call</Text>

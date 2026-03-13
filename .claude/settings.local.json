@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install @react-native-clipboard/clipboard)",
+      "Bash(pod install)",
+      "Bash(bundle exec pod install --project-directory=ios)",
+      "Bash(npm install i18n-js@4)"
+    ]
+  }
+}

@@ -328,7 +328,11 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
           { cancelable: false } // Force user to make a choice
         );
       } else {
-        dialog('Error', result.error || 'Failed to create request');
+        if (result.code === 'RATE_LIMITED' && result.retryAfter) {
+          dialog('Please Wait', `You've made too many requests. Try again in ${result.retryAfter} seconds.`);
+        } else {
+          dialog('Error', result.error || 'Failed to create request');
+        }
       }
     } catch (error) {
       console.error('[CreateRequest] Error:', error);

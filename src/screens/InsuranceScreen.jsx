@@ -30,6 +30,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
 import { pick, types } from '@react-native-documents/picker';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
@@ -343,6 +344,9 @@ const InsuranceScreen = ({ navigation }) => {
   };
 
   const captureCamera = async (docType) => {
+    const granted = await requestCameraPermission(dialog);
+    if (!granted) return;
+
     try {
       const result = await launchCamera({ mediaType: 'photo', quality: 0.8, maxWidth: 1920, maxHeight: 1920 });
       if (!result.didCancel && result.assets?.[0]) stageDoc(docType, result.assets[0]);
@@ -352,6 +356,9 @@ const InsuranceScreen = ({ navigation }) => {
   };
 
   const pickGallery = async (docType) => {
+    const granted = await requestGalleryPermission(dialog);
+    if (!granted) return;
+
     try {
       const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8, maxWidth: 1920, maxHeight: 1920 });
       if (!result.didCancel && result.assets?.[0]) stageDoc(docType, result.assets[0]);

@@ -27,6 +27,7 @@ import {
   ScrollView,
 } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -70,6 +71,7 @@ const CancellationReasonModal = ({
   loading = false,
   serviceName = '',
 }) => {
+  const insets = useSafeAreaInsets();
   const [selectedReasonId, setSelectedReasonId] = useState(null);
   const [otherText, setOtherText] = useState('');
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -264,7 +266,7 @@ const CancellationReasonModal = ({
           </ScrollView>
 
           {/* Action Buttons */}
-          <View style={styles.actions}>
+          <View style={[styles.actions, { paddingBottom: Math.max(16, insets.bottom) }]}>
             <TouchableOpacity
               style={styles.keepButton}
               onPress={onClose}
@@ -310,7 +312,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 24,
     maxHeight: SCREEN_HEIGHT * 0.80,
   },
   handleBar: {

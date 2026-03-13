@@ -92,6 +92,22 @@ export const initializeSocket = (userType, userId, token) => {
         socket.emit('request:subscribe', { requestId });
       });
     }
+
+    // Re-subscribe rooms for active tracking requests (may not be in subscribedRooms
+    // if the detail screen unmounted and removed them)
+    if (activeTrackingRequests.size > 0) {
+      activeTrackingRequests.forEach((info, reqId) => {
+        if (!subscribedRooms.has(reqId)) {
+          console.log(`📡 [Socket] Re-subscribing tracking request room: ${reqId}`);
+          socket.emit('request:subscribe', { requestId: reqId });
+        }
+      });
+      // Ensure GPS watcher is alive after reconnect
+      ensureGpsWatcherRunning();
+    }
+
+    // Notify listeners so LocationSharingContext can re-sync
+    notifyListeners('__internal:reconnected', {});
   });
 
   socket.on('disconnect', (reason) => {
@@ -177,7 +193,9 @@ export const disconnectSocket = () => {
   if (socket) {
     console.log('🔌 [Socket] Disconnecting...');
     stopLocationTracking();
+    stopRequestLocationTracking();
     subscribedRooms.clear();
+    listeners.clear();
     socket.disconnect();
     socket = null;
   }
@@ -195,10 +213,12 @@ export const isConnected = () => socket?.connected ?? false;
 
 // ==================== PROVIDER LOCATION TRACKING ====================
 
-// Per-request location tracking state
+// Multi-request location tracking state
+// Map<requestId, { providerId, serviceCategory, onLocationUpdate, baseRoute }>
+const activeTrackingRequests = new Map();
 let requestLocationWatchId = null;
 let requestLocationInterval = null;
-let activeTrackingRequestId = null;
+let lastGpsUpdateTimestamp = null; // Tracks when broadcastRequestLocation last produced a GPS reading
 
 /**
  * Start sending location updates (for providers)
@@ -336,29 +356,27 @@ const sendLocationUpdate = async (providerId, coords) => {
 // ==================== PER-REQUEST LOCATION TRACKING ====================
 
 /**
- * Start per-request location tracking (provider sharing for a specific booking)
- * Sends location updates via BOTH socket (real-time) and REST (persistence)
- * 
- * @param {string} requestId - The service request ID
- * @param {string} providerId - Provider MongoDB ID
- * @param {Function} onLocationUpdate - Optional callback with { latitude, longitude, accuracy }
+ * Broadcast a location update to ALL actively tracked requests.
+ * Uses one GPS reading → fans out to N socket rooms + REST endpoints.
  */
-export const startRequestLocationTracking = (requestId, providerId, onLocationUpdate) => {
-  if (!requestId || !providerId) {
-    console.warn('⚠️ [Socket] Cannot start request tracking — missing IDs');
+const broadcastRequestLocation = (coords) => {
+  if (activeTrackingRequests.size === 0) return;
+
+  // Validate coordinates before broadcasting
+  if (!Number.isFinite(coords.latitude) || !Number.isFinite(coords.longitude) ||
+      coords.latitude < -90 || coords.latitude > 90 ||
+      coords.longitude < -180 || coords.longitude > 180) {
+    console.warn('⚠️ [Socket] Invalid coordinates, skipping broadcast');
     return;
   }
 
-  // Stop any existing per-request tracking
-  stopRequestLocationTracking();
-  activeTrackingRequestId = requestId;
+  // Track last successful GPS reading for health checks
+  lastGpsUpdateTimestamp = Date.now();
 
-  console.log(`📍 [Socket] Starting per-request location tracking: ${requestId}`);
-
-  const sendRequestLocationUpdate = (coords) => {
+  activeTrackingRequests.forEach((info, reqId) => {
     const locationPayload = {
-      requestId,
-      providerId,
+      requestId: reqId,
+      providerId: info.providerId,
       latitude: coords.latitude,
       longitude: coords.longitude,
       accuracy: coords.accuracy,
@@ -370,46 +388,50 @@ export const startRequestLocationTracking = (requestId, providerId, onLocationUp
       socket.emit('request:location:update', locationPayload);
     }
 
-    // Callback for local UI update
-    if (onLocationUpdate) {
-      onLocationUpdate({
+    // Callback for local UI update (if screen is still mounted)
+    if (info.onLocationUpdate) {
+      info.onLocationUpdate({
         latitude: coords.latitude,
         longitude: coords.longitude,
         accuracy: coords.accuracy,
       });
     }
 
-    // REST persistence fallback — uses authFetch for proper JWT auth
+    // REST persistence fallback
     try {
-      authFetch(`${NODE_BASE_URL}/api/traditional-services/${requestId}/location-sharing/update`, {
+      authFetch(`${NODE_BASE_URL}/api/${info.baseRoute}/${reqId}/location-sharing/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          providerId,
+          providerId: info.providerId,
           latitude: coords.latitude,
           longitude: coords.longitude,
           accuracy: coords.accuracy,
         }),
       }).then(res => {
-        if (!res.ok) console.log('[Socket] Location REST fallback failed:', res.status);
-      }).catch((err) => {
-        console.log('[Socket] Location REST fallback error:', err.message);
-      });
-    } catch (e) {
-      console.log('[Socket] Location REST fallback exception:', e.message);
-    }
-  };
+        if (!res.ok) console.log(`[Socket] REST fallback failed for ${reqId}:`, res.status);
+      }).catch(() => {});
+    } catch (e) { /* silent */ }
+  });
 
-  // Get initial position
+  console.log(`📍 [Socket] Location sent to ${activeTrackingRequests.size} request(s): ${coords.latitude.toFixed(4)} ${coords.longitude.toFixed(4)}`);
+};
+
+/**
+ * Start or restart the shared GPS watcher + interval.
+ * Only one watcher runs at a time regardless of how many requests are tracked.
+ */
+const ensureGpsWatcherRunning = () => {
+  if (requestLocationWatchId !== null) return; // Already running
+
+  console.log('📍 [Socket] Starting shared GPS watcher for request tracking');
+
+  // Get initial position immediately
   Geolocation.getCurrentPosition(
-    (position) => {
-      console.log('✅ [Socket] Got initial request tracking position');
-      sendRequestLocationUpdate(position.coords);
-    },
+    (position) => broadcastRequestLocation(position.coords),
     (error) => {
-      console.warn('⚠️ [Socket] High accuracy failed for request tracking:', error.message);
       Geolocation.getCurrentPosition(
-        (position) => sendRequestLocationUpdate(position.coords),
+        (position) => broadcastRequestLocation(position.coords),
         (fallbackError) => console.error('❌ [Socket] Request tracking location unavailable:', fallbackError.message),
         SOCKET_CONFIG.GEOLOCATION_OPTIONS_LOW_ACCURACY
       );
@@ -419,7 +441,7 @@ export const startRequestLocationTracking = (requestId, providerId, onLocationUp
 
   // Watch position changes
   requestLocationWatchId = Geolocation.watchPosition(
-    (position) => sendRequestLocationUpdate(position.coords),
+    (position) => broadcastRequestLocation(position.coords),
     (error) => console.warn('⚠️ [Socket] Request tracking watch error:', error.message),
     SOCKET_CONFIG.GEOLOCATION_OPTIONS
   );
@@ -427,10 +449,10 @@ export const startRequestLocationTracking = (requestId, providerId, onLocationUp
   // Regular interval heartbeat (10s)
   requestLocationInterval = setInterval(() => {
     Geolocation.getCurrentPosition(
-      (position) => sendRequestLocationUpdate(position.coords),
+      (position) => broadcastRequestLocation(position.coords),
       (error) => {
         Geolocation.getCurrentPosition(
-          (position) => sendRequestLocationUpdate(position.coords),
+          (position) => broadcastRequestLocation(position.coords),
           () => {},
           SOCKET_CONFIG.GEOLOCATION_OPTIONS_LOW_ACCURACY
         );
@@ -441,9 +463,11 @@ export const startRequestLocationTracking = (requestId, providerId, onLocationUp
 };
 
 /**
- * Stop per-request location tracking
+ * Stop the shared GPS watcher (only when no requests remain).
  */
-export const stopRequestLocationTracking = () => {
+const stopGpsWatcherIfIdle = () => {
+  if (activeTrackingRequests.size > 0) return; // Still have active requests
+
   if (requestLocationWatchId !== null) {
     Geolocation.clearWatch(requestLocationWatchId);
     requestLocationWatchId = null;
@@ -452,9 +476,75 @@ export const stopRequestLocationTracking = () => {
     clearInterval(requestLocationInterval);
     requestLocationInterval = null;
   }
-  if (activeTrackingRequestId) {
-    console.log(`📍 [Socket] Stopped request tracking for: ${activeTrackingRequestId}`);
-    activeTrackingRequestId = null;
+  console.log('📍 [Socket] Shared GPS watcher stopped (no active requests)');
+};
+
+/**
+ * Start per-request location tracking (provider sharing for a specific booking).
+ * Multiple requests can be tracked concurrently — one shared GPS watcher fans out to all.
+ *
+ * @param {string} requestId - The service request MongoDB _id
+ * @param {string} providerId - Provider MongoDB ID
+ * @param {Function} onLocationUpdate - Optional callback with { latitude, longitude, accuracy }
+ * @param {string} serviceCategory - 'traditional' | 'event' | 'emergency'
+ */
+export const startRequestLocationTracking = (requestId, providerId, onLocationUpdate, serviceCategory = 'traditional') => {
+  if (!requestId || !providerId) {
+    console.warn('⚠️ [Socket] Cannot start request tracking — missing IDs');
+    return;
+  }
+
+  // Already tracking this request — just update the callback
+  if (activeTrackingRequests.has(requestId)) {
+    const existing = activeTrackingRequests.get(requestId);
+    if (onLocationUpdate) existing.onLocationUpdate = onLocationUpdate;
+    console.log(`📍 [Socket] Already tracking ${requestId}, updated callback`);
+    return;
+  }
+
+  const baseRoute = serviceCategory === 'event' ? 'event-services' : serviceCategory === 'emergency' ? 'emergency-services' : 'traditional-services';
+
+  activeTrackingRequests.set(requestId, {
+    providerId,
+    serviceCategory,
+    baseRoute,
+    onLocationUpdate: onLocationUpdate || null,
+  });
+
+  console.log(`📍 [Socket] Added request tracking: ${requestId} (${serviceCategory}) — total: ${activeTrackingRequests.size}`);
+
+  // Start the shared GPS watcher if not already running
+  ensureGpsWatcherRunning();
+};
+
+/**
+ * Stop tracking a specific request. If no requests remain, the GPS watcher stops.
+ * Call with no args to stop ALL request tracking.
+ *
+ * @param {string} [requestId] - Stop tracking this specific request. Omit to stop all.
+ */
+export const stopRequestLocationTracking = (requestId) => {
+  if (requestId) {
+    // Stop one specific request
+    if (activeTrackingRequests.has(requestId)) {
+      activeTrackingRequests.delete(requestId);
+      console.log(`📍 [Socket] Stopped tracking request: ${requestId} — remaining: ${activeTrackingRequests.size}`);
+    }
+    stopGpsWatcherIfIdle();
+  } else {
+    // Stop ALL request tracking
+    if (activeTrackingRequests.size > 0) {
+      console.log(`📍 [Socket] Stopping all request tracking (${activeTrackingRequests.size} requests)`);
+      activeTrackingRequests.clear();
+    }
+    if (requestLocationWatchId !== null) {
+      Geolocation.clearWatch(requestLocationWatchId);
+      requestLocationWatchId = null;
+    }
+    if (requestLocationInterval) {
+      clearInterval(requestLocationInterval);
+      requestLocationInterval = null;
+    }
   }
 };
 
@@ -462,7 +552,54 @@ export const stopRequestLocationTracking = () => {
  * Check if currently tracking a specific request
  */
 export const isTrackingRequest = (requestId) => {
-  return activeTrackingRequestId === requestId;
+  return activeTrackingRequests.has(requestId);
+};
+
+/**
+ * Get all currently tracked request IDs
+ */
+export const getActiveTrackingRequests = () => {
+  return [...activeTrackingRequests.keys()];
+};
+
+/**
+ * Check if the shared GPS watcher is alive (watchId is set + interval is running)
+ */
+export const isGpsWatcherRunning = () => {
+  return requestLocationWatchId !== null && requestLocationInterval !== null;
+};
+
+/**
+ * Get the timestamp (ms) of the last successful GPS broadcast.
+ * Returns null if no broadcast has occurred yet.
+ */
+export const getLastGpsUpdateTime = () => lastGpsUpdateTimestamp;
+
+/**
+ * Force-restart the shared GPS watcher. Clears the existing watcher/interval
+ * and starts fresh. Use when a health check detects the watcher has died.
+ */
+export const restartGpsWatcher = () => {
+  if (activeTrackingRequests.size === 0) return;
+
+  // Tear down existing
+  if (requestLocationWatchId !== null) {
+    Geolocation.clearWatch(requestLocationWatchId);
+    requestLocationWatchId = null;
+  }
+  if (requestLocationInterval) {
+    clearInterval(requestLocationInterval);
+    requestLocationInterval = null;
+  }
+
+  // Small delay before restarting — allows iOS GPS hardware to release the
+  // previous watcher cleanly, avoiding permission-denied or stale-fix issues.
+  console.log('📍 [Socket] Force-restarting GPS watcher for request tracking');
+  setTimeout(() => {
+    if (activeTrackingRequests.size > 0) {
+      ensureGpsWatcherRunning();
+    }
+  }, 200);
 };
 
 // ==================== REQUEST EVENTS ====================
@@ -562,6 +699,10 @@ export default {
   startRequestLocationTracking,
   stopRequestLocationTracking,
   isTrackingRequest,
+  getActiveTrackingRequests,
+  isGpsWatcherRunning,
+  getLastGpsUpdateTime,
+  restartGpsWatcher,
   subscribeToRequest,
   unsubscribeFromRequest,
   addEventListener,

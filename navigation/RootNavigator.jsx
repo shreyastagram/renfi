@@ -21,6 +21,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import Feather from 'react-native-vector-icons/Feather';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useApp } from '../src/context/AppContext';
+import { LocationSharingProvider } from '../src/context/LocationSharingContext';
 
 // Screens from src folder
 import { 
@@ -599,8 +600,14 @@ const RootNavigator = () => {
   }
 
   // Route to appropriate navigator based on user type
+  // LocationSharingProvider wraps the entire provider session so the GPS
+  // watcher + socket listeners stay alive regardless of screen navigation.
   if (userType === 'provider') {
-    return <ProviderMainNavigator />;
+    return (
+      <LocationSharingProvider>
+        <ProviderMainNavigator />
+      </LocationSharingProvider>
+    );
   }
   
   return <UserMainNavigator />;

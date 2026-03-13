@@ -30,11 +30,12 @@ import {
   Animated,
   StatusBar,
 } from 'react-native';
+import Clipboard from '@react-native-clipboard/clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { Icon, ServiceIcon, StatusIcon, RatingModal, CancellationReasonModal } from '../components';
-import ScreenShimmer from '../components/ShimmerLoader';
+import ScreenShimmer, { useShimmerAnimation, ShimmerBlock } from '../components/ShimmerLoader';
 import { NODE_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
 import Mapbox from '@rnmapbox/maps';
@@ -60,6 +61,7 @@ import {
   unsubscribeFromRequest,
   startRequestLocationTracking,
   stopRequestLocationTracking,
+  isTrackingRequest,
 } from '../services/socketService';
 import { setupForegroundMessageListener } from '../services/fcmService';
 
@@ -329,19 +331,20 @@ const InfoRow = ({ label, value, iconName }) => (
 );
 
 /* ─── OTP Display (User side) ─────────────────────────────────────── */
-const OtpDisplay = ({ otp, expiresAt, onResend }) => {
-  const { dialog } = useDialog();
+const OtpDisplay = ({ otp, expiresAt, onResend, resending }) => {
   const [copied, setCopied] = useState(false);
+  const [resendPressed, setResendPressed] = useState(false);
+  const shimmerAnim = useShimmerAnimation();
   const isExpired = expiresAt && new Date(expiresAt) < new Date();
   const handleCopy = () => {
-    if (otp) {
-      dialog('Completion OTP', `Your OTP is: ${otp}\n\nShare this with your service provider to mark the service as complete.`, [{ text: 'OK' }]);
+    if (otp && !resending) {
+      Clipboard.setString(String(otp));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
   };
   const otpDigits = otp ? String(otp).split('') : [];
-  if (isExpired) {
+  if (isExpired && !resending) {
     return (
       <View style={s.otpExpiredCard}>
         <View style={s.otpExpiredHeader}>
@@ -349,9 +352,9 @@ const OtpDisplay = ({ otp, expiresAt, onResend }) => {
           <Text style={s.otpExpiredTitle}>OTP Expired</Text>
         </View>
         <Text style={s.otpExpiredDesc}>The completion OTP has expired. Request a new one to continue.</Text>
-        <TouchableOpacity style={s.otpResendBtn} onPress={onResend}>
+        <TouchableOpacity style={[s.otpResendBtn, resendPressed && { opacity: 0.6 }]} onPress={() => { if (resendPressed) return; setResendPressed(true); onResend(); setTimeout(() => setResendPressed(false), 5000); }} disabled={resendPressed}>
           <Icon name="refresh" size={15} color="#FFFFFF" />
-          <Text style={s.otpResendBtnText}>Request New OTP</Text>
+          <Text style={s.otpResendBtnText}>{resendPressed ? 'Requesting...' : 'Request New OTP'}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -363,20 +366,42 @@ const OtpDisplay = ({ otp, expiresAt, onResend }) => {
           <View style={s.otpLockCircle}><Icon name="lock" size={16} color="#6D28D9" /></View>
           <Text style={s.otpHeaderTitle}>Completion OTP</Text>
         </View>
-        <Text style={s.otpHeaderSub}>Share with provider</Text>
+        {resending ? (
+          <Text style={[s.otpHeaderSub, { color: BRAND.primary }]}>Generating...</Text>
+        ) : (
+          <Text style={s.otpHeaderSub}>Share with provider</Text>
+        )}
       </View>
-      <TouchableOpacity onPress={handleCopy} activeOpacity={0.7} style={s.otpDigitsRow}>
-        {otpDigits.map((digit, i) => (
-          <View key={i} style={s.otpDigitBox}>
-            <Text style={s.otpDigit}>{digit}</Text>
-          </View>
-        ))}
-      </TouchableOpacity>
-      <TouchableOpacity onPress={handleCopy} style={s.otpCopyRow}>
-        <Icon name={copied ? 'check' : 'copy'} size={13} color={copied ? BRAND.success : BRAND.textMuted} />
-        <Text style={[s.otpCopyText, copied && { color: BRAND.success }]}>{copied ? 'Copied!' : 'Tap to copy'}</Text>
-      </TouchableOpacity>
-      {expiresAt && (
+      {resending ? (
+        <View style={s.otpDigitsRow}>
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <View key={i} style={s.otpDigitBox}>
+              <ShimmerBlock width={32} height={28} borderRadius={6} shimmerAnim={shimmerAnim} />
+            </View>
+          ))}
+        </View>
+      ) : (
+        <TouchableOpacity onPress={handleCopy} activeOpacity={0.7} style={s.otpDigitsRow}>
+          {otpDigits.map((digit, i) => (
+            <View key={i} style={s.otpDigitBox}>
+              <Text style={s.otpDigit}>{digit}</Text>
+            </View>
+          ))}
+        </TouchableOpacity>
+      )}
+      {!resending && (
+        <TouchableOpacity onPress={handleCopy} style={s.otpCopyRow}>
+          <Icon name={copied ? 'check' : 'copy'} size={13} color={copied ? BRAND.success : BRAND.textMuted} />
+          <Text style={[s.otpCopyText, copied && { color: BRAND.success }]}>{copied ? 'Copied!' : 'Tap to copy'}</Text>
+        </TouchableOpacity>
+      )}
+      {resending && (
+        <View style={s.otpCopyRow}>
+          <ActivityIndicator size={12} color={BRAND.primary} />
+          <Text style={[s.otpCopyText, { color: BRAND.primary }]}>Generating new OTP...</Text>
+        </View>
+      )}
+      {expiresAt && !resending && (
         <View style={s.otpExpiryRow}>
           <Icon name="timer" size={13} color={BRAND.textMuted} />
           <Text style={s.otpExpiryText}>Expires {new Date(expiresAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</Text>
@@ -556,6 +581,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   const [togglingFavorite, setTogglingFavorite] = useState(false);
   const [enteredOtp, setEnteredOtp] = useState('');
   const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [resendingOtp, setResendingOtp] = useState(false);
 
   // Clear OTP field when navigating to a different request (prevents auto-fill from previous job)
   useEffect(() => {
@@ -586,8 +612,8 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   // ─── Location Sharing: Fetch initial state ─────────────────────────
   const fetchLocationSharingStatus = useCallback(async () => {
     const reqId = request?._id;
-    if (!reqId || isEmergencyService) return;
-    if (!['accepted', 'in-progress'].includes(request?.status)) return;
+    if (!reqId) return;
+    if (!['accepted', 'in-progress', 'in_transit'].includes(request?.status)) return;
     try {
       const result = await getRequestProviderLocation(reqId, serviceCategory);
       if (result.success && result.locationSharing) {
@@ -603,7 +629,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     } catch (error) {
       console.warn('[LocationSharing] Fetch status error:', error);
     }
-  }, [request?._id, request?.status, serviceCategory, isEmergencyService]);
+  }, [request?._id, request?.status, serviceCategory]);
 
   // ─── Location Sharing: Toggle handler (provider) ───────────────────
   const handleToggleLocationSharing = useCallback(async (newValue) => {
@@ -620,9 +646,9 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           startRequestLocationTracking(reqId, providerId, (loc) => {
             setProviderLiveLocation(loc);
             setLastLocationUpdate(new Date());
-          });
+          }, serviceCategory);
         } else {
-          stopRequestLocationTracking();
+          stopRequestLocationTracking(reqId);
           setProviderLiveLocation(null);
           setLastLocationUpdate(null);
         }
@@ -637,18 +663,20 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     }
   }, [request?._id, getProviderId, serviceCategory]);
 
-  // ─── Location Sharing: Auto-enable logic & cleanup ─────────────────
+  // ─── Location Sharing: Fetch initial state on mount ─────────────────
   useEffect(() => {
     const reqId = request?._id;
-    if (!reqId || isEmergencyService) return;
-    if (!['accepted', 'in-progress'].includes(request?.status)) return;
+    if (!reqId) return;
+    if (!['accepted', 'in-progress', 'in_transit'].includes(request?.status)) return;
     fetchLocationSharingStatus();
-    return () => { stopRequestLocationTracking(); };
-  }, [request?._id, request?.status, isEmergencyService, fetchLocationSharingStatus]);
+    // NOTE: We do NOT stop location tracking on unmount here.
+    // Provider location sharing must persist across screen navigations.
+    // Tracking is stopped only when: provider toggles OFF, request completes/cancels, or provider logs out.
+  }, [request?._id, request?.status, fetchLocationSharingStatus]);
 
   useEffect(() => {
-    if (!isProvider || isEmergencyService) return;
-    if (!['accepted', 'in-progress'].includes(request?.status)) return;
+    if (!isProvider) return;
+    if (!['accepted', 'in-progress', 'in_transit'].includes(request?.status)) return;
     if (locationSharingRef.current) return;
     const scheduledTime = locationSharingData?.scheduledTime;
     if (!scheduledTime) return;
@@ -666,37 +694,36 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
       }, delay);
       return () => clearTimeout(timer);
     }
-  }, [isProvider, isEmergencyService, request?.status, locationSharingData?.scheduledTime, handleToggleLocationSharing]);
+  }, [isProvider, request?.status, locationSharingData?.scheduledTime, handleToggleLocationSharing]);
 
   useEffect(() => {
     if (!isProvider || !locationSharingEnabled || !request?._id) return;
-    if (!['accepted', 'in-progress'].includes(request?.status)) return;
+    if (!['accepted', 'in-progress', 'in_transit'].includes(request?.status)) return;
     const providerId = getProviderId();
     if (!providerId) return;
-    startRequestLocationTracking(request._id, providerId, (loc) => {
-      setProviderLiveLocation(loc);
-      setLastLocationUpdate(new Date());
-    });
-    return () => stopRequestLocationTracking();
-  }, [isProvider, locationSharingEnabled, request?._id, request?.status, getProviderId]);
+    // Start tracking if not already tracking this request
+    if (!isTrackingRequest(request._id)) {
+      startRequestLocationTracking(request._id, providerId, (loc) => {
+        setProviderLiveLocation(loc);
+        setLastLocationUpdate(new Date());
+      }, serviceCategory);
+    }
+    // Do NOT stop on unmount — tracking persists across screens.
+    // Stopped only via explicit toggle OFF or request completion/cancellation.
+  }, [isProvider, locationSharingEnabled, request?._id, request?.status, getProviderId, serviceCategory]);
 
+  // Listen for real-time provider location updates (user side only)
+  // request:location:status is handled in the main socket useEffect below (no status guard)
   useEffect(() => {
     if (isProvider || !request?._id) return;
-    if (!['accepted', 'in-progress'].includes(request?.status)) return;
+    if (!['accepted', 'in-progress', 'in_transit'].includes(request?.status)) return;
     const cleanupLocation = addSocketListener('request:provider:location', (data) => {
       if (data?.requestId === request._id) {
         setProviderLiveLocation({ latitude: data.latitude, longitude: data.longitude, accuracy: data.accuracy });
         setLastLocationUpdate(new Date(data.timestamp || Date.now()));
       }
     });
-    const cleanupStatus = addSocketListener('request:location:status', (data) => {
-      if (data?.requestId === request._id) {
-        setLocationSharingEnabled(data.enabled);
-        locationSharingRef.current = data.enabled;
-        if (!data.enabled) { setProviderLiveLocation(null); setLastLocationUpdate(null); }
-      }
-    });
-    return () => { cleanupLocation(); cleanupStatus(); };
+    return () => { cleanupLocation(); };
   }, [isProvider, request?._id, request?.status]);
 
   // Fast poll REST for location when sharing is enabled but no location yet (user side)
@@ -718,7 +745,8 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
       } catch (e) { /* silent */ }
     };
     poll(); // immediate first attempt
-    const interval = setInterval(poll, 3000); // then every 3s
+    // Poll as fallback only until socket delivers the first location update
+    const interval = setInterval(poll, 5000);
     const timeout = setTimeout(() => setLocationAcquireTimeout(true), 15000);
     return () => { cancelled = true; clearInterval(interval); clearTimeout(timeout); };
   }, [isProvider, locationSharingEnabled, providerLiveLocation, request?._id, serviceCategory]);
@@ -728,14 +756,20 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     if (providerLiveLocation) setLocationAcquireTimeout(false);
   }, [providerLiveLocation]);
 
+  const hasDoneInitialLoad = useRef(false);
   const fetchDetails = useCallback(async () => {
-    if ((isEventService || isEmergencyService) && initialRequest) {
+    // Use initialRequest only for the very first render to show data instantly;
+    // subsequent calls (from socket events, refreshes) always fetch fresh data
+    if (!hasDoneInitialLoad.current && (isEventService || isEmergencyService) && initialRequest) {
+      hasDoneInitialLoad.current = true;
       setRequest(initialRequest);
       setLoading(false);
       setRefreshing(false);
       return;
     }
-    const lookupId = route.params?.requestId || request?._id || request?.requestId;
+    hasDoneInitialLoad.current = true;
+    // Always prefer MongoDB _id for API lookups (not human-readable requestId like TRD-xxx/EMR-xxx/EVT-xxx)
+    const lookupId = request?._id || initialRequest?._id || route.params?.requestId;
     if (!lookupId) return;
     try {
       let result;
@@ -781,6 +815,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     if ((isEventService || isEmergencyService) && initialRequest) {
       setRequest(initialRequest);
       setLoading(false);
+      hasDoneInitialLoad.current = true; // Mark as loaded so socket-triggered fetches get fresh data
       return;
     }
     if (!initialRequest || !initialRequest.providerDetails) fetchDetails();
@@ -817,15 +852,24 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     if (!requestId) return;
     subscribeToRequest(requestId);
     const cleanups = [
-      addSocketListener('request:accepted', (data) => { if (data?.requestId === requestId) { console.log('[RequestDetail] Socket: request accepted'); debouncedFetchDetails(); } }),
-      addSocketListener('request:completed', (data) => { if (data?.requestId === requestId) { console.log('[RequestDetail] Socket: request completed'); debouncedFetchDetails(); } }),
-      addSocketListener('request:cancelled', (data) => { if (data?.requestId === requestId) { console.log('[RequestDetail] Socket: request cancelled'); debouncedFetchDetails(); } }),
+      addSocketListener('request:accepted', (data) => { if (data?.requestId === requestId) { console.log('[RequestDetail] Socket: request accepted'); debouncedFetchDetails(); fetchLocationSharingStatus(); } }),
+      addSocketListener('request:completed', (data) => { if (data?.requestId === requestId) { console.log('[RequestDetail] Socket: request completed'); stopRequestLocationTracking(requestId); debouncedFetchDetails(); } }),
+      addSocketListener('request:cancelled', (data) => { if (data?.requestId === requestId) { console.log('[RequestDetail] Socket: request cancelled'); stopRequestLocationTracking(requestId); debouncedFetchDetails(); } }),
       addSocketListener('request:status', (data) => { if (data?.requestId === requestId) { console.log('[RequestDetail] Socket: status update:', data.status); debouncedFetchDetails(); } }),
       addSocketListener('provider:assigned', (data) => { if (data?.requestId === requestId) { console.log('[RequestDetail] Socket: provider assigned'); debouncedFetchDetails(); } }),
       addSocketListener('provider:location', (data) => { console.log('[RequestDetail] Socket: provider location update'); }),
+      // Handle location sharing status changes immediately (e.g., auto-enabled on acceptance)
+      addSocketListener('request:location:status', (data) => {
+        if (data?.requestId === requestId) {
+          console.log('[RequestDetail] Socket: location sharing status:', data.enabled);
+          setLocationSharingEnabled(data.enabled);
+          locationSharingRef.current = data.enabled;
+          if (!data.enabled) { setProviderLiveLocation(null); setLastLocationUpdate(null); }
+        }
+      }),
     ];
     return () => { unsubscribeFromRequest(requestId); cleanups.forEach(fn => fn()); };
-  }, [request?._id, route.params?.requestId, debouncedFetchDetails]);
+  }, [request?._id, route.params?.requestId, debouncedFetchDetails, fetchLocationSharingStatus]);
 
   useEffect(() => {
     const requestId = request?._id || route.params?.requestId;
@@ -873,6 +917,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
       setCancelling(false);
       setCancelModalVisible(false);
       if (result.success) {
+        stopRequestLocationTracking(request?._id);
         const successMsg = result.details?.wasAccepted ? 'Your request has been cancelled and the provider has been notified.' : 'Your request has been cancelled.';
         dialog('Cancelled', successMsg, [{ text: 'OK', onPress: () => navigation.goBack() }]);
       } else {
@@ -941,6 +986,8 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
       serviceCategory: request.serviceCategory || request.category || request.serviceType,
       serviceLocation: serviceLocation,
       serviceAddress: request.serviceAddress || request.address || request.location?.address || request.eventLocation?.address || '',
+      isEmergencyService,
+      isEventService,
     });
   }, [request, navigation]);
 
@@ -974,6 +1021,14 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             }
             clearTimeout(timeoutId);
             if (result.success) {
+              // Start location tracking immediately on acceptance
+              const cat = isEmergencyReq ? 'emergency' : isEventReq ? 'event' : 'traditional';
+              startRequestLocationTracking(request._id, providerId, (loc) => {
+                setProviderLiveLocation(loc);
+                setLastLocationUpdate(new Date());
+              }, cat);
+              setLocationSharingEnabled(true);
+              locationSharingRef.current = true;
               dialog('Request Accepted', 'You have accepted this request. The customer has been notified.');
               fetchDetails();
             } else {
@@ -1060,20 +1115,43 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   }, [request, user, profile, navigation]);
 
   const handleResendOtp = useCallback(async () => {
-    dialog('Resend OTP', 'A new OTP will be sent to your email.', [
+    const isEventServiceRequest = isEventService || request?.isEventService;
+    const isEmergencyServiceRequest = isEmergencyService || request?.isEmergencyService;
+    dialog('Resend OTP', 'A new completion OTP will be generated.', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Send OTP',
+        text: 'Resend OTP',
         onPress: async () => {
+          setResendingOtp(true);
           try {
-            const result = await resendCompletionOtp(request._id);
-            if (result.success) { dialog('OTP Sent', 'A new completion OTP has been sent to your email.'); handleRefresh(); }
-            else { dialog('Error', result.error || 'Failed to resend OTP'); }
-          } catch (error) { console.error('[ResendOTP] Error:', error); dialog('Error', 'Something went wrong. Please try again.'); }
+            let result;
+            if (isEventServiceRequest) {
+              const response = await authFetch(`${NODE_BASE_URL}/api/event-services/${request._id}/resend-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+              result = await response.json();
+              if (!response.ok) result.success = false;
+            } else if (isEmergencyServiceRequest) {
+              const response = await authFetch(`${NODE_BASE_URL}/api/emergency-services/${request._id}/resend-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+              result = await response.json();
+              if (!response.ok) result.success = false;
+            } else {
+              result = await resendCompletionOtp(request._id);
+            }
+            if (result.success) {
+              await handleRefresh();
+              dialog('OTP Sent', 'A new completion OTP has been generated.');
+            } else {
+              dialog('Error', result.error || result.message || 'Failed to resend OTP. Please try again.');
+            }
+          } catch (error) {
+            console.error('[ResendOTP] Error:', error);
+            dialog('Error', 'Something went wrong. Please check your connection and try again.');
+          } finally {
+            setResendingOtp(false);
+          }
         },
       },
     ]);
-  }, [request?._id, handleRefresh]);
+  }, [request?._id, isEventService, isEmergencyService, request?.isEventService, request?.isEmergencyService, handleRefresh]);
 
   const handleVerifyOtp = useCallback(async () => {
     if (enteredOtp.length !== 6) { dialog('Invalid OTP', 'Please enter a valid 6-digit OTP'); return; }
@@ -1270,7 +1348,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         <CancellationInfoCard request={request} isProvider={isProvider} />
 
         {/* OTP Section (user) */}
-        {showOtp && <OtpDisplay otp={request.completionOtp} expiresAt={request.otpExpiresAt} onResend={handleResendOtp} />}
+        {showOtp && <OtpDisplay otp={request.completionOtp} expiresAt={request.otpExpiresAt} onResend={handleResendOtp} resending={resendingOtp} />}
 
         {/* Provider Compact Action Card — Directions | Call | Location Toggle | OTP */}
         {isProvider && ['accepted', 'in-progress'].includes(request.status) && (() => {
@@ -1312,28 +1390,26 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                   </View>
                   <Text style={s.compactActionLabel}>Call</Text>
                 </TouchableOpacity>
-                {!isEmergencyService && (
-                  <TouchableOpacity
-                    style={s.compactActionBtn}
-                    onPress={() => !locationSharingLoading && handleToggleLocationSharing(!locationSharingEnabled)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[s.compactActionIcon, { backgroundColor: locationSharingEnabled ? '#D1FAE5' : '#F1F5F9' }]}>
-                      {locationSharingLoading ? (
-                        <ActivityIndicator size={16} color={BRAND.secondary} />
-                      ) : (
-                        <Icon name="location" size={18} color={locationSharingEnabled ? BRAND.success : BRAND.textMuted} />
-                      )}
-                    </View>
-                    <Text style={[s.compactActionLabel, locationSharingEnabled && { color: BRAND.success, fontWeight: '700' }]}>
-                      {locationSharingEnabled ? 'Sharing' : 'Share'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity
+                  style={s.compactActionBtn}
+                  onPress={() => !locationSharingLoading && handleToggleLocationSharing(!locationSharingEnabled)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[s.compactActionIcon, { backgroundColor: locationSharingEnabled ? '#D1FAE5' : '#F1F5F9' }]}>
+                    {locationSharingLoading ? (
+                      <ActivityIndicator size={16} color={BRAND.secondary} />
+                    ) : (
+                      <Icon name="location" size={18} color={locationSharingEnabled ? BRAND.success : BRAND.textMuted} />
+                    )}
+                  </View>
+                  <Text style={[s.compactActionLabel, locationSharingEnabled && { color: BRAND.success, fontWeight: '700' }]}>
+                    {locationSharingEnabled ? 'Sharing' : 'Share'}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
               {/* Location sharing status (compact) */}
-              {locationSharingEnabled && !isEmergencyService && (
+              {locationSharingEnabled && (
                 <View style={[s.locSharingActiveBox, { marginTop: 10 }]}>
                   <View style={[s.rowCenter, { gap: 8 }]}>
                     <PulsingDot color={BRAND.success} size={4} />
@@ -1365,12 +1441,12 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           <ProviderCard
             provider={request.providerDetails}
             onCall={handleCall}
-            showActions={['pending', 'accepted', 'in-progress'].includes(request.status)}
+            showActions={['pending', 'awaiting_confirmation', 'accepted', 'in-progress', 'in_transit', 'arrived'].includes(request.status)}
           />
         )}
 
         {/* Sent to provider — awaiting acceptance */}
-        {!isProvider && !request.providerDetails && (request.assignedProviderId || request.providerId || request.lastSentProviderId || request.sentAt) && request.status === 'pending' && (
+        {!isProvider && !request.providerDetails && (request.assignedProviderId || request.providerId || request.lastSentProviderId || request.sentAt) && ['pending', 'awaiting_confirmation'].includes(request.status) && (
           <View style={s.card}>
             <Text style={s.sectionLabel}>REQUEST SENT TO</Text>
 
@@ -1422,22 +1498,32 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               <Text style={s.waitingPillText}>Waiting for provider to accept your request</Text>
             </View>
 
-            {/* Cancel button */}
-            <TouchableOpacity
-              style={s.cancelSentBtn}
-              onPress={handleCancel}
-              disabled={cancelling}
-              activeOpacity={0.7}
-            >
-              {cancelling ? (
-                <ActivityIndicator color="#DC2626" size="small" />
-              ) : (
-                <>
-                  <Icon name="close" size={16} color="#DC2626" />
-                  <Text style={s.cancelSentBtnText}>Cancel Request</Text>
-                </>
-              )}
-            </TouchableOpacity>
+            {/* Find New Provider + Cancel */}
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+              <TouchableOpacity
+                style={[s.findProvidersBtn, { flex: 1 }]}
+                onPress={() => navigation.navigate('UserTabs', { screen: 'HomeTab', params: { resumeRequest: request } })}
+                activeOpacity={0.7}
+              >
+                <Icon name="search" size={16} color="#fff" />
+                <Text style={s.findProvidersBtnText}>Find New Provider</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.cancelSentBtn, { flex: 1 }]}
+                onPress={handleCancel}
+                disabled={cancelling}
+                activeOpacity={0.7}
+              >
+                {cancelling ? (
+                  <ActivityIndicator color="#DC2626" size="small" />
+                ) : (
+                  <>
+                    <Icon name="close" size={16} color="#DC2626" />
+                    <Text style={s.cancelSentBtnText}>Cancel</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
@@ -1485,7 +1571,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         })()}
 
         {/* User-side Provider Location Status */}
-        {!isProvider && !isEmergencyService && ['accepted', 'in-progress'].includes(request.status) && request.providerDetails && (() => {
+        {!isProvider && ['accepted', 'in-progress', 'in_transit'].includes(request.status) && request.providerDetails && (() => {
           const scheduledTime = locationSharingData?.scheduledTime;
           const now = Date.now();
           const serviceMs = scheduledTime ? new Date(scheduledTime).getTime() : null;

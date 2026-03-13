@@ -27,6 +27,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
 import { pick, types } from '@react-native-documents/picker';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
@@ -376,6 +377,9 @@ const DocumentVerificationScreen = ({ navigation }) => {
    * Capture from camera
    */
   const captureFromCamera = async (serviceCategory, documentType) => {
+    const granted = await requestCameraPermission(dialog);
+    if (!granted) return;
+
     try {
       const result = await launchCamera({
         mediaType: 'photo',
@@ -383,7 +387,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
         maxWidth: 1920,
         maxHeight: 1920,
       });
-      
+
       if (!result.didCancel && result.assets?.[0]) {
         stageDocument(serviceCategory, documentType, result.assets[0]);
       }
@@ -392,11 +396,14 @@ const DocumentVerificationScreen = ({ navigation }) => {
       dialog('Error', 'Failed to capture image');
     }
   };
-  
+
   /**
    * Pick from gallery
    */
   const pickFromGallery = async (serviceCategory, documentType) => {
+    const granted = await requestGalleryPermission(dialog);
+    if (!granted) return;
+
     try {
       const result = await launchImageLibrary({
         mediaType: 'photo',
@@ -404,7 +411,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
         maxWidth: 1920,
         maxHeight: 1920,
       });
-      
+
       if (!result.didCancel && result.assets?.[0]) {
         stageDocument(serviceCategory, documentType, result.assets[0]);
       }

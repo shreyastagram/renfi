@@ -117,7 +117,19 @@ const LiveTrackingScreen = ({ navigation, route }) => {
     userLocation: initialUserLocation,
     serviceLocation: passedServiceLocation,
     serviceAddress,
+    isEmergencyService,
+    isEventService,
   } = route.params || {};
+
+  // Determine which base endpoint to use for location polling
+  const EMERGENCY_TYPES = ['snake_catcher', 'private_ambulance', 'mortuary_van'];
+  const isEmergency = isEmergencyService || EMERGENCY_TYPES.includes(serviceCategory);
+  const isEvent = isEventService || ['photographer', 'influencer'].includes(serviceCategory);
+  const serviceBasePath = isEmergency
+    ? '/api/emergency-services'
+    : isEvent
+      ? '/api/event-services'
+      : '/api/traditional-services';
 
   const cameraRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -175,35 +187,58 @@ const LiveTrackingScreen = ({ navigation, route }) => {
     } catch (e) { console.error('[LiveTracking] Route error:', e.message); }
   }, []);
 
-  // Fetch provider location — handles ALL backend response formats
+  // Fetch provider location via request-scoped endpoint
   const fetchProviderLocation = useCallback(async () => {
-    if (!providerId) { setError('Provider ID not available'); setIsLoading(false); return; }
+    if (!requestId) { setError('Request ID not available'); setIsLoading(false); return; }
     try {
-      const response = await authFetch(`${NODE_BASE_URL}/api/auth/provider/location/${providerId}`, { method: 'GET' });
-      const data = await response.json();
+      let coords = null;
+      let online = false;
 
-      if (data.success && data.data) {
-        const d = data.data;
-        // Try currentLocation first, then location, then geoLocation
-        const coords = extractCoords(d.location) || extractCoords(d.currentLocation) || extractCoords(d.geoLocation);
-
-        if (coords) {
-          setProviderLocation(coords);
-          providerLocRef.current = coords;
-          setLastFetchedAt(new Date());
-          setProviderData(d);
-          setIsOnline(d.isOnline || false);
-          setError(null);
-
-          if (destinationLocation) {
-            fetchRoute(coords, destinationLocation);
+      if (isEmergency) {
+        // Emergency: provider location is on the request object itself
+        const response = await authFetch(`${NODE_BASE_URL}${serviceBasePath}/${requestId}`, { method: 'GET' });
+        const data = await response.json();
+        if (data.success && data.request) {
+          const r = data.request;
+          coords = extractCoords(r.providerLocation);
+          online = true; // If emergency is active, provider is online
+          if (r.providerDetails) {
+            setProviderData({
+              name: r.providerDetails.name,
+              phone: r.providerDetails.phone || r.providerDetails.verifiedPhone,
+              profilePicture: r.providerDetails.profilePicture,
+              isOnline: true,
+            });
           }
-        } else {
-          // Location exists but has null/zero values
-          if (!providerLocRef.current) setError('Waiting for provider to share location...');
         }
       } else {
-        if (!providerLocRef.current) setError('Provider location not available yet');
+        // Traditional / Event: use the location-sharing endpoint
+        const response = await authFetch(`${NODE_BASE_URL}${serviceBasePath}/${requestId}/provider-location`, { method: 'GET' });
+        const data = await response.json();
+        if (data.success && data.locationSharing) {
+          const ls = data.locationSharing;
+          online = ls.enabled || false;
+          setIsOnline(online);
+          if (ls.providerLocation) {
+            coords = extractCoords(ls.providerLocation);
+          }
+          if (!online && !providerLocRef.current) {
+            setError('Waiting for provider to share location...');
+          }
+        } else if (!data.success) {
+          if (!providerLocRef.current) setError('Waiting for provider to share location...');
+        }
+      }
+
+      if (coords) {
+        setProviderLocation(coords);
+        providerLocRef.current = coords;
+        setLastFetchedAt(new Date());
+        setIsOnline(online);
+        setError(null);
+        if (destinationLocation) fetchRoute(coords, destinationLocation);
+      } else {
+        if (!providerLocRef.current) setError('Waiting for provider to share location...');
       }
     } catch (err) {
       console.error('[LiveTracking] Fetch error:', err);
@@ -212,7 +247,7 @@ const LiveTrackingScreen = ({ navigation, route }) => {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [providerId, destinationLocation, fetchRoute]);
+  }, [requestId, isEmergency, serviceBasePath, destinationLocation, fetchRoute]);
 
   // Get user GPS
   const getUserLocation = useCallback(() => {
@@ -386,6 +421,15 @@ const LiveTrackingScreen = ({ navigation, route }) => {
       <Mapbox.MapView style={styles.map} styleURL={Mapbox.StyleURL.Street} logoEnabled={false} attributionEnabled={false} compassEnabled scaleBarEnabled={false} onDidFinishLoadingMap={handleMapReady}>
         <Mapbox.Camera ref={cameraRef} defaultSettings={{ centerCoordinate: initialCenter, zoomLevel: 14 }} animationMode="flyTo" animationDuration={0} />
 
+        {/* Route line — rendered FIRST so all markers appear on top */}
+        {destinationLocation && providerLocation && (
+          <Mapbox.ShapeSource id="route" shape={{ type: 'Feature', geometry: { type: 'LineString', coordinates: routeCoordinates || [[providerLocation.longitude, providerLocation.latitude], [destinationLocation.longitude, destinationLocation.latitude]] } }}>
+            <Mapbox.LineLayer id="routeOutline" style={{ lineColor: '#c45a00', lineWidth: 8, lineCap: 'round', lineJoin: 'round', lineOpacity: 0.4 }} />
+            <Mapbox.LineLayer id="routeLine" style={{ lineColor: C.primary, lineWidth: 5, lineCap: 'round', lineJoin: 'round', lineOpacity: 1 }} />
+            <Mapbox.LineLayer id="routeShimmer" style={{ lineColor: '#FFD580', lineWidth: 3, lineCap: 'round', lineJoin: 'round', lineOpacity: 0.6, lineDasharray: [2, 4] }} />
+          </Mapbox.ShapeSource>
+        )}
+
         {/* User marker */}
         {userLocation && (!destinationLocation || Math.abs(userLocation.latitude - destinationLocation.latitude) > 0.001 || Math.abs(userLocation.longitude - destinationLocation.longitude) > 0.001) && (
           <Mapbox.PointAnnotation id="user-marker" coordinate={[userLocation.longitude, userLocation.latitude]}>
@@ -393,26 +437,18 @@ const LiveTrackingScreen = ({ navigation, route }) => {
           </Mapbox.PointAnnotation>
         )}
 
-        {/* Destination marker */}
+        {/* Service location marker — blue (brand secondary) with home icon */}
         {destinationLocation && (
           <Mapbox.PointAnnotation id="dest-marker" coordinate={[destinationLocation.longitude, destinationLocation.latitude]}>
             <View style={styles.destMarker}><MaterialIcon name="home" size={18} color={C.white} /></View>
           </Mapbox.PointAnnotation>
         )}
 
-        {/* Provider marker */}
+        {/* Provider marker — Fixhomi logo (rendered LAST so it's on top of everything) */}
         {providerLocation && (
           <Mapbox.PointAnnotation id="provider-marker" coordinate={[providerLocation.longitude, providerLocation.latitude]}>
-            <View style={styles.providerMarker}><FixhomiLogo size={22} color={C.white} /></View>
+            <View style={styles.providerMarker}><FixhomiLogo size={28} /></View>
           </Mapbox.PointAnnotation>
-        )}
-
-        {/* Route line */}
-        {destinationLocation && providerLocation && (
-          <Mapbox.ShapeSource id="route" shape={{ type: 'Feature', geometry: { type: 'LineString', coordinates: routeCoordinates || [[providerLocation.longitude, providerLocation.latitude], [destinationLocation.longitude, destinationLocation.latitude]] } }}>
-            <Mapbox.LineLayer id="routeOutline" style={{ lineColor: '#c45a00', lineWidth: 8, lineCap: 'round', lineJoin: 'round', lineOpacity: 0.4 }} />
-            <Mapbox.LineLayer id="routeLine" style={{ lineColor: C.primary, lineWidth: 5, lineCap: 'round', lineJoin: 'round', lineOpacity: 1 }} />
-          </Mapbox.ShapeSource>
         )}
       </Mapbox.MapView>
 
@@ -436,7 +472,7 @@ const LiveTrackingScreen = ({ navigation, route }) => {
       </View>
 
       {/* Bottom Sheet */}
-      <Animated.View style={[styles.sheet, { bottom: insets.bottom, paddingBottom: insets.bottom + 16, transform: [{ translateY: sheetTranslate }] }]}>
+      <Animated.View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 16, transform: [{ translateY: sheetTranslate }] }]}>
         {isLoading ? (
           <View style={styles.sheetCenter}>
             <ActivityIndicator size="large" color={C.primary} />
@@ -456,7 +492,7 @@ const LiveTrackingScreen = ({ navigation, route }) => {
           <View style={styles.sheetCenter}>
             <View style={styles.errorIcon}><MaterialIcon name="location-searching" size={28} color={C.primary} /></View>
             <Text style={styles.errorTitle}>{error}</Text>
-            <Text style={styles.errorSubText}>We're polling every 2 seconds</Text>
+            <Text style={styles.errorSubText}>Checking for updates automatically...</Text>
             <TouchableOpacity style={styles.retryBtn} onPress={() => { setIsRefreshing(true); fetchProviderLocation(); }} activeOpacity={0.7}>
               {isRefreshing ? <ActivityIndicator size="small" color={C.white} /> : <Text style={styles.retryBtnText}>Retry Now</Text>}
             </TouchableOpacity>
@@ -560,8 +596,8 @@ const styles = StyleSheet.create({
 
   // Markers
   userMarker: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.secondary, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: C.white, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
-  destMarker: { width: 38, height: 38, borderRadius: 19, backgroundColor: C.success, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: C.white, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
-  providerMarker: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: C.white, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.4, shadowRadius: 6, elevation: 8 },
+  destMarker: { width: 38, height: 38, borderRadius: 19, backgroundColor: C.secondary, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: C.white, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
+  providerMarker: { width: 46, height: 46, borderRadius: 23, backgroundColor: C.white, alignItems: 'center', justifyContent: 'center', borderWidth: 2.5, borderColor: C.primary, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.4, shadowRadius: 6, elevation: 8, overflow: 'hidden' },
 
   // Bottom sheet
   sheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.white, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 20, shadowColor: '#0F172A', shadowOffset: { width: 0, height: -6 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 12 },

@@ -172,6 +172,18 @@ const OTPVerifyScreen = ({
       }
 
       if (result.success) {
+        // Validate that the user's actual role matches the screen they're signing in from
+        const backendRole = result.data?.role;
+        const expectedRole = _userType === 'provider' ? 'SERVICE_PROVIDER' : 'USER';
+        if (backendRole && backendRole !== expectedRole) {
+          const correctScreen = backendRole === 'SERVICE_PROVIDER' ? 'provider' : 'user';
+          showAlert(
+            `This account is registered as a ${correctScreen}. Please sign in from the ${correctScreen} login screen.`,
+            'error'
+          );
+          setLoading(false);
+          return;
+        }
         showAlert('Verified successfully!', 'success');
         const authData = { ...result.data, userType: _userType };
         const authProcessed = await handleAuthSuccess(authData);
