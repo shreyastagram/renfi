@@ -34,6 +34,7 @@ import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 import { Icon } from '../components';
+import { useShimmerAnimation, ShimmerBlock } from '../components/ShimmerLoader';
 import {
   initializeSocket,
   disconnectSocket,
@@ -190,120 +191,81 @@ const PulsingDot = ({ isOnline }) => {
 };
 
 /**
- * Shimmer loading placeholder
+ * Home Screen Skeleton Loader — uses shared ShimmerLoader with Amazon-style shimmer sweep
  */
-const ShimmerBlock = ({ width, height, borderRadius = 8, style }) => {
-  const shimmerAnim = useRef(new Animated.Value(0.3)).current;
-
-  useEffect(() => {
-    const shimmer = Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmerAnim, {
-          toValue: 0.7,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(shimmerAnim, {
-          toValue: 0.3,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    shimmer.start();
-    return () => shimmer.stop();
-  }, [shimmerAnim]);
-
+const HomeSkeletonLoader = ({ insets }) => {
+  const shimmerAnim = useShimmerAnimation();
   return (
-    <Animated.View
-      style={[
-        {
-          width,
-          height,
-          borderRadius,
-          backgroundColor: '#CBD5E1',
-          opacity: shimmerAnim,
-        },
-        style,
-      ]}
-    />
-  );
-};
-
-/**
- * Home Screen Skeleton Loader
- */
-const HomeSkeletonLoader = ({ insets }) => (
-  <View style={styles.container}>
-
-    <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]} scrollEnabled={false}>
-      {/* Hero Header skeleton */}
-      <View style={[styles.heroHeader, { paddingTop: insets.top + 16 }]}>
-        <View style={[styles.decorCircle, styles.decorCircle1]} />
-        <View style={[styles.decorCircle, styles.decorCircle2]} />
-        <View style={styles.headerRow}>
-          <ShimmerBlock width={40} height={40} borderRadius={20} style={{ backgroundColor: 'rgba(255,255,255,0.15)' }} />
-          <ShimmerBlock width={40} height={40} borderRadius={20} style={{ backgroundColor: 'rgba(255,255,255,0.15)' }} />
-        </View>
-        <View style={styles.heroTextBlock}>
-          <ShimmerBlock width={100} height={14} borderRadius={6} style={{ backgroundColor: 'rgba(255,255,255,0.12)', marginBottom: 8 }} />
-          <ShimmerBlock width={160} height={26} borderRadius={8} style={{ backgroundColor: 'rgba(255,255,255,0.18)', marginBottom: 6 }} />
-          <ShimmerBlock width={200} height={12} borderRadius={6} style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
-        </View>
-      </View>
-
-      <View style={styles.contentArea}>
-        {/* Availability card skeleton */}
-        <View style={[styles.availabilityCard, { paddingVertical: 20 }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
-            <ShimmerBlock width={14} height={14} borderRadius={7} />
-            <View style={{ gap: 6 }}>
-              <ShimmerBlock width={120} height={16} borderRadius={6} />
-              <ShimmerBlock width={180} height={12} borderRadius={6} />
-            </View>
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]} scrollEnabled={false}>
+        {/* Hero Header skeleton */}
+        <View style={[styles.heroHeader, { paddingTop: insets.top + 16 }]}>
+          <View style={[styles.decorCircle, styles.decorCircle1]} />
+          <View style={[styles.decorCircle, styles.decorCircle2]} />
+          <View style={styles.headerRow}>
+            <ShimmerBlock width={40} height={40} borderRadius={20} shimmerAnim={shimmerAnim} style={{ backgroundColor: 'rgba(255,255,255,0.15)' }} />
+            <ShimmerBlock width={40} height={40} borderRadius={20} shimmerAnim={shimmerAnim} style={{ backgroundColor: 'rgba(255,255,255,0.15)' }} />
           </View>
-          <ShimmerBlock width={50} height={28} borderRadius={14} />
-        </View>
-
-        {/* Verification card skeleton */}
-        <View style={{ backgroundColor: BRAND.white, borderRadius: 16, padding: 16, gap: 10 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <ShimmerBlock width={40} height={40} borderRadius={20} />
-            <View style={{ gap: 6, flex: 1 }}>
-              <ShimmerBlock width={140} height={14} borderRadius={6} />
-              <ShimmerBlock width={100} height={12} borderRadius={6} />
-            </View>
+          <View style={styles.heroTextBlock}>
+            <ShimmerBlock width={100} height={14} borderRadius={6} shimmerAnim={shimmerAnim} style={{ backgroundColor: 'rgba(255,255,255,0.12)', marginBottom: 8 }} />
+            <ShimmerBlock width={160} height={26} borderRadius={8} shimmerAnim={shimmerAnim} style={{ backgroundColor: 'rgba(255,255,255,0.18)', marginBottom: 6 }} />
+            <ShimmerBlock width={200} height={12} borderRadius={6} shimmerAnim={shimmerAnim} style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
           </View>
-          <ShimmerBlock width={'100%'} height={6} borderRadius={3} />
         </View>
 
-        {/* Stats skeleton */}
-        <ShimmerBlock width={80} height={12} borderRadius={6} style={{ marginTop: 20, marginBottom: 10 }} />
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          {[1, 2, 3, 4].map(i => (
-            <View key={i} style={{ flex: 1, backgroundColor: BRAND.white, borderRadius: 16, padding: 14, alignItems: 'center', gap: 8 }}>
-              <ShimmerBlock width={36} height={36} borderRadius={18} />
-              <ShimmerBlock width={30} height={18} borderRadius={6} />
-              <ShimmerBlock width={50} height={10} borderRadius={5} />
+        <View style={styles.contentArea}>
+          {/* Availability card skeleton */}
+          <View style={[styles.availabilityCard, { paddingVertical: 20 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+              <ShimmerBlock width={14} height={14} borderRadius={7} shimmerAnim={shimmerAnim} />
+              <View style={{ gap: 6 }}>
+                <ShimmerBlock width={120} height={16} borderRadius={6} shimmerAnim={shimmerAnim} />
+                <ShimmerBlock width={180} height={12} borderRadius={6} shimmerAnim={shimmerAnim} />
+              </View>
+            </View>
+            <ShimmerBlock width={50} height={28} borderRadius={14} shimmerAnim={shimmerAnim} />
+          </View>
+
+          {/* Verification card skeleton */}
+          <View style={{ backgroundColor: BRAND.white, borderRadius: 16, padding: 16, gap: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <ShimmerBlock width={40} height={40} borderRadius={20} shimmerAnim={shimmerAnim} />
+              <View style={{ gap: 6, flex: 1 }}>
+                <ShimmerBlock width={140} height={14} borderRadius={6} shimmerAnim={shimmerAnim} />
+                <ShimmerBlock width={100} height={12} borderRadius={6} shimmerAnim={shimmerAnim} />
+              </View>
+            </View>
+            <ShimmerBlock width={'100%'} height={6} borderRadius={3} shimmerAnim={shimmerAnim} />
+          </View>
+
+          {/* Stats skeleton */}
+          <ShimmerBlock width={80} height={12} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginTop: 20, marginBottom: 10 }} />
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            {[1, 2, 3, 4].map(i => (
+              <View key={i} style={{ flex: 1, backgroundColor: BRAND.white, borderRadius: 16, padding: 14, alignItems: 'center', gap: 8 }}>
+                <ShimmerBlock width={36} height={36} borderRadius={18} shimmerAnim={shimmerAnim} />
+                <ShimmerBlock width={30} height={18} borderRadius={6} shimmerAnim={shimmerAnim} />
+                <ShimmerBlock width={50} height={10} borderRadius={5} shimmerAnim={shimmerAnim} />
+              </View>
+            ))}
+          </View>
+
+          {/* Quick actions skeleton */}
+          <ShimmerBlock width={110} height={12} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginTop: 20, marginBottom: 10 }} />
+          {[1, 2, 3].map(i => (
+            <View key={i} style={{ backgroundColor: BRAND.white, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+              <ShimmerBlock width={44} height={44} borderRadius={12} shimmerAnim={shimmerAnim} />
+              <View style={{ gap: 6, flex: 1 }}>
+                <ShimmerBlock width={120} height={14} borderRadius={6} shimmerAnim={shimmerAnim} />
+                <ShimmerBlock width={180} height={11} borderRadius={5} shimmerAnim={shimmerAnim} />
+              </View>
             </View>
           ))}
         </View>
-
-        {/* Quick actions skeleton */}
-        <ShimmerBlock width={110} height={12} borderRadius={6} style={{ marginTop: 20, marginBottom: 10 }} />
-        {[1, 2, 3].map(i => (
-          <View key={i} style={{ backgroundColor: BRAND.white, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-            <ShimmerBlock width={44} height={44} borderRadius={12} />
-            <View style={{ gap: 6, flex: 1 }}>
-              <ShimmerBlock width={120} height={14} borderRadius={6} />
-              <ShimmerBlock width={180} height={11} borderRadius={5} />
-            </View>
-          </View>
-        ))}
-      </View>
-    </ScrollView>
-  </View>
-);
+      </ScrollView>
+    </View>
+  );
+};
 
 /**
  * Stats Card Component
@@ -865,8 +827,8 @@ const ProviderHomeScreen = ({ navigation }) => {
 
   const firstName = displayData?.fullName?.split(' ')[0] || 'Provider';
 
-  // Show skeleton loader while profile is loading on initial load
-  if (isProfileLoading && !displayData?.fullName) {
+  // Show skeleton loader until profile data is available
+  if (!profile || (isProfileLoading && !displayData?.fullName)) {
     return <HomeSkeletonLoader insets={insets} />;
   }
 

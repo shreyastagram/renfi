@@ -35,6 +35,7 @@ import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { Icon, PhoneInput, AadhaarVerificationModal } from '../components';
+import { useShimmerAnimation, ShimmerBlock as SharedShimmerBlock } from '../components/ShimmerLoader';
 import { updateUserProfile, updateProviderProfile } from '../services/profileService';
 import { SERVICE_CATEGORIES } from '../services/authService';
 import { NODE_BASE_URL } from '../config/api';
@@ -197,72 +198,57 @@ const EditableField = React.memo(({ label, value, onChangeText, placeholder, edi
 ));
 
 /**
- * Shimmer block for skeleton loading
+ * Profile Screen Skeleton Loader — Amazon-style shimmer wave
  */
-const ShimmerBlock = ({ width, height, borderRadius = 8, style }) => {
-  const shimmerAnim = useRef(new Animated.Value(0.3)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmerAnim, { toValue: 0.7, duration: 800, useNativeDriver: true }),
-        Animated.timing(shimmerAnim, { toValue: 0.3, duration: 800, useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, []);
-  return <Animated.View style={[{ width, height, borderRadius, backgroundColor: '#CBD5E1', opacity: shimmerAnim }, style]} />;
-};
-
-/**
- * Profile Screen Skeleton Loader
- */
-const ProfileSkeletonLoader = ({ insets, onBack }) => (
-  <View style={styles.container}>
-    <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-      <TouchableOpacity style={styles.backButton} onPress={onBack}>
-        <Icon name="arrow_back" size={22} color="#0F172A" />
-      </TouchableOpacity>
-      <Text style={styles.headerTitle}>Profile</Text>
-      <View style={{ width: 60 }} />
-    </View>
-    <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 30 }]} scrollEnabled={false}>
-      {/* Profile card skeleton */}
-      <View style={[styles.profileCard, { overflow: 'hidden' }]}>
-        <View style={{ height: 100, backgroundColor: '#E2E8F0' }} />
-        <View style={{ alignItems: 'center', marginTop: -40, paddingBottom: 20 }}>
-          <ShimmerBlock width={80} height={80} borderRadius={40} />
-          <ShimmerBlock width={140} height={18} borderRadius={8} style={{ marginTop: 12 }} />
-          <ShimmerBlock width={180} height={13} borderRadius={6} style={{ marginTop: 8 }} />
-        </View>
+const ProfileSkeletonLoader = ({ insets, onBack }) => {
+  const shimmerAnim = useShimmerAnimation();
+  return (
+    <View style={styles.container}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity style={styles.backButton} onPress={onBack}>
+          <Icon name="arrow_back" size={22} color="#0F172A" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Profile</Text>
+        <View style={{ width: 60 }} />
       </View>
-
-      {/* Info rows skeleton */}
-      <ShimmerBlock width={120} height={14} borderRadius={6} style={{ marginTop: 20, marginBottom: 12 }} />
-      {[1, 2, 3, 4].map(i => (
-        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8 }}>
-          <ShimmerBlock width={36} height={36} borderRadius={18} />
-          <View style={{ gap: 6, flex: 1 }}>
-            <ShimmerBlock width={80} height={12} borderRadius={5} />
-            <ShimmerBlock width={160} height={14} borderRadius={6} />
+      <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 30 }]} scrollEnabled={false}>
+        {/* Profile card skeleton */}
+        <View style={[styles.profileCard, { overflow: 'hidden' }]}>
+          <View style={{ height: 100, backgroundColor: '#E2E8F0' }} />
+          <View style={{ alignItems: 'center', marginTop: -40, paddingBottom: 20 }}>
+            <SharedShimmerBlock width={80} height={80} borderRadius={40} shimmerAnim={shimmerAnim} />
+            <SharedShimmerBlock width={140} height={18} borderRadius={8} shimmerAnim={shimmerAnim} style={{ marginTop: 12 }} />
+            <SharedShimmerBlock width={180} height={13} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginTop: 8 }} />
           </View>
         </View>
-      ))}
 
-      {/* Another section */}
-      <ShimmerBlock width={100} height={14} borderRadius={6} style={{ marginTop: 20, marginBottom: 12 }} />
-      {[1, 2].map(i => (
-        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8 }}>
-          <ShimmerBlock width={36} height={36} borderRadius={18} />
-          <View style={{ gap: 6, flex: 1 }}>
-            <ShimmerBlock width={90} height={12} borderRadius={5} />
-            <ShimmerBlock width={140} height={14} borderRadius={6} />
+        {/* Info rows skeleton */}
+        <SharedShimmerBlock width={120} height={14} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginTop: 20, marginBottom: 12 }} />
+        {[1, 2, 3, 4].map(i => (
+          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8 }}>
+            <SharedShimmerBlock width={36} height={36} borderRadius={18} shimmerAnim={shimmerAnim} />
+            <View style={{ gap: 6, flex: 1 }}>
+              <SharedShimmerBlock width={80} height={12} borderRadius={5} shimmerAnim={shimmerAnim} />
+              <SharedShimmerBlock width={160} height={14} borderRadius={6} shimmerAnim={shimmerAnim} />
+            </View>
           </View>
-        </View>
-      ))}
-    </ScrollView>
-  </View>
-);
+        ))}
+
+        {/* Another section */}
+        <SharedShimmerBlock width={100} height={14} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginTop: 20, marginBottom: 12 }} />
+        {[1, 2].map(i => (
+          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8 }}>
+            <SharedShimmerBlock width={36} height={36} borderRadius={18} shimmerAnim={shimmerAnim} />
+            <View style={{ gap: 6, flex: 1 }}>
+              <SharedShimmerBlock width={90} height={12} borderRadius={5} shimmerAnim={shimmerAnim} />
+              <SharedShimmerBlock width={140} height={14} borderRadius={6} shimmerAnim={shimmerAnim} />
+            </View>
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+};
 
 /**
  * Profile Screen Component
@@ -350,6 +336,10 @@ const ProfileScreen = ({ navigation, route }) => {
   const isAadhaarVerified = aadhaarStatus.isVerified;
   const isNameLocked = aadhaarStatus.isNameLocked;
   const aadhaarName = aadhaarStatus.aadhaarName;
+  const aadhaarLoaded = aadhaarStatus.aadhaarLoaded;
+
+  // Shimmer animation for inline placeholders
+  const shimmerAnim = useShimmerAnimation();
   
   // Premium subscription state — derived from context cache (SWR pattern: show loading until fetched)
   const isPremiumActive = premiumStatus.isPremiumActive;
@@ -560,10 +550,14 @@ const ProfileScreen = ({ navigation, route }) => {
           isVerified: result.aadhaar?.isVerified || false,
           isNameLocked: result.aadhaar?.isNameLocked || false,
           aadhaarName: result.aadhaar?.aadhaarName || null,
+          aadhaarLoaded: true,
         });
+      } else {
+        setAadhaarStatus(prev => ({ ...prev, aadhaarLoaded: true }));
       }
     } catch (error) {
       console.log('Error fetching Aadhaar status:', error);
+      setAadhaarStatus(prev => ({ ...prev, aadhaarLoaded: true }));
     }
     // Fetch premium status from verification dashboard
     try {
@@ -1125,8 +1119,8 @@ const ProfileScreen = ({ navigation, route }) => {
     }
   };
 
-  // Show skeleton while profile is loading initially
-  if (isProfileLoading && !displayData?.fullName && !displayData?.email) {
+  // Show skeleton until profile data is available
+  if (!profile || (isProfileLoading && !displayData?.fullName && !displayData?.email)) {
     return <ProfileSkeletonLoader insets={insets} onBack={() => navigation.goBack()} />;
   }
 
@@ -1215,7 +1209,10 @@ const ProfileScreen = ({ navigation, route }) => {
               <View style={[styles.profileBodyAccent, isProvider ? { backgroundColor: '#FFF7ED' } : { backgroundColor: '#EFF6FF' }]} />
               <View style={styles.profileNameRow}>
                 <Text style={styles.profileName} numberOfLines={2} ellipsizeMode="tail">{displayData?.fullName || 'User'}</Text>
-                {isProvider && isPremiumActive && (
+                {isProvider && !premiumLoaded && (
+                  <SharedShimmerBlock width={55} height={22} borderRadius={11} shimmerAnim={shimmerAnim} />
+                )}
+                {isProvider && premiumLoaded && isPremiumActive && (
                   <View style={styles.proBadge}>
                     <MaterialIcon name="workspace-premium" size={14} color="#F59E0B" />
                     <Text style={styles.proBadgeText}>PRO</Text>
@@ -1269,18 +1266,22 @@ const ProfileScreen = ({ navigation, route }) => {
                   </Text>
                 </View>
                 {isProvider && (
-                  <View style={[
-                    styles.verificationItem,
-                    isAadhaarVerified && styles.verificationItemVerified,
-                  ]}>
-                    <Icon name="verified_user" size={14} color={isAadhaarVerified ? '#FFFFFF' : '#6B7280'} />
-                    <Text style={[
-                      styles.verificationLabel,
-                      isAadhaarVerified && styles.verificationLabelVerified
-                    ]} numberOfLines={1}>
-                      {isAadhaarVerified ? 'KYC ✓' : 'KYC'}
-                    </Text>
-                  </View>
+                  !aadhaarLoaded ? (
+                    <SharedShimmerBlock width={65} height={28} borderRadius={14} shimmerAnim={shimmerAnim} />
+                  ) : (
+                    <View style={[
+                      styles.verificationItem,
+                      isAadhaarVerified && styles.verificationItemVerified,
+                    ]}>
+                      <Icon name="verified_user" size={14} color={isAadhaarVerified ? '#FFFFFF' : '#6B7280'} />
+                      <Text style={[
+                        styles.verificationLabel,
+                        isAadhaarVerified && styles.verificationLabelVerified
+                      ]} numberOfLines={1}>
+                        {isAadhaarVerified ? 'KYC ✓' : 'KYC'}
+                      </Text>
+                    </View>
+                  )
                 )}
               </View>
 
@@ -1411,6 +1412,7 @@ const ProfileScreen = ({ navigation, route }) => {
                     isVerified: result.aadhaar?.isVerified || true,
                     isNameLocked: result.aadhaar?.isNameLocked || false,
                     aadhaarName: result.aadhaar?.aadhaarName || null,
+                    aadhaarLoaded: true,
                   });
                 }
               } catch (e) {
@@ -2011,35 +2013,48 @@ const ProfileScreen = ({ navigation, route }) => {
               />
 
               {/* Aadhaar Verification - Providers Only */}
-              <InfoRow
-                iconName="verified_user"
-                label="Aadhaar (KYC)"
-                value={isAadhaarVerified
-                  ? `Verified${aadhaarName ? ` as ${aadhaarName}` : ''}`
-                  : 'Not Verified'}
-                verified={isAadhaarVerified}
-                onVerify={() => setShowAadhaarModal(true)}
-                isLoading={false}
-              />
-
-              {/* Name locked notice after Aadhaar */}
-              {isNameLocked && (
-                <View style={styles.nameLockNotice}>
-                  <MaterialIcon name="lock" size={14} color="#2b76bc" />
-                  <Text style={styles.nameLockNoticeText}>
-                    Name locked after Aadhaar verification
-                  </Text>
+              {!aadhaarLoaded ? (
+                <View style={[styles.infoRow, { gap: 12 }]}>
+                  <SharedShimmerBlock width={36} height={36} borderRadius={18} shimmerAnim={shimmerAnim} />
+                  <View style={{ gap: 6, flex: 1 }}>
+                    <SharedShimmerBlock width={90} height={12} borderRadius={5} shimmerAnim={shimmerAnim} />
+                    <SharedShimmerBlock width={140} height={14} borderRadius={6} shimmerAnim={shimmerAnim} />
+                  </View>
+                  <SharedShimmerBlock width={70} height={28} borderRadius={14} shimmerAnim={shimmerAnim} />
                 </View>
-              )}
+              ) : (
+                <>
+                  <InfoRow
+                    iconName="verified_user"
+                    label="Aadhaar (KYC)"
+                    value={isAadhaarVerified
+                      ? `Verified${aadhaarName ? ` as ${aadhaarName}` : ''}`
+                      : 'Not Verified'}
+                    verified={isAadhaarVerified}
+                    onVerify={() => setShowAadhaarModal(true)}
+                    isLoading={false}
+                  />
 
-              {/* Provider Aadhaar verification notice */}
-              {!isAadhaarVerified && (
-                <View style={styles.aadhaarNotice}>
-                  <Icon name="warning" size={16} color="#f67c16" />
-                  <Text style={styles.aadhaarNoticeText}>
-                    Verify your Aadhaar to receive service requests
-                  </Text>
-                </View>
+                  {/* Name locked notice after Aadhaar */}
+                  {isNameLocked && (
+                    <View style={styles.nameLockNotice}>
+                      <MaterialIcon name="lock" size={14} color="#2b76bc" />
+                      <Text style={styles.nameLockNoticeText}>
+                        Name locked after Aadhaar verification
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Provider Aadhaar verification notice */}
+                  {!isAadhaarVerified && (
+                    <View style={styles.aadhaarNotice}>
+                      <Icon name="warning" size={16} color="#f67c16" />
+                      <Text style={styles.aadhaarNoticeText}>
+                        Verify your Aadhaar to receive service requests
+                      </Text>
+                    </View>
+                  )}
+                </>
               )}
             </View>
           )}
@@ -2094,11 +2109,19 @@ const ProfileScreen = ({ navigation, route }) => {
           {isProvider && (
             <View style={styles.premiumSection}>
               {!premiumLoaded ? (
-                /* SWR-style skeleton: show neutral loading card until fetch completes */
-                <View style={styles.premiumCardLoading}>
-                  <View style={styles.premiumLoadingShimmer}>
-                    <ActivityIndicator size="small" color="#CBD5E1" />
-                    <Text style={styles.premiumLoadingText}>Checking subscription…</Text>
+                /* Shimmer skeleton while premium status loads */
+                <View style={[styles.premiumCardLoading, { padding: 16, gap: 12 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <SharedShimmerBlock width={44} height={44} borderRadius={22} shimmerAnim={shimmerAnim} />
+                    <View style={{ gap: 6, flex: 1 }}>
+                      <SharedShimmerBlock width={130} height={16} borderRadius={8} shimmerAnim={shimmerAnim} />
+                      <SharedShimmerBlock width={180} height={12} borderRadius={6} shimmerAnim={shimmerAnim} />
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingTop: 8 }}>
+                    <SharedShimmerBlock width={60} height={36} borderRadius={8} shimmerAnim={shimmerAnim} />
+                    <SharedShimmerBlock width={60} height={36} borderRadius={8} shimmerAnim={shimmerAnim} />
+                    <SharedShimmerBlock width={60} height={36} borderRadius={8} shimmerAnim={shimmerAnim} />
                   </View>
                 </View>
               ) : isPremiumActive ? (

@@ -40,6 +40,7 @@ import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
 import { Icon, ServiceIcon, CancellationReasonModal } from '../components';
+import ScreenShimmer from '../components/ShimmerLoader';
 import {
   getProviderRequests,
   acceptRequestAsProvider,
@@ -761,7 +762,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
 
   if (loading) return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.loaderWrap}><ActivityIndicator size="large" color={C.primary} /><Text style={styles.loaderText}>Loading jobs...</Text></View>
+      <ScreenShimmer type="cardList" />
     </View>
   );
 

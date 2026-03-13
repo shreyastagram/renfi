@@ -28,6 +28,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { Icon, AadhaarVerificationModal } from '../components';
+import ScreenShimmer from '../components/ShimmerLoader';
 import { getVerificationDashboard, syncVerificationStatus } from '../services/verificationService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -468,12 +469,9 @@ const VerificationDashboardScreen = ({ navigation }) => {
   // Loading state
   if (loading && !dashboard) {
     return (
-      <View style={[styles.container, styles.centered]}>
+      <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-        <View style={styles.loadingIconContainer}>
-          <ActivityIndicator size="large" color={BRAND.primary} />
-        </View>
-        <Text style={styles.loadingText}>Loading verification status...</Text>
+        <ScreenShimmer type="steps" />
       </View>
     );
   }

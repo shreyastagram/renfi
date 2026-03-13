@@ -50,6 +50,7 @@ import {
 import { addToFavorites } from '../services/favoritesService';
 import { CancellationReasonModal } from '../components';
 import { formatDistance, formatDistanceFromMeters, useDistanceUnit } from '../utils/formatDistance';
+import ScreenShimmer from '../components/ShimmerLoader';
 
 // Service-specific placeholder hints for notes input
 const EMERGENCY_NOTES_PLACEHOLDERS = {
@@ -1429,22 +1430,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
               </TouchableOpacity>
             </>
           ) : (
-            <>
-              <View style={styles.loadingIconCircle}>
-                <ActivityIndicator size="large" color={COLORS.primary} />
-              </View>
-              <Text style={styles.loadingText}>Finding providers...</Text>
-              <Text style={styles.loadingSubtext}>
-                {loadingElapsed < 10000
-                  ? 'Searching nearby emergency services'
-                  : loadingElapsed < 30000
-                    ? 'Still searching — this may take a moment'
-                    : 'Almost there — please hold on'}
-              </Text>
-              <TouchableOpacity style={styles.cancelSearchButton} onPress={handleCancelSearch} activeOpacity={0.8}>
-                <Text style={styles.cancelSearchText}>Cancel</Text>
-              </TouchableOpacity>
-            </>
+            <ScreenShimmer type="cardList" showStats={false} />
           )}
         </View>
       ) : step === 'select' ? (

@@ -45,7 +45,7 @@ export const AppProvider = ({ children }) => {
   const [userType, setUserTypeState] = useState(null); // 'user' or 'provider'
   const [profile, setProfile] = useState(null); // Full profile data
   const [isProfileLoading, setIsProfileLoading] = useState(false);
-  const [aadhaarStatus, setAadhaarStatus] = useState({ isVerified: false, isNameLocked: false, aadhaarName: null });
+  const [aadhaarStatus, setAadhaarStatus] = useState({ isVerified: false, isNameLocked: false, aadhaarName: null, aadhaarLoaded: false });
   const [premiumStatus, setPremiumStatus] = useState({ isPremiumActive: false, premiumDaysLeft: 0, premiumLoaded: false });
   const profileLastFetched = useRef(0); // timestamp of last successful fetch
   const STALE_THRESHOLD = 30000; // 30 seconds — skip re-fetch if data is fresh
@@ -87,7 +87,7 @@ export const AppProvider = ({ children }) => {
     setIsAuthenticated(false);
     setAuthHealth(null);
     setActiveSessions([]);
-    setAadhaarStatus({ isVerified: false, isNameLocked: false, aadhaarName: null });
+    setAadhaarStatus({ isVerified: false, isNameLocked: false, aadhaarName: null, aadhaarLoaded: false });
     setPremiumStatus({ isPremiumActive: false, premiumDaysLeft: 0, premiumLoaded: false });
   }, []);
 
@@ -679,7 +679,7 @@ export const AppProvider = ({ children }) => {
       setUserTypeState(null);
       setProfile(null);
       setIsAuthenticated(false);
-      setAadhaarStatus({ isVerified: false, isNameLocked: false, aadhaarName: null });
+      setAadhaarStatus({ isVerified: false, isNameLocked: false, aadhaarName: null, aadhaarLoaded: false });
       setPremiumStatus({ isPremiumActive: false, premiumDaysLeft: 0, premiumLoaded: false });
       
       console.log('✅ [AppContext] Logout successful');
@@ -691,7 +691,7 @@ export const AppProvider = ({ children }) => {
       setUserTypeState(null);
       setProfile(null);
       setIsAuthenticated(false);
-      setAadhaarStatus({ isVerified: false, isNameLocked: false, aadhaarName: null });
+      setAadhaarStatus({ isVerified: false, isNameLocked: false, aadhaarName: null, aadhaarLoaded: false });
       setPremiumStatus({ isPremiumActive: false, premiumDaysLeft: 0, premiumLoaded: false });
     }
   }, []);

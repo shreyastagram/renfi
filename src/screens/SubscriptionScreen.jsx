@@ -31,6 +31,7 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { Icon } from '../components';
+import ScreenShimmer from '../components/ShimmerLoader';
 import {
   getSubscriptionStatus,
   getPlans,
@@ -557,10 +558,9 @@ const SubscriptionScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.center]}>
+      <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-        <ActivityIndicator size="large" color="#f67c16" />
-        <Text style={styles.loadingText}>Loading...</Text>
+        <ScreenShimmer type="subscription" />
       </View>
     );
   }

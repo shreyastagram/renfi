@@ -41,6 +41,7 @@ import { authFetch } from '../utils/authFetch';
 import { addToFavorites, checkIsFavorite } from '../services/favoritesService';
 import MapPickerModal from '../components/MapPickerModal';
 import ImageViewerModal from '../components/ImageViewerModal';
+import ScreenShimmer from '../components/ShimmerLoader';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -1036,12 +1037,7 @@ const EventServicesScreen = ({ navigation }) => {
   const renderProvidersList = () => (
     <View style={styles.providersContainer}>
       {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <View style={styles.loadingSpinnerWrap}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
-          </View>
-          <Text style={styles.loadingText}>Finding {selectedService?.name}s...</Text>
-        </View>
+        <ScreenShimmer type="cardList" showStats={false} />
       ) : providers.length === 0 ? (
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIconWrap}>

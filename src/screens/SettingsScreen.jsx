@@ -37,6 +37,7 @@ import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { startLocationTracking, stopLocationTracking } from '../services/socketService';
 import { Icon } from '../components';
+import { useShimmerAnimation, ShimmerBlock } from '../components/ShimmerLoader';
 import { NODE_BASE_URL, JAVA_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
 import { getTokens } from '../utils/storage';
@@ -227,11 +228,68 @@ const WorkingHoursRow = ({ day, hours, onEdit }) => (
 );
 
 /**
+ * Settings Skeleton Loader — Amazon-style shimmer wave
+ */
+const SettingsSkeletonLoader = ({ insets, onBack }) => {
+  const shimmerAnim = useShimmerAnimation();
+  return (
+    <View style={styles.container}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity style={styles.backButton} onPress={onBack}>
+          <Icon name="arrow_back" size={22} color={COLORS.cardWhite} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Settings</Text>
+        <View style={{ width: 44 }} />
+      </View>
+      <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 24 }]} scrollEnabled={false}>
+        {/* Section header */}
+        <ShimmerBlock width={100} height={13} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginBottom: 12, marginTop: 8 }} />
+        {/* Toggle rows */}
+        {[1, 2, 3].map(i => (
+          <View key={i} style={{ backgroundColor: COLORS.cardWhite, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+            <ShimmerBlock width={40} height={40} borderRadius={12} shimmerAnim={shimmerAnim} />
+            <View style={{ flex: 1, marginLeft: 12, gap: 6 }}>
+              <ShimmerBlock width={130} height={14} borderRadius={6} shimmerAnim={shimmerAnim} />
+              <ShimmerBlock width={200} height={11} borderRadius={5} shimmerAnim={shimmerAnim} />
+            </View>
+            <ShimmerBlock width={46} height={28} borderRadius={14} shimmerAnim={shimmerAnim} />
+          </View>
+        ))}
+        {/* Section header */}
+        <ShimmerBlock width={120} height={13} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginBottom: 12, marginTop: 16 }} />
+        {/* Setting rows */}
+        {[1, 2, 3, 4].map(i => (
+          <View key={i} style={{ backgroundColor: COLORS.cardWhite, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+            <ShimmerBlock width={40} height={40} borderRadius={12} shimmerAnim={shimmerAnim} />
+            <View style={{ flex: 1, marginLeft: 12, gap: 6 }}>
+              <ShimmerBlock width={110 + i * 15} height={14} borderRadius={6} shimmerAnim={shimmerAnim} />
+              <ShimmerBlock width={160 + i * 10} height={11} borderRadius={5} shimmerAnim={shimmerAnim} />
+            </View>
+          </View>
+        ))}
+        {/* Section header */}
+        <ShimmerBlock width={80} height={13} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginBottom: 12, marginTop: 16 }} />
+        {/* Action rows */}
+        {[1, 2].map(i => (
+          <View key={i} style={{ backgroundColor: COLORS.cardWhite, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+            <ShimmerBlock width={40} height={40} borderRadius={12} shimmerAnim={shimmerAnim} />
+            <View style={{ flex: 1, marginLeft: 12, gap: 6 }}>
+              <ShimmerBlock width={120} height={14} borderRadius={6} shimmerAnim={shimmerAnim} />
+              <ShimmerBlock width={180} height={11} borderRadius={5} shimmerAnim={shimmerAnim} />
+            </View>
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+};
+
+/**
  * Settings Screen Component
  */
 const SettingsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { user, profile, userType, logout, refreshProfile, updateProviderAvailability, updateProviderLocationTracking } = useApp();
+  const { user, profile, userType, logout, refreshProfile, updateProviderAvailability, updateProviderLocationTracking, isProfileLoading } = useApp();
   const { dialog } = useDialog();
 
   // Set status bar for dark hero header when this tab is focused
@@ -263,6 +321,9 @@ const SettingsScreen = ({ navigation }) => {
     emailEnabled: true,
     smsEnabled: false,
   });
+
+  // Logout/signout overlay state
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // OTP-based account deletion state
   const [deleteOtpModalVisible, setDeleteOtpModalVisible] = useState(false);
@@ -720,6 +781,7 @@ const SettingsScreen = ({ navigation }) => {
           text: 'Logout',
           style: 'destructive',
           onPress: async () => {
+            setIsLoggingOut(true);
             await logout();
           }
         },
@@ -822,7 +884,7 @@ const SettingsScreen = ({ navigation }) => {
         dialog(
           'Account Deleted',
           'Your account has been successfully deleted. We\'re sorry to see you go.',
-          [{ text: 'OK', onPress: () => logout() }]
+          [{ text: 'OK', onPress: () => { setIsLoggingOut(true); logout(); } }]
         );
       } else if (response.status === 429) {
         dialog('Please Wait', 'Too many attempts. Please try again in a few minutes.');
@@ -849,6 +911,11 @@ const SettingsScreen = ({ navigation }) => {
     setDeleteOtp('');
     await requestDeleteOtp();
   };
+
+  // Show skeleton until profile data is available
+  if (!profile) {
+    return <SettingsSkeletonLoader insets={insets} onBack={() => navigation.goBack()} />;
+  }
 
   return (
     <View style={styles.container}>
@@ -1258,6 +1325,16 @@ const SettingsScreen = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Logout / Sign-out overlay — blocks interaction during cleanup */}
+      {isLoggingOut && (
+        <View style={styles.logoutOverlay}>
+          <View style={styles.logoutOverlayCard}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={styles.logoutOverlayText}>Signing out...</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -1598,6 +1675,34 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.5,
+  },
+
+  // Logout overlay
+  logoutOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 999,
+  },
+  logoutOverlayCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingVertical: 32,
+    paddingHorizontal: 40,
+    alignItems: 'center',
+    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 10,
+  },
+  logoutOverlayText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    letterSpacing: 0.2,
   },
 });
 

@@ -40,6 +40,7 @@ import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
 import { Icon, ServiceIcon, StatusIcon, RatingModal, FixhomiLogo, CancellationReasonModal } from '../components';
+import ScreenShimmer from '../components/ShimmerLoader';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 import {
@@ -839,7 +840,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
 
   if (loading) return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.loaderWrap}><ActivityIndicator size="large" color={C.primary} /><Text style={styles.loaderText}>Loading your bookings...</Text></View>
+      <ScreenShimmer type="cardList" />
     </View>
   );
 

@@ -42,6 +42,7 @@ import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { NODE_BASE_URL as API_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
+import ScreenShimmer from '../components/ShimmerLoader';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -1284,10 +1285,9 @@ const ServiceApprovalsScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered]}>
+      <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-        <ActivityIndicator size="large" color={BRAND.primary} />
-        <Text style={styles.loadingText}>Loading your services...</Text>
+        <ScreenShimmer type="serviceApproval" />
       </View>
     );
   }

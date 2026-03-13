@@ -39,6 +39,7 @@ import {
 } from '../services/authInfraService';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
+import ScreenShimmer from '../components/ShimmerLoader';
 
 // ==================== COLORS ====================
 
@@ -304,8 +305,7 @@ const AccountSecurityScreen = () => {
     return (
       <View style={styles.centerContainer}>
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading security settings...</Text>
+        <ScreenShimmer type="security" />
       </View>
     );
   }

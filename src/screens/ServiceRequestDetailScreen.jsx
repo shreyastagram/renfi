@@ -34,6 +34,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { Icon, ServiceIcon, StatusIcon, RatingModal, CancellationReasonModal } from '../components';
+import ScreenShimmer from '../components/ShimmerLoader';
 import { NODE_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
 import Mapbox from '@rnmapbox/maps';
@@ -1177,7 +1178,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     return (
       <View style={[s.screenContainer, { paddingTop: insets.top }]}>
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-        <View style={s.loadingWrap}><ActivityIndicator size="large" color={BRAND.primary} /><Text style={s.loadingText}>Loading details...</Text></View>
+        <ScreenShimmer type="detail" />
       </View>
     );
   }
