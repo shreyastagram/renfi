@@ -440,6 +440,7 @@ export const fetchFullProfile = async (userType, mongoId) => {
         nameLockedAt: mongoData.nameLockedAt || null,
         verifiedPhone: mongoData.verifiedPhone || null,
         aadhaarVerification: mongoData.aadhaarVerification || {},
+        emergencyServicesEnabled: mongoData.emergencyServicesEnabled ?? false,
         // Portfolio fields for Photographers/Influencers
         bio: mongoData.bio || '',
         portfolioLinks: mongoData.portfolioLinks || {},

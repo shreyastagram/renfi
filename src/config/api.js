@@ -189,6 +189,8 @@ export const ENDPOINTS = {
     PROVIDER_REGISTER: '/api/auth/provider/register',
     // Phone sync (Node.js - sync phone from Java Auth to MongoDB after OTP verification)
     SYNC_PHONE: '/api/auth/sync-phone',
+    // Check if email/phone is already registered (Node.js, public)
+    CHECK_AVAILABILITY: '/api/auth/check-availability',
     // Session management (Java Auth)
     SESSIONS: '/api/auth/sessions',
     REVOKE_ALL: '/api/auth/sessions/revoke-all',
@@ -309,15 +311,6 @@ export const ENDPOINTS = {
   // App Version Check (via Node.js backend, public endpoint)
   APP_VERSION: {
     CHECK: '/api/admin/app-version/check',
-  },
-
-  // Call Masking endpoints (Exotel integration)
-  CALLS: {
-    INITIATE: '/api/calls/initiate',
-    STATUS: '/api/calls/status', // + /:callId
-    CONTACTED: '/api/calls/contacted', // + /:providerId
-    CONTACTED_PROVIDERS: '/api/calls/contacted-providers', // + /:serviceRequestId
-    HISTORY: '/api/calls/history',
   },
 };
 

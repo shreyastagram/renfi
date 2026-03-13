@@ -1,10 +1,9 @@
 /**
  * OTP Verify Screen
- * 
- * Screen for entering and verifying OTP code
- * Used for both phone and email OTP verification
- * 
- * @version 1.0.0
+ *
+ * Screen for entering and verifying OTP code.
+ * Uses absolute timestamp for countdown so timer stays accurate
+ * even when the app is minimized and resumed.
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
@@ -16,30 +15,26 @@ import {
   Platform,
   TouchableOpacity,
   TextInput,
+  AppState,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Alert } from '../components';
-import { 
-  verifyPhoneLoginOtp, 
+import {
+  verifyPhoneLoginOtp,
   verifyEmailLoginOtp,
   sendPhoneLoginOtp,
   sendEmailLoginOtp,
-  getErrorMessage, 
-  AUTH_CODES 
+  getErrorMessage,
+  AUTH_CODES,
 } from '../services/authService';
 import { useApp } from '../context/AppContext';
 
 const OTP_LENGTH = 6;
+const RESEND_COOLDOWN_SECONDS = 30;
 
-/**
- * OTPVerifyScreen Component
- * 
- * @param {Object} props - Screen props
- */
-const OTPVerifyScreen = ({ 
-  route, 
+const OTPVerifyScreen = ({
+  route,
   navigation,
-  // These can be passed directly or via route.params
   method,
   identifier,
   maskedValue,
@@ -59,7 +54,11 @@ const OTPVerifyScreen = ({
 
   // OTP input refs
   const inputRefs = useRef([]);
-  
+
+  // Absolute expiry timestamp (survives app minimize)
+  const expiryTimeRef = useRef(Date.now() + _expiresInMinutes * 60 * 1000);
+  const resendCooldownRef = useRef(Date.now() + RESEND_COOLDOWN_SECONDS * 1000);
+
   // State
   const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
@@ -67,74 +66,63 @@ const OTPVerifyScreen = ({
   const [alertMessage, setAlertMessage] = useState(null);
   const [alertType, setAlertType] = useState('error');
   const [alertHint, setAlertHint] = useState(null);
-  const [countdown, setCountdown] = useState(_expiresInMinutes * 60);
+  const [secondsLeft, setSecondsLeft] = useState(_expiresInMinutes * 60);
   const [canResend, setCanResend] = useState(false);
 
-  // Countdown timer
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setInterval(() => {
-        setCountdown(prev => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [countdown]);
+  // Calculate remaining time from absolute timestamp
+  const recalculate = useCallback(() => {
+    const now = Date.now();
+    const remaining = Math.max(0, Math.ceil((expiryTimeRef.current - now) / 1000));
+    setSecondsLeft(remaining);
 
-  // Enable resend after 30 seconds
-  useEffect(() => {
-    const timer = setTimeout(() => {
+    const resendRemaining = resendCooldownRef.current - now;
+    if (resendRemaining <= 0) {
       setCanResend(true);
-    }, 30000);
-    return () => clearTimeout(timer);
+    }
   }, []);
 
-  /**
-   * Format countdown time
-   */
+  // Countdown timer — recalculates from absolute timestamp each tick
+  useEffect(() => {
+    recalculate();
+    const timer = setInterval(recalculate, 1000);
+    return () => clearInterval(timer);
+  }, [recalculate]);
+
+  // AppState listener — recalculate immediately when app comes to foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        recalculate();
+      }
+    });
+    return () => subscription.remove();
+  }, [recalculate]);
+
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  /**
-   * Show alert message
-   */
   const showAlert = useCallback((message, type = 'error', hint = null) => {
     setAlertMessage(message);
     setAlertType(type);
     setAlertHint(hint);
   }, []);
 
-  /**
-   * Clear alert message
-   */
   const clearAlert = useCallback(() => {
     setAlertMessage(null);
     setAlertHint(null);
   }, []);
 
-  /**
-   * Handle OTP input change
-   */
   const handleOtpChange = (value, index) => {
     clearAlert();
-    
-    // Only allow digits
     const digit = value.replace(/[^0-9]/g, '');
-    
+
     if (digit.length <= 1) {
       const newOtp = [...otp];
       newOtp[index] = digit;
       setOtp(newOtp);
-      
-      // Move to next input
       if (digit && index < OTP_LENGTH - 1) {
         inputRefs.current[index + 1]?.focus();
       }
@@ -148,33 +136,29 @@ const OTPVerifyScreen = ({
         }
       });
       setOtp(newOtp);
-      
-      // Focus last filled or next empty
       const lastIndex = Math.min(index + digits.length - 1, OTP_LENGTH - 1);
       inputRefs.current[lastIndex]?.focus();
     }
   };
 
-  /**
-   * Handle key press (for backspace)
-   */
   const handleKeyPress = (event, index) => {
     if (event.nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   };
 
-  /**
-   * Handle OTP verification
-   */
   const handleVerify = async () => {
     try {
       clearAlert();
-      
       const otpCode = otp.join('');
-      
+
       if (otpCode.length !== OTP_LENGTH) {
-        showAlert('Please enter the complete OTP code', 'warning');
+        showAlert('Please enter the complete 6-digit OTP', 'warning');
+        return;
+      }
+
+      if (secondsLeft <= 0) {
+        showAlert('This OTP has expired. Please request a new one.', 'error');
         return;
       }
 
@@ -188,64 +172,51 @@ const OTPVerifyScreen = ({
       }
 
       if (result.success) {
-        showAlert('OTP verified successfully!', 'success');
-        
-        // Add userType to auth data
-        const authData = {
-          ...result.data,
-          userType: _userType,
-        };
-        
+        showAlert('Verified successfully!', 'success');
+        const authData = { ...result.data, userType: _userType };
         const authProcessed = await handleAuthSuccess(authData);
-        
         if (!authProcessed) {
           showAlert('Login successful but failed to save session.', 'warning');
         }
-        // Navigation will happen automatically when isAuthenticated changes
       } else {
         const { error } = result;
-        
-        // Clear OTP on error
         setOtp(Array(OTP_LENGTH).fill(''));
         inputRefs.current[0]?.focus();
-        
+
         switch (error.code) {
           case AUTH_CODES.INVALID_OTP:
           case 'INVALID_OTP':
-            showAlert('The OTP you entered is incorrect. Please check and try again.', 'error');
+            showAlert(error.message || 'The OTP you entered is incorrect. Please check and try again.', 'error');
             break;
-
           case AUTH_CODES.OTP_EXPIRED:
             showAlert('This OTP has expired. Please request a new one.', 'error');
+            setSecondsLeft(0);
             break;
-
           case AUTH_CODES.MAX_ATTEMPTS_EXCEEDED:
-            showAlert('Too many attempts. Please request a new OTP.', 'error');
+            showAlert('Too many incorrect attempts. Please request a new OTP.', 'error');
+            setSecondsLeft(0);
             break;
-
           case AUTH_CODES.ACCOUNT_DISABLED:
             showAlert('Your account has been disabled. Please contact support.', 'error');
             break;
-
           case AUTH_CODES.USER_NOT_FOUND:
-            showAlert('No account found with this ' + (_method === 'phone' ? 'phone number' : 'email') + '. Please register first.', 'error');
+            showAlert(
+              'No account found with this ' + (_method === 'phone' ? 'phone number' : 'email') + '.',
+              'error',
+            );
             break;
-
           default:
             showAlert(getErrorMessage(error.code, 'Verification failed. Please try again.'), 'error');
         }
       }
     } catch (error) {
-      console.error('❌ [OTPVerifyScreen] Unexpected error:', error);
-      showAlert('An unexpected error occurred. Please try again.', 'error');
+      console.error('[OTPVerifyScreen] Unexpected error:', error);
+      showAlert('Something went wrong. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * Handle resend OTP
-   */
   const handleResend = async () => {
     try {
       clearAlert();
@@ -259,32 +230,27 @@ const OTPVerifyScreen = ({
       }
 
       if (result.success) {
-        // Reset countdown
-        setCountdown(_expiresInMinutes * 60);
+        // Reset expiry timestamp
+        expiryTimeRef.current = Date.now() + _expiresInMinutes * 60 * 1000;
+        resendCooldownRef.current = Date.now() + RESEND_COOLDOWN_SECONDS * 1000;
         setCanResend(false);
-        
-        // Clear OTP
+        recalculate();
+
         setOtp(Array(OTP_LENGTH).fill(''));
         inputRefs.current[0]?.focus();
-        
         showAlert('New OTP sent successfully!', 'success');
-        
-        // Enable resend after 30 seconds
-        setTimeout(() => setCanResend(true), 30000);
       } else {
-        showAlert(result.error?.message || 'Failed to resend OTP.', 'error');
+        const msg = result.error?.message || 'Failed to resend OTP. Please try again.';
+        showAlert(msg, 'error');
       }
     } catch (error) {
-      console.error('❌ [OTPVerifyScreen] Resend error:', error);
+      console.error('[OTPVerifyScreen] Resend error:', error);
       showAlert('Failed to resend OTP. Please try again.', 'error');
     } finally {
       setResendLoading(false);
     }
   };
 
-  /**
-   * Handle back navigation
-   */
   const handleBack = () => {
     if (onBack) {
       onBack();
@@ -292,6 +258,9 @@ const OTPVerifyScreen = ({
       navigation.goBack();
     }
   };
+
+  const isExpired = secondsLeft <= 0;
+  const otpComplete = otp.join('').length === OTP_LENGTH;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -301,30 +270,35 @@ const OTPVerifyScreen = ({
       >
         <View style={styles.content}>
           {/* Back Button */}
-          <TouchableOpacity 
-            style={styles.backButton} 
+          <TouchableOpacity
+            style={styles.backButton}
             onPress={handleBack}
             disabled={loading}
           >
-            <Text style={styles.backButtonText}>← Back</Text>
+            <Text style={styles.backButtonText}>{'<'} Back</Text>
           </TouchableOpacity>
 
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>Enter OTP</Text>
             <Text style={styles.subtitle}>
-              We sent a 6-digit code to {_maskedValue}
+              We sent a 6-digit code to{'\n'}
+              <Text style={styles.maskedValue}>{_maskedValue}</Text>
             </Text>
           </View>
 
           {/* Timer */}
           <View style={styles.timerContainer}>
-            {countdown > 0 ? (
-              <Text style={styles.timerText}>
-                Code expires in <Text style={styles.timerValue}>{formatTime(countdown)}</Text>
-              </Text>
+            {!isExpired ? (
+              <View style={styles.timerBadge}>
+                <Text style={styles.timerBadgeText}>
+                  {formatTime(secondsLeft)}
+                </Text>
+              </View>
             ) : (
-              <Text style={styles.timerExpired}>Code expired</Text>
+              <View style={[styles.timerBadge, styles.timerBadgeExpired]}>
+                <Text style={styles.timerExpiredText}>Code expired</Text>
+              </View>
             )}
           </View>
 
@@ -348,6 +322,7 @@ const OTPVerifyScreen = ({
                 style={[
                   styles.otpInput,
                   digit && styles.otpInputFilled,
+                  isExpired && styles.otpInputExpired,
                   loading && styles.otpInputDisabled,
                 ]}
                 value={digit}
@@ -355,7 +330,7 @@ const OTPVerifyScreen = ({
                 onKeyPress={(event) => handleKeyPress(event, index)}
                 keyboardType="number-pad"
                 maxLength={index === 0 ? OTP_LENGTH : 1}
-                editable={!loading}
+                editable={!loading && !isExpired}
                 selectTextOnFocus
               />
             ))}
@@ -363,34 +338,50 @@ const OTPVerifyScreen = ({
 
           {/* Verify Button */}
           <Button
-            title={loading ? 'Verifying...' : 'Verify OTP'}
+            title={loading ? 'Verifying...' : isExpired ? 'OTP Expired' : 'Verify OTP'}
             onPress={handleVerify}
             loading={loading}
-            disabled={loading || otp.join('').length !== OTP_LENGTH}
+            disabled={loading || !otpComplete || isExpired}
             style={styles.verifyButton}
           />
 
           {/* Resend */}
           <View style={styles.resendContainer}>
-            <Text style={styles.resendText}>Didn't receive the code?</Text>
-            <TouchableOpacity
-              onPress={handleResend}
-              disabled={!canResend || resendLoading || loading}
-            >
-              <Text style={[
-                styles.resendLink,
-                (!canResend || resendLoading) && styles.resendLinkDisabled,
-              ]}>
-                {resendLoading ? 'Sending...' : 'Resend OTP'}
-              </Text>
-            </TouchableOpacity>
+            {isExpired ? (
+              <TouchableOpacity
+                onPress={handleResend}
+                disabled={resendLoading || loading}
+                style={styles.resendProminent}
+              >
+                <Text style={styles.resendProminentText}>
+                  {resendLoading ? 'Sending...' : 'Request New OTP'}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <Text style={styles.resendText}>Didn't receive the code?</Text>
+                <TouchableOpacity
+                  onPress={handleResend}
+                  disabled={!canResend || resendLoading || loading}
+                >
+                  <Text
+                    style={[
+                      styles.resendLink,
+                      (!canResend || resendLoading) && styles.resendLinkDisabled,
+                    ]}
+                  >
+                    {resendLoading ? 'Sending...' : canResend ? 'Resend OTP' : 'Wait to resend'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
 
           {/* Info */}
           <View style={styles.info}>
             <Text style={styles.infoText}>
               Please check your {_method === 'phone' ? 'SMS messages' : 'email inbox'} for the OTP.
-              {_method === 'email' && ' Check your spam folder if you don\'t see it.'}
+              {_method === 'email' && " Check your spam folder if you don't see it."}
             </Text>
           </View>
         </View>
@@ -413,6 +404,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginBottom: 16,
+    paddingVertical: 4,
   },
   backButtonText: {
     fontSize: 16,
@@ -433,22 +425,33 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     lineHeight: 24,
   },
+  maskedValue: {
+    fontWeight: '600',
+    color: '#1F2937',
+  },
   timerContainer: {
     alignItems: 'center',
     marginBottom: 24,
   },
-  timerText: {
-    fontSize: 14,
-    color: '#6B7280',
+  timerBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
-  timerValue: {
+  timerBadgeText: {
+    fontSize: 18,
+    fontWeight: '700',
     color: '#2563EB',
-    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
-  timerExpired: {
+  timerBadgeExpired: {
+    backgroundColor: '#FEF2F2',
+  },
+  timerExpiredText: {
     fontSize: 14,
     color: '#DC2626',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   alert: {
     marginBottom: 16,
@@ -473,6 +476,11 @@ const styles = StyleSheet.create({
   otpInputFilled: {
     borderColor: '#2563EB',
     backgroundColor: '#EFF6FF',
+  },
+  otpInputExpired: {
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
+    color: '#9CA3AF',
   },
   otpInputDisabled: {
     backgroundColor: '#F9FAFB',
@@ -499,6 +507,19 @@ const styles = StyleSheet.create({
   },
   resendLinkDisabled: {
     color: '#9CA3AF',
+  },
+  resendProminent: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2563EB',
+  },
+  resendProminentText: {
+    fontSize: 15,
+    color: '#2563EB',
+    fontWeight: '600',
   },
   info: {
     padding: 16,

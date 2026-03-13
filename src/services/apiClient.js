@@ -446,7 +446,8 @@ export const parseApiError = (error) => {
   if (error.response) {
     // Server responded with error status
     const { data, status } = error.response;
-    let code = data.code || data.error || 'UNKNOWN_ERROR';
+    // Java Auth GlobalExceptionHandler puts structured codes in validationErrors.code
+    let code = data.code || data.validationErrors?.code || data.error || 'UNKNOWN_ERROR';
     let message = data.message || 'An error occurred';
 
     // Java Auth sometimes returns 500 for OTP/verification errors instead of 400.

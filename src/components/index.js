@@ -9,6 +9,7 @@
 // UI Components
 export { default as Button } from './Button';
 export { default as Input } from './Input';
+export { default as PhoneInput } from './PhoneInput';
 export { default as Alert } from './Alert';
 export { default as Icon, ServiceIcon, StatusIcon } from './Icon';
 export { default as DateTimePicker } from './DateTimePicker';

@@ -105,6 +105,37 @@ export const AUTH_CODES = {
   NO_INTERNET: 'NO_INTERNET',
 };
 
+// ==================== PRE-REGISTRATION CHECKS ====================
+
+/**
+ * Check if an email or phone number is already registered.
+ * Returns conflict details including account type (user/provider).
+ *
+ * @param {Object} params
+ * @param {string} [params.email] - Email to check
+ * @param {string} [params.phone] - Phone to check (raw 10 digits)
+ * @returns {Promise<Object>} { available, conflicts: [{ field, accountType }] }
+ */
+export const checkAvailability = async ({ email, phone } = {}) => {
+  try {
+    const body = {};
+    if (email) body.email = email.trim().toLowerCase();
+    if (phone) body.phone = normalizePhoneForApi(phone);
+
+    const response = await apiClient.post(ENDPOINTS.AUTH.CHECK_AVAILABILITY, body);
+
+    return {
+      success: true,
+      available: response.data.available,
+      conflicts: response.data.conflicts || [],
+    };
+  } catch (error) {
+    // Silently fail — this is a convenience check, not blocking
+    console.warn('[AuthService] checkAvailability failed:', error.message);
+    return { success: false, available: true, conflicts: [] };
+  }
+};
+
 // ==================== REGISTRATION ====================
 
 /**
@@ -127,7 +158,7 @@ export const registerUser = async (userData) => {
       email: userData.email.trim().toLowerCase(),
       password: userData.password,
       fullName: userData.fullName.trim(),
-      phone: userData.phone?.trim() || undefined,
+      phone: userData.phone?.trim() ? normalizePhoneForApi(userData.phone) : undefined,
       location: userData.location || undefined,
     });
     
@@ -167,7 +198,7 @@ export const registerProvider = async (providerData) => {
     };
     
     // Add optional fields
-    if (providerData.phone?.trim()) requestBody.phone = providerData.phone.trim();
+    if (providerData.phone?.trim()) requestBody.phone = normalizePhoneForApi(providerData.phone);
     if (providerData.city?.trim()) requestBody.city = providerData.city.trim();
     if (providerData.pincode?.trim()) requestBody.pincode = providerData.pincode.trim();
     if (providerData.serviceCategories?.length > 0) requestBody.serviceCategories = providerData.serviceCategories;
@@ -255,7 +286,7 @@ export const loginWithPhone = async (phoneNumber, password) => {
     console.log('🔐 [AuthService] Logging in with phone:', phoneNumber);
     
     const response = await authClient.post(ENDPOINTS.LOGIN.PHONE, {
-      phoneNumber: phoneNumber.trim(),
+      phoneNumber: normalizePhoneForApi(phoneNumber),
       password,
     });
     
@@ -279,17 +310,45 @@ export const loginWithPhone = async (phoneNumber, password) => {
 // ==================== OTP-BASED PASSWORDLESS LOGIN ====================
 
 /**
+ * Normalize phone number for backend API.
+ * PhoneInput stores raw 10-digit number — prepend +91 for API.
+ * Also handles legacy formats (already has +91 or 91 prefix).
+ * Backend regex: ^\\+?[1-9]\\d{6,14}$
+ */
+const normalizePhoneForApi = (phone) => {
+  if (!phone) return phone;
+  const digits = phone.trim().replace(/[^0-9]/g, '');
+
+  // Already has 91 prefix (12 digits)
+  if (digits.length === 12 && digits.startsWith('91')) {
+    return '+' + digits;
+  }
+
+  // Raw 10-digit number from PhoneInput
+  if (digits.length === 10) {
+    return '+91' + digits;
+  }
+
+  // Fallback: return with + if not already present
+  const trimmed = phone.trim();
+  if (trimmed.startsWith('+')) {
+    return '+' + trimmed.substring(1).replace(/[^0-9]/g, '');
+  }
+  return '+' + digits;
+};
+
+/**
  * Send OTP for phone-based passwordless login
- * 
+ *
  * @param {string} phoneNumber - Phone number to send OTP to
  * @returns {Promise<Object>} Response with masked phone and expiry
  */
 export const sendPhoneLoginOtp = async (phoneNumber) => {
   try {
     console.log('📱 [AuthService] Sending phone login OTP');
-    
+
     const response = await authClient.post(ENDPOINTS.OTP_LOGIN.PHONE_SEND_OTP, {
-      phoneNumber: phoneNumber.trim(),
+      phoneNumber: normalizePhoneForApi(phoneNumber),
     });
     
     console.log('✅ [AuthService] Phone OTP sent');
@@ -323,7 +382,7 @@ export const verifyPhoneLoginOtp = async (phoneNumber, otp) => {
     console.log('🔐 [AuthService] Verifying phone login OTP');
     
     const response = await authClient.post(ENDPOINTS.OTP_LOGIN.PHONE_VERIFY, {
-      phoneNumber: phoneNumber.trim(),
+      phoneNumber: normalizePhoneForApi(phoneNumber),
       otp: otp.trim(),
     });
     
@@ -668,7 +727,7 @@ export const forgotPasswordPhone = async (phoneNumber) => {
     console.log('🔑 [AuthService] Requesting password reset OTP for phone');
     
     const response = await authClient.post(ENDPOINTS.PASSWORD.FORGOT_PHONE, {
-      phoneNumber: phoneNumber.trim(),
+      phoneNumber: normalizePhoneForApi(phoneNumber),
     });
     
     console.log('✅ [AuthService] Password reset OTP sent');
@@ -703,7 +762,7 @@ export const verifyOtpAndResetPassword = async (phoneNumber, otp, newPassword) =
     console.log('🔐 [AuthService] Verifying OTP and resetting password');
     
     const response = await authClient.post(ENDPOINTS.PASSWORD.FORGOT_PHONE_VERIFY, {
-      phoneNumber: phoneNumber.trim(),
+      phoneNumber: normalizePhoneForApi(phoneNumber),
       otp: otp.trim(),
       newPassword,
     });
@@ -872,7 +931,7 @@ export const getErrorMessage = (code, defaultMessage) => {
     // Registration errors
     [AUTH_CODES.EMAIL_ALREADY_EXISTS]: 'An account with this email already exists. Please login instead.',
     [AUTH_CODES.PHONE_ALREADY_EXISTS]: 'This phone number is already registered.',
-    [AUTH_CODES.WEAK_PASSWORD]: 'Password must be at least 8 characters long.',
+    [AUTH_CODES.WEAK_PASSWORD]: 'Password must be at least 8 characters with an uppercase letter, lowercase letter, number, and special character.',
     [AUTH_CODES.INVALID_EMAIL_FORMAT]: 'Please enter a valid email address.',
     [AUTH_CODES.INVALID_FULL_NAME]: 'Please enter your full name (at least 2 characters).',
     [AUTH_CODES.INVALID_PROVIDER_NAME]: 'Please enter your business name (at least 2 characters).',
@@ -959,6 +1018,9 @@ export const syncPhoneToMongoDB = async ({ mongoId, userType, phoneNumber, isPho
 };
 
 export default {
+  // Pre-registration checks
+  checkAvailability,
+
   // Registration
   registerUser,
   registerProvider,

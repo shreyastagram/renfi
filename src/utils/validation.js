@@ -34,15 +34,31 @@ export const validatePassword = (password) => {
   if (!password || password === '') {
     return { isValid: false, error: 'Password is required' };
   }
-  
+
   if (password.length < 8) {
     return { isValid: false, error: 'Password must be at least 8 characters' };
   }
-  
+
   if (password.length > 100) {
     return { isValid: false, error: 'Password must not exceed 100 characters' };
   }
-  
+
+  if (!/[A-Z]/.test(password)) {
+    return { isValid: false, error: 'Password must contain at least one uppercase letter' };
+  }
+
+  if (!/[a-z]/.test(password)) {
+    return { isValid: false, error: 'Password must contain at least one lowercase letter' };
+  }
+
+  if (!/\d/.test(password)) {
+    return { isValid: false, error: 'Password must contain at least one number' };
+  }
+
+  if (!/[@$!%*?&#^()_+\-=]/.test(password)) {
+    return { isValid: false, error: 'Password must contain at least one special character' };
+  }
+
   return { isValid: true, error: null };
 };
 
@@ -69,6 +85,7 @@ export const validateFullName = (fullName) => {
 
 /**
  * Validate phone number (optional field)
+ * Expects raw 10-digit Indian number (no country code)
  * @param {string} phone - Phone number to validate
  * @returns {Object} Validation result
  */
@@ -76,12 +93,17 @@ export const validatePhone = (phone) => {
   if (!phone || phone.trim() === '') {
     return { isValid: true, error: null }; // Optional field
   }
-  
-  const phoneRegex = /^\+?[\d\s\-\(\)]{10,15}$/;
-  if (!phoneRegex.test(phone)) {
-    return { isValid: false, error: 'Invalid phone number (10-15 digits)' };
+
+  const digits = phone.trim().replace(/[^0-9]/g, '');
+  if (digits.length !== 10) {
+    return { isValid: false, error: 'Please enter a valid 10-digit phone number' };
   }
-  
+
+  // Indian mobile numbers start with 6-9
+  if (!/^[6-9]/.test(digits)) {
+    return { isValid: false, error: 'Please enter a valid Indian mobile number' };
+  }
+
   return { isValid: true, error: null };
 };
 

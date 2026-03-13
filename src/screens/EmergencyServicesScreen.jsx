@@ -50,7 +50,6 @@ import {
 import { addToFavorites } from '../services/favoritesService';
 import { CancellationReasonModal } from '../components';
 import { formatDistance, formatDistanceFromMeters, useDistanceUnit } from '../utils/formatDistance';
-// Direct phone dialing - Exotel call masking removed
 
 // Service-specific placeholder hints for notes input
 const EMERGENCY_NOTES_PLACEHOLDERS = {

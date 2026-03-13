@@ -55,7 +55,6 @@ import {
   retryProviderSearch,
 } from '../services/traditionalServiceService';
 import { formatDistance, formatDistanceFromMeters, useDistanceUnit } from '../utils/formatDistance';
-// Direct phone dialing - Exotel call masking removed
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 

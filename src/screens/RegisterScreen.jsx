@@ -8,7 +8,7 @@
  * @version 2.1.0
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -20,8 +20,8 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, Input, Alert, FixhomiLogo } from '../components';
-import { registerUser, getErrorMessage, AUTH_CODES } from '../services/authService';
+import { Button, Input, PhoneInput, Alert, FixhomiLogo } from '../components';
+import { registerUser, getErrorMessage, AUTH_CODES, checkAvailability } from '../services/authService';
 import { validateRegistrationForm } from '../utils/validation';
 import { useApp } from '../context/AppContext';
 import {
@@ -63,6 +63,49 @@ const RegisterScreen = ({ navigation }) => {
   const [showPhoneExistsModal, setShowPhoneExistsModal] = useState(false);
   const [existingPhone, setExistingPhone] = useState('');
 
+  // Account type of existing account (for routing to correct login)
+  const [existingAccountType, setExistingAccountType] = useState(null); // 'user' | 'provider'
+
+  // Debounce timers for availability checks
+  const emailCheckTimer = useRef(null);
+  const phoneCheckTimer = useRef(null);
+
+  /**
+   * Check email/phone availability (debounced)
+   */
+  const checkFieldAvailability = useCallback(async (field, value) => {
+    if (!value || !value.trim()) return;
+
+    const params = {};
+    if (field === 'email') {
+      // Basic email format check before API call
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) return;
+      params.email = value;
+    } else {
+      // Only check complete 10-digit numbers
+      const digits = value.replace(/[^0-9]/g, '');
+      if (digits.length !== 10) return;
+      params.phone = value;
+    }
+
+    const result = await checkAvailability(params);
+    if (!result.success || result.available) return;
+
+    const conflict = result.conflicts.find(c => c.field === field);
+    if (!conflict) return;
+
+    setExistingAccountType(conflict.accountType);
+    if (field === 'email') {
+      setExistingEmail(value.trim());
+      setShowAccountExistsModal(true);
+      setErrors(prev => ({ ...prev, email: 'This email is already registered' }));
+    } else {
+      setExistingPhone(value);
+      setShowPhoneExistsModal(true);
+      setErrors(prev => ({ ...prev, phone: 'This number is already registered' }));
+    }
+  }, []);
+
   /**
    * Update form field
    * @param {string} field - Field name
@@ -78,7 +121,16 @@ const RegisterScreen = ({ navigation }) => {
     if (alertMessage) {
       setAlertMessage(null);
     }
-  }, [errors, alertMessage]);
+
+    // Debounced availability check for email and phone
+    if (field === 'email') {
+      clearTimeout(emailCheckTimer.current);
+      emailCheckTimer.current = setTimeout(() => checkFieldAvailability('email', value), 800);
+    } else if (field === 'phone') {
+      clearTimeout(phoneCheckTimer.current);
+      phoneCheckTimer.current = setTimeout(() => checkFieldAvailability('phone', value), 800);
+    }
+  }, [errors, alertMessage, checkFieldAvailability]);
 
   /**
    * Show alert message
@@ -100,23 +152,24 @@ const RegisterScreen = ({ navigation }) => {
   }, []);
 
   /**
-   * Navigate to login with pre-filled email
+   * Navigate to the correct login screen based on existing account type
    */
   const handleGoToLogin = useCallback(() => {
     setShowAccountExistsModal(false);
-    navigation.navigate('UserAuth', { 
+    const target = existingAccountType === 'provider' ? 'ProviderAuth' : 'UserAuth';
+    navigation.navigate(target, {
       initialTab: 'login',
-      prefillEmail: existingEmail 
+      prefillEmail: existingEmail
     });
-  }, [navigation, existingEmail]);
+  }, [navigation, existingEmail, existingAccountType]);
 
   /**
    * Navigate to forgot password with pre-filled email
    */
   const handleForgotPassword = useCallback(() => {
     setShowAccountExistsModal(false);
-    navigation.navigate('ForgotPassword', { 
-      prefillEmail: existingEmail 
+    navigation.navigate('ForgotPassword', {
+      prefillEmail: existingEmail
     });
   }, [navigation, existingEmail]);
 
@@ -125,10 +178,11 @@ const RegisterScreen = ({ navigation }) => {
    */
   const handlePhoneGoToLogin = useCallback(() => {
     setShowPhoneExistsModal(false);
-    navigation.navigate('UserAuth', { 
-      initialTab: 'login' 
+    const target = existingAccountType === 'provider' ? 'ProviderAuth' : 'UserAuth';
+    navigation.navigate(target, {
+      initialTab: 'login'
     });
-  }, [navigation]);
+  }, [navigation, existingAccountType]);
 
   /**
    * Dismiss phone modal and focus phone field for user to change it
@@ -200,15 +254,15 @@ const RegisterScreen = ({ navigation }) => {
         // Handle specific error codes
         switch (error.code) {
           case AUTH_CODES.EMAIL_ALREADY_EXISTS:
-            // Industry-grade UX: Show modal with login/reset options
             setExistingEmail(formData.email);
+            setExistingAccountType(null); // Unknown from submit — could be either
             setShowAccountExistsModal(true);
             setErrors({ email: 'This email is already registered' });
             break;
-            
+
           case AUTH_CODES.PHONE_ALREADY_EXISTS:
-            // Industry-grade UX: Show modal with options (like Zomato/Uber)
             setExistingPhone(formData.phone);
+            setExistingAccountType(null);
             setShowPhoneExistsModal(true);
             setErrors({ phone: 'This mobile number is already registered' });
             break;
@@ -453,14 +507,11 @@ const RegisterScreen = ({ navigation }) => {
               required
             />
 
-            <Input
+            <PhoneInput
               label="Phone Number (Optional)"
-              placeholder="Enter your phone number"
               value={formData.phone}
               onChangeText={(value) => updateField('phone', value)}
               error={errors.phone}
-              keyboardType="phone-pad"
-              autoComplete="tel"
             />
 
             <Button
@@ -523,30 +574,43 @@ const RegisterScreen = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalIcon}>👋</Text>
-            <Text style={styles.modalTitle}>Welcome Back!</Text>
+            <Text style={styles.modalTitle}>Account Already Exists</Text>
             <Text style={styles.modalEmail}>{existingEmail}</Text>
             <Text style={styles.modalMessage}>
-              An account with this email already exists. Would you like to log in instead?
+              {existingAccountType === 'provider'
+                ? 'This email is registered as a Service Provider account. Would you like to log in to your provider account?'
+                : existingAccountType === 'user'
+                ? 'This email is already registered. Would you like to log in instead?'
+                : 'An account with this email already exists. Would you like to log in instead?'}
             </Text>
-            
+            {existingAccountType && (
+              <View style={styles.accountTypeBadge}>
+                <Text style={styles.accountTypeBadgeText}>
+                  {existingAccountType === 'provider' ? 'Provider Account' : 'User Account'}
+                </Text>
+              </View>
+            )}
+
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.modalPrimaryButton}
                 onPress={handleGoToLogin}
                 activeOpacity={0.8}
               >
-                <Text style={styles.modalPrimaryButtonText}>Log In to My Account</Text>
+                <Text style={styles.modalPrimaryButtonText}>
+                  {existingAccountType === 'provider' ? 'Go to Provider Login' : 'Log In to My Account'}
+                </Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
+
+              <TouchableOpacity
                 style={styles.modalSecondaryButton}
                 onPress={handleForgotPassword}
                 activeOpacity={0.8}
               >
                 <Text style={styles.modalSecondaryButtonText}>I Forgot My Password</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
+
+              <TouchableOpacity
                 style={styles.modalDismissButton}
                 onPress={() => setShowAccountExistsModal(false)}
                 activeOpacity={0.8}
@@ -569,21 +633,35 @@ const RegisterScreen = ({ navigation }) => {
           <View style={styles.modalContent}>
             <Text style={styles.modalIcon}>📱</Text>
             <Text style={styles.modalTitle}>Number Already Registered</Text>
-            <Text style={styles.modalEmail}>{existingPhone}</Text>
+            <Text style={styles.modalEmail}>+91 {existingPhone}</Text>
             <Text style={styles.modalMessage}>
-              This mobile number is already associated with another account. Would you like to log in instead, or use a different number?
+              {existingAccountType === 'provider'
+                ? 'This number is registered with a Service Provider account.'
+                : existingAccountType === 'user'
+                ? 'This number is registered with a User account.'
+                : 'This mobile number is already associated with another account.'}
+              {' '}Would you like to log in instead?
             </Text>
-            
+            {existingAccountType && (
+              <View style={styles.accountTypeBadge}>
+                <Text style={styles.accountTypeBadgeText}>
+                  {existingAccountType === 'provider' ? 'Provider Account' : 'User Account'}
+                </Text>
+              </View>
+            )}
+
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.modalPrimaryButton}
                 onPress={handlePhoneGoToLogin}
                 activeOpacity={0.8}
               >
-                <Text style={styles.modalPrimaryButtonText}>Log In to My Account</Text>
+                <Text style={styles.modalPrimaryButtonText}>
+                  {existingAccountType === 'provider' ? 'Go to Provider Login' : 'Log In to My Account'}
+                </Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
+
+              <TouchableOpacity
                 style={styles.modalDismissButton}
                 onPress={handleUseDifferentPhone}
                 activeOpacity={0.8}
@@ -793,6 +871,21 @@ const styles = StyleSheet.create({
   modalDismissText: {
     color: '#9CA3AF',
     fontSize: 14,
+  },
+  accountTypeBadge: {
+    alignSelf: 'center',
+    backgroundColor: '#EFF6FF',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  accountTypeBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2563EB',
   },
 });
 

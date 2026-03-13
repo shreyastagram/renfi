@@ -655,6 +655,8 @@ const SettingsScreen = ({ navigation }) => {
       const result = await response.json();
 
       if (response.ok && result.success) {
+        // Sync AppContext profile cache so the value persists across app restarts
+        await refreshProfile(userType, userId, { force: true });
         dialog(
           value ? 'Emergency Hours Enabled' : 'Emergency Hours Disabled',
           value
@@ -764,6 +766,8 @@ const SettingsScreen = ({ navigation }) => {
         const phoneMask = result.message?.match(/\*{4,}\d{4}/)?.[0] || '******';
         setMaskedPhone(result.maskedPhone || phoneMask);
         setDeleteOtpModalVisible(true);
+      } else if (response.status === 429) {
+        dialog('Please Wait', 'Too many attempts. Please try again in a few minutes.');
       } else {
         dialog('Error', result.message || 'Failed to send OTP. Please try again.');
       }
@@ -820,6 +824,8 @@ const SettingsScreen = ({ navigation }) => {
           'Your account has been successfully deleted. We\'re sorry to see you go.',
           [{ text: 'OK', onPress: () => logout() }]
         );
+      } else if (response.status === 429) {
+        dialog('Please Wait', 'Too many attempts. Please try again in a few minutes.');
       } else {
         const msgLower = (result.message || '').toLowerCase();
         if (msgLower.includes('otp') || msgLower.includes('verification') || msgLower.includes('invalid')) {

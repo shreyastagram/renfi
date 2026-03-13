@@ -101,7 +101,12 @@ const VerificationScreen = ({
     : (isEmailVerification ? user?.isEmailVerified : user?.isPhoneVerified);
 
   // Current value from user context
-  const currentPhone = user?.phone || profile?.phone || '';
+  // Strip +91/91 prefix from phone — we display raw 10 digits
+  const rawPhone = user?.phone || profile?.phone || '';
+  const phoneDigits = rawPhone.replace(/[^0-9]/g, '');
+  const currentPhone = (phoneDigits.length > 10 && phoneDigits.startsWith('91'))
+    ? phoneDigits.substring(2)
+    : phoneDigits;
   const currentEmail = user?.email || profile?.email || '';
   const currentValue = isEmailVerification ? currentEmail : currentPhone;
 
@@ -180,9 +185,8 @@ const VerificationScreen = ({
    * Validate phone number format
    */
   const isValidPhone = (phone) => {
-    const cleaned = phone.replace(/[^0-9+]/g, '');
-    // Accept 10-digit numbers or +91XXXXXXXXXX format
-    return /^(\+91)?[6-9]\d{9}$/.test(cleaned) || /^[6-9]\d{9}$/.test(cleaned);
+    const digits = phone.replace(/[^0-9]/g, '');
+    return digits.length === 10 && /^[6-9]/.test(digits);
   };
 
   /**
@@ -219,9 +223,10 @@ const VerificationScreen = ({
       setSavingValue(true);
 
       // Update Java Auth first (this is where OTP is sent from)
+      // Phone: prepend +91 for Java Auth (stores raw 10-digit locally)
       const javaAuthUpdate = isEmailVerification
         ? { email: trimmedValue }
-        : { phoneNumber: trimmedValue };
+        : { phoneNumber: '+91' + trimmedValue };
 
       console.log(`📝 [VerificationScreen] Saving ${verificationType}:`, trimmedValue);
 
@@ -749,11 +754,17 @@ const VerificationScreen = ({
                         <TextInput
                           style={[s.editInput, { flex: 1 }]}
                           value={editValue}
-                          onChangeText={setEditValue}
+                          onChangeText={(text) => {
+                            let digits = text.replace(/[^0-9]/g, '');
+                            if (digits.length > 10 && digits.startsWith('91')) {
+                              digits = digits.substring(2);
+                            }
+                            setEditValue(digits.slice(0, 10));
+                          }}
                           placeholder="Enter 10-digit number"
                           placeholderTextColor={BRAND.textMuted}
-                          keyboardType="phone-pad"
-                          maxLength={13}
+                          keyboardType="number-pad"
+                          maxLength={10}
                           editable={!savingValue}
                         />
                       </View>

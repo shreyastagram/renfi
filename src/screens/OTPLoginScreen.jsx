@@ -18,7 +18,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, Input, Alert, FixhomiLogo } from '../components';
+import { Button, Input, PhoneInput, Alert, FixhomiLogo } from '../components';
 import { 
   sendPhoneLoginOtp, 
   sendEmailLoginOtp, 
@@ -94,15 +94,23 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
    */
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (method === 'phone') {
-      const phoneValidation = validatePhone(formData.phone);
-      if (!phoneValidation.isValid) newErrors.phone = phoneValidation.error;
+      if (!formData.phone || !formData.phone.trim()) {
+        newErrors.phone = 'Phone number is required';
+      } else {
+        const phoneValidation = validatePhone(formData.phone);
+        if (!phoneValidation.isValid) newErrors.phone = phoneValidation.error;
+      }
     } else {
-      const emailValidation = validateEmail(formData.email);
-      if (!emailValidation.isValid) newErrors.email = emailValidation.error;
+      if (!formData.email || !formData.email.trim()) {
+        newErrors.email = 'Email is required';
+      } else {
+        const emailValidation = validateEmail(formData.email);
+        if (!emailValidation.isValid) newErrors.email = emailValidation.error;
+      }
     }
-    
+
     return {
       isValid: Object.keys(newErrors).length === 0,
       errors: newErrors,
@@ -179,6 +187,16 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
             showAlert(error.message || getErrorMessage(error.code), 'error', error.hint);
             break;
             
+          case 'VALIDATION_FAILED':
+          case 'ERR_BAD_REQUEST':
+            showAlert(
+              method === 'phone'
+                ? 'Please enter a valid phone number with country code (e.g. +91XXXXXXXXXX).'
+                : 'Please enter a valid email address.',
+              'error',
+            );
+            break;
+
           default:
             showAlert(error.message || 'Failed to send OTP. Please try again.', 'error');
         }
@@ -248,15 +266,13 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
           {/* Form */}
           <View style={styles.form}>
             {method === 'phone' ? (
-              <Input
+              <PhoneInput
                 label="Phone Number"
                 value={formData.phone}
                 onChangeText={(value) => updateField('phone', value)}
-                placeholder="Enter your phone number"
-                keyboardType="phone-pad"
-                autoComplete="tel"
                 error={errors.phone}
                 editable={!loading}
+                required
               />
             ) : (
               <Input

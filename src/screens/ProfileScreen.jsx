@@ -34,7 +34,7 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
-import { Icon, AadhaarVerificationModal } from '../components';
+import { Icon, PhoneInput, AadhaarVerificationModal } from '../components';
 import { updateUserProfile, updateProviderProfile } from '../services/profileService';
 import { SERVICE_CATEGORIES } from '../services/authService';
 import { NODE_BASE_URL } from '../config/api';
@@ -308,12 +308,35 @@ const ProfileScreen = ({ navigation, route }) => {
   const [phoneOtpSent, setPhoneOtpSent] = useState(false);
   const [phoneOtp, setPhoneOtp] = useState(Array(6).fill(''));
   const [otpFocusedIndex, setOtpFocusedIndex] = useState(-1);
+  const [otpCountdown, setOtpCountdown] = useState(0);
+  const otpPhoneRef = useRef(''); // tracks which phone the OTP was sent to
   
   // OTP input refs & animations
   const otpInputRefs = useRef([]);
   const otpScaleAnims = useRef(Array(6).fill(null).map(() => new Animated.Value(1))).current;
   const otpShakeAnim = useRef(new Animated.Value(0)).current;
-  
+
+  // OTP countdown timer (5 minutes)
+  useEffect(() => {
+    if (otpCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setOtpCountdown(prev => {
+        if (prev <= 1) { clearInterval(timer); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [otpCountdown > 0]);
+
+  // Reset OTP state when phone number changes after OTP was sent
+  useEffect(() => {
+    if (phoneOtpSent && formData.phone !== otpPhoneRef.current) {
+      setPhoneOtpSent(false);
+      setPhoneOtp(Array(6).fill(''));
+      setOtpCountdown(0);
+    }
+  }, [formData.phone, phoneOtpSent]);
+
   // Saved Addresses state
   const [showAddressesModal, setShowAddressesModal] = useState(false);
   
@@ -505,7 +528,12 @@ const ProfileScreen = ({ navigation, route }) => {
 
   // Initialize form data
   useEffect(() => {
-    const phoneValue = displayData?.phone || displayData?.phoneNumber || '';
+    // Strip +91 or 91 prefix — PhoneInput stores raw 10 digits
+    const rawPhone = displayData?.phone || displayData?.phoneNumber || '';
+    const phoneDigits = rawPhone.replace(/[^0-9]/g, '');
+    const phoneValue = (phoneDigits.length > 10 && phoneDigits.startsWith('91'))
+      ? phoneDigits.substring(2)
+      : phoneDigits;
     const initial = {
       fullName: displayData?.fullName || '',
       phone: phoneValue,
@@ -606,10 +634,33 @@ const ProfileScreen = ({ navigation, route }) => {
       return;
     }
 
+    // Trim whitespace from text fields
+    const trimmed = { ...formData };
+    for (const key of ['fullName', 'phone', 'address', 'city', 'pincode', 'bio']) {
+      if (typeof trimmed[key] === 'string') trimmed[key] = trimmed[key].trim();
+    }
+
+    // Input length validation
+    if (trimmed.fullName && (trimmed.fullName.length < 2 || trimmed.fullName.length > 100)) {
+      dialog('Invalid Name', 'Name must be between 2 and 100 characters.');
+      return;
+    }
+    if (trimmed.phone && (!/^\d{10}$/.test(trimmed.phone) || !/^[6-9]/.test(trimmed.phone))) {
+      dialog('Invalid Phone', 'Please enter a valid 10-digit Indian phone number.');
+      return;
+    }
+    if (trimmed.pincode && !/^\d{6}$/.test(trimmed.pincode)) {
+      dialog('Invalid Pincode', 'Please enter a valid 6-digit pincode.');
+      return;
+    }
+
+    // Use trimmed data for save
+    Object.assign(formData, trimmed);
+
     // Detect if phone number is being changed (for providers)
-    const normalizePhone = (p) => (p || '').replace(/[\s\-+]/g, '').replace(/^91/, '').slice(-10);
-    const phoneChanged = isProvider && 
-      normalizePhone(formData.phone) !== normalizePhone(originalPhone) && 
+    // Both values are now raw 10-digit numbers
+    const phoneChanged = isProvider &&
+      formData.phone !== originalPhone &&
       originalPhone.length > 0;
     
     // Warn user if phone is being changed — verification will reset
@@ -662,7 +713,7 @@ const ProfileScreen = ({ navigation, route }) => {
         // Note: serviceCategories are managed via Document Verification, not editable here
         const providerUpdates = {};
         if (changedFields.fullName !== undefined) providerUpdates.name = changedFields.fullName;
-        if (changedFields.phone !== undefined) providerUpdates.phone = changedFields.phone;
+        if (changedFields.phone !== undefined) providerUpdates.phone = '+91' + changedFields.phone;
         if (changedFields.address !== undefined) providerUpdates.address = changedFields.address;
         if (changedFields.city !== undefined) providerUpdates.city = changedFields.city;
         if (changedFields.pincode !== undefined) providerUpdates.pincode = changedFields.pincode;
@@ -670,7 +721,12 @@ const ProfileScreen = ({ navigation, route }) => {
         result = await updateProviderProfile(userId, providerUpdates);
       } else {
         // For users, send only changed fields
-        result = await updateUserProfile(userId, changedFields);
+        // Prepend +91 for phone before sending to backend
+        const userUpdates = { ...changedFields };
+        if (userUpdates.phone !== undefined) {
+          userUpdates.phone = '+91' + userUpdates.phone;
+        }
+        result = await updateUserProfile(userId, userUpdates);
       }
 
       if (result.success) {
@@ -742,6 +798,8 @@ const ProfileScreen = ({ navigation, route }) => {
       
       if (result.success) {
         setPhoneOtpSent(true);
+        setOtpCountdown(300); // 5 minutes
+        otpPhoneRef.current = formData.phone; // track which phone the OTP was sent to (raw 10 digits)
         dialog('OTP Sent', `Verification code sent to ${displayData.phone}`);
       } else {
         dialog('Error', getErrorMessage(result.error, 'Couldn\'t send verification code. Please try again.'));
@@ -779,6 +837,7 @@ const ProfileScreen = ({ navigation, route }) => {
         dialog('Success', 'Phone number verified successfully!');
         setPhoneOtpSent(false);
         setPhoneOtp(Array(6).fill(''));
+        setOtpCountdown(0);
         await refreshVerificationStatus();
       } else {
         // Shake on error
@@ -1374,11 +1433,10 @@ const ProfileScreen = ({ navigation, route }) => {
                 lockMessage={isNameLocked ? `Verified as "${aadhaarName || formData.fullName}" via Aadhaar` : undefined}
               />
 
-              <EditableField
+              <PhoneInput
                 label="Phone Number"
                 value={formData.phone}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, phone: text }))}
-                placeholder="Enter your phone number (e.g., +91XXXXXXXXXX)"
               />
               
               {/* Phone change warning */}
@@ -1818,13 +1876,21 @@ const ProfileScreen = ({ navigation, route }) => {
                       );
                     })}
                   </Animated.View>
+                  {otpCountdown > 0 && (
+                    <Text style={styles.otpTimerText}>
+                      Code expires in {Math.floor(otpCountdown / 60)}:{String(otpCountdown % 60).padStart(2, '0')}
+                    </Text>
+                  )}
+                  {otpCountdown <= 0 && phoneOtpSent && (
+                    <Text style={styles.otpExpiredText}>Code expired. Please request a new one.</Text>
+                  )}
                   <TouchableOpacity
                     style={[
                       styles.otpVerifyButton,
-                      (verifyingPhone || phoneOtp.join('').length !== 6) && styles.otpVerifyButtonDisabled,
+                      (verifyingPhone || phoneOtp.join('').length !== 6 || otpCountdown <= 0) && styles.otpVerifyButtonDisabled,
                     ]}
                     onPress={handleVerifyPhoneOtp}
-                    disabled={verifyingPhone}
+                    disabled={verifyingPhone || phoneOtp.join('').length !== 6 || otpCountdown <= 0}
                     activeOpacity={0.8}
                   >
                     {verifyingPhone ? (
@@ -1906,13 +1972,21 @@ const ProfileScreen = ({ navigation, route }) => {
                       );
                     })}
                   </Animated.View>
+                  {otpCountdown > 0 && (
+                    <Text style={styles.otpTimerText}>
+                      Code expires in {Math.floor(otpCountdown / 60)}:{String(otpCountdown % 60).padStart(2, '0')}
+                    </Text>
+                  )}
+                  {otpCountdown <= 0 && phoneOtpSent && (
+                    <Text style={styles.otpExpiredText}>Code expired. Please request a new one.</Text>
+                  )}
                   <TouchableOpacity
                     style={[
                       styles.otpVerifyButton,
-                      (verifyingPhone || phoneOtp.join('').length !== 6) && styles.otpVerifyButtonDisabled,
+                      (verifyingPhone || phoneOtp.join('').length !== 6 || otpCountdown <= 0) && styles.otpVerifyButtonDisabled,
                     ]}
                     onPress={handleVerifyPhoneOtp}
-                    disabled={verifyingPhone}
+                    disabled={verifyingPhone || phoneOtp.join('').length !== 6 || otpCountdown <= 0}
                     activeOpacity={0.8}
                   >
                     {verifyingPhone ? (
@@ -2879,6 +2953,19 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+  otpTimerText: {
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  otpExpiredText: {
+    fontSize: 13,
+    color: '#EF4444',
+    textAlign: 'center',
+    marginBottom: 8,
+    fontWeight: '600',
   },
 
   // Editable Field

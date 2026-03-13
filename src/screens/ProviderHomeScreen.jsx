@@ -47,6 +47,7 @@ import { getVerificationDashboard } from '../services/verificationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NODE_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
+import authFetch from '../utils/authFetch';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -561,11 +562,11 @@ const ProviderHomeScreen = ({ navigation }) => {
     try {
       // Fetch traditional, event, and emergency services in parallel
       const [traditionalResult, eventResult, emergencyResult] = await Promise.all([
-        getProviderRequests(providerId, { limit: 500 }),
-        fetch(`${NODE_BASE_URL}/api/event-services/provider/${providerId}`)
+        getProviderRequests(providerId, { limit: 100 }),
+        authFetch(`${NODE_BASE_URL}/api/event-services/provider/${providerId}`)
           .then(r => r.json())
           .catch(() => ({ data: [] })),
-        fetch(`${NODE_BASE_URL}/api/emergency-services/provider/${providerId}`)
+        authFetch(`${NODE_BASE_URL}/api/emergency-services/provider/${providerId}`)
           .then(r => r.json())
           .catch(() => ({ requests: [] }))
       ]);
@@ -622,7 +623,7 @@ const ProviderHomeScreen = ({ navigation }) => {
     }
   }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id]);
 
-  // Refresh profile + stats when screen comes into focus
+  // Refresh profile + stats + verification when screen comes into focus
   useEffect(() => {
     if (isFocused) {
       const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
@@ -630,6 +631,7 @@ const ProviderHomeScreen = ({ navigation }) => {
         refreshProfile(userType, providerId);
       }
       fetchStats();
+      fetchVerificationData();
     }
   }, [isFocused]);
 
@@ -810,14 +812,6 @@ const ProviderHomeScreen = ({ navigation }) => {
       fetchVerificationData();
     }
   }, [isProfileLoading, verificationDashboard, user?.mongoId, profile?.mongoId, fetchVerificationData]);
-
-  // Refresh verification data when screen regains focus (e.g., returning from Subscription/VerificationDashboard)
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      fetchVerificationData();
-    });
-    return unsubscribe;
-  }, [navigation, fetchVerificationData]);
 
   const firstName = displayData?.fullName?.split(' ')[0] || 'Provider';
 

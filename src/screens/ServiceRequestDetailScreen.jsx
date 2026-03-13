@@ -61,7 +61,6 @@ import {
   stopRequestLocationTracking,
 } from '../services/socketService';
 import { setupForegroundMessageListener } from '../services/fcmService';
-// Direct phone dialing - Exotel call masking removed
 
 // Premium Design Language
 const BRAND = {
