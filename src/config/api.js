@@ -240,8 +240,8 @@ export const ENDPOINTS = {
     FORGOT: '/api/auth/forgot-password',
     FORGOT_PHONE: '/api/auth/forgot-password/phone',
     FORGOT_PHONE_VERIFY: '/api/auth/forgot-password/phone/verify',
-    RESET: '/api/auth/reset-password',
-    VALIDATE_TOKEN: '/api/auth/reset-password/validate',
+    FORGOT_EMAIL: '/api/auth/forgot-password/email',
+    FORGOT_EMAIL_VERIFY: '/api/auth/forgot-password/email/verify',
     CHANGE: '/api/users/change-password',
   },
 
@@ -308,6 +308,11 @@ export const ENDPOINTS = {
     RESEND_OTP: '/api/traditional-services', // + /:id/resend-otp
   },
 
+  // Cloudinary upload signature (via Node.js backend, authenticated)
+  UPLOAD: {
+    SIGNATURE: '/api/upload/signature',
+  },
+
   // App Version Check (via Node.js backend, public endpoint)
   APP_VERSION: {
     CHECK: '/api/admin/app-version/check',
@@ -332,21 +337,17 @@ export const API_CONFIG = {
 
 /**
  * Deep link configuration for authentication flows
- * 
+ *
  * Supported deep links:
  * - fixhomi://auth/email-verify?token=xxx  - Email verification
- * - fixhomi://auth/reset-password?token=xxx - Password reset
+ *
+ * Note: Password reset now uses OTP (not deep links) for security.
  */
 export const DEEP_LINK_CONFIG = {
   SCHEME: 'fixhomi',
   HOST: 'auth',
   // Email verification
   EMAIL_VERIFY_PATH: 'email-verify',
-  // Password reset
-  RESET_PASSWORD_PATH: 'reset-password',
-  // Full deep links:
-  // - fixhomi://auth/email-verify?token=xxx
-  // - fixhomi://auth/reset-password?token=xxx
 };
 
 export default API_CONFIG;

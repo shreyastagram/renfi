@@ -45,9 +45,7 @@ import {
   deleteInsuranceDocument,
 } from '../services/insuranceService';
 
-// ─── Cloudinary ────────────────────────────────────────────────
-const CLOUDINARY_CLOUD_NAME = 'dj1aytbae';
-const CLOUDINARY_UPLOAD_PRESET = 'fixhomi_documents';
+import { uploadDocument } from '../services/cloudinaryService';
 
 // ─── Design Tokens ─────────────────────────────────────────────
 const C = {
@@ -423,38 +421,23 @@ const InsuranceScreen = ({ navigation }) => {
     ]);
   };
 
-  // ─── Upload to Cloudinary ──────────────────────────────────────
+  // ─── Upload to Cloudinary (signed) ─────────────────────────────
   const uploadToCloudinary = async (docType, doc) => {
-    const formData = new FormData();
-    formData.append('file', {
+    const data = await uploadDocument({
       uri: doc.localUri,
       type: doc.fileType || 'image/jpeg',
-      name: doc.fileName || 'document.jpg',
+      fileName: doc.fileName || 'document.jpg',
+      context: 'insurance',
     });
-    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-    formData.append('folder', `fixhomi/insurance/${providerId}`);
 
-    const controller = new AbortController();
-    const tid = setTimeout(() => controller.abort(), 30000);
-
-    const res = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
-      { method: 'POST', body: formData, signal: controller.signal },
-    );
-    clearTimeout(tid);
-    const data = await res.json();
-
-    if (data.secure_url) {
-      return {
-        documentType: docType,
-        fileUrl: data.secure_url,
-        publicId: data.public_id,
-        fileName: doc.fileName || data.original_filename,
-        fileType: data.format || doc.fileType?.split('/')[1],
-        fileSize: doc.fileSize || data.bytes,
-      };
-    }
-    throw new Error(data.error?.message || 'Upload failed');
+    return {
+      documentType: docType,
+      fileUrl: data.secure_url,
+      publicId: data.public_id,
+      fileName: doc.fileName || data.original_filename,
+      fileType: data.format || doc.fileType?.split('/')[1],
+      fileSize: doc.fileSize || data.bytes,
+    };
   };
 
   // ─── Validate & Submit ─────────────────────────────────────────

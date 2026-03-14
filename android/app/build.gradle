@@ -3,6 +3,13 @@ apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 apply plugin: "com.google.gms.google-services"
 
+// Load signing credentials from local.properties (gitignored)
+def localProps = new Properties()
+def localPropsFile = rootProject.file('local.properties')
+if (localPropsFile.exists()) {
+    localProps.load(new FileInputStream(localPropsFile))
+}
+
 // Vector icons fonts
 apply from: file("../../node_modules/react-native-vector-icons/fonts.gradle")
 
@@ -92,15 +99,15 @@ android {
     signingConfigs {
         debug {
             storeFile file('release.keystore')
-            storePassword 'fixhomi2026'
+            storePassword localProps.getProperty('KEYSTORE_PASSWORD', System.getenv('KEYSTORE_PASSWORD') ?: '')
             keyAlias 'fixhomi-release'
-            keyPassword 'fixhomi2026'
+            keyPassword localProps.getProperty('KEY_PASSWORD', System.getenv('KEY_PASSWORD') ?: '')
         }
         release {
             storeFile file('release.keystore')
-            storePassword 'fixhomi2026'
+            storePassword localProps.getProperty('KEYSTORE_PASSWORD', System.getenv('KEYSTORE_PASSWORD') ?: '')
             keyAlias 'fixhomi-release'
-            keyPassword 'fixhomi2026'
+            keyPassword localProps.getProperty('KEY_PASSWORD', System.getenv('KEY_PASSWORD') ?: '')
         }
     }
     buildTypes {

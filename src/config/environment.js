@@ -49,8 +49,9 @@ export const PRODUCTION_CONFIG = {
   // Java Auth Service (Render)
   JAVA_AUTH_URL: 'https://jauth.onrender.com',
   
-  // TODO: Replace with live Razorpay key (rzp_live_...) before production release
-  RAZORPAY_KEY_ID: 'rzp_test_SDn3j2JcoVMF3R',
+  // Razorpay key — set via RAZORPAY_KEY_ID env var at build time
+  // NEVER commit live or test keys here
+  RAZORPAY_KEY_ID: '',
 };
 
 // ============================================
@@ -67,8 +68,8 @@ export const LOCAL_CONFIG = {
   NODE_PORT: 5001,
   JAVA_PORT: 8080,
   
-  // Razorpay Key (same for both environments)
-  RAZORPAY_KEY_ID: 'rzp_test_SDn3j2JcoVMF3R',
+  // Razorpay key — set via RAZORPAY_KEY_ID env var at build time
+  RAZORPAY_KEY_ID: '',
 };
 
 // ============================================

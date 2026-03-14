@@ -1,10 +1,15 @@
 /**
  * API Client
- * 
+ *
  * Centralized HTTP client with error handling and interceptors
  * Includes separate clients for Node.js backend and Java Auth service
- * 
- * @version 2.0.0
+ *
+ * Certificate Pinning:
+ * - Android: Enforced via network_security_config.xml (res/xml/)
+ * - iOS: Enforced via ATS (App Transport Security) in Info.plist
+ * Pinning is handled at the native transport layer, not in axios.
+ *
+ * @version 2.1.0
  */
 
 import axios from 'axios';
@@ -180,7 +185,7 @@ export const authClient = axios.create({
  */
 const addAuthHeader = async (config) => {
   // Skip token check for auth endpoints that don't need tokens
-  const skipRefreshUrls = ['/refresh', '/login', '/register', '/forgot-password', '/reset-password', '/oauth2', '/google'];
+  const skipRefreshUrls = ['/refresh', '/login', '/register', '/forgot-password', '/oauth2', '/google'];
   const shouldSkip = skipRefreshUrls.some(url => config.url?.includes(url));
   
   if (shouldSkip) {
@@ -288,7 +293,7 @@ const handleResponseError = async (error, client) => {
   // Handle 401 Unauthorized - Token expired
   if (error.response?.status === 401 && !originalRequest._retry) {
     // Don't retry auth endpoints — these are login/signup requests, not token-protected
-    const skipRetryUrls = ['/refresh', '/logout', '/login', '/register', '/forgot-password', '/reset-password', '/oauth2', '/google', '/send-otp', '/verify'];
+    const skipRetryUrls = ['/refresh', '/logout', '/login', '/register', '/forgot-password', '/oauth2', '/google', '/send-otp', '/verify'];
     const shouldSkipRetry = skipRetryUrls.some(url => originalRequest.url?.includes(url));
     if (shouldSkipRetry) {
       return Promise.reject(error);

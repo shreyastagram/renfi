@@ -174,6 +174,9 @@ const OTPVerifyScreen = ({
       }
 
       if (result.success) {
+        // Clear OTP from state immediately after successful verification
+        setOtp(Array(OTP_LENGTH).fill(''));
+
         // Validate that the user's actual role matches the screen they're signing in from
         const backendRole = result.data?.role;
         const expectedRole = _userType === 'provider' ? 'SERVICE_PROVIDER' : 'USER';

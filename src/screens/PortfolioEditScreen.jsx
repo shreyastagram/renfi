@@ -28,6 +28,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary } from 'react-native-image-picker';
+import { requestGalleryPermission } from '../utils/permissions';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -35,9 +36,7 @@ import { updateProviderProfile } from '../services/profileService';
 import { NODE_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
 
-// Cloudinary config
-const CLOUDINARY_CLOUD_NAME = 'dj1aytbae';
-const CLOUDINARY_UPLOAD_PRESET = 'fixhomi_documents';
+import { uploadPortfolioImage } from '../services/cloudinaryService';
 
 // Brand colors
 const BRAND = {
@@ -283,35 +282,14 @@ const PortfolioEditScreen = ({ navigation }) => {
   };
 
   const uploadImageToCloudinary = async (imageUri) => {
-    const formData = new FormData();
-    formData.append('file', {
-      uri: imageUri,
-      type: 'image/jpeg',
-      name: 'portfolio_image.jpg',
-    });
-    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-    formData.append('folder', 'fixhomi/portfolio');
-
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-      {
-        method: 'POST',
-        body: formData,
-      }
-    );
-
-    const data = await response.json();
-    if (data.secure_url) {
-      return {
-        url: data.secure_url,
-        publicId: data.public_id,
-      };
-    }
-    throw new Error('Failed to upload image');
+    return uploadPortfolioImage(imageUri);
   };
 
   const handleAddGalleryImage = async () => {
     try {
+      const granted = await requestGalleryPermission(dialog);
+      if (!granted) return;
+
       const result = await launchImageLibrary({
         mediaType: 'photo',
         quality: 0.8,

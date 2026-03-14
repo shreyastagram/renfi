@@ -30,15 +30,12 @@ export const storeTokens = async (accessToken, refreshToken, expiresIn = 86400) 
     // Calculate absolute expiry time
     const expiryTime = Date.now() + (expiresIn * 1000);
     
-    // Store tokens securely in keychain
+    // Store tokens and expiry securely in Keychain only (not AsyncStorage)
     await Keychain.setGenericPassword(
       'auth_tokens',
       JSON.stringify({ accessToken, refreshToken, expiryTime }),
       { service: 'fixhomi_auth' }
     );
-    
-    // Also store expiry in AsyncStorage for quick access
-    await AsyncStorage.setItem(STORAGE_KEYS.TOKEN_EXPIRY, expiryTime.toString());
     
     console.log('✅ [Storage] Tokens stored, expires at:', new Date(expiryTime).toISOString());
     return true;
@@ -110,7 +107,6 @@ export const getTokenExpiry = async () => {
 export const clearTokens = async () => {
   try {
     await Keychain.resetGenericPassword({ service: 'fixhomi_auth' });
-    await AsyncStorage.removeItem(STORAGE_KEYS.TOKEN_EXPIRY);
     console.log('✅ [Storage] Tokens cleared');
     return true;
   } catch (error) {
@@ -120,12 +116,27 @@ export const clearTokens = async () => {
 };
 
 /**
- * Store user data in AsyncStorage
+ * Store user data in AsyncStorage.
+ * Only stores essential, non-sensitive fields to minimize PII exposure.
+ * Sensitive data (tokens, passwords) are stored in Keychain.
  * @param {Object} userData - User data object
  */
 export const storeUserData = async (userData) => {
   try {
-    await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
+    // Strip sensitive PII — only keep fields needed for app navigation/state
+    const safeData = {
+      id: userData.id || userData._id || userData.mongoId,
+      mongoId: userData.mongoId,
+      javaUserId: userData.javaUserId,
+      role: userData.role,
+      userType: userData.userType,
+      fullName: userData.fullName || userData.name,
+      isEmailVerified: userData.isEmailVerified,
+      isPhoneVerified: userData.isPhoneVerified,
+      isAadhaarVerified: userData.isAadhaarVerified,
+      isPremium: userData.isPremium,
+    };
+    await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(safeData));
     return true;
   } catch (error) {
     console.error('❌ [Storage] Failed to store user data:', error);

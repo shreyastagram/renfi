@@ -44,7 +44,6 @@ import {
   ServiceApprovalsScreen,
   LiveTrackingScreen,
   ForgotPasswordScreen,
-  ResetPasswordScreen,
   ChangePasswordScreen,
   EmergencyServicesScreen,
   EventServicesScreen,
@@ -111,13 +110,6 @@ export const linking = {
           email: (email) => decodeURIComponent(email || ''),
           status: (status) => status,
           message: (message) => decodeURIComponent(message || ''),
-        },
-      },
-      // Password Reset deep link handler
-      ResetPassword: {
-        path: 'auth/reset-password',
-        parse: {
-          token: (token) => token,
         },
       },
       // Aadhaar/DigiLocker verification callback handler
@@ -374,14 +366,9 @@ const AuthNavigator = () => {
       <Stack.Screen name="UserType" component={UserTypeScreen} />
       <Stack.Screen name="UserAuth" component={UserAuthScreen} />
       <Stack.Screen name="ProviderAuth" component={ProviderAuthScreen} />
-      <Stack.Screen 
-        name="ForgotPassword" 
+      <Stack.Screen
+        name="ForgotPassword"
         component={ForgotPasswordScreen}
-        options={{ animation: 'slide_from_bottom' }}
-      />
-      <Stack.Screen 
-        name="ResetPassword" 
-        component={ResetPasswordScreen}
         options={{ animation: 'slide_from_bottom' }}
       />
     </Stack.Navigator>

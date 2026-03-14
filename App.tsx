@@ -33,32 +33,56 @@ export const navigate = (name: string, params?: object) => {
   }
 };
 
+/**
+ * Mask email for display (e.g., "te***@example.com")
+ */
+const maskEmailForDisplay = (email: string | null): string => {
+  if (!email || !email.includes('@')) return '***';
+  const atIndex = email.indexOf('@');
+  if (atIndex <= 2) return '**' + email.substring(atIndex);
+  return email.substring(0, 2) + '***' + email.substring(atIndex);
+};
+
+/**
+ * Sanitize deep link URL for logging — strip tokens and sensitive params
+ */
+const sanitizeUrlForLog = (url: string | null): string => {
+  if (!url) return '(none)';
+  try {
+    // Remove token, email, and other sensitive query params
+    return url.replace(/([?&])(token|email|password|otp)=[^&]*/gi, '$1$2=[REDACTED]');
+  } catch {
+    return '(url)';
+  }
+};
+
 // Deep linking configuration - using any to avoid complex nested type issues
 const linking: any = {
   ...navLinking,
   // Custom function to handle deep links
   async getInitialURL() {
-    // Check if app was opened via deep link
     const url = await Linking.getInitialURL();
-    console.log('🔗 [DeepLink] Initial URL:', url);
-    
-    // Handle email verification deep link
+    if (__DEV__) {
+      console.log('[DeepLink] Initial URL:', sanitizeUrlForLog(url));
+    }
+
     if (url?.includes('email-verified')) {
       handleEmailVerifiedDeepLink(url);
     }
-    
+
     return url;
   },
   // Subscribe to incoming deep links while app is open
   subscribe(listener: (url: string) => void) {
     const subscription = Linking.addEventListener('url', ({ url }) => {
-      console.log('🔗 [DeepLink] Incoming URL:', url);
-      
-      // Handle email verification deep link
+      if (__DEV__) {
+        console.log('[DeepLink] Incoming URL:', sanitizeUrlForLog(url));
+      }
+
       if (url?.includes('email-verified')) {
         handleEmailVerifiedDeepLink(url);
       }
-      
+
       listener(url);
     });
     return () => subscription.remove();
@@ -70,33 +94,31 @@ const linking: any = {
  */
 const handleEmailVerifiedDeepLink = (url: string) => {
   try {
-    // Parse URL parameters manually since React Native URLSearchParams is limited
     const getParam = (paramName: string): string | null => {
       const match = url.match(new RegExp(`[?&]${paramName}=([^&]*)`));
       return match ? decodeURIComponent(match[1]) : null;
     };
-    
+
     const status = getParam('status');
     const email = getParam('email');
     const message = getParam('message');
-    
-    console.log('📧 [EmailVerified] Status:', status, 'Email:', email);
-    
+
     if (status === 'success') {
+      const masked = maskEmailForDisplay(email);
       Alert.alert(
-        '✅ Email Verified!',
-        `Your email ${email || ''} has been successfully verified. You now have full access to all features.`,
+        'Email Verified!',
+        `Your email ${masked} has been successfully verified. You now have full access to all features.`,
         [{ text: 'OK', style: 'default' }]
       );
     } else if (status === 'error') {
       Alert.alert(
-        '❌ Verification Failed',
+        'Verification Failed',
         message || 'The verification link may have expired. Please request a new verification email from Settings.',
         [{ text: 'OK', style: 'default' }]
       );
     }
   } catch (err) {
-    console.error('📧 [EmailVerified] Error parsing deep link:', err);
+    console.error('[EmailVerified] Error parsing deep link:', err);
   }
 };
 
@@ -207,7 +229,7 @@ export default function App() {
     configureGoogleSignIn();
 
     // Check for app updates on launch
-    checkForAppUpdate().then((info) => {
+    (checkForAppUpdate() as Promise<any>).then((info) => {
       if (info) {
         setUpdateInfo(info);
         setShowUpdateModal(true);

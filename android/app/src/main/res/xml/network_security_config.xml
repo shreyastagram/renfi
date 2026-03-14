@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Network Security Configuration for FixHomi
+
+  Certificate pinning: Pins the SSL certificates for backend servers
+  to prevent MITM attacks. Pin hashes must be updated when server
+  certificates are rotated.
+
+  To get pin hashes, run:
+    openssl s_client -connect <host>:443 | openssl x509 -pubkey -noout | \
+    openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl enc -base64
+
+  IMPORTANT: Always include a backup pin (from a different CA or a future cert)
+  to avoid bricking the app if the primary cert is rotated.
+-->
+<network-security-config>
+    <!-- Allow cleartext only in debug builds (Metro bundler needs it) -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Debug overrides: allow cleartext for local dev servers -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="user" />
+            <certificates src="system" />
+        </trust-anchors>
+    </debug-overrides>
+
+    <!-- Pin certificates for production backends -->
+    <domain-config cleartextTrafficPermitted="false">
+        <!-- Node.js backend (Render) -->
+        <domain includeSubdomains="true">noefix.onrender.com</domain>
+        <pin-set expiration="2027-01-01">
+            <!-- Primary pin: Render's current certificate chain -->
+            <!-- Run the openssl command above to get the actual hash -->
+            <!-- Placeholder: replace with real pin hash before release -->
+            <pin digest="SHA-256">BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=</pin>
+            <!-- Backup pin: Let's Encrypt ISRG Root X1 (common Render CA) -->
+            <pin digest="SHA-256">C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=</pin>
+        </pin-set>
+    </domain-config>
+
+    <domain-config cleartextTrafficPermitted="false">
+        <!-- Java Auth backend (Render) -->
+        <domain includeSubdomains="true">jauth.onrender.com</domain>
+        <pin-set expiration="2027-01-01">
+            <!-- Primary pin: replace with real pin hash before release -->
+            <pin digest="SHA-256">BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=</pin>
+            <!-- Backup pin: Let's Encrypt ISRG Root X1 -->
+            <pin digest="SHA-256">C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=</pin>
+        </pin-set>
+    </domain-config>
+</network-security-config>

@@ -36,9 +36,7 @@ import { Icon } from '../components';
 import { NODE_BASE_URL as API_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
 
-// Cloudinary configuration
-const CLOUDINARY_CLOUD_NAME = 'dj1aytbae'; // Replace with your cloud name
-const CLOUDINARY_UPLOAD_PRESET = 'fixhomi_documents';
+import { uploadDocument } from '../services/cloudinaryService';
 
 /**
  * Document type labels for display
@@ -473,49 +471,22 @@ const DocumentVerificationScreen = ({ navigation }) => {
    * Upload to Cloudinary (called only on submit)
    */
   const uploadToCloudinary = async (serviceCategory, documentType, doc) => {
-    const file = { uri: doc.localUri, type: doc.fileType, fileName: doc.fileName, fileSize: doc.fileSize };
-    
-    const formData = new FormData();
-    formData.append('file', {
-      uri: file.uri,
-      type: file.type || 'image/jpeg',
-      name: file.fileName || 'document.jpg',
+    const data = await uploadDocument({
+      uri: doc.localUri,
+      type: doc.fileType || 'image/jpeg',
+      fileName: doc.fileName || 'document.jpg',
+      context: 'documents',
+      serviceCategory,
     });
-    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-    formData.append('folder', `fixhomi/documents/${providerId}/${serviceCategory}`);
-    
-    // Add timeout using AbortController
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for upload
-    
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
-      {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        signal: controller.signal,
-      }
-    );
-    
-    clearTimeout(timeoutId);
-    
-    const data = await response.json();
-    
-    if (data.secure_url) {
-      return {
-        documentType,
-        fileUrl: data.secure_url,
-        publicId: data.public_id,
-        fileName: file.fileName || data.original_filename,
-        fileType: data.format || file.type?.split('/')[1],
-        fileSize: file.fileSize || data.bytes,
-      };
-    } else {
-      throw new Error(data.error?.message || 'Upload failed');
-    }
+
+    return {
+      documentType,
+      fileUrl: data.secure_url,
+      publicId: data.public_id,
+      fileName: doc.fileName || data.original_filename,
+      fileType: data.format || doc.fileType?.split('/')[1],
+      fileSize: doc.fileSize || data.bytes,
+    };
   };
   
   /**

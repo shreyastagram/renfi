@@ -1,8 +1,8 @@
 /**
  * Forgot Password Screen
  *
- * Password reset via phone OTP.
- * Step 1: Enter phone -> send OTP
+ * Password reset via phone OTP or email OTP.
+ * Step 1: Choose method (phone/email) -> enter identifier -> send OTP
  * Step 2: Enter OTP + new password -> reset
  *
  * Uses absolute timestamp for OTP countdown so timer
@@ -25,11 +25,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Input, PhoneInput, Alert, FixhomiLogo } from '../components';
 import {
   forgotPasswordPhone,
+  forgotPasswordEmail,
   verifyOtpAndResetPassword,
+  verifyEmailOtpAndResetPassword,
   getErrorMessage,
   AUTH_CODES,
 } from '../services/authService';
-import { validatePhone, validatePassword } from '../utils/validation';
+import { validatePhone, validatePassword, validateEmail } from '../utils/validation';
 import { useLanguage } from '../context/LanguageContext';
 
 const COLORS = {
@@ -53,8 +55,12 @@ const RESEND_COOLDOWN_SECONDS = 30;
 const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
   const { t } = useLanguage();
 
+  // Method state: 'phone' or 'email'
+  const [method, setMethod] = useState('phone');
+
   // Form state
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [email, setEmail] = useState('');
   const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(''));
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -67,6 +73,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
   const [alertType, setAlertType] = useState('error');
   const [alertHint, setAlertHint] = useState(null);
   const [maskedPhone, setMaskedPhone] = useState('');
+  const [maskedEmail, setMaskedEmail] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordResetSuccess, setPasswordResetSuccess] = useState(false);
@@ -125,31 +132,52 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
     setAlertHint(null);
   }, []);
 
-  const validatePhoneInput = () => {
-    if (!phoneNumber.trim()) {
-      setError(t('auth.phoneRequired'));
-      return false;
-    }
-    const phoneValidation = validatePhone(phoneNumber);
-    if (!phoneValidation.isValid) {
-      setError(phoneValidation.error);
-      return false;
+  const validateInput = () => {
+    if (method === 'phone') {
+      if (!phoneNumber.trim()) {
+        setError(t('auth.phoneRequired'));
+        return false;
+      }
+      const phoneValidation = validatePhone(phoneNumber);
+      if (!phoneValidation.isValid) {
+        setError(phoneValidation.error);
+        return false;
+      }
+    } else {
+      if (!email.trim()) {
+        setError(t('auth.emailRequired') || 'Email is required');
+        return false;
+      }
+      const emailValidation = validateEmail(email);
+      if (!emailValidation.isValid) {
+        setError(emailValidation.error);
+        return false;
+      }
     }
     setError(null);
     return true;
   };
 
   const handleSendOtp = async () => {
-    if (!validatePhoneInput()) return;
+    if (!validateInput()) return;
 
     try {
       setLoading(true);
       clearAlert();
 
-      const result = await forgotPasswordPhone(phoneNumber.trim());
+      let result;
+      if (method === 'phone') {
+        result = await forgotPasswordPhone(phoneNumber.trim());
+      } else {
+        result = await forgotPasswordEmail(email.trim());
+      }
 
       if (result.success) {
-        setMaskedPhone(result.maskedPhone || phoneNumber.replace(/(.{2})(.*)(.{4})/, '$1****$3'));
+        if (method === 'phone') {
+          setMaskedPhone(result.maskedPhone || phoneNumber.replace(/(.{2})(.*)(.{4})/, '$1****$3'));
+        } else {
+          setMaskedEmail(email.replace(/(.{2})(.*)(@.*)/, '$1***$3'));
+        }
         setStep(2);
 
         // Start timer
@@ -158,7 +186,10 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
         setCanResend(false);
         setSecondsLeft(OTP_EXPIRY_MINUTES * 60);
 
-        showAlert(t('auth.otpSentPhone'), 'success');
+        showAlert(
+          method === 'phone' ? t('auth.otpSentPhone') : (t('auth.otpSentEmail') || 'If your email is registered, an OTP has been sent.'),
+          'success'
+        );
         setTimeout(() => otpRefs.current[0]?.focus(), 300);
       } else {
         const errorCode = result.error?.code;
@@ -170,7 +201,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
           errorCode === AUTH_CODES.USER_NOT_FOUND ||
           errorMsg.includes('No account found')
         ) {
-          showAlert(t('auth.noAccountPhone'), 'error');
+          showAlert(method === 'phone' ? t('auth.noAccountPhone') : (t('auth.noAccountEmail') || 'No account found with this email.'), 'error');
         } else if (errorCode === AUTH_CODES.TOO_MANY_REQUESTS) {
           showAlert(t('auth.tooManyRequests'), 'warning');
         } else {
@@ -251,7 +282,9 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
       setLoading(true);
       clearAlert();
 
-      const result = await verifyOtpAndResetPassword(phoneNumber.trim(), otpCode, newPassword);
+      const result = method === 'phone'
+        ? await verifyOtpAndResetPassword(phoneNumber.trim(), otpCode, newPassword)
+        : await verifyEmailOtpAndResetPassword(email.trim(), otpCode, newPassword);
 
       if (result.success) {
         setPasswordResetSuccess(true);
@@ -290,7 +323,9 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
 
     try {
       setLoading(true);
-      const result = await forgotPasswordPhone(phoneNumber.trim());
+      const result = method === 'phone'
+        ? await forgotPasswordPhone(phoneNumber.trim())
+        : await forgotPasswordEmail(email.trim());
 
       if (result.success) {
         // Reset timers
@@ -347,7 +382,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
     </View>
   );
 
-  const renderPhoneStep = () => (
+  const renderInputStep = () => (
     <View style={styles.formContainer}>
       <View style={styles.header}>
         <Text style={styles.title}>{t('auth.forgotPasswordTitle')}</Text>
@@ -356,23 +391,62 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
         </Text>
       </View>
 
-      <PhoneInput
-        label={t('auth.phoneNumber')}
-        required
-        value={phoneNumber}
-        onChangeText={(text) => {
-          setPhoneNumber(text);
-          if (error) setError(null);
-          if (alertMessage) clearAlert();
-        }}
-        error={error}
-      />
+      {/* Method Toggle */}
+      <View style={styles.methodToggle}>
+        <TouchableOpacity
+          style={[styles.methodTab, method === 'phone' && styles.methodTabActive]}
+          onPress={() => { setMethod('phone'); setError(null); clearAlert(); }}
+        >
+          <Text style={[styles.methodTabText, method === 'phone' && styles.methodTabTextActive]}>
+            {t('auth.viaPhone') || 'Via Phone'}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.methodTab, method === 'email' && styles.methodTabActive]}
+          onPress={() => { setMethod('email'); setError(null); clearAlert(); }}
+        >
+          <Text style={[styles.methodTabText, method === 'email' && styles.methodTabTextActive]}>
+            {t('auth.viaEmail') || 'Via Email'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {method === 'phone' ? (
+        <PhoneInput
+          label={t('auth.phoneNumber')}
+          required
+          value={phoneNumber}
+          onChangeText={(text) => {
+            setPhoneNumber(text);
+            if (error) setError(null);
+            if (alertMessage) clearAlert();
+          }}
+          error={error}
+        />
+      ) : (
+        <Input
+          label={t('auth.email') || 'Email'}
+          placeholder={t('auth.emailPlaceholder') || 'Enter your email address'}
+          required
+          value={email}
+          onChangeText={(text) => {
+            setEmail(text);
+            if (error) setError(null);
+            if (alertMessage) clearAlert();
+          }}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="email"
+          leftIcon="mail"
+          error={error}
+        />
+      )}
 
       <Button
         title={loading ? t('auth.sendingOtp') : t('auth.sendOtp')}
         onPress={handleSendOtp}
         loading={loading}
-        disabled={loading || !phoneNumber.trim()}
+        disabled={loading || (method === 'phone' ? !phoneNumber.trim() : !email.trim())}
         style={styles.actionButton}
       />
 
@@ -390,7 +464,9 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
       <View style={styles.header}>
         <Text style={styles.title}>{t('auth.verifyAndReset')}</Text>
         <Text style={styles.subtitle}>
-          {t('auth.otpSentToPhone', { phone: maskedPhone })}
+          {method === 'phone'
+            ? t('auth.otpSentToPhone', { phone: maskedPhone })
+            : (t('auth.otpSentToEmail', { email: maskedEmail }) || `OTP sent to ${maskedEmail}`)}
         </Text>
       </View>
 
@@ -554,7 +630,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
           {passwordResetSuccess
             ? renderSuccessState()
             : step === 1
-              ? renderPhoneStep()
+              ? renderInputStep()
               : renderOtpStep()}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -607,6 +683,36 @@ const styles = StyleSheet.create({
 
   formContainer: {
     flex: 1,
+  },
+  methodToggle: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 20,
+  },
+  methodTab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  methodTabActive: {
+    backgroundColor: COLORS.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  methodTabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.textSecondary,
+  },
+  methodTabTextActive: {
+    color: COLORS.primary,
+    fontWeight: '600',
   },
   header: {
     marginBottom: 32,

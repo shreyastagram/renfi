@@ -4,7 +4,9 @@
       "Bash(npm install @react-native-clipboard/clipboard)",
       "Bash(pod install)",
       "Bash(bundle exec pod install --project-directory=ios)",
-      "Bash(npm install i18n-js@4)"
+      "Bash(npm install i18n-js@4)",
+      "Bash(grep -n \"router\\\\.\\\\\\(get\\\\|post\\\\|put\\\\|delete\\\\|patch\\\\\\)\" /Users/shreyashsureshborkar/AXXXSXX/AXXASXX_App/FIXORA/FIXORA_APP/noefi/fixhomi-backend/routes/*.js)",
+      "Bash(grep -n \"SECURITY\\\\|TODO\\\\|FIXME\\\\|BUG\\\\|HACK\" /Users/shreyashsureshborkar/AXXXSXX/AXXASXX_App/FIXORA/FIXORA_APP/noefi/fixhomi-backend/routes/*.js)"
     ]
   }
 }

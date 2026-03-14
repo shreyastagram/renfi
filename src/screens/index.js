@@ -24,7 +24,6 @@ export { default as OTPVerifyScreen } from './OTPVerifyScreen';
 
 // Password Management
 export { default as ForgotPasswordScreen } from './ForgotPasswordScreen';
-export { default as ResetPasswordScreen } from './ResetPasswordScreen';
 export { default as ChangePasswordScreen } from './ChangePasswordScreen';
 
 // Account Verification & Profile

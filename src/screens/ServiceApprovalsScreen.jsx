@@ -43,13 +43,12 @@ import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { NODE_BASE_URL as API_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
+import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
 import ScreenShimmer from '../components/ShimmerLoader';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Cloudinary configuration
-const CLOUDINARY_CLOUD_NAME = 'dj1aytbae';
-const CLOUDINARY_UPLOAD_PRESET = 'fixhomi_documents';
+import { uploadDocument } from '../services/cloudinaryService';
 
 /**
  * Document type labels
@@ -1056,6 +1055,9 @@ const ServiceApprovalsScreen = ({ navigation }) => {
 
   const captureFromCamera = async (serviceCategory, documentType) => {
     try {
+      const granted = await requestCameraPermission(dialog);
+      if (!granted) return;
+
       const result = await launchCamera({
         mediaType: 'photo',
         quality: 0.8,
@@ -1073,6 +1075,9 @@ const ServiceApprovalsScreen = ({ navigation }) => {
 
   const pickFromGallery = async (serviceCategory, documentType) => {
     try {
+      const granted = await requestGalleryPermission(dialog);
+      if (!granted) return;
+
       const result = await launchImageLibrary({
         mediaType: 'photo',
         quality: 0.8,
@@ -1137,48 +1142,23 @@ const ServiceApprovalsScreen = ({ navigation }) => {
    * Upload to Cloudinary
    */
   const uploadToCloudinary = async (file, serviceCategory, documentType) => {
-    // Fix URI for Android - ensure proper format
-    let fileUri = file.localUri;
-    if (Platform.OS === 'android' && !fileUri.startsWith('file://')) {
-      fileUri = `file://${fileUri}`;
-    }
-    
-    const formData = new FormData();
-    formData.append('file', {
-      uri: fileUri,
-      type: file.fileType || 'image/jpeg',
-      name: file.fileName || `document_${Date.now()}.jpg`,
-    });
-    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-    formData.append('folder', `fixhomi/documents/${providerId}/${serviceCategory}`);
-
     try {
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
-        {
-          method: 'POST',
-          body: formData,
-          headers: {
-            'Accept': 'application/json',
-          },
-        }
-      );
+      const data = await uploadDocument({
+        uri: file.localUri,
+        type: file.fileType || 'image/jpeg',
+        fileName: file.fileName || `document_${Date.now()}.jpg`,
+        context: 'service_approvals',
+        serviceCategory,
+      });
 
-      const data = await response.json();
-
-      if (data.secure_url) {
-        return {
-          documentType,
-          fileUrl: data.secure_url,
-          publicId: data.public_id,
-          fileName: file.fileName,
-          fileType: data.format || file.fileType,
-          fileSize: file.fileSize,
-        };
-      }
-
-      console.error('[RSAS] Cloudinary upload error:', data);
-      throw new Error(data.error?.message || 'Upload failed');
+      return {
+        documentType,
+        fileUrl: data.secure_url,
+        publicId: data.public_id,
+        fileName: file.fileName,
+        fileType: data.format || file.fileType,
+        fileSize: file.fileSize,
+      };
     } catch (error) {
       console.error('[RSAS] Upload error:', error);
       throw new Error(`Upload failed: ${error.message}`);

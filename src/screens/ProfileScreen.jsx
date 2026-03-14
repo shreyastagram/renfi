@@ -57,9 +57,7 @@ import AddressAutocomplete from '../components/AddressAutocomplete';
 import CityAutocomplete from '../components/CityAutocomplete';
 import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
 
-// Cloudinary config
-const CLOUDINARY_CLOUD_NAME = 'dj1aytbae';
-const CLOUDINARY_UPLOAD_PRESET = 'fixhomi_documents';
+import { uploadProfilePicture } from '../services/cloudinaryService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -954,45 +952,12 @@ const ProfileScreen = ({ navigation, route }) => {
   };
 
   /**
-   * Upload image to Cloudinary
+   * Upload image to Cloudinary (signed)
    */
   const uploadToCloudinary = async (imageUri) => {
-    const formData = new FormData();
-    
-    // Fix Android URI
-    let uri = imageUri;
-    if (Platform.OS === 'android' && !uri.startsWith('file://')) {
-      uri = `file://${uri}`;
-    }
-    
-    formData.append('file', {
-      uri: uri,
-      type: 'image/jpeg',
-      name: `profile_${Date.now()}.jpg`,
-    });
-    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-    formData.append('folder', 'profile_pictures');
-
     try {
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-        {
-          method: 'POST',
-          body: formData,
-          headers: {
-            'Accept': 'application/json',
-          },
-        }
-      );
-
-      const data = await response.json();
-      
-      if (data.secure_url) {
-        return { success: true, url: data.secure_url, publicId: data.public_id };
-      } else {
-        console.error('Cloudinary upload error:', data);
-        return { success: false, error: data.error?.message || 'Upload failed' };
-      }
+      const result = await uploadProfilePicture(imageUri);
+      return { success: true, url: result.url, publicId: result.publicId };
     } catch (error) {
       console.error('Cloudinary upload error:', error);
       return { success: false, error: error.message };

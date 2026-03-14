@@ -634,79 +634,6 @@ export const forgotPassword = async (email) => {
   }
 };
 
-/**
- * Validate password reset token
- * Checks if the reset token from email link is still valid
- * 
- * @param {string} token - Reset token from email link
- * @returns {Promise<Object>} Validation response
- */
-export const validateResetToken = async (token) => {
-  try {
-    console.log('🔍 [AuthService] Validating reset token');
-    
-    const response = await authClient.get(ENDPOINTS.PASSWORD.VALIDATE_TOKEN, {
-      params: { token },
-    });
-    
-    console.log('✅ [AuthService] Reset token is valid');
-    
-    return {
-      success: true,
-      data: response.data,
-      isValid: true,
-    };
-  } catch (error) {
-    const parsedError = parseApiError(error);
-    console.error('❌ [AuthService] Reset token validation failed:', parsedError);
-    
-    return {
-      success: false,
-      error: parsedError,
-      isValid: false,
-    };
-  }
-};
-
-/**
- * Reset password using token from email
- * Completes the forgot password flow
- * 
- * IMPORTANT: After successful reset:
- * - All refresh tokens are revoked
- * - User must login with new password
- * 
- * @param {string} token - Reset token from email link
- * @param {string} newPassword - New password (min 8 characters)
- * @returns {Promise<Object>} Reset response
- */
-export const resetPassword = async (token, newPassword) => {
-  try {
-    console.log('🔐 [AuthService] Resetting password');
-    
-    const response = await authClient.post(ENDPOINTS.PASSWORD.RESET, {
-      token,
-      newPassword,
-    });
-    
-    console.log('✅ [AuthService] Password reset successful');
-    
-    return {
-      success: true,
-      data: response.data,
-      message: 'Password reset successfully. Please login with your new password.',
-    };
-  } catch (error) {
-    const parsedError = parseApiError(error);
-    console.error('❌ [AuthService] Password reset failed:', parsedError);
-    
-    return {
-      success: false,
-      error: parsedError,
-    };
-  }
-};
-
 // ==================== OTP-BASED PASSWORD RESET ====================
 
 /**
@@ -778,6 +705,74 @@ export const verifyOtpAndResetPassword = async (phoneNumber, otp, newPassword) =
     const parsedError = parseApiError(error);
     console.error('❌ [AuthService] OTP password reset failed:', parsedError);
     
+    return {
+      success: false,
+      error: parsedError,
+    };
+  }
+};
+
+/**
+ * Request password reset OTP via email
+ * Sends OTP to the email associated with the account
+ *
+ * @param {string} email - User's email address
+ * @returns {Promise<Object>} Response
+ */
+export const forgotPasswordEmail = async (email) => {
+  try {
+    console.log('🔑 [AuthService] Requesting password reset OTP for email');
+
+    const response = await authClient.post(ENDPOINTS.PASSWORD.FORGOT_EMAIL, {
+      email: email.trim().toLowerCase(),
+    });
+
+    console.log('✅ [AuthService] Password reset email OTP sent');
+
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    const parsedError = parseApiError(error);
+    console.error('❌ [AuthService] Forgot password email failed:', parsedError);
+
+    return {
+      success: false,
+      error: parsedError,
+    };
+  }
+};
+
+/**
+ * Verify email OTP and reset password
+ *
+ * @param {string} email - User's email address
+ * @param {string} otp - OTP received via email
+ * @param {string} newPassword - New password
+ * @returns {Promise<Object>} Reset response
+ */
+export const verifyEmailOtpAndResetPassword = async (email, otp, newPassword) => {
+  try {
+    console.log('🔐 [AuthService] Verifying email OTP and resetting password');
+
+    const response = await authClient.post(ENDPOINTS.PASSWORD.FORGOT_EMAIL_VERIFY, {
+      email: email.trim().toLowerCase(),
+      otp: otp.trim(),
+      newPassword,
+    });
+
+    console.log('✅ [AuthService] Email OTP password reset successful');
+
+    return {
+      success: true,
+      data: response.data,
+      message: 'Password reset successfully. Please login with your new password.',
+    };
+  } catch (error) {
+    const parsedError = parseApiError(error);
+    console.error('❌ [AuthService] Email OTP password reset failed:', parsedError);
+
     return {
       success: false,
       error: parsedError,
@@ -1044,9 +1039,9 @@ export default {
   // Password Management
   forgotPassword,
   forgotPasswordPhone,
+  forgotPasswordEmail,
   verifyOtpAndResetPassword,
-  validateResetToken,
-  resetPassword,
+  verifyEmailOtpAndResetPassword,
   changePassword,
   
   // Logout & Tokens
