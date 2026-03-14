@@ -155,12 +155,14 @@ Unlike Google OAuth, Apple Sign-In for mobile does **not** require a client secr
 
 ---
 
-### 3.2 Certificate Pinning — PLACEHOLDER HASHES
-- [ ] Generate real SHA-256 pin hash for `noefix.onrender.com`
-- [ ] Generate real SHA-256 pin hash for `jauth.onrender.com`
-- [ ] Replace placeholder `BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=` in network_security_config.xml (line 40)
-- [ ] Replace placeholder `BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=` in network_security_config.xml (line 51)
+### 3.2 Certificate Pinning — DONE
+- [x] Generated real SHA-256 pin hash for `noefix.onrender.com`: `IX2/a47sFHkF9jewioc5OzEDzS0dNQjNMCX8PCQ26Pg=`
+- [x] Generated real SHA-256 pin hash for `jauth.onrender.com`: `IX2/a47sFHkF9jewioc5OzEDzS0dNQjNMCX8PCQ26Pg=` (same Render infra)
+- [x] Replaced both placeholders in `network_security_config.xml`
+- [x] Backup pin retained: Let's Encrypt ISRG Root X1 `C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=`
 - [ ] Test release build connects to both backends
+
+**Note:** Both backends are on Render and share the same certificate. Pin expiration set to 2027-01-01. If Render rotates certs, the backup pin (Let's Encrypt root) will keep the app working.
 
 **Why:** Placeholder pin hashes will cause the Android release build to fail ALL HTTPS connections to your backends. The app will not work at all.
 
@@ -183,10 +185,8 @@ openssl s_client -connect jauth.onrender.com:443 2>/dev/null | \
 
 ---
 
-### 3.3 Export Compliance Declaration — MISSING
-- [ ] Add `<key>ITSAppUsesNonExemptEncryption</key><false/>` to `ios/renfi/Info.plist`
-
-**Why:** The app uses standard HTTPS only (no custom encryption). Without this key, App Store Connect blocks every upload and asks the export compliance questionnaire. Setting it to `false` tells Apple the app uses only exempt (OS-provided) encryption.
+### 3.3 Export Compliance Declaration — DONE
+- [x] Added `<key>ITSAppUsesNonExemptEncryption</key><false/>` to `ios/renfi/Info.plist`
 
 **File:** `renfi/renfi/ios/renfi/Info.plist`
 
@@ -234,56 +234,32 @@ NODE_BACKEND_URL=https://noefix.onrender.com
 
 ## 4. High Priority Issues
 
-### 4.1 App Display Name — "renfi" instead of "Fixhomi"
-- [ ] Update `app.json` → `displayName` from "renfi" to "Fixhomi"
-- [ ] Update `android/app/src/main/res/values/strings.xml` → `app_name` from "renfi" to "Fixhomi"
-- [ ] Update `ios/renfi/Info.plist` → `CFBundleDisplayName` from "renfi" to "Fixhomi"
+### 4.1 App Display Name — DONE
+- [x] Updated `app.json` → `displayName` to "Fixhomi" (internal `name` stays "renfi")
+- [x] Updated `android/app/src/main/res/values/strings.xml` → `app_name` to "Fixhomi"
+- [x] Updated `ios/renfi/Info.plist` → `CFBundleDisplayName` to "Fixhomi"
 - [ ] Verify the change on both platforms after rebuild
 
-**Why:** Users and reviewers will see "renfi" on the home screen. Must match the store listing name "Fixhomi".
-
-**Files:**
-- `renfi/renfi/app.json`
-- `renfi/renfi/android/app/src/main/res/values/strings.xml`
-- `renfi/renfi/ios/renfi/Info.plist`
-
-**Note:** Do NOT change the Android `applicationId` (`com.renfi`) or iOS bundle identifier at this point — changing those creates a new app identity. The `displayName` is separate from the package ID.
+**Note:** `applicationId` stays `com.renfi`, iOS bundle identifier unchanged. Only display name changed.
 
 ---
 
-### 4.2 ProGuard/R8 — DISABLED for Android Release
-- [ ] Set `enableProguardInReleaseBuilds = true` in `android/app/build.gradle`
-- [ ] Add ProGuard rules for React Native, Razorpay, Mapbox, Firebase if needed
+### 4.2 ProGuard/R8 — DONE
+- [x] Set `enableProguardInReleaseBuilds = true` in `android/app/build.gradle`
+- [x] Added ProGuard rules for React Native (Hermes), Razorpay, Mapbox, Firebase, OkHttp, Gson in `proguard-rules.pro` (59 lines)
 - [ ] Build release APK/AAB and test all screens work
 - [ ] Test payment flow works with ProGuard enabled
 - [ ] Test map rendering works with ProGuard enabled
 
-**Why:** Without ProGuard, the release build contains unobfuscated code. API endpoints, business logic, and secrets are trivially readable via decompilation.
-
-**File:** `renfi/renfi/android/app/build.gradle`
-
 ---
 
-### 4.3 Background Location Permission — Vague Strings
-- [ ] Update `NSLocationWhenInUseUsageDescription` in Info.plist to be specific: explain it shows nearby providers on the map and matches users with local service professionals
-- [ ] Update `NSLocationAlwaysAndWhenInUseUsageDescription` in Info.plist with a DISTINCT message: explain providers need background location to share live location with customers during active service visits
-- [ ] Only request "Always" permission for provider role; users should only get "When In Use"
-- [ ] Prepare Google Play background location declaration form with demo video showing provider live tracking during service
+### 4.3 Background Location Permission — DONE
+- [x] Updated `NSLocationWhenInUseUsageDescription` — specific: "Fixhomi uses your location to find nearby service providers and show them on the map so you can connect with local professionals."
+- [x] Updated `NSLocationAlwaysAndWhenInUseUsageDescription` — distinct provider-specific message: "Service providers need background location access to share their live position with customers during active service visits, enabling real-time arrival tracking."
+- [ ] Only request "Always" permission for provider role; users should only get "When In Use" (runtime logic)
+- [ ] Prepare Google Play background location declaration form with demo video
 
-**Why:** Apple rejects apps with vague or identical location strings. Google requires a declaration form + video for background location. Currently both iOS strings are identical (line 36 and line 38 have the exact same text: "This app needs access to your location to show you on the map and help you navigate to services.").
-
-**Current values (both identical — MUST be different):**
-```
-NSLocationWhenInUseUsageDescription: "This app needs access to your location to show you on the map and help you navigate to services."
-NSLocationAlwaysAndWhenInUseUsageDescription: "This app needs access to your location to show you on the map and help you navigate to services."
-```
-
-**Note:** iOS Podfile (line 20) includes `LocationAlways` permission, but Android `AndroidManifest.xml` does NOT declare `ACCESS_BACKGROUND_LOCATION`. If background location is needed for provider tracking on Android, add it to the manifest. If not needed, remove `LocationAlways` from the iOS Podfile to avoid unnecessary permission prompts.
-
-**Files:**
-- `renfi/renfi/ios/renfi/Info.plist` (lines 35-38)
-- `renfi/renfi/ios/Podfile` (line 20)
-- `renfi/renfi/android/app/src/main/AndroidManifest.xml` (may need `ACCESS_BACKGROUND_LOCATION`)
+**Note:** iOS Podfile still includes `LocationAlways` (needed for provider live tracking). Android `AndroidManifest.xml` does NOT declare `ACCESS_BACKGROUND_LOCATION` — provider location tracking on Android uses foreground service only.
 
 ---
 
@@ -374,17 +350,15 @@ NSLocationAlwaysAndWhenInUseUsageDescription: "This app needs access to your loc
 
 ## 5. Medium Priority Issues
 
-### 5.1 Strip Production Console Logs
-- [ ] Remove or gate behind `__DEV__` all console.log/error in `src/services/aadhaarService.js` (lines 38-65, 68, 79-82, 92-96 — especially line 64 which logs full API response JSON including sensitive verification session data)
-- [ ] Remove or gate behind `__DEV__` console.log in `src/services/subscriptionService.js` (lines 28-29, 137, 151, 192, 206, 298, 303, 315, 524, 537 — none are `__DEV__` gated)
-- [ ] Remove or gate behind `__DEV__` console.log in `src/services/googleAuthService.js` (30+ log statements across lines 103, 116, 118, 132, 175, 192-193, 209, 213, 215, 220, 271, 296-299, 303, 320, 404, 406, 420, 422, 442, 459, 467, 505, 529, 537, 563 — NONE are `__DEV__` gated, includes user emails and IDs)
-- [ ] Remove or gate behind `__DEV__` console.log in `src/config/mapbox.js` (lines 33, 61, 63 — NOT `__DEV__` gated)
-- [ ] Remove or gate behind `__DEV__` console.log in `src/config/environment.js` (lines 106-108 — NOT `__DEV__` gated, leaks production backend URLs on every app launch)
-- [ ] Consider adding `babel-plugin-transform-remove-console` to `babel.config.js` for production builds as a safety net
+### 5.1 Strip Production Console Logs — DONE
+- [x] Installed `babel-plugin-transform-remove-console` (`npm install --save-dev`)
+- [x] Added to `babel.config.js` under `env.production.plugins`
+- [x] ALL `console.log`, `console.warn`, `console.error` calls are automatically stripped from production builds by Babel
+- [x] This covers all files: aadhaarService.js, subscriptionService.js, googleAuthService.js, mapbox.js, environment.js, and every other file
 
-**Note:** `src/config/api.js` lines 140-156 are already correctly gated with `if (__DEV__)` — no changes needed there.
+**How it works:** The Babel plugin runs during the Metro bundler's production build (`NODE_ENV=production`). It removes every `console.*` call from the JS bundle. No manual `__DEV__` gating needed — the plugin handles everything at compile time. Debug builds (`__DEV__`) still show all logs.
 
-**Why:** Console logs in production leak internal API URLs, user emails, user IDs, response data, and debugging info. The Aadhaar service log is particularly sensitive — it logs full verification session data. The environment.js logs expose backend infrastructure URLs on every app start.
+**Files modified:** `babel.config.js`, `package.json` (new devDependency)
 
 ---
 
