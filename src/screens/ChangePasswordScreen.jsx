@@ -35,6 +35,7 @@ import {
 } from '../services/authService';
 import { validatePassword } from '../utils/validation';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 
 // Colors
 const COLORS = {
@@ -58,6 +59,7 @@ const COLORS = {
  */
 const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
   const { user, profile, refreshVerificationStatus } = useApp();
+  const { t } = useLanguage();
 
   // Determine if user has a password (OAuth users don't)
   const [hasPassword, setHasPassword] = useState(true);
@@ -145,7 +147,7 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
 
     // Validate current password (only required if user has one)
     if (hasPassword && !formData.currentPassword) {
-      newErrors.currentPassword = 'Current password is required';
+      newErrors.currentPassword = t('changePassword.currentRequired');
     }
 
     // Validate new password
@@ -156,14 +158,14 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
 
     // Check if new password is same as current (only if user has password)
     if (hasPassword && formData.newPassword && formData.currentPassword === formData.newPassword) {
-      newErrors.newPassword = 'New password must be different from current password';
+      newErrors.newPassword = t('changePassword.sameAsCurrent');
     }
 
     // Validate confirm password
     if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Please confirm your new password';
+      newErrors.confirmPassword = t('changePassword.confirmRequired');
     } else if (formData.newPassword !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
+      newErrors.confirmPassword = t('changePassword.noMatch');
     }
 
     setErrors(newErrors);
@@ -187,7 +189,7 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
       if (result.success) {
         setChangeComplete(true);
         setHasPassword(true); // User now has a password
-        const successMsg = hasPassword ? 'Password changed successfully!' : 'Password set successfully!';
+        const successMsg = hasPassword ? t('changePassword.alertChanged') : t('changePassword.alertSet');
         showAlert(successMsg, 'success');
         
         // Refresh profile from Java Auth so hasPassword is persisted in AppContext
@@ -210,19 +212,19 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
         
         if (errorCode === AUTH_CODES.INVALID_CURRENT_PASSWORD || 
             errorCode === 'INVALID_CURRENT_PASSWORD') {
-          setErrors({ currentPassword: 'Current password is incorrect' });
+          setErrors({ currentPassword: t('changePassword.currentIncorrect') });
         } else if (errorCode === AUTH_CODES.SAME_PASSWORD ||
                    errorCode === 'SAME_PASSWORD') {
-          setErrors({ newPassword: 'New password must be different from current password' });
+          setErrors({ newPassword: t('changePassword.sameAsCurrent') });
         } else if (errorCode === AUTH_CODES.WEAK_PASSWORD) {
-          setErrors({ newPassword: 'Password must be at least 8 characters long' });
+          setErrors({ newPassword: t('auth.weakPassword') });
         } else {
           showAlert(errorMessage);
         }
       }
     } catch (err) {
       console.error('❌ Change password error:', err);
-      showAlert('An unexpected error occurred. Please try again.');
+      showAlert(t('common.somethingWentWrong'));
     } finally {
       setLoading(false);
     }
@@ -233,9 +235,9 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
    */
   const handleForgotPassword = async () => {
     const phoneNumber = profile?.phone || user?.phone || user?.phoneNumber;
-    
+
     if (!phoneNumber) {
-      showAlert('No phone number associated with your account. Please contact support.');
+      showAlert(t('changePassword.noPhone'));
       return;
     }
 
@@ -248,13 +250,13 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
       if (result.success) {
         setOtpSent(true);
         setResendCountdown(60); // 60 second cooldown
-        showAlert('OTP sent to your registered phone number', 'success');
+        showAlert(t('changePassword.alertOtpSent'), 'success');
       } else {
-        showAlert(result.error?.message || 'Failed to send OTP. Please try again.');
+        showAlert(result.error?.message || t('changePassword.otpSendFailed'));
       }
     } catch (err) {
       console.error('❌ Forgot password error:', err);
-      showAlert('Failed to send OTP. Please try again.');
+      showAlert(t('changePassword.otpSendFailed'));
     } finally {
       setOtpLoading(false);
     }
@@ -265,7 +267,7 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
    */
   const handleVerifyOtpAndReset = async () => {
     if (otp.length !== 6) {
-      showAlert('Please enter a valid 6-digit OTP');
+      showAlert(t('changePassword.invalidOtp'));
       return;
     }
 
@@ -276,7 +278,7 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
     }
 
     if (formData.newPassword !== formData.confirmPassword) {
-      setErrors({ confirmPassword: 'Passwords do not match' });
+      setErrors({ confirmPassword: t('changePassword.noMatch') });
       return;
     }
 
@@ -291,7 +293,7 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
       if (result.success) {
         setChangeComplete(true);
         setHasPassword(true);
-        showAlert('Password reset successfully!', 'success');
+        showAlert(t('changePassword.alertReset'), 'success');
         
         // Refresh profile from Java Auth so hasPassword is persisted in AppContext
         refreshVerificationStatus().catch(() => {});
@@ -313,18 +315,18 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
         const errorCode = result.error?.code || '';
 
         if (errorCode === 'INVALID_OTP' || errorCode === AUTH_CODES.INVALID_OTP) {
-          showAlert('The OTP you entered is incorrect. Please check and try again.');
+          showAlert(t('changePassword.otpIncorrect'));
         } else if (errorCode === AUTH_CODES.OTP_EXPIRED) {
-          showAlert('This OTP has expired. Please request a new one.');
+          showAlert(t('changePassword.otpExpired'));
         } else if (errorCode === AUTH_CODES.MAX_ATTEMPTS_EXCEEDED) {
-          showAlert('Too many attempts. Please request a new OTP.');
+          showAlert(t('changePassword.maxAttempts'));
         } else {
-          showAlert(getErrorMessage(errorCode, 'Password reset failed. Please try again.'));
+          showAlert(getErrorMessage(errorCode, t('changePassword.resetFailed')));
         }
       }
     } catch (err) {
       console.error('❌ Reset password error:', err);
-      showAlert('Failed to reset password. Please try again.');
+      showAlert(t('changePassword.resetFailed'));
     } finally {
       setLoading(false);
     }
@@ -378,15 +380,14 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
         <Text style={styles.successIcon}>✅</Text>
       </View>
       
-      <Text style={styles.successTitle}>Password {hasPassword ? 'Changed' : 'Set'}!</Text>
-      
+      <Text style={styles.successTitle}>{hasPassword ? t('changePassword.passwordChanged') : t('changePassword.passwordSet')}</Text>
+
       <Text style={styles.successMessage}>
-        Your password has been {hasPassword ? 'updated' : 'set'} successfully.
-        {!hasPassword && '\n\nYou can now log in with your email and password.'}
+        {hasPassword ? t('changePassword.changedMsg') : t('changePassword.setMsg')}
       </Text>
 
       <Button
-        title="Done"
+        title={t('common.done')}
         onPress={handleGoBack}
         style={styles.doneButton}
       />
@@ -399,7 +400,7 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
   const renderLoadingState = () => (
     <View style={styles.loadingContainer}>
       <ActivityIndicator size="large" color={COLORS.primary} />
-      <Text style={styles.loadingText}>Loading...</Text>
+      <Text style={styles.loadingText}>{t('common.loading')}</Text>
     </View>
   );
 
@@ -416,11 +417,11 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
       <View style={styles.formContainer}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Reset Password</Text>
+          <Text style={styles.title}>{t('changePassword.resetPassword')}</Text>
           <Text style={styles.subtitle}>
-            {otpSent 
-              ? `Enter the 6-digit OTP sent to ${maskedPhone} and set your new password.`
-              : `We'll send an OTP to ${maskedPhone} to verify your identity.`
+            {otpSent
+              ? t('changePassword.otpSentSub', { phone: maskedPhone })
+              : t('changePassword.otpNotSentSub', { phone: maskedPhone })
             }
           </Text>
         </View>
@@ -429,12 +430,12 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
           // Step 1: Send OTP
           <>
             <View style={styles.phoneInfoContainer}>
-              <Text style={styles.phoneInfoLabel}>Registered Phone</Text>
+              <Text style={styles.phoneInfoLabel}>{t('changePassword.registeredPhone')}</Text>
               <Text style={styles.phoneInfoValue}>{maskedPhone}</Text>
             </View>
 
             <Button
-              title="Send OTP"
+              title={t('changePassword.sendOtp')}
               onPress={handleForgotPassword}
               loading={otpLoading}
               disabled={otpLoading || !phoneNumber}
@@ -443,7 +444,7 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
 
             {!phoneNumber && (
               <Text style={styles.noPhoneWarning}>
-                No phone number found. Please add a phone number in your profile settings first.
+                {t('changePassword.noPhoneWarning')}
               </Text>
             )}
           </>
@@ -452,7 +453,7 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
           <>
             {/* OTP Input */}
             <View style={styles.otpContainer}>
-              <Text style={styles.otpLabel}>Enter OTP</Text>
+              <Text style={styles.otpLabel}>{t('changePassword.enterOtpLabel')}</Text>
               <View style={styles.otpInputContainer}>
                 <TextInput
                   style={styles.otpInput}
@@ -475,9 +476,9 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
                   styles.resendText, 
                   (resendCountdown > 0 || otpLoading) && styles.resendTextDisabled
                 ]}>
-                  {resendCountdown > 0 
-                    ? `Resend OTP in ${resendCountdown}s` 
-                    : 'Resend OTP'
+                  {resendCountdown > 0
+                    ? t('changePassword.resendOtpIn', { n: resendCountdown })
+                    : t('changePassword.resendOtp')
                   }
                 </Text>
               </TouchableOpacity>
@@ -485,8 +486,8 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
 
             {/* New Password Input */}
             <Input
-              label="New Password"
-              placeholder="Enter new password"
+              label={t('changePassword.newPasswordLabel')}
+              placeholder={t('changePassword.newPasswordPlaceholder')}
               value={formData.newPassword}
               onChangeText={(text) => updateField('newPassword', text)}
               secureTextEntry={!showNewPassword}
@@ -499,8 +500,8 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
 
             {/* Confirm New Password Input */}
             <Input
-              label="Confirm New Password"
-              placeholder="Confirm new password"
+              label={t('changePassword.confirmLabel')}
+              placeholder={t('changePassword.confirmPlaceholder')}
               value={formData.confirmPassword}
               onChangeText={(text) => updateField('confirmPassword', text)}
               secureTextEntry={!showConfirmPassword}
@@ -513,28 +514,28 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
 
             {/* Password Requirements */}
             <View style={styles.requirementsContainer}>
-              <Text style={styles.requirementsTitle}>Password must:</Text>
-              <PasswordRequirement 
+              <Text style={styles.requirementsTitle}>{t('changePassword.passwordMust')}</Text>
+              <PasswordRequirement
                 met={formData.newPassword.length >= 8}
-                text="Be at least 8 characters long"
+                text={t('changePassword.be8Chars')}
               />
-              <PasswordRequirement 
+              <PasswordRequirement
                 met={/[A-Z]/.test(formData.newPassword)}
-                text="Contain at least one uppercase letter"
+                text={t('changePassword.containUppercase')}
               />
-              <PasswordRequirement 
+              <PasswordRequirement
                 met={/[a-z]/.test(formData.newPassword)}
-                text="Contain at least one lowercase letter"
+                text={t('changePassword.containLowercase')}
               />
-              <PasswordRequirement 
+              <PasswordRequirement
                 met={/[0-9]/.test(formData.newPassword)}
-                text="Contain at least one number"
+                text={t('changePassword.containNumber')}
               />
             </View>
 
             {/* Submit Button */}
             <Button
-              title="Reset Password"
+              title={t('changePassword.resetPasswordBtn')}
               onPress={handleVerifyOtpAndReset}
               loading={loading}
               disabled={loading || otp.length !== 6 || !formData.newPassword || !formData.confirmPassword}
@@ -548,7 +549,7 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
           style={styles.cancelButton}
           onPress={exitForgotPasswordMode}
         >
-          <Text style={styles.cancelButtonText}>← Back to Change Password</Text>
+          <Text style={styles.cancelButtonText}>{`← ${t('changePassword.backToChange')}`}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -561,11 +562,11 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
     <View style={styles.formContainer}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>{hasPassword ? 'Change Password' : 'Set Password'}</Text>
+        <Text style={styles.title}>{hasPassword ? t('changePassword.title') : t('changePassword.setPassword')}</Text>
         <Text style={styles.subtitle}>
-          {hasPassword 
-            ? 'Enter your current password and create a new one.'
-            : 'You signed in with Google. Set a password to enable email/phone login.'
+          {hasPassword
+            ? t('changePassword.changeSub')
+            : t('changePassword.setSub')
           }
         </Text>
       </View>
@@ -574,8 +575,8 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
       {hasPassword && (
         <>
           <Input
-            label="Current Password"
-            placeholder="Enter current password"
+            label={t('changePassword.currentPassword')}
+            placeholder={t('changePassword.currentPasswordPlaceholder')}
             value={formData.currentPassword}
             onChangeText={(text) => updateField('currentPassword', text)}
             secureTextEntry={!showCurrentPassword}
@@ -591,13 +592,13 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
             style={styles.forgotPasswordLink}
             onPress={enterForgotPasswordMode}
           >
-            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            <Text style={styles.forgotPasswordText}>{t('changePassword.forgotPassword')}</Text>
           </TouchableOpacity>
 
           {/* Divider */}
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>New Password</Text>
+            <Text style={styles.dividerText}>{t('changePassword.newPasswordDivider')}</Text>
             <View style={styles.dividerLine} />
           </View>
         </>
@@ -605,8 +606,8 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
 
       {/* New Password Input */}
       <Input
-        label="New Password"
-        placeholder="Enter new password"
+        label={t('changePassword.newPasswordLabel')}
+        placeholder={t('changePassword.newPasswordPlaceholder')}
         value={formData.newPassword}
         onChangeText={(text) => updateField('newPassword', text)}
         secureTextEntry={!showNewPassword}
@@ -619,8 +620,8 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
 
       {/* Confirm New Password Input */}
       <Input
-        label="Confirm New Password"
-        placeholder="Confirm new password"
+        label={t('changePassword.confirmLabel')}
+        placeholder={t('changePassword.confirmPlaceholder')}
         value={formData.confirmPassword}
         onChangeText={(text) => updateField('confirmPassword', text)}
         secureTextEntry={!showConfirmPassword}
@@ -633,34 +634,34 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
 
       {/* Password Requirements */}
       <View style={styles.requirementsContainer}>
-        <Text style={styles.requirementsTitle}>Password must:</Text>
-        <PasswordRequirement 
+        <Text style={styles.requirementsTitle}>{t('changePassword.passwordMust')}</Text>
+        <PasswordRequirement
           met={formData.newPassword.length >= 8}
-          text="Be at least 8 characters long"
+          text={t('changePassword.be8Chars')}
         />
-        <PasswordRequirement 
+        <PasswordRequirement
           met={/[A-Z]/.test(formData.newPassword)}
-          text="Contain at least one uppercase letter"
+          text={t('changePassword.containUppercase')}
         />
-        <PasswordRequirement 
+        <PasswordRequirement
           met={/[a-z]/.test(formData.newPassword)}
-          text="Contain at least one lowercase letter"
+          text={t('changePassword.containLowercase')}
         />
-        <PasswordRequirement 
+        <PasswordRequirement
           met={/[0-9]/.test(formData.newPassword)}
-          text="Contain at least one number"
+          text={t('changePassword.containNumber')}
         />
         {hasPassword && (
-          <PasswordRequirement 
+          <PasswordRequirement
             met={formData.newPassword !== formData.currentPassword && formData.newPassword.length > 0}
-            text="Be different from current password"
+            text={t('changePassword.beDifferent')}
           />
         )}
       </View>
 
       {/* Submit Button */}
       <Button
-        title={hasPassword ? 'Change Password' : 'Set Password'}
+        title={hasPassword ? t('changePassword.changePasswordBtn') : t('changePassword.setPasswordBtn')}
         onPress={handleSubmit}
         loading={loading}
         disabled={loading || (hasPassword && !formData.currentPassword) || !formData.newPassword || !formData.confirmPassword}
@@ -672,7 +673,7 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
         style={styles.cancelButton}
         onPress={handleGoBack}
       >
-        <Text style={styles.cancelButtonText}>Cancel</Text>
+        <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -693,7 +694,7 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
             style={styles.backButton}
             onPress={handleGoBack}
           >
-            <Text style={styles.backButtonText}>← Back</Text>
+            <Text style={styles.backButtonText}>{`← ${t('common.back')}`}</Text>
           </TouchableOpacity>
 
           {/* Alert */}

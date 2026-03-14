@@ -27,13 +27,15 @@ import {
 } from '../services/authService';
 import { validateEmail, validatePhone } from '../utils/validation';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 
 /**
  * OTPLoginScreen Component
- * 
+ *
  * @param {Object} props - Navigation props
  */
 const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 'user' }) => {
+  const { t } = useLanguage();
   // Method: 'phone' or 'email'
   const [method, setMethod] = useState('phone');
   
@@ -97,14 +99,14 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
 
     if (method === 'phone') {
       if (!formData.phone || !formData.phone.trim()) {
-        newErrors.phone = 'Phone number is required';
+        newErrors.phone = t('auth.phoneRequired');
       } else {
         const phoneValidation = validatePhone(formData.phone);
         if (!phoneValidation.isValid) newErrors.phone = phoneValidation.error;
       }
     } else {
       if (!formData.email || !formData.email.trim()) {
-        newErrors.email = 'Email is required';
+        newErrors.email = t('auth.emailRequired');
       } else {
         const emailValidation = validateEmail(formData.email);
         if (!emailValidation.isValid) newErrors.email = emailValidation.error;
@@ -128,7 +130,7 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
       const validation = validateForm();
       if (!validation.isValid) {
         setErrors(validation.errors);
-        showAlert('Please fix the errors below', 'warning');
+        showAlert(t('auth.formErrors'), 'warning');
         return;
       }
 
@@ -147,7 +149,7 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
 
       if (result.success) {
         const maskedValue = method === 'phone' ? result.maskedPhone : result.maskedEmail;
-        showAlert(`OTP sent to ${maskedValue}`, 'success');
+        showAlert(t('auth.otpSentTo', { value: maskedValue }), 'success');
         
         // Navigate to OTP verification screen
         if (onOtpSent) {
@@ -165,19 +167,19 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
         switch (error.code) {
           case AUTH_CODES.USER_NOT_FOUND:
             showAlert(
-              method === 'phone' 
-                ? 'No account found with this phone number.' 
-                : 'No account found with this email.',
+              method === 'phone'
+                ? t('auth.noAccountPhone')
+                : t('auth.noAccountEmail'),
               'error'
             );
             break;
-            
+
           case AUTH_CODES.TOO_MANY_REQUESTS:
-            showAlert('Too many requests. Please wait before trying again.', 'warning');
+            showAlert(t('auth.tooManyRequests'), 'warning');
             break;
-            
+
           case AUTH_CODES.ACCOUNT_DISABLED:
-            showAlert('Your account has been disabled. Please contact support.', 'error');
+            showAlert(t('auth.accountDisabled'), 'error');
             break;
             
           case AUTH_CODES.NETWORK_ERROR:
@@ -191,19 +193,19 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
           case 'ERR_BAD_REQUEST':
             showAlert(
               method === 'phone'
-                ? 'Please enter a valid phone number with country code (e.g. +91XXXXXXXXXX).'
-                : 'Please enter a valid email address.',
+                ? t('auth.validationFailedPhone')
+                : t('auth.validationFailedEmail'),
               'error',
             );
             break;
 
           default:
-            showAlert(error.message || 'Failed to send OTP. Please try again.', 'error');
+            showAlert(error.message || t('auth.sendOtpFailed'), 'error');
         }
       }
     } catch (error) {
       console.error('❌ [OTPLoginScreen] Unexpected error:', error);
-      showAlert('An unexpected error occurred. Please try again.', 'error');
+      showAlert(t('auth.unexpectedError'), 'error');
     } finally {
       setLoading(false);
     }
@@ -226,9 +228,9 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
               <FixhomiLogo size={44} />
             </View>
             <Text style={styles.brandName}>FixHomi</Text>
-            <Text style={styles.title}>Sign In with OTP</Text>
+            <Text style={styles.title}>{t('auth.signInWithOtpTitle')}</Text>
             <Text style={styles.subtitle}>
-              We'll send a one-time password to your {method === 'phone' ? 'phone' : 'email'}
+              {method === 'phone' ? t('auth.otpSubtitlePhone') : t('auth.otpSubtitleEmail')}
             </Text>
           </View>
 
@@ -240,7 +242,7 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
               disabled={loading}
             >
               <Text style={[styles.tabText, method === 'phone' && styles.tabTextActive]}>
-                Phone
+                {t('auth.phone')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -249,7 +251,7 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
               disabled={loading}
             >
               <Text style={[styles.tabText, method === 'email' && styles.tabTextActive]}>
-                Email
+                {t('auth.email')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -269,7 +271,7 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
           <View style={styles.form}>
             {method === 'phone' ? (
               <PhoneInput
-                label="Phone Number"
+                label={t('auth.phoneNumber')}
                 value={formData.phone}
                 onChangeText={(value) => updateField('phone', value)}
                 error={errors.phone}
@@ -278,10 +280,10 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
               />
             ) : (
               <Input
-                label="Email"
+                label={t('auth.email')}
                 value={formData.email}
                 onChangeText={(value) => updateField('email', value)}
-                placeholder="Enter your email"
+                placeholder={t('auth.emailPlaceholder')}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoComplete="email"
@@ -291,7 +293,7 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
             )}
 
             <Button
-              title={loading ? 'Sending OTP...' : 'Send OTP'}
+              title={loading ? t('auth.sendingOtp') : t('auth.sendOtp')}
               onPress={handleSendOtp}
               loading={loading}
               disabled={loading}
@@ -301,12 +303,12 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
             {/* Password Login Option */}
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
+              <Text style={styles.dividerText}>{t('auth.or')}</Text>
               <View style={styles.dividerLine} />
             </View>
 
             <Button
-              title="Sign In with Password"
+              title={t('auth.signInWithPassword')}
               onPress={onSwitchToPassword}
               variant="outline"
               disabled={loading}
@@ -316,9 +318,9 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
           {/* Info */}
           <View style={styles.info}>
             <Text style={styles.infoText}>
-              {method === 'phone' 
-                ? 'You will receive a 6-digit OTP on your registered phone number.'
-                : 'You will receive a 6-digit OTP on your registered email address.'
+              {method === 'phone'
+                ? t('auth.infoPhone')
+                : t('auth.infoEmail')
               }
             </Text>
           </View>

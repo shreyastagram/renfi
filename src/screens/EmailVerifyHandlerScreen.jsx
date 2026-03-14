@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Alert } from '../components';
 import { verifyEmailToken, getErrorMessage, AUTH_CODES } from '../services/authService';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 
 /**
  * EmailVerifyHandlerScreen Component
@@ -28,6 +29,7 @@ import { useApp } from '../context/AppContext';
  */
 const EmailVerifyHandlerScreen = ({ route, navigation }) => {
   const { initializeAuth } = useApp();
+  const { t } = useLanguage();
 
   // Get token from route params or deep link
   const token = route?.params?.token;
@@ -46,7 +48,7 @@ const EmailVerifyHandlerScreen = ({ route, navigation }) => {
       handleVerify();
     } else {
       setLoading(false);
-      setError('Invalid verification link. No token provided.');
+      setError(t('emailVerify.noToken'));
     }
   }, [token]);
 
@@ -71,15 +73,15 @@ const EmailVerifyHandlerScreen = ({ route, navigation }) => {
         
         switch (err.code) {
           case AUTH_CODES.INVALID_TOKEN:
-            setError('This verification link is invalid or has already been used.');
+            setError(t('emailVerify.invalidToken'));
             break;
-            
+
           case AUTH_CODES.TOKEN_EXPIRED:
-            setError('This verification link has expired. Please request a new one.');
+            setError(t('emailVerify.tokenExpired'));
             break;
-            
+
           default:
-            setError(err.message || 'Verification failed. Please try again.');
+            setError(err.message || t('verificationScreen.verificationFailed'));
         }
       }
     } catch (err) {
@@ -119,7 +121,7 @@ const EmailVerifyHandlerScreen = ({ route, navigation }) => {
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContent}>
           <ActivityIndicator size="large" color="#2563EB" />
-          <Text style={styles.loadingText}>Verifying your email...</Text>
+          <Text style={styles.loadingText}>{t('emailVerify.verifying')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -133,15 +135,15 @@ const EmailVerifyHandlerScreen = ({ route, navigation }) => {
           <View style={styles.iconContainer}>
             <Text style={styles.successIcon}>✓</Text>
           </View>
-          <Text style={styles.title}>Email Verified!</Text>
+          <Text style={styles.title}>{t('emailVerify.verified')}</Text>
           <Text style={styles.subtitle}>
-            {verifiedEmail 
-              ? `Your email ${verifiedEmail} has been verified.`
-              : 'Your email has been verified successfully.'
+            {verifiedEmail
+              ? t('emailVerify.verifiedMsg', { email: verifiedEmail })
+              : t('emailVerify.verifiedMsgNoEmail')
             }
           </Text>
           <Button
-            title="Continue"
+            title={t('common.continue')}
             onPress={handleContinue}
             style={styles.button}
           />
@@ -157,15 +159,15 @@ const EmailVerifyHandlerScreen = ({ route, navigation }) => {
         <View style={styles.iconContainerError}>
           <Text style={styles.errorIcon}>✕</Text>
         </View>
-        <Text style={styles.title}>Verification Failed</Text>
+        <Text style={styles.title}>{t('emailVerify.verificationFailed')}</Text>
         <Text style={styles.subtitle}>{error}</Text>
         <Button
-          title="Request New Link"
+          title={t('emailVerify.requestNewLink')}
           onPress={handleRequestNew}
           style={styles.button}
         />
         <Button
-          title="Go to Home"
+          title={t('emailVerify.goToHome')}
           onPress={handleContinue}
           variant="outline"
           style={styles.buttonSecondary}

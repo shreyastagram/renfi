@@ -9,6 +9,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
+import { useLanguage } from '../context/LanguageContext';
 import ProviderRegisterScreen from './ProviderRegisterScreen';
 import LoginScreen from './LoginScreen';
 import OTPLoginScreen from './OTPLoginScreen';
@@ -31,6 +32,7 @@ const AUTH_MODES = {
  * @param {Object} props - Navigation props
  */
 const ProviderAuthScreen = ({ navigation }) => {
+  const { t } = useLanguage();
   const [authMode, setAuthMode] = useState(AUTH_MODES.LOGIN);
   const [otpData, setOtpData] = useState(null);
 

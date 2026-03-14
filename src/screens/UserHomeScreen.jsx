@@ -44,6 +44,7 @@ const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLocation } from '../context/LocationContext';
+import { useLanguage } from '../context/LanguageContext';
 import {
   createServiceRequest,
   getNearbyProviders,
@@ -90,7 +91,24 @@ const SERVICE_CATEGORIES = [
   { id: 'ac_repair', name: 'AC Repair', iconName: 'ac_repair' },
 ];
 
+// Map service IDs to translation keys
+const SERVICE_ID_TO_KEY = {
+  electrician: 'services.electrician',
+  plumber: 'services.plumber',
+  electronics_technician: 'services.electronics',
+  carpenter: 'services.carpenter',
+  painter: 'services.painter',
+  solar_repairing: 'services.solar',
+  welder: 'services.welder',
+  salon: 'services.salon',
+  vehicle_cleaning: 'services.vehicleClean',
+  mason_tiler: 'services.masonTiler',
+  driver: 'services.driver',
+  ac_repair: 'services.acRepair',
+};
+
 const ServiceCard = ({ service, onPress }) => {
+  const { t } = useLanguage();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const onPressIn = () => Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true, friction: 8 }).start();
   const onPressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, friction: 8 }).start();
@@ -107,13 +125,14 @@ const ServiceCard = ({ service, onPress }) => {
         <View style={styles.serviceIconContainer}>
           <ServiceIcon serviceType={service.id} size={26} color={BRAND.secondary} />
         </View>
-        <Text style={styles.serviceName}>{service.name}</Text>
+        <Text style={styles.serviceName}>{SERVICE_ID_TO_KEY[service.id] ? t(SERVICE_ID_TO_KEY[service.id]) : service.name}</Text>
       </TouchableOpacity>
     </Animated.View>
   );
 };
 
 const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, contacted, calling, skipping }) => {
+  const { t } = useLanguage();
   const useKm = useDistanceUnit();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const onPressIn = () => Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true, friction: 8 }).start();
@@ -154,16 +173,16 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
           {contacted && (
             <View style={styles.contactedBadge}>
               <MaterialIcon name="call-made" size={10} color="#FFFFFF" />
-              <Text style={styles.contactedBadgeText}>Contacted</Text>
+              <Text style={styles.contactedBadgeText}>{t('userHome.contacted')}</Text>
             </View>
           )}
         </View>
         <View style={styles.providerDistanceRow}>
           <Icon name="location" size={14} color="#94A3B8" />
           <Text style={styles.providerDistance}>
-            {provider.distanceKm ? `${formatDistance(provider.distanceKm, useKm)} away` :
-             typeof provider.distance === 'number' ? `${formatDistanceFromMeters(provider.distance, useKm)} away` :
-             'Nearby'}
+            {provider.distanceKm ? `${formatDistance(provider.distanceKm, useKm)} ${t('common.away')}` :
+             typeof provider.distance === 'number' ? `${formatDistanceFromMeters(provider.distance, useKm)} ${t('common.away')}` :
+             t('common.nearby')}
           </Text>
         </View>
         {(provider.rating > 0 || provider.ratings?.average > 0) && (
@@ -209,7 +228,7 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
         }}
         disabled={booking}
       >
-        {booking ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.bookButtonText}>Send Request</Text>}
+        {booking ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.bookButtonText}>{t('userHome.bookButton')}</Text>}
       </TouchableOpacity>
       {/* Skip / Remove Provider Button */}
       <TouchableOpacity
@@ -236,6 +255,7 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
 const UserHomeScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
+  const { t } = useLanguage();
 
   // Set status bar for light background when this tab is focused
   useFocusEffect(
@@ -521,11 +541,11 @@ const UserHomeScreen = ({ navigation, route }) => {
       } else if (result === RESULTS.BLOCKED) {
         setLocationPermission('blocked');
         dialog(
-          'Location Permission Required',
-          'Please enable location permission in your device settings to use this app effectively.',
+          t('userHome.locationPermRequired'),
+          t('userHome.locationPermMsg'),
           [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Open Settings', onPress: () => openSettings() }
+            { text: t('common.cancel'), style: 'cancel' },
+            { text: t('common.openSettings'), onPress: () => openSettings() }
           ]
         );
         return false;
@@ -586,10 +606,10 @@ const UserHomeScreen = ({ navigation, route }) => {
         } else if (result === RESULTS.BLOCKED) {
           setNotificationPermission('blocked');
           dialog(
-            'Notifications Required',
-            'Notifications are required for you to receive updates about your service requests. Please enable them in settings.',
+            t('userHome.notificationRequired'),
+            t('userHome.notificationRequiredMsg'),
             [
-              { text: 'Open Settings', onPress: () => openSettings() }
+              { text: t('common.openSettings'), onPress: () => openSettings() }
             ]
           );
           return false;
@@ -647,9 +667,9 @@ const UserHomeScreen = ({ navigation, route }) => {
     // Only block for verification if profile has fully loaded and user is genuinely unverified
     // Don't show verification popup while data is still loading — bad UX
     if (profileReady && !isVerified) {
-      dialog('Verification Required', 'Please verify your phone and email to book services.', [
-        { text: 'Later', style: 'cancel' },
-        { text: 'Verify Now', onPress: () => navigation.navigate('Profile') },
+      dialog(t('userHome.verificationRequired'), t('userHome.verificationRequiredMsg'), [
+        { text: t('common.later'), style: 'cancel' },
+        { text: t('userHome.verifyNow'), onPress: () => navigation.navigate('Profile') },
       ]);
       return;
     }
@@ -657,12 +677,12 @@ const UserHomeScreen = ({ navigation, route }) => {
     // Check if location services are enabled — show popup if GPS is off
     if (!locationServicesEnabled && !currentLocation) {
       dialog(
-        'Location is Turned Off',
-        'Please enable location services to find nearby service providers. You can also select a saved address during booking.',
+        t('userHome.locationOff'),
+        t('userHome.locationOffMsg'),
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('common.cancel'), style: 'cancel' },
           {
-            text: 'Enable Location',
+            text: t('userHome.enableLocation'),
             onPress: () => {
               if (Platform.OS === 'ios') {
                 Linking.openURL('app-settings:');
@@ -674,7 +694,7 @@ const UserHomeScreen = ({ navigation, route }) => {
             },
           },
           {
-            text: 'Continue Anyway',
+            text: t('userHome.continueAnyway'),
             onPress: () => {
               setSelectedService(service);
               setStep('date');
@@ -703,7 +723,7 @@ const UserHomeScreen = ({ navigation, route }) => {
 
   const handleCreateRequest = async () => {
     if (!selectedService || !selectedDateTime) {
-      dialog('Error', 'Please select service and date/time');
+      dialog(t('common.error'), t('userHome.selectDateTime'));
       return;
     }
 
@@ -722,12 +742,12 @@ const UserHomeScreen = ({ navigation, route }) => {
       // No location at all — GPS might be off
       if (!locationServicesEnabled) {
         dialog(
-          'Location Required',
-          'Location services are turned off. Please enable GPS or select a saved address.',
+          t('userHome.locationRequired'),
+          t('userHome.locationRequiredGpsMsg'),
           [
-            { text: 'Select Address', onPress: () => {} },
+            { text: t('userHome.selectAddress'), onPress: () => {} },
             {
-              text: 'Enable GPS',
+              text: t('userHome.enableGps'),
               onPress: () => {
                 if (Platform.OS === 'ios') {
                   Linking.openURL('app-settings:');
@@ -741,14 +761,14 @@ const UserHomeScreen = ({ navigation, route }) => {
           ]
         );
       } else {
-        dialog('Location Required', 'Please wait for your location to be detected, or select a saved address.');
+        dialog(t('userHome.locationRequired'), t('userHome.locationRequiredDetecting'));
       }
       return;
     }
 
     // Validate location has actual coordinates (not just loading/partial)
     if (!locationToUse.latitude || !locationToUse.longitude) {
-      dialog('Location Incomplete', 'Your location is still being detected. Please wait a moment and try again.');
+      dialog(t('userHome.locationIncomplete'), t('userHome.locationIncompleteMsg'));
       return;
     }
 
@@ -773,26 +793,24 @@ const UserHomeScreen = ({ navigation, route }) => {
       });
       if (result.success) {
         setCreatedRequest(result.request);
-        const alertMessage = selectedDateTime.isInstant
-          ? 'Instant request created! Find nearby available providers now?'
-          : 'Request created! Find nearby providers now?';
-        dialog('Request Created', alertMessage, [
-          { text: 'Later', onPress: resetFlow },
-          { text: 'Find Providers', onPress: () => fetchProviders(result.request._id) },
+        const alertMessage = t('userHome.requestCreatedMsg');
+        dialog(t('userHome.requestCreated'), alertMessage, [
+          { text: t('common.later'), onPress: resetFlow },
+          { text: t('userHome.findProviders'), onPress: () => fetchProviders(result.request._id) },
         ]);
       } else if (result.code === 'OUTSIDE_SERVICE_ZONE') {
         dialog(
-          'Service Unavailable in Your Area',
-          result.suggestion || 'Our services are currently available only in Yavatmal City, Maharashtra. We\'re expanding soon!',
-          [{ text: 'OK', onPress: resetFlow }]
+          t('userHome.outsideServiceZone'),
+          result.suggestion || t('userHome.outsideServiceZoneMsg'),
+          [{ text: t('common.ok'), onPress: resetFlow }]
         );
       } else if (result.code === 'RATE_LIMITED' && result.retryAfter) {
-        dialog('Please Wait', `You've made too many requests. Try again in ${result.retryAfter} seconds.`);
+        dialog(t('userHome.rateLimited'), t('userHome.rateLimitedMsg', { seconds: result.retryAfter }));
       } else {
-        dialog('Error', result.error || 'Failed to create request');
+        dialog(t('common.error'), result.error || t('userHome.createRequestFailed'));
       }
     } catch (error) {
-      dialog('Error', 'Something went wrong');
+      dialog(t('common.error'), t('common.somethingWentWrong'));
     } finally {
       setCreatingRequest(false);
     }
@@ -809,20 +827,20 @@ const UserHomeScreen = ({ navigation, route }) => {
           setProviders([]);
           setAllProvidersRejected(true);
           dialog(
-            'All Providers Reviewed',
-            result.suggestion || 'You have reviewed all available providers. Start a fresh search to see them again.',
+            t('userHome.allProvidersReviewed'),
+            result.suggestion || t('userHome.allProvidersReviewedMsg'),
           );
         } else {
           setAllProvidersRejected(false);
           setProviders(result.providers || []);
           setSearchRadius(result.searchRadius || 0);
-          if (!result.providers?.length) dialog('No Providers Found', `No providers within ${formatDistanceFromMeters(result.searchRadius, useKm)}. Try again later.`);
+          if (!result.providers?.length) dialog(t('userHome.noProviders'), t('userHome.noProvidersMsg', { distance: formatDistanceFromMeters(result.searchRadius, useKm) }));
         }
       } else {
-        dialog('Error', result.error || 'Failed to find providers');
+        dialog(t('common.error'), result.error || t('userHome.findProvidersFailed'));
       }
     } catch (error) {
-      dialog('Error', 'Something went wrong');
+      dialog(t('common.error'), t('common.somethingWentWrong'));
     } finally {
       setFetchingProviders(false);
     }
@@ -843,7 +861,7 @@ const UserHomeScreen = ({ navigation, route }) => {
         // Step 1: Clear rejected list on backend
         const resetResult = await retryProviderSearch(createdRequest._id, userId);
         if (!resetResult.success) {
-          dialog('Error', resetResult.error || 'Failed to reset search. Try again.');
+          dialog(t('common.error'), resetResult.error || t('userHome.failedResetSearch'));
           setFetchingProviders(false);
           return;
         }
@@ -858,8 +876,8 @@ const UserHomeScreen = ({ navigation, route }) => {
           setProviders([]);
           setAllProvidersRejected(true);
           dialog(
-            'All Providers Reviewed',
-            result.suggestion || 'All providers reviewed. Try again later when new providers come online.',
+            t('userHome.allProvidersReviewed'),
+            result.suggestion || t('userHome.allProvidersReviewedMsg'),
           );
         } else {
           setAllProvidersRejected(false);
@@ -867,14 +885,14 @@ const UserHomeScreen = ({ navigation, route }) => {
           setSearchRadius(result.searchRadius || 0);
           setContactedProviderIds(new Set()); // Reset contacted state for fresh list
           if (!result.providers?.length) {
-            dialog('No Providers Found', 'No providers are currently available in your area. Try again in a few minutes.');
+            dialog(t('userHome.noProviders'), t('userHome.noProvidersAvailable'));
           }
         }
       } else {
-        dialog('No Providers Found', result.error || 'No providers available right now. Try again shortly.');
+        dialog(t('userHome.noProviders'), result.error || t('userHome.noProvidersError'));
       }
     } catch (error) {
-      dialog('Error', 'Something went wrong');
+      dialog(t('common.error'), t('common.somethingWentWrong'));
     } finally {
       setFetchingProviders(false);
     }
@@ -897,12 +915,12 @@ const UserHomeScreen = ({ navigation, route }) => {
    */
   const handleSkipProvider = (provider) => {
     dialog(
-      'Skip Provider',
-      `Remove ${provider.name || 'this provider'} from your list?`,
+      t('userHome.skipProvider'),
+      t('userHome.skipProviderMsg', { name: provider.name || 'this provider' }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Skip',
+          text: t('userHome.skip'),
           style: 'destructive',
           onPress: async () => {
             if (!createdRequest?._id) return;
@@ -941,10 +959,10 @@ const UserHomeScreen = ({ navigation, route }) => {
                   // No toast or alert — the empty list component handles this
                 }
               } else {
-                dialog('Error', result.error || 'Failed to skip provider');
+                dialog(t('common.error'), result.error || t('userHome.skipFailed'));
               }
             } catch (error) {
-              dialog('Error', 'Something went wrong while skipping');
+              dialog(t('common.error'), t('common.somethingWentWrong'));
             } finally {
               setSkippingProviderId(null);
             }
@@ -965,24 +983,24 @@ const UserHomeScreen = ({ navigation, route }) => {
 
     if (!cleanPhone) {
       dialog(
-        'Phone Not Available',
-        'This provider\'s phone number is not yet available. Please try viewing their full profile or try again later.',
-        [{ text: 'OK' }]
+        t('userHome.phoneNotAvailable'),
+        t('userHome.phoneNotAvailableMsg'),
+        [{ text: t('common.ok') }]
       );
       return;
     }
 
     dialog(
-      'Call Provider',
-      `Call ${provider.name || 'Provider'} at ${phone}?`,
+      t('userHome.callProvider'),
+      t('userHome.callProviderMsg', { name: provider.name || 'Provider', phone }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Call Now',
+          text: t('common.callNow'),
           onPress: () => {
             setContactedProviderIds(prev => new Set(prev).add(provider._id));
             Linking.openURL(`tel:${cleanPhone}`).catch(() => {
-              dialog('Error', 'Unable to make phone calls on this device');
+              dialog(t('common.error'), t('userHome.unableToCall'));
             });
           },
         },
@@ -1020,28 +1038,28 @@ const UserHomeScreen = ({ navigation, route }) => {
       // Pass distance from provider object (from getNearbyProviders response)
       const result = await sendRequestToProvider(createdRequest._id, provider._id, provider.distance);
       if (result.success) {
-        dialog('Request Sent', `Your request has been sent to ${provider.name}.`, [{ text: 'OK', onPress: resetFlow }]);
+        dialog(t('userHome.requestSent'), t('userHome.requestSentMsg', { name: provider.name }), [{ text: t('common.ok'), onPress: resetFlow }]);
       } else {
-        dialog('Error', result.error || 'Failed to send request');
+        dialog(t('common.error'), result.error || t('userHome.sendRequestFailed'));
       }
     } catch (error) {
-      dialog('Error', 'Something went wrong');
+      dialog(t('common.error'), t('common.somethingWentWrong'));
     } finally {
       setBookingProvider(null);
     }
   };
 
   const handleBookProvider = async (provider) => {
-    if (!createdRequest?._id) { dialog('Error', 'Request not found'); return; }
+    if (!createdRequest?._id) { dialog(t('common.error'), t('userHome.requestNotFound')); return; }
     if (!contactedProviderIds.has(provider._id)) {
       // Show confirmation popup instead of blocking
       dialog(
-        'Contact Provider First?',
-        'We recommend having a quick talk with your provider before booking to discuss your requirements.',
+        t('userHome.contactFirst'),
+        t('userHome.contactFirstMsg'),
         [
-          { text: 'Call Provider', onPress: () => handleCallProvider(provider) },
-          { text: 'Book Anyway', onPress: () => executeBookProvider(provider), style: 'default' },
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('userHome.callProvider'), onPress: () => handleCallProvider(provider) },
+          { text: t('userHome.bookAnyway'), onPress: () => executeBookProvider(provider), style: 'default' },
+          { text: t('common.cancel'), style: 'cancel' },
         ]
       );
       return;
@@ -1089,14 +1107,14 @@ const UserHomeScreen = ({ navigation, route }) => {
       const result = await cancelRequest(createdRequest._id, userId, reason);
       setCancelModalVisible(false);
       if (result.success) {
-        dialog('Request Cancelled', 'Your request has been cancelled.', [
-          { text: 'OK', onPress: resetFlow }
+        dialog(t('userHome.requestCancelled'), t('userHome.requestCancelledMsg'), [
+          { text: t('common.ok'), onPress: resetFlow }
         ]);
       } else {
-        dialog('Error', result.error || 'Failed to cancel request');
+        dialog(t('common.error'), result.error || t('userHome.cancelFailed'));
       }
     } catch (error) {
-      dialog('Error', 'Something went wrong');
+      dialog(t('common.error'), t('common.somethingWentWrong'));
     } finally {
       setCancellingRequest(false);
     }
@@ -1115,7 +1133,7 @@ const UserHomeScreen = ({ navigation, route }) => {
               <TouchableOpacity style={styles.backRow} onPress={resetFlow}>
                 <View style={styles.backPill}>
                   <Icon name="arrow_back" size={18} color={BRAND.secondary} />
-                  <Text style={styles.backText}>Back</Text>
+                  <Text style={styles.backText}>{t('common.back')}</Text>
                 </View>
               </TouchableOpacity>
               <View style={styles.dateStepServiceChip}>
@@ -1136,19 +1154,19 @@ const UserHomeScreen = ({ navigation, route }) => {
               <View style={styles.serviceAtInfoCol}>
                 {/* Current location row */}
                 <View style={styles.serviceAtRow}>
-                  <Text style={styles.serviceAtRowLabel}>YOUR LOCATION</Text>
+                  <Text style={styles.serviceAtRowLabel}>{t('userHome.yourLocation')}</Text>
                   <Text style={styles.serviceAtRowValue} numberOfLines={1}>
-                    {displayAddress || (currentLocation ? 'Location detected' : 'Detecting...')}
+                    {displayAddress || (currentLocation ? t('userHome.locationDetected') : t('userHome.detecting'))}
                   </Text>
                 </View>
                 <View style={styles.serviceAtRowDivider} />
                 {/* Service location row */}
                 <View style={styles.serviceAtRow}>
-                  <Text style={styles.serviceAtRowLabel}>SERVICE AT</Text>
+                  <Text style={styles.serviceAtRowLabel}>{t('userHome.serviceAt')}</Text>
                   <Text style={[styles.serviceAtRowValue, serviceLocation && serviceLocation.isCurrentLocation !== true && { color: BRAND.primary, fontWeight: '700' }]} numberOfLines={1}>
                     {serviceLocation && serviceLocation.isCurrentLocation !== true
-                      ? (serviceLocation.shortAddress || serviceLocation.address || 'Selected address')
-                      : (displayAddress || 'Same as your location')}
+                      ? (serviceLocation.shortAddress || serviceLocation.address || t('userHome.selectedAddress'))
+                      : (displayAddress || t('userHome.sameAsLocation'))}
                   </Text>
                 </View>
               </View>
@@ -1176,7 +1194,7 @@ const UserHomeScreen = ({ navigation, route }) => {
 
             {/* Location Picker — Change Service Location */}
             <View style={styles.sectionDivider} />
-            <Text style={styles.sectionTitle}>CHANGE SERVICE LOCATION</Text>
+            <Text style={styles.sectionTitle}>{t('userHome.changeServiceLocation')}</Text>
             <LocationPicker
               onLocationChange={handleServiceLocationChange}
               currentLocation={currentLocation}
@@ -1189,13 +1207,13 @@ const UserHomeScreen = ({ navigation, route }) => {
               {!currentLocation && !serviceLocation && !locationServicesEnabled && (
                 <View style={styles.locationHintRow}>
                   <MaterialIcon name="location-off" size={16} color="#EF4444" />
-                  <Text style={[styles.locationHintText, { color: '#EF4444' }]}>GPS is off -- select a saved address above</Text>
+                  <Text style={[styles.locationHintText, { color: '#EF4444' }]}>{t('userHome.gpsOffHint')}</Text>
                 </View>
               )}
               {!currentLocation && !serviceLocation && locationServicesEnabled && (
                 <View style={styles.locationHintRow}>
                   <ActivityIndicator size="small" color="#94A3B8" />
-                  <Text style={styles.locationHintText}>Detecting your location...</Text>
+                  <Text style={styles.locationHintText}>{t('userHome.detectingHint')}</Text>
                 </View>
               )}
               <TouchableOpacity
@@ -1208,7 +1226,7 @@ const UserHomeScreen = ({ navigation, route }) => {
                 ) : (
                   <>
                     <MaterialIcon name="check-circle" size={22} color="#FFFFFF" />
-                    <Text style={styles.createButtonText}>Create Request</Text>
+                    <Text style={styles.createButtonText}>{t('userHome.createRequest')}</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -1224,28 +1242,28 @@ const UserHomeScreen = ({ navigation, route }) => {
                     After booking, the success Alert already calls resetFlow automatically. */}
                 <TouchableOpacity style={styles.cancelPill} onPress={handleCancelRequest}>
                   <MaterialIcon name="cancel" size={16} color="#FFFFFF" />
-                  <Text style={styles.cancelPillText}>Cancel Request</Text>
+                  <Text style={styles.cancelPillText}>{t('userHome.cancelRequest')}</Text>
                 </TouchableOpacity>
               </View>
-              <Text style={styles.providersTitle}>{fetchingProviders ? 'Finding Providers...' : `${providers.length} Provider${providers.length !== 1 ? 's' : ''} Found`}</Text>
+              <Text style={styles.providersTitle}>{fetchingProviders ? t('userHome.findingProviders') : t('userHome.providersFound', { count: providers.length })}</Text>
               {searchRadius > 0 && (
                 <View style={styles.radiusPill}>
                   <Icon name="location" size={13} color={BRAND.secondary} />
-                  <Text style={styles.radiusPillText}>Within {formatDistanceFromMeters(searchRadius, useKm)}</Text>
+                  <Text style={styles.radiusPillText}>{t('userHome.within')} {formatDistanceFromMeters(searchRadius, useKm)}</Text>
                 </View>
               )}
               {/* Contact-first tip */}
               {!fetchingProviders && providers.length > 0 && (
                 <View style={styles.providerTipRow}>
                   <MaterialIcon name="info-outline" size={18} color="#D97706" />
-                  <Text style={styles.providerTipText}>Call and discuss first. Skip providers you don't want.</Text>
+                  <Text style={styles.providerTipText}>{t('userHome.tipText')}</Text>
                 </View>
               )}
             </View>
             {fetchingProviders ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={BRAND.primary} />
-                <Text style={styles.loadingText}>Searching nearby providers...</Text>
+                <Text style={styles.loadingText}>{t('userHome.searchingProviders')}</Text>
               </View>
             ) : (
               <FlatList
@@ -1271,26 +1289,26 @@ const UserHomeScreen = ({ navigation, route }) => {
                     </View>
                     {allProvidersRejected ? (
                       <>
-                        <Text style={styles.emptyText}>All providers reviewed</Text>
-                        <Text style={styles.emptySubtext}>You've gone through all available providers. Start a fresh search to see them again.</Text>
+                        <Text style={styles.emptyText}>{t('userHome.allReviewedTitle')}</Text>
+                        <Text style={styles.emptySubtext}>{t('userHome.allReviewedSubtitle')}</Text>
                         <TouchableOpacity
                           style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
                           onPress={handleRetrySearch}
                         >
                           <Icon name="refresh" size={20} color="#FFFFFF" />
-                          <Text style={styles.retryButtonText}>Start Fresh Search</Text>
+                          <Text style={styles.retryButtonText}>{t('userHome.startFreshSearch')}</Text>
                         </TouchableOpacity>
                       </>
                     ) : (
                       <>
-                        <Text style={styles.emptyText}>No providers found nearby</Text>
-                        <Text style={styles.emptySubtext}>We're searching for providers to fix your home</Text>
+                        <Text style={styles.emptyText}>{t('userHome.noProvidersTitle')}</Text>
+                        <Text style={styles.emptySubtext}>{t('userHome.noProvidersSubtitle')}</Text>
                         <TouchableOpacity
                           style={styles.retryButton}
                           onPress={handleRetrySearch}
                         >
                           <Icon name="refresh" size={20} color="#FFFFFF" />
-                          <Text style={styles.retryButtonText}>Retry Search</Text>
+                          <Text style={styles.retryButtonText}>{t('userHome.retrySearch')}</Text>
                         </TouchableOpacity>
                       </>
                     )}
@@ -1313,8 +1331,8 @@ const UserHomeScreen = ({ navigation, route }) => {
             nestedScrollEnabled={true}
           >
             <View style={styles.welcomeSection}>
-              <Text style={styles.welcomeText}>Hello, {displayData?.fullName?.split(' ')[0] || 'there'}!</Text>
-              <Text style={styles.welcomeSubtext}>What service do you need?</Text>
+              <Text style={styles.welcomeText}>{displayData?.fullName?.split(' ')[0] ? t('userHome.hello', { name: displayData.fullName.split(' ')[0] }) : t('userHome.helloDefault')}</Text>
+              <Text style={styles.welcomeSubtext}>{t('userHome.whatServiceNeeded')}</Text>
             </View>
 
             {/* Quick Access Buttons */}
@@ -1322,7 +1340,7 @@ const UserHomeScreen = ({ navigation, route }) => {
               <QuickAccessCard
                 iconName="warning"
                 iconColor="#DC2626"
-                label="Emergency"
+                label={t('userHome.emergency')}
                 borderColor="#FECACA"
                 bgColor="#FEF2F2"
                 iconBg="rgba(220, 38, 38, 0.1)"
@@ -1331,7 +1349,7 @@ const UserHomeScreen = ({ navigation, route }) => {
               <QuickAccessCard
                 iconName="camera"
                 iconColor="#7C3AED"
-                label="Events"
+                label={t('userHome.events')}
                 borderColor="#C7D2FE"
                 bgColor="#EEF2FF"
                 iconBg="rgba(124, 58, 237, 0.1)"
@@ -1340,7 +1358,7 @@ const UserHomeScreen = ({ navigation, route }) => {
               <QuickAccessCard
                 iconName="heart"
                 iconColor="#F59E0B"
-                label="Favorites"
+                label={t('userHome.favorites')}
                 borderColor="#FDE68A"
                 bgColor="#FFFBEB"
                 iconBg="rgba(245, 158, 11, 0.1)"
@@ -1348,7 +1366,7 @@ const UserHomeScreen = ({ navigation, route }) => {
               />
             </View>
 
-            <Text style={styles.servicesSectionTitle}>TRADITIONAL SERVICES</Text>
+            <Text style={styles.servicesSectionTitle}>{t('userHome.traditionalServices')}</Text>
             <View style={styles.servicesGrid}>
               {SERVICE_CATEGORIES.map((service) => (
                 <ServiceCard key={service.id} service={service} onPress={handleServiceSelect} />
@@ -1360,7 +1378,7 @@ const UserHomeScreen = ({ navigation, route }) => {
                 onPress={() => navigation.navigate('HistoryTab')}
               >
                 <MaterialIcon name="history" size={20} color="#475569" />
-                <Text style={styles.quickActionText}>View History</Text>
+                <Text style={styles.quickActionText}>{t('userHome.viewHistory')}</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -1394,14 +1412,14 @@ const UserHomeScreen = ({ navigation, route }) => {
             <Icon name="location" size={18} color="#F59E0B" />
           </View>
           <Text style={styles.permissionBarText}>
-            Location permission needed for finding nearby providers.
+            {t('userHome.locationPermBar')}
           </Text>
           <TouchableOpacity
             style={styles.permissionBarButton}
             onPress={locationPermission === 'blocked' ? () => openSettings() : requestLocationPermission}
           >
             <Text style={styles.permissionBarButtonText}>
-              {locationPermission === 'blocked' ? 'Settings' : 'Enable'}
+              {locationPermission === 'blocked' ? t('userHome.settings') : t('userHome.enable')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -1412,13 +1430,13 @@ const UserHomeScreen = ({ navigation, route }) => {
             <Icon name="location" size={18} color="#F59E0B" />
           </View>
           <Text style={styles.permissionBarText}>
-            Location is turned off. Turn it on for better experience.
+            {t('userHome.locationOffBar')}
           </Text>
           <TouchableOpacity
             style={styles.permissionBarButton}
             onPress={() => openSettings()}
           >
-            <Text style={styles.permissionBarButtonText}>Settings</Text>
+            <Text style={styles.permissionBarButtonText}>{t('userHome.settings')}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -1429,13 +1447,13 @@ const UserHomeScreen = ({ navigation, route }) => {
             <Icon name="notification" size={18} color="#EF4444" />
           </View>
           <Text style={[styles.permissionBarText, styles.permissionBarTextDanger]}>
-            Notifications required for service updates
+            {t('userHome.notificationBar')}
           </Text>
           <TouchableOpacity
             style={[styles.permissionBarButton, styles.permissionBarButtonDanger]}
             onPress={() => openSettings()}
           >
-            <Text style={[styles.permissionBarButtonText, styles.permissionBarButtonTextDanger]}>Settings</Text>
+            <Text style={[styles.permissionBarButtonText, styles.permissionBarButtonTextDanger]}>{t('userHome.settings')}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -1483,18 +1501,18 @@ const UserHomeScreen = ({ navigation, route }) => {
             <View style={styles.permissionModalIcon}>
               <Icon name="notification" size={48} color="#EF4444" />
             </View>
-            <Text style={styles.permissionModalTitle}>Notifications Required</Text>
+            <Text style={styles.permissionModalTitle}>{t('userHome.notifModalTitle')}</Text>
             <Text style={styles.permissionModalMessage}>
-              FixHomi needs notification permission to send you real-time updates about your service requests, provider arrival, and payment confirmations.
+              {t('userHome.notifModalMsg')}
             </Text>
             <TouchableOpacity
               style={styles.permissionModalButton}
               onPress={() => openSettings()}
             >
-              <Text style={styles.permissionModalButtonText}>Open Settings</Text>
+              <Text style={styles.permissionModalButtonText}>{t('userHome.notifModalBtn')}</Text>
             </TouchableOpacity>
             <Text style={styles.permissionModalNote}>
-              Enable notifications in app settings and return here
+              {t('userHome.notifModalNote')}
             </Text>
           </View>
         </View>
@@ -1520,18 +1538,18 @@ const UserHomeScreen = ({ navigation, route }) => {
           if (phone) {
             const phoneNumber = phone.replace(/[\s\-()]/g, '');
             dialog(
-              'Call Provider',
-              `Call ${selectedProvider?.name || 'Provider'} at ${phone}?`,
+              t('userHome.callProvider'),
+              t('userHome.callProviderMsg', { name: selectedProvider?.name || 'Provider', phone }),
               [
-                { text: 'Cancel', style: 'cancel' },
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                  text: 'Call Now',
+                  text: t('common.callNow'),
                   onPress: () => {
                     if (selectedProvider) {
                       setContactedProviderIds(prev => new Set(prev).add(selectedProvider._id));
                     }
                     Linking.openURL(`tel:${phoneNumber}`).catch(() => {
-                      dialog('Error', 'Unable to make phone calls on this device');
+                      dialog(t('common.error'), t('userHome.unableToCall'));
                     });
                   },
                 },

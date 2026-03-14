@@ -35,6 +35,7 @@ import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
+import { useLanguage } from '../context/LanguageContext';
 import { startLocationTracking, stopLocationTracking } from '../services/socketService';
 import { Icon } from '../components';
 import { useShimmerAnimation, ShimmerBlock } from '../components/ShimmerLoader';
@@ -191,14 +192,20 @@ const ToggleRow = ({ iconName, title, subtitle, value, onValueChange, disabled, 
 /**
  * Settings Row with navigation/action
  */
-const ActionRow = ({ iconName, title, subtitle, onPress, showArrow = true, danger = false }) => (
-  <AnimatedPressable onPress={onPress}>
-    <View style={styles.settingsRow}>
+const ActionRow = ({ iconName, title, subtitle, onPress, showArrow = true, danger = false, loading = false, disabled = false }) => (
+  <AnimatedPressable onPress={onPress} disabled={loading || disabled}>
+    <View style={[styles.settingsRow, (loading || disabled) && { opacity: 0.6 }]}>
       <View style={[styles.rowIconContainer, danger && styles.rowIconDanger]}>
-        <Icon name={iconName} size={20} color={danger ? COLORS.danger : COLORS.secondary} />
+        {loading ? (
+          <ActivityIndicator size={18} color={danger ? COLORS.danger : COLORS.secondary} />
+        ) : (
+          <Icon name={iconName} size={20} color={danger ? COLORS.danger : COLORS.secondary} />
+        )}
       </View>
       <View style={styles.rowContent}>
-        <Text style={[styles.rowTitle, danger && styles.rowTitleDanger]}>{title}</Text>
+        <Text style={[styles.rowTitle, danger && styles.rowTitleDanger]}>
+          {loading ? (title + '...') : title}
+        </Text>
         {subtitle && <Text style={styles.rowSubtitle}>{subtitle}</Text>}
       </View>
       {showArrow && (
@@ -291,6 +298,8 @@ const SettingsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, profile, userType, logout, refreshProfile, updateProviderAvailability, updateProviderLocationTracking, isProfileLoading } = useApp();
   const { dialog } = useDialog();
+  const { language, setLanguage, languages } = useLanguage();
+  const [showLangModal, setShowLangModal] = React.useState(false);
 
   // Set status bar for dark hero header when this tab is focused
   useFocusEffect(
@@ -1100,6 +1109,13 @@ const SettingsScreen = ({ navigation }) => {
             value={appPreferences.distanceInKm}
             onValueChange={(value) => handlePreferenceChange('distanceInKm', value)}
           />
+
+          <ActionRow
+            iconName="settings"
+            title="Language"
+            subtitle={languages.find(l => l.code === language)?.nativeLabel || 'English'}
+            onPress={() => setShowLangModal(true)}
+          />
         </View>
 
         {/* App Settings Section */}
@@ -1214,10 +1230,12 @@ const SettingsScreen = ({ navigation }) => {
 
           <ActionRow
             iconName="close"
-            title="Delete Account"
+            title={isRequestingOtp ? 'Sending OTP' : 'Delete Account'}
             danger
             onPress={handleDeleteAccount}
             showArrow={false}
+            loading={isRequestingOtp}
+            disabled={isRequestingOtp}
           />
         </View>
 
@@ -1244,15 +1262,62 @@ const SettingsScreen = ({ navigation }) => {
         </View>
       </ScrollView>
 
+      {/* Language Picker Modal */}
+      <Modal
+        visible={showLangModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLangModal(false)}
+      >
+        <TouchableOpacity
+          style={settingsLangStyles.overlay}
+          activeOpacity={1}
+          onPress={() => setShowLangModal(false)}
+        >
+          <View style={settingsLangStyles.modal}>
+            <Text style={settingsLangStyles.title}>Select Language</Text>
+            {languages.map((lang) => (
+              <TouchableOpacity
+                key={lang.code}
+                style={[
+                  settingsLangStyles.option,
+                  language === lang.code && settingsLangStyles.optionActive,
+                ]}
+                onPress={() => {
+                  setLanguage(lang.code);
+                  setShowLangModal(false);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={[
+                    settingsLangStyles.optionText,
+                    language === lang.code && settingsLangStyles.optionTextActive,
+                  ]}>
+                    {lang.nativeLabel}
+                  </Text>
+                  <Text style={settingsLangStyles.optionSub}>{lang.label}</Text>
+                </View>
+                {language === lang.code && (
+                  <Icon name="check" size={20} color={COLORS.secondary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {/* Delete Account OTP Modal */}
       <Modal
         visible={deleteOtpModalVisible}
         transparent
         animationType="slide"
         onRequestClose={() => {
-          setDeleteOtpModalVisible(false);
-          setDeleteOtp('');
-          setDeleteReason('');
+          if (!isDeletingAccount) {
+            setDeleteOtpModalVisible(false);
+            setDeleteOtp('');
+            setDeleteReason('');
+          }
         }}
       >
         <View style={styles.modalOverlay}>
@@ -1264,7 +1329,7 @@ const SettingsScreen = ({ navigation }) => {
             </Text>
 
             <TextInput
-              style={styles.otpInput}
+              style={[styles.otpInput, isDeletingAccount && { opacity: 0.5 }]}
               placeholder="Enter 6-digit OTP"
               placeholderTextColor={COLORS.muted}
               keyboardType="number-pad"
@@ -1272,36 +1337,46 @@ const SettingsScreen = ({ navigation }) => {
               value={deleteOtp}
               onChangeText={setDeleteOtp}
               autoFocus
+              editable={!isDeletingAccount}
             />
 
             <TextInput
-              style={styles.reasonInput}
+              style={[styles.reasonInput, isDeletingAccount && { opacity: 0.5 }]}
               placeholder="Reason for leaving (optional)"
               placeholderTextColor={COLORS.muted}
               value={deleteReason}
               onChangeText={setDeleteReason}
               multiline
               numberOfLines={2}
+              editable={!isDeletingAccount}
             />
 
             <TouchableOpacity
-              style={styles.resendButton}
+              style={[styles.resendButton, (isRequestingOtp || isDeletingAccount) && { opacity: 0.5 }]}
               onPress={resendDeleteOtp}
-              disabled={isRequestingOtp}
+              disabled={isRequestingOtp || isDeletingAccount}
             >
-              <Text style={styles.resendButtonText}>
-                {isRequestingOtp ? 'Sending...' : 'Resend OTP'}
-              </Text>
+              {isRequestingOtp ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <ActivityIndicator size={14} color={COLORS.primary} />
+                  <Text style={styles.resendButtonText}>Sending...</Text>
+                </View>
+              ) : (
+                <Text style={styles.resendButtonText}>Resend OTP</Text>
+              )}
             </TouchableOpacity>
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
+                style={[styles.modalButton, styles.cancelButton, isDeletingAccount && styles.disabledButton]}
                 onPress={() => {
-                  setDeleteOtpModalVisible(false);
-                  setDeleteOtp('');
-                  setDeleteReason('');
+                  if (!isDeletingAccount) {
+                    setDeleteOtpModalVisible(false);
+                    setDeleteOtp('');
+                    setDeleteReason('');
+                  }
                 }}
+                disabled={isDeletingAccount}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
@@ -1703,6 +1778,56 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.textPrimary,
     letterSpacing: 0.2,
+  },
+});
+
+const settingsLangStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modal: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '80%',
+    maxWidth: 320,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: '#F9FAFB',
+  },
+  optionActive: {
+    backgroundColor: `${COLORS.secondary}15`,
+    borderWidth: 1,
+    borderColor: COLORS.secondary,
+  },
+  optionText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#111827',
+  },
+  optionTextActive: {
+    color: COLORS.secondary,
+  },
+  optionSub: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 2,
   },
 });
 

@@ -33,6 +33,7 @@ import {
 } from '../services/authService';
 import { updateJavaAuthProfile } from '../services/profileService';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 
 const OTP_LENGTH = 6;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -88,6 +89,7 @@ const VerificationScreen = ({
   onSkip,
 }) => {
   const { user, profile, refreshVerificationStatus, updateProfileWithAutoSync } = useApp();
+  const { t } = useLanguage();
 
   // Get verificationType from route params (navigation) or props
   const verificationType = route?.params?.verificationType || 'phone';
@@ -206,17 +208,17 @@ const VerificationScreen = ({
       const trimmedValue = editValue?.trim();
 
       if (!trimmedValue) {
-        showAlert(isEmailVerification ? 'Please enter your email address.' : 'Please enter your phone number.', 'warning');
+        showAlert(isEmailVerification ? t('verificationScreen.enterEmail') : t('verificationScreen.enterPhone'), 'warning');
         return;
       }
 
       if (!isEmailVerification && !isValidPhone(trimmedValue)) {
-        showAlert('Please enter a valid 10-digit Indian phone number (starting with 6-9).', 'warning');
+        showAlert(t('verificationScreen.invalidPhone'), 'warning');
         return;
       }
 
       if (isEmailVerification && !isValidEmail(trimmedValue)) {
-        showAlert('Please enter a valid email address.', 'warning');
+        showAlert(t('verificationScreen.invalidEmail'), 'warning');
         return;
       }
 
@@ -234,7 +236,7 @@ const VerificationScreen = ({
 
       if (!javaResult.success) {
         console.error('❌ [VerificationScreen] Failed to update Java Auth:', javaResult.error);
-        showAlert(javaResult.error?.message || `Failed to update ${verificationType}. Please try again.`, 'error');
+        showAlert(javaResult.error?.message || t('verificationScreen.failedUpdate', { type: verificationType }), 'error');
         return;
       }
 
@@ -251,11 +253,11 @@ const VerificationScreen = ({
       await refreshVerificationStatus();
 
       console.log(`✅ [VerificationScreen] ${verificationType} saved:`, trimmedValue);
-      showAlert(`${isEmailVerification ? 'Email' : 'Phone number'} updated successfully! You can now send verification.`, 'success');
+      showAlert(isEmailVerification ? t('verificationScreen.emailUpdated') : t('verificationScreen.phoneUpdated'), 'success');
       setIsEditing(false);
     } catch (error) {
       console.error('❌ [VerificationScreen] Save error:', error);
-      showAlert('Failed to save. Please try again.', 'error');
+      showAlert(t('verificationScreen.failedToSave'), 'error');
     } finally {
       setSavingValue(false);
     }
@@ -277,8 +279,8 @@ const VerificationScreen = ({
       if (!valueToVerify) {
         showAlert(
           isEmailVerification
-            ? 'Please add your email address first before requesting verification.'
-            : 'Please add your phone number first before requesting verification.',
+            ? t('verificationScreen.addEmailFirst')
+            : t('verificationScreen.addPhoneFirst'),
           'warning'
         );
         setIsEditing(true); // Open edit mode
@@ -297,13 +299,13 @@ const VerificationScreen = ({
       if (result.success) {
         if (isEmailVerification) {
           setMaskedValue(result.maskedEmail || result.data?.maskedValue || 'your email');
-          showAlert('Verification email sent! Please check your inbox.', 'success');
+          showAlert(t('verificationScreen.emailSent'), 'success');
         } else {
           setMaskedValue(result.maskedPhone || result.data?.maskedValue || 'your phone');
           setOtpSent(true);
           setCountdown(5 * 60); // 5 minutes
           setCanResend(false);
-          showAlert('OTP sent to ' + (result.maskedPhone || 'your phone'), 'success');
+          showAlert(t('verificationScreen.otpSent', { phone: result.maskedPhone || 'your phone' }), 'success');
 
           // Focus first input
           setTimeout(() => inputRefs.current[0]?.focus(), 100);
@@ -338,17 +340,17 @@ const VerificationScreen = ({
             const m = Math.floor(retrySec / 60);
             const s = retrySec % 60;
             const timeStr = m > 0 ? `${m}m ${s}s` : `${s}s`;
-            showAlert(`Verification email already sent. Check your inbox (and spam). Retry in ${timeStr}.`, 'warning');
+            showAlert(t('verificationScreen.rateLimitedWithTime', { time: timeStr }), 'warning');
           } else {
-            showAlert('Verification email already sent. Please check your inbox and spam folder, then wait a couple of minutes before retrying.', 'warning');
+            showAlert(t('verificationScreen.rateLimitedGeneric'), 'warning');
           }
         } else {
-          showAlert(error.message || 'Failed to send verification.', 'error');
+          showAlert(error.message || t('verificationScreen.failedSendVerification'), 'error');
         }
       }
     } catch (error) {
       console.error('❌ [VerificationScreen] Send error:', error);
-      showAlert('An unexpected error occurred.', 'error');
+      showAlert(t('common.unexpectedError'), 'error');
     } finally {
       setSendLoading(false);
     }
@@ -404,7 +406,7 @@ const VerificationScreen = ({
       const otpCode = otp.join('');
 
       if (otpCode.length !== OTP_LENGTH) {
-        showAlert('Please enter the complete OTP code', 'warning');
+        showAlert(t('verificationScreen.completeOtp'), 'warning');
         return;
       }
 
@@ -418,7 +420,7 @@ const VerificationScreen = ({
 
         // Show success state
         setVerified(true);
-        showAlert('Phone number verified successfully!', 'success');
+        showAlert(t('verificationScreen.phoneVerifiedAlert'), 'success');
 
         // Callback if provided
         if (onVerificationComplete) {
@@ -433,26 +435,26 @@ const VerificationScreen = ({
         switch (error.code) {
           case AUTH_CODES.INVALID_OTP:
           case 'INVALID_OTP':
-            showAlert('The OTP you entered is incorrect. Please check and try again.', 'error');
+            showAlert(t('verificationScreen.invalidOtp'), 'error');
             break;
 
           case AUTH_CODES.OTP_EXPIRED:
-            showAlert('This OTP has expired. Please request a new one.', 'error');
+            showAlert(t('verificationScreen.otpExpired'), 'error');
             setOtpSent(false);
             break;
 
           case AUTH_CODES.MAX_ATTEMPTS_EXCEEDED:
-            showAlert('Too many attempts. Please request a new OTP.', 'error');
+            showAlert(t('verificationScreen.maxAttempts'), 'error');
             setOtpSent(false);
             break;
 
           default:
-            showAlert(getErrorMessage(error.code, 'Verification failed. Please try again.'), 'error');
+            showAlert(getErrorMessage(error.code, t('verificationScreen.verificationFailed')), 'error');
         }
       }
     } catch (error) {
       console.error('❌ [VerificationScreen] Verify error:', error);
-      showAlert('An unexpected error occurred.', 'error');
+      showAlert(t('common.unexpectedError'), 'error');
     } finally {
       setLoading(false);
     }
@@ -485,13 +487,13 @@ const VerificationScreen = ({
     let bg, color, label, icon;
     switch (status) {
       case 'verified':
-        bg = '#ECFDF5'; color = '#059669'; label = 'Verified'; icon = 'verified';
+        bg = '#ECFDF5'; color = '#059669'; label = t('common.verified'); icon = 'verified';
         break;
       case 'pending':
-        bg = '#FFFBEB'; color = '#D97706'; label = 'Pending'; icon = 'schedule';
+        bg = '#FFFBEB'; color = '#D97706'; label = t('common.pending'); icon = 'schedule';
         break;
       default:
-        bg = '#F1F5F9'; color = '#94A3B8'; label = 'Not Started'; icon = 'circle';
+        bg = '#F1F5F9'; color = '#94A3B8'; label = t('common.notStarted'); icon = 'circle';
     }
     return (
       <View style={[s.badge, { backgroundColor: bg }]}>
@@ -519,10 +521,10 @@ const VerificationScreen = ({
         </View>
         <View style={{ flex: 1, marginLeft: 12 }}>
           {expired ? (
-            <Text style={s.countdownExpiredText}>Code expired</Text>
+            <Text style={s.countdownExpiredText}>{t('verificationScreen.codeExpired')}</Text>
           ) : (
             <>
-              <Text style={s.countdownLabel}>Code expires in</Text>
+              <Text style={s.countdownLabel}>{t('verificationScreen.codeExpiresIn')}</Text>
               <Text style={s.countdownValue}>{formatTime(countdown)}</Text>
             </>
           )}
@@ -544,10 +546,10 @@ const VerificationScreen = ({
             <View style={s.successRingOuter} />
           </View>
           <Text style={s.successTitle}>
-            {isEmailVerification ? 'Email Verified!' : 'Phone Verified!'}
+            {isEmailVerification ? t('verificationScreen.emailVerified') : t('verificationScreen.phoneVerified')}
           </Text>
           <Text style={s.successSubtitle}>
-            Your {isEmailVerification ? 'email address' : 'phone number'} has been verified successfully.
+            {isEmailVerification ? t('verificationScreen.emailVerifiedSub') : t('verificationScreen.phoneVerifiedSub')}
           </Text>
           <TouchableOpacity
             style={s.successBackBtn}
@@ -555,7 +557,7 @@ const VerificationScreen = ({
             activeOpacity={0.8}
           >
             <MaterialIcon name="arrow-back" size={20} color={BRAND.white} />
-            <Text style={s.successBackBtnText}>Back to Profile</Text>
+            <Text style={s.successBackBtnText}>{t('verificationScreen.backToProfile')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -575,7 +577,7 @@ const VerificationScreen = ({
           <MaterialIcon name="arrow-back" size={22} color={BRAND.text} />
         </TouchableOpacity>
         <Text style={s.headerTitle} numberOfLines={1} ellipsizeMode="tail">
-          {isEmailVerification ? 'Verify Email' : 'Verify Phone'}
+          {isEmailVerification ? t('verificationScreen.verifyEmail') : t('verificationScreen.verifyPhone')}
         </Text>
         <View style={{ width: 44 }} />
       </View>
@@ -588,8 +590,8 @@ const VerificationScreen = ({
         {/* Subtitle */}
         <Text style={s.headerSubtitle}>
           {isEmailVerification
-            ? 'We\'ll send a verification link to your email address.'
-            : 'We\'ll send a 6-digit OTP to your phone number.'
+            ? t('verificationScreen.emailSubtitle')
+            : t('verificationScreen.phoneSubtitle')
           }
         </Text>
 
@@ -614,11 +616,11 @@ const VerificationScreen = ({
                   <MaterialIcon name="email" size={22} color={BRAND.secondary} />
                 </View>
                 <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={s.sectionLabel}>EMAIL VERIFICATION</Text>
+                  <Text style={s.sectionLabel}>{t('verificationScreen.emailVerification')}</Text>
                   <Text style={s.cardDescription} numberOfLines={2} ellipsizeMode="tail">
                     {currentEmail
-                      ? 'Send a verification link to your email address.'
-                      : 'Add your email address to receive a verification link.'}
+                      ? t('verificationScreen.emailHasValueDesc')
+                      : t('verificationScreen.emailNoValueDesc')}
                   </Text>
                 </View>
                 <StatusBadge status={maskedValue ? 'pending' : 'not_started'} />
@@ -627,12 +629,12 @@ const VerificationScreen = ({
               {/* Value display / edit */}
               {isEditing ? (
                 <View style={s.editWrap}>
-                  <Text style={s.editLabel}>Email Address</Text>
+                  <Text style={s.editLabel}>{t('verificationScreen.emailAddress')}</Text>
                   <TextInput
                     style={s.editInput}
                     value={editValue}
                     onChangeText={setEditValue}
-                    placeholder="Enter your email address"
+                    placeholder={t('verificationScreen.emailPlaceholder')}
                     placeholderTextColor={BRAND.textMuted}
                     keyboardType="email-address"
                     autoCapitalize="none"
@@ -649,7 +651,7 @@ const VerificationScreen = ({
                       {savingValue ? (
                         <ActivityIndicator size="small" color={BRAND.white} />
                       ) : (
-                        <Text style={s.ctaButtonText}>Save Email</Text>
+                        <Text style={s.ctaButtonText}>{t('verificationScreen.saveEmail')}</Text>
                       )}
                     </TouchableOpacity>
                     {currentEmail ? (
@@ -660,7 +662,7 @@ const VerificationScreen = ({
                           setEditValue(currentEmail);
                         }}
                       >
-                        <Text style={s.cancelBtnText}>Cancel</Text>
+                        <Text style={s.cancelBtnText}>{t('common.cancel')}</Text>
                       </TouchableOpacity>
                     ) : null}
                   </View>
@@ -668,9 +670,9 @@ const VerificationScreen = ({
               ) : (
                 <View style={s.valueDisplayRow}>
                   <View style={s.valueLabelCol}>
-                    <Text style={s.valueLabelSmall}>EMAIL</Text>
+                    <Text style={s.valueLabelSmall}>{t('verificationScreen.emailValue')}</Text>
                     <Text style={s.valueText} numberOfLines={1} ellipsizeMode="middle">
-                      {currentEmail || 'Not set'}
+                      {currentEmail || t('common.notSet')}
                     </Text>
                   </View>
                   <TouchableOpacity
@@ -681,7 +683,7 @@ const VerificationScreen = ({
                     }}
                   >
                     <MaterialIcon name="edit" size={16} color={BRAND.secondary} />
-                    <Text style={s.editPillText}>Edit</Text>
+                    <Text style={s.editPillText}>{t('common.edit')}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -698,12 +700,12 @@ const VerificationScreen = ({
                 {sendLoading ? (
                   <View style={s.ctaRow}>
                     <ActivityIndicator size="small" color={BRAND.white} />
-                    <Text style={s.ctaButtonText}>Sending...</Text>
+                    <Text style={s.ctaButtonText}>{t('verificationScreen.sendingBtn')}</Text>
                   </View>
                 ) : (
                   <View style={s.ctaRow}>
                     <MaterialIcon name="send" size={20} color={BRAND.white} />
-                    <Text style={s.ctaButtonText}>Send Verification Email</Text>
+                    <Text style={s.ctaButtonText}>{t('verificationScreen.sendVerificationEmail')}</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -714,7 +716,7 @@ const VerificationScreen = ({
               <View style={s.sentCard}>
                 <MaterialIcon name="mark-email-read" size={20} color={BRAND.successGreen} />
                 <Text style={s.sentText} numberOfLines={2} ellipsizeMode="tail">
-                  Verification email sent to {maskedValue}
+                  {t('verificationScreen.emailSentTo', { value: maskedValue })}
                 </Text>
               </View>
             ) : null}
@@ -733,11 +735,11 @@ const VerificationScreen = ({
                       <MaterialIcon name="phone-android" size={22} color={BRAND.primary} />
                     </View>
                     <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={s.sectionLabel}>PHONE VERIFICATION</Text>
+                      <Text style={s.sectionLabel}>{t('verificationScreen.phoneVerification')}</Text>
                       <Text style={s.cardDescription} numberOfLines={2} ellipsizeMode="tail">
                         {currentPhone
-                          ? 'We\'ll send a 6-digit verification code to your phone.'
-                          : 'Add your phone number to receive a verification code.'}
+                          ? t('verificationScreen.phoneHasValueDesc')
+                          : t('verificationScreen.phoneNoValueDesc')}
                       </Text>
                     </View>
                     <StatusBadge status="not_started" />
@@ -746,10 +748,10 @@ const VerificationScreen = ({
                   {/* Value display / edit */}
                   {isEditing ? (
                     <View style={s.editWrap}>
-                      <Text style={s.editLabel}>Phone Number</Text>
+                      <Text style={s.editLabel}>{t('verificationScreen.phoneNumber')}</Text>
                       <View style={s.phoneInputRow}>
                         <View style={s.countryCodeBox}>
-                          <Text style={s.countryCodeText}>+91</Text>
+                          <Text style={s.countryCodeText}>{t('verificationScreen.countryCode')}</Text>
                         </View>
                         <TextInput
                           style={[s.editInput, { flex: 1 }]}
@@ -761,14 +763,14 @@ const VerificationScreen = ({
                             }
                             setEditValue(digits.slice(0, 10));
                           }}
-                          placeholder="Enter 10-digit number"
+                          placeholder={t('verificationScreen.phonePlaceholder')}
                           placeholderTextColor={BRAND.textMuted}
                           keyboardType="number-pad"
                           maxLength={10}
                           editable={!savingValue}
                         />
                       </View>
-                      <Text style={s.editHint}>Indian phone number starting with 6-9</Text>
+                      <Text style={s.editHint}>{t('verificationScreen.phoneHint')}</Text>
                       <View style={s.editActions}>
                         <TouchableOpacity
                           style={s.ctaButton}
@@ -779,7 +781,7 @@ const VerificationScreen = ({
                           {savingValue ? (
                             <ActivityIndicator size="small" color={BRAND.white} />
                           ) : (
-                            <Text style={s.ctaButtonText}>Save Phone</Text>
+                            <Text style={s.ctaButtonText}>{t('verificationScreen.savePhone')}</Text>
                           )}
                         </TouchableOpacity>
                         {currentPhone ? (
@@ -790,7 +792,7 @@ const VerificationScreen = ({
                               setEditValue(currentPhone);
                             }}
                           >
-                            <Text style={s.cancelBtnText}>Cancel</Text>
+                            <Text style={s.cancelBtnText}>{t('common.cancel')}</Text>
                           </TouchableOpacity>
                         ) : null}
                       </View>
@@ -798,9 +800,9 @@ const VerificationScreen = ({
                   ) : (
                     <View style={s.valueDisplayRow}>
                       <View style={s.valueLabelCol}>
-                        <Text style={s.valueLabelSmall}>PHONE</Text>
+                        <Text style={s.valueLabelSmall}>{t('verificationScreen.phoneValue')}</Text>
                         <Text style={s.valueText} numberOfLines={1} ellipsizeMode="tail">
-                          {currentPhone || 'Not set'}
+                          {currentPhone || t('common.notSet')}
                         </Text>
                       </View>
                       <TouchableOpacity
@@ -811,7 +813,7 @@ const VerificationScreen = ({
                         }}
                       >
                         <MaterialIcon name="edit" size={16} color={BRAND.secondary} />
-                        <Text style={s.editPillText}>Edit</Text>
+                        <Text style={s.editPillText}>{t('common.edit')}</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -828,12 +830,12 @@ const VerificationScreen = ({
                     {sendLoading ? (
                       <View style={s.ctaRow}>
                         <ActivityIndicator size="small" color={BRAND.white} />
-                        <Text style={s.ctaButtonText}>Sending OTP...</Text>
+                        <Text style={s.ctaButtonText}>{t('verificationScreen.sendingOtp')}</Text>
                       </View>
                     ) : (
                       <View style={s.ctaRow}>
                         <MaterialIcon name="sms" size={20} color={BRAND.white} />
-                        <Text style={s.ctaButtonText}>Send OTP</Text>
+                        <Text style={s.ctaButtonText}>{t('verificationScreen.sendOtp')}</Text>
                       </View>
                     )}
                   </TouchableOpacity>
@@ -851,7 +853,7 @@ const VerificationScreen = ({
 
                   {/* OTP Instruction */}
                   <Text style={s.otpInstruction}>
-                    Enter the 6-digit code sent to your phone
+                    {t('verificationScreen.otpInstruction')}
                   </Text>
 
                   {/* OTP Input Boxes */}
@@ -935,19 +937,19 @@ const VerificationScreen = ({
                   {loading ? (
                     <View style={s.ctaRow}>
                       <ActivityIndicator size="small" color={BRAND.white} />
-                      <Text style={s.ctaButtonText}>Verifying...</Text>
+                      <Text style={s.ctaButtonText}>{t('verificationScreen.verifyingBtn')}</Text>
                     </View>
                   ) : (
                     <View style={s.ctaRow}>
                       <MaterialIcon name="verified" size={20} color={BRAND.white} />
-                      <Text style={s.ctaButtonText}>Verify OTP</Text>
+                      <Text style={s.ctaButtonText}>{t('verificationScreen.verifyOtp')}</Text>
                     </View>
                   )}
                 </TouchableOpacity>
 
                 {/* Resend */}
                 <View style={s.resendRow}>
-                  <Text style={s.resendLabel}>Didn't receive the code?</Text>
+                  <Text style={s.resendLabel}>{t('verificationScreen.didntReceive')}</Text>
                   <TouchableOpacity
                     onPress={handleSendVerification}
                     disabled={!canResend || sendLoading || loading}
@@ -966,7 +968,7 @@ const VerificationScreen = ({
                           s.resendBtnText,
                           (!canResend || sendLoading) && s.resendBtnTextDisabled,
                         ]}>
-                          Resend OTP
+                          {t('verificationScreen.resendOtp')}
                         </Text>
                       </>
                     )}
@@ -984,7 +986,7 @@ const VerificationScreen = ({
           disabled={loading || sendLoading}
           activeOpacity={0.7}
         >
-          <Text style={s.skipBtnText}>Skip for now</Text>
+          <Text style={s.skipBtnText}>{t('verificationScreen.skipForNow')}</Text>
           <MaterialIcon name="chevron-right" size={18} color={BRAND.textMuted} />
         </TouchableOpacity>
 
@@ -993,8 +995,8 @@ const VerificationScreen = ({
           <MaterialIcon name="info-outline" size={18} color={BRAND.textMuted} />
           <Text style={s.footerText}>
             {isEmailVerification
-              ? 'Check your spam folder if you don\'t see the email. You can edit your email above if needed.'
-              : 'You can edit your phone number above if it\'s incorrect or not set.'
+              ? t('verificationScreen.emailTip')
+              : t('verificationScreen.phoneTip')
             }
           </Text>
         </View>

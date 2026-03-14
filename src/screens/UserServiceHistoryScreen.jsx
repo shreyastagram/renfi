@@ -38,6 +38,7 @@ import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
+import { useLanguage } from '../context/LanguageContext';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
 import { Icon, ServiceIcon, StatusIcon, RatingModal, FixhomiLogo, CancellationReasonModal } from '../components';
 import ScreenShimmer, { useShimmerAnimation, ShimmerBlock } from '../components/ShimmerLoader';
@@ -155,6 +156,7 @@ const StatPill = ({ value, label, color, bgColor }) => (
 /* -- Request Card -------------------------------------------------------- */
 const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvider, onRate, onFindProviders, ratingStatus, onResendOtp, resendingOtpId }) => {
   const { dialog } = useDialog();
+  const { t } = useLanguage();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const shimmerAnim = useShimmerAnimation();
   const status = STATUS_CONFIG[request.status] || STATUS_CONFIG.pending;
@@ -180,7 +182,7 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
   const handleCopyOtp = () => {
     if (request.completionOtp && !isOtpExpired && !isResendingThis) {
       Clipboard.setString(request.completionOtp);
-      dialog('Copied!', 'OTP copied to clipboard');
+      dialog(t('common.copied'), t('userHistory.copiedToClipboard'));
     }
   };
 
@@ -231,11 +233,11 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
           const by = request.cancelledBy;
           const reason = request.rejectReason || request.cancellationReason || request.cancelReason;
           let label = '';
-          if (request.status === 'rejected') label = reason || 'No providers available';
-          else if (by === 'provider') label = 'Cancelled by Provider';
-          else if (by === 'user') label = 'Cancelled by You';
-          else if (by === 'system') label = 'Cancelled by System';
-          else label = reason || 'Request cancelled';
+          if (request.status === 'rejected') label = reason || t('userHistory.noProviderAvailable');
+          else if (by === 'provider') label = t('userHistory.cancelledByProvider');
+          else if (by === 'user') label = t('userHistory.cancelledByUser');
+          else if (by === 'system') label = t('userHistory.cancelledBySystem');
+          else label = reason || t('userHistory.requestCancelled');
           const generic = ['user cancelled', 'cancelled by user', 'cancelled by provider', 'provider cancelled'];
           if (reason && !generic.includes(reason.toLowerCase()) && by) label += ` \u2014 ${reason}`;
           const isRejected = request.status === 'rejected';
@@ -261,17 +263,17 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
             {hasRated ? (
               <View style={styles.ratedStrip}>
                 <Icon name="star" size={13} color="#D97706" />
-                <Text style={styles.ratedText}>Rated {ratedStars || ''} {ratedStars ? 'stars' : ''}</Text>
+                <Text style={styles.ratedText}>{ratedStars ? t('userHistory.ratedStars', { stars: ratedStars }) : ''}</Text>
               </View>
             ) : ratingChecking ? (
               <View style={[styles.ratedStrip, { backgroundColor: '#F1F5F9', borderColor: '#E2E8F0' }]}>
                 <ActivityIndicator size={12} color={C.muted} />
-                <Text style={[styles.ratedText, { color: C.muted }]}>Checking...</Text>
+                <Text style={[styles.ratedText, { color: C.muted }]}>{t('userHistory.checking')}</Text>
               </View>
             ) : (
               <TouchableOpacity style={styles.rateBtn} onPress={() => onRate(request)} activeOpacity={0.7}>
                 <Icon name="star" size={14} color={C.white} />
-                <Text style={styles.rateBtnText}>Rate</Text>
+                <Text style={styles.rateBtnText}>{t('userHistory.rate')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -283,7 +285,7 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
             {/* Date/Time */}
             <View style={styles.dtRow}>
               <View style={styles.dtItem}>
-                <Text style={styles.dtLabel}>DATE</Text>
+                <Text style={styles.dtLabel}>{t('common.date')}</Text>
                 <Text style={styles.dtVal}>
                   {isEventService && request.eventDate
                     ? new Date(request.eventDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
@@ -299,7 +301,7 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
                 if (isNaN(h) || isNaN(m)) return null;
                 const p = h >= 12 ? 'PM' : 'AM';
                 const dh = h === 0 ? 12 : h > 12 ? h - 12 : h;
-                return (<><View style={styles.dtDiv} /><View style={styles.dtItem}><Text style={styles.dtLabel}>TIME</Text><Text style={styles.dtVal}>{dh}:{String(m).padStart(2, '0')} {p}</Text></View></>);
+                return (<><View style={styles.dtDiv} /><View style={styles.dtItem}><Text style={styles.dtLabel}>{t('common.time')}</Text><Text style={styles.dtVal}>{dh}:{String(m).padStart(2, '0')} {p}</Text></View></>);
               })()}
             </View>
 
@@ -312,8 +314,8 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
                     <Icon name="send" size={11} color={C.secondary} />
                     <Text style={styles.sentToStripText}>
                       {request.providerDetails?.name
-                        ? `Request sent to ${request.providerDetails.name}`
-                        : 'Request sent to provider — awaiting response'}
+                        ? t('userHistory.sentToProvider', { name: request.providerDetails.name })
+                        : t('userHistory.sentToProviderDefault')}
                     </Text>
                   </View>
                   <TouchableOpacity
@@ -321,7 +323,7 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
                     onPress={() => onCancel(request)}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.cancelSentStripBtnText}>Cancel</Text>
+                    <Text style={styles.cancelSentStripBtnText}>{t('common.cancel')}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -375,7 +377,7 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
                 <View style={styles.sentToStripRow}>
                   <Icon name="send" size={11} color={C.secondary} />
                   <Text style={styles.sentToStripText}>
-                    Waiting for provider to accept
+                    {t('userHistory.waitingForAcceptance')}
                   </Text>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -385,14 +387,14 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
                     activeOpacity={0.7}
                   >
                     <Icon name="search" size={12} color={C.white} />
-                    <Text style={styles.findProvidersBtnText}>Find</Text>
+                    <Text style={styles.findProvidersBtnText}>{t('userHistory.find')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.cancelSentStripBtn}
                     onPress={() => onCancel(request)}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.cancelSentStripBtnText}>Cancel</Text>
+                    <Text style={styles.cancelSentStripBtnText}>{t('common.cancel')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -406,7 +408,7 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
                 <View style={styles.noProviderStrip}>
                   <Icon name="clock" size={11} color={isWithin30Min ? '#92400E' : C.muted} />
                   <Text style={styles.noProviderStripText}>
-                    {isWithin30Min ? 'No provider selected yet' : 'Request will be auto-cancelled soon'}
+                    {isWithin30Min ? t('userHistory.noProviderSelected') : t('userHistory.autoCancelWarning')}
                   </Text>
                   {isWithin30Min && (
                     <TouchableOpacity
@@ -415,7 +417,7 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
                       activeOpacity={0.7}
                     >
                       <Icon name="search" size={12} color={C.white} />
-                      <Text style={styles.findProvidersBtnText}>Find Providers</Text>
+                      <Text style={styles.findProvidersBtnText}>{t('userHistory.findProviders')}</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -428,7 +430,7 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
                 <View style={styles.otpBar}>
                   <View style={styles.otpLeft}>
                     <Icon name="lock" size={14} color={C.purple} />
-                    <Text style={styles.otpLabel}>Generating OTP...</Text>
+                    <Text style={styles.otpLabel}>{t('userHistory.generatingOtp')}</Text>
                   </View>
                   <View style={styles.otpRight}>
                     <ShimmerBlock width={120} height={22} borderRadius={6} shimmerAnim={shimmerAnim} />
@@ -438,7 +440,7 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
                 <View style={[styles.otpBar, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}>
                   <View style={styles.otpLeft}>
                     <Icon name="clock" size={14} color={C.danger} />
-                    <Text style={[styles.otpLabel, { color: C.danger }]}>OTP Expired</Text>
+                    <Text style={[styles.otpLabel, { color: C.danger }]}>{t('userHistory.otpExpired')}</Text>
                   </View>
                   <TouchableOpacity
                     style={styles.otpResendBtn}
@@ -446,14 +448,14 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
                     activeOpacity={0.7}
                   >
                     <Icon name="refresh" size={12} color={C.white} />
-                    <Text style={styles.otpResendBtnText}>Resend</Text>
+                    <Text style={styles.otpResendBtnText}>{t('userHistory.resend')}</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
                 <TouchableOpacity style={styles.otpBar} onPress={handleCopyOtp} activeOpacity={0.7}>
                   <View style={styles.otpLeft}>
                     <Icon name="lock" size={14} color={C.purple} />
-                    <Text style={styles.otpLabel}>Completion OTP</Text>
+                    <Text style={styles.otpLabel}>{t('userHistory.completionOtp')}</Text>
                   </View>
                   <View style={styles.otpRight}>
                     <Text style={styles.otpDigits}>{request.completionOtp}</Text>
@@ -467,13 +469,13 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
             {isPending && (
               <TouchableOpacity style={styles.cancelRequestBtn} onPress={() => onCancel(request)} activeOpacity={0.7}>
                 <Icon name="close" size={15} color={C.danger} />
-                <Text style={styles.cancelRequestText}>Cancel Request</Text>
+                <Text style={styles.cancelRequestText}>{t('userHistory.cancelRequestBtn')}</Text>
               </TouchableOpacity>
             )}
 
             {/* View details */}
             <TouchableOpacity style={styles.detailsRow} onPress={onPress} activeOpacity={0.6}>
-              <Text style={styles.detailsText}>View Details</Text>
+              <Text style={styles.detailsText}>{t('common.viewDetails')}</Text>
               <Icon name="chevron-right" size={15} color={C.secondary} />
             </TouchableOpacity>
           </>
@@ -485,16 +487,17 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
 
 /* -- Empty State --------------------------------------------------------- */
 const EmptyState = ({ filter, onBookService }) => {
-  const msg = filter === 'pending' ? 'No pending bookings.' : filter === 'accepted' ? 'No active bookings.' : filter === 'completed' ? 'No completed bookings.' : filter === 'cancelled' ? 'No cancelled bookings.' : 'No bookings yet.';
+  const { t } = useLanguage();
+  const msg = filter === 'pending' ? t('userHistory.noPendingBookings') : filter === 'accepted' ? t('userHistory.noActiveBookings') : filter === 'completed' ? t('userHistory.noCompletedBookings') : filter === 'cancelled' ? t('userHistory.noCancelledBookings') : t('userHistory.noBookingsYet');
   return (
     <View style={styles.emptyWrap}>
       <View style={styles.emptyCircle}><Icon name="clipboard-list" size={44} color={C.muted} /></View>
-      <Text style={styles.emptyTitle}>No Bookings Found</Text>
+      <Text style={styles.emptyTitle}>{t('userHistory.noBookingsFound')}</Text>
       <Text style={styles.emptyMsg}>{msg}</Text>
       {filter === 'all' && (
         <TouchableOpacity style={styles.emptyCta} onPress={onBookService} activeOpacity={0.7}>
           <Icon name="add" size={16} color={C.white} />
-          <Text style={styles.emptyCtaText}>Book a Service</Text>
+          <Text style={styles.emptyCtaText}>{t('userHistory.bookService')}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -507,6 +510,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
   const isFocused = useIsFocused();
   const { user, profile, userType, logout } = useApp();
   const { dialog } = useDialog();
+  const { t } = useLanguage();
 
   // Set status bar for light background when this tab is focused
   useFocusEffect(
@@ -772,10 +776,10 @@ const UserServiceHistoryScreen = ({ navigation }) => {
 
   const handleCallProvider = (request) => {
     const phone = request.providerDetails?.phone || request.providerDetails?.verifiedPhone;
-    if (!phone) { dialog('Error', 'Provider phone number not available'); return; }
-    dialog('Call Provider', `Call ${request.providerDetails?.name || 'Provider'} at ${phone}?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Call Now', onPress: () => Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => dialog('Error', 'Cannot make calls')) },
+    if (!phone) { dialog(t('common.error'), t('userHistory.phoneUnavailable')); return; }
+    dialog(t('userHistory.callProviderTitle'), t('userHistory.callProviderMsg', { name: request.providerDetails?.name || 'Provider', phone }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.callNow'), onPress: () => Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => dialog(t('common.error'), t('userHistory.cannotCall'))) },
     ]);
   };
 
@@ -832,7 +836,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
         setAllRequests(prev => prev.map(r =>
           r._id === requestToCancel._id ? { ...r, status: 'cancelled' } : r
         ));
-        dialog('Cancelled', 'Your booking has been cancelled.');
+        dialog(t('userHistory.cancelledTitle'), t('userHistory.cancelledMsg'));
         // Background refresh to sync with backend
         setTimeout(() => onRefresh(), 1500);
       }
@@ -843,16 +847,16 @@ const UserServiceHistoryScreen = ({ navigation }) => {
           setAllRequests(prev => prev.map(r =>
             r._id === requestToCancel._id ? { ...r, status: 'cancelled' } : r
           ));
-          dialog('Already Cancelled', 'This request has already been cancelled.');
+          dialog(t('userHistory.alreadyCancelled'), t('userHistory.alreadyCancelledMsg'));
         } else if (errMsg.includes('completed')) {
-          dialog('Cannot Cancel', 'This request has already been completed and cannot be cancelled.');
+          dialog(t('userHistory.cannotCancel'), t('userHistory.cannotCancelMsg'));
           onRefresh();
         } else {
-          dialog('Unable to Cancel', result.error || result.message || 'Failed to cancel this booking. Please try again.');
+          dialog(t('userHistory.unableToCancel'), result.error || result.message || t('common.somethingWentWrong'));
         }
       }
     } catch (e) {
-      dialog('Connection Error', 'We\'re having trouble connecting. Please try again.');
+      dialog(t('common.connectionError'), t('common.connectionErrorMsg'));
     }
     finally { setCancellingRequest(false); setRequestToCancel(null); }
   };
@@ -878,13 +882,13 @@ const UserServiceHistoryScreen = ({ navigation }) => {
       }
       if (result.success) {
         await fetchRequests(1, false);
-        dialog('OTP Sent', 'A new completion OTP has been generated.');
+        dialog(t('userHistory.otpSent'), t('userHistory.otpSentMsg'));
       } else {
-        dialog('Error', result.error || result.message || 'Failed to resend OTP. Please try again.');
+        dialog(t('common.error'), result.error || result.message || t('userHistory.otpResendError'));
       }
     } catch (error) {
       console.error('[History ResendOTP] Error:', error);
-      dialog('Error', 'Something went wrong. Please check your connection and try again.');
+      dialog(t('common.error'), t('common.somethingWentWrong'));
     } finally {
       setResendingOtpId(null);
     }
@@ -935,7 +939,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
         <TouchableOpacity onPress={() => setIsDrawerOpen(true)} activeOpacity={0.7} style={styles.logoBtn}>
           <Image source={FIXHOMI_LOGO} style={styles.logoImg} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Bookings</Text>
+        <Text style={styles.headerTitle}>{t('userHistory.myBookings')}</Text>
         <AvatarButton name={displayData?.fullName} profilePicture={displayData?.profilePicture} onPress={() => navigation.navigate('Profile')} />
       </View>
 

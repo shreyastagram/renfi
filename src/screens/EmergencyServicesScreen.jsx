@@ -34,6 +34,7 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLocation } from '../context/LocationContext';
+import { useLanguage } from '../context/LanguageContext';
 import {
   EMERGENCY_SERVICE_TYPES,
   LOCATION_BASED_SERVICES,
@@ -164,6 +165,7 @@ const ServiceCard = ({ service, onPress, isStatic }) => (
  */
 const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite, hasContacted }) => {
   const useKm = useDistanceUnit();
+  const { t } = useLanguage();
   const profilePictureUrl = typeof provider.profilePicture === 'string'
     ? provider.profilePicture
     : provider.profilePicture?.url || provider.profileImage || null;
@@ -204,7 +206,7 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite, 
             <MaterialIcon name="location-on" size={14} color={COLORS.muted} />
             <Text style={styles.providerDistance}>
               {provider.distanceKm ? formatDistance(provider.distanceKm, useKm) :
-               provider.distance != null ? formatDistanceFromMeters(Number(provider.distance), useKm) : 'Nearby'}
+               provider.distance != null ? formatDistanceFromMeters(Number(provider.distance), useKm) : t('common.nearby')}
             </Text>
           </View>
           {(provider.rating > 0 || provider.ratings?.average > 0) && (
@@ -215,7 +217,7 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite, 
               </Text>
               {(provider.ratings?.total > 0 || provider.totalRatings > 0) && (
                 <Text style={styles.providerRatingCount}>
-                  ({provider.ratings?.total || provider.totalRatings} reviews)
+                  ({provider.ratings?.total || provider.totalRatings} {t('common.reviews')})
                 </Text>
               )}
             </View>
@@ -230,7 +232,7 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite, 
           <View style={styles.providerStatusRow}>
             <View style={[styles.statusDot, { backgroundColor: (provider.isOnline || provider.isAvailable) ? COLORS.success : COLORS.muted }]} />
             <Text style={[styles.providerStatusText, { color: (provider.isOnline || provider.isAvailable) ? COLORS.success : COLORS.muted }]}>
-              {(provider.isOnline || provider.isAvailable) ? 'Available' : 'Offline'}
+              {(provider.isOnline || provider.isAvailable) ? t('common.available') : t('common.offline')}
             </Text>
           </View>
         </View>
@@ -258,13 +260,13 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite, 
           {booking ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.bookButtonText}>{hasContacted ? 'Send Request' : 'Call First'}</Text>
+            <Text style={styles.bookButtonText}>{hasContacted ? t('common.sendRequest') : t('emergencyServices.sendRequestOrCallFirst')}</Text>
           )}
         </TouchableOpacity>
       </View>
       {/* View Details indicator */}
       <View style={styles.viewDetailsHint}>
-        <Text style={styles.viewDetailsText}>Tap for details</Text>
+        <Text style={styles.viewDetailsText}>{t('common.viewDetails')}</Text>
         <MaterialIcon name="chevron-right" size={16} color={COLORS.muted} />
       </View>
     </AnimatedPressable>
@@ -274,7 +276,9 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite, 
 /**
  * Static Numbers Modal — Premium bottom sheet
  */
-const StaticNumbersModal = ({ visible, onClose, numbers, serviceType }) => (
+const StaticNumbersModal = ({ visible, onClose, numbers, serviceType }) => {
+  const { t } = useLanguage();
+  return (
   <Modal
     visible={visible}
     animationType="slide"
@@ -307,8 +311,8 @@ const StaticNumbersModal = ({ visible, onClose, numbers, serviceType }) => (
               <View style={styles.emptyIconCircle}>
                 <MaterialIcon name="phone-disabled" size={36} color={COLORS.muted} />
               </View>
-              <Text style={styles.noNumbersText}>No numbers available</Text>
-              <Text style={styles.noNumbersSubtext}>Check back later or call 112 for emergencies</Text>
+              <Text style={styles.noNumbersText}>{t('emergencyServices.noNumbersAvailable')}</Text>
+              <Text style={styles.noNumbersSubtext}>{t('emergencyServices.checkBackLater')}</Text>
             </View>
           ) : (
             numbers.map((item, index) => (
@@ -338,12 +342,13 @@ const StaticNumbersModal = ({ visible, onClose, numbers, serviceType }) => (
         </ScrollView>
 
         <TouchableOpacity style={styles.closeModalButton} onPress={onClose} activeOpacity={0.8}>
-          <Text style={styles.closeModalButtonText}>Close</Text>
+          <Text style={styles.closeModalButtonText}>{t('common.close')}</Text>
         </TouchableOpacity>
       </View>
     </View>
   </Modal>
-);
+  );
+};
 
 /**
  * Emergency Provider Details Modal — Premium design
@@ -351,6 +356,7 @@ const StaticNumbersModal = ({ visible, onClose, numbers, serviceType }) => (
 const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onBook, hasContacted, booking }) => {
   const { dialog } = useDialog();
   const useKm = useDistanceUnit();
+  const { t } = useLanguage();
   if (!provider) return null;
 
   const profilePictureUrl = typeof provider.profilePicture === 'string'
@@ -389,7 +395,7 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
               <TouchableOpacity style={detailStyles.closeBtn} onPress={onClose}>
                 <MaterialIcon name="close" size={20} color={COLORS.muted} />
               </TouchableOpacity>
-              <Text style={detailStyles.headerTitle}>Provider Details</Text>
+              <Text style={detailStyles.headerTitle}>{t('emergencyServices.providerDetailsTitle')}</Text>
               <View style={{ width: 40 }} />
             </View>
 
@@ -427,7 +433,7 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
                     </Text>
                     {(provider.ratings?.total > 0 || provider.totalRatings > 0) && (
                       <Text style={detailStyles.ratingCount}>
-                        ({provider.ratings?.total || provider.totalRatings} reviews)
+                        ({provider.ratings?.total || provider.totalRatings} {t('common.reviews')})
                       </Text>
                     )}
                   </View>
@@ -437,7 +443,7 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
                 {provider.experience && (
                   <View style={detailStyles.infoRow}>
                     <MaterialIcon name="work" size={14} color={COLORS.muted} />
-                    <Text style={detailStyles.infoText}>{provider.experience} experience</Text>
+                    <Text style={detailStyles.infoText}>{provider.experience} {t('home.experience').toLowerCase()}</Text>
                   </View>
                 )}
 
@@ -445,7 +451,7 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
                 {memberSince && (
                   <View style={detailStyles.infoRow}>
                     <MaterialIcon name="calendar-today" size={14} color={COLORS.muted} />
-                    <Text style={detailStyles.infoText}>Member since {memberSince}</Text>
+                    <Text style={detailStyles.infoText}>{t('detail.memberSince', { date: memberSince })}</Text>
                   </View>
                 )}
 
@@ -454,8 +460,8 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
                   <View style={detailStyles.infoRow}>
                     <MaterialIcon name="location-on" size={14} color={COLORS.primary} />
                     <Text style={detailStyles.infoText}>
-                      {provider.distanceKm ? `${formatDistance(provider.distanceKm, useKm)} away` :
-                       `${formatDistanceFromMeters(Number(provider.distance), useKm)} away`}
+                      {provider.distanceKm ? `${formatDistance(provider.distanceKm, useKm)} ${t('common.away')}` :
+                       `${formatDistanceFromMeters(Number(provider.distance), useKm)} ${t('common.away')}`}
                     </Text>
                   </View>
                 )}
@@ -478,23 +484,23 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
                 <Text style={detailStyles.statValue}>
                   {provider.stats?.completedRequests || provider.completedJobs || 0}
                 </Text>
-                <Text style={detailStyles.statLabel}>Jobs Done</Text>
+                <Text style={detailStyles.statLabel}>{t('emergencyServices.jobsDone')}</Text>
               </View>
               <View style={detailStyles.statDivider} />
               <View style={detailStyles.statItem}>
                 <Text style={detailStyles.statValue}>
                   {provider.ratings?.total || provider.totalRatings || 0}
                 </Text>
-                <Text style={detailStyles.statLabel}>Reviews</Text>
+                <Text style={detailStyles.statLabel}>{t('common.reviews')}</Text>
               </View>
               <View style={detailStyles.statDivider} />
               <View style={detailStyles.statItem}>
                 <Text style={[detailStyles.statValue, {
                   color: (provider.isOnline || provider.isAvailable) ? COLORS.success : COLORS.muted
                 }]}>
-                  {(provider.isOnline || provider.isAvailable) ? 'Online' : 'Offline'}
+                  {(provider.isOnline || provider.isAvailable) ? t('common.online') : t('common.offline')}
                 </Text>
-                <Text style={detailStyles.statLabel}>Status</Text>
+                <Text style={detailStyles.statLabel}>{t('home.status')}</Text>
               </View>
             </View>
 
@@ -503,7 +509,7 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
               <View style={detailStyles.section}>
                 <View style={detailStyles.sectionHeaderRow}>
                   <View style={detailStyles.sectionAccent} />
-                  <Text style={detailStyles.sectionTitle}>About</Text>
+                  <Text style={detailStyles.sectionTitle}>{t('emergencyServices.about')}</Text>
                 </View>
                 <View style={detailStyles.bioContainer}>
                   <Text style={detailStyles.bioText}>{provider.bio}</Text>
@@ -516,7 +522,7 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
               <View style={detailStyles.section}>
                 <View style={detailStyles.sectionHeaderRow}>
                   <View style={detailStyles.sectionAccent} />
-                  <Text style={detailStyles.sectionTitle}>Verified Services</Text>
+                  <Text style={detailStyles.sectionTitle}>{t('emergencyServices.verifiedServices')}</Text>
                 </View>
                 <View style={detailStyles.tagsContainer}>
                   {provider.verifiedServiceCategories.map((cat, index) => (
@@ -535,7 +541,7 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
             <View style={detailStyles.section}>
               <View style={detailStyles.sectionHeaderRow}>
                 <View style={detailStyles.sectionAccent} />
-                <Text style={detailStyles.sectionTitle}>Contact</Text>
+                <Text style={detailStyles.sectionTitle}>{t('emergencyServices.contact')}</Text>
               </View>
               {phone ? (
                 <TouchableOpacity
@@ -547,12 +553,12 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
                     <MaterialIcon name="phone" size={18} color={COLORS.success} />
                   </View>
                   <Text style={detailStyles.phoneButtonText}>
-                    Call Provider ({phone})
+                    {t('emergencyServices.callProviderPhone', { phone })}
                   </Text>
                   <MaterialIcon name="chevron-right" size={18} color={COLORS.muted} />
                 </TouchableOpacity>
               ) : (
-                <Text style={detailStyles.noPhoneText}>Phone number not available</Text>
+                <Text style={detailStyles.noPhoneText}>{t('emergencyServices.phoneNotAvailable')}</Text>
               )}
             </View>
           </ScrollView>
@@ -565,13 +571,13 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
               activeOpacity={0.8}
             >
               <MaterialIcon name="phone" size={20} color={COLORS.success} />
-              <Text style={detailStyles.callActionText}>Call</Text>
+              <Text style={detailStyles.callActionText}>{t('common.call')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[detailStyles.bookActionBtn, !hasContacted && { opacity: 0.5 }]}
               onPress={() => {
                 if (!hasContacted) {
-                  dialog('Call First', 'Please call the provider to discuss the emergency details before sending a request.', [{ text: 'OK' }]);
+                  dialog(t('emergencyServices.callFirst'), t('emergencyServices.callFirstMsg'), [{ text: t('common.ok') }]);
                   return;
                 }
                 onBook(provider);
@@ -585,7 +591,7 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
                 <>
                   <MaterialIcon name="send" size={18} color={COLORS.white} />
                   <Text style={detailStyles.bookActionText}>
-                    {hasContacted ? 'Send Request' : 'Call First'}
+                    {hasContacted ? t('common.sendRequest') : t('emergencyServices.sendRequestOrCallFirst')}
                   </Text>
                 </>
               )}
@@ -602,6 +608,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
   const { user, profile } = useApp();
   const { dialog } = useDialog();
   const { currentLocation, displayAddress, locationLoading, refreshLocation } = useLocation();
+  const { t } = useLanguage();
 
   // User ID
   const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
@@ -661,7 +668,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
         setStaticNumbers(numbers);
         setStep('static');
       } else {
-        dialog('Error', result.error || 'Failed to fetch emergency numbers');
+        dialog(t('common.error'), result.error || t('emergencyServices.requestFailed'));
       }
     } else {
       // Location-based service - show notes input
@@ -711,7 +718,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
    */
   const handleCreateRequest = async () => {
     if (!currentLocation) {
-      dialog('Location Required', 'Please enable location to request emergency services.');
+      dialog(t('emergencyServices.locationRequired'), t('emergencyServices.locationRequiredMsg'));
       refreshLocation();
       return;
     }
@@ -742,14 +749,14 @@ const EmergencyServicesScreen = ({ navigation }) => {
         setIsLoading(false);
         if (createResult.code === 'OUTSIDE_SERVICE_ZONE') {
           dialog(
-            'Service Unavailable in Your Area',
-            createResult.suggestion || 'Emergency services are currently available only in Yavatmal City, Maharashtra. For emergencies outside this zone, please call 112.',
-            [{ text: 'OK' }]
+            t('emergencyServices.serviceUnavailable'),
+            createResult.suggestion || t('emergencyServices.serviceUnavailableMsg'),
+            [{ text: t('common.ok') }]
           );
         } else if (createResult.code === 'RATE_LIMITED' && createResult.retryAfter) {
-          dialog('Please Wait', `You've made too many requests. Try again in ${createResult.retryAfter} seconds.`);
+          dialog(t('userHome.rateLimited'), t('userHome.rateLimitedMsg', { seconds: createResult.retryAfter }));
         } else {
-          dialog('Error', createResult.error || 'Failed to create request');
+          dialog(t('common.error'), createResult.error || t('emergencyServices.requestFailed'));
         }
         return;
       }
@@ -770,17 +777,17 @@ const EmergencyServicesScreen = ({ navigation }) => {
         setProviders(providersResult.providers);
         setStep('providers');
       } else {
-        dialog('No Providers', providersResult.error || 'No providers available nearby. Please try again.');
+        dialog(t('emergencyServices.noProviders'), providersResult.error || t('emergencyServices.noProvidersMsg'));
       }
     } catch (error) {
       stopLoadingTimer();
       setIsLoading(false);
       setLoadingTimedOut(false);
       dialog(
-        'Request Failed',
+        t('emergencyServices.requestFailed'),
         error.message?.includes('timed out')
-          ? 'The server took too long to respond. Please check your connection and try again.'
-          : (error.message || 'Something went wrong. Please try again.'),
+          ? t('emergencyServices.serverTimeout')
+          : (error.message || t('common.somethingWentWrong')),
       );
     }
   };
@@ -811,16 +818,16 @@ const EmergencyServicesScreen = ({ navigation }) => {
         setProviders(providersResult.providers);
         setStep('providers');
       } else {
-        dialog('No Providers', providersResult.error || 'No providers available nearby. Please try again.');
+        dialog(t('emergencyServices.noProviders'), providersResult.error || t('emergencyServices.noProvidersMsg'));
       }
     } catch (error) {
       stopLoadingTimer();
       setIsLoading(false);
       dialog(
-        'Retry Failed',
+        t('emergencyServices.retryFailed'),
         error.message?.includes('timed out')
-          ? 'Still unable to reach the server. Please try again.'
-          : (error.message || 'Something went wrong.'),
+          ? t('emergencyServices.retryFailedMsg')
+          : (error.message || t('common.somethingWentWrong')),
       );
     }
   };
@@ -851,9 +858,9 @@ const EmergencyServicesScreen = ({ navigation }) => {
 
     if (!stripped) {
       dialog(
-        'Phone Not Available',
-        'This provider\'s phone number is not yet available. Please try viewing their full profile or try again later.',
-        [{ text: 'OK' }]
+        t('userHome.phoneNotAvailable'),
+        t('userHome.phoneNotAvailableMsg'),
+        [{ text: t('common.ok') }]
       );
       return;
     }
@@ -862,17 +869,17 @@ const EmergencyServicesScreen = ({ navigation }) => {
                         stripped.startsWith('91') ? `+${stripped}` : `+91${stripped}`;
 
     dialog(
-      'Call Provider',
-      `Call ${provider.name || 'Provider'} at ${phone}?`,
+      t('userHome.callProvider'),
+      t('userHome.callProviderMsg', { name: provider.name || 'Provider', phone }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Call Now',
+          text: t('common.callNow'),
           onPress: () => {
             // Track that user has contacted this provider
             setContactedProviderIds(prev => new Set(prev).add(provider._id));
             Linking.openURL(`tel:${phoneNumber}`).catch(() => {
-              dialog('Error', 'Unable to make phone calls on this device');
+              dialog(t('common.error'), t('userHome.unableToCall'));
             });
           },
         },
@@ -889,9 +896,9 @@ const EmergencyServicesScreen = ({ navigation }) => {
     // Enforce call-before-book: user must call provider first
     if (!contactedProviderIds.has(provider._id)) {
       dialog(
-        'Call First',
-        'Please call the provider to discuss the emergency details before sending a request.',
-        [{ text: 'OK' }]
+        t('emergencyServices.callFirst'),
+        t('emergencyServices.callFirstMsg'),
+        [{ text: t('common.ok') }]
       );
       return;
     }
@@ -904,11 +911,11 @@ const EmergencyServicesScreen = ({ navigation }) => {
       if (result.success) {
         setBookingProvider(null);
         dialog(
-          'Request Sent!',
-          `Your request has been sent to ${provider.name}. They will review and confirm shortly.`,
+          t('emergencyServices.requestSent'),
+          t('emergencyServices.requestSentMsg', { name: provider.name }),
           [
             {
-              text: 'OK',
+              text: t('common.ok'),
               onPress: () => {
                 navigation.goBack();
               },
@@ -917,11 +924,11 @@ const EmergencyServicesScreen = ({ navigation }) => {
         );
       } else {
         setBookingProvider(null);
-        dialog('Error', result.error || 'Failed to send request');
+        dialog(t('common.error'), result.error || t('emergencyServices.requestFailed'));
       }
     } catch (error) {
       console.error('[Emergency] Book provider error:', error);
-      dialog('Error', 'Something went wrong. Please try again.');
+      dialog(t('common.error'), t('common.somethingWentWrong'));
     } finally {
       setBookingProvider(null);
     }
@@ -934,12 +941,12 @@ const EmergencyServicesScreen = ({ navigation }) => {
     if (!createdRequest) return;
 
     dialog(
-      'Reject Provider',
-      'Are you sure you want to remove this provider from the list?',
+      t('emergencyServices.rejectProvider'),
+      t('emergencyServices.rejectProviderMsg'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Reject',
+          text: t('common.rejected'),
           style: 'destructive',
           onPress: async () => {
             const result = await rejectEmergencyProvider(createdRequest._id, providerId);
@@ -967,10 +974,10 @@ const EmergencyServicesScreen = ({ navigation }) => {
     if (result.success) {
       setProviders(result.providers || []);
       if ((result.providers || []).length === 0) {
-        dialog('No Providers', 'No more providers available in your area.');
+        dialog(t('emergencyServices.noProviders'), t('emergencyServices.noMoreProviders'));
       }
     } else {
-      dialog('Error', result.error || 'Failed to refresh providers');
+      dialog(t('common.error'), result.error || t('emergencyServices.requestFailed'));
     }
   };
 
@@ -998,7 +1005,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
       resetState();
     } catch (error) {
       console.error('[Emergency Cancel] Error:', error);
-      dialog('Error', 'Failed to cancel request');
+      dialog(t('common.error'), t('providerHistory.cancelError'));
     } finally {
       setCancellingRequest(false);
     }
@@ -1044,12 +1051,12 @@ const EmergencyServicesScreen = ({ navigation }) => {
       </TouchableOpacity>
       <View style={styles.headerCenter}>
         <Text style={styles.headerTitle}>
-          {step === 'select' ? 'Emergency Services' :
+          {step === 'select' ? t('emergencyServices.title') :
            step === 'static' ? EMERGENCY_SERVICE_LABELS[selectedService?.id] :
-           'Nearby Providers'}
+           t('emergencyServices.nearbyProviders')}
         </Text>
         {step === 'select' && (
-          <Text style={styles.headerSubtitle}>Quick access to help when you need it</Text>
+          <Text style={styles.headerSubtitle}>{t('emergencyServices.quickAccess')}</Text>
         )}
       </View>
       {/* Emergency pulse indicator */}
@@ -1074,10 +1081,10 @@ const EmergencyServicesScreen = ({ navigation }) => {
         <View style={styles.sectionIconContainer}>
           <MaterialIcon name="location-on" size={20} color={COLORS.primary} />
         </View>
-        <Text style={styles.sectionTitle}>Location-Based Services</Text>
+        <Text style={styles.sectionTitle}>{t('emergencyServices.locationBasedServices')}</Text>
       </View>
       <Text style={styles.sectionSubtitle}>
-        Find nearby providers for these services
+        {t('emergencyServices.findNearbyProviders')}
       </Text>
 
       <View style={styles.servicesGrid}>
@@ -1097,10 +1104,10 @@ const EmergencyServicesScreen = ({ navigation }) => {
         <View style={[styles.sectionIconContainer, { backgroundColor: COLORS.dangerLight }]}>
           <MaterialIcon name="phone" size={20} color={COLORS.danger} />
         </View>
-        <Text style={styles.sectionTitle}>Emergency Helplines</Text>
+        <Text style={styles.sectionTitle}>{t('emergencyServices.emergencyHelplines')}</Text>
       </View>
       <Text style={styles.sectionSubtitle}>
-        Call these numbers directly for immediate help
+        {t('emergencyServices.callDirectly')}
       </Text>
 
       <View style={styles.servicesGrid}>
@@ -1120,8 +1127,8 @@ const EmergencyServicesScreen = ({ navigation }) => {
           <MaterialIcon name="info-outline" size={20} color={COLORS.danger} />
         </View>
         <View style={styles.emergencyInfoContent}>
-          <Text style={styles.emergencyInfoTitle}>In case of life-threatening emergency</Text>
-          <Text style={styles.emergencyInfoText}>Dial 112 immediately for police, fire, or ambulance services.</Text>
+          <Text style={styles.emergencyInfoTitle}>{t('emergencyServices.emergencyInfo')}</Text>
+          <Text style={styles.emergencyInfoText}>{t('emergencyServices.dial112')}</Text>
         </View>
       </View>
     </ScrollView>
@@ -1135,10 +1142,10 @@ const EmergencyServicesScreen = ({ navigation }) => {
       <View style={styles.providersHeader}>
         <View>
           <Text style={styles.providersTitle}>
-            {providers.length} Provider{providers.length !== 1 ? 's' : ''} Found
+            {t('emergencyServices.providersFound', { n: providers.length })}
           </Text>
           <Text style={styles.providersSubtitle}>
-            Call first, then send your request
+            {t('emergencyServices.callFirstThenSend')}
           </Text>
         </View>
         <TouchableOpacity
@@ -1160,9 +1167,9 @@ const EmergencyServicesScreen = ({ navigation }) => {
           <View style={styles.emptyIconCircle}>
             <MaterialIcon name="search-off" size={44} color={COLORS.muted} />
           </View>
-          <Text style={styles.emptyText}>No providers available</Text>
+          <Text style={styles.emptyText}>{t('emergencyServices.noProvidersAvailable')}</Text>
           <Text style={styles.emptySubtext}>
-            All providers have been rejected or none are available nearby
+            {t('emergencyServices.allRejectedOrNone')}
           </Text>
           <TouchableOpacity
             style={styles.retryLargeButton}
@@ -1170,7 +1177,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
             activeOpacity={0.8}
           >
             <MaterialIcon name="refresh" size={18} color={COLORS.white} style={{ marginRight: 6 }} />
-            <Text style={styles.retryLargeButtonText}>Search Again</Text>
+            <Text style={styles.retryLargeButtonText}>{t('emergencyServices.searchAgain')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -1207,7 +1214,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
         activeOpacity={0.8}
       >
         <MaterialIcon name="close" size={18} color={COLORS.danger} style={{ marginRight: 6 }} />
-        <Text style={styles.cancelButtonText}>Cancel Request</Text>
+        <Text style={styles.cancelButtonText}>{t('emergencyServices.cancelRequest')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -1341,16 +1348,16 @@ const EmergencyServicesScreen = ({ navigation }) => {
                 {EMERGENCY_SERVICE_LABELS[selectedService?.id]} Request
               </Text>
               <Text style={styles.notesModalSubtitle}>
-                Describe the situation so nearby providers can help faster
+                {t('emergencyServices.describeSituation')}
               </Text>
             </View>
           </View>
 
           {/* Notes label + input */}
-          <Text style={styles.notesLabel}>Details (optional)</Text>
+          <Text style={styles.notesLabel}>{t('emergencyServices.detailsOptional')}</Text>
           <TextInput
             style={styles.notesInput}
-            placeholder={EMERGENCY_NOTES_PLACEHOLDERS[selectedService?.id] || 'Add details to help the provider...'}
+            placeholder={EMERGENCY_NOTES_PLACEHOLDERS[selectedService?.id] || t('emergencyServices.addDetails')}
             placeholderTextColor={COLORS.muted}
             value={notes}
             onChangeText={setNotes}
@@ -1365,9 +1372,9 @@ const EmergencyServicesScreen = ({ navigation }) => {
               <MaterialIcon name="my-location" size={16} color={COLORS.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.locationLabel}>Your Location</Text>
+              <Text style={styles.locationLabel}>{t('emergencyServices.yourLocationLabel')}</Text>
               <Text style={styles.locationText} numberOfLines={2}>
-                {displayAddress || 'Fetching location...'}
+                {displayAddress || t('emergencyServices.fetchingLocation')}
               </Text>
             </View>
             {locationLoading && <ActivityIndicator size="small" color={COLORS.primary} />}
@@ -1380,7 +1387,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
               onPress={dismissNotesModal}
               activeOpacity={0.8}
             >
-              <Text style={styles.notesModalCancelText}>Cancel</Text>
+              <Text style={styles.notesModalCancelText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.notesModalConfirmButton, (isLoading || locationLoading) && { opacity: 0.7 }]}
@@ -1393,7 +1400,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
               ) : (
                 <>
                   <MaterialIcon name="search" size={20} color={COLORS.white} style={{ marginRight: 8 }} />
-                  <Text style={styles.notesModalConfirmText}>Find Providers</Text>
+                  <Text style={styles.notesModalConfirmText}>{t('userHome.findProviders')}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -1416,16 +1423,16 @@ const EmergencyServicesScreen = ({ navigation }) => {
               <View style={[styles.loadingIconCircle, { backgroundColor: '#FEF2F2' }]}>
                 <MaterialIcon name="error-outline" size={40} color={COLORS.danger} />
               </View>
-              <Text style={styles.loadingText}>Taking too long</Text>
+              <Text style={styles.loadingText}>{t('emergencyServices.takingTooLong')}</Text>
               <Text style={styles.loadingSubtext}>
-                The server is not responding. This could be a network issue or the service may be temporarily unavailable.
+                {t('emergencyServices.serverNotResponding')}
               </Text>
               <TouchableOpacity style={styles.retryButton} onPress={handleRetryProviders} activeOpacity={0.8}>
                 <MaterialIcon name="refresh" size={20} color={COLORS.white} />
-                <Text style={styles.retryButtonText}>Try Again</Text>
+                <Text style={styles.retryButtonText}>{t('common.tryAgain')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.cancelSearchButton} onPress={handleCancelSearch} activeOpacity={0.8}>
-                <Text style={styles.cancelSearchText}>Go Back</Text>
+                <Text style={styles.cancelSearchText}>{t('common.goBack')}</Text>
               </TouchableOpacity>
             </>
           ) : (

@@ -39,6 +39,7 @@ import {
 } from '../services/authInfraService';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
+import { useLanguage } from '../context/LanguageContext';
 import ScreenShimmer from '../components/ShimmerLoader';
 
 // ==================== COLORS ====================
@@ -161,6 +162,7 @@ const AccountSecurityScreen = () => {
   const navigation = useNavigation();
   const { user, logout } = useApp();
   const { dialog } = useDialog();
+  const { t } = useLanguage();
   
   // State
   const [loading, setLoading] = useState(true);
@@ -221,12 +223,12 @@ const AccountSecurityScreen = () => {
    */
   const handleRevokeSession = async (sessionId) => {
     dialog(
-      'Sign Out Device',
-      'Are you sure you want to sign out this device? They will need to log in again.',
+      t('accountSecurity.signOutDevice'),
+      t('accountSecurity.signOutDeviceMsg'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Sign Out',
+          text: t('accountSecurity.signOut'),
           style: 'destructive',
           onPress: async () => {
             setRevokingSession(sessionId);
@@ -235,9 +237,9 @@ const AccountSecurityScreen = () => {
             
             if (result.success) {
               setSessions(prev => prev.filter(s => (s.id || s.sessionId) !== sessionId));
-              dialog('Success', 'Device signed out successfully');
+              dialog(t('common.success'), t('accountSecurity.deviceSignedOut'));
             } else {
-              dialog('Error', result.error?.message || 'Failed to sign out device');
+              dialog(t('common.error'), result.error?.message || t('accountSecurity.signOutFailed'));
             }
           },
         },
@@ -250,12 +252,12 @@ const AccountSecurityScreen = () => {
    */
   const handleRevokeAll = async () => {
     dialog(
-      'Sign Out All Devices',
-      'Are you sure you want to sign out all other devices? They will all need to log in again.',
+      t('accountSecurity.signOutAll'),
+      t('accountSecurity.signOutAllMsg'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Sign Out All',
+          text: t('accountSecurity.signOutAllBtn'),
           style: 'destructive',
           onPress: async () => {
             setRevokingAll(true);
@@ -264,9 +266,9 @@ const AccountSecurityScreen = () => {
             
             if (result.success) {
               setSessions(prev => prev.filter(s => s.deviceId === currentDeviceId));
-              dialog('Success', `Signed out ${result.revokedCount || 0} device(s)`);
+              dialog(t('common.success'), t('accountSecurity.signedOutDevices', { count: result.revokedCount || 0 }));
             } else {
-              dialog('Error', result.error?.message || 'Failed to sign out devices');
+              dialog(t('common.error'), result.error?.message || t('accountSecurity.signOutAllFailed'));
             }
           },
         },
@@ -282,13 +284,13 @@ const AccountSecurityScreen = () => {
       const result = await untrustDevice(currentDeviceId);
       if (result.success) {
         setIsTrusted(false);
-        dialog('Device Untrusted', 'This device is no longer trusted');
+        dialog(t('accountSecurity.deviceUntrusted'), t('accountSecurity.deviceUntrustedMsg'));
       }
     } else {
       const result = await trustCurrentDevice();
       if (result.success) {
         setIsTrusted(true);
-        dialog('Device Trusted', 'This device is now trusted for future logins');
+        dialog(t('accountSecurity.deviceTrusted'), t('accountSecurity.deviceTrustedMsg'));
       }
     }
   };
@@ -319,53 +321,53 @@ const AccountSecurityScreen = () => {
     >
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       {/* Auth Health Section */}
-      <SectionHeader title="Account Status" />
+      <SectionHeader title={t('accountSecurity.accountStatus')} />
       <View style={styles.card}>
         <View style={styles.healthRow}>
-          <Text style={styles.healthLabel}>Authentication Status</Text>
+          <Text style={styles.healthLabel}>{t('accountSecurity.authStatus')}</Text>
           <HealthBadge status={healthStatus?.status} />
         </View>
         <Text style={styles.healthMessage}>
-          {healthStatus?.message || 'Checking status...'}
+          {healthStatus?.message || t('accountSecurity.checkingStatus')}
         </Text>
       </View>
 
       {/* Current Device Section */}
-      <SectionHeader title="This Device" />
+      <SectionHeader title={t('accountSecurity.thisDeviceSection')} />
       <View style={styles.card}>
         <View style={styles.deviceRow}>
-          <Text style={styles.deviceLabel}>Device ID</Text>
+          <Text style={styles.deviceLabel}>{t('accountSecurity.deviceId')}</Text>
           <Text style={styles.deviceValue} numberOfLines={1}>
             {currentDeviceId?.substring(0, 20)}...
           </Text>
         </View>
         <View style={styles.deviceRow}>
-          <Text style={styles.deviceLabel}>Trusted Device</Text>
+          <Text style={styles.deviceLabel}>{t('accountSecurity.trustedDevice')}</Text>
           <TouchableOpacity
             style={[styles.trustButton, isTrusted && styles.trustedButton]}
             onPress={handleTrustDevice}
           >
             <Text style={[styles.trustButtonText, isTrusted && styles.trustedButtonText]}>
-              {isTrusted ? '✓ Trusted' : 'Trust Device'}
+              {isTrusted ? `✓ ${t('accountSecurity.trusted')}` : t('accountSecurity.trustDevice')}
             </Text>
           </TouchableOpacity>
         </View>
         <Text style={styles.trustHint}>
-          Trusted devices may have longer session durations
+          {t('accountSecurity.trustHint')}
         </Text>
       </View>
 
       {/* Password Section */}
-      <SectionHeader title="Password" />
+      <SectionHeader title={t('accountSecurity.passwordSection')} />
       <TouchableOpacity style={styles.card} onPress={handleChangePassword}>
         <View style={styles.menuRow}>
-          <Text style={styles.menuLabel}>Change Password</Text>
+          <Text style={styles.menuLabel}>{t('accountSecurity.changePasswordMenu')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </View>
       </TouchableOpacity>
 
       {/* Active Sessions Section */}
-      <SectionHeader title="Active Sessions" />
+      <SectionHeader title={t('accountSecurity.activeSessions')} />
       
       {sessions.length > 1 && (
         <TouchableOpacity
@@ -377,7 +379,7 @@ const AccountSecurityScreen = () => {
             <ActivityIndicator size="small" color={COLORS.surface} />
           ) : (
             <Text style={styles.revokeAllButtonText}>
-              Sign Out All Other Devices
+              {t('accountSecurity.signOutAllOther')}
             </Text>
           )}
         </TouchableOpacity>
@@ -386,7 +388,7 @@ const AccountSecurityScreen = () => {
       {sessions.length === 0 ? (
         <View style={styles.card}>
           <Text style={styles.noSessionsText}>
-            No active sessions found. This could be because session tracking is not yet enabled on the server.
+            {t('accountSecurity.noActiveSessions')}
           </Text>
         </View>
       ) : (
@@ -402,12 +404,12 @@ const AccountSecurityScreen = () => {
       )}
 
       {/* Danger Zone */}
-      <SectionHeader title="Danger Zone" />
+      <SectionHeader title={t('accountSecurity.dangerZone')} />
       <TouchableOpacity
         style={[styles.card, styles.dangerCard]}
         onPress={() => logout(true)}
       >
-        <Text style={styles.dangerText}>Sign Out from This Device</Text>
+        <Text style={styles.dangerText}>{t('accountSecurity.signOutThisDevice')}</Text>
       </TouchableOpacity>
 
       <View style={styles.footer} />

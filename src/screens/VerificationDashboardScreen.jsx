@@ -27,6 +27,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Icon, AadhaarVerificationModal } from '../components';
 import ScreenShimmer from '../components/ShimmerLoader';
 import { getVerificationDashboard, syncVerificationStatus } from '../services/verificationService';
@@ -76,38 +77,38 @@ const CARD_SHADOW_LIGHT = Platform.select({
 const STEP_CONFIG = {
   phone: {
     icon: 'phone',
-    actionLabel: 'Verify Phone',
+    actionLabelKey: 'verificationDashboard.verifyPhone',
     navTarget: 'Verification',
     navParams: { verificationType: 'phone' },
-    description: 'Verify your phone number with OTP',
+    descriptionKey: 'verificationDashboard.verifyPhoneDesc',
   },
   email: {
     icon: 'email',
-    actionLabel: 'Verify Email',
+    actionLabelKey: 'verificationDashboard.verifyEmail',
     navTarget: 'Verification',
     navParams: { verificationType: 'email' },
-    description: 'Verify your email address',
+    descriptionKey: 'verificationDashboard.verifyEmailDesc',
   },
   aadhaar: {
     icon: 'badge',
-    actionLabel: 'Verify Aadhaar',
+    actionLabelKey: 'verificationDashboard.verifyAadhaar',
     navTarget: 'DocumentVerification',
     navParams: {},
-    description: 'Complete Aadhaar verification via DigiLocker',
+    descriptionKey: 'verificationDashboard.verifyAadhaarDesc',
   },
   service_approval: {
     icon: 'document',
-    actionLabel: 'Submit Documents',
+    actionLabelKey: 'verificationDashboard.submitDocuments',
     navTarget: 'DocumentVerification',
     navParams: {},
-    description: 'Get your service categories approved',
+    descriptionKey: 'verificationDashboard.submitDocumentsDesc',
   },
   premium: {
     icon: 'star',
-    actionLabel: 'Go Premium',
+    actionLabelKey: 'verificationDashboard.goPremium',
     navTarget: 'Subscription',
     navParams: {},
-    description: 'Subscribe to premium for visibility in search',
+    descriptionKey: 'verificationDashboard.goPremiumDesc',
   },
 };
 
@@ -187,7 +188,7 @@ const SectionHeader = ({ title, subtitle }) => (
 /**
  * Verification step card — premium card style
  */
-const StepCard = ({ step, config, onAction, isLast }) => {
+const StepCard = ({ step, config, onAction, isLast, t }) => {
   const isCompleted = step.completed;
   const hasWarning = step.phoneChanged;
   const statusColor = isCompleted
@@ -221,13 +222,13 @@ const StepCard = ({ step, config, onAction, isLast }) => {
           </Text>
           <View style={[styles.statusBadge, { backgroundColor: statusColor + '15' }]}>
             <Text style={[styles.statusBadgeText, { color: statusColor }]}>
-              {hasWarning ? 'Re-verify' : isCompleted ? 'Verified' : 'Pending'}
+              {hasWarning ? t('verificationDashboard.reVerify') : isCompleted ? t('common.verified') : t('common.pending')}
             </Text>
           </View>
         </View>
 
         <Text style={styles.stepDescription}>
-          {step.description || config.description}
+          {step.description || (config.descriptionKey ? t(config.descriptionKey) : config.description)}
         </Text>
 
         {/* Phone changed warning */}
@@ -235,7 +236,7 @@ const StepCard = ({ step, config, onAction, isLast }) => {
           <View style={styles.stepWarning}>
             <Icon name="warning" size={12} color="#92400E" />
             <Text style={styles.stepWarningText}>
-              Phone number changed — re-verify your new number
+              {t('verificationDashboard.phoneChanged')}
             </Text>
           </View>
         )}
@@ -245,7 +246,7 @@ const StepCard = ({ step, config, onAction, isLast }) => {
           <View style={styles.stepVerifiedInfo}>
             <Icon name="verified_user" size={12} color={BRAND.success} />
             <Text style={styles.stepVerifiedInfoText}>
-              Verified as: {step.aadhaarName}
+              {t('verificationDashboard.verifiedAs', { name: step.aadhaarName })}
             </Text>
           </View>
         )}
@@ -253,7 +254,7 @@ const StepCard = ({ step, config, onAction, isLast }) => {
           <View style={styles.stepLockInfo}>
             <Icon name="lock" size={11} color={BRAND.muted} />
             <Text style={styles.stepLockInfoText}>
-              Name locked after verification
+              {t('verificationDashboard.nameLocked')}
             </Text>
           </View>
         )}
@@ -261,27 +262,27 @@ const StepCard = ({ step, config, onAction, isLast }) => {
         {/* Contextual details based on step type */}
         {step.id === 'service_approval' && step.approvedServices?.length > 0 && (
           <Text style={styles.stepDetails}>
-            Approved: {step.approvedServices.join(', ')}
+            {t('verificationDashboard.approvedServices', { list: step.approvedServices.join(', ') })}
           </Text>
         )}
         {step.id === 'service_approval' && step.pendingServices?.length > 0 && (
           <Text style={styles.stepDetails}>
-            Pending: {step.pendingServices.join(', ')}
+            {t('verificationDashboard.pendingServices', { list: step.pendingServices.join(', ') })}
           </Text>
         )}
         {step.id === 'premium' && step.completed && step.daysRemaining > 0 && (
           <Text style={styles.stepDetails}>
-            {step.daysRemaining} day{step.daysRemaining !== 1 ? 's' : ''} remaining
+            {t('verificationDashboard.daysRemaining', { count: step.daysRemaining })}
           </Text>
         )}
         {step.id === 'premium' && !step.completed && (
           <Text style={styles.stepDetails}>
-            ₹299 for 28 days • Not required for Snake Catcher, Ambulance, Mortuary Van
+            {t('verificationDashboard.premiumPricing')}
           </Text>
         )}
         {step.id === 'aadhaar' && step.completed && step.verifiedAt && !step.aadhaarName && (
           <Text style={styles.stepDetails}>
-            Verified on {new Date(step.verifiedAt).toLocaleDateString('en-IN')}
+            {t('verificationDashboard.verifiedOn', { date: new Date(step.verifiedAt).toLocaleDateString('en-IN') })}
           </Text>
         )}
 
@@ -292,7 +293,7 @@ const StepCard = ({ step, config, onAction, isLast }) => {
             style={styles.stepActionButton}
           >
             <Text style={styles.stepActionText}>
-              {step.phoneChanged ? 'Re-verify Phone' : config.actionLabel}
+              {step.phoneChanged ? t('verificationDashboard.reVerifyPhone') : (config.actionLabelKey ? t(config.actionLabelKey) : config.actionLabel)}
             </Text>
             <Icon name="chevron-right" size={16} color={BRAND.white} />
           </AnimatedPressable>
@@ -333,6 +334,7 @@ const VerificationDashboardScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, profile, refreshProfile } = useApp();
   const { dialog } = useDialog();
+  const { t } = useLanguage();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -361,10 +363,10 @@ const VerificationDashboardScreen = ({ navigation }) => {
       if (result.success) {
         setDashboard(result.data);
       } else {
-        setError(result.error?.message || 'Failed to load verification status');
+        setError(result.error?.message || t('verificationDashboard.loadFailed'));
       }
     } catch (err) {
-      setError('Something went wrong. Please try again.');
+      setError(t('verificationDashboard.somethingWentWrong'));
     } finally {
       setLoading(false);
     }
@@ -403,12 +405,12 @@ const VerificationDashboardScreen = ({ navigation }) => {
         if (refreshProfile) {
           refreshProfile();
         }
-        dialog('Synced', 'Verification status updated successfully.');
+        dialog(t('verificationDashboard.synced'), t('verificationDashboard.syncedMsg'));
       } else {
-        dialog('Sync Failed', result.error?.message || 'Could not sync verification status.');
+        dialog(t('verificationDashboard.syncFailed'), result.error?.message || t('verificationDashboard.syncFailedMsg'));
       }
     } catch (err) {
-      dialog('Error', 'Failed to sync. Please check your connection.');
+      dialog('Error', t('verificationDashboard.syncError'));
     } finally {
       setSyncing(false);
       spinAnim.stopAnimation();
@@ -484,10 +486,10 @@ const VerificationDashboardScreen = ({ navigation }) => {
         <View style={styles.errorIconContainer}>
           <Icon name="error" size={36} color={BRAND.danger} />
         </View>
-        <Text style={styles.errorTitle}>Something went wrong</Text>
+        <Text style={styles.errorTitle}>{t('verificationDashboard.somethingWentWrong')}</Text>
         <Text style={styles.errorText}>{error}</Text>
         <AnimatedPressable onPress={() => fetchDashboard()} style={styles.retryButton}>
-          <Text style={styles.retryButtonText}>Try Again</Text>
+          <Text style={styles.retryButtonText}>{t('common.tryAgain')}</Text>
         </AnimatedPressable>
       </View>
     );
@@ -503,9 +505,9 @@ const VerificationDashboardScreen = ({ navigation }) => {
             <Icon name="arrow_back" size={22} color={BRAND.white} />
           </AnimatedPressable>
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Verification Status</Text>
+            <Text style={styles.headerTitle}>{t('verificationDashboard.title')}</Text>
             <Text style={styles.headerSubtitle}>
-              {isFullyVerified ? 'All steps complete' : `${completedSteps} of ${totalSteps} verified`}
+              {isFullyVerified ? t('verificationDashboard.allComplete') : t('verificationDashboard.progress', { completed: completedSteps, total: totalSteps })}
             </Text>
           </View>
           <AnimatedPressable
@@ -544,14 +546,14 @@ const VerificationDashboardScreen = ({ navigation }) => {
             <View style={styles.overviewText}>
               <Text style={styles.overviewTitle}>
                 {isFullyVerified
-                  ? 'Fully Verified!'
-                  : `${totalSteps - completedSteps} step${totalSteps - completedSteps !== 1 ? 's' : ''} remaining`
+                  ? t('verificationDashboard.fullyVerified')
+                  : t('verificationDashboard.stepsRemaining', { count: totalSteps - completedSteps })
                 }
               </Text>
               <Text style={styles.overviewSubtitle}>
                 {isFullyVerified
-                  ? 'You are visible in all search results'
-                  : 'Complete all steps to appear in customer searches'
+                  ? t('verificationDashboard.fullyVerifiedSub')
+                  : t('verificationDashboard.incompleteSub')
                 }
               </Text>
 
@@ -576,18 +578,18 @@ const VerificationDashboardScreen = ({ navigation }) => {
           {isPremium && (
             <View style={styles.premiumBadge}>
               <Icon name="star" size={14} color="#F59E0B" />
-              <Text style={styles.premiumBadgeText}>Premium Active</Text>
+              <Text style={styles.premiumBadgeText}>{t('verificationDashboard.premiumActive')}</Text>
             </View>
           )}
         </View>
 
         {/* Verification Steps */}
-        <SectionHeader title="Verification Checklist" />
+        <SectionHeader title={t('verificationDashboard.verificationChecklist')} />
         <View style={styles.stepsContainer}>
           {steps.map((step, index) => {
             const config = STEP_CONFIG[step.id] || {
               icon: 'check-circle',
-              actionLabel: 'Complete',
+              actionLabelKey: 'verificationDashboard.completeBtn',
               description: step.label,
             };
 
@@ -598,6 +600,7 @@ const VerificationDashboardScreen = ({ navigation }) => {
                 config={config}
                 onAction={handleStepAction}
                 isLast={index === steps.length - 1}
+                t={t}
               />
             );
           })}
@@ -605,31 +608,31 @@ const VerificationDashboardScreen = ({ navigation }) => {
 
         {/* Search Visibility Section */}
         <SectionHeader
-          title="Search Visibility"
-          subtitle="Where customers can find you based on your verification status"
+          title={t('verificationDashboard.searchVisibility')}
+          subtitle={t('verificationDashboard.searchVisibilitySub')}
         />
 
         <CapabilityCard
           iconName="build"
-          title="Traditional Services"
+          title={t('verificationDashboard.traditionalServices')}
           enabled={capabilities.canAppearInTraditionalSearch}
-          description="Electrician, Plumber, Carpenter, etc."
+          description={t('verificationDashboard.traditionalServicesSub')}
         />
 
         <CapabilityCard
           iconName="camera"
-          title="Event Services"
+          title={t('verificationDashboard.eventServicesTitle')}
           enabled={capabilities.canAppearInEventSearch}
-          description="Photographer, Influencer, etc."
+          description={t('verificationDashboard.eventServicesSub')}
         />
 
         {/* Only show Emergency capability if provider has emergency categories */}
         {capabilities.hasEmergencyCategory && (
           <CapabilityCard
             iconName="notification"
-            title="Emergency Services"
+            title={t('verificationDashboard.emergencyServicesTitle')}
             enabled={capabilities.canAppearInEmergencySearch}
-            description="Snake Catcher, Ambulance, Mortuary Van (Free · 24/7)"
+            description={t('verificationDashboard.emergencyServicesSub')}
           />
         )}
 
@@ -639,14 +642,14 @@ const VerificationDashboardScreen = ({ navigation }) => {
             <Icon name="info" size={18} color={BRAND.secondary} />
           </View>
           <View style={styles.infoContent}>
-            <Text style={styles.infoTitle}>How Verification Works</Text>
+            <Text style={styles.infoTitle}>{t('verificationDashboard.howItWorks')}</Text>
             <Text style={styles.infoText}>
-              • Phone & email verification ensures your identity{'\n'}
-              • Aadhaar verification is mandatory for all providers{'\n'}
-              • Service approval is granted after document review{'\n'}
-              • Premium subscription is required for Traditional & Event services{'\n'}
-              • Emergency services (Snake Catcher, Ambulance, Mortuary Van) are free — no premium needed{'\n'}
-              • Emergency Hours toggle (in Settings) lets you be searchable during 10 PM – 7 AM
+              {'• '}{t('verificationDashboard.howItWorks1')}{'\n'}
+              {'• '}{t('verificationDashboard.howItWorks2')}{'\n'}
+              {'• '}{t('verificationDashboard.howItWorks3')}{'\n'}
+              {'• '}{t('verificationDashboard.howItWorks4')}{'\n'}
+              {'• '}{t('verificationDashboard.howItWorks5')}{'\n'}
+              {'• '}{t('verificationDashboard.howItWorks6')}
             </Text>
           </View>
         </View>

@@ -28,6 +28,7 @@ import {
   AUTH_CODES,
 } from '../services/authService';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN_SECONDS = 30;
@@ -43,6 +44,7 @@ const OTPVerifyScreen = ({
   onBack,
 }) => {
   const { handleAuthSuccess } = useApp();
+  const { t } = useLanguage();
 
   // Get params from route or props
   const params = route?.params || {};
@@ -153,12 +155,12 @@ const OTPVerifyScreen = ({
       const otpCode = otp.join('');
 
       if (otpCode.length !== OTP_LENGTH) {
-        showAlert('Please enter the complete 6-digit OTP', 'warning');
+        showAlert(t('auth.otpIncomplete'), 'warning');
         return;
       }
 
       if (secondsLeft <= 0) {
-        showAlert('This OTP has expired. Please request a new one.', 'error');
+        showAlert(t('auth.otpExpiredMsg'), 'error');
         return;
       }
 
@@ -175,20 +177,20 @@ const OTPVerifyScreen = ({
         // Validate that the user's actual role matches the screen they're signing in from
         const backendRole = result.data?.role;
         const expectedRole = _userType === 'provider' ? 'SERVICE_PROVIDER' : 'USER';
-        if (backendRole && backendRole !== expectedRole) {
+        if (backendRole && backendRole !== expectedRole && backendRole !== 'ADMIN') {
           const correctScreen = backendRole === 'SERVICE_PROVIDER' ? 'provider' : 'user';
           showAlert(
-            `This account is registered as a ${correctScreen}. Please sign in from the ${correctScreen} login screen.`,
+            t('auth.roleMismatch', { role: correctScreen }),
             'error'
           );
           setLoading(false);
           return;
         }
-        showAlert('Verified successfully!', 'success');
+        showAlert(t('auth.verifiedSuccess'), 'success');
         const authData = { ...result.data, userType: _userType };
         const authProcessed = await handleAuthSuccess(authData);
         if (!authProcessed) {
-          showAlert('Login successful but failed to save session.', 'warning');
+          showAlert(t('auth.sessionSaveWarning'), 'warning');
         }
       } else {
         const { error } = result;
@@ -198,32 +200,32 @@ const OTPVerifyScreen = ({
         switch (error.code) {
           case AUTH_CODES.INVALID_OTP:
           case 'INVALID_OTP':
-            showAlert(error.message || 'The OTP you entered is incorrect. Please check and try again.', 'error');
+            showAlert(error.message || t('auth.invalidOtp'), 'error');
             break;
           case AUTH_CODES.OTP_EXPIRED:
-            showAlert('This OTP has expired. Please request a new one.', 'error');
+            showAlert(t('auth.otpExpiredMsg'), 'error');
             setSecondsLeft(0);
             break;
           case AUTH_CODES.MAX_ATTEMPTS_EXCEEDED:
-            showAlert('Too many incorrect attempts. Please request a new OTP.', 'error');
+            showAlert(t('auth.maxAttempts'), 'error');
             setSecondsLeft(0);
             break;
           case AUTH_CODES.ACCOUNT_DISABLED:
-            showAlert('Your account has been disabled. Please contact support.', 'error');
+            showAlert(t('auth.accountDisabled'), 'error');
             break;
           case AUTH_CODES.USER_NOT_FOUND:
             showAlert(
-              'No account found with this ' + (_method === 'phone' ? 'phone number' : 'email') + '.',
+              _method === 'phone' ? t('auth.noAccountPhone') : t('auth.noAccountEmail'),
               'error',
             );
             break;
           default:
-            showAlert(getErrorMessage(error.code, 'Verification failed. Please try again.'), 'error');
+            showAlert(getErrorMessage(error.code, t('auth.verificationFailed')), 'error');
         }
       }
     } catch (error) {
       console.error('[OTPVerifyScreen] Unexpected error:', error);
-      showAlert('Something went wrong. Please try again.', 'error');
+      showAlert(t('common.somethingWentWrong'), 'error');
     } finally {
       setLoading(false);
     }
@@ -250,14 +252,14 @@ const OTPVerifyScreen = ({
 
         setOtp(Array(OTP_LENGTH).fill(''));
         inputRefs.current[0]?.focus();
-        showAlert('New OTP sent successfully!', 'success');
+        showAlert(t('auth.resendSuccess'), 'success');
       } else {
-        const msg = result.error?.message || 'Failed to resend OTP. Please try again.';
+        const msg = result.error?.message || t('auth.resendFailed');
         showAlert(msg, 'error');
       }
     } catch (error) {
       console.error('[OTPVerifyScreen] Resend error:', error);
-      showAlert('Failed to resend OTP. Please try again.', 'error');
+      showAlert(t('auth.resendFailed'), 'error');
     } finally {
       setResendLoading(false);
     }
@@ -287,7 +289,7 @@ const OTPVerifyScreen = ({
             onPress={handleBack}
             disabled={loading}
           >
-            <Text style={styles.backButtonText}>{'<'} Back</Text>
+            <Text style={styles.backButtonText}>{'<'} {t('common.back')}</Text>
           </TouchableOpacity>
 
           {/* Logo */}
@@ -298,9 +300,9 @@ const OTPVerifyScreen = ({
 
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Enter OTP</Text>
+            <Text style={styles.title}>{t('auth.enterOtp')}</Text>
             <Text style={styles.subtitle}>
-              We sent a 6-digit code to{'\n'}
+              {t('auth.otpSentSubtitle')}{'\n'}
               <Text style={styles.maskedValue}>{_maskedValue}</Text>
             </Text>
           </View>
@@ -315,7 +317,7 @@ const OTPVerifyScreen = ({
               </View>
             ) : (
               <View style={[styles.timerBadge, styles.timerBadgeExpired]}>
-                <Text style={styles.timerExpiredText}>Code expired</Text>
+                <Text style={styles.timerExpiredText}>{t('auth.codeExpired')}</Text>
               </View>
             )}
           </View>
@@ -356,7 +358,7 @@ const OTPVerifyScreen = ({
 
           {/* Verify Button */}
           <Button
-            title={loading ? 'Verifying...' : isExpired ? 'OTP Expired' : 'Verify OTP'}
+            title={loading ? t('auth.verifying') : isExpired ? t('auth.otpExpiredBtn') : t('auth.verifyOtp')}
             onPress={handleVerify}
             loading={loading}
             disabled={loading || !otpComplete || isExpired}
@@ -372,12 +374,12 @@ const OTPVerifyScreen = ({
                 style={styles.resendProminent}
               >
                 <Text style={styles.resendProminentText}>
-                  {resendLoading ? 'Sending...' : 'Request New OTP'}
+                  {resendLoading ? t('auth.sending') : t('auth.requestNewOtp')}
                 </Text>
               </TouchableOpacity>
             ) : (
               <>
-                <Text style={styles.resendText}>Didn't receive the code?</Text>
+                <Text style={styles.resendText}>{t('auth.didntReceive')}</Text>
                 <TouchableOpacity
                   onPress={handleResend}
                   disabled={!canResend || resendLoading || loading}
@@ -388,7 +390,7 @@ const OTPVerifyScreen = ({
                       (!canResend || resendLoading) && styles.resendLinkDisabled,
                     ]}
                   >
-                    {resendLoading ? 'Sending...' : canResend ? 'Resend OTP' : 'Wait to resend'}
+                    {resendLoading ? t('auth.sending') : canResend ? t('auth.resendOtp') : t('auth.waitToResend')}
                   </Text>
                 </TouchableOpacity>
               </>
@@ -398,8 +400,7 @@ const OTPVerifyScreen = ({
           {/* Info */}
           <View style={styles.info}>
             <Text style={styles.infoText}>
-              Please check your {_method === 'phone' ? 'SMS messages' : 'email inbox'} for the OTP.
-              {_method === 'email' && " Check your spam folder if you don't see it."}
+              {_method === 'phone' ? t('auth.infoPhoneCheck') : t('auth.infoEmailCheck')}
             </Text>
           </View>
         </View>

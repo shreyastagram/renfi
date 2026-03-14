@@ -30,6 +30,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
+import { useLanguage } from '../context/LanguageContext';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
@@ -323,7 +324,7 @@ const ActionCard = ({ iconName, title, subtitle, onPress, color }) => {
 /**
  * Verification Status Card -- shows progress on ProviderHomeScreen
  */
-const VerificationStatusCard = ({ dashboard, onPress, isLoading = false }) => {
+const VerificationStatusCard = ({ dashboard, onPress, isLoading = false, t }) => {
   const { scaleAnim, onPressIn, onPressOut } = usePressAnimation();
 
   // Show loading skeleton while dashboard is being fetched
@@ -388,17 +389,17 @@ const VerificationStatusCard = ({ dashboard, onPress, isLoading = false }) => {
   // Build title and subtitle based on actual status
   let title, subtitle;
   if (isFullyReady) {
-    title = 'Fully Verified & Active';
-    subtitle = `Premium active - ${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining - Visible in all searches`;
+    title = t('providerHome.fullyVerified');
+    subtitle = t('providerHome.premiumActive', { days: daysRemaining });
   } else if (identityDone && !isPremium && hasEmergencyCategory) {
     title = `Identity Verified - ${percentage}%`;
-    subtitle = 'Visible in Emergency searches (free) - Subscribe to Premium for Traditional & Event';
+    subtitle = t('providerHome.emergencyVisible');
   } else if (identityDone && !isPremium) {
     title = `Identity Verified - ${percentage}%`;
-    subtitle = 'Not visible in searches - Subscribe to Premium to appear in results';
+    subtitle = t('providerHome.notVisible');
   } else {
-    title = `Verification: ${completed}/${total} complete`;
-    subtitle = 'Complete all steps to appear in customer searches';
+    title = t('providerHome.verificationProgress', { completed, total });
+    subtitle = t('providerHome.verificationProgressSub');
   }
 
   return (
@@ -465,6 +466,7 @@ const ProviderHomeScreen = ({ navigation }) => {
   const isFocused = useIsFocused();
   const { user, profile, logout, updateProviderAvailability, isProfileLoading, refreshProfile, userType, setPremiumStatus } = useApp();
   const { dialog } = useDialog();
+  const { t } = useLanguage();
 
   // Set status bar for dark hero header when this tab is focused
   useFocusEffect(
@@ -651,11 +653,11 @@ const ProviderHomeScreen = ({ navigation }) => {
         const isAuthError = /not authorized|token|auth|401|403/i.test(errorMsg);
 
         if (isNetworkError) {
-          dialog('Connection Issue', 'We\'re having trouble connecting. Please try again.');
+          dialog(t('providerHome.connectionIssue'), t('providerHome.connectionIssueMsg'));
         } else if (isAuthError) {
-          dialog('Session Expired', 'Your session has expired. Please log out and log back in.');
+          dialog(t('providerHome.sessionExpired'), t('providerHome.sessionExpiredMsg'));
         } else {
-          dialog('Error', errorMsg);
+          dialog(t('common.error'), errorMsg);
         }
       } else {
         // DB confirmed — update cache
@@ -670,7 +672,7 @@ const ProviderHomeScreen = ({ navigation }) => {
 
         if (value && result.visibilityWarnings && result.visibilityWarnings.length > 0) {
           const warningText = result.visibilityWarnings.map((w, i) => `${i + 1}. ${w}`).join('\n');
-          dialog('Profile Visibility', `You are now online, but your profile may not appear in search results yet:\n\n${warningText}`, [{ text: 'Got It' }]);
+          dialog(t('providerHome.profileVisibility'), t('providerHome.profileVisibilityMsg', { warnings: warningText }), [{ text: t('providerHome.gotIt') }]);
         }
       }
     } catch (error) {
@@ -679,7 +681,7 @@ const ProviderHomeScreen = ({ navigation }) => {
       AsyncStorage.setItem('provider_availability', String(previousValue));
       updateProviderAvailability(previousValue, true);
       console.error('Failed to update availability:', error);
-      dialog('Error', 'Couldn\'t update your availability. Please try again.');
+      dialog(t('common.error'), t('providerHome.availabilityError'));
     } finally {
       setIsUpdatingAvailability(false);
     }
@@ -798,10 +800,10 @@ const ProviderHomeScreen = ({ navigation }) => {
     bonusPopupShownRef.current = true;
 
     dialog(
-      'Welcome to Premium!',
-      'Congratulations! Your first service got approved. Enjoy 60 days of FIXHOMI Premium on us!',
+      t('providerHome.welcomePremium'),
+      t('providerHome.welcomePremiumMsg'),
       [{
-        text: 'Awesome!',
+        text: t('providerHome.awesome'),
         onPress: async () => {
           const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
           if (!providerId) return;
@@ -866,9 +868,9 @@ const ProviderHomeScreen = ({ navigation }) => {
           </View>
 
           <View style={styles.heroTextBlock}>
-            <Text style={styles.heroGreetingSmall}>Welcome back,</Text>
+            <Text style={styles.heroGreetingSmall}>{t('providerHome.welcomeBack')}</Text>
             <Text style={styles.heroName}>{firstName}</Text>
-            <Text style={styles.heroSubtext}>Manage your services and requests</Text>
+            <Text style={styles.heroSubtext}>{t('providerHome.manageServices')}</Text>
           </View>
         </View>
 
@@ -883,10 +885,10 @@ const ProviderHomeScreen = ({ navigation }) => {
               <PulsingDot isOnline={isAvailable} />
               <View style={styles.availabilityTextBlock}>
                 <Text style={styles.availabilityTitle}>
-                  {isAvailable ? "You're Online" : "You're Offline"}
+                  {isAvailable ? t('providerHome.youreOnline') : t('providerHome.youreOffline')}
                 </Text>
                 <Text style={styles.availabilitySubtitle}>
-                  {isAvailable ? 'Customers can find you in searches' : 'Go online to receive new requests'}
+                  {isAvailable ? t('providerHome.onlineSubtitle') : t('providerHome.offlineSubtitle')}
                 </Text>
               </View>
             </View>
@@ -909,47 +911,48 @@ const ProviderHomeScreen = ({ navigation }) => {
             dashboard={verificationDashboard}
             onPress={() => navigation.navigate('VerificationDashboard')}
             isLoading={verificationLoading || isProfileLoading}
+            t={t}
           />
 
           {/* Stats Grid */}
-          <Text style={styles.sectionTitle}>OVERVIEW</Text>
+          <Text style={styles.sectionTitle}>{t('providerHome.overview')}</Text>
           <View style={styles.statsGrid}>
             <StatsCard
               iconName="clipboard-list"
               value={stats.pending}
-              label="Pending"
+              label={t('providerHome.statsPending')}
               color={BRAND.primary}
               bgColor={BRAND.primary + '18'}
             />
             <StatsCard
               iconName="check-circle"
               value={stats.completed}
-              label="Completed"
+              label={t('providerHome.statsCompleted')}
               color={BRAND.secondary}
               bgColor={BRAND.secondary + '18'}
             />
             <StatsCard
               iconName="star"
               value={stats.rating.toFixed(1)}
-              label="Rating"
+              label={t('providerHome.statsRating')}
               color="#EAB308"
               bgColor="#EAB30818"
             />
           </View>
 
           {/* Quick Actions */}
-          <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
+          <Text style={styles.sectionTitle}>{t('providerHome.quickActions')}</Text>
 
           <ActionCard
             iconName="clipboard-list"
-            title="My Jobs"
-            subtitle="View requests, active jobs & history"
+            title={t('providerHome.myJobs')}
+            subtitle={t('providerHome.myJobsSub')}
             onPress={() => navigation.navigate('ProviderJobs')}
             color={BRAND.secondary}
           />
 
           {/* Service Categories - Only show verified services */}
-          <Text style={styles.sectionTitle}>YOUR SERVICES</Text>
+          <Text style={styles.sectionTitle}>{t('providerHome.yourServices')}</Text>
           <View style={styles.servicesContainer}>
             {/* Show Verified Services */}
             {(displayData?.verifiedServiceCategories?.length > 0) && (
@@ -973,7 +976,7 @@ const ProviderHomeScreen = ({ navigation }) => {
                     </View>
                     <Text style={[styles.serviceTagText, styles.serviceTagTextPending]}>{formatServiceName(cat)}</Text>
                     <View style={styles.pendingBadge}>
-                      <Text style={styles.pendingBadgeText}>PENDING</Text>
+                      <Text style={styles.pendingBadgeText}>{t('providerHome.pendingBadge')}</Text>
                     </View>
                   </View>
                 ))
@@ -989,8 +992,8 @@ const ProviderHomeScreen = ({ navigation }) => {
                   <Icon name="add-circle" size={22} color={BRAND.primary} />
                 </View>
                 <View>
-                  <Text style={styles.noServicesTitle}>Get Verified</Text>
-                  <Text style={styles.noServicesText}>Add services to start receiving jobs</Text>
+                  <Text style={styles.noServicesTitle}>{t('providerHome.getVerified')}</Text>
+                  <Text style={styles.noServicesText}>{t('providerHome.getVerifiedSub')}</Text>
                 </View>
               </TouchableOpacity>
             )}
@@ -1005,9 +1008,9 @@ const ProviderHomeScreen = ({ navigation }) => {
               <Icon name="lightbulb" size={22} color="#FFFFFF" />
             </View>
             <View style={styles.tipsContent}>
-              <Text style={styles.tipsBadge}>PRO TIP</Text>
+              <Text style={styles.tipsBadge}>{t('providerHome.proTip')}</Text>
               <Text style={styles.tipsText}>
-                Stay online during peak hours (9 AM - 6 PM) to receive more requests!
+                {t('providerHome.proTipText')}
               </Text>
             </View>
           </View>

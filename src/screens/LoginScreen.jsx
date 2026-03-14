@@ -33,14 +33,16 @@ import {
 } from '../services/googleAuthService';
 import { validateEmail, validatePassword } from '../utils/validation';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 
 /**
  * LoginScreen Component
- * 
+ *
  * @param {Object} props - Navigation props
  */
 const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType = 'user' }) => {
   const { handleAuthSuccess } = useApp();
+  const { t } = useLanguage();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -102,7 +104,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
     if (!emailValidation.isValid) newErrors.email = emailValidation.error;
     
     if (!formData.password) {
-      newErrors.password = 'Password is required';
+      newErrors.password = t('auth.passwordRequired');
     }
     
     return {
@@ -122,7 +124,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
       const validation = validateForm();
       if (!validation.isValid) {
         setErrors(validation.errors);
-        showAlert('Please fix the errors below', 'warning');
+        showAlert(t('auth.formErrors'), 'warning');
         return;
       }
 
@@ -131,41 +133,54 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
       const result = await loginWithEmail(formData.email, formData.password);
 
       if (result.success) {
-        showAlert('Login successful!', 'success');
-        
+        // Validate that the user's actual role matches the screen they're signing in from
+        const backendRole = result.data?.role;
+        const expectedRole = userType === 'provider' ? 'SERVICE_PROVIDER' : 'USER';
+        if (backendRole && backendRole !== expectedRole && backendRole !== 'ADMIN') {
+          const correctScreen = backendRole === 'SERVICE_PROVIDER' ? 'provider' : 'user';
+          showAlert(
+            t('auth.roleMismatch', { role: correctScreen }),
+            'error'
+          );
+          setLoading(false);
+          return;
+        }
+
+        showAlert(t('auth.loginSuccess'), 'success');
+
         // Add userType to auth data
         const authData = {
           ...result.data,
           userType,
         };
-        
+
         const authProcessed = await handleAuthSuccess(authData);
-        
+
         if (!authProcessed) {
-          showAlert('Login successful but failed to save session.', 'warning');
+          showAlert(t('auth.sessionSaveWarning'), 'warning');
         }
       } else {
         const { error } = result;
-        
+
         switch (error.code) {
           case AUTH_CODES.INVALID_CREDENTIALS:
-            showAlert('Invalid email or password. Please try again.', 'error');
+            showAlert(t('auth.invalidCredentials'), 'error');
             break;
-            
+
           case AUTH_CODES.USER_NOT_FOUND:
-            showAlert('No account found with this email. Please register first.', 'error');
+            showAlert(t('auth.userNotFound'), 'error');
             break;
-            
+
           case AUTH_CODES.ACCOUNT_DISABLED:
-            showAlert('Your account has been disabled. Please contact support.', 'error');
+            showAlert(t('auth.accountDisabled'), 'error');
             break;
-            
+
           case AUTH_CODES.ACCOUNT_LOCKED:
-            showAlert('Too many failed attempts. Please try again later.', 'warning');
+            showAlert(t('auth.accountLocked'), 'warning');
             break;
-            
+
           case AUTH_CODES.EMAIL_NOT_VERIFIED:
-            showAlert('Please verify your email address before logging in.', 'warning');
+            showAlert(t('auth.emailNotVerified'), 'warning');
             break;
             
           case AUTH_CODES.NETWORK_ERROR:
@@ -176,12 +191,12 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
             break;
 
           default:
-            showAlert(error.message || 'Login failed. Please try again.', 'error', error.hint);
+            showAlert(error.message || t('auth.loginFailed'), 'error', error.hint);
         }
       }
     } catch (error) {
       console.error('❌ [LoginScreen] Unexpected error:', error);
-      showAlert('An unexpected error occurred. Please try again.', 'error');
+      showAlert(t('auth.unexpectedError'), 'error');
     } finally {
       setLoading(false);
     }
@@ -206,10 +221,23 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
         : await signInWithGoogleAsUser('login');
 
       if (result.success) {
-        showAlert('Login successful!', 'success');
-        
         const { accessToken, refreshToken, user, isNewUser } = result.data;
-        
+
+        // Validate role matches the screen before proceeding
+        const googleRole = user?.role;
+        const expectedRole = userType === 'provider' ? 'SERVICE_PROVIDER' : 'USER';
+        if (googleRole && googleRole !== expectedRole && googleRole !== 'ADMIN') {
+          const correctScreen = googleRole === 'SERVICE_PROVIDER' ? 'provider' : 'user';
+          showAlert(
+            t('auth.roleMismatch', { role: correctScreen }),
+            'error'
+          );
+          setGoogleLoading(false);
+          return;
+        }
+
+        showAlert(t('auth.loginSuccess'), 'success');
+
         // ✅ For LOGIN, user must already exist in MongoDB (registered via signup)
         // Only do a lightweight sync to ensure MongoDB profile is up-to-date
         if (user) {
@@ -270,11 +298,11 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
         const authProcessed = await handleAuthSuccess(authData);
         
         if (!authProcessed) {
-          showAlert('Login successful but failed to save session.', 'warning');
+          showAlert(t('auth.sessionSaveWarning'), 'warning');
         }
       } else {
         const { error } = result;
-        
+
         // Don't show error for cancelled sign-in
         if (error.isCancelled) {
           console.log('🔵 [LoginScreen] Google Sign-In cancelled by user');
@@ -284,7 +312,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
         // ✅ NOT REGISTERED — user needs to sign up first
         if (error.code === GOOGLE_AUTH_CODES.NOT_REGISTERED) {
           showAlert(
-            'No account found with this email. Please register first to use FixHomi.',
+            t('auth.googleNotRegistered'),
             'warning'
           );
           return;
@@ -301,7 +329,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
         // Handle account exists with password
         if (error.code === GOOGLE_AUTH_CODES.ACCOUNT_EXISTS_WITH_PASSWORD) {
           showAlert(
-            'An account with this email already exists. Please login with your password.',
+            t('auth.googleAccountExists'),
             'info'
           );
           return;
@@ -312,7 +340,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
       }
     } catch (error) {
       console.error('❌ [LoginScreen] Google Sign-In error:', error);
-      showAlert('Google Sign-In failed. Please try again.', 'error');
+      showAlert(t('auth.googleSignInFailed'), 'error');
     } finally {
       setGoogleLoading(false);
     }
@@ -351,9 +379,9 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
               <FixhomiLogo size={52} />
             </View>
             <Text style={styles.brandName}>FixHomi</Text>
-            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.title}>{t('auth.welcomeBack')}</Text>
             <Text style={styles.subtitle}>
-              Sign in to continue {userType === 'provider' ? 'as a service provider' : ''}
+              {userType === 'provider' ? t('auth.signInProvider') : t('auth.signInContinue')}
             </Text>
           </View>
 
@@ -371,10 +399,10 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
           {/* Form */}
           <View style={styles.form}>
             <Input
-              label="Email"
+              label={t('auth.email')}
               value={formData.email}
               onChangeText={(value) => updateField('email', value)}
-              placeholder="Enter your email"
+              placeholder={t('auth.emailPlaceholder')}
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
@@ -384,10 +412,10 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
             />
 
             <Input
-              label="Password"
+              label={t('auth.password')}
               value={formData.password}
               onChangeText={(value) => updateField('password', value)}
-              placeholder="Enter your password"
+              placeholder={t('auth.passwordPlaceholder')}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
               error={errors.password}
@@ -403,11 +431,11 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
               onPress={() => navigation?.navigate?.('ForgotPassword')}
               disabled={loading || googleLoading}
             >
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+              <Text style={styles.forgotPasswordText}>{t('auth.forgotPassword')}</Text>
             </TouchableOpacity>
 
             <Button
-              title={loading ? 'Signing In...' : 'Sign In'}
+              title={loading ? t('auth.signingIn') : t('auth.signIn')}
               onPress={handleLogin}
               loading={loading}
               disabled={loading || googleLoading}
@@ -417,7 +445,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
             {/* Social Login Divider */}
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or continue with</Text>
+              <Text style={styles.dividerText}>{t('auth.orContinueWith')}</Text>
               <View style={styles.dividerLine} />
             </View>
 
@@ -432,20 +460,20 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
               activeOpacity={0.7}
             >
               {googleLoading ? (
-                <Text style={styles.googleButtonText}>Signing in...</Text>
+                <Text style={styles.googleButtonText}>{t('auth.signingInGoogle')}</Text>
               ) : (
                 <>
                   <View style={styles.googleIconContainer}>
                     <Text style={styles.googleIcon}>G</Text>
                   </View>
-                  <Text style={styles.googleButtonText}>Continue with Google</Text>
+                  <Text style={styles.googleButtonText}>{t('auth.continueWithGoogle')}</Text>
                 </>
               )}
             </TouchableOpacity>
 
             {/* OTP Login Option */}
             <Button
-              title="Sign In with OTP"
+              title={t('auth.signInWithOtp')}
               onPress={onSwitchToOtp}
               variant="outline"
               disabled={loading || googleLoading}
@@ -455,9 +483,9 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
 
           {/* Register Link */}
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account?</Text>
+            <Text style={styles.footerText}>{t('auth.noAccount')}</Text>
             <TouchableOpacity onPress={onSwitchToRegister} disabled={loading}>
-              <Text style={styles.linkText}>Register</Text>
+              <Text style={styles.linkText}>{t('auth.register')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -473,33 +501,32 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalIcon}>🔄</Text>
-            <Text style={styles.modalTitle}>Different Account Type</Text>
+            <Text style={styles.modalTitle}>{t('auth.differentAccountType')}</Text>
             <Text style={styles.modalMessage}>
               {conflictExistingRole === 'USER'
-                ? 'This email is registered as a User account.'
-                : 'This email is registered as a Service Provider account.'}
+                ? t('auth.accountRegisteredUser')
+                : t('auth.accountRegisteredProvider')}
               {'\n\n'}
-              Would you like to proceed to login as a{' '}
-              {conflictExistingRole === 'USER' ? 'User' : 'Service Provider'}?
+              {t('auth.proceedLogin', { role: conflictExistingRole === 'USER' ? 'User' : 'Service Provider' })}
             </Text>
-            
+
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.modalPrimaryButton}
                 onPress={handleRoleConflictProceed}
                 activeOpacity={0.8}
               >
                 <Text style={styles.modalPrimaryButtonText}>
-                  Yes, Login as {conflictExistingRole === 'USER' ? 'User' : 'Provider'}
+                  {conflictExistingRole === 'USER' ? t('auth.yesLoginUser') : t('auth.yesLoginProvider')}
                 </Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
+
+              <TouchableOpacity
                 style={styles.modalDismissButton}
                 onPress={() => setShowRoleConflictModal(false)}
                 activeOpacity={0.8}
               >
-                <Text style={styles.modalDismissText}>Cancel</Text>
+                <Text style={styles.modalDismissText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
             </View>
           </View>

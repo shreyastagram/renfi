@@ -40,6 +40,7 @@ import {
 } from 'react-native-gesture-handler';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
+import { useLanguage } from '../context/LanguageContext';
 import { NODE_BASE_URL as API_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
 import ScreenShimmer from '../components/ShimmerLoader';

@@ -7,6 +7,7 @@ import type { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
 import { AppProvider } from './src/context/AppContext';
 import { LocationProvider } from './src/context/LocationContext';
 import { DialogProvider } from './src/context/DialogContext';
+import { LanguageProvider } from './src/context/LanguageContext';
 import RootNavigator, { linking as navLinking } from './navigation/RootNavigator';
 import SplashScreen from './src/components/SplashScreen';
 import GlobalBanner from './src/components/GlobalBanner';
@@ -243,6 +244,7 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
+      <LanguageProvider>
       <AppProvider>
         <LocationProvider>
           <DialogProvider>
@@ -276,6 +278,7 @@ export default function App() {
           </DialogProvider>
         </LocationProvider>
       </AppProvider>
+      </LanguageProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

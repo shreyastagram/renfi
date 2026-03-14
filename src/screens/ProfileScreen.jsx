@@ -34,6 +34,7 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Icon, PhoneInput, AadhaarVerificationModal } from '../components';
 import { useShimmerAnimation, ShimmerBlock as SharedShimmerBlock } from '../components/ShimmerLoader';
 import { updateUserProfile, updateProviderProfile } from '../services/profileService';
@@ -258,6 +259,7 @@ const ProfileScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
   const { user, profile, userType, refreshVerificationStatus, refreshProfile, aadhaarStatus, setAadhaarStatus, premiumStatus, setPremiumStatus, isProfileLoading } = useApp();
+  const { t } = useLanguage();
 
   // Set status bar for light background when this tab is focused
   useFocusEffect(
@@ -373,9 +375,9 @@ const ProfileScreen = ({ navigation, route }) => {
 
       if (permStatus !== RESULTS.GRANTED && permStatus !== RESULTS.LIMITED) {
         dialog(
-          'Location Permission Required',
-          'Please enable location permission in your device settings to use this feature.',
-          [{ text: 'OK' }]
+          t('profile.locationPermRequired'),
+          t('profile.locationPermMsg'),
+          [{ text: t('common.ok') }]
         );
         setDetectingLocation(false);
         return;
@@ -412,7 +414,7 @@ const ProfileScreen = ({ navigation, route }) => {
       const data = await response.json();
 
       if (!data.features || data.features.length === 0) {
-        dialog('Location Not Found', 'Could not determine your address. Please enter it manually.');
+        dialog(t('profile.locationNotFound'), t('profile.locationNotFoundMsg'));
         setDetectingLocation(false);
         return;
       }
@@ -449,12 +451,12 @@ const ProfileScreen = ({ navigation, route }) => {
       ].filter(Boolean).join('\n\n');
 
       dialog(
-        'Detected Location',
+        t('profile.detectedLocation'),
         `We detected the following from your current location:\n\n${confirmMsg}\n\nWould you like to use this?`,
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('common.cancel'), style: 'cancel' },
           {
-            text: 'Use This Location',
+            text: t('profile.useThisLocation'),
             onPress: () => {
               setFormData(prev => ({
                 ...prev,
@@ -473,12 +475,12 @@ const ProfileScreen = ({ navigation, route }) => {
       if (errCode === 2) {
         // GPS is turned off — offer to open settings
         dialog(
-          'Location is Turned Off',
-          'Please enable GPS to detect your location, or enter your address manually.',
+          t('profile.locationTurnedOff'),
+          t('profile.locationTurnedOffMsg'),
           [
-            { text: 'Enter Manually', style: 'cancel' },
+            { text: t('profile.enterManually'), style: 'cancel' },
             {
-              text: 'Enable GPS',
+              text: t('userHome.enableGps'),
               onPress: () => {
                 if (Platform.OS === 'ios') {
                   Linking.openURL('app-settings:');
@@ -492,9 +494,9 @@ const ProfileScreen = ({ navigation, route }) => {
           ]
         );
       } else if (errCode === 1) {
-        dialog('Permission Denied', 'Location permission is required. Please enable it in your device settings.');
+        dialog(t('profile.permissionDenied'), t('profile.permissionDeniedMsg'));
       } else {
-        dialog('Location Error', 'Could not detect your location. Please try again or enter manually.');
+        dialog(t('profile.locationErrorTitle'), t('profile.locationErrorMsg'));
       }
     } finally {
       setDetectingLocation(false);
@@ -625,7 +627,7 @@ const ProfileScreen = ({ navigation, route }) => {
     const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
     
     if (!userId) {
-      dialog('Error', 'Something unexpected happened. Please try again.');
+      dialog(t('common.error'), t('common.somethingWentWrong'));
       return;
     }
 
@@ -637,15 +639,15 @@ const ProfileScreen = ({ navigation, route }) => {
 
     // Input length validation
     if (trimmed.fullName && (trimmed.fullName.length < 2 || trimmed.fullName.length > 100)) {
-      dialog('Invalid Name', 'Name must be between 2 and 100 characters.');
+      dialog(t('profile.invalidName'), t('profile.invalidNameMsg'));
       return;
     }
     if (trimmed.phone && (!/^\d{10}$/.test(trimmed.phone) || !/^[6-9]/.test(trimmed.phone))) {
-      dialog('Invalid Phone', 'Please enter a valid 10-digit Indian phone number.');
+      dialog(t('profile.invalidPhone'), t('profile.invalidPhoneMsg'));
       return;
     }
     if (trimmed.pincode && !/^\d{6}$/.test(trimmed.pincode)) {
-      dialog('Invalid Pincode', 'Please enter a valid 6-digit pincode.');
+      dialog(t('profile.invalidPincode'), t('profile.invalidPincodeMsg'));
       return;
     }
 
@@ -662,12 +664,12 @@ const ProfileScreen = ({ navigation, route }) => {
     if (phoneChanged) {
       return new Promise((resolve) => {
         dialog(
-          'Phone Number Change',
-          'Changing your phone number will reset your phone verification. You will need to re-verify with OTP.\n\nDo you want to continue?',
+          t('profile.phoneChangeTitle'),
+          t('profile.phoneChangeMsg'),
           [
-            { text: 'Cancel', style: 'cancel', onPress: () => { setSaving(false); resolve(); } },
-            { 
-              text: 'Continue', 
+            { text: t('common.cancel'), style: 'cancel', onPress: () => { setSaving(false); resolve(); } },
+            {
+              text: t('common.continue'),
               style: 'destructive',
               onPress: () => { performSave(userId); resolve(); }
             },
@@ -698,7 +700,7 @@ const ProfileScreen = ({ navigation, route }) => {
       }
 
       if (Object.keys(changedFields).length === 0) {
-        dialog('No Changes', 'No changes were made to your profile.');
+        dialog(t('profile.noChanges'), t('profile.noChangesMsg'));
         setSaving(false);
         return;
       }
@@ -725,7 +727,7 @@ const ProfileScreen = ({ navigation, route }) => {
       }
 
       if (result.success) {
-        dialog('Success', 'Profile updated successfully');
+        dialog(t('common.success'), t('profile.profileUpdated'));
         setIsEditing(false);
         // Refresh profile data to reflect changes immediately
         await refreshProfile(userType, userId);
@@ -736,10 +738,10 @@ const ProfileScreen = ({ navigation, route }) => {
 
         if (errorCode === 'PHONE_ALREADY_EXISTS') {
           dialog(
-            'Number Already Registered',
-            'This mobile number is already associated with another account. Please use a different number.',
+            t('profile.phoneConflict'),
+            t('profile.phoneConflictMsg'),
             [
-              { text: 'OK', onPress: () => {
+              { text: t('common.ok'), onPress: () => {
                 // Revert phone field to original value
                 setFormData(prev => ({ ...prev, phone: originalPhone }));
               }}
@@ -747,9 +749,9 @@ const ProfileScreen = ({ navigation, route }) => {
           );
         } else if (errorCode === 'PROFILE_CONFLICT') {
           dialog(
-            'Update Conflict',
+            t('profile.updateConflict'),
             result.error?.message || 'This information conflicts with another account. Please try different values.',
-            [{ text: 'OK' }]
+            [{ text: t('common.ok') }]
           );
         } else if (errorCode === 'NAME_LOCKED') {
           dialog(

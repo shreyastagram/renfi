@@ -30,6 +30,7 @@ import {
   AUTH_CODES,
 } from '../services/authService';
 import { validatePhone, validatePassword } from '../utils/validation';
+import { useLanguage } from '../context/LanguageContext';
 
 const COLORS = {
   primary: '#FF6B35',
@@ -50,6 +51,8 @@ const OTP_EXPIRY_MINUTES = 5;
 const RESEND_COOLDOWN_SECONDS = 30;
 
 const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
+  const { t } = useLanguage();
+
   // Form state
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(''));
@@ -124,7 +127,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
 
   const validatePhoneInput = () => {
     if (!phoneNumber.trim()) {
-      setError('Phone number is required');
+      setError(t('auth.phoneRequired'));
       return false;
     }
     const phoneValidation = validatePhone(phoneNumber);
@@ -155,28 +158,28 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
         setCanResend(false);
         setSecondsLeft(OTP_EXPIRY_MINUTES * 60);
 
-        showAlert('OTP sent to your phone!', 'success');
+        showAlert(t('auth.otpSentPhone'), 'success');
         setTimeout(() => otpRefs.current[0]?.focus(), 300);
       } else {
         const errorCode = result.error?.code;
         const errorMsg = result.error?.message || '';
 
         if (errorMsg.includes('Google Sign-In')) {
-          showAlert('This account uses Google Sign-In. No password to reset.', 'error');
+          showAlert(t('auth.googleSignInError'), 'error');
         } else if (
           errorCode === AUTH_CODES.USER_NOT_FOUND ||
           errorMsg.includes('No account found')
         ) {
-          showAlert('No account found with this phone number.', 'error');
+          showAlert(t('auth.noAccountPhone'), 'error');
         } else if (errorCode === AUTH_CODES.TOO_MANY_REQUESTS) {
-          showAlert('Too many requests. Please wait before trying again.', 'warning');
+          showAlert(t('auth.tooManyRequests'), 'warning');
         } else {
           showAlert(getErrorMessage(errorCode, errorMsg), 'error');
         }
       }
     } catch (err) {
       console.error('Send OTP error:', err);
-      showAlert('Something went wrong. Please try again.', 'error');
+      showAlert(t('common.somethingWentWrong'), 'error');
     } finally {
       setLoading(false);
     }
@@ -222,8 +225,8 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
       return false;
     }
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match');
-      showAlert('Passwords do not match', 'error');
+      setError(t('auth.passwordsNoMatch'));
+      showAlert(t('auth.passwordsNoMatch'), 'error');
       return false;
     }
     setError(null);
@@ -233,12 +236,12 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
   const handleResetPassword = async () => {
     const otpCode = otp.join('');
     if (otpCode.length !== OTP_LENGTH) {
-      showAlert('Please enter the complete 6-digit OTP', 'warning');
+      showAlert(t('auth.otpIncomplete'), 'warning');
       return;
     }
 
     if (secondsLeft <= 0) {
-      showAlert('OTP has expired. Please request a new one.', 'error');
+      showAlert(t('auth.otpExpiredMsg'), 'error');
       return;
     }
 
@@ -252,27 +255,27 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
 
       if (result.success) {
         setPasswordResetSuccess(true);
-        showAlert('Password reset successfully!', 'success');
+        showAlert(t('auth.passwordResetDone'), 'success');
       } else {
         const errorCode = result.error?.code || '';
 
         if (errorCode === 'INVALID_OTP' || errorCode === AUTH_CODES.INVALID_OTP) {
-          showAlert(result.error?.message || 'The OTP you entered is incorrect. Please check and try again.', 'error');
+          showAlert(result.error?.message || t('auth.invalidOtp'), 'error');
           setOtp(Array(OTP_LENGTH).fill(''));
           otpRefs.current[0]?.focus();
         } else if (errorCode === AUTH_CODES.OTP_EXPIRED) {
-          showAlert('This OTP has expired. Please request a new one.', 'error');
+          showAlert(t('auth.otpExpiredMsg'), 'error');
           setSecondsLeft(0);
         } else if (errorCode === AUTH_CODES.MAX_ATTEMPTS_EXCEEDED) {
-          showAlert('Too many incorrect attempts. Please request a new OTP.', 'error');
+          showAlert(t('auth.maxAttempts'), 'error');
           setSecondsLeft(0);
         } else {
-          showAlert(getErrorMessage(errorCode, 'Password reset failed. Please try again.'), 'error');
+          showAlert(getErrorMessage(errorCode, t('auth.resetFailed')), 'error');
         }
       }
     } catch (err) {
       console.error('Reset password error:', err);
-      showAlert('Something went wrong. Please try again.', 'error');
+      showAlert(t('common.somethingWentWrong'), 'error');
     } finally {
       setLoading(false);
     }
@@ -295,15 +298,15 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
         resendCooldownRef.current = Date.now() + RESEND_COOLDOWN_SECONDS * 1000;
         setSecondsLeft(OTP_EXPIRY_MINUTES * 60);
 
-        showAlert('New OTP sent!', 'success');
+        showAlert(t('auth.newOtpSent'), 'success');
         setTimeout(() => otpRefs.current[0]?.focus(), 300);
       } else {
         setCanResend(true);
-        showAlert(result.error?.message || 'Failed to resend OTP.', 'error');
+        showAlert(result.error?.message || t('auth.resendFailed'), 'error');
       }
     } catch (err) {
       setCanResend(true);
-      showAlert('Failed to resend OTP. Please try again.', 'error');
+      showAlert(t('auth.resendFailed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -332,13 +335,12 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
       <View style={styles.successIconContainer}>
         <Text style={styles.successIcon}>✅</Text>
       </View>
-      <Text style={styles.successTitle}>Password Reset!</Text>
+      <Text style={styles.successTitle}>{t('auth.passwordResetDone')}</Text>
       <Text style={styles.successMessage}>
-        Your password has been reset successfully.{'\n'}
-        You can now login with your new password.
+        {t('auth.passwordResetMsg')}
       </Text>
       <Button
-        title="Back to Login"
+        title={t('auth.backToLogin')}
         onPress={onGoBack || (() => navigation?.goBack())}
         style={styles.actionButton}
       />
@@ -348,14 +350,14 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
   const renderPhoneStep = () => (
     <View style={styles.formContainer}>
       <View style={styles.header}>
-        <Text style={styles.title}>Forgot Password?</Text>
+        <Text style={styles.title}>{t('auth.forgotPasswordTitle')}</Text>
         <Text style={styles.subtitle}>
-          Enter your registered phone number and we'll send you an OTP to reset your password.
+          {t('auth.forgotPasswordSubtitle')}
         </Text>
       </View>
 
       <PhoneInput
-        label="Phone Number"
+        label={t('auth.phoneNumber')}
         required
         value={phoneNumber}
         onChangeText={(text) => {
@@ -367,7 +369,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
       />
 
       <Button
-        title={loading ? 'Sending OTP...' : 'Send OTP'}
+        title={loading ? t('auth.sendingOtp') : t('auth.sendOtp')}
         onPress={handleSendOtp}
         loading={loading}
         disabled={loading || !phoneNumber.trim()}
@@ -378,7 +380,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
         style={styles.backLink}
         onPress={onGoBack || (() => navigation?.goBack())}
       >
-        <Text style={styles.backLinkText}>{'<'} Back to Login</Text>
+        <Text style={styles.backLinkText}>{'<'} {t('auth.backToLogin')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -386,11 +388,9 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
   const renderOtpStep = () => (
     <View style={styles.formContainer}>
       <View style={styles.header}>
-        <Text style={styles.title}>Verify & Reset</Text>
+        <Text style={styles.title}>{t('auth.verifyAndReset')}</Text>
         <Text style={styles.subtitle}>
-          Enter the 6-digit OTP sent to{' '}
-          <Text style={styles.maskedValue}>{maskedPhone}</Text>
-          {' '}and set your new password.
+          {t('auth.otpSentToPhone', { phone: maskedPhone })}
         </Text>
       </View>
 
@@ -402,13 +402,13 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
           </View>
         ) : (
           <View style={[styles.timerBadge, styles.timerBadgeExpired]}>
-            <Text style={styles.timerExpiredText}>OTP expired</Text>
+            <Text style={styles.timerExpiredText}>{t('auth.codeExpired')}</Text>
           </View>
         )}
       </View>
 
       {/* OTP Input */}
-      <Text style={styles.inputLabel}>Enter OTP</Text>
+      <Text style={styles.inputLabel}>{t('auth.otpLabel')}</Text>
       <View style={styles.otpContainer}>
         {otp.map((digit, index) => (
           <TextInput
@@ -435,7 +435,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
         {isExpired ? (
           <TouchableOpacity onPress={handleResendOtp} disabled={loading}>
             <Text style={styles.resendProminentText}>
-              {loading ? 'Sending...' : 'Request New OTP'}
+              {loading ? t('auth.sending') : t('auth.requestNewOtpBtn')}
             </Text>
           </TouchableOpacity>
         ) : (
@@ -449,7 +449,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
                 (!canResend || loading) && styles.resendTextDisabled,
               ]}
             >
-              {canResend ? "Didn't receive OTP? Resend" : 'Wait to resend...'}
+              {canResend ? t('auth.didntReceiveOtp') : t('auth.waitToResendDots')}
             </Text>
           </TouchableOpacity>
         )}
@@ -457,8 +457,8 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
 
       {/* New Password */}
       <Input
-        label="New Password"
-        placeholder="Enter new password"
+        label={t('auth.newPassword')}
+        placeholder={t('auth.newPasswordPlaceholder')}
         required
         value={newPassword}
         onChangeText={(text) => {
@@ -474,8 +474,8 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
 
       {/* Confirm Password */}
       <Input
-        label="Confirm Password"
-        placeholder="Confirm new password"
+        label={t('auth.confirmPassword')}
+        placeholder={t('auth.confirmPasswordPlaceholder')}
         required
         value={confirmPassword}
         onChangeText={(text) => {
@@ -491,24 +491,24 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
 
       {/* Password requirements */}
       <View style={styles.passwordHints}>
-        <Text style={styles.hintTitle}>Password must contain:</Text>
+        <Text style={styles.hintTitle}>{t('auth.passwordMust')}</Text>
         <Text style={[styles.hintText, newPassword.length >= 8 && styles.hintMet]}>
-          {newPassword.length >= 8 ? '✓' : '•'} At least 8 characters
+          {newPassword.length >= 8 ? '✓' : '•'} {t('auth.min8Chars')}
         </Text>
         <Text style={[styles.hintText, /[A-Z]/.test(newPassword) && /[a-z]/.test(newPassword) && styles.hintMet]}>
-          {/[A-Z]/.test(newPassword) && /[a-z]/.test(newPassword) ? '✓' : '•'} Uppercase & lowercase letters
+          {/[A-Z]/.test(newPassword) && /[a-z]/.test(newPassword) ? '✓' : '•'} {t('auth.upperLower')}
         </Text>
         <Text style={[styles.hintText, /\d/.test(newPassword) && styles.hintMet]}>
-          {/\d/.test(newPassword) ? '✓' : '•'} At least one number
+          {/\d/.test(newPassword) ? '✓' : '•'} {t('auth.oneNumber')}
         </Text>
         <Text style={[styles.hintText, /[@$!%*?&]/.test(newPassword) && styles.hintMet]}>
-          {/[@$!%*?&]/.test(newPassword) ? '✓' : '•'} At least one special character (@$!%*?&)
+          {/[@$!%*?&]/.test(newPassword) ? '✓' : '•'} {t('auth.oneSpecial')}
         </Text>
       </View>
 
       {/* Submit Button */}
       <Button
-        title={loading ? 'Resetting...' : isExpired ? 'OTP Expired' : 'Reset Password'}
+        title={loading ? t('auth.resetting') : isExpired ? t('auth.otpExpiredBtn') : t('auth.resetPassword')}
         onPress={handleResetPassword}
         loading={loading}
         disabled={loading || !otpComplete || !newPassword || !confirmPassword || isExpired}
@@ -517,7 +517,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
 
       {/* Back */}
       <TouchableOpacity style={styles.backLink} onPress={handleGoBack}>
-        <Text style={styles.backLinkText}>{'<'} Back</Text>
+        <Text style={styles.backLinkText}>{'<'} {t('common.back')}</Text>
       </TouchableOpacity>
     </View>
   );

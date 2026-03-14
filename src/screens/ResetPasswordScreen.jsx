@@ -38,6 +38,7 @@ import {
   AUTH_CODES 
 } from '../services/authService';
 import { validatePassword } from '../utils/validation';
+import { useLanguage } from '../context/LanguageContext';
 
 // Colors
 const COLORS = {
@@ -61,6 +62,8 @@ const COLORS = {
  * @param {string} props.token - Reset token from deep link (required)
  */
 const ResetPasswordScreen = ({ navigation, route, token: propToken, onGoToLogin }) => {
+  const { t } = useLanguage();
+
   // Extract token from props or route params
   const token = propToken || route?.params?.token;
 
@@ -90,34 +93,34 @@ const ResetPasswordScreen = ({ navigation, route, token: propToken, onGoToLogin 
       if (!token) {
         setValidating(false);
         setIsTokenValid(false);
-        showAlert('Invalid reset link. Please request a new one.');
+        showAlert(t('auth.invalidResetLink'));
         return;
       }
 
       try {
         setValidating(true);
         console.log('🔍 Validating reset token...');
-        
+
         const result = await validateResetToken(token);
-        
+
         if (result.success && result.isValid) {
           setIsTokenValid(true);
           console.log('✅ Reset token is valid');
         } else {
           setIsTokenValid(false);
           const errorCode = result.error?.code;
-          if (errorCode === AUTH_CODES.RESET_TOKEN_EXPIRED || 
+          if (errorCode === AUTH_CODES.RESET_TOKEN_EXPIRED ||
               errorCode === 'RESET_TOKEN_EXPIRED' ||
               result.error?.message?.includes('expired')) {
-            showAlert('This reset link has expired. Please request a new one.');
+            showAlert(t('auth.expiredResetLink'));
           } else {
-            showAlert('Invalid reset link. Please request a new one.');
+            showAlert(t('auth.invalidResetLink'));
           }
         }
       } catch (err) {
         console.error('❌ Token validation error:', err);
         setIsTokenValid(false);
-        showAlert('Unable to validate reset link. Please try again.');
+        showAlert(t('auth.unableToValidate'));
       } finally {
         setValidating(false);
       }
@@ -170,9 +173,9 @@ const ResetPasswordScreen = ({ navigation, route, token: propToken, onGoToLogin 
 
     // Validate confirm password
     if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Please confirm your password';
+      newErrors.confirmPassword = t('auth.confirmPasswordRequired');
     } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
+      newErrors.confirmPassword = t('auth.passwordsNoMatch');
     }
 
     setErrors(newErrors);
@@ -193,16 +196,16 @@ const ResetPasswordScreen = ({ navigation, route, token: propToken, onGoToLogin 
 
       if (result.success) {
         setResetComplete(true);
-        showAlert('Password reset successfully!', 'success');
+        showAlert(t('auth.passwordResetDone'), 'success');
       } else {
         const errorCode = result.error?.code;
         const errorMessage = getErrorMessage(errorCode, result.error?.message);
-        
+
         if (errorCode === AUTH_CODES.WEAK_PASSWORD) {
-          setErrors({ password: 'Password must be at least 8 characters long' });
-        } else if (errorCode === AUTH_CODES.RESET_TOKEN_EXPIRED || 
+          setErrors({ password: t('auth.weakPassword') });
+        } else if (errorCode === AUTH_CODES.RESET_TOKEN_EXPIRED ||
                    errorCode === 'RESET_TOKEN_EXPIRED') {
-          showAlert('This reset link has expired. Please request a new one.');
+          showAlert(t('auth.expiredResetLink'));
           setIsTokenValid(false);
         } else {
           showAlert(errorMessage);
@@ -210,7 +213,7 @@ const ResetPasswordScreen = ({ navigation, route, token: propToken, onGoToLogin 
       }
     } catch (err) {
       console.error('❌ Reset password error:', err);
-      showAlert('An unexpected error occurred. Please try again.');
+      showAlert(t('auth.unexpectedError'));
     } finally {
       setLoading(false);
     }
@@ -244,7 +247,7 @@ const ResetPasswordScreen = ({ navigation, route, token: propToken, onGoToLogin 
   const renderLoadingState = () => (
     <View style={styles.centerContainer}>
       <ActivityIndicator size="large" color={COLORS.primary} />
-      <Text style={styles.loadingText}>Validating reset link...</Text>
+      <Text style={styles.loadingText}>{t('auth.validatingLink')}</Text>
     </View>
   );
 
@@ -258,24 +261,23 @@ const ResetPasswordScreen = ({ navigation, route, token: propToken, onGoToLogin 
         <Text style={styles.icon}>❌</Text>
       </View>
       
-      <Text style={styles.errorTitle}>Invalid or Expired Link</Text>
-      
+      <Text style={styles.errorTitle}>{t('auth.invalidExpiredLink')}</Text>
+
       <Text style={styles.errorMessage}>
-        This password reset link is no longer valid.{'\n'}
-        Please request a new one.
+        {t('auth.invalidLinkMsg')}
       </Text>
 
       <Button
-        title="Request New Link"
+        title={t('auth.requestNewLink')}
         onPress={handleRequestNewLink}
         style={styles.actionButton}
       />
-      
-      <TouchableOpacity 
+
+      <TouchableOpacity
         style={styles.backLink}
         onPress={handleGoToLogin}
       >
-        <Text style={styles.backLinkText}>Back to Login</Text>
+        <Text style={styles.backLinkText}>{t('auth.backToLogin')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -290,15 +292,14 @@ const ResetPasswordScreen = ({ navigation, route, token: propToken, onGoToLogin 
         <Text style={styles.icon}>✅</Text>
       </View>
       
-      <Text style={styles.successTitle}>Password Reset Complete!</Text>
-      
+      <Text style={styles.successTitle}>{t('auth.passwordResetComplete')}</Text>
+
       <Text style={styles.successMessage}>
-        Your password has been reset successfully.{'\n'}
-        You can now login with your new password.
+        {t('auth.passwordResetCompleteMsg')}
       </Text>
 
       <Button
-        title="Go to Login"
+        title={t('auth.goToLogin')}
         onPress={handleGoToLogin}
         style={styles.actionButton}
       />
@@ -312,16 +313,16 @@ const ResetPasswordScreen = ({ navigation, route, token: propToken, onGoToLogin 
     <View style={styles.formContainer}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Create New Password</Text>
+        <Text style={styles.title}>{t('auth.createNewPassword')}</Text>
         <Text style={styles.subtitle}>
-          Enter a new password for your account. Make sure it's at least 8 characters long.
+          {t('auth.createNewPasswordSubtitle')}
         </Text>
       </View>
 
       {/* New Password Input */}
       <Input
-        label="New Password"
-        placeholder="Enter new password"
+        label={t('auth.newPassword')}
+        placeholder={t('auth.newPasswordPlaceholder')}
         value={formData.password}
         onChangeText={(text) => updateField('password', text)}
         secureTextEntry={!showPassword}
@@ -334,8 +335,8 @@ const ResetPasswordScreen = ({ navigation, route, token: propToken, onGoToLogin 
 
       {/* Confirm Password Input */}
       <Input
-        label="Confirm Password"
-        placeholder="Confirm new password"
+        label={t('auth.confirmPassword')}
+        placeholder={t('auth.confirmPasswordPlaceholder')}
         value={formData.confirmPassword}
         onChangeText={(text) => updateField('confirmPassword', text)}
         secureTextEntry={!showConfirmPassword}
@@ -348,28 +349,28 @@ const ResetPasswordScreen = ({ navigation, route, token: propToken, onGoToLogin 
 
       {/* Password Requirements */}
       <View style={styles.requirementsContainer}>
-        <Text style={styles.requirementsTitle}>Password must:</Text>
-        <PasswordRequirement 
+        <Text style={styles.requirementsTitle}>{t('auth.passwordMustBe')}</Text>
+        <PasswordRequirement
           met={formData.password.length >= 8}
-          text="Be at least 8 characters long"
+          text={t('auth.be8Chars')}
         />
-        <PasswordRequirement 
+        <PasswordRequirement
           met={/[A-Z]/.test(formData.password)}
-          text="Contain at least one uppercase letter"
+          text={t('auth.containUppercase')}
         />
-        <PasswordRequirement 
+        <PasswordRequirement
           met={/[a-z]/.test(formData.password)}
-          text="Contain at least one lowercase letter"
+          text={t('auth.containLowercase')}
         />
-        <PasswordRequirement 
+        <PasswordRequirement
           met={/[0-9]/.test(formData.password)}
-          text="Contain at least one number"
+          text={t('auth.containNumber')}
         />
       </View>
 
       {/* Submit Button */}
       <Button
-        title="Reset Password"
+        title={t('auth.resetPassword')}
         onPress={handleSubmit}
         loading={loading}
         disabled={loading || !formData.password || !formData.confirmPassword}
@@ -382,7 +383,7 @@ const ResetPasswordScreen = ({ navigation, route, token: propToken, onGoToLogin 
         onPress={handleGoToLogin}
       >
         <Text style={styles.backLinkText}>
-          ← Back to Login
+          {t('auth.backToLogin')}
         </Text>
       </TouchableOpacity>
     </View>

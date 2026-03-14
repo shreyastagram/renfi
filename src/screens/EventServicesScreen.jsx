@@ -36,6 +36,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLocation } from '../context/LocationContext';
+import { useLanguage } from '../context/LanguageContext';
 import { NODE_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
 import { addToFavorites, checkIsFavorite } from '../services/favoritesService';
@@ -202,6 +203,7 @@ const PortfolioLink = ({ platform, url, onPress }) => (
  * Provider Card for Event Services - Premium with animated press
  */
 const EventProviderCard = ({ provider, onViewDetails, onContact }) => {
+  const { t } = useLanguage();
   // Get profile picture URL - backend returns profilePicture as string or profilePicture.url
   const profilePictureUrl = typeof provider.profilePicture === 'string'
     ? provider.profilePicture
@@ -252,7 +254,7 @@ const EventProviderCard = ({ provider, onViewDetails, onContact }) => {
                 {(provider.ratings?.average || provider.rating || 0).toFixed(1)}
               </Text>
               {provider.ratings?.total > 0 && (
-                <Text style={styles.ratingCount}>({provider.ratings.total} reviews)</Text>
+                <Text style={styles.ratingCount}>({provider.ratings.total} {t('common.reviews')})</Text>
               )}
             </View>
           )}
@@ -300,7 +302,7 @@ const EventProviderCard = ({ provider, onViewDetails, onContact }) => {
           onPress={() => onViewDetails(provider)}
           activeOpacity={0.7}
         >
-          <Text style={styles.viewButtonText}>View Details</Text>
+          <Text style={styles.viewButtonText}>{t('common.viewDetails')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.contactButton}
@@ -308,7 +310,7 @@ const EventProviderCard = ({ provider, onViewDetails, onContact }) => {
           activeOpacity={0.7}
         >
           <MaterialIcon name="phone" size={18} color={COLORS.white} />
-          <Text style={styles.contactButtonText}>Call</Text>
+          <Text style={styles.contactButtonText}>{t('common.call')}</Text>
         </TouchableOpacity>
       </View>
     </AnimatedPressable>
@@ -322,6 +324,7 @@ const EventProviderCard = ({ provider, onViewDetails, onContact }) => {
 const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContactProvider, sending, hasContacted }) => {
   const { dialog } = useDialog();
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
   const [galleryViewerVisible, setGalleryViewerVisible] = useState(false);
   const [galleryViewerIndex, setGalleryViewerIndex] = useState(0);
 
@@ -341,7 +344,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
     }
 
     Linking.openURL(finalUrl).catch(() => {
-      dialog('Error', 'Could not open link');
+      dialog(t('common.error'), 'Could not open link');
     });
   };
 
@@ -375,12 +378,12 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
   const handleBookPress = () => {
     if (!hasContacted) {
       dialog(
-        'Contact Provider First?',
-        'We recommend having a quick talk with your provider before booking to discuss your requirements.',
+        t('eventServices.contactFirst'),
+        t('eventServices.contactFirstMsg'),
         [
-          { text: 'Call Provider', onPress: () => onContactProvider(provider) },
-          { text: 'Book Anyway', onPress: () => onBookNow(provider), style: 'default' },
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('eventServices.callProviderBtn'), onPress: () => onContactProvider(provider) },
+          { text: t('eventServices.bookAnywayBtn'), onPress: () => onBookNow(provider), style: 'default' },
+          { text: t('common.cancel'), style: 'cancel' },
         ]
       );
       return;
@@ -403,7 +406,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
               <TouchableOpacity style={styles.closeDetailButton} onPress={onClose}>
                 <MaterialIcon name="close" size={24} color={COLORS.muted} />
               </TouchableOpacity>
-              <Text style={styles.detailsHeaderTitle}>Provider Details</Text>
+              <Text style={styles.detailsHeaderTitle}>{t('eventServices.providerDetails')}</Text>
               <View style={{ width: 40 }} />
             </View>
 
@@ -441,7 +444,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                     </Text>
                     {provider.ratings?.total > 0 && (
                       <Text style={styles.detailsRatingCount}>
-                        ({provider.ratings.total} reviews)
+                        ({provider.ratings.total} {t('eventServices.reviews')})
                       </Text>
                     )}
                   </View>
@@ -451,7 +454,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                 {provider.experience && (
                   <View style={styles.infoRow}>
                     <MaterialIcon name="work" size={14} color={COLORS.muted} />
-                    <Text style={styles.infoText}>{provider.experience} experience</Text>
+                    <Text style={styles.infoText}>{provider.experience} {t('home.experience').toLowerCase()}</Text>
                   </View>
                 )}
 
@@ -459,7 +462,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                 {memberSince && (
                   <View style={styles.infoRow}>
                     <MaterialIcon name="calendar-today" size={14} color={COLORS.muted} />
-                    <Text style={styles.infoText}>Member since {memberSince}</Text>
+                    <Text style={styles.infoText}>{t('detail.memberSince', { date: memberSince })}</Text>
                   </View>
                 )}
 
@@ -481,28 +484,28 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                 <Text style={styles.statValue}>
                   {provider.stats?.completedRequests || provider.completedJobs || provider.completedRequests || provider.totalCompletedRequests || provider.jobsCompleted || 0}
                 </Text>
-                <Text style={styles.statLabel}>Jobs Done</Text>
+                <Text style={styles.statLabel}>{t('emergencyServices.jobsDone')}</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>{provider.ratings?.total || 0}</Text>
-                <Text style={styles.statLabel}>Reviews</Text>
+                <Text style={styles.statLabel}>{t('common.reviews')}</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
                 <Text style={[styles.statValue, {
                   color: provider.isOnline || provider.isAvailable ? COLORS.success : COLORS.muted
                 }]}>
-                  {provider.isOnline || provider.isAvailable ? 'Online' : 'Offline'}
+                  {provider.isOnline || provider.isAvailable ? t('common.online') : t('common.offline')}
                 </Text>
-                <Text style={styles.statLabel}>Status</Text>
+                <Text style={styles.statLabel}>{t('home.status')}</Text>
               </View>
             </View>
 
             {/* Bio */}
             {provider.bio && (
               <View style={styles.detailsSection}>
-                <SectionHeader title="About" />
+                <SectionHeader title={t('eventServices.about')} />
                 <View style={styles.bioContainer}>
                   <Text style={styles.detailsBio}>{provider.bio}</Text>
                 </View>
@@ -512,7 +515,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
             {/* Specializations */}
             {provider.specializations && provider.specializations.length > 0 && (
               <View style={styles.detailsSection}>
-                <SectionHeader title="Specializations" />
+                <SectionHeader title={t('eventServices.specializations')} />
                 <View style={styles.specializationsGrid}>
                   {provider.specializations.map((spec, index) => (
                     <View key={index} style={styles.specTagLarge}>
@@ -527,7 +530,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
             {/* Portfolio Links */}
             {provider.portfolioLinks && Object.keys(provider.portfolioLinks).filter(k => provider.portfolioLinks[k]).length > 0 && (
               <View style={styles.detailsSection}>
-                <SectionHeader title="Portfolio & Social" />
+                <SectionHeader title={t('eventServices.portfolioSocial')} />
                 <View style={styles.linksGrid}>
                   {Object.entries(provider.portfolioLinks).map(([platform, url]) => (
                     url && (
@@ -546,7 +549,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
             {/* Gallery Preview */}
             {provider.portfolioGallery && provider.portfolioGallery.length > 0 && (
               <View style={styles.detailsSection}>
-                <SectionHeader title={`Gallery (${provider.portfolioGallery.length})`} />
+                <SectionHeader title={t('eventServices.gallery', { n: provider.portfolioGallery.length })} />
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -594,7 +597,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
             {/* Contact - masked call */}
             {provider && (
               <View style={styles.detailsSection}>
-                <SectionHeader title="Contact" />
+                <SectionHeader title={t('emergencyServices.contact')} />
                 <TouchableOpacity
                   style={styles.phoneButton}
                   onPress={() => onContactProvider(provider)}
@@ -603,7 +606,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                   <View style={styles.phoneIconWrap}>
                     <MaterialIcon name="phone" size={18} color={COLORS.success} />
                   </View>
-                  <Text style={styles.phoneText}>Call Provider</Text>
+                  <Text style={styles.phoneText}>{t('tracking.callProviderBtn')}</Text>
                   <MaterialIcon name="chevron-right" size={20} color={COLORS.muted} />
                 </TouchableOpacity>
               </View>
@@ -618,7 +621,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
               activeOpacity={0.7}
             >
               <MaterialIcon name="phone" size={22} color={COLORS.success} />
-              <Text style={styles.callProviderText}>Call</Text>
+              <Text style={styles.callProviderText}>{t('common.call')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.sendRequestButton}
@@ -631,7 +634,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
               ) : (
                 <>
                   <MaterialIcon name="event" size={20} color="#FFFFFF" />
-                  <Text style={styles.sendRequestText}>Book Now</Text>
+                  <Text style={styles.sendRequestText}>{t('eventServices.bookNow')}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -646,6 +649,7 @@ const EventServicesScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, profile } = useApp();
   const { dialog } = useDialog();
+  const { t } = useLanguage();
 
   // User ID
   const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
@@ -712,11 +716,11 @@ const EventServicesScreen = ({ navigation }) => {
         setProviders(providersList);
       } else {
         console.log('Error response:', data.error);
-        dialog('Error', data.error || 'Failed to fetch providers');
+        dialog(t('common.error'), data.error || t('eventServices.sendFailed'));
       }
     } catch (error) {
       console.error('Fetch providers error:', error);
-      dialog('Error', 'Failed to fetch providers');
+      dialog(t('common.error'), t('eventServices.sendFailed'));
     } finally {
       setIsLoading(false);
       setRefreshing(false);
@@ -747,7 +751,7 @@ const EventServicesScreen = ({ navigation }) => {
   const handleContactProvider = async (provider) => {
     const phone = provider?.phone || provider?.verifiedPhone;
     if (!phone) {
-      dialog('Error', 'Provider phone number not available');
+      dialog(t('common.error'), t('tracking.phoneNotAvailable'));
       return;
     }
 
@@ -757,17 +761,17 @@ const EventServicesScreen = ({ navigation }) => {
                         cleanPhone.startsWith('91') ? `+${cleanPhone}` : `+91${cleanPhone}`;
 
     dialog(
-      'Contact Provider',
-      `Call ${provider.name}?`,
+      t('userHome.callProvider'),
+      t('userHome.callProviderMsg', { name: provider.name, phone: provider.name }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Call',
+          text: t('common.call'),
           onPress: () => {
             // Track that user has contacted this provider
             setContactedProviderIds(prev => new Set(prev).add(provider._id));
             Linking.openURL(`tel:${phoneNumber}`).catch(() => {
-              dialog('Error', 'Unable to make a call. Please check your phone settings.');
+              dialog(t('common.error'), t('userHome.unableToCall'));
             });
           },
         },
@@ -799,12 +803,12 @@ const EventServicesScreen = ({ navigation }) => {
     }
     // Otherwise show recommendation popup
     dialog(
-      'Contact Provider First?',
-      'We recommend having a quick talk with your provider before booking to discuss your requirements.',
+      t('eventServices.contactFirst'),
+      t('eventServices.contactFirstMsg'),
       [
-        { text: 'Call Provider', onPress: () => handleContactProvider(provider) },
-        { text: 'Book Anyway', onPress: () => executeBooking(provider), style: 'default' },
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('eventServices.callProviderBtn'), onPress: () => handleContactProvider(provider) },
+        { text: t('eventServices.bookAnywayBtn'), onPress: () => executeBooking(provider), style: 'default' },
+        { text: t('common.cancel'), style: 'cancel' },
       ]
     );
   };
@@ -815,17 +819,17 @@ const EventServicesScreen = ({ navigation }) => {
    */
   const handleSendRequest = async () => {
     if (!selectedProvider) {
-      dialog('Error', 'Please select a provider');
+      dialog(t('common.error'), t('eventServices.selectProvider'));
       return;
     }
 
     if (!eventDate) {
-      dialog('Error', 'Please select an event date');
+      dialog(t('common.error'), t('eventServices.selectEventDate'));
       return;
     }
 
     if (!eventVenue.trim()) {
-      dialog('Error', 'Please select the event venue using the map');
+      dialog(t('common.error'), t('eventServices.selectVenue'));
       return;
     }
 
@@ -869,12 +873,12 @@ const EventServicesScreen = ({ navigation }) => {
         // Handle geofence rejection with user-friendly message
         if (createData.code === 'OUTSIDE_SERVICE_ZONE') {
           const suggestion = createData.details?.suggestion || 'Event services are currently available only in Yavatmal City, Maharashtra. We\'re expanding soon!';
-          dialog('Service Unavailable in Your Area', suggestion, [{ text: 'OK' }]);
+          dialog(t('userHome.outsideServiceZone'), suggestion, [{ text: t('common.ok') }]);
           setSendingRequest(false);
           return;
         }
         if (createData.code === 'RATE_LIMITED' && createData.retryAfter) {
-          dialog('Please Wait', `You've made too many requests. Try again in ${createData.retryAfter} seconds.`);
+          dialog(t('userHome.rateLimited'), t('userHome.rateLimitedMsg', { seconds: createData.retryAfter }));
           setSendingRequest(false);
           return;
         }
@@ -907,15 +911,15 @@ const EventServicesScreen = ({ navigation }) => {
       if (sendResponse.ok && (!sendData.statusCode || sendData.statusCode < 400)) {
         setShowBookingModal(false);
         dialog(
-          'Request Sent!',
-          `Your booking request has been sent to ${selectedProvider.name}.\n\nEvent Date: ${eventDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}\n\nThey will contact you soon to confirm.`,
+          t('eventServices.requestSent'),
+          t('eventServices.requestSentMsg', { name: selectedProvider.name, date: eventDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) }),
           [
             {
-              text: 'View My Bookings',
+              text: t('eventServices.viewMyBookings'),
               onPress: () => navigation.navigate('UserTabs', { screen: 'HistoryTab' }),
             },
             {
-              text: 'OK',
+              text: t('common.ok'),
               onPress: () => navigation.goBack(),
             },
           ]
@@ -936,7 +940,7 @@ const EventServicesScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('[EventServices] Booking error:', error);
-      dialog('Error', error.message || 'Failed to send booking request');
+      dialog(t('common.error'), error.message || t('eventServices.sendFailed'));
     } finally {
       setSendingRequest(false);
     }
@@ -949,7 +953,7 @@ const EventServicesScreen = ({ navigation }) => {
     // Check if already favorited (by providerId only — prevents cross-service duplicates)
     const checkResult = await checkIsFavorite(userId, provider._id);
     if (checkResult.success && checkResult.isFavorite) {
-      dialog('Already Favorited', `${provider.name} is already in your favorites`);
+      dialog(t('eventServices.alreadyFavorited'), t('eventServices.alreadyFavoritedMsg', { name: provider.name }));
       // Update UI to reflect correct state
       setProviders(prev => prev.map(p =>
         p._id === provider._id ? { ...p, isFavorite: true } : p
@@ -977,9 +981,9 @@ const EventServicesScreen = ({ navigation }) => {
         setSelectedProvider({ ...selectedProvider, isFavorite: true });
       }
 
-      dialog('Added!', `${provider.name} added to favorites`);
+      dialog(t('eventServices.addedFavorite'), t('eventServices.addedFavoriteMsg', { name: provider.name }));
     } else {
-      dialog('Error', result.error || 'Failed to add to favorites');
+      dialog(t('common.error'), result.error || t('eventServices.addFavoriteFailed'));
     }
   };
 
@@ -1005,7 +1009,7 @@ const EventServicesScreen = ({ navigation }) => {
         <MaterialIcon name="arrow-back" size={24} color={COLORS.white} />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>
-        {step === 'select' ? 'Event Services' : selectedService?.name || 'Providers'}
+        {step === 'select' ? t('eventServices.title') : selectedService?.name || t('eventServices.providers')}
       </Text>
       <View style={styles.headerSpacer} />
     </View>
@@ -1021,9 +1025,9 @@ const EventServicesScreen = ({ navigation }) => {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.introSection}>
-        <Text style={styles.introTitle}>Find Creative Professionals</Text>
+        <Text style={styles.introTitle}>{t('eventServices.findCreative')}</Text>
         <Text style={styles.introSubtitle}>
-          Browse portfolios and connect with photographers & influencers for your events
+          {t('eventServices.findCreativeSub')}
         </Text>
       </View>
 
@@ -1049,9 +1053,9 @@ const EventServicesScreen = ({ navigation }) => {
           <View style={styles.emptyIconWrap}>
             <MaterialIcon name="search-off" size={48} color={COLORS.muted} />
           </View>
-          <Text style={styles.emptyText}>No {selectedService?.name}s found</Text>
+          <Text style={styles.emptyText}>{t('eventServices.noProvidersFound', { service: selectedService?.name })}</Text>
           <Text style={styles.emptySubtext}>
-            Check back later for more providers
+            {t('eventServices.checkBackLater')}
           </Text>
         </View>
       ) : (
@@ -1119,7 +1123,7 @@ const EventServicesScreen = ({ navigation }) => {
               >
                 <MaterialIcon name="close" size={22} color={COLORS.muted} />
               </TouchableOpacity>
-              <Text style={styles.bookingModalTitle}>Book {selectedService?.name}</Text>
+              <Text style={styles.bookingModalTitle}>{t('eventServices.bookService', { service: selectedService?.name })}</Text>
               <View style={{ width: 40 }} />
             </View>
 
@@ -1149,7 +1153,7 @@ const EventServicesScreen = ({ navigation }) => {
                       <View style={styles.bookingRatingRow}>
                         <MaterialIcon name="star" size={14} color={COLORS.star} />
                         <Text style={styles.bookingRatingText}>
-                          {selectedProvider.ratings.average.toFixed(1)} ({selectedProvider.ratings.total} reviews)
+                          {selectedProvider.ratings.average.toFixed(1)} ({selectedProvider.ratings.total} {t('eventServices.reviews')})
                         </Text>
                       </View>
                     )}
@@ -1163,7 +1167,7 @@ const EventServicesScreen = ({ navigation }) => {
                   <View style={styles.bookingSectionIconWrap}>
                     <MaterialIcon name="event" size={18} color={COLORS.primary} />
                   </View>
-                  <Text style={styles.bookingSectionTitle}>Event Date *</Text>
+                  <Text style={styles.bookingSectionTitle}>{t('eventServices.eventDate')}</Text>
                 </View>
                 <TouchableOpacity
                   style={styles.datePickerButton}
@@ -1189,11 +1193,11 @@ const EventServicesScreen = ({ navigation }) => {
                   <View style={styles.bookingSectionIconWrap}>
                     <MaterialIcon name="description" size={18} color={COLORS.primary} />
                   </View>
-                  <Text style={styles.bookingSectionTitle}>Event Details (Optional)</Text>
+                  <Text style={styles.bookingSectionTitle}>{t('eventServices.eventDetails')}</Text>
                 </View>
                 <TextInput
                   style={styles.eventDescriptionInput}
-                  placeholder="Describe your event (e.g., Wedding, Birthday Party, Corporate Event...)"
+                  placeholder={t('eventServices.eventDetailsPlaceholder')}
                   placeholderTextColor={COLORS.muted}
                   value={eventDescription}
                   onChangeText={setEventDescription}
@@ -1209,7 +1213,7 @@ const EventServicesScreen = ({ navigation }) => {
                   <View style={styles.bookingSectionIconWrap}>
                     <MaterialIcon name="location-on" size={18} color={COLORS.primary} />
                   </View>
-                  <Text style={styles.bookingSectionTitle}>Event Venue *</Text>
+                  <Text style={styles.bookingSectionTitle}>{t('eventServices.eventVenue')}</Text>
                 </View>
 
                 {/* Selected venue display */}
@@ -1245,7 +1249,7 @@ const EventServicesScreen = ({ navigation }) => {
                       activeOpacity={0.7}
                     >
                       <MaterialIcon name="map" size={20} color={COLORS.white} />
-                      <Text style={styles.venueMapButtonText}>Pick on Map</Text>
+                      <Text style={styles.venueMapButtonText}>{t('eventServices.pickOnMap')}</Text>
                     </TouchableOpacity>
 
                     {/* Use Current Location */}
@@ -1253,7 +1257,7 @@ const EventServicesScreen = ({ navigation }) => {
                       <TouchableOpacity
                         style={styles.venueCurrentButton}
                         onPress={() => {
-                          setEventVenue(selectedLocation.address || 'Current Location');
+                          setEventVenue(selectedLocation.address || t('eventServices.currentLocation'));
                           setVenueCoords({
                             latitude: selectedLocation.coordinates.latitude,
                             longitude: selectedLocation.coordinates.longitude,
@@ -1262,7 +1266,7 @@ const EventServicesScreen = ({ navigation }) => {
                         activeOpacity={0.7}
                       >
                         <MaterialIcon name="my-location" size={20} color={COLORS.secondary} />
-                        <Text style={styles.venueCurrentButtonText}>Current Location</Text>
+                        <Text style={styles.venueCurrentButtonText}>{t('eventServices.currentLocation')}</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -1273,7 +1277,7 @@ const EventServicesScreen = ({ navigation }) => {
                   visible={showMapPicker}
                   onClose={() => setShowMapPicker(false)}
                   onLocationSelect={(location) => {
-                    setEventVenue(location.address || location.shortAddress || 'Selected Location');
+                    setEventVenue(location.address || location.shortAddress || t('eventServices.selectedLocation'));
                     setVenueCoords({
                       latitude: location.latitude,
                       longitude: location.longitude,
@@ -1284,23 +1288,23 @@ const EventServicesScreen = ({ navigation }) => {
                     latitude: selectedLocation.coordinates.latitude,
                     longitude: selectedLocation.coordinates.longitude,
                   } : null)}
-                  title="Select Event Venue"
+                  title={t('eventServices.selectEventVenue')}
                 />
               </View>
 
               {/* Summary */}
               <View style={styles.bookingSummary}>
-                <Text style={styles.bookingSummaryTitle}>Booking Summary</Text>
+                <Text style={styles.bookingSummaryTitle}>{t('eventServices.bookingSummary')}</Text>
                 <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Service</Text>
+                  <Text style={styles.summaryLabel}>{t('eventServices.service')}</Text>
                   <Text style={styles.summaryValue}>{selectedService?.name}</Text>
                 </View>
                 <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Provider</Text>
+                  <Text style={styles.summaryLabel}>{t('eventServices.provider')}</Text>
                   <Text style={styles.summaryValue}>{selectedProvider?.name}</Text>
                 </View>
                 <View style={[styles.summaryRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.summaryLabel}>Event Date</Text>
+                  <Text style={styles.summaryLabel}>{t('eventServices.eventDateLabel')}</Text>
                   <Text style={styles.summaryValue}>
                     {eventDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </Text>
@@ -1321,7 +1325,7 @@ const EventServicesScreen = ({ navigation }) => {
                 ) : (
                   <>
                     <MaterialIcon name="send" size={20} color="#FFFFFF" />
-                    <Text style={styles.confirmBookingText}>Send Booking Request</Text>
+                    <Text style={styles.confirmBookingText}>{t('eventServices.sendBookingRequest')}</Text>
                   </>
                 )}
               </TouchableOpacity>

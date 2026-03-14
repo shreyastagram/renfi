@@ -31,6 +31,7 @@ import { requestCameraPermission, requestGalleryPermission } from '../utils/perm
 import { pick, types } from '@react-native-documents/picker';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Icon } from '../components';
 import { NODE_BASE_URL as API_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
@@ -199,6 +200,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, profile, refreshProfile } = useApp();
   const { dialog } = useDialog();
+  const { t } = useLanguage();
   
   const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
   
@@ -309,11 +311,11 @@ const DocumentVerificationScreen = ({ navigation }) => {
     } catch (error) {
       console.error('[DocumentVerification] Error fetching data:', error);
       dialog(
-        'Connection Issue',
-        'Couldn\'t load verification data. Please try again.',
+        t('documentVerification.connectionIssue'),
+        t('documentVerification.connectionIssueMsg'),
         [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Retry', onPress: () => fetchData() },
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('common.retry'), onPress: () => fetchData() },
         ]
       );
     } finally {

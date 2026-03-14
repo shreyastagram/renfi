@@ -31,6 +31,7 @@ import Geolocation from '@react-native-community/geolocation';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { Icon, FixhomiLogo } from '../components';
 import { useDialog } from '../context/DialogContext';
+import { useLanguage } from '../context/LanguageContext';
 import { NODE_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
 import { MAPBOX_ACCESS_TOKEN, initializeMapbox } from '../config/mapbox';
@@ -107,6 +108,7 @@ const extractCoords = (loc) => {
 const LiveTrackingScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
+  const { t } = useLanguage();
   const useKm = useDistanceUnit();
   const {
     requestId,
@@ -189,7 +191,7 @@ const LiveTrackingScreen = ({ navigation, route }) => {
 
   // Fetch provider location via request-scoped endpoint
   const fetchProviderLocation = useCallback(async () => {
-    if (!requestId) { setError('Request ID not available'); setIsLoading(false); return; }
+    if (!requestId) { setError(t('tracking.requestIdUnavailable')); setIsLoading(false); return; }
     try {
       let coords = null;
       let online = false;
@@ -223,10 +225,10 @@ const LiveTrackingScreen = ({ navigation, route }) => {
             coords = extractCoords(ls.providerLocation);
           }
           if (!online && !providerLocRef.current) {
-            setError('Waiting for provider to share location...');
+            setError(t('tracking.waitingForLocation'));
           }
         } else if (!data.success) {
-          if (!providerLocRef.current) setError('Waiting for provider to share location...');
+          if (!providerLocRef.current) setError(t('tracking.waitingForLocation'));
         }
       }
 
@@ -238,11 +240,11 @@ const LiveTrackingScreen = ({ navigation, route }) => {
         setError(null);
         if (destinationLocation) fetchRoute(coords, destinationLocation);
       } else {
-        if (!providerLocRef.current) setError('Waiting for provider to share location...');
+        if (!providerLocRef.current) setError(t('tracking.waitingForLocation'));
       }
     } catch (err) {
       console.error('[LiveTracking] Fetch error:', err);
-      if (!providerLocRef.current) setError('Connecting to provider...');
+      if (!providerLocRef.current) setError(t('tracking.connectingToProvider'));
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -355,7 +357,7 @@ const LiveTrackingScreen = ({ navigation, route }) => {
       if (data?.requestId === requestId && data.enabled === false) {
         setLocationSharingStopped(true);
         setIsOnline(false);
-        setError('Provider stopped sharing location');
+        setError(t('tracking.stoppedSharing'));
       } else if (data?.requestId === requestId && data.enabled === true) {
         setLocationSharingStopped(false);
         setIsOnline(true);
@@ -387,11 +389,11 @@ const LiveTrackingScreen = ({ navigation, route }) => {
 
   const callProvider = useCallback(() => {
     const phone = providerPhone || providerData?.phone;
-    if (!phone) { dialog('Error', 'Provider phone number not available'); return; }
+    if (!phone) { dialog(t('common.error'), t('tracking.phoneNotAvailable')); return; }
     const num = phone.replace(/\s/g, '');
-    dialog('Call Provider', `Call ${providerName || 'Provider'} at ${phone}?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Call Now', onPress: () => Linking.openURL(`tel:${num}`).catch(() => dialog('Error', 'Cannot make calls')) },
+    dialog(t('userHome.callProvider'), t('tracking.callProviderDialog', { name: providerName || t('tracking.providerFallback'), phone }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.callNow'), onPress: () => Linking.openURL(`tel:${num}`).catch(() => dialog(t('common.error'), t('tracking.cannotMakeCalls'))) },
     ]);
   }, [providerPhone, providerData, providerName]);
 
@@ -412,7 +414,7 @@ const LiveTrackingScreen = ({ navigation, route }) => {
         <View style={styles.mapOverlay}>
           <View style={styles.mapOverlayInner}>
             <ActivityIndicator size="large" color={C.primary} />
-            <Text style={styles.mapOverlayText}>Loading map...</Text>
+            <Text style={styles.mapOverlayText}>{t('tracking.loadingMap')}</Text>
           </View>
         </View>
       )}
@@ -458,11 +460,11 @@ const LiveTrackingScreen = ({ navigation, route }) => {
           <Icon name="arrow_back" size={22} color={C.text} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Live Tracking</Text>
+          <Text style={styles.headerTitle}>{t('tracking.title')}</Text>
           {isOnline && (
             <View style={styles.liveBadge}>
               <Animated.View style={[styles.liveDot, { transform: [{ scale: pulseAnim }] }]} />
-              <Text style={styles.liveText}>LIVE</Text>
+              <Text style={styles.liveText}>{t('tracking.live')}</Text>
             </View>
           )}
         </View>
@@ -476,25 +478,25 @@ const LiveTrackingScreen = ({ navigation, route }) => {
         {isLoading ? (
           <View style={styles.sheetCenter}>
             <ActivityIndicator size="large" color={C.primary} />
-            <Text style={styles.sheetLoadingText}>Finding provider...</Text>
-            <Text style={styles.sheetSubText}>This usually takes a few seconds</Text>
+            <Text style={styles.sheetLoadingText}>{t('tracking.findingProvider')}</Text>
+            <Text style={styles.sheetSubText}>{t('tracking.findingProviderSub')}</Text>
           </View>
         ) : locationSharingStopped ? (
           <View style={styles.sheetCenter}>
             <View style={[styles.errorIcon, { backgroundColor: '#FEF2F2' }]}><MaterialIcon name="location-off" size={28} color={C.danger} /></View>
-            <Text style={styles.errorTitle}>Provider stopped sharing location</Text>
-            <Text style={styles.errorSubText}>Their last known position is shown on the map</Text>
+            <Text style={styles.errorTitle}>{t('tracking.stoppedSharing')}</Text>
+            <Text style={styles.errorSubText}>{t('tracking.lastKnown')}</Text>
             <TouchableOpacity style={[styles.retryBtn, { backgroundColor: C.secondary }]} onPress={() => navigation.goBack()} activeOpacity={0.7}>
-              <Text style={styles.retryBtnText}>Go Back</Text>
+              <Text style={styles.retryBtnText}>{t('common.goBack')}</Text>
             </TouchableOpacity>
           </View>
         ) : error && !providerLocation ? (
           <View style={styles.sheetCenter}>
             <View style={styles.errorIcon}><MaterialIcon name="location-searching" size={28} color={C.primary} /></View>
             <Text style={styles.errorTitle}>{error}</Text>
-            <Text style={styles.errorSubText}>Checking for updates automatically...</Text>
+            <Text style={styles.errorSubText}>{t('tracking.checkingUpdates')}</Text>
             <TouchableOpacity style={styles.retryBtn} onPress={() => { setIsRefreshing(true); fetchProviderLocation(); }} activeOpacity={0.7}>
-              {isRefreshing ? <ActivityIndicator size="small" color={C.white} /> : <Text style={styles.retryBtnText}>Retry Now</Text>}
+              {isRefreshing ? <ActivityIndicator size="small" color={C.white} /> : <Text style={styles.retryBtnText}>{t('tracking.retryNow')}</Text>}
             </TouchableOpacity>
           </View>
         ) : (

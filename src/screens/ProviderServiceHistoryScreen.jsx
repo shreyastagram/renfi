@@ -41,6 +41,7 @@ import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
+import { useLanguage } from '../context/LanguageContext';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
 import { Icon, ServiceIcon, CancellationReasonModal } from '../components';
 import ScreenShimmer from '../components/ShimmerLoader';
@@ -152,6 +153,7 @@ const StatPill = ({ value, label, color, bgColor }) => (
 
 /* ── OTP Modal ─────────────────────────────────────────────────────── */
 const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
+  const { t } = useLanguage();
   const [otp, setOtp] = useState('');
   const [attempts, setAttempts] = useState(0);
   const MAX_ATTEMPTS = 5;
@@ -178,12 +180,12 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Enter Completion OTP</Text>
+                <Text style={styles.modalTitle}>{t('providerHistory.enterCompletionOtp')}</Text>
                 <TouchableOpacity onPress={onClose} style={styles.modalClose}>
                   <Icon name="close" size={22} color={C.textSec} />
                 </TouchableOpacity>
               </View>
-              <Text style={styles.modalSubtitle}>Ask the customer for the 6-digit OTP to complete this service.</Text>
+              <Text style={styles.modalSubtitle}>{t('providerHistory.enterCompletionOtpSub')}</Text>
               <TextInput
                 style={[styles.otpInput, isLocked && { borderColor: '#EF4444', backgroundColor: '#FEF2F2' }]}
                 value={otp}
@@ -202,17 +204,17 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
               />
               {error ? <Text style={styles.otpError}>{error}</Text> : null}
               {isLocked && (
-                <Text style={styles.otpError}>Too many attempts. Please close and try again later.</Text>
+                <Text style={styles.otpError}>{t('providerHistory.tooManyAttempts')}</Text>
               )}
               {attempts > 0 && attempts < MAX_ATTEMPTS && !error && (
-                <Text style={[styles.otpHintText, { color: C.muted }]}>{MAX_ATTEMPTS - attempts} attempts remaining</Text>
+                <Text style={[styles.otpHintText, { color: C.muted }]}>{t('providerHistory.attemptsRemaining', { n: MAX_ATTEMPTS - attempts })}</Text>
               )}
               <TouchableOpacity
                 style={[styles.verifyBtn, (otp.length !== 6 || isLocked) && styles.verifyBtnDisabled]}
                 onPress={handleVerify}
                 disabled={otp.length !== 6 || isVerifying || isLocked}
               >
-                {isVerifying ? <ActivityIndicator color="#fff" /> : <Text style={styles.verifyBtnText}>Verify & Complete</Text>}
+                {isVerifying ? <ActivityIndicator color="#fff" /> : <Text style={styles.verifyBtnText}>{t('providerHistory.verifyComplete')}</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -224,6 +226,7 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
 
 /* ── Request Card ──────────────────────────────────────────────────── */
 const RequestCard = ({ request, onPress, onCall, onDirections, onComplete, onCancel, onAccept, onReject, isAccepting, isRejecting }) => {
+  const { t } = useLanguage();
   const status = STATUS_CONFIG[request.status] || STATUS_CONFIG.pending;
   const serviceDate = new Date(request.serviceDate || request.createdAt);
   const shortId = (request.requestId || request._id || '').slice(-6).toUpperCase();
@@ -263,7 +266,7 @@ const RequestCard = ({ request, onPress, onCall, onDirections, onComplete, onCan
       {isDone && (request.cancellationReason || request.cancelReason || request.rejectReason) && (() => {
         const by = request.cancelledBy;
         const reason = request.rejectReason || request.cancellationReason || request.cancelReason;
-        let label = by === 'user' ? 'Cancelled by Customer' : by === 'provider' ? 'Cancelled by You' : by === 'system' ? 'Cancelled by System' : reason || 'Request cancelled';
+        let label = by === 'user' ? t('providerHistory.cancelledByCustomer') : by === 'provider' ? t('providerHistory.cancelledByYou') : by === 'system' ? t('userHistory.cancelledBySystem') : reason || t('userHistory.requestCancelled');
         const generic = ['user cancelled', 'cancelled by user', 'cancelled by provider', 'provider cancelled'];
         if (reason && !generic.includes(reason.toLowerCase()) && by) label += ` \u2014 ${reason}`;
         return (
@@ -296,7 +299,7 @@ const RequestCard = ({ request, onPress, onCall, onDirections, onComplete, onCan
                 )}
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.customerName} numberOfLines={1}>{request.userDetails.name || request.userName || 'Customer'}</Text>
+                <Text style={styles.customerName} numberOfLines={1}>{request.userDetails.name || request.userName || t('providerHistory.customer')}</Text>
                 {isActive && request.userDetails.phone && <Text style={styles.customerPhone}>{request.userDetails.phone}</Text>}
               </View>
               {(isActive || isPending) && (
@@ -326,7 +329,7 @@ const RequestCard = ({ request, onPress, onCall, onDirections, onComplete, onCan
           {/* Date/Time */}
           <View style={styles.dtRow}>
             <View style={styles.dtItem}>
-              <Text style={styles.dtLabel}>DATE</Text>
+              <Text style={styles.dtLabel}>{t('common.date')}</Text>
               <Text style={styles.dtVal}>
                 {isEvent && request.eventDate
                   ? new Date(request.eventDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
@@ -341,7 +344,7 @@ const RequestCard = ({ request, onPress, onCall, onDirections, onComplete, onCan
               if (isNaN(h) || isNaN(m)) return null;
               const p = h >= 12 ? 'PM' : 'AM';
               const dh = h === 0 ? 12 : h > 12 ? h - 12 : h;
-              return (<><View style={styles.dtDiv} /><View style={styles.dtItem}><Text style={styles.dtLabel}>TIME</Text><Text style={styles.dtVal}>{dh}:{String(m).padStart(2, '0')} {p}</Text></View></>);
+              return (<><View style={styles.dtDiv} /><View style={styles.dtItem}><Text style={styles.dtLabel}>{t('common.time')}</Text><Text style={styles.dtVal}>{dh}:{String(m).padStart(2, '0')} {p}</Text></View></>);
             })()}
           </View>
 
@@ -359,7 +362,7 @@ const RequestCard = ({ request, onPress, onCall, onDirections, onComplete, onCan
                 disabled={isRejecting || isAccepting}
               >
                 {isRejecting ? <ActivityIndicator color={C.danger} size="small" /> : (
-                  <><Icon name="close" size={15} color={C.danger} /><Text style={styles.rejectBtnText}>Reject</Text></>
+                  <><Icon name="close" size={15} color={C.danger} /><Text style={styles.rejectBtnText}>{t('providerHistory.reject')}</Text></>
                 )}
               </TouchableOpacity>
               <TouchableOpacity
@@ -368,7 +371,7 @@ const RequestCard = ({ request, onPress, onCall, onDirections, onComplete, onCan
                 disabled={isAccepting || isRejecting}
               >
                 {isAccepting ? <ActivityIndicator color="#fff" size="small" /> : (
-                  <><Icon name="check" size={15} color="#fff" /><Text style={styles.acceptBtnText}>Accept</Text></>
+                  <><Icon name="check" size={15} color="#fff" /><Text style={styles.acceptBtnText}>{t('providerHistory.accept')}</Text></>
                 )}
               </TouchableOpacity>
             </View>
@@ -379,7 +382,7 @@ const RequestCard = ({ request, onPress, onCall, onDirections, onComplete, onCan
             <View style={styles.actionRow}>
               <TouchableOpacity style={styles.completeBtn} onPress={() => onComplete(request)} activeOpacity={0.7}>
                 <Icon name="check-circle" size={15} color={C.white} />
-                <Text style={styles.completeBtnText}>Complete</Text>
+                <Text style={styles.completeBtnText}>{t('providerHistory.complete')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.cancelIconBtn} onPress={() => onCancel(request)} activeOpacity={0.7}>
                 <Icon name="close" size={17} color={C.danger} />
@@ -389,7 +392,7 @@ const RequestCard = ({ request, onPress, onCall, onDirections, onComplete, onCan
 
           {/* View details */}
           <TouchableOpacity style={styles.detailsRow} onPress={onPress} activeOpacity={0.6}>
-            <Text style={styles.detailsText}>View Details</Text>
+            <Text style={styles.detailsText}>{t('common.viewDetails')}</Text>
             <Icon name="chevron-right" size={15} color={C.secondary} />
           </TouchableOpacity>
         </>
@@ -400,11 +403,12 @@ const RequestCard = ({ request, onPress, onCall, onDirections, onComplete, onCan
 
 /* ── Empty State ───────────────────────────────────────────────────── */
 const EmptyState = ({ filter }) => {
-  const msg = filter === 'pending' ? 'No new requests right now.' : filter === 'active' ? 'No active jobs.' : filter === 'completed' ? 'No completed jobs yet.' : filter === 'cancelled' ? 'No cancelled jobs.' : 'No jobs yet. Stay online to receive requests!';
+  const { t } = useLanguage();
+  const msg = filter === 'pending' ? t('providerHistory.noNewRequests') : filter === 'active' ? t('providerHistory.noActiveJobs') : filter === 'completed' ? t('providerHistory.noCompletedJobs') : filter === 'cancelled' ? t('providerHistory.noCancelledJobs') : t('providerHistory.noJobsYet');
   return (
     <View style={styles.emptyWrap}>
       <View style={styles.emptyCircle}><Icon name="clipboard-list" size={44} color={C.muted} /></View>
-      <Text style={styles.emptyTitle}>No Jobs Found</Text>
+      <Text style={styles.emptyTitle}>{t('providerHistory.noJobsFound')}</Text>
       <Text style={styles.emptyMsg}>{msg}</Text>
     </View>
   );
@@ -416,6 +420,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
   const isFocused = useIsFocused();
   const { user, profile, userType, logout } = useApp();
   const { dialog } = useDialog();
+  const { t } = useLanguage();
 
   // Set status bar for light background when this tab is focused
   useFocusEffect(
@@ -612,9 +617,9 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
 
   // ── Accept ──
   const handleAccept = (job) => {
-    dialog('Accept Request', `Accept this ${SERVICE_TYPE_LABELS[job.serviceType] || job.serviceType} request?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Accept', onPress: async () => {
+    dialog(t('providerHistory.acceptRequest'), t('providerHistory.acceptRequestMsg', { type: SERVICE_TYPE_LABELS[job.serviceType] || job.serviceType }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('providerHistory.accept'), onPress: async () => {
         setAcceptingId(job._id);
         try {
           let result;
@@ -637,37 +642,37 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
             if (isImminent) {
               startRequestLocationTracking(job._id, providerId, null, category);
             }
-            dialog('Accepted', 'Request accepted! Customer has been notified.');
+            dialog(t('providerHistory.acceptedTitle'), t('providerHistory.acceptedMsg'));
             fetchJobs(false);
           } else {
             const errMsg = (result.error || result.message || '').toLowerCase();
             if (errMsg.includes('cancel')) {
-              dialog('Request Cancelled', 'This request was cancelled by the customer and is no longer available.');
+              dialog(t('providerHistory.requestCancelledByCustomer'), t('providerHistory.requestCancelledByCustomer'));
               // Optimistic update — remove from list
               setAllRequests(prev => prev.filter(j => j._id !== job._id));
             } else if (errMsg.includes('expired') || errMsg.includes('timeout')) {
-              dialog('Request Expired', 'This request has expired and is no longer available.');
+              dialog(t('providerHistory.requestExpired'), t('providerHistory.requestExpiredMsg'));
               setAllRequests(prev => prev.filter(j => j._id !== job._id));
             } else if (errMsg.includes('already') || errMsg.includes('accepted')) {
-              dialog('Already Accepted', 'This request has already been accepted by another provider.');
+              dialog(t('providerHistory.alreadyAccepted'), t('providerHistory.alreadyAcceptedMsg'));
               setAllRequests(prev => prev.filter(j => j._id !== job._id));
             } else if (errMsg.includes('cannot') || errMsg.includes('not valid') || errMsg.includes('invalid')) {
-              dialog('Request Unavailable', 'This request is no longer available. It may have been cancelled, expired, or accepted by another provider.');
+              dialog(t('providerHistory.requestUnavailable'), t('providerHistory.requestUnavailableMsg'));
               fetchJobs(false);
             } else {
-              dialog('Unable to Accept', result.error || result.message || 'This request could not be accepted. Please refresh and try again.');
+              dialog(t('providerHistory.unableToAccept'), result.error || result.message || t('common.somethingWentWrong'));
             }
           }
         } catch (e) {
           const errMsg = (e.message || '').toLowerCase();
           if (errMsg.includes('cancel')) {
-            dialog('Request Cancelled', 'This request was cancelled by the customer and is no longer available.');
+            dialog(t('providerHistory.requestCancelledByCustomer'), t('providerHistory.requestCancelledByCustomer'));
             setAllRequests(prev => prev.filter(j => j._id !== job._id));
           } else if (errMsg.includes('cannot') || errMsg.includes('not valid')) {
-            dialog('Request Unavailable', 'This request is no longer available. It may have been cancelled or expired.');
+            dialog(t('providerHistory.requestUnavailable'), t('providerHistory.requestUnavailableMsg'));
             fetchJobs(false);
           } else {
-            dialog('Connection Error', 'We\'re having trouble connecting. Please try again.');
+            dialog(t('common.connectionError'), t('common.connectionErrorMsg'));
           }
         }
         finally { setAcceptingId(null); }
@@ -677,9 +682,9 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
 
   // ── Reject ──
   const handleReject = (job) => {
-    dialog('Reject Request', `Reject this ${SERVICE_TYPE_LABELS[job.serviceType] || job.serviceType} request?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Reject', style: 'destructive', onPress: async () => {
+    dialog(t('providerHistory.rejectRequest'), t('providerHistory.rejectRequestMsg', { type: SERVICE_TYPE_LABELS[job.serviceType] || job.serviceType }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('providerHistory.reject'), style: 'destructive', onPress: async () => {
         setRejectingId(job._id);
         try {
           let result;
@@ -694,20 +699,20 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
             result = await r.json(); result.success = result.success || r.ok;
           }
           if (result.success) {
-            dialog('Rejected', 'Request rejected. The customer has been notified.');
+            dialog(t('providerHistory.rejectedTitle'), t('providerHistory.rejectedMsg'));
             setAllRequests(prev => prev.filter(j => j._id !== job._id));
             setTimeout(() => fetchJobs(false), 1500);
           } else {
             const errMsg = (result.error || result.message || '').toLowerCase();
             if (errMsg.includes('cancel')) {
-              dialog('Already Cancelled', 'This request was already cancelled by the customer.');
+              dialog(t('userHistory.alreadyCancelled'), t('providerHistory.requestCancelledByCustomer'));
               setAllRequests(prev => prev.filter(j => j._id !== job._id));
             } else {
-              dialog('Unable to Reject', result.error || result.message || 'Could not reject this request. Please try again.');
+              dialog(t('providerHistory.unableToReject'), result.error || result.message || t('common.somethingWentWrong'));
             }
           }
         } catch (e) {
-          dialog('Connection Error', 'We\'re having trouble connecting. Please try again.');
+          dialog(t('common.connectionError'), t('common.connectionErrorMsg'));
         }
         finally { setRejectingId(null); }
       }},
@@ -717,10 +722,10 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
   // ── Call ──
   const handleCall = (req) => {
     const phone = req.userDetails?.phone || req.userDetails?.verifiedPhone || req.userPhone;
-    if (!phone) { dialog('Error', 'Phone not available'); return; }
-    dialog('Call Customer', `Call ${req.userDetails?.name || 'Customer'} at ${phone}?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Call Now', onPress: () => Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => dialog('Error', 'Cannot make calls')) },
+    if (!phone) { dialog(t('common.error'), t('providerHistory.phoneNotAvailable')); return; }
+    dialog(t('providerHistory.callCustomer'), t('providerHistory.callCustomerMsg', { name: req.userDetails?.name || t('providerHistory.customer'), phone }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.callNow'), onPress: () => Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => dialog(t('common.error'), t('providerHistory.cannotMakeCalls'))) },
     ]);
   };
 
@@ -738,7 +743,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
     } else if (job.eventLocation?.latitude && job.eventLocation?.longitude) {
       lat = job.eventLocation.latitude; lng = job.eventLocation.longitude;
     }
-    if (!lat || !lng || isNaN(lat) || isNaN(lng)) { dialog('Location Error', 'Coordinates not available for this service.'); return; }
+    if (!lat || !lng || isNaN(lat) || isNaN(lng)) { dialog(t('providerHistory.locationError'), t('providerHistory.locationErrorMsg')); return; }
     const url = Platform.select({ ios: `maps:?daddr=${lat},${lng}`, android: `google.navigation:q=${lat},${lng}` });
     Linking.openURL(url).catch(() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`));
   };
@@ -768,9 +773,9 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
       } else {
         result = await verifyCompletionOtp(job._id, otp);
       }
-      if (result.success) { stopRequestLocationTracking(job._id); setOtpModalVisible(false); setSelectedJob(null); dialog('Service Completed!', 'Great job!'); fetchJobs(false); }
-      else if (result.code === 'OTP_EXPIRED') setOtpError('OTP has expired.');
-      else setOtpError(result.error || result.message || 'Invalid OTP.');
+      if (result.success) { stopRequestLocationTracking(job._id); setOtpModalVisible(false); setSelectedJob(null); dialog(t('providerHistory.serviceCompleted'), t('providerHistory.serviceCompletedMsg')); fetchJobs(false); }
+      else if (result.code === 'OTP_EXPIRED') setOtpError(t('providerHistory.otpExpiredError'));
+      else setOtpError(result.error || result.message || t('providerHistory.invalidOtp'));
     } catch (e) { setOtpError(e.message || 'Failed to verify OTP.'); }
     finally { setIsVerifyingOtp(false); }
   };
@@ -792,9 +797,9 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
       } else {
         result = await providerCancelRequest(cancelJob._id, providerId, reason);
       }
-      if (result.success !== false) { stopRequestLocationTracking(cancelJob._id); setCancelModalVisible(false); setCancelJob(null); dialog('Cancelled', 'Request cancelled.'); fetchJobs(false); }
-      else dialog('Error', result.message || 'Failed to cancel.');
-    } catch (e) { dialog('Error', e.message || 'Failed to cancel.'); }
+      if (result.success !== false) { stopRequestLocationTracking(cancelJob._id); setCancelModalVisible(false); setCancelJob(null); dialog(t('status.cancelled'), t('providerHistory.cancelledDialog')); fetchJobs(false); }
+      else dialog(t('common.error'), result.message || t('providerHistory.cancelError'));
+    } catch (e) { dialog(t('common.error'), e.message || t('providerHistory.cancelError')); }
     finally { setCancellingId(null); }
   };
 
@@ -832,7 +837,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
         <TouchableOpacity onPress={() => setIsDrawerOpen(true)} activeOpacity={0.7} style={styles.headerLogoBtn}>
           <Image source={FIXHOMI_LOGO} style={styles.headerLogoImg} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Jobs</Text>
+        <Text style={styles.headerTitle}>{t('providerHistory.myJobs')}</Text>
         <AvatarButton name={displayData?.fullName} profilePicture={displayData?.profilePicture} onPress={() => navigation.navigate('Profile')} isProvider={true} />
       </View>
 
@@ -900,7 +905,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
         keyExtractor={item => item._id}
         ListHeaderComponent={
           (activeFilter !== 'all' || categoryFilter !== 'all' || datePreset !== 'all') ? (
-            <Text style={styles.resultCount}>{filteredRequests.length} {filteredRequests.length === 1 ? 'job' : 'jobs'}</Text>
+            <Text style={styles.resultCount}>{filteredRequests.length} {filteredRequests.length === 1 ? t('providerHistory.job') : t('providerHistory.jobs')}</Text>
           ) : null
         }
         renderItem={({ item }) => (

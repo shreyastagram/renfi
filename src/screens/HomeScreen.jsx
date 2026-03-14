@@ -20,6 +20,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../components';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 
 // Brand colors
 const BRAND = {
@@ -33,14 +34,15 @@ const BRAND = {
  * HomeScreen Component
  */
 const HomeScreen = ({ navigation }) => {
-  const { 
-    user, 
-    userType, 
-    profile, 
-    isProfileLoading, 
+  const {
+    user,
+    userType,
+    profile,
+    isProfileLoading,
     logout,
     refreshVerificationStatus,
   } = useApp();
+  const { t } = useLanguage();
   
   const [loggingOut, setLoggingOut] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -95,7 +97,7 @@ const HomeScreen = ({ navigation }) => {
         <View style={styles.header}>
           <Text style={styles.title}>Welcome to FixHomi!</Text>
           <Text style={styles.subtitle}>
-            {displayData.fullName ? `Hello, ${displayData.fullName}` : 'You are logged in'}
+            {displayData.fullName ? t('userHome.hello', { name: displayData.fullName }) : t('userHome.helloDefault')}
           </Text>
           <View style={styles.badgeRow}>
             <View style={[styles.badge, isProvider && styles.providerBadge]}>
@@ -111,27 +113,27 @@ const HomeScreen = ({ navigation }) => {
 
         {/* Account Info Card */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Account Information</Text>
+          <Text style={styles.cardTitle}>{t('home.accountInfo')}</Text>
           
           {/* Email */}
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Email</Text>
+            <Text style={styles.infoLabel}>{t('auth.email')}</Text>
             <View style={styles.infoValueRow}>
               <Text style={styles.infoValue} numberOfLines={1}>
-                {displayData.email || 'Not set'}
+                {displayData.email || t('common.notSet')}
               </Text>
               {displayData.email && (
                 isEmailVerified ? (
                   <View style={styles.verifiedContainer}>
                     <Text style={styles.verifiedIcon}>✓</Text>
-                    <Text style={styles.verifiedText}>Verified</Text>
+                    <Text style={styles.verifiedText}>{t('common.verified')}</Text>
                   </View>
                 ) : (
-                  <TouchableOpacity 
-                    style={styles.verifyButton} 
+                  <TouchableOpacity
+                    style={styles.verifyButton}
                     onPress={() => handleVerify('email')}
                   >
-                    <Text style={styles.verifyButtonText}>Verify</Text>
+                    <Text style={styles.verifyButtonText}>{t('common.verify')}</Text>
                   </TouchableOpacity>
                 )
               )}
@@ -140,23 +142,23 @@ const HomeScreen = ({ navigation }) => {
 
           {/* Phone */}
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Phone</Text>
+            <Text style={styles.infoLabel}>{t('auth.phone')}</Text>
             <View style={styles.infoValueRow}>
               <Text style={styles.infoValue} numberOfLines={1}>
-                {displayData.phone || 'Not set'}
+                {displayData.phone || t('common.notSet')}
               </Text>
               {displayData.phone && (
                 isPhoneVerified ? (
                   <View style={styles.verifiedContainer}>
                     <Text style={styles.verifiedIcon}>✓</Text>
-                    <Text style={styles.verifiedText}>Verified</Text>
+                    <Text style={styles.verifiedText}>{t('common.verified')}</Text>
                   </View>
                 ) : (
-                  <TouchableOpacity 
-                    style={styles.verifyButton} 
+                  <TouchableOpacity
+                    style={styles.verifyButton}
                     onPress={() => handleVerify('phone')}
                   >
-                    <Text style={styles.verifyButtonText}>Verify</Text>
+                    <Text style={styles.verifyButtonText}>{t('common.verify')}</Text>
                   </TouchableOpacity>
                 )
               )}
@@ -166,7 +168,7 @@ const HomeScreen = ({ navigation }) => {
           {/* Address */}
           {displayData.address && (
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Address</Text>
+              <Text style={styles.infoLabel}>{t('providerRegister.address')}</Text>
               <Text style={styles.infoValue}>{displayData.address}</Text>
             </View>
           )}
@@ -174,7 +176,7 @@ const HomeScreen = ({ navigation }) => {
           {/* City & Pincode */}
           {(displayData.city || displayData.pincode) && (
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Location</Text>
+              <Text style={styles.infoLabel}>{t('home.location')}</Text>
               <Text style={styles.infoValue}>
                 {[displayData.city, displayData.pincode].filter(Boolean).join(', ')}
               </Text>
@@ -185,12 +187,12 @@ const HomeScreen = ({ navigation }) => {
         {/* Provider-specific Card */}
         {isProvider && (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Provider Details</Text>
+            <Text style={styles.cardTitle}>{t('home.providerDetails')}</Text>
             
             {/* Service Categories */}
             {displayData.serviceCategories?.length > 0 && (
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Services</Text>
+                <Text style={styles.infoLabel}>{t('providerHome.yourServices')}</Text>
                 <View style={styles.tagsContainer}>
                   {displayData.serviceCategories.map((cat, index) => (
                     <View key={index} style={styles.tag}>
@@ -204,21 +206,21 @@ const HomeScreen = ({ navigation }) => {
             {/* Experience */}
             {displayData.experience && (
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Experience</Text>
+                <Text style={styles.infoLabel}>{t('home.experience')}</Text>
                 <Text style={styles.infoValue}>{displayData.experience}</Text>
               </View>
             )}
 
             {/* Rating */}
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Rating</Text>
+              <Text style={styles.infoLabel}>{t('home.rating')}</Text>
               <View style={styles.ratingContainer}>
                 <Text style={styles.ratingValue}>
                   ⭐ {displayData.rating?.toFixed(1) || '0.0'}
                 </Text>
                 {displayData.ratings?.total > 0 && (
                   <Text style={styles.ratingCount}>
-                    ({displayData.ratings.total} reviews)
+                    ({displayData.ratings.total} {t('common.reviews')})
                   </Text>
                 )}
               </View>
@@ -226,7 +228,7 @@ const HomeScreen = ({ navigation }) => {
 
             {/* Availability */}
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Status</Text>
+              <Text style={styles.infoLabel}>{t('home.status')}</Text>
               <View style={[
                 styles.statusBadge,
                 displayData.isAvailable ? styles.statusOnline : styles.statusOffline
@@ -235,7 +237,7 @@ const HomeScreen = ({ navigation }) => {
                   styles.statusText,
                   displayData.isAvailable ? styles.statusTextOnline : styles.statusTextOffline
                 ]}>
-                  {displayData.isAvailable ? '● Available' : '○ Unavailable'}
+                  {displayData.isAvailable ? `● ${t('common.available')}` : `○ ${t('common.unavailable')}`}
                 </Text>
               </View>
             </View>
@@ -245,19 +247,19 @@ const HomeScreen = ({ navigation }) => {
         {/* User-specific Stats Card */}
         {!isProvider && displayData.stats && (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Your Activity</Text>
+            <Text style={styles.cardTitle}>{t('home.yourActivity')}</Text>
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>{displayData.stats.totalRequests || 0}</Text>
-                <Text style={styles.statLabel}>Total</Text>
+                <Text style={styles.statLabel}>{t('home.total')}</Text>
               </View>
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>{displayData.stats.completedRequests || 0}</Text>
-                <Text style={styles.statLabel}>Completed</Text>
+                <Text style={styles.statLabel}>{t('home.completed')}</Text>
               </View>
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>{displayData.stats.cancelledRequests || 0}</Text>
-                <Text style={styles.statLabel}>Cancelled</Text>
+                <Text style={styles.statLabel}>{t('home.cancelled')}</Text>
               </View>
             </View>
           </View>
@@ -266,10 +268,10 @@ const HomeScreen = ({ navigation }) => {
         {/* Verification Prompt - only show if loading is done and verification incomplete */}
         {!isProfileLoading && (!isEmailVerified || !isPhoneVerified) && (
           <View style={styles.verificationCard}>
-            <Text style={styles.verificationTitle}>⚠️ Complete Verification</Text>
+            <Text style={styles.verificationTitle}>{t('home.completeVerification')}</Text>
             <Text style={styles.verificationText}>
-              Verify your {!isEmailVerified && !isPhoneVerified ? 'email and phone' : 
-                !isEmailVerified ? 'email' : 'phone'} to unlock all features.
+              {!isEmailVerified && !isPhoneVerified ? t('home.verifyBoth') :
+                !isEmailVerified ? t('home.verifyEmail') : t('home.verifyPhone')}
             </Text>
           </View>
         )}
@@ -278,9 +280,9 @@ const HomeScreen = ({ navigation }) => {
         {!isProfileLoading && isEmailVerified && isPhoneVerified && (
           <View style={styles.verifiedCard}>
             <Text style={styles.verifiedCardIcon}>🎉</Text>
-            <Text style={styles.verifiedCardTitle}>Fully Verified!</Text>
+            <Text style={styles.verifiedCardTitle}>{t('home.fullyVerified')}</Text>
             <Text style={styles.verifiedCardText}>
-              Your email and phone number are verified. Enjoy all features!
+              {t('home.fullyVerifiedMsg')}
             </Text>
           </View>
         )}
@@ -289,15 +291,15 @@ const HomeScreen = ({ navigation }) => {
         {!isProvider && (
           <View style={styles.serviceCard}>
             <Text style={styles.serviceCardIcon}>🔧</Text>
-            <Text style={styles.serviceCardTitle}>Need a Service?</Text>
+            <Text style={styles.serviceCardTitle}>{t('home.needService')}</Text>
             <Text style={styles.serviceCardText}>
-              Find electricians, plumbers, carpenters, and more near you!
+              {t('home.needServiceMsg')}
             </Text>
             <TouchableOpacity
               style={styles.requestServiceButton}
               onPress={() => navigation?.navigate?.('CreateServiceRequest')}
             >
-              <Text style={styles.requestServiceButtonText}>Request Service</Text>
+              <Text style={styles.requestServiceButtonText}>{t('home.requestService')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -306,15 +308,15 @@ const HomeScreen = ({ navigation }) => {
         {!isProvider && (
           <View style={styles.historyCard}>
             <Text style={styles.historyCardIcon}>📋</Text>
-            <Text style={styles.historyCardTitle}>Service History</Text>
+            <Text style={styles.historyCardTitle}>{t('home.serviceHistory')}</Text>
             <Text style={styles.historyCardText}>
-              View all your service requests, track progress, and see completion details.
+              {t('home.serviceHistoryMsg')}
             </Text>
             <TouchableOpacity
               style={styles.viewHistoryButton}
               onPress={() => navigation?.navigate?.('UserServiceHistory')}
             >
-              <Text style={styles.viewHistoryButtonText}>View History</Text>
+              <Text style={styles.viewHistoryButtonText}>{t('home.viewHistory')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -323,22 +325,22 @@ const HomeScreen = ({ navigation }) => {
         {isProvider && (
           <View style={styles.providerDashboardCard}>
             <Text style={styles.providerDashboardIcon}>📋</Text>
-            <Text style={styles.providerDashboardTitle}>Service Requests</Text>
+            <Text style={styles.providerDashboardTitle}>{t('home.serviceRequests')}</Text>
             <Text style={styles.providerDashboardText}>
-              View and accept incoming service requests from customers.
+              {t('home.serviceRequestsMsg')}
             </Text>
             <TouchableOpacity
               style={styles.viewRequestsButton}
               onPress={() => navigation?.navigate?.('ProviderRequests')}
             >
-              <Text style={styles.viewRequestsButtonText}>View Requests</Text>
+              <Text style={styles.viewRequestsButtonText}>{t('home.viewRequests')}</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {/* Logout Button */}
         <Button
-          title={loggingOut ? 'Logging out...' : 'Logout'}
+          title={loggingOut ? t('home.loggingOut') : t('home.logout')}
           variant="outline"
           onPress={handleLogout}
           loading={loggingOut}

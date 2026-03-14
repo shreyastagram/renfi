@@ -30,6 +30,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Icon } from '../components';
 import ScreenShimmer from '../components/ShimmerLoader';
 import {
@@ -413,6 +414,7 @@ const SubscriptionScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { userType, profile } = useApp();
   const { dialog } = useDialog();
+  const { t } = useLanguage();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -443,7 +445,7 @@ const SubscriptionScreen = ({ navigation }) => {
       if (transactionsResult.success) setTransactions(transactionsResult.transactions);
     } catch (error) {
       console.error('[SubscriptionScreen] Load error:', error);
-      dialog('Error', 'Failed to load subscription data');
+      dialog(t('common.error'), t('subscription.loadFailed'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -461,15 +463,15 @@ const SubscriptionScreen = ({ navigation }) => {
     // Gate: Provider must have at least one approved service before subscribing
     if (!profile?.verifiedServiceCategories || profile.verifiedServiceCategories.length === 0) {
       dialog(
-        'Approved Services Required',
-        'Get at least one service approved before subscribing to Premium.',
-        [{ text: 'OK' }]
+        t('subscription.approvedRequired'),
+        t('subscription.approvedRequiredMsg'),
+        [{ text: t('common.ok') }]
       );
       return;
     }
 
     if (!selectedPlan) {
-      dialog('Select Plan', 'Please select a subscription plan');
+      dialog(t('subscription.selectPlan'), t('subscription.selectPlanMsg'));
       return;
     }
     setSubscribing(true);
@@ -480,20 +482,20 @@ const SubscriptionScreen = ({ navigation }) => {
       });
       if (result.success) {
         dialog(
-          '\uD83C\uDF89 Welcome to Premium!',
-          result.message || 'Your premium subscription is now active.',
-          [{ text: 'Great!', onPress: () => loadData() }]
+          t('subscription.welcomePremium'),
+          result.message || t('subscription.welcomePremiumMsg'),
+          [{ text: t('subscription.great'), onPress: () => loadData() }]
         );
       } else if (result.cancelled) {
         setSubscriptionStatus('');
       } else {
         dialog(
-          'Payment Failed',
-          result.error || 'Unable to process payment. Please try again.'
+          t('subscription.paymentFailed'),
+          result.error || t('subscription.paymentFailedMsg')
         );
       }
     } catch (error) {
-      dialog('Error', 'Something went wrong. Please try again.');
+      dialog(t('common.error'), t('common.somethingWentWrong'));
     } finally {
       setSubscribing(false);
       setSubscriptionStatus('');
@@ -510,7 +512,7 @@ const SubscriptionScreen = ({ navigation }) => {
       '\u26A0\uFE0F Reset Premium',
       'This will remove your premium status. Continue?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
           text: 'Reset',
           style: 'destructive',
@@ -519,13 +521,13 @@ const SubscriptionScreen = ({ navigation }) => {
               setLoading(true);
               const result = await resetPremium();
               if (result.success) {
-                dialog('Success', result.message || 'Premium reset');
+                dialog(t('common.success'), result.message || 'Premium reset');
                 loadData();
               } else {
-                dialog('Error', result.error || 'Failed to reset');
+                dialog(t('common.error'), result.error || 'Failed to reset');
               }
             } catch (e) {
-              dialog('Error', 'Something went wrong');
+              dialog(t('common.error'), t('common.somethingWentWrong'));
             } finally {
               setLoading(false);
             }
@@ -544,13 +546,13 @@ const SubscriptionScreen = ({ navigation }) => {
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <MaterialIcon name="arrow-back-ios-new" size={20} color="#0F172A" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Premium</Text>
+          <Text style={styles.headerTitle}>{t('subscription.premium')}</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.emptyState}>
           <MaterialIcon name="lock-outline" size={56} color="#CBD5E1" />
-          <Text style={styles.emptyTitle}>Premium Only</Text>
-          <Text style={styles.emptyDesc}>Premium subscription is only available for service providers.</Text>
+          <Text style={styles.emptyTitle}>{t('subscription.premiumOnly')}</Text>
+          <Text style={styles.emptyDesc}>{t('subscription.premiumOnlySub')}</Text>
         </View>
       </View>
     );
@@ -574,7 +576,7 @@ const SubscriptionScreen = ({ navigation }) => {
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <MaterialIcon name="arrow-back-ios-new" size={20} color="#0F172A" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Premium</Text>
+        <Text style={styles.headerTitle}>{t('subscription.premium')}</Text>
         <PremiumBadge isPremium={isPremium} daysRemaining={subscription?.daysRemaining} />
       </View>
 
@@ -599,7 +601,7 @@ const SubscriptionScreen = ({ navigation }) => {
 
         {(!isPremium || subscription?.daysRemaining <= 5) && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Choose Your Plan</Text>
+            <Text style={styles.sectionTitle}>{t('subscription.chooseYourPlan')}</Text>
             {plans.map((plan) => (
               <PlanCard
                 key={plan.id}
@@ -621,7 +623,7 @@ const SubscriptionScreen = ({ navigation }) => {
                 ) : (
                   <>
                     <MaterialIcon name="bolt" size={20} color="#FFFFFF" />
-                    <Text style={styles.subscribeBtnText}>Subscribe for {selectedPlan.priceDisplay}</Text>
+                    <Text style={styles.subscribeBtnText}>{t('subscription.subscribeFor', { price: selectedPlan.priceDisplay })}</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -631,28 +633,28 @@ const SubscriptionScreen = ({ navigation }) => {
 
         {subscription?.stats && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Your Stats</Text>
+            <Text style={styles.sectionTitle}>{t('subscription.yourStats')}</Text>
             <View style={styles.statsRow}>
               <View style={styles.statCard}>
                 <Text style={styles.statNumber}>{subscription.stats.totalSubscriptions}</Text>
-                <Text style={styles.statDesc}>Subscriptions</Text>
+                <Text style={styles.statDesc}>{t('subscription.subscriptions')}</Text>
               </View>
               <View style={styles.statCard}>
                 <Text style={styles.statNumber}>{subscription.stats.totalSpentDisplay}</Text>
-                <Text style={styles.statDesc}>Total Spent</Text>
+                <Text style={styles.statDesc}>{t('subscription.totalSpent')}</Text>
               </View>
             </View>
           </View>
         )}
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Transaction History</Text>
+          <Text style={styles.sectionTitle}>{t('subscription.transactionHistory')}</Text>
           <View style={styles.sectionCard}>
             {transactions.length === 0 ? (
               <View style={styles.emptyTx}>
                 <MaterialIcon name="receipt-long" size={44} color="#E2E8F0" />
-                <Text style={styles.emptyTxTitle}>No Transactions</Text>
-                <Text style={styles.emptyTxDesc}>Your payment history will appear here</Text>
+                <Text style={styles.emptyTxTitle}>{t('subscription.noTransactions')}</Text>
+                <Text style={styles.emptyTxDesc}>{t('subscription.noTransactionsSub')}</Text>
               </View>
             ) : (
               transactions.map((tx) => (
@@ -663,22 +665,22 @@ const SubscriptionScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Premium Benefits</Text>
+          <Text style={styles.sectionTitle}>{t('subscription.premiumBenefits')}</Text>
           <View style={styles.sectionCard}>
             {[
-              { icon: 'trending-up', title: 'Priority Listing', desc: 'Appear at the top of search results', color: '#16A34A', bg: '#F0FDF4' },
-              { icon: 'workspace-premium', title: 'Premium Badge', desc: 'Stand out with a verified badge', color: '#D97706', bg: '#FFFBEB' },
-              { icon: 'location-on', title: 'Extended Reach', desc: 'Get discovered by more customers', color: '#2b76bc', bg: '#EFF6FF' },
-              { icon: 'analytics', title: 'Analytics', desc: 'Track profile views & engagement', color: '#7C3AED', bg: '#F5F3FF' },
-              { icon: 'support-agent', title: 'Priority Support', desc: '24/7 dedicated customer support', color: '#0EA5E9', bg: '#F0F9FF' },
+              { icon: 'trending-up', titleKey: 'subscription.priorityListing', descKey: 'subscription.priorityListingSub', color: '#16A34A', bg: '#F0FDF4' },
+              { icon: 'workspace-premium', titleKey: 'subscription.premiumBadge', descKey: 'subscription.premiumBadgeSub', color: '#D97706', bg: '#FFFBEB' },
+              { icon: 'location-on', titleKey: 'subscription.extendedReach', descKey: 'subscription.extendedReachSub', color: '#2b76bc', bg: '#EFF6FF' },
+              { icon: 'analytics', titleKey: 'subscription.analytics', descKey: 'subscription.analyticsSub', color: '#7C3AED', bg: '#F5F3FF' },
+              { icon: 'support-agent', titleKey: 'subscription.prioritySupport', descKey: 'subscription.prioritySupportSub', color: '#0EA5E9', bg: '#F0F9FF' },
             ].map((b, i) => (
               <View key={i} style={[styles.benefitRow, i === 4 && { borderBottomWidth: 0 }]}>
                 <View style={[styles.benefitIcon, { backgroundColor: b.bg }]}>
                   <MaterialIcon name={b.icon} size={22} color={b.color} />
                 </View>
                 <View style={styles.benefitContent}>
-                  <Text style={styles.benefitTitle}>{b.title}</Text>
-                  <Text style={styles.benefitDesc}>{b.desc}</Text>
+                  <Text style={styles.benefitTitle}>{t(b.titleKey)}</Text>
+                  <Text style={styles.benefitDesc}>{t(b.descKey)}</Text>
                 </View>
                 <MaterialIcon name="check" size={18} color="#16A34A" />
               </View>

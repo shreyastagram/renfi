@@ -36,6 +36,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
+import { useLanguage } from '../context/LanguageContext';
 import { useLocation } from '../context/LocationContext';
 import { getFavorites, removeFromFavorites } from '../services/favoritesService';
 import { ProviderDetailsModal } from '../components';
@@ -203,7 +204,7 @@ const SERVICE_FLOW_LABELS = {
 // =============================================================================
 // Provider Card Component
 // =============================================================================
-const ProviderCard = ({ provider, onCall, onRemove, onBook, onViewProfile }) => {
+const ProviderCard = ({ provider, onCall, onRemove, onBook, onViewProfile, t }) => {
   const verifiedCount = (provider.verifiedServices || []).length;
   // Handle both string URL and object { url } from backend
   const profilePicUrl = typeof provider.profilePicture === 'string'
@@ -254,7 +255,7 @@ const ProviderCard = ({ provider, onCall, onRemove, onBook, onViewProfile }) => 
               {verifiedCount > 0 && (
                 <View style={cardStyles.proBadge}>
                   <MaterialIcon name="verified" size={11} color={COLORS.cardWhite} />
-                  <Text style={cardStyles.proBadgeText}>PRO</Text>
+                  <Text style={cardStyles.proBadgeText}>{t('favoritesScreen.proBadge')}</Text>
                 </View>
               )}
             </View>
@@ -276,14 +277,14 @@ const ProviderCard = ({ provider, onCall, onRemove, onBook, onViewProfile }) => 
               {verifiedCount > 0 && (
                 <View style={cardStyles.serviceCountChip}>
                   <MaterialIcon name="build" size={11} color={COLORS.textTertiary} />
-                  <Text style={cardStyles.serviceCountText}>{verifiedCount} verified</Text>
+                  <Text style={cardStyles.serviceCountText}>{t('favoritesScreen.verified', { n: verifiedCount })}</Text>
                 </View>
               )}
             </View>
 
             {provider.lastServiceDate && (
               <Text style={cardStyles.lastServiceText}>
-                {'Last booked '}
+                {t('favoritesScreen.lastBooked') + ' '}
                 {new Date(provider.lastServiceDate).toLocaleDateString('en-IN', {
                   day: 'numeric',
                   month: 'short',
@@ -314,12 +315,12 @@ const ProviderCard = ({ provider, onCall, onRemove, onBook, onViewProfile }) => 
         <View style={cardStyles.actions}>
           <TouchableOpacity style={cardStyles.callBtn} onPress={() => onCall(provider)} activeOpacity={0.8}>
             <MaterialIcon name="phone" size={18} color={COLORS.success} />
-            <Text style={cardStyles.callBtnText}>Call</Text>
+            <Text style={cardStyles.callBtnText}>{t('common.call')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={cardStyles.bookBtn} onPress={() => onBook(provider)} activeOpacity={0.8}>
             <MaterialIcon name="bolt" size={18} color={COLORS.cardWhite} />
-            <Text style={cardStyles.bookBtnText}>Book Now</Text>
+            <Text style={cardStyles.bookBtnText}>{t('favoritesScreen.bookNow')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -370,6 +371,7 @@ const FavoritesScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, profile } = useApp();
   const { dialog } = useDialog();
+  const { t } = useLanguage();
   const { currentLocation } = useLocation();
 
   const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
@@ -462,7 +464,7 @@ const FavoritesScreen = ({ navigation }) => {
   // View Provider Profile
   const handleViewProfile = (provider) => {
     if (!provider._id) {
-      dialog('Error', 'Provider information not available');
+      dialog('Error', t('favoritesScreen.providerInfoUnavailable'));
       return;
     }
     setSelectedProviderForDetails(provider);
@@ -476,23 +478,23 @@ const FavoritesScreen = ({ navigation }) => {
 
     if (!cleanPhone) {
       dialog(
-        'Phone Not Available',
-        "This provider's phone number is not available yet.",
+        t('favoritesScreen.notAvailable'),
+        t('favoritesScreen.phoneNotAvailable'),
         [{ text: 'OK' }]
       );
       return;
     }
 
     dialog(
-      'Call Provider',
-      'Call ' + (provider.name || 'Provider') + ' at ' + phone + '?',
+      t('favoritesScreen.callProviderTitle'),
+      t('favoritesScreen.callProviderMsg', { name: provider.name || 'Provider', phone }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Call Now',
+          text: t('common.callNow'),
           onPress: () =>
             Linking.openURL('tel:' + cleanPhone).catch(() =>
-              dialog('Error', 'Unable to make calls on this device')
+              dialog('Error', t('favoritesScreen.unableToCall'))
             ),
         },
       ]
@@ -503,17 +505,17 @@ const FavoritesScreen = ({ navigation }) => {
   const handleRemoveFavorite = (provider) => {
     const providerId = provider._id;
     if (!userId || !providerId) {
-      dialog('Error', 'Unable to remove. Please try refreshing.');
+      dialog('Error', t('favoritesScreen.unableToRemove'));
       return;
     }
 
     dialog(
-      'Remove Favorite',
-      'Remove ' + (provider.name || 'this provider') + ' from favorites?',
+      t('favoritesScreen.removeFavorite'),
+      t('favoritesScreen.removeFromFavorites', { name: provider.name || 'this provider' }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Remove',
+          text: t('common.remove'),
           style: 'destructive',
           onPress: async () => {
             const result = await removeFromFavorites(
@@ -537,7 +539,7 @@ const FavoritesScreen = ({ navigation }) => {
                   .filter((sec) => sec.data.length > 0)
               );
             } else {
-              dialog('Error', result.error || 'Failed to remove');
+              dialog('Error', result.error || t('favoritesScreen.removeFailed'));
             }
           },
         },
@@ -555,8 +557,8 @@ const FavoritesScreen = ({ navigation }) => {
 
     if (available.length === 0) {
       dialog(
-        'Not Available',
-        'This provider has no registered services yet.',
+        t('favoritesScreen.notAvailable'),
+        t('favoritesScreen.noRegisteredServices'),
         [{ text: 'OK' }]
       );
       return;
@@ -587,24 +589,18 @@ const FavoritesScreen = ({ navigation }) => {
     const flow = getServiceFlow(serviceId);
     var flowLabel = '';
     if (flow === 'event') {
-      flowLabel = ' (Event Service)';
+      flowLabel = t('favoritesScreen.eventFlow');
     } else if (flow === 'emergency') {
-      flowLabel = ' (Emergency Service)';
+      flowLabel = t('favoritesScreen.emergencyFlow');
     }
 
     dialog(
-      'Send Service Request',
-      'Send a ' +
-        name +
-        ' request' +
-        flowLabel +
-        ' to ' +
-        (provider.name || 'this provider') +
-        '?\n\nThe provider will be notified and can accept or reject.',
+      t('favoritesScreen.sendServiceRequest'),
+      t('favoritesScreen.sendRequestMsg', { service: name, flow: flowLabel, name: provider.name || 'this provider' }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Send Request',
+          text: t('common.sendRequest'),
           onPress: () => handleSendRequest(serviceId, provider),
         },
       ]
@@ -626,7 +622,7 @@ const FavoritesScreen = ({ navigation }) => {
   // =================================================================
   const handleSendRequest = async (serviceId, provider) => {
     if (!currentLocation || !currentLocation.latitude || !currentLocation.longitude) {
-      dialog('Location Required', 'Please enable GPS and try again.', [
+      dialog(t('favoritesScreen.locationRequired'), t('favoritesScreen.locationRequiredMsg'), [
         { text: 'OK' },
       ]);
       return;
@@ -663,8 +659,8 @@ const FavoritesScreen = ({ navigation }) => {
         if (!createResult.success) {
           if (createResult.code === 'OUTSIDE_SERVICE_ZONE') {
             dialog(
-              'Service Unavailable',
-              createResult.suggestion || 'Not available in your area.',
+              t('favoritesScreen.serviceUnavailable'),
+              createResult.suggestion || t('favoritesScreen.serviceUnavailableMsg'),
               [{ text: 'OK' }]
             );
             return;
@@ -722,9 +718,9 @@ const FavoritesScreen = ({ navigation }) => {
         ) {
           if (createData.code === 'OUTSIDE_SERVICE_ZONE') {
             dialog(
-              'Service Unavailable',
+              t('favoritesScreen.serviceUnavailable'),
               (createData.details && createData.details.suggestion) ||
-                'Not available in your area.',
+                t('favoritesScreen.serviceUnavailableMsg'),
               [{ text: 'OK' }]
             );
             return;
@@ -804,8 +800,8 @@ const FavoritesScreen = ({ navigation }) => {
         if (!emergencyResult.success) {
           if (emergencyResult.code === 'OUTSIDE_SERVICE_ZONE') {
             dialog(
-              'Service Unavailable',
-              emergencyResult.suggestion || 'Not available in your area.',
+              t('favoritesScreen.serviceUnavailable'),
+              emergencyResult.suggestion || t('favoritesScreen.serviceUnavailableMsg'),
               [{ text: 'OK' }]
             );
             return;
@@ -834,15 +830,11 @@ const FavoritesScreen = ({ navigation }) => {
       if (success) {
         var serviceName = SERVICE_CATEGORY_LABELS[serviceId] || serviceId;
         dialog(
-          'Request Sent!',
-          'Your ' +
-            serviceName +
-            ' request has been sent to ' +
-            (provider.name || 'the provider') +
-            '.\n\nYou will be notified when they respond.',
+          t('favoritesScreen.requestSent'),
+          t('favoritesScreen.requestSentMsg', { service: serviceName, name: provider.name || 'the provider' }),
           [
             {
-              text: 'View History',
+              text: t('favoritesScreen.viewHistoryBtn'),
               onPress: () =>
                 navigation.navigate('UserTabs', { screen: 'HistoryTab' }),
             },
@@ -850,13 +842,13 @@ const FavoritesScreen = ({ navigation }) => {
           ]
         );
       } else {
-        dialog('Error', errorMsg || 'Failed to send request');
+        dialog('Error', errorMsg || t('favoritesScreen.sendFailed'));
       }
     } catch (error) {
       console.error('[Favorites] Send request error:', error);
       dialog(
         'Error',
-        error.message || 'Something went wrong. Please try again.'
+        error.message || t('favoritesScreen.somethingWentWrong')
       );
     } finally {
       setSendingRequest(false);
@@ -963,7 +955,7 @@ const FavoritesScreen = ({ navigation }) => {
           <MaterialIcon name="arrow-back-ios" size={20} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <View style={screenStyles.headerCenter}>
-          <Text style={screenStyles.headerTitle}>Favorites</Text>
+          <Text style={screenStyles.headerTitle}>{t('favoritesScreen.title')}</Text>
           {totalFavorites > 0 && (
             <View style={screenStyles.headerBadge}>
               <Text style={screenStyles.headerBadgeText}>{totalFavorites}</Text>
@@ -980,9 +972,9 @@ const FavoritesScreen = ({ navigation }) => {
             <View style={screenStyles.overlayIconWrap}>
               <ActivityIndicator size="large" color={COLORS.primary} />
             </View>
-            <Text style={screenStyles.overlayTitle}>Sending Request...</Text>
+            <Text style={screenStyles.overlayTitle}>{t('favoritesScreen.sendingRequest')}</Text>
             <Text style={screenStyles.overlaySubtitle}>
-              Connecting you with the provider
+              {t('favoritesScreen.connecting')}
             </Text>
           </View>
         </View>
@@ -994,7 +986,7 @@ const FavoritesScreen = ({ navigation }) => {
           <View style={screenStyles.loadingCard}>
             <ActivityIndicator size="large" color={COLORS.primary} />
             <Text style={screenStyles.loadingText}>
-              Loading your favorites...
+              {t('favoritesScreen.loadingFavorites')}
             </Text>
           </View>
         </View>
@@ -1009,10 +1001,9 @@ const FavoritesScreen = ({ navigation }) => {
               />
             </View>
           </View>
-          <Text style={screenStyles.emptyTitle}>No Favorites Yet</Text>
+          <Text style={screenStyles.emptyTitle}>{t('favoritesScreen.noFavoritesTitle')}</Text>
           <Text style={screenStyles.emptyBody}>
-            After completing a service, tap the heart icon on the completion
-            screen to save your favorite providers here.
+            {t('favoritesScreen.noFavoritesMsg')}
           </Text>
           <TouchableOpacity
             style={screenStyles.emptyBtn}
@@ -1020,7 +1011,7 @@ const FavoritesScreen = ({ navigation }) => {
             activeOpacity={0.8}
           >
             <MaterialIcon name="search" size={18} color={COLORS.cardWhite} />
-            <Text style={screenStyles.emptyBtnText}>Find Services</Text>
+            <Text style={screenStyles.emptyBtnText}>{t('favoritesScreen.findServices')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -1036,6 +1027,7 @@ const FavoritesScreen = ({ navigation }) => {
               onRemove={handleRemoveFavorite}
               onBook={handleBookProvider}
               onViewProfile={handleViewProfile}
+              t={t}
             />
           )}
           renderSectionHeader={({ section }) => (
@@ -1101,13 +1093,13 @@ const FavoritesScreen = ({ navigation }) => {
                   />
                 </View>
                 <View>
-                  <Text style={FONTS.h3}>Choose a Service</Text>
+                  <Text style={FONTS.h3}>{t('favoritesScreen.chooseService')}</Text>
                   {bookingProvider && (
                     <Text
                       style={[FONTS.caption, { marginTop: 2 }]}
                       numberOfLines={1}
                     >
-                      {'for ' + bookingProvider.name}
+                      {t('favoritesScreen.forProvider', { name: bookingProvider.name })}
                     </Text>
                   )}
                 </View>
@@ -1167,7 +1159,7 @@ const FavoritesScreen = ({ navigation }) => {
                               color={COLORS.success}
                             />
                             <Text style={modalStyles.verifiedTagText}>
-                              Verified
+                              {t('favoritesScreen.verifiedTag')}
                             </Text>
                           </View>
                         ) : (
@@ -1177,7 +1169,7 @@ const FavoritesScreen = ({ navigation }) => {
                               size={11}
                               color={COLORS.warning}
                             />
-                            <Text style={modalStyles.pendingTagText}>Pending</Text>
+                            <Text style={modalStyles.pendingTagText}>{t('favoritesScreen.pendingTag')}</Text>
                           </View>
                         )}
                         {svc.flow !== 'traditional' && (
@@ -1216,7 +1208,7 @@ const FavoritesScreen = ({ navigation }) => {
                 color={COLORS.secondary}
               />
               <Text style={modalStyles.modalHintText}>
-                Select a service to send a booking request
+                {t('favoritesScreen.selectServiceHint')}
               </Text>
             </View>
           </Animated.View>
@@ -1248,21 +1240,20 @@ const FavoritesScreen = ({ navigation }) => {
           if (phone) {
             var cleaned = phone.replace(/[^0-9+]/g, '');
             dialog(
-              'Call Provider',
-              'Call ' +
-                (selectedProviderForDetails
+              t('favoritesScreen.callProviderTitle'),
+              t('favoritesScreen.callProviderMsg', {
+                name: selectedProviderForDetails
                   ? selectedProviderForDetails.name
-                  : 'Provider') +
-                ' at ' +
-                phone +
-                '?',
+                  : 'Provider',
+                phone,
+              }),
               [
-                { text: 'Cancel', style: 'cancel' },
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                  text: 'Call Now',
+                  text: t('common.callNow'),
                   onPress: () =>
                     Linking.openURL('tel:' + cleaned).catch(() =>
-                      dialog('Error', 'Unable to make calls')
+                      dialog('Error', t('favoritesScreen.unableToCall'))
                     ),
                 },
               ]

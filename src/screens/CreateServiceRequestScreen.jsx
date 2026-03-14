@@ -35,6 +35,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
+import { useLanguage } from '../context/LanguageContext';
 import {
   createServiceRequest,
   getNearbyProviders,
@@ -67,6 +68,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { user, profile } = useApp();
   const { dialog } = useDialog();
+  const { t } = useLanguage();
   const useKm = useDistanceUnit();
   const existingRequest = route?.params?.existingRequest;
   
@@ -168,7 +170,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
       getCurrentPosition();
     } catch (error) {
       console.error('[Location] Permission error:', error);
-      setLocationError('Failed to get location permission');
+      setLocationError(t('createRequest.locationPermFailed'));
       setLocationLoading(false);
     }
   };
@@ -194,14 +196,14 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
         // Only error code 2 (POSITION_UNAVAILABLE) reliably indicates GPS is off.
         // Code 3 (TIMEOUT) can happen on cold GPS start — don't treat as GPS-off.
         if (error.code === 2) {
-          setLocationError('GPS is turned off');
+          setLocationError(t('createRequest.gpsOff'));
           dialog(
-            'Location is Turned Off',
-            'Please enable GPS to detect your location, or select a saved address for your service request.',
+            t('createRequest.gpsOff'),
+            t('createRequest.enableGpsOrSaved'),
             [
-              { text: 'Use Saved Address', onPress: () => setShowAddressModal(true) },
+              { text: t('createRequest.useSavedAddress'), onPress: () => setShowAddressModal(true) },
               {
-                text: 'Enable GPS',
+                text: t('userHome.enableGps'),
                 onPress: () => {
                   if (Platform.OS === 'ios') {
                     Linking.openURL('app-settings:');
@@ -235,7 +237,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
       
-      const label = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : date.toLocaleDateString('en-US', {
+      const label = i === 0 ? t('createRequest.today') : i === 1 ? t('createRequest.tomorrow') : date.toLocaleDateString('en-US', {
         weekday: 'short',
         month: 'short',
         day: 'numeric',
@@ -259,19 +261,19 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
   const handleCreateRequest = async () => {
     // Validate
     if (!selectedService) {
-      dialog('Error', 'Please select a service type');
+      dialog(t('common.error'), t('createRequest.selectServiceError'));
       return;
     }
     if (!serviceDate) {
-      dialog('Error', 'Please select a service date');
+      dialog(t('common.error'), t('createRequest.selectDateError'));
       return;
     }
     if (!location) {
-      dialog('Error', 'Location is required. Please enable location services.');
+      dialog(t('common.error'), t('createRequest.locationRequiredError'));
       return;
     }
     if (!userId) {
-      dialog('Error', 'User not found. Please login again.');
+      dialog(t('common.error'), t('createRequest.userNotFound'));
       return;
     }
 
@@ -303,11 +305,11 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
         
         // Show success prompt - user MUST select a provider or cancel
         dialog(
-          '✅ Request Created!',
-          'Your service request has been created. Please find a provider to complete the booking.',
+          t('createRequest.requestCreated'),
+          t('createRequest.requestCreatedMsg'),
           [
             {
-              text: 'Cancel Request',
+              text: t('userHome.cancelRequest'),
               style: 'destructive',
               onPress: async () => {
                 // Cancel the request since user is not booking a provider
@@ -321,7 +323,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
               },
             },
             {
-              text: 'Find Providers',
+              text: t('createRequest.findNearbyProviders'),
               onPress: () => handleFetchProviders(result.request._id),
             },
           ],
@@ -329,14 +331,14 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
         );
       } else {
         if (result.code === 'RATE_LIMITED' && result.retryAfter) {
-          dialog('Please Wait', `You've made too many requests. Try again in ${result.retryAfter} seconds.`);
+          dialog(t('createRequest.pleaseWait'), t('createRequest.tooManyRequests', { n: result.retryAfter }));
         } else {
-          dialog('Error', result.error || 'Failed to create request');
+          dialog(t('common.error'), result.error || t('createRequest.createFailed'));
         }
       }
     } catch (error) {
       console.error('[CreateRequest] Error:', error);
-      dialog('Error', 'Something went wrong. Please try again.');
+      dialog(t('common.error'), t('common.somethingWentWrong'));
     } finally {
       setIsCreating(false);
     }
@@ -346,7 +348,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
     const id = requestId || createdRequest?._id;
     
     if (!id) {
-      dialog('Error', 'Request not found');
+      dialog(t('common.error'), t('createRequest.requestNotFound'));
       return;
     }
 
@@ -362,17 +364,17 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
         
         if (result.providers.length === 0) {
           dialog(
-            'No Providers Found',
-            `No providers were found within ${formatDistanceFromMeters(result.searchRadius, useKm)} of your location. Please try again later.`
+            t('createRequest.noProvidersFound'),
+            t('createRequest.noProvidersMsg', { distance: formatDistanceFromMeters(result.searchRadius, useKm) })
           );
         }
       } else {
-        dialog('Error', result.error || 'Failed to fetch providers');
+        dialog(t('common.error'), result.error || t('createRequest.fetchProvidersFailed'));
         setShowProvidersModal(false);
       }
     } catch (error) {
       console.error('[FetchProviders] Error:', error);
-      dialog('Error', 'Something went wrong. Please try again.');
+      dialog(t('common.error'), t('common.somethingWentWrong'));
       setShowProvidersModal(false);
     } finally {
       setIsFetchingProviders(false);
@@ -384,20 +386,20 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
    */
   const handleCancelRequest = () => {
     if (!createdRequest?._id) {
-      dialog('Error', 'No request to cancel');
+      dialog(t('common.error'), t('createRequest.noRequestToCancel'));
       return;
     }
 
     dialog(
-      '⚠️ Cancel Request',
-      'Are you sure you want to cancel this service request?',
+      t('userHome.cancelRequest'),
+      t('createRequest.cancelRequestConfirm'),
       [
         {
-          text: 'No, Keep It',
+          text: t('createRequest.noKeepIt'),
           style: 'cancel',
         },
         {
-          text: 'Yes, Cancel',
+          text: t('createRequest.yesCancelIt'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -409,11 +411,11 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
 
               if (result.success) {
                 dialog(
-                  '✅ Cancelled',
-                  'Your service request has been cancelled.',
+                  t('status.cancelled'),
+                  t('createRequest.requestCancelled'),
                   [
                     {
-                      text: 'OK',
+                      text: t('common.ok'),
                       onPress: () => {
                         // Reset state
                         setCreatedRequest(null);
@@ -425,11 +427,11 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
                   ]
                 );
               } else {
-                dialog('Error', result.error || 'Failed to cancel request');
+                dialog(t('common.error'), result.error || t('createRequest.cancelFailed'));
               }
             } catch (error) {
               console.error('[CancelRequest] Error:', error);
-              dialog('Error', 'Something went wrong. Please try again.');
+              dialog(t('common.error'), t('common.somethingWentWrong'));
             }
           },
         },
@@ -445,7 +447,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
    */
   const handleCallProvider = (phone, providerName, providerId) => {
     if (!phone) {
-      dialog('Error', 'Phone number not available');
+      dialog(t('common.error'), t('createRequest.phoneNotAvailable'));
       return;
     }
 
@@ -454,12 +456,12 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
     const url = `tel:${phoneNumber}`;
 
     dialog(
-      '📞 Call Provider',
-      `Call ${providerName} at ${phone}?\n\nDiscuss your requirements before booking.`,
+      t('userHome.callProvider'),
+      t('createRequest.callProviderDialog', { name: providerName, phone }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Call Now',
+          text: t('common.callNow'),
           onPress: () => {
             // Mark as contacted before opening dialer
             if (providerId) {
@@ -470,12 +472,12 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
                 if (supported) {
                   return Linking.openURL(url);
                 } else {
-                  dialog('Error', 'Unable to make phone calls');
+                  dialog(t('common.error'), t('createRequest.unableToCall'));
                 }
               })
               .catch((err) => {
                 console.error('[CallProvider] Error:', err);
-                dialog('Error', 'Failed to open phone dialer');
+                dialog(t('common.error'), t('createRequest.dialerFailed'));
               });
           },
         },
@@ -490,29 +492,29 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
     const requestId = createdRequest?._id;
     
     if (!requestId) {
-      dialog('Error', 'Service request not found');
+      dialog(t('common.error'), t('createRequest.requestNotFound'));
       return;
     }
 
     if (!provider?._id) {
-      dialog('Error', 'Provider information not found');
+      dialog(t('common.error'), t('createRequest.providerInfoNotFound'));
       return;
     }
 
     // Require contact before booking
     if (!contactedProviderIds.has(provider._id)) {
-      dialog('Call First', 'Please call the provider to discuss your requirement before booking.', [{ text: 'OK' }]);
+      dialog(t('createRequest.callFirstToBook'), t('createRequest.callFirstDialog'), [{ text: t('common.ok') }]);
       return;
     }
 
     // Confirm booking
     dialog(
-      '📋 Book Provider',
-      `Send your service request to ${provider.name}?\n\nThey will be notified and can accept your request.`,
+      t('createRequest.bookProvider'),
+      t('createRequest.bookProviderConfirm', { name: provider.name }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Book Now',
+          text: t('createRequest.bookNowBtn'),
           onPress: async () => {
             setBookingProviderId(provider._id);
 
@@ -522,11 +524,11 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
 
               if (result.success) {
                 dialog(
-                  '✅ Request Sent!',
-                  `Your request has been sent to ${provider.name}. They will review and accept it shortly.\n\n${result.notificationSent ? 'Provider has been notified.' : 'Provider will see your request when they check their app.'}`,
+                  t('createRequest.requestCreated'),
+                  `${t('createRequest.requestSentSuccess', { name: provider.name })}\n\n${result.notificationSent ? t('createRequest.providerNotified') : t('createRequest.providerWillSee')}`,
                   [
                     {
-                      text: 'OK',
+                      text: t('common.ok'),
                       onPress: () => {
                         setShowProvidersModal(false);
                         navigation.goBack();
@@ -535,11 +537,11 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
                   ]
                 );
               } else {
-                dialog('Error', result.error || 'Failed to send request to provider');
+                dialog(t('common.error'), result.error || t('createRequest.sendFailed'));
               }
             } catch (error) {
               console.error('[BookProvider] Error:', error);
-              dialog('Error', 'Something went wrong. Please try again.');
+              dialog(t('common.error'), t('common.somethingWentWrong'));
             } finally {
               setBookingProviderId(null);
             }
@@ -614,7 +616,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
             </Text>
           </View>
           <View style={styles.providerInfo}>
-            <Text style={styles.providerName}>{provider.name || 'Provider'}</Text>
+            <Text style={styles.providerName}>{provider.name || t('tracking.providerFallback')}</Text>
             <Text style={styles.providerService}>
               {SERVICE_TYPE_LABELS[provider.serviceType] || provider.serviceType}
             </Text>
@@ -626,7 +628,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
             <View style={styles.statItem}>
               <Text style={styles.statIcon}>📍</Text>
               <Text style={styles.statText}>
-                {formatDistanceFromMeters(provider.distance, useKm)} away
+                {formatDistanceFromMeters(provider.distance, useKm)} {t('common.away')}
               </Text>
             </View>
           )}
@@ -639,7 +641,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
           {provider.totalJobs !== undefined && (
             <View style={styles.statItem}>
               <Text style={styles.statIcon}>✅</Text>
-              <Text style={styles.statText}>{provider.totalJobs} jobs</Text>
+              <Text style={styles.statText}>{provider.totalJobs} {t('detail.jobs')}</Text>
             </View>
           )}
         </View>
@@ -661,7 +663,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
               onPress={() => handleCallProvider(provider.phone || provider.verifiedPhone, provider.name, provider._id)}
             >
               <Text style={styles.callButtonText}>
-                {contactedProviderIds.has(provider._id) ? '✅ Called' : '📞 Call'}
+                {contactedProviderIds.has(provider._id) ? `✅ ${t('createRequest.called')}` : `📞 ${t('userHome.callProvider')}`}
               </Text>
             </TouchableOpacity>
           )}
@@ -679,19 +681,19 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
               {isBooking ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={styles.bookButtonText}>📋 Book Provider</Text>
+                <Text style={styles.bookButtonText}>📋 {t('createRequest.bookProvider')}</Text>
               )}
             </TouchableOpacity>
           ) : (
             <View style={[styles.bookButton, { backgroundColor: '#E5E7EB' }]}>
-              <Text style={[styles.bookButtonText, { color: '#999' }]}>Call first to book</Text>
+              <Text style={[styles.bookButtonText, { color: '#999' }]}>{t('createRequest.callFirstToBook')}</Text>
             </View>
           )}
         </View>
 
         {/* Instructions */}
         <Text style={styles.providerInstructions}>
-          💡 Call to discuss your issue, then book the provider
+          💡 {t('createRequest.callDiscussHint')}
         </Text>
       </View>
     );
@@ -705,15 +707,15 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
     // If request exists but no provider was sent to, cancel it
     if (createdRequest && !createdRequest.lastSentProviderId) {
       dialog(
-        'Cancel Request?',
-        'No provider was selected. The request will be cancelled.',
+        t('userHome.cancelRequest'),
+        t('createRequest.cancelNoProvider'),
         [
           {
-            text: 'Keep Looking',
+            text: t('createRequest.keepLooking'),
             style: 'cancel',
           },
           {
-            text: 'Cancel Request',
+            text: t('userHome.cancelRequest'),
             style: 'destructive',
             onPress: async () => {
               try {
@@ -742,7 +744,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
     >
       <View style={styles.modalContainer}>
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Nearby Providers</Text>
+          <Text style={styles.modalTitle}>{t('createRequest.nearbyProviders')}</Text>
           <TouchableOpacity
             style={styles.closeButton}
             onPress={handleCloseProvidersModal}
@@ -754,9 +756,9 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
         {isFetchingProviders ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#007AFF" />
-            <Text style={styles.loadingText}>Finding nearby providers...</Text>
+            <Text style={styles.loadingText}>{t('createRequest.findingProviders')}</Text>
             <Text style={styles.loadingSubtext}>
-              Searching within 5-10km radius
+              {t('createRequest.searchingRadius')}
             </Text>
           </View>
         ) : (
@@ -764,8 +766,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
             {searchRadius > 0 && (
               <View style={styles.searchInfo}>
                 <Text style={styles.searchInfoText}>
-                  Found {providers.length} provider{providers.length !== 1 ? 's' : ''} within{' '}
-                  {formatDistanceFromMeters(searchRadius, useKm)}
+                  {t('createRequest.foundProviders', { n: providers.length, distance: formatDistanceFromMeters(searchRadius, useKm) })}
                 </Text>
               </View>
             )}
@@ -778,9 +779,9 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
               ListEmptyComponent={
                 <View style={styles.emptyContainer}>
                   <Text style={styles.emptyIcon}>😔</Text>
-                  <Text style={styles.emptyText}>No providers found nearby</Text>
+                  <Text style={styles.emptyText}>{t('createRequest.noProvidersFound')}</Text>
                   <Text style={styles.emptySubtext}>
-                    Try again later or expand your search area
+                    {t('createRequest.tryAgainOrExpand')}
                   </Text>
                 </View>
               }
@@ -800,13 +801,13 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
   return (
     <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: 40 + insets.bottom }]}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-      <Text style={styles.title}>Create Service Request</Text>
+      <Text style={styles.title}>{t('createRequest.title')}</Text>
       <Text style={styles.subtitle}>
-        Select a service and we'll find providers near you
+        {t('createRequest.subtitle')}
       </Text>
 
       {/* Service Location Section - Like Ola/Uber */}
-      <Text style={styles.sectionTitle}>Service Location</Text>
+      <Text style={styles.sectionTitle}>{t('createRequest.serviceLocation')}</Text>
       <View style={styles.addressSection}>
         {/* Current Address Display */}
         <TouchableOpacity 
@@ -824,19 +825,19 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
           <View style={styles.addressContent}>
             {locationLoading ? (
               <>
-                <Text style={styles.addressTitle}>Getting location...</Text>
+                <Text style={styles.addressTitle}>{t('createRequest.gettingLocation')}</Text>
                 <ActivityIndicator size="small" color="#3B82F6" style={{ marginTop: 4 }} />
               </>
             ) : locationError ? (
               <>
-                <Text style={styles.addressTitle}>Location Error</Text>
+                <Text style={styles.addressTitle}>{t('createRequest.locationError')}</Text>
                 <Text style={styles.addressSubtitle}>{locationError}</Text>
               </>
             ) : usingCurrentLocation ? (
               <>
-                <Text style={styles.addressTitle}>Current Location</Text>
+                <Text style={styles.addressTitle}>{t('createRequest.currentLocation')}</Text>
                 <Text style={styles.addressSubtitle}>
-                  Using GPS • {location ? `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}` : 'Detecting...'}
+                  {t('createRequest.usingGps')} • {location ? `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}` : `${t('createRequest.gettingLocation')}`}
                 </Text>
               </>
             ) : selectedAddress ? (
@@ -844,7 +845,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
                 <Text style={styles.addressTitle}>
                   {selectedAddress.label === 'home' ? '🏠 Home' : 
                    selectedAddress.label === 'work' ? '💼 Work' : 
-                   selectedAddress.customLabel || 'Saved Address'}
+                   selectedAddress.customLabel || t('createRequest.savedAddresses')}
                 </Text>
                 <Text style={styles.addressSubtitle} numberOfLines={2}>
                   {selectedAddress.addressLine1}, {selectedAddress.city} - {selectedAddress.pincode}
@@ -852,8 +853,8 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
               </>
             ) : (
               <>
-                <Text style={styles.addressTitle}>Select Location</Text>
-                <Text style={styles.addressSubtitle}>Tap to choose a saved address</Text>
+                <Text style={styles.addressTitle}>{t('createRequest.selectLocation')}</Text>
+                <Text style={styles.addressSubtitle}>{t('createRequest.tapToChoose')}</Text>
               </>
             )}
           </View>
@@ -868,7 +869,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
               onPress={handleUseCurrentLocation}
             >
               <MaterialIcon name="my-location" size={18} color="#3B82F6" />
-              <Text style={styles.addressActionText}>Use Current Location</Text>
+              <Text style={styles.addressActionText}>{t('createRequest.useCurrentLocation')}</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity 
@@ -876,19 +877,19 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
             onPress={() => setShowAddressModal(true)}
           >
             <MaterialIcon name="bookmark" size={18} color="#3B82F6" />
-            <Text style={styles.addressActionText}>Saved Addresses</Text>
+            <Text style={styles.addressActionText}>{t('createRequest.savedAddresses')}</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Service Type Selection */}
-      <Text style={styles.sectionTitle}>Select Service Type</Text>
+      <Text style={styles.sectionTitle}>{t('createRequest.selectServiceType')}</Text>
       <View style={styles.servicesGrid}>
         {Object.values(SERVICE_TYPES).map(renderServiceCard)}
       </View>
 
       {/* Date Selection */}
-      <Text style={styles.sectionTitle}>Select Service Date</Text>
+      <Text style={styles.sectionTitle}>{t('createRequest.selectServiceDate')}</Text>
       <TouchableOpacity
         style={styles.dateInput}
         onPress={() => setShowDatePicker(true)}
@@ -896,7 +897,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
         <Text style={serviceDate ? styles.dateInputText : styles.dateInputPlaceholder}>
           {serviceDate
             ? getDateOptions().find((d) => d.value === serviceDate)?.fullDate
-            : 'Tap to select date'}
+            : t('createRequest.tapToSelectDate')}
         </Text>
         <Text style={styles.dateInputIcon}>📅</Text>
       </TouchableOpacity>
@@ -914,7 +915,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
           onPress={() => setShowDatePicker(false)}
         >
           <View style={styles.datePickerContainer}>
-            <Text style={styles.datePickerTitle}>Select Date</Text>
+            <Text style={styles.datePickerTitle}>{t('createRequest.selectDateTitle')}</Text>
             {getDateOptions().map(renderDateOption)}
           </View>
         </TouchableOpacity>
@@ -933,7 +934,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
         {isCreating ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.createButtonText}>Create Request</Text>
+          <Text style={styles.createButtonText}>{t('createRequest.createRequestBtn')}</Text>
         )}
       </TouchableOpacity>
 
@@ -943,7 +944,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
           style={styles.fetchProvidersButton}
           onPress={() => handleFetchProviders()}
         >
-          <Text style={styles.fetchProvidersText}>🔍 Find Nearby Providers</Text>
+          <Text style={styles.fetchProvidersText}>🔍 {t('createRequest.findNearbyProviders')}</Text>
         </TouchableOpacity>
       )}
 
@@ -953,7 +954,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
           style={styles.cancelRequestButton}
           onPress={handleCancelRequest}
         >
-          <Text style={styles.cancelRequestText}>❌ Cancel Request</Text>
+          <Text style={styles.cancelRequestText}>❌ {t('userHome.cancelRequest')}</Text>
         </TouchableOpacity>
       )}
 

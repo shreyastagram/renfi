@@ -34,6 +34,7 @@ import { requestCameraPermission, requestGalleryPermission } from '../utils/perm
 import { pick, types } from '@react-native-documents/picker';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Icon, ImageViewerModal } from '../components';
 import { NODE_BASE_URL } from '../config/api';
 import {
@@ -267,6 +268,7 @@ const InsuranceScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, profile } = useApp();
   const { dialog } = useDialog();
+  const { t } = useLanguage();
 
   const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
 
@@ -335,11 +337,11 @@ const InsuranceScreen = ({ navigation }) => {
 
   // ─── Pick document ─────────────────────────────────────────────
   const pickDocument = (docType) => {
-    dialog('Upload Document', 'Choose how to upload your document', [
-      { text: 'Camera', onPress: () => captureCamera(docType) },
-      { text: 'Gallery', onPress: () => pickGallery(docType) },
-      { text: 'PDF File', onPress: () => pickPDF(docType) },
-      { text: 'Cancel', style: 'cancel' },
+    dialog(t('insurance.uploadDocument'), t('insurance.chooseUpload'), [
+      { text: t('insurance.camera'), onPress: () => captureCamera(docType) },
+      { text: t('insurance.gallery'), onPress: () => pickGallery(docType) },
+      { text: t('insurance.pdfFile'), onPress: () => pickPDF(docType) },
+      { text: t('common.cancel'), style: 'cancel' },
     ]);
   };
 
@@ -351,7 +353,7 @@ const InsuranceScreen = ({ navigation }) => {
       const result = await launchCamera({ mediaType: 'photo', quality: 0.8, maxWidth: 1920, maxHeight: 1920 });
       if (!result.didCancel && result.assets?.[0]) stageDoc(docType, result.assets[0]);
     } catch (err) {
-      dialog('Error', 'Failed to capture image. Please check camera permissions.');
+      dialog(t('common.error'), t('insurance.captureImageFailed'));
     }
   };
 
@@ -363,7 +365,7 @@ const InsuranceScreen = ({ navigation }) => {
       const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8, maxWidth: 1920, maxHeight: 1920 });
       if (!result.didCancel && result.assets?.[0]) stageDoc(docType, result.assets[0]);
     } catch (err) {
-      dialog('Error', 'Failed to pick image from gallery.');
+      dialog(t('common.error'), t('insurance.pickImageFailed'));
     }
   };
 
@@ -380,7 +382,7 @@ const InsuranceScreen = ({ navigation }) => {
       }
     } catch (err) {
       if (err?.code !== 'DOCUMENT_PICKER_CANCELED' && !err?.message?.includes('cancel')) {
-        dialog('Error', 'Failed to pick document.');
+        dialog(t('common.error'), t('insurance.pickDocFailed'));
       }
     }
   };
@@ -388,7 +390,7 @@ const InsuranceScreen = ({ navigation }) => {
   const stageDoc = (docType, file) => {
     // Validate file size (2.5MB)
     if (file.fileSize && file.fileSize > 2.5 * 1024 * 1024) {
-      dialog('File Too Large', 'Maximum file size is 2.5MB. Please upload a smaller file.');
+      dialog(t('insurance.fileTooLarge'), t('insurance.fileTooLargeMsg'));
       return;
     }
     setDocuments(prev => ({
@@ -405,9 +407,9 @@ const InsuranceScreen = ({ navigation }) => {
   };
 
   const removeDoc = (docType) => {
-    dialog('Remove Document', 'Are you sure you want to remove this document?', [
+    dialog(t('insurance.removeDocumentTitle'), t('insurance.removeDocumentMsg'), [
       {
-        text: 'Remove',
+        text: t('common.remove'),
         style: 'destructive',
         onPress: () => {
           setDocuments(prev => {
@@ -417,7 +419,7 @@ const InsuranceScreen = ({ navigation }) => {
           });
         },
       },
-      { text: 'Cancel', style: 'cancel' },
+      { text: t('common.cancel'), style: 'cancel' },
     ]);
   };
 
@@ -459,23 +461,23 @@ const InsuranceScreen = ({ navigation }) => {
   const handleSubmit = async () => {
     // Validate PAN card
     if (!documents.pan_card) {
-      dialog('PAN Card Required', 'Please upload your PAN card to proceed.');
+      dialog(t('insurance.panRequiredTitle'), t('insurance.panRequiredMsg'));
       return;
     }
     // Validate address proof (at least one)
     const hasElectricity = !!documents.address_proof_electricity_bill;
     const hasPassbook = !!documents.address_proof_bank_passbook;
     if (!hasElectricity && !hasPassbook) {
-      dialog('Address Proof Required', 'Please upload at least one address proof — Electricity Bill or Bank Passbook (1st page).');
+      dialog(t('insurance.addressProofRequiredTitle'), t('insurance.addressProofRequiredMsg'));
       return;
     }
 
-    dialog('Submit Documents', 'Your documents will be submitted for verification. This usually takes 3-5 business days.', [
+    dialog(t('insurance.submitDocuments'), t('insurance.submitDocumentsMsg'), [
       {
-        text: 'Submit',
+        text: t('common.submit'),
         onPress: () => executeSubmit(),
       },
-      { text: 'Cancel', style: 'cancel' },
+      { text: t('common.cancel'), style: 'cancel' },
     ]);
   };
 
@@ -502,7 +504,7 @@ const InsuranceScreen = ({ navigation }) => {
       }
 
       if (uploadedDocs.length === 0) {
-        dialog('No Documents', 'Please upload at least the required documents.');
+        dialog(t('insurance.noDocuments'), t('insurance.noDocumentsMsg'));
         setSubmitting(false);
         return;
       }
@@ -514,14 +516,14 @@ const InsuranceScreen = ({ navigation }) => {
         : await submitInsuranceDocuments(providerId, uploadedDocs);
 
       if (result.success) {
-        dialog('Documents Submitted', result.message || 'Your insurance documents have been submitted for verification. You will be notified once reviewed.');
+        dialog(t('insurance.documentsSubmitted'), result.message || t('insurance.documentsSubmittedMsg'));
         await fetchStatus();
       } else {
-        dialog('Submission Failed', result.error || 'Failed to submit documents. Please try again.');
+        dialog(t('insurance.submissionFailed'), result.error || t('insurance.submissionFailedMsg'));
       }
     } catch (err) {
       console.error('[Insurance] submit error:', err);
-      dialog('Upload Error', 'Failed to upload documents. Please check your connection and try again.');
+      dialog(t('insurance.uploadError'), t('insurance.uploadErrorMsg'));
     } finally {
       setSubmitting(false);
     }
@@ -552,12 +554,12 @@ const InsuranceScreen = ({ navigation }) => {
           <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
             <Icon name="back" size={22} color={C.card} />
           </TouchableOpacity>
-          <Text style={s.heroTitle}>Insurance</Text>
+          <Text style={s.heroTitle}>{t('insurance.title')}</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={s.loadingWrap}>
           <ActivityIndicator size="large" color={C.secondary} />
-          <Text style={s.loadingText}>Loading insurance status...</Text>
+          <Text style={s.loadingText}>{t('insurance.loadingStatus')}</Text>
         </View>
       </View>
     );
@@ -572,7 +574,7 @@ const InsuranceScreen = ({ navigation }) => {
         <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
           <Icon name="back" size={22} color={C.card} />
         </TouchableOpacity>
-        <Text style={s.heroTitle}>Insurance</Text>
+        <Text style={s.heroTitle}>{t('insurance.title')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -604,16 +606,16 @@ const InsuranceScreen = ({ navigation }) => {
             )}
             <View style={{ flex: 1 }}>
               <Text style={[s.statusTitle, { color: statusConfig.color }]}>
-                {isApproved ? 'Insurance Active' : isSubmitted ? 'Under Verification' : isRejected ? 'Documents Rejected' : 'Insurance Documents'}
+                {isApproved ? t('insurance.insuranceActive') : isSubmitted ? t('insurance.underVerification') : isRejected ? t('insurance.documentsRejected') : t('insurance.insuranceDocuments')}
               </Text>
               <Text style={s.statusSubtitle}>
                 {isApproved
-                  ? 'Your insurance is active. You are covered under Fixhomi\'s insurance programme.'
+                  ? t('insurance.insuranceActiveMsg')
                   : isSubmitted
-                  ? 'Your documents are being reviewed. This usually takes 3-5 business days.'
+                  ? t('insurance.underVerificationMsg')
                   : isRejected
-                  ? insuranceStatus?.rejectionReason || 'Some documents were rejected. Please re-upload and resubmit.'
-                  : 'Upload the required documents to activate your Fixhomi insurance coverage.'}
+                  ? insuranceStatus?.rejectionReason || t('insurance.documentsRejectedMsg')
+                  : t('insurance.uploadRequiredMsg')}
               </Text>
             </View>
           </View>
@@ -623,7 +625,7 @@ const InsuranceScreen = ({ navigation }) => {
         <View style={s.infoBanner}>
           <MaterialIcon name="info-outline" size={16} color={C.secondary} />
           <Text style={s.infoBannerText}>
-            Aadhaar and Skill Certificate are already collected during profile setup and verification. Only additional documents are needed here.
+            {t('insurance.aadhaarNote')}
           </Text>
         </View>
 
@@ -631,13 +633,11 @@ const InsuranceScreen = ({ navigation }) => {
         <View style={s.addressProofNote}>
           <View style={s.addressProofNoteHeader}>
             <MaterialIcon name="home" size={16} color={C.primary} />
-            <Text style={s.addressProofNoteTitle}>Address Proof</Text>
-            <View style={s.requiredBadge}><Text style={s.requiredBadgeText}>Required</Text></View>
+            <Text style={s.addressProofNoteTitle}>{t('insurance.addressProof')}</Text>
+            <View style={s.requiredBadge}><Text style={s.requiredBadgeText}>{t('common.required')}</Text></View>
           </View>
           <Text style={s.addressProofNoteText}>
-            Upload <Text style={{ fontWeight: '700' }}>any one</Text> of the following as address proof:
-            {'\n'}• Electricity Bill (if self-owned house)
-            {'\n'}• Bank Passbook (1st page)
+            {t('insurance.addressProofNote')}
           </Text>
         </View>
 
@@ -659,37 +659,37 @@ const InsuranceScreen = ({ navigation }) => {
         <View style={s.tcNote}>
           <MaterialIcon name="gavel" size={16} color={C.muted} />
           <Text style={s.tcText}>
-            Insurance will be activated only after successful document verification.{' '}
+            {t('insurance.termsNote')}
             <Text
               style={s.tcLink}
               onPress={() => Linking.openURL('https://fixhomi.com/insurance')}
             >
-              Terms & Conditions apply.
+              {t('insurance.termsLink')}
             </Text>
           </Text>
         </View>
 
         {/* ── Insurance Benefits ───────────────────────────── */}
         <View style={s.benefitsCard}>
-          <Text style={s.benefitsTitle}>Insurance Benefits</Text>
+          <Text style={s.benefitsTitle}>{t('insurance.benefitsTitle')}</Text>
           <View style={s.benefitRow}>
             <MaterialIcon name="health-and-safety" size={18} color={C.success} />
-            <Text style={s.benefitText}>Accident & injury coverage during service</Text>
+            <Text style={s.benefitText}>{t('insurance.benefit1')}</Text>
           </View>
           <View style={s.benefitRow}>
             <MaterialIcon name="medical-services" size={18} color={C.success} />
-            <Text style={s.benefitText}>Medical expenses reimbursement</Text>
+            <Text style={s.benefitText}>{t('insurance.benefit2')}</Text>
           </View>
           <View style={s.benefitRow}>
             <MaterialIcon name="verified-user" size={18} color={C.success} />
-            <Text style={s.benefitText}>Third-party liability protection</Text>
+            <Text style={s.benefitText}>{t('insurance.benefit3')}</Text>
           </View>
           <TouchableOpacity
             style={s.learnMoreBtn}
             onPress={() => Linking.openURL('https://fixhomi.com/insurance')}
             activeOpacity={0.7}
           >
-            <Text style={s.learnMoreText}>Learn More</Text>
+            <Text style={s.learnMoreText}>{t('insurance.learnMore')}</Text>
             <MaterialIcon name="open-in-new" size={14} color={C.secondary} />
           </TouchableOpacity>
         </View>
@@ -710,14 +710,14 @@ const InsuranceScreen = ({ navigation }) => {
               <>
                 <MaterialIcon name="cloud-upload" size={20} color="#fff" />
                 <Text style={s.submitBtnText}>
-                  {isRejected ? 'Resubmit Documents' : 'Submit for Verification'}
+                  {isRejected ? t('insurance.resubmitDocuments') : t('insurance.submitForVerification')}
                 </Text>
               </>
             )}
           </TouchableOpacity>
           {(!hasPAN || !hasAddressProof) && (
             <Text style={s.submitHint}>
-              {!hasPAN ? 'PAN Card is required' : 'At least one address proof is required'}
+              {!hasPAN ? t('insurance.panRequired') : t('insurance.addressProofRequired')}
             </Text>
           )}
         </View>
@@ -728,8 +728,8 @@ const InsuranceScreen = ({ navigation }) => {
         <View style={s.submittingOverlay}>
           <View style={s.submittingCard}>
             <ActivityIndicator size="large" color={C.secondary} />
-            <Text style={s.submittingTitle}>Uploading Documents</Text>
-            <Text style={s.submittingSubtitle}>Please wait while your documents are being uploaded and submitted for verification...</Text>
+            <Text style={s.submittingTitle}>{t('insurance.uploadingDocuments')}</Text>
+            <Text style={s.submittingSubtitle}>{t('insurance.uploadingDocumentsMsg')}</Text>
           </View>
         </View>
       )}

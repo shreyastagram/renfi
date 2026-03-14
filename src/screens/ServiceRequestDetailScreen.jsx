@@ -34,6 +34,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Icon, ServiceIcon, StatusIcon, RatingModal, CancellationReasonModal } from '../components';
 import ScreenShimmer, { useShimmerAnimation, ShimmerBlock } from '../components/ShimmerLoader';
 import { NODE_BASE_URL } from '../config/api';
@@ -167,8 +168,18 @@ const STATUS_CONFIG = {
   },
 };
 
-const getStatusDescription = (status, isProvider, cancelledBy) => {
-  if (status === 'cancelled' && cancelledBy) {
+const getStatusDescription = (status, isProvider, cancelledBy, t) => {
+  if (t && status === 'cancelled' && cancelledBy) {
+    if (cancelledBy === 'user') {
+      return isProvider ? t('detail.cancelledByCustomer') : t('detail.cancelledByYou');
+    }
+    if (cancelledBy === 'provider') {
+      return isProvider ? t('detail.cancelledByYou') : t('detail.cancelledByProvider');
+    }
+    if (cancelledBy === 'system') {
+      return t('detail.cancelledBySystem');
+    }
+  } else if (status === 'cancelled' && cancelledBy) {
     if (cancelledBy === 'user') {
       return isProvider ? 'Cancelled by the customer' : 'You cancelled this request';
     }
@@ -206,6 +217,7 @@ const PulsingDot = ({ color = BRAND.success, size = 8 }) => {
 
 /* ─── Cancellation Info Card ──────────────────────────────────────── */
 const CancellationInfoCard = ({ request, isProvider }) => {
+  const { t } = useLanguage();
   if (request.status !== 'cancelled') return null;
   const cancelledBy = request.cancelledBy || null;
   const reason = request.cancellationReason || request.cancelReason || null;
@@ -225,12 +237,12 @@ const CancellationInfoCard = ({ request, isProvider }) => {
         <View style={s.cancellationIconCircle}>
           <Icon name="warning" size={18} color="#DC2626" />
         </View>
-        <Text style={s.cancellationTitle}>Request Cancelled</Text>
+        <Text style={s.cancellationTitle}>{t('detail.requestCancelled')}</Text>
       </View>
       {cancelledByLabel && (
         <View style={s.cancellationRow}>
           <Icon name="person" size={14} color="#B91C1C" />
-          <Text style={s.cancellationRowText}>Cancelled by: <Text style={{ fontWeight: '700' }}>{cancelledByLabel}</Text></Text>
+          <Text style={s.cancellationRowText}>{t('detail.cancelledBy', { who: '' })}<Text style={{ fontWeight: '700' }}>{cancelledByLabel}</Text></Text>
         </View>
       )}
       {displayReason ? (
@@ -253,13 +265,14 @@ const CancellationInfoCard = ({ request, isProvider }) => {
 
 /* ─── Status Timeline ─────────────────────────────────────────────── */
 const StatusTimeline = ({ currentStatus, isProvider = false, cancelledBy = null }) => {
+  const { t } = useLanguage();
   const status = STATUS_CONFIG[currentStatus] || STATUS_CONFIG.pending;
   const isCancelled = currentStatus === 'cancelled' || currentStatus === 'rejected';
   const steps = [
-    { key: 'pending', label: 'Created', step: 1 },
-    { key: 'accepted', label: 'Accepted', step: 2 },
-    { key: 'in-progress', label: 'Working', step: 3 },
-    { key: 'completed', label: 'Done', step: 4 },
+    { key: 'pending', label: t('detail.stepCreated'), step: 1 },
+    { key: 'accepted', label: t('detail.stepAccepted'), step: 2 },
+    { key: 'in-progress', label: t('detail.stepWorking'), step: 3 },
+    { key: 'completed', label: t('detail.stepDone'), step: 4 },
   ];
   if (isCancelled) {
     return (
@@ -268,14 +281,14 @@ const StatusTimeline = ({ currentStatus, isProvider = false, cancelledBy = null 
           <View style={s.timelineCancelledIcon}>
             <Icon name="close" size={12} color={BRAND.white} />
           </View>
-          <Text style={s.timelineCancelledText}>{getStatusDescription(currentStatus, isProvider, cancelledBy)}</Text>
+          <Text style={s.timelineCancelledText}>{getStatusDescription(currentStatus, isProvider, cancelledBy, t)}</Text>
         </View>
       </View>
     );
   }
   return (
     <View style={s.timelineContainer}>
-      <Text style={s.sectionLabel}>PROGRESS</Text>
+      <Text style={s.sectionLabel}>{t('detail.progress')}</Text>
       <View style={s.timeline}>
         {steps.map((step, index) => {
           const isActive = status.step >= step.step;
@@ -332,6 +345,7 @@ const InfoRow = ({ label, value, iconName }) => (
 
 /* ─── OTP Display (User side) ─────────────────────────────────────── */
 const OtpDisplay = ({ otp, expiresAt, onResend, resending }) => {
+  const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
   const [resendPressed, setResendPressed] = useState(false);
   const shimmerAnim = useShimmerAnimation();
@@ -349,12 +363,12 @@ const OtpDisplay = ({ otp, expiresAt, onResend, resending }) => {
       <View style={s.otpExpiredCard}>
         <View style={s.otpExpiredHeader}>
           <View style={s.otpExpiredIconCircle}><Icon name="clock" size={22} color="#DC2626" /></View>
-          <Text style={s.otpExpiredTitle}>OTP Expired</Text>
+          <Text style={s.otpExpiredTitle}>{t('detail.otpExpiredTitle')}</Text>
         </View>
-        <Text style={s.otpExpiredDesc}>The completion OTP has expired. Request a new one to continue.</Text>
+        <Text style={s.otpExpiredDesc}>{t('detail.otpExpiredDesc')}</Text>
         <TouchableOpacity style={[s.otpResendBtn, resendPressed && { opacity: 0.6 }]} onPress={() => { if (resendPressed) return; setResendPressed(true); onResend(); setTimeout(() => setResendPressed(false), 5000); }} disabled={resendPressed}>
           <Icon name="refresh" size={15} color="#FFFFFF" />
-          <Text style={s.otpResendBtnText}>{resendPressed ? 'Requesting...' : 'Request New OTP'}</Text>
+          <Text style={s.otpResendBtnText}>{resendPressed ? t('detail.requesting') : t('detail.requestNewOtp')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -364,12 +378,12 @@ const OtpDisplay = ({ otp, expiresAt, onResend, resending }) => {
       <View style={s.otpHeaderRow}>
         <View style={s.otpHeaderLeft}>
           <View style={s.otpLockCircle}><Icon name="lock" size={16} color="#6D28D9" /></View>
-          <Text style={s.otpHeaderTitle}>Completion OTP</Text>
+          <Text style={s.otpHeaderTitle}>{t('detail.completionOtp')}</Text>
         </View>
         {resending ? (
-          <Text style={[s.otpHeaderSub, { color: BRAND.primary }]}>Generating...</Text>
+          <Text style={[s.otpHeaderSub, { color: BRAND.primary }]}>{t('detail.generating')}</Text>
         ) : (
-          <Text style={s.otpHeaderSub}>Share with provider</Text>
+          <Text style={s.otpHeaderSub}>{t('detail.shareWithProvider')}</Text>
         )}
       </View>
       {resending ? (
@@ -392,24 +406,24 @@ const OtpDisplay = ({ otp, expiresAt, onResend, resending }) => {
       {!resending && (
         <TouchableOpacity onPress={handleCopy} style={s.otpCopyRow}>
           <Icon name={copied ? 'check' : 'copy'} size={13} color={copied ? BRAND.success : BRAND.textMuted} />
-          <Text style={[s.otpCopyText, copied && { color: BRAND.success }]}>{copied ? 'Copied!' : 'Tap to copy'}</Text>
+          <Text style={[s.otpCopyText, copied && { color: BRAND.success }]}>{copied ? t('common.copied') : t('detail.tapToCopy')}</Text>
         </TouchableOpacity>
       )}
       {resending && (
         <View style={s.otpCopyRow}>
           <ActivityIndicator size={12} color={BRAND.primary} />
-          <Text style={[s.otpCopyText, { color: BRAND.primary }]}>Generating new OTP...</Text>
+          <Text style={[s.otpCopyText, { color: BRAND.primary }]}>{t('detail.generatingNewOtp')}</Text>
         </View>
       )}
       {expiresAt && !resending && (
         <View style={s.otpExpiryRow}>
           <Icon name="timer" size={13} color={BRAND.textMuted} />
-          <Text style={s.otpExpiryText}>Expires {new Date(expiresAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</Text>
+          <Text style={s.otpExpiryText}>{t('detail.expires', { time: new Date(expiresAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) })}</Text>
         </View>
       )}
       <View style={s.otpWarningStrip}>
         <Icon name="info" size={14} color="#92400E" />
-        <Text style={s.otpWarningText}>Only share after the work is satisfactorily done.</Text>
+        <Text style={s.otpWarningText}>{t('detail.otpWarning')}</Text>
       </View>
     </View>
   );
@@ -427,13 +441,14 @@ const resolveProfilePic = (pic) => {
 
 /* ─── Provider Card ───────────────────────────────────────────────── */
 const ProviderCard = ({ provider, onCall, onGetLocation, showActions }) => {
+  const { t } = useLanguage();
   if (!provider) return null;
   const profilePicUrl = resolveProfilePic(provider.profilePicture) || resolveProfilePic(provider.profileImage);
   const ratingValue = provider.ratings?.average || provider.rating || 0;
   const reviewCount = provider.ratings?.total || provider.totalRatings || 0;
   return (
     <View style={s.card}>
-      <Text style={s.sectionLabel}>YOUR PROVIDER</Text>
+      <Text style={s.sectionLabel}>{t('detail.yourProvider')}</Text>
       <View style={[s.rowCenter, { marginBottom: showActions ? 14 : 0 }]}>
         <View style={{ position: 'relative', marginRight: 12 }}>
           {profilePicUrl ? (
@@ -486,6 +501,7 @@ const ProviderCard = ({ provider, onCall, onGetLocation, showActions }) => {
 
 /* ─── Location Map Preview ────────────────────────────────────────── */
 const LocationMapPreview = ({ location, address }) => {
+  const { t } = useLanguage();
   const [mapLoading, setMapLoading] = useState(true);
 
   // Support both GeoJSON [lng, lat] and {latitude, longitude} formats
@@ -501,7 +517,7 @@ const LocationMapPreview = ({ location, address }) => {
     if (!address) return null;
     return (
       <View style={s.card}>
-        <Text style={s.sectionLabel}>SERVICE LOCATION</Text>
+        <Text style={s.sectionLabel}>{t('detail.serviceLocation')}</Text>
         <View style={[s.rowCenter, { gap: 8 }]}>
           <Icon name="location" size={16} color="#EF4444" />
           <Text style={{ flex: 1, fontSize: 13, color: BRAND.text, lineHeight: 19 }}>{address}</Text>
@@ -521,7 +537,7 @@ const LocationMapPreview = ({ location, address }) => {
   };
   return (
     <View style={s.card}>
-      <Text style={[s.sectionLabel, { marginBottom: 10 }]}>SERVICE LOCATION</Text>
+      <Text style={[s.sectionLabel, { marginBottom: 10 }]}>{t('detail.serviceLocation')}</Text>
       <View style={s.mapPreviewWrap}>
         {mapLoading && (<View style={s.mapLoadingOverlay}><ActivityIndicator size="small" color={BRAND.secondary} /></View>)}
         <Mapbox.MapView style={s.mapPreview} styleURL={Mapbox.StyleURL.Street} scrollEnabled={false} pitchEnabled={false} rotateEnabled={false} zoomEnabled={false} onDidFinishLoadingMap={() => setMapLoading(false)}>
@@ -540,7 +556,7 @@ const LocationMapPreview = ({ location, address }) => {
       </View>
       <TouchableOpacity style={s.directionsBtn} onPress={handleGetDirections} activeOpacity={0.7}>
         <Icon name="directions" size={18} color="#FFFFFF" />
-        <Text style={s.directionsBtnText}>Get Directions</Text>
+        <Text style={s.directionsBtnText}>{t('detail.getDirections')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -550,6 +566,7 @@ const LocationMapPreview = ({ location, address }) => {
    MAIN SCREEN COMPONENT — all business logic preserved exactly
    ═══════════════════════════════════════════════════════════════════════ */
 const ServiceRequestDetailScreen = ({ navigation, route }) => {
+  const { t } = useLanguage();
   const { dialog } = useDialog();
   const { user, profile, userType } = useApp();
   const initialRequest = route.params?.request;
@@ -653,11 +670,11 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           setLastLocationUpdate(null);
         }
       } else {
-        dialog('Error', result.error || 'Failed to toggle location sharing');
+        dialog(t('common.error'), result.error || t('common.somethingWentWrong'));
       }
     } catch (error) {
       console.error('[LocationSharing] Toggle error:', error);
-      dialog('Error', 'Failed to update location sharing');
+      dialog(t('common.error'), t('common.somethingWentWrong'));
     } finally {
       setLocationSharingLoading(false);
     }
@@ -918,25 +935,25 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
       setCancelModalVisible(false);
       if (result.success) {
         stopRequestLocationTracking(request?._id);
-        const successMsg = result.details?.wasAccepted ? 'Your request has been cancelled and the provider has been notified.' : 'Your request has been cancelled.';
-        dialog('Cancelled', successMsg, [{ text: 'OK', onPress: () => navigation.goBack() }]);
+        const successMsg = result.details?.wasAccepted ? t('detail.cancelSuccessAccepted') : t('detail.cancelSuccessDefault');
+        dialog(t('status.cancelled'), successMsg, [{ text: t('common.ok'), onPress: () => navigation.goBack() }]);
       } else {
         const errMsg = (result.error || '').toLowerCase();
         if (errMsg.includes('already cancel')) {
-          dialog('Already Cancelled', 'This request has already been cancelled.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+          dialog(t('detail.alreadyCancelled'), t('detail.alreadyCancelled'), [{ text: t('common.ok'), onPress: () => navigation.goBack() }]);
         } else if (errMsg.includes('completed')) {
-          dialog('Cannot Cancel', 'This request has already been completed and cannot be cancelled.');
+          dialog(t('userHistory.cannotCancel'), t('detail.cannotCancelCompleted'));
           fetchDetails();
         } else if (errMsg.includes('accepted') || errMsg.includes('in-progress') || errMsg.includes('in progress')) {
-          dialog('Cancellation Note', result.error || 'This request is already in progress. The provider has been notified about the cancellation.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+          dialog(t('detail.cancellationNote'), result.error || t('detail.cancellationNote'), [{ text: t('common.ok'), onPress: () => navigation.goBack() }]);
         } else {
-          dialog('Unable to Cancel', result.error || 'Failed to cancel request. Please try again.');
+          dialog(t('userHistory.unableToCancel'), result.error || t('detail.unableToCancel'));
         }
       }
     } catch (error) {
       setCancelling(false);
       console.error('[Cancel] Error:', error);
-      dialog('Connection Error', 'We\'re having trouble connecting. Please try again.');
+      dialog(t('common.connectionError'), t('common.connectionErrorMsg'));
     }
   }, [request, getUserId, navigation, isEventService, isEmergencyService, isProvider]);
 
@@ -945,20 +962,20 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     let phone, contactName;
     if (callerIsProvider) {
       phone = request?.userDetails?.phone || request?.userDetails?.verifiedPhone || request?.userPhone;
-      contactName = request?.userDetails?.name || request?.userName || 'Customer';
+      contactName = request?.userDetails?.name || request?.userName || t('providerHistory.customer');
     } else {
       phone = request?.providerDetails?.phone || request?.providerDetails?.verifiedPhone || request?.providerPhone;
-      contactName = request?.providerDetails?.name || request?.providerName || 'Provider';
+      contactName = request?.providerDetails?.name || request?.providerName || t('eventServices.provider');
     }
-    if (!phone) { dialog('Phone Not Available', 'The phone number is not available yet. Please try again later.'); return; }
+    if (!phone) { dialog(t('detail.phoneNotAvailable'), t('detail.phoneNotAvailable')); return; }
     const phoneNumber = phone.replace(/\s/g, '');
     const url = `tel:${phoneNumber}`;
     dialog(
-      `Call ${callerIsProvider ? 'Customer' : 'Provider'}`,
-      `Call ${contactName} at ${phone}?`,
+      t('detail.callDialogTitle', { role: callerIsProvider ? t('providerHistory.customer') : t('eventServices.provider') }),
+      t('detail.callDialogMsg', { name: contactName, phone }),
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Call Now', onPress: () => { Linking.openURL(url).catch(() => { dialog('Error', 'Unable to make phone calls on this device'); }); } },
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.callNow'), onPress: () => { Linking.openURL(url).catch(() => { dialog(t('common.error'), t('detail.unableToCall')); }); } },
       ]
     );
   }, [isProvider, request]);
@@ -966,7 +983,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   const handleGetProviderLocation = useCallback(() => {
     const providerDetails = request?.providerDetails;
     const providerIdValue = request?.providerId || request?.assignedProviderId || providerDetails?._id || providerDetails?.providerId;
-    if (!providerIdValue) { dialog('Location Not Available', 'Provider ID is not available at the moment.'); return; }
+    if (!providerIdValue) { dialog(t('detail.providerLocation'), t('detail.locationNotAvailable')); return; }
     let serviceLocation = null;
     if (request?.location?.coordinates && Array.isArray(request.location.coordinates) && request.location.coordinates.length === 2) {
       const [lng, lat] = request.location.coordinates;
@@ -998,10 +1015,10 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     const EMERGENCY_SERVICE_TYPES = ['snake_catcher', 'private_ambulance', 'mortuary_van', 'fire_brigade', 'police', 'hospital'];
     const isEventReq = request?.isEventService || EVENT_SERVICE_TYPES.includes(request?.serviceType);
     const isEmergencyReq = request?.isEmergencyService || EMERGENCY_SERVICE_TYPES.includes(request?.serviceType);
-    dialog('Accept Request', `Accept this ${serviceLabel} request?`, [
-      { text: 'Cancel', style: 'cancel' },
+    dialog(t('providerHistory.acceptRequest'), t('providerHistory.acceptRequestMsg', { type: serviceLabel }), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Accept',
+        text: t('providerHistory.accept'),
         onPress: async () => {
           setAccepting(true);
           const controller = new AbortController();
@@ -1029,20 +1046,20 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               }, cat);
               setLocationSharingEnabled(true);
               locationSharingRef.current = true;
-              dialog('Request Accepted', 'You have accepted this request. The customer has been notified.');
+              dialog(t('detail.requestAccepted'), t('detail.requestAcceptedMsg'));
               fetchDetails();
             } else {
               const errMsg = (result.error || result.message || '').toLowerCase();
               if (errMsg.includes('cancel')) {
-                dialog('Request Cancelled', 'This request was cancelled by the customer and is no longer available.');
+                dialog(t('providerHistory.requestCancelled'), t('providerHistory.requestCancelledByCustomer'));
               } else if (errMsg.includes('expired') || errMsg.includes('timeout')) {
-                dialog('Request Expired', 'This request has expired and is no longer available.');
+                dialog(t('providerHistory.requestExpired'), t('providerHistory.requestExpiredMsg'));
               } else if (errMsg.includes('already') || errMsg.includes('accepted')) {
-                dialog('Already Accepted', 'This request has already been accepted by another provider.');
+                dialog(t('providerHistory.alreadyAccepted'), t('providerHistory.alreadyAcceptedMsg'));
               } else if (errMsg.includes('cannot') || errMsg.includes('not valid') || errMsg.includes('invalid')) {
-                dialog('Request Unavailable', 'This request is no longer available. It may have been cancelled, expired, or accepted by another provider.');
+                dialog(t('providerHistory.requestUnavailable'), t('providerHistory.requestUnavailableMsg'));
               } else {
-                dialog('Unable to Accept', result.error || result.message || 'This request could not be accepted. Please try again.');
+                dialog(t('providerHistory.unableToAccept'), result.error || result.message || t('common.somethingWentWrong'));
               }
               fetchDetails();
             }
@@ -1051,13 +1068,13 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             console.error('[RequestDetail] Accept error:', error);
             const errMsg = (error.message || '').toLowerCase();
             if (error.name === 'AbortError') {
-              dialog('Connection Timeout', 'Request timed out. Please check your connection and try again.');
+              dialog(t('detail.connectionTimeout'), t('detail.connectionTimeoutMsg'));
             } else if (errMsg.includes('cancel')) {
-              dialog('Request Cancelled', 'This request was cancelled by the customer and is no longer available.');
+              dialog(t('providerHistory.requestCancelled'), t('providerHistory.requestCancelledByCustomer'));
             } else if (errMsg.includes('cannot') || errMsg.includes('not valid')) {
-              dialog('Request Unavailable', 'This request is no longer available. It may have been cancelled or expired.');
+              dialog(t('providerHistory.requestUnavailable'), t('providerHistory.requestUnavailableMsg'));
             } else {
-              dialog('Connection Error', 'We\'re having trouble connecting. Please try again.');
+              dialog(t('common.connectionError'), t('common.connectionErrorMsg'));
             }
           } finally { setAccepting(false); }
         },
@@ -1072,10 +1089,10 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     const EMERGENCY_SERVICE_TYPES = ['snake_catcher', 'private_ambulance', 'mortuary_van', 'fire_brigade', 'police', 'hospital'];
     const isEventReq = request?.isEventService || EVENT_SERVICE_TYPES.includes(request?.serviceType);
     const isEmergencyReq = request?.isEmergencyService || EMERGENCY_SERVICE_TYPES.includes(request?.serviceType);
-    dialog('Reject Request', `Are you sure you want to reject this ${serviceLabel} request? The customer will be notified.`, [
-      { text: 'Cancel', style: 'cancel' },
+    dialog(t('providerHistory.rejectRequest'), t('detail.rejectRequestMsg', { service: serviceLabel }), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Reject',
+        text: t('providerHistory.reject'),
         style: 'destructive',
         onPress: async () => {
           setRejecting(true);
@@ -1095,18 +1112,18 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               result.success = result.success || response.ok;
             }
             if (result.success) {
-              dialog('Request Rejected', 'You have rejected this request. The customer has been notified.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+              dialog(t('detail.requestRejected'), t('detail.requestRejectedMsg'), [{ text: t('common.ok'), onPress: () => navigation.goBack() }]);
             } else {
               const errMsg = (result.error || result.message || '').toLowerCase();
               if (errMsg.includes('cancel')) {
-                dialog('Already Cancelled', 'This request was already cancelled by the customer.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+                dialog(t('detail.alreadyCancelled'), t('detail.alreadyCancelled'), [{ text: t('common.ok'), onPress: () => navigation.goBack() }]);
               } else {
-                dialog('Unable to Reject', result.error || result.message || 'Could not reject this request. Please try again.');
+                dialog(t('providerHistory.unableToReject'), result.error || result.message || t('common.somethingWentWrong'));
               }
             }
           } catch (error) {
             console.error('[RequestDetail] Reject error:', error);
-            dialog('Connection Error', 'We\'re having trouble connecting. Please try again.');
+            dialog(t('common.connectionError'), t('common.connectionErrorMsg'));
           }
           finally { setRejecting(false); }
         },
@@ -1117,10 +1134,10 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   const handleResendOtp = useCallback(async () => {
     const isEventServiceRequest = isEventService || request?.isEventService;
     const isEmergencyServiceRequest = isEmergencyService || request?.isEmergencyService;
-    dialog('Resend OTP', 'A new completion OTP will be generated.', [
-      { text: 'Cancel', style: 'cancel' },
+    dialog(t('detail.resendOtpTitle'), t('detail.resendOtpMsg'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Resend OTP',
+        text: t('detail.resendOtpBtn'),
         onPress: async () => {
           setResendingOtp(true);
           try {
@@ -1138,13 +1155,13 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             }
             if (result.success) {
               await handleRefresh();
-              dialog('OTP Sent', 'A new completion OTP has been generated.');
+              dialog(t('detail.resendOtpTitle'), t('detail.otpGenerated'));
             } else {
-              dialog('Error', result.error || result.message || 'Failed to resend OTP. Please try again.');
+              dialog(t('common.error'), result.error || result.message || t('detail.otpResendFail'));
             }
           } catch (error) {
             console.error('[ResendOTP] Error:', error);
-            dialog('Error', 'Something went wrong. Please check your connection and try again.');
+            dialog(t('common.error'), t('common.somethingWentWrong'));
           } finally {
             setResendingOtp(false);
           }
@@ -1154,7 +1171,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   }, [request?._id, isEventService, isEmergencyService, request?.isEventService, request?.isEmergencyService, handleRefresh]);
 
   const handleVerifyOtp = useCallback(async () => {
-    if (enteredOtp.length !== 6) { dialog('Invalid OTP', 'Please enter a valid 6-digit OTP'); return; }
+    if (enteredOtp.length !== 6) { dialog(t('detail.invalidOtpTitle'), t('detail.invalidOtpMsg')); return; }
     setVerifyingOtp(true);
     try {
       const EVENT_SERVICE_TYPES = ['photographer', 'influencer'];
@@ -1177,13 +1194,13 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         result = await verifyCompletionOtp(request._id, enteredOtp);
       }
       if (result.success) {
-        dialog('Service Completed!', 'The service has been marked as completed successfully.', [{ text: 'OK', onPress: () => { setEnteredOtp(''); handleRefresh(); } }]);
+        dialog(t('detail.serviceCompletedTitle'), t('detail.serviceCompletedDialog'), [{ text: t('common.ok'), onPress: () => { setEnteredOtp(''); handleRefresh(); } }]);
       } else if (result.code === 'OTP_EXPIRED') {
-        dialog('OTP Expired', 'The OTP has expired. Please request a new one.', [{ text: 'OK', onPress: () => setEnteredOtp('') }]);
+        dialog(t('detail.otpExpiredTitle'), t('detail.otpExpiredDialog'), [{ text: t('common.ok'), onPress: () => setEnteredOtp('') }]);
       } else {
-        dialog('Verification Failed', result.error || 'Invalid OTP. Please try again.');
+        dialog(t('detail.verificationFailedTitle'), result.error || t('detail.verificationFailedMsg'));
       }
-    } catch (error) { console.error('[VerifyOTP] Error:', error); dialog('Error', 'Something went wrong. Please try again.'); }
+    } catch (error) { console.error('[VerifyOTP] Error:', error); dialog(t('common.error'), t('common.somethingWentWrong')); }
     finally { setVerifyingOtp(false); }
   }, [request?._id, enteredOtp, handleRefresh, isEventService, isEmergencyService, request?.isEventService, request?.isEmergencyService]);
 
@@ -1219,7 +1236,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   const handleToggleFavorite = useCallback(async () => {
     const userId = getUserId();
     const providerId = request?.providerId || request?.assignedProviderDetails?._id;
-    if (!userId || !providerId) { dialog('Error', 'Unable to update favorites. Please try again.'); return; }
+    if (!userId || !providerId) { dialog(t('common.error'), t('detail.favoritesError')); return; }
     setTogglingFavorite(true);
     try {
       let result;
@@ -1230,9 +1247,9 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
       }
       if (result.success) {
         setIsFavorited(!isFavorited);
-        dialog(isFavorited ? 'Removed from Favorites' : 'Added to Favorites', isFavorited ? 'Provider has been removed from your favorites.' : 'Provider has been added to your favorites. They will appear at the top when you search for this service.', [{ text: 'OK' }]);
-      } else { dialog('Error', result.error || 'Failed to update favorites'); }
-    } catch (error) { console.error('[Favorites] Toggle error:', error); dialog('Error', 'Failed to update favorites'); }
+        dialog(isFavorited ? t('detail.removedFromFavorites') : t('detail.addedToFavorites'), isFavorited ? t('detail.removedFromFavoritesMsg') : t('detail.addedToFavoritesMsg'), [{ text: t('common.ok') }]);
+      } else { dialog(t('common.error'), result.error || t('detail.favoritesError')); }
+    } catch (error) { console.error('[Favorites] Toggle error:', error); dialog(t('common.error'), t('detail.favoritesError')); }
     finally { setTogglingFavorite(false); }
   }, [getUserId, request, isFavorited]);
 
@@ -1267,8 +1284,8 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <View style={s.errorWrap}>
           <Icon name="error" size={52} color="#EF4444" />
-          <Text style={s.errorTitle}>Request Not Found</Text>
-          <TouchableOpacity style={s.goBackBtn} onPress={() => navigation.goBack()}><Text style={s.goBackBtnText}>Go Back</Text></TouchableOpacity>
+          <Text style={s.errorTitle}>{t('detail.requestNotFound')}</Text>
+          <TouchableOpacity style={s.goBackBtn} onPress={() => navigation.goBack()}><Text style={s.goBackBtnText}>{t('common.goBack')}</Text></TouchableOpacity>
         </View>
       </View>
     );
@@ -1299,10 +1316,10 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             <View style={[s.rowCenter, { gap: 6, marginTop: 2 }]}>
               <Text style={s.headerRequestId}>#{request.requestId}</Text>
               {isEventService && (
-                <View style={s.headerEventBadge}><Text style={s.headerEventBadgeText}>EVENT</Text></View>
+                <View style={s.headerEventBadge}><Text style={s.headerEventBadgeText}>{t('detail.eventBadge')}</Text></View>
               )}
               {isEmergencyService && (
-                <View style={s.headerEmergencyBadge}><Text style={s.headerEmergencyBadgeText}>EMERGENCY</Text></View>
+                <View style={s.headerEmergencyBadge}><Text style={s.headerEmergencyBadgeText}>{t('detail.emergencyBadge')}</Text></View>
               )}
             </View>
           </View>
@@ -1322,20 +1339,20 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         {/* Status Description Pill — only show for terminal states */}
         {!['accepted', 'in-progress'].includes(request.status) && (
           <View style={[s.statusPill, { backgroundColor: status.bgColor }]}>
-            <Text style={[s.statusPillText, { color: status.color }]}>{getStatusDescription(request.status, isProvider)}</Text>
+            <Text style={[s.statusPillText, { color: status.color }]}>{getStatusDescription(request.status, isProvider, t)}</Text>
           </View>
         )}
 
         {/* Accept / Reject (provider pending) */}
         {isProvider && ['pending', 'awaiting_confirmation'].includes(request.status) && (
           <View style={s.acceptRejectCard}>
-            <Text style={s.acceptRejectTitle}>Respond to request</Text>
+            <Text style={s.acceptRejectTitle}>{t('detail.respondToRequest')}</Text>
             <View style={s.acceptRejectRow}>
               <TouchableOpacity style={s.rejectBtn} onPress={handleRejectRequest} disabled={rejecting || accepting}>
-                {rejecting ? <ActivityIndicator size="small" color="#DC2626" /> : (<><Icon name="close" size={16} color="#DC2626" /><Text style={s.rejectBtnText}>Reject</Text></>)}
+                {rejecting ? <ActivityIndicator size="small" color="#DC2626" /> : (<><Icon name="close" size={16} color="#DC2626" /><Text style={s.rejectBtnText}>{t('providerHistory.reject')}</Text></>)}
               </TouchableOpacity>
               <TouchableOpacity style={s.acceptBtn} onPress={handleAcceptRequest} disabled={accepting || rejecting}>
-                {accepting ? <ActivityIndicator size="small" color="#FFFFFF" /> : (<><Icon name="check" size={16} color="#FFFFFF" /><Text style={s.acceptBtnText}>Accept</Text></>)}
+                {accepting ? <ActivityIndicator size="small" color="#FFFFFF" /> : (<><Icon name="check" size={16} color="#FFFFFF" /><Text style={s.acceptBtnText}>{t('providerHistory.accept')}</Text></>)}
               </TouchableOpacity>
             </View>
           </View>
@@ -1381,14 +1398,14 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                     <View style={[s.compactActionIcon, { backgroundColor: '#EFF6FF' }]}>
                       <Icon name="directions" size={18} color={BRAND.secondary} />
                     </View>
-                    <Text style={s.compactActionLabel}>Directions</Text>
+                    <Text style={s.compactActionLabel}>{t('detail.directions')}</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity style={s.compactActionBtn} onPress={handleCall} activeOpacity={0.7}>
                   <View style={[s.compactActionIcon, { backgroundColor: '#ECFDF5' }]}>
                     <Icon name="phone" size={18} color={BRAND.success} />
                   </View>
-                  <Text style={s.compactActionLabel}>Call</Text>
+                  <Text style={s.compactActionLabel}>{t('common.call')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={s.compactActionBtn}
@@ -1403,7 +1420,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                     )}
                   </View>
                   <Text style={[s.compactActionLabel, locationSharingEnabled && { color: BRAND.success, fontWeight: '700' }]}>
-                    {locationSharingEnabled ? 'Sharing' : 'Share'}
+                    {locationSharingEnabled ? t('detail.sharing') : t('detail.share')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -1413,7 +1430,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                 <View style={[s.locSharingActiveBox, { marginTop: 10 }]}>
                   <View style={[s.rowCenter, { gap: 8 }]}>
                     <PulsingDot color={BRAND.success} size={4} />
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#065F46' }}>Live — customer can see your location</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#065F46' }}>{t('detail.liveSharing')}</Text>
                   </View>
                 </View>
               )}
@@ -1424,12 +1441,12 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               {/* Row 2: OTP Entry */}
               <View style={[s.rowCenter, { gap: 8, marginBottom: 8 }]}>
                 <View style={s.providerOtpIconCircle}><Icon name="lock" size={16} color="#8B5CF6" /></View>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#5B21B6' }}>Complete Service</Text>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#5B21B6' }}>{t('detail.completeService')}</Text>
               </View>
               <View style={s.providerOtpInputRow}>
                 <TextInput style={s.providerOtpInput} value={enteredOtp} onChangeText={setEnteredOtp} placeholder="000000" placeholderTextColor="#D1D5DB" keyboardType="number-pad" maxLength={6} />
                 <TouchableOpacity style={[s.providerOtpBtn, enteredOtp.length === 6 ? s.providerOtpBtnEnabled : s.providerOtpBtnDisabled]} onPress={handleVerifyOtp} disabled={enteredOtp.length !== 6 || verifyingOtp}>
-                  {verifyingOtp ? <ActivityIndicator size="small" color="#FFFFFF" /> : (<><Icon name="check" size={15} color={enteredOtp.length === 6 ? '#FFFFFF' : '#94A3B8'} /><Text style={[s.providerOtpBtnText, enteredOtp.length !== 6 && s.providerOtpBtnTextDisabled]}>Complete</Text></>)}
+                  {verifyingOtp ? <ActivityIndicator size="small" color="#FFFFFF" /> : (<><Icon name="check" size={15} color={enteredOtp.length === 6 ? '#FFFFFF' : '#94A3B8'} /><Text style={[s.providerOtpBtnText, enteredOtp.length !== 6 && s.providerOtpBtnTextDisabled]}>{t('providerHistory.complete')}</Text></>)}
                 </TouchableOpacity>
               </View>
             </View>
@@ -1448,7 +1465,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         {/* Sent to provider — awaiting acceptance */}
         {!isProvider && !request.providerDetails && (request.assignedProviderId || request.providerId || request.lastSentProviderId || request.sentAt) && ['pending', 'awaiting_confirmation'].includes(request.status) && (
           <View style={s.card}>
-            <Text style={s.sectionLabel}>REQUEST SENT TO</Text>
+            <Text style={s.sectionLabel}>{t('detail.requestSentTo')}</Text>
 
             {/* Provider info */}
             {sentProviderDetails ? (
@@ -1486,8 +1503,8 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                   <Icon name="send" size={20} color={BRAND.secondary} />
                 </View>
                 <View style={s.noProviderInfo}>
-                  <Text style={s.noProviderTitle}>Request Sent</Text>
-                  <Text style={s.noProviderDesc}>Loading provider details...</Text>
+                  <Text style={s.noProviderTitle}>{t('detail.requestSentTitle')}</Text>
+                  <Text style={s.noProviderDesc}>{t('detail.loadingProvider')}</Text>
                 </View>
               </View>
             )}
@@ -1495,7 +1512,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             {/* Waiting status pill */}
             <View style={s.waitingPill}>
               <PulsingDot color={BRAND.secondary} size={6} />
-              <Text style={s.waitingPillText}>Waiting for provider to accept your request</Text>
+              <Text style={s.waitingPillText}>{t('detail.waitingForProvider')}</Text>
             </View>
 
             {/* Find New Provider + Cancel */}
@@ -1506,7 +1523,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                 activeOpacity={0.7}
               >
                 <Icon name="search" size={16} color="#fff" />
-                <Text style={s.findProvidersBtnText}>Find New Provider</Text>
+                <Text style={s.findProvidersBtnText}>{t('detail.findNewProvider')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[s.cancelSentBtn, { flex: 1 }]}
@@ -1519,7 +1536,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                 ) : (
                   <>
                     <Icon name="close" size={16} color="#DC2626" />
-                    <Text style={s.cancelSentBtnText}>Cancel</Text>
+                    <Text style={s.cancelSentBtnText}>{t('common.cancel')}</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -1534,19 +1551,19 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           const minsLeft = Math.max(0, Math.ceil((30 * 60 * 1000 - ageMs) / 60000));
           return (
             <View style={s.card}>
-              <Text style={s.sectionLabel}>NO PROVIDER SELECTED</Text>
+              <Text style={s.sectionLabel}>{t('detail.noProviderSelected')}</Text>
               <View style={[s.rowCenter, s.noProviderRow]}>
                 <View style={[s.noProviderIcon, isWithin30Min ? s.noProviderIconActive : s.noProviderIconExpiring]}>
                   <Icon name={isWithin30Min ? 'search' : 'clock'} size={22} color={isWithin30Min ? BRAND.primary : BRAND.danger} />
                 </View>
                 <View style={s.noProviderInfo}>
                   <Text style={s.noProviderTitle}>
-                    {isWithin30Min ? 'Find a provider for this request' : 'Request expiring soon'}
+                    {isWithin30Min ? t('detail.findProviderTitle') : t('detail.requestExpiring')}
                   </Text>
                   <Text style={s.noProviderDesc}>
                     {isWithin30Min
-                      ? `You have ${minsLeft} min to find and book a provider before this request is auto-cancelled`
-                      : 'This request will be automatically cancelled as no provider was selected'}
+                      ? t('detail.findProviderDesc', { min: minsLeft })
+                      : t('detail.expiringDesc')}
                   </Text>
                 </View>
               </View>
@@ -1557,13 +1574,13 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                   activeOpacity={0.7}
                 >
                   <Icon name="search" size={18} color="#fff" />
-                  <Text style={s.findProvidersBtnText}>Find Providers</Text>
+                  <Text style={s.findProvidersBtnText}>{t('userHistory.findProviders')}</Text>
                 </TouchableOpacity>
               )}
               {!isWithin30Min && (
                 <View style={s.noProviderWarning}>
                   <Icon name="info" size={16} color={BRAND.danger} />
-                  <Text style={s.noProviderWarningText}>Requests without a provider are auto-cancelled after 30 minutes.</Text>
+                  <Text style={s.noProviderWarningText}>{t('detail.autoCancelWarning')}</Text>
                 </View>
               )}
             </View>
@@ -1588,7 +1605,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           let lastUpdateLabel = '';
           if (lastLocationUpdate) {
             const diffMs = now - lastLocationUpdate.getTime();
-            if (diffMs < 10000) lastUpdateLabel = 'Just now';
+            if (diffMs < 10000) lastUpdateLabel = t('detail.justNow');
             else if (diffMs < 60000) lastUpdateLabel = `${Math.floor(diffMs / 1000)}s ago`;
             else if (diffMs < 3600000) lastUpdateLabel = `${Math.floor(diffMs / 60000)}m ago`;
             else lastUpdateLabel = `${Math.floor(diffMs / 3600000)}h ago`;
@@ -1599,13 +1616,13 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                 <View style={[s.rowCenter, { gap: 10, marginBottom: 12 }]}>
                   <View style={[s.iconCircle, { backgroundColor: '#D1FAE5' }]}><Icon name="location" size={18} color={BRAND.success} /></View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: BRAND.text }}>Provider Location</Text>
-                    <View style={[s.rowCenter, { gap: 5, marginTop: 2 }]}><PulsingDot color={BRAND.success} size={4} /><Text style={{ fontSize: 11, color: '#059669', fontWeight: '600' }}>Live -- sharing location</Text></View>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: BRAND.text }}>{t('detail.providerLocation')}</Text>
+                    <View style={[s.rowCenter, { gap: 5, marginTop: 2 }]}><PulsingDot color={BRAND.success} size={4} /><Text style={{ fontSize: 11, color: '#059669', fontWeight: '600' }}>{t('detail.liveStatus')}</Text></View>
                   </View>
                 </View>
-                {lastUpdateLabel ? (<View style={[s.rowCenter, { gap: 6, marginBottom: 10, paddingLeft: 44 }]}><Icon name="clock" size={11} color={BRAND.textMuted} /><Text style={{ fontSize: 11, color: BRAND.textMuted }}>Updated {lastUpdateLabel}</Text></View>) : null}
+                {lastUpdateLabel ? (<View style={[s.rowCenter, { gap: 6, marginBottom: 10, paddingLeft: 44 }]}><Icon name="clock" size={11} color={BRAND.textMuted} /><Text style={{ fontSize: 11, color: BRAND.textMuted }}>{t('detail.updated', { time: lastUpdateLabel })}</Text></View>) : null}
                 <TouchableOpacity style={s.trackLiveBtn} onPress={handleGetProviderLocation} activeOpacity={0.7}>
-                  <Icon name="location" size={16} color="#FFFFFF" /><Text style={s.trackLiveBtnText}>Track Live Location</Text><Icon name="chevron-right" size={14} color="#FFFFFF" />
+                  <Icon name="location" size={16} color="#FFFFFF" /><Text style={s.trackLiveBtnText}>{t('detail.trackLive')}</Text><Icon name="chevron-right" size={14} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
             );
@@ -1614,16 +1631,16 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               <View style={s.card}>
                 <View style={[s.rowCenter, { gap: 10, marginBottom: 8 }]}>
                   <View style={[s.iconCircle, { backgroundColor: '#FEF3C7' }]}><ActivityIndicator size="small" color="#F59E0B" /></View>
-                  <View style={{ flex: 1 }}><Text style={{ fontSize: 14, fontWeight: '700', color: BRAND.text }}>Provider Location</Text><Text style={{ fontSize: 11, color: '#B45309' }}>Acquiring location...</Text></View>
+                  <View style={{ flex: 1 }}><Text style={{ fontSize: 14, fontWeight: '700', color: BRAND.text }}>{t('detail.providerLocation')}</Text><Text style={{ fontSize: 11, color: '#B45309' }}>{t('detail.acquiringLocation')}</Text></View>
                 </View>
-                <Text style={{ fontSize: 11, color: BRAND.textMuted, paddingLeft: 44, lineHeight: 17 }}>Provider has enabled location sharing. Their position will appear shortly.</Text>
+                <Text style={{ fontSize: 11, color: BRAND.textMuted, paddingLeft: 44, lineHeight: 17 }}>{t('detail.acquiringLocationDesc')}</Text>
                 {locationAcquireTimeout && (
                   <TouchableOpacity
                     style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: BRAND.secondary, borderRadius: 12, paddingVertical: 10, marginTop: 8 }}
                     onPress={() => { setLocationAcquireTimeout(false); fetchLocationSharingStatus(); }}
                   >
                     <Icon name="refresh" size={14} color="#FFFFFF" />
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#FFFFFF' }}>Retry</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#FFFFFF' }}>{t('common.retry')}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -1633,14 +1650,14 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               <View style={s.card}>
                 <View style={[s.rowCenter, { gap: 10, marginBottom: 10 }]}>
                   <View style={[s.iconCircle, { backgroundColor: '#F1F5F9' }]}><Icon name="location" size={18} color={BRAND.textMuted} /></View>
-                  <View style={{ flex: 1 }}><Text style={{ fontSize: 14, fontWeight: '700', color: BRAND.text }}>Provider Location</Text><Text style={{ fontSize: 11, color: BRAND.textMuted }}>Not sharing yet</Text></View>
+                  <View style={{ flex: 1 }}><Text style={{ fontSize: 14, fontWeight: '700', color: BRAND.text }}>{t('detail.providerLocation')}</Text><Text style={{ fontSize: 11, color: BRAND.textMuted }}>{t('detail.notSharingYet')}</Text></View>
                 </View>
                 {!isWithin45Min && msUntilService != null && msUntilService > 0 ? (
-                  <View style={s.infoBoxBlue}><Icon name="clock" size={13} color={BRAND.secondary} style={{ marginTop: 1 }} /><Text style={s.infoBoxBlueText}>Provider location will be available 45 min before service time.{timeUntilLabel ? ` Service in ${timeUntilLabel}.` : ''}</Text></View>
+                  <View style={s.infoBoxBlue}><Icon name="clock" size={13} color={BRAND.secondary} style={{ marginTop: 1 }} /><Text style={s.infoBoxBlueText}>{t('detail.locationBefore45', { time: timeUntilLabel ? ` Service in ${timeUntilLabel}.` : '' })}</Text></View>
                 ) : isWithin45Min || (msUntilService != null && msUntilService <= 0) ? (
-                  <View style={s.infoBoxAmber}><Icon name="clock" size={13} color="#B45309" style={{ marginTop: 1 }} /><Text style={s.infoBoxAmberText}>Waiting for the provider to start sharing their location...</Text></View>
+                  <View style={s.infoBoxAmber}><Icon name="clock" size={13} color="#B45309" style={{ marginTop: 1 }} /><Text style={s.infoBoxAmberText}>{t('detail.waitingForSharing')}</Text></View>
                 ) : (
-                  <View style={[s.infoBoxBlue, { backgroundColor: '#F1F5F9' }]}><Icon name="info" size={13} color={BRAND.textMuted} style={{ marginTop: 1 }} /><Text style={[s.infoBoxBlueText, { color: BRAND.textSecondary }]}>The provider will share their live location before the scheduled service time.</Text></View>
+                  <View style={[s.infoBoxBlue, { backgroundColor: '#F1F5F9' }]}><Icon name="info" size={13} color={BRAND.textMuted} style={{ marginTop: 1 }} /><Text style={[s.infoBoxBlueText, { color: BRAND.textSecondary }]}>{t('detail.providerWillShare')}</Text></View>
                 )}
               </View>
             );
@@ -1651,9 +1668,9 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         {isProvider && request.userDetails && (
           <View style={s.card}>
             <View style={[s.rowBetween, { marginBottom: 12 }]}>
-              <Text style={[s.sectionLabel, { marginBottom: 0 }]}>CUSTOMER</Text>
+              <Text style={[s.sectionLabel, { marginBottom: 0 }]}>{t('detail.customerLabel')}</Text>
               {request.userDetails.isRepeatCustomer && (
-                <View style={s.repeatBadge}><Icon name="heart" size={10} color={BRAND.primary} /><Text style={s.repeatBadgeText}>Repeat</Text></View>
+                <View style={s.repeatBadge}><Icon name="heart" size={10} color={BRAND.primary} /><Text style={s.repeatBadgeText}>{t('detail.repeatBadge')}</Text></View>
               )}
             </View>
             <View style={[s.rowCenter, { marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: BRAND.border }]}>
@@ -1666,12 +1683,12 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               )}
               <View style={{ flex: 1 }}>
                 <View style={[s.rowCenter, { gap: 5 }]}>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: BRAND.text }}>{request.userDetails.name || 'Customer'}</Text>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: BRAND.text }}>{request.userDetails.name || t('providerHistory.customer')}</Text>
                   {request.userDetails.isVerified && <Icon name="verified" size={14} color={BRAND.success} />}
                 </View>
-                {request.userDetails.memberSince && <Text style={{ fontSize: 11, color: BRAND.textMuted, marginTop: 2 }}>Member since {request.userDetails.memberSince}</Text>}
+                {request.userDetails.memberSince && <Text style={{ fontSize: 11, color: BRAND.textMuted, marginTop: 2 }}>{t('detail.memberSince', { date: request.userDetails.memberSince })}</Text>}
                 {request.userDetails.previousServicesWithProvider > 0 && (
-                  <Text style={{ fontSize: 11, color: BRAND.primary, fontWeight: '500', marginTop: 2 }}>{request.userDetails.previousServicesWithProvider} previous service{request.userDetails.previousServicesWithProvider > 1 ? 's' : ''}</Text>
+                  <Text style={{ fontSize: 11, color: BRAND.primary, fontWeight: '500', marginTop: 2 }}>{t('detail.previousServices', { n: request.userDetails.previousServicesWithProvider })}</Text>
                 )}
               </View>
             </View>
@@ -1691,8 +1708,8 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               if (!(loc?.coordinates || loc?.latitude || locAddr) || !['pending', 'awaiting_confirmation', 'accepted', 'in-progress'].includes(request.status)) return null;
               return (
                 <View style={s.serviceLocationBox}>
-                  <Text style={s.serviceLocationLabel}>SERVICE LOCATION</Text>
-                  <View style={[s.rowCenter, { gap: 8, marginBottom: 8 }]}><Icon name="pin" size={13} color={BRAND.primary} /><Text style={{ flex: 1, fontSize: 12, color: BRAND.text, lineHeight: 17 }}>{locAddr || 'Service Location'}</Text></View>
+                  <Text style={s.serviceLocationLabel}>{t('detail.serviceLocation')}</Text>
+                  <View style={[s.rowCenter, { gap: 8, marginBottom: 8 }]}><Icon name="pin" size={13} color={BRAND.primary} /><Text style={{ flex: 1, fontSize: 12, color: BRAND.text, lineHeight: 17 }}>{locAddr || t('detail.serviceLocation')}</Text></View>
                   <TouchableOpacity
                     style={s.openInMapsBtn}
                     onPress={() => {
@@ -1721,14 +1738,14 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                     activeOpacity={0.7}
                   >
                     <Icon name="directions" size={14} color={BRAND.secondary} />
-                    <Text style={s.openInMapsBtnText}>Open in Maps</Text>
+                    <Text style={s.openInMapsBtnText}>{t('detail.openInMaps')}</Text>
                   </TouchableOpacity>
                 </View>
               );
             })()}
             {['pending', 'awaiting_confirmation', 'accepted', 'in-progress'].includes(request.status) && (
               <TouchableOpacity style={s.callCustomerBtn} onPress={handleCall}>
-                <Icon name="phone" size={15} color="#FFFFFF" /><Text style={s.callCustomerBtnText}>Call Customer</Text>
+                <Icon name="phone" size={15} color="#FFFFFF" /><Text style={s.callCustomerBtnText}>{t('detail.callCustomer')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -1736,7 +1753,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
 
         {/* Request Details */}
         <View style={s.card}>
-          <Text style={s.sectionLabel}>REQUEST DETAILS</Text>
+          <Text style={s.sectionLabel}>{t('detail.requestDetails')}</Text>
           {serviceDate && !isNaN(serviceDate.getTime()) && (() => {
             let dateStr = serviceDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
             if (serviceTime && !isEmergencyService) {
@@ -1751,22 +1768,22 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                 dateStr += `  ·  ${displayHour}:${displayMin} ${period}`;
               }
             }
-            return <InfoRow iconName="calendar" label={isEmergencyService ? "Requested On" : "Service Date"} value={dateStr} />;
+            return <InfoRow iconName="calendar" label={isEmergencyService ? t('detail.requestedOn') : t('detail.serviceDate')} value={dateStr} />;
           })()}
           {createdAt && !isNaN(createdAt.getTime()) && (
-            <InfoRow iconName="clock" label="Created On" value={createdAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} />
+            <InfoRow iconName="clock" label={t('detail.createdOn')} value={createdAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} />
           )}
           {request.acceptedAt && (
-            <InfoRow iconName="check" label="Accepted On" value={new Date(request.acceptedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} />
+            <InfoRow iconName="check" label={t('detail.acceptedOn')} value={new Date(request.acceptedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} />
           )}
           {request.completedAt && (
-            <InfoRow iconName="celebration" label="Completed On" value={new Date(request.completedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} />
+            <InfoRow iconName="celebration" label={t('detail.completedOn')} value={new Date(request.completedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} />
           )}
-          {request.description && <InfoRow iconName="description" label="Description" value={request.description} />}
-          {isEventService && request.venue && <InfoRow iconName="place" label="Venue" value={request.venue} />}
-          {isEventService && request.budget && <InfoRow iconName="currency-rupee" label="Budget" value={`₹${Number(request.budget).toLocaleString()}`} />}
-          {isEventService && request.additionalRequirements && <InfoRow iconName="checklist" label="Additional Requirements" value={request.additionalRequirements} />}
-          {isEmergencyService && request.urgencyLevel && <InfoRow iconName="warning" label="Urgency Level" value={request.urgencyLevel.charAt(0).toUpperCase() + request.urgencyLevel.slice(1)} />}
+          {request.description && <InfoRow iconName="description" label={t('detail.description')} value={request.description} />}
+          {isEventService && request.venue && <InfoRow iconName="place" label={t('detail.venue')} value={request.venue} />}
+          {isEventService && request.budget && <InfoRow iconName="currency-rupee" label={t('detail.budget')} value={`₹${Number(request.budget).toLocaleString()}`} />}
+          {isEventService && request.additionalRequirements && <InfoRow iconName="checklist" label={t('detail.additionalRequirements')} value={request.additionalRequirements} />}
+          {isEmergencyService && request.urgencyLevel && <InfoRow iconName="warning" label={t('detail.urgencyLevel')} value={request.urgencyLevel.charAt(0).toUpperCase() + request.urgencyLevel.slice(1)} />}
         </View>
 
         {/* Location Map — provider only, at bottom after request details */}
@@ -1777,12 +1794,12 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         {/* Pricing */}
         {(request.pricing?.estimatedCost || request.pricing?.actualCost) && (
           <View style={s.card}>
-            <Text style={s.sectionLabel}>PRICING</Text>
+            <Text style={s.sectionLabel}>{t('detail.pricing')}</Text>
             {request.pricing.estimatedCost && (
-              <View style={s.priceRow}><Text style={s.priceLabel}>Estimated Cost</Text><Text style={s.priceValue}>₹{request.pricing.estimatedCost.toLocaleString()}</Text></View>
+              <View style={s.priceRow}><Text style={s.priceLabel}>{t('detail.estimatedCost')}</Text><Text style={s.priceValue}>₹{request.pricing.estimatedCost.toLocaleString()}</Text></View>
             )}
             {request.pricing.actualCost && (
-              <View style={[s.priceRow, s.priceRowFinal]}><Text style={s.priceLabelFinal}>Final Amount</Text><Text style={s.priceValueFinal}>₹{request.pricing.actualCost.toLocaleString()}</Text></View>
+              <View style={[s.priceRow, s.priceRowFinal]}><Text style={s.priceLabelFinal}>{t('detail.finalAmount')}</Text><Text style={s.priceValueFinal}>₹{request.pricing.actualCost.toLocaleString()}</Text></View>
             )}
           </View>
         )}
@@ -1798,7 +1815,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               <ActivityIndicator color="#DC2626" size="small" />
             ) : (
               <Text style={s.cancelActionBtnText}>
-                {['accepted', 'in-progress'].includes(request.status) ? 'Cancel Booking' : 'Cancel Request'}
+                {['accepted', 'in-progress'].includes(request.status) ? t('detail.cancelBooking') : t('detail.cancelRequest')}
               </Text>
             )}
           </TouchableOpacity>
@@ -1808,8 +1825,8 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         {request.status === 'completed' && (
           <View style={s.completedBanner}>
             <Icon name="celebration" size={28} color="#10B981" />
-            <Text style={s.completedTitle}>Service Completed!</Text>
-            <Text style={s.completedSub}>Thank you for using FixHomi.</Text>
+            <Text style={s.completedTitle}>{t('detail.serviceCompletedTitle')}</Text>
+            <Text style={s.completedSub}>{t('detail.serviceCompletedSub')}</Text>
           </View>
         )}
 
@@ -1819,11 +1836,11 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             {ratingCheckLoading ? (
               <View style={{ alignItems: 'center', paddingVertical: 10 }}>
                 <ActivityIndicator size="small" color={BRAND.primary} />
-                <Text style={{ fontSize: 12, color: BRAND.textMuted, marginTop: 6 }}>Checking rating...</Text>
+                <Text style={{ fontSize: 12, color: BRAND.textMuted, marginTop: 6 }}>{t('detail.checkingRating')}</Text>
               </View>
             ) : hasRated ? (
               <View style={{ alignItems: 'center' }}>
-                <View style={[s.rowCenter, { gap: 8, marginBottom: 10 }]}><Icon name="star" size={18} color="#F59E0B" /><Text style={{ fontSize: 14, fontWeight: '600', color: BRAND.text }}>You rated this provider</Text></View>
+                <View style={[s.rowCenter, { gap: 8, marginBottom: 10 }]}><Icon name="star" size={18} color="#F59E0B" /><Text style={{ fontSize: 14, fontWeight: '600', color: BRAND.text }}>{t('detail.youRated')}</Text></View>
                 <View style={{ flexDirection: 'row', gap: 4, marginBottom: 10 }}>
                   {[1, 2, 3, 4, 5].map((star) => (<Icon key={star} name="star" size={24} color={star <= (ratingStatus.rating?.rating || 0) ? '#F59E0B' : '#E5E7EB'} />))}
                 </View>
@@ -1831,10 +1848,10 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               </View>
             ) : (
               <View style={{ alignItems: 'center' }}>
-                <Text style={{ fontSize: 16, fontWeight: '700', color: BRAND.text, marginBottom: 4 }}>How was your experience?</Text>
-                <Text style={{ fontSize: 13, color: BRAND.textSecondary, marginBottom: 14 }}>Help others by rating this provider</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: BRAND.text, marginBottom: 4 }}>{t('detail.rateTitle')}</Text>
+                <Text style={{ fontSize: 13, color: BRAND.textSecondary, marginBottom: 14 }}>{t('detail.rateSub')}</Text>
                 <TouchableOpacity style={s.rateBtn} onPress={() => setRatingModalVisible(true)}>
-                  <Icon name="star" size={16} color="#FFFFFF" /><Text style={s.rateBtnText}>Rate This Service</Text>
+                  <Icon name="star" size={16} color="#FFFFFF" /><Text style={s.rateBtnText}>{t('detail.rateBtn')}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -1845,16 +1862,16 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         {request.status === 'completed' && !isProvider && (request?.providerId || request?.assignedProviderDetails?._id) && (
           <TouchableOpacity style={[s.favBtn, isFavorited && s.favBtnActive]} onPress={handleToggleFavorite} disabled={togglingFavorite}>
             {togglingFavorite ? <ActivityIndicator color={isFavorited ? '#DC2626' : '#F59E0B'} size="small" /> : (
-              <><Icon name={isFavorited ? 'favorite' : 'favorite-border'} size={16} color={isFavorited ? '#DC2626' : '#F59E0B'} /><Text style={[s.favBtnText, isFavorited && s.favBtnTextActive]}>{isFavorited ? 'Remove Favorite' : 'Add to Favorites'}</Text></>
+              <><Icon name={isFavorited ? 'favorite' : 'favorite-border'} size={16} color={isFavorited ? '#DC2626' : '#F59E0B'} /><Text style={[s.favBtnText, isFavorited && s.favBtnTextActive]}>{isFavorited ? t('detail.removeFavorite') : t('detail.addToFavorites')}</Text></>
             )}
           </TouchableOpacity>
         )}
 
         {/* Help */}
         <View style={[s.card, { alignItems: 'center' }]}>
-          <Text style={{ fontSize: 14, fontWeight: '700', color: BRAND.text, marginBottom: 4 }}>Need Help?</Text>
-          <Text style={{ fontSize: 12, color: BRAND.textSecondary, textAlign: 'center', marginBottom: 10 }}>Contact support for any issues.</Text>
-          <TouchableOpacity style={s.helpBtn}><Icon name="email" size={14} color={BRAND.secondary} /><Text style={s.helpBtnText}>Contact Support</Text></TouchableOpacity>
+          <Text style={{ fontSize: 14, fontWeight: '700', color: BRAND.text, marginBottom: 4 }}>{t('detail.needHelp')}</Text>
+          <Text style={{ fontSize: 12, color: BRAND.textSecondary, textAlign: 'center', marginBottom: 10 }}>{t('detail.needHelpSub')}</Text>
+          <TouchableOpacity style={s.helpBtn}><Icon name="email" size={14} color={BRAND.secondary} /><Text style={s.helpBtnText}>{t('detail.contactSupport')}</Text></TouchableOpacity>
         </View>
       </ScrollView>
 

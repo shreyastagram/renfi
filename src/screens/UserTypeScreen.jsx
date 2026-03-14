@@ -13,11 +13,14 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { FixhomiLogo } from '../components';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 
 // Brand colors
 const COLORS = {
@@ -36,6 +39,8 @@ const COLORS = {
  */
 const UserTypeScreen = ({ navigation }) => {
   const { selectUserType } = useApp();
+  const { t, language, setLanguage, languages } = useLanguage();
+  const [showLangPicker, setShowLangPicker] = React.useState(false);
 
   /**
    * Handle user type selection
@@ -51,8 +56,21 @@ const UserTypeScreen = ({ navigation }) => {
     }
   };
 
+  const currentLang = languages.find(l => l.code === language);
+
   return (
     <SafeAreaView style={styles.container}>
+      {/* Language Selector - Top Right */}
+      <TouchableOpacity
+        style={styles.langButton}
+        onPress={() => setShowLangPicker(true)}
+        activeOpacity={0.7}
+      >
+        <MaterialIcon name="language" size={20} color={COLORS.primary} />
+        <Text style={styles.langButtonText}>{currentLang?.nativeLabel || 'English'}</Text>
+        <MaterialIcon name="arrow-drop-down" size={20} color={COLORS.primary} />
+      </TouchableOpacity>
+
       <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
@@ -60,9 +78,9 @@ const UserTypeScreen = ({ navigation }) => {
             <FixhomiLogo size={72} />
           </View>
           <Text style={styles.logo}>FixHomi</Text>
-          <Text style={styles.title}>Welcome!</Text>
+          <Text style={styles.title}>{t('userType.welcome')}</Text>
           <Text style={styles.subtitle}>
-            Choose how you want to use FixHomi
+            {t('userType.chooseHow')}
           </Text>
         </View>
 
@@ -78,9 +96,9 @@ const UserTypeScreen = ({ navigation }) => {
               <MaterialIcon name="person" size={36} color={COLORS.primary} />
             </View>
             <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>I need services</Text>
+              <Text style={styles.cardTitle}>{t('userType.needServices')}</Text>
               <Text style={styles.cardDescription}>
-                Find and book home services from trusted professionals
+                {t('userType.needServicesDesc')}
               </Text>
             </View>
             <MaterialIcon name="chevron-right" size={24} color={COLORS.primary} />
@@ -96,9 +114,9 @@ const UserTypeScreen = ({ navigation }) => {
               <MaterialIcon name="build" size={36} color={COLORS.secondary} />
             </View>
             <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>I provide services</Text>
+              <Text style={styles.cardTitle}>{t('userType.provideServices')}</Text>
               <Text style={styles.cardDescription}>
-                Offer your skills and grow your business with FixHomi
+                {t('userType.provideServicesDesc')}
               </Text>
             </View>
             <MaterialIcon name="chevron-right" size={24} color={COLORS.secondary} />
@@ -107,9 +125,48 @@ const UserTypeScreen = ({ navigation }) => {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Your trusted home services partner</Text>
+          <Text style={styles.footerText}>{t('userType.footer')}</Text>
         </View>
       </View>
+
+      {/* Language Picker Modal */}
+      <Modal
+        visible={showLangPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLangPicker(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowLangPicker(false)}>
+          <View style={styles.langModal}>
+            <Text style={styles.langModalTitle}>{t('userType.selectLanguage')}</Text>
+            {languages.map((lang) => (
+              <TouchableOpacity
+                key={lang.code}
+                style={[
+                  styles.langOption,
+                  language === lang.code && styles.langOptionActive,
+                ]}
+                onPress={() => {
+                  setLanguage(lang.code);
+                  setShowLangPicker(false);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[
+                  styles.langOptionText,
+                  language === lang.code && styles.langOptionTextActive,
+                ]}>
+                  {lang.nativeLabel}
+                </Text>
+                <Text style={styles.langOptionSub}>{lang.label}</Text>
+                {language === lang.code && (
+                  <MaterialIcon name="check" size={20} color={COLORS.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -213,6 +270,76 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textMuted,
     fontStyle: 'italic',
+  },
+  langButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    marginTop: 8,
+    marginRight: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: COLORS.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  langButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.primary,
+    marginHorizontal: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  langModal: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 24,
+    width: '80%',
+    maxWidth: 320,
+  },
+  langModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.textDark,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  langOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: '#F9FAFB',
+  },
+  langOptionActive: {
+    backgroundColor: `${COLORS.primary}15`,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  langOptionText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: COLORS.textDark,
+    flex: 1,
+  },
+  langOptionTextActive: {
+    color: COLORS.primary,
+  },
+  langOptionSub: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    marginRight: 8,
   },
 });
 

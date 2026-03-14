@@ -30,6 +30,7 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
+import { useLanguage } from '../context/LanguageContext';
 import { updateProviderProfile } from '../services/profileService';
 import { NODE_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
@@ -135,7 +136,7 @@ const SUGGESTED_SPECIALIZATIONS = {
 /**
  * Link Input Component
  */
-const LinkInput = ({ platform, value, onChange }) => {
+const LinkInput = ({ platform, value, onChange, t }) => {
   const { dialog } = useDialog();
   return (
   <View style={styles.linkInputContainer}>
@@ -156,7 +157,7 @@ const LinkInput = ({ platform, value, onChange }) => {
       />
     </View>
     {value ? (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.linkTestButton}
         onPress={() => {
           let url = value;
@@ -164,7 +165,7 @@ const LinkInput = ({ platform, value, onChange }) => {
             url = 'https://' + url;
           }
           Linking.openURL(url).catch(() => {
-            dialog('Invalid URL', 'Please check the URL format');
+            dialog(t('portfolio.invalidUrl'), t('portfolio.invalidUrlMsg'));
           });
         }}
       >
@@ -213,6 +214,7 @@ const PortfolioEditScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { profile, refreshProfile } = useApp();
   const { dialog } = useDialog();
+  const { t } = useLanguage();
 
   // Determine service type
   const isPhotographer = profile?.verifiedServiceCategories?.includes('photographer');
@@ -324,7 +326,7 @@ const PortfolioEditScreen = ({ navigation }) => {
       setPortfolioGallery(prev => [...prev, uploaded]);
     } catch (error) {
       console.error('Error uploading image:', error);
-      dialog('Error', 'Failed to upload image. Please try again.');
+      dialog('Error', t('portfolio.uploadFailed'));
     } finally {
       setUploadingImage(false);
     }
@@ -332,8 +334,8 @@ const PortfolioEditScreen = ({ navigation }) => {
 
   const handleRemoveGalleryImage = (index) => {
     dialog(
-      'Remove Image',
-      'Are you sure you want to remove this image?',
+      t('portfolio.removeImage'),
+      t('portfolio.removeImageMsg'),
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -362,15 +364,15 @@ const PortfolioEditScreen = ({ navigation }) => {
 
       if (result.success) {
         await refreshProfile();
-        dialog('Success', 'Portfolio updated successfully!', [
+        dialog('Success', t('portfolio.portfolioUpdated'), [
           { text: 'OK', onPress: () => navigation.goBack() },
         ]);
       } else {
-        dialog('Error', result.error || 'Failed to update portfolio');
+        dialog('Error', result.error || t('portfolio.saveFailed'));
       }
     } catch (error) {
       console.error('Error saving portfolio:', error);
-      dialog('Error', 'Failed to save portfolio. Please try again.');
+      dialog('Error', t('portfolio.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -389,7 +391,7 @@ const PortfolioEditScreen = ({ navigation }) => {
         >
           <MaterialIcon name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Portfolio</Text>
+        <Text style={styles.headerTitle}>{t('portfolio.title')}</Text>
         <TouchableOpacity 
           style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           onPress={handleSave}
@@ -398,7 +400,7 @@ const PortfolioEditScreen = ({ navigation }) => {
           {saving ? (
             <ActivityIndicator size="small" color={BRAND.white} />
           ) : (
-            <Text style={styles.saveButtonText}>Save</Text>
+            <Text style={styles.saveButtonText}>{t('common.save')}</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -416,13 +418,13 @@ const PortfolioEditScreen = ({ navigation }) => {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <MaterialIcon name="person" size={20} color={BRAND.purple} />
-              <Text style={styles.sectionTitle}>About You</Text>
+              <Text style={styles.sectionTitle}>{t('portfolio.aboutYou')}</Text>
             </View>
             <TextInput
               style={styles.bioInput}
               value={bio}
               onChangeText={setBio}
-              placeholder="Tell clients about yourself, your experience, and what makes you unique..."
+              placeholder={t('portfolio.bioPlaceholder')}
               placeholderTextColor="#9CA3AF"
               multiline
               numberOfLines={4}
@@ -436,10 +438,10 @@ const PortfolioEditScreen = ({ navigation }) => {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <MaterialIcon name="link" size={20} color={BRAND.purple} />
-              <Text style={styles.sectionTitle}>Portfolio Links</Text>
+              <Text style={styles.sectionTitle}>{t('portfolio.portfolioLinks')}</Text>
             </View>
             <Text style={styles.sectionSubtitle}>
-              Add your social media and portfolio links to help clients find your work
+              {t('portfolio.portfolioLinksSub')}
             </Text>
             <View style={styles.linksContainer}>
               {PLATFORMS.map((platform) => (
@@ -448,6 +450,7 @@ const PortfolioEditScreen = ({ navigation }) => {
                   platform={platform}
                   value={portfolioLinks[platform.id]}
                   onChange={(value) => handleLinkChange(platform.id, value)}
+                  t={t}
                 />
               ))}
             </View>
@@ -457,16 +460,16 @@ const PortfolioEditScreen = ({ navigation }) => {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <MaterialIcon name="auto-awesome" size={20} color={BRAND.purple} />
-              <Text style={styles.sectionTitle}>Specializations</Text>
+              <Text style={styles.sectionTitle}>{t('portfolio.specializationsTitle')}</Text>
             </View>
             <Text style={styles.sectionSubtitle}>
-              Select or add your areas of expertise
+              {t('portfolio.specializationsSub')}
             </Text>
             
             {/* Selected specializations */}
             {specializations.length > 0 && (
               <View style={styles.selectedSpecsContainer}>
-                <Text style={styles.selectedSpecsLabel}>Your specializations:</Text>
+                <Text style={styles.selectedSpecsLabel}>{t('portfolio.yourSpecializations')}</Text>
                 <View style={styles.specsGrid}>
                   {specializations.map((spec, index) => (
                     <SpecializationChip
@@ -482,7 +485,7 @@ const PortfolioEditScreen = ({ navigation }) => {
 
             {/* Suggested specializations */}
             <View style={styles.suggestedSpecsContainer}>
-              <Text style={styles.suggestedSpecsLabel}>Suggestions:</Text>
+              <Text style={styles.suggestedSpecsLabel}>{t('portfolio.suggestions')}</Text>
               <View style={styles.specsGrid}>
                 {suggestedSpecs
                   .filter(spec => !specializations.includes(spec))
@@ -503,7 +506,7 @@ const PortfolioEditScreen = ({ navigation }) => {
                 style={styles.customSpecInput}
                 value={customSpecialization}
                 onChangeText={setCustomSpecialization}
-                placeholder="Add custom specialization..."
+                placeholder={t('portfolio.customSpecPlaceholder')}
                 placeholderTextColor="#9CA3AF"
                 onSubmitEditing={addCustomSpecialization}
               />
@@ -525,10 +528,10 @@ const PortfolioEditScreen = ({ navigation }) => {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <MaterialIcon name="collections" size={20} color={BRAND.purple} />
-              <Text style={styles.sectionTitle}>Portfolio Gallery</Text>
+              <Text style={styles.sectionTitle}>{t('portfolio.portfolioGallery')}</Text>
             </View>
             <Text style={styles.sectionSubtitle}>
-              Showcase your best work (up to 10 images)
+              {t('portfolio.gallerySub')}
             </Text>
 
             <View style={styles.galleryGrid}>
@@ -551,7 +554,7 @@ const PortfolioEditScreen = ({ navigation }) => {
                   ) : (
                     <>
                       <MaterialIcon name="add-photo-alternate" size={28} color={BRAND.purple} />
-                      <Text style={styles.addImageText}>Add Photo</Text>
+                      <Text style={styles.addImageText}>{t('portfolio.addPhoto')}</Text>
                     </>
                   )}
                 </TouchableOpacity>

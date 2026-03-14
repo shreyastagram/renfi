@@ -530,8 +530,18 @@ export const AppProvider = ({ children }) => {
    */
   const handleAuthSuccess = useCallback(async (authData) => {
     try {
-      console.log('🔐 [AppContext] Processing auth success...', authData);
+      console.log('🔐 [AppContext] Processing auth success...', { email: authData.email, role: authData.role, userType: authData.userType });
       
+      // Validate required auth data before proceeding
+      if (!authData.accessToken || typeof authData.accessToken !== 'string') {
+        console.error('❌ [AppContext] Missing or invalid access token in auth response');
+        return false;
+      }
+      if (!authData.refreshToken || typeof authData.refreshToken !== 'string') {
+        console.error('❌ [AppContext] Missing or invalid refresh token in auth response');
+        return false;
+      }
+
       // Store tokens securely with expiry time
       // expiresIn is in seconds (default 24 hours = 86400)
       const expiresIn = authData.expiresIn || 86400;
@@ -558,7 +568,12 @@ export const AppProvider = ({ children }) => {
         || authData.data?._id?.toString();
       
       console.log('🆔 [AppContext] Unified ID resolved:', unifiedId);
-      
+
+      if (!unifiedId) {
+        console.error('❌ [AppContext] No unified ID resolved from auth response');
+        return false;
+      }
+
       // Build user data object
       const userData = {
         // Unified ID - works for both PostgreSQL and MongoDB

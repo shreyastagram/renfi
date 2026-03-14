@@ -24,6 +24,7 @@ import { Button, Input, PhoneInput, Alert, FixhomiLogo } from '../components';
 import { registerUser, getErrorMessage, AUTH_CODES, checkAvailability } from '../services/authService';
 import { validateRegistrationForm } from '../utils/validation';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 import {
   signInWithGoogleAsUser,
   syncGoogleUserToMongoDB,
@@ -38,6 +39,7 @@ import {
  */
 const RegisterScreen = ({ navigation }) => {
   const { handleAuthSuccess } = useApp();
+  const { t } = useLanguage();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -98,11 +100,11 @@ const RegisterScreen = ({ navigation }) => {
     if (field === 'email') {
       setExistingEmail(value.trim());
       setShowAccountExistsModal(true);
-      setErrors(prev => ({ ...prev, email: 'This email is already registered' }));
+      setErrors(prev => ({ ...prev, email: t('auth.emailAlreadyRegistered') }));
     } else {
       setExistingPhone(value);
       setShowPhoneExistsModal(true);
-      setErrors(prev => ({ ...prev, phone: 'This number is already registered' }));
+      setErrors(prev => ({ ...prev, phone: t('auth.phoneAlreadyRegistered') }));
     }
   }, []);
 
@@ -207,7 +209,7 @@ const RegisterScreen = ({ navigation }) => {
       const validation = validateRegistrationForm(formData);
       if (!validation.isValid) {
         setErrors(validation.errors);
-        showAlert('Please fix the errors below', 'warning');
+        showAlert(t('auth.formErrors'), 'warning');
         return;
       }
 
@@ -220,8 +222,6 @@ const RegisterScreen = ({ navigation }) => {
         password: formData.password,
         fullName: formData.fullName,
         phone: formData.phone || undefined,
-        // Location can be added here if needed
-        // location: { lat: 0, lng: 0 }
       });
 
       if (result.success) {
@@ -229,16 +229,16 @@ const RegisterScreen = ({ navigation }) => {
 
         // Check response code for specific handling
         if (data.code === AUTH_CODES.REGISTRATION_SUCCESS) {
-          showAlert('Registration successful! Welcome to FixHomi.', 'success');
+          showAlert(t('auth.registrationSuccess'), 'success');
         } else if (data.code === AUTH_CODES.USER_ALREADY_EXISTS) {
-          showAlert('Account found. You have been logged in.', 'info');
+          showAlert(t('auth.accountFoundLoggedIn'), 'info');
         }
 
-        // Process successful auth
-        const authProcessed = await handleAuthSuccess(data);
-        
+        // Process successful auth — explicitly set userType since this screen is user-only
+        const authProcessed = await handleAuthSuccess({ ...data, userType: 'user' });
+
         if (!authProcessed) {
-          showAlert('Registration successful but failed to save session. Please login.', 'warning');
+          showAlert(t('auth.registrationSessionFail'), 'warning');
         }
         // Navigation will happen automatically via RootNavigator when isAuthenticated changes
         
@@ -257,14 +257,14 @@ const RegisterScreen = ({ navigation }) => {
             setExistingEmail(formData.email);
             setExistingAccountType(null); // Unknown from submit — could be either
             setShowAccountExistsModal(true);
-            setErrors({ email: 'This email is already registered' });
+            setErrors({ email: t('auth.emailAlreadyRegistered') });
             break;
 
           case AUTH_CODES.PHONE_ALREADY_EXISTS:
             setExistingPhone(formData.phone);
             setExistingAccountType(null);
             setShowPhoneExistsModal(true);
-            setErrors({ phone: 'This mobile number is already registered' });
+            setErrors({ phone: t('auth.phoneAlreadyRegistered') });
             break;
             
           case AUTH_CODES.WEAK_PASSWORD:
@@ -302,12 +302,12 @@ const RegisterScreen = ({ navigation }) => {
             break;
 
           default:
-            showAlert(error.message || 'Registration failed. Please try again.', 'error', error.hint);
+            showAlert(error.message || t('auth.registrationFailed'), 'error', error.hint);
         }
       }
     } catch (err) {
       console.error('❌ [RegisterScreen] Unexpected error:', err);
-      showAlert('An unexpected error occurred. Please try again.', 'error');
+      showAlert(t('auth.unexpectedError'), 'error');
     } finally {
       setLoading(false);
     }
@@ -363,11 +363,11 @@ const RegisterScreen = ({ navigation }) => {
 
           if (!syncResult.success) {
             console.warn('⚠️ [RegisterScreen] MongoDB sync failed after retry, auth still succeeded');
-            showAlert('Your account is ready! Profile setup will complete shortly.', 'warning');
+            showAlert(t('auth.googleProfileSetup'), 'warning');
           }
         }
 
-        showAlert('Registration successful!', 'success');
+        showAlert(t('auth.googleRegistrationSuccess'), 'success');
         
         // Process auth with explicit ID extraction
         // The unified ID system means javaUserId = mongoId
@@ -388,7 +388,7 @@ const RegisterScreen = ({ navigation }) => {
         const authProcessed = await handleAuthSuccess(authData);
         
         if (!authProcessed) {
-          showAlert('Registration successful but failed to save session.', 'warning');
+          showAlert(t('auth.registrationSessionFail'), 'warning');
         }
       } else {
         const { error } = result;
@@ -403,7 +403,7 @@ const RegisterScreen = ({ navigation }) => {
         if (error.code === GOOGLE_AUTH_CODES.ROLE_CONFLICT) {
           const existingRole = error.existingRole === 'SERVICE_PROVIDER' ? 'Service Provider' : 'User';
           showAlert(
-            `This email is already registered as a ${existingRole}. Each email can only be used for one account type.`,
+            t('auth.googleRoleConflict', { role: existingRole }),
             'warning'
           );
           return;
@@ -419,7 +419,7 @@ const RegisterScreen = ({ navigation }) => {
         // Handle account exists with password
         if (error.code === GOOGLE_AUTH_CODES.ACCOUNT_EXISTS_WITH_PASSWORD) {
           showAlert(
-            'An account with this email already exists. Please login with your password.',
+            t('auth.googleAccountExists'),
             'info'
           );
           return;
@@ -430,7 +430,7 @@ const RegisterScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('❌ [RegisterScreen] Google Sign-In error:', error);
-      showAlert('Google Sign-In failed. Please try again.', 'error');
+      showAlert(t('auth.googleSignInFailed'), 'error');
     } finally {
       setGoogleLoading(false);
     }
@@ -457,9 +457,9 @@ const RegisterScreen = ({ navigation }) => {
               <FixhomiLogo size={44} />
             </View>
             <Text style={styles.brandName}>FixHomi</Text>
-            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.title}>{t('auth.createAccount')}</Text>
             <Text style={styles.subtitle}>
-              Join FixHomi and get access to trusted home services
+              {t('auth.joinFixhomi')}
             </Text>
           </View>
 
@@ -476,8 +476,8 @@ const RegisterScreen = ({ navigation }) => {
           {/* Registration Form */}
           <View style={styles.form}>
             <Input
-              label="Full Name"
-              placeholder="Enter your full name"
+              label={t('auth.fullName')}
+              placeholder={t('auth.fullNamePlaceholder')}
               value={formData.fullName}
               onChangeText={(value) => updateField('fullName', value)}
               error={errors.fullName}
@@ -487,8 +487,8 @@ const RegisterScreen = ({ navigation }) => {
             />
 
             <Input
-              label="Email"
-              placeholder="Enter your email"
+              label={t('auth.email')}
+              placeholder={t('auth.emailPlaceholder')}
               value={formData.email}
               onChangeText={(value) => updateField('email', value)}
               error={errors.email}
@@ -499,8 +499,8 @@ const RegisterScreen = ({ navigation }) => {
             />
 
             <Input
-              label="Password"
-              placeholder="Create a password (min 8 characters)"
+              label={t('auth.password')}
+              placeholder={t('auth.createPassword')}
               value={formData.password}
               onChangeText={(value) => updateField('password', value)}
               error={errors.password}
@@ -510,14 +510,14 @@ const RegisterScreen = ({ navigation }) => {
             />
 
             <PhoneInput
-              label="Phone Number (Optional)"
+              label={t('auth.phoneOptional')}
               value={formData.phone}
               onChangeText={(value) => updateField('phone', value)}
               error={errors.phone}
             />
 
             <Button
-              title={loading ? 'Creating Account...' : 'Create Account'}
+              title={loading ? t('auth.creatingAccount') : t('auth.createAccount')}
               onPress={handleRegister}
               loading={loading}
               disabled={loading || googleLoading}
@@ -527,7 +527,7 @@ const RegisterScreen = ({ navigation }) => {
             {/* Social Login Divider */}
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or register with</Text>
+              <Text style={styles.dividerText}>{t('auth.orRegisterWith')}</Text>
               <View style={styles.dividerLine} />
             </View>
 
@@ -542,13 +542,13 @@ const RegisterScreen = ({ navigation }) => {
               activeOpacity={0.7}
             >
               {googleLoading ? (
-                <Text style={styles.googleButtonText}>Signing up...</Text>
+                <Text style={styles.googleButtonText}>{t('auth.signingUpGoogle')}</Text>
               ) : (
                 <>
                   <View style={styles.googleIconContainer}>
                     <Text style={styles.googleIcon}>G</Text>
                   </View>
-                  <Text style={styles.googleButtonText}>Continue with Google</Text>
+                  <Text style={styles.googleButtonText}>{t('auth.continueWithGoogle')}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -557,10 +557,10 @@ const RegisterScreen = ({ navigation }) => {
           {/* Footer */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>
-              By creating an account, you agree to our{' '}
-              <Text style={styles.link}>Terms of Service</Text>
-              {' '}and{' '}
-              <Text style={styles.link}>Privacy Policy</Text>
+              {t('auth.agreeTerms')}
+              <Text style={styles.link}>{t('auth.termsOfService')}</Text>
+              {t('auth.and')}
+              <Text style={styles.link}>{t('auth.privacyPolicy')}</Text>
             </Text>
           </View>
         </ScrollView>
@@ -576,19 +576,19 @@ const RegisterScreen = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalIcon}>👋</Text>
-            <Text style={styles.modalTitle}>Account Already Exists</Text>
+            <Text style={styles.modalTitle}>{t('auth.accountAlreadyExists')}</Text>
             <Text style={styles.modalEmail}>{existingEmail}</Text>
             <Text style={styles.modalMessage}>
               {existingAccountType === 'provider'
-                ? 'This email is registered as a Service Provider account. Would you like to log in to your provider account?'
+                ? t('auth.accountExistsProvider')
                 : existingAccountType === 'user'
-                ? 'This email is already registered. Would you like to log in instead?'
-                : 'An account with this email already exists. Would you like to log in instead?'}
+                ? t('auth.accountExistsUser')
+                : t('auth.accountExistsGeneric')}
             </Text>
             {existingAccountType && (
               <View style={styles.accountTypeBadge}>
                 <Text style={styles.accountTypeBadgeText}>
-                  {existingAccountType === 'provider' ? 'Provider Account' : 'User Account'}
+                  {existingAccountType === 'provider' ? t('auth.providerAccount') : t('auth.userAccount')}
                 </Text>
               </View>
             )}
@@ -600,7 +600,7 @@ const RegisterScreen = ({ navigation }) => {
                 activeOpacity={0.8}
               >
                 <Text style={styles.modalPrimaryButtonText}>
-                  {existingAccountType === 'provider' ? 'Go to Provider Login' : 'Log In to My Account'}
+                  {existingAccountType === 'provider' ? t('auth.goToProviderLogin') : t('auth.logInToAccount')}
                 </Text>
               </TouchableOpacity>
 
@@ -609,7 +609,7 @@ const RegisterScreen = ({ navigation }) => {
                 onPress={handleForgotPassword}
                 activeOpacity={0.8}
               >
-                <Text style={styles.modalSecondaryButtonText}>I Forgot My Password</Text>
+                <Text style={styles.modalSecondaryButtonText}>{t('auth.iForgotPassword')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -617,7 +617,7 @@ const RegisterScreen = ({ navigation }) => {
                 onPress={() => setShowAccountExistsModal(false)}
                 activeOpacity={0.8}
               >
-                <Text style={styles.modalDismissText}>Use a Different Email</Text>
+                <Text style={styles.modalDismissText}>{t('auth.useDifferentEmail')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -634,20 +634,20 @@ const RegisterScreen = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalIcon}>📱</Text>
-            <Text style={styles.modalTitle}>Number Already Registered</Text>
+            <Text style={styles.modalTitle}>{t('auth.numberAlreadyRegistered')}</Text>
             <Text style={styles.modalEmail}>+91 {existingPhone}</Text>
             <Text style={styles.modalMessage}>
               {existingAccountType === 'provider'
-                ? 'This number is registered with a Service Provider account.'
+                ? t('auth.numberRegisteredProvider')
                 : existingAccountType === 'user'
-                ? 'This number is registered with a User account.'
-                : 'This mobile number is already associated with another account.'}
-              {' '}Would you like to log in instead?
+                ? t('auth.numberRegisteredUser')
+                : t('auth.numberRegisteredGeneric')}
+              {t('auth.wouldLikeToLogin')}
             </Text>
             {existingAccountType && (
               <View style={styles.accountTypeBadge}>
                 <Text style={styles.accountTypeBadgeText}>
-                  {existingAccountType === 'provider' ? 'Provider Account' : 'User Account'}
+                  {existingAccountType === 'provider' ? t('auth.providerAccount') : t('auth.userAccount')}
                 </Text>
               </View>
             )}
@@ -659,7 +659,7 @@ const RegisterScreen = ({ navigation }) => {
                 activeOpacity={0.8}
               >
                 <Text style={styles.modalPrimaryButtonText}>
-                  {existingAccountType === 'provider' ? 'Go to Provider Login' : 'Log In to My Account'}
+                  {existingAccountType === 'provider' ? t('auth.goToProviderLogin') : t('auth.logInToAccount')}
                 </Text>
               </TouchableOpacity>
 
@@ -668,7 +668,7 @@ const RegisterScreen = ({ navigation }) => {
                 onPress={handleUseDifferentPhone}
                 activeOpacity={0.8}
               >
-                <Text style={styles.modalDismissText}>Use a Different Number</Text>
+                <Text style={styles.modalDismissText}>{t('auth.useDifferentNumber')}</Text>
               </TouchableOpacity>
             </View>
           </View>

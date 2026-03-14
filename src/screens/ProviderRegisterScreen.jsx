@@ -37,6 +37,7 @@ import {
   getGoogleAuthErrorMessage,
 } from '../services/googleAuthService';
 import { isInsideServiceZone, getZoneStatus } from '../utils/serviceZone';
+import { useLanguage } from '../context/LanguageContext';
 
 /**
  * ProviderRegisterScreen Component
@@ -45,6 +46,7 @@ import { isInsideServiceZone, getZoneStatus } from '../utils/serviceZone';
  */
 const ProviderRegisterScreen = ({ navigation }) => {
   const { handleAuthSuccess } = useApp();
+  const { t } = useLanguage();
 
   // Form state - required and common optional fields
   const [formData, setFormData] = useState({
@@ -106,11 +108,11 @@ const ProviderRegisterScreen = ({ navigation }) => {
     if (field === 'email') {
       setExistingEmail(value.trim());
       setShowAccountExistsModal(true);
-      setErrors(prev => ({ ...prev, email: 'This email is already registered' }));
+      setErrors(prev => ({ ...prev, email: t('auth.emailAlreadyRegistered') }));
     } else {
       setExistingPhone(value);
       setShowPhoneExistsModal(true);
-      setErrors(prev => ({ ...prev, phone: 'This number is already registered' }));
+      setErrors(prev => ({ ...prev, phone: t('auth.phoneAlreadyRegistered') }));
     }
   }, []);
 
@@ -171,11 +173,11 @@ const ProviderRegisterScreen = ({ navigation }) => {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
           {
-            title: 'Location Permission',
-            message: 'FixHomi needs your location to show you to nearby customers.',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
+            title: t('providerRegister.locationPermission'),
+            message: t('providerRegister.locationPermissionMsg'),
+            buttonNeutral: t('providerRegister.askMeLater'),
+            buttonNegative: t('common.cancel'),
+            buttonPositive: t('common.ok'),
           }
         );
         return granted === PermissionsAndroid.RESULTS.GRANTED;
@@ -199,7 +201,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
 
     const hasPermission = await requestLocationPermission();
     if (!hasPermission) {
-      setLocationError('Location permission denied');
+      setLocationError(t('providerRegister.locationDenied'));
       setLocationLoading(false);
       return;
     }
@@ -237,7 +239,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
         
         // GPS off check (error code 2 = POSITION_UNAVAILABLE)
         if (error.code === 2) {
-          setLocationError('Location services are turned off. Please enable GPS.');
+          setLocationError(t('providerRegister.locationGpsOff'));
           setLocationLoading(false);
           return;
         }
@@ -253,9 +255,9 @@ const ProviderRegisterScreen = ({ navigation }) => {
           (fallbackError) => {
             console.error('📍 [ProviderRegister] All location attempts failed:', fallbackError.message);
             if (fallbackError.code === 2) {
-              setLocationError('Location services are turned off. Please enable GPS.');
+              setLocationError(t('providerRegister.locationGpsOff'));
             } else {
-              setLocationError('Could not get location. You can retry or continue without it.');
+              setLocationError(t('providerRegister.locationFallback'));
             }
             setLocationLoading(false);
           },
@@ -333,7 +335,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
       const validation = validateProviderRegistrationForm(formData);
       if (!validation.isValid) {
         setErrors(validation.errors);
-        showAlert('Please fix the errors below', 'warning');
+        showAlert(t('auth.formErrors'), 'warning');
         return;
       }
 
@@ -364,16 +366,16 @@ const ProviderRegisterScreen = ({ navigation }) => {
 
         // Check response code for specific handling
         if (data.code === AUTH_CODES.REGISTRATION_SUCCESS) {
-          showAlert('Registration successful! Welcome to FixHomi.', 'success');
+          showAlert(t('auth.registrationSuccess'), 'success');
         } else if (data.code === AUTH_CODES.PROVIDER_ALREADY_EXISTS) {
-          showAlert('Account found. You have been logged in.', 'info');
+          showAlert(t('auth.accountFoundLoggedIn'), 'info');
         }
 
         // Process successful auth
         const authProcessed = await handleAuthSuccess(data);
         
         if (!authProcessed) {
-          showAlert('Registration successful but failed to save session. Please login.', 'warning');
+          showAlert(t('auth.registrationSessionFail'), 'warning');
         }
         // Navigation will happen automatically via RootNavigator when isAuthenticated changes
         
@@ -392,14 +394,14 @@ const ProviderRegisterScreen = ({ navigation }) => {
             setExistingEmail(formData.email);
             setExistingAccountType(null);
             setShowAccountExistsModal(true);
-            setErrors({ email: 'This email is already registered' });
+            setErrors({ email: t('auth.emailAlreadyRegistered') });
             break;
 
           case AUTH_CODES.PHONE_ALREADY_EXISTS:
             setExistingPhone(formData.phone);
             setExistingAccountType(null);
             setShowPhoneExistsModal(true);
-            setErrors({ phone: 'This mobile number is already registered' });
+            setErrors({ phone: t('auth.phoneAlreadyRegistered') });
             break;
             
           case AUTH_CODES.WEAK_PASSWORD:
@@ -441,12 +443,12 @@ const ProviderRegisterScreen = ({ navigation }) => {
             break;
 
           default:
-            showAlert(error.message || 'Registration failed. Please try again.', 'error', error.hint);
+            showAlert(error.message || t('auth.registrationFailed'), 'error', error.hint);
         }
       }
     } catch (err) {
       console.error('❌ [ProviderRegisterScreen] Unexpected error:', err);
-      showAlert('An unexpected error occurred. Please try again.', 'error');
+      showAlert(t('auth.unexpectedError'), 'error');
     } finally {
       setLoading(false);
     }
@@ -506,11 +508,11 @@ const ProviderRegisterScreen = ({ navigation }) => {
 
           if (!syncResult.success) {
             console.warn('⚠️ [ProviderRegisterScreen] MongoDB sync failed after retry, auth still succeeded');
-            showAlert('Your account is ready! Profile setup will complete shortly.', 'warning');
+            showAlert(t('auth.googleProfileSetup'), 'warning');
           }
         }
 
-        showAlert('Registration successful!', 'success');
+        showAlert(t('auth.googleRegistrationSuccess'), 'success');
         
         // Process auth with explicit ID extraction
         // The unified ID system means javaUserId = mongoId
@@ -532,7 +534,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
         const authProcessed = await handleAuthSuccess(authData);
         
         if (!authProcessed) {
-          showAlert('Registration successful but failed to save session.', 'warning');
+          showAlert(t('auth.registrationSessionFail'), 'warning');
         }
       } else {
         const { error } = result;
@@ -547,7 +549,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
         if (error.code === GOOGLE_AUTH_CODES.ROLE_CONFLICT) {
           const existingRole = error.existingRole === 'USER' ? 'User' : 'Service Provider';
           showAlert(
-            `This email is already registered as a ${existingRole}. Each email can only be used for one account type.`,
+            t('auth.googleRoleConflict', { role: existingRole }),
             'warning'
           );
           return;
@@ -563,7 +565,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
         // Handle account exists with password
         if (error.code === GOOGLE_AUTH_CODES.ACCOUNT_EXISTS_WITH_PASSWORD) {
           showAlert(
-            'An account with this email already exists. Please login with your password.',
+            t('auth.googleAccountExists'),
             'info'
           );
           return;
@@ -574,7 +576,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('❌ [ProviderRegisterScreen] Google Sign-In error:', error);
-      showAlert('Google Sign-In failed. Please try again.', 'error');
+      showAlert(t('auth.googleSignInFailed'), 'error');
     } finally {
       setGoogleLoading(false);
     }
@@ -601,9 +603,9 @@ const ProviderRegisterScreen = ({ navigation }) => {
               <FixhomiLogo size={44} />
             </View>
             <Text style={styles.brandName}>FixHomi</Text>
-            <Text style={styles.title}>Become a Provider</Text>
+            <Text style={styles.title}>{t('providerRegister.becomeProvider')}</Text>
             <Text style={styles.subtitle}>
-              Join FixHomi and start earning by providing home services
+              {t('providerRegister.joinSubtitle')}
             </Text>
           </View>
 
@@ -620,8 +622,8 @@ const ProviderRegisterScreen = ({ navigation }) => {
           {/* Registration Form */}
           <View style={styles.form}>
             <Input
-              label="Your Name"
-              placeholder="Enter your full name"
+              label={t('providerRegister.yourName')}
+              placeholder={t('providerRegister.yourNamePlaceholder')}
               value={formData.name}
               onChangeText={(value) => updateField('name', value)}
               error={errors.name}
@@ -631,8 +633,8 @@ const ProviderRegisterScreen = ({ navigation }) => {
             />
 
             <Input
-              label="Email"
-              placeholder="Enter your email"
+              label={t('auth.email')}
+              placeholder={t('auth.emailPlaceholder')}
               value={formData.email}
               onChangeText={(value) => updateField('email', value)}
               error={errors.email}
@@ -643,8 +645,8 @@ const ProviderRegisterScreen = ({ navigation }) => {
             />
 
             <Input
-              label="Password"
-              placeholder="Create a password (min 8 characters)"
+              label={t('auth.password')}
+              placeholder={t('auth.createPassword')}
               value={formData.password}
               onChangeText={(value) => updateField('password', value)}
               error={errors.password}
@@ -654,15 +656,15 @@ const ProviderRegisterScreen = ({ navigation }) => {
             />
 
             <PhoneInput
-              label="Phone Number"
+              label={t('auth.phoneNumber')}
               value={formData.phone}
               onChangeText={(value) => updateField('phone', value)}
               error={errors.phone}
             />
 
             <Input
-              label="Address"
-              placeholder="Enter your address"
+              label={t('providerRegister.address')}
+              placeholder={t('providerRegister.addressPlaceholder')}
               value={formData.address}
               onChangeText={(value) => updateField('address', value)}
               error={errors.address}
@@ -674,8 +676,8 @@ const ProviderRegisterScreen = ({ navigation }) => {
             <View style={styles.row}>
               <View style={styles.halfInput}>
                 <Input
-                  label="City"
-                  placeholder="City"
+                  label={t('providerRegister.city')}
+                  placeholder={t('providerRegister.cityPlaceholder')}
                   value={formData.city}
                   onChangeText={(value) => updateField('city', value)}
                   error={errors.city}
@@ -684,8 +686,8 @@ const ProviderRegisterScreen = ({ navigation }) => {
               </View>
               <View style={styles.halfInput}>
                 <Input
-                  label="Pincode"
-                  placeholder="Pincode"
+                  label={t('providerRegister.pincode')}
+                  placeholder={t('providerRegister.pincodePlaceholder')}
                   value={formData.pincode}
                   onChangeText={(value) => updateField('pincode', value)}
                   error={errors.pincode}
@@ -696,17 +698,16 @@ const ProviderRegisterScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.infoBox}>
-              <Text style={styles.infoTitle}>ℹ️ Complete your profile later</Text>
+              <Text style={styles.infoTitle}>ℹ️ {t('providerRegister.completeProfileLater')}</Text>
               <Text style={styles.infoText}>
-                After registration, you can add service categories, experience, 
-                working hours, and verification documents in your profile.
+                {t('providerRegister.completeProfileLaterMsg')}
               </Text>
             </View>
 
             {/* Location Status */}
             <View style={styles.locationBox}>
               <View style={styles.locationHeader}>
-                <Text style={styles.locationTitle}>📍 Your Location</Text>
+                <Text style={styles.locationTitle}>📍 {t('providerRegister.yourLocation')}</Text>
                 {locationLoading && (
                   <ActivityIndicator size="small" color="#2563EB" />
                 )}
@@ -721,17 +722,15 @@ const ProviderRegisterScreen = ({ navigation }) => {
                           {zoneStatus.inside ? '✓' : '⚠'}
                         </Text>
                         <Text style={zoneStatus.inside ? styles.locationSuccessText : styles.locationWarningText}>
-                          {zoneStatus.inside 
-                            ? 'Location detected — within service area' 
-                            : 'Location detected — outside service area'}
+                          {zoneStatus.inside
+                            ? t('providerRegister.locationDetectedInside')
+                            : t('providerRegister.locationDetectedOutside')}
                         </Text>
                       </View>
                       {!zoneStatus.inside && (
                         <View style={styles.outOfZoneBanner}>
                           <Text style={styles.outOfZoneText}>
-                            FixHomi is currently available only in {zoneStatus.zoneName}. 
-                            You can still register, but you won't receive service requests until 
-                            you're within the service area.
+                            {t('providerRegister.locationOutOfZone', { zone: zoneStatus.zoneName })}
                           </Text>
                         </View>
                       )}
@@ -742,21 +741,21 @@ const ProviderRegisterScreen = ({ navigation }) => {
                 <View style={styles.locationErrorContainer}>
                   <Text style={styles.locationErrorText}>{locationError}</Text>
                   <TouchableOpacity onPress={getCurrentLocation} style={styles.retryButton}>
-                    <Text style={styles.retryButtonText}>Retry</Text>
+                    <Text style={styles.retryButtonText}>{t('common.retry')}</Text>
                   </TouchableOpacity>
                 </View>
               ) : !locationLoading ? (
                 <TouchableOpacity onPress={getCurrentLocation} style={styles.getLocationButton}>
-                  <Text style={styles.getLocationButtonText}>Detect My Location</Text>
+                  <Text style={styles.getLocationButtonText}>{t('providerRegister.detectMyLocation')}</Text>
                 </TouchableOpacity>
               ) : null}
               <Text style={styles.locationHint}>
-                Your location helps customers find you nearby
+                {t('providerRegister.locationHint')}
               </Text>
             </View>
 
             <Button
-              title={loading ? 'Creating Account...' : 'Create Provider Account'}
+              title={loading ? t('providerRegister.creatingAccount') : t('providerRegister.createProviderAccount')}
               onPress={handleRegister}
               loading={loading}
               disabled={loading || googleLoading}
@@ -766,7 +765,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
             {/* Social Login Divider */}
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or register with</Text>
+              <Text style={styles.dividerText}>{t('auth.orRegisterWith')}</Text>
               <View style={styles.dividerLine} />
             </View>
 
@@ -781,13 +780,13 @@ const ProviderRegisterScreen = ({ navigation }) => {
               activeOpacity={0.7}
             >
               {googleLoading ? (
-                <Text style={styles.googleButtonText}>Signing up...</Text>
+                <Text style={styles.googleButtonText}>{t('auth.signingUpGoogle')}</Text>
               ) : (
                 <>
                   <View style={styles.googleIconContainer}>
                     <Text style={styles.googleIcon}>G</Text>
                   </View>
-                  <Text style={styles.googleButtonText}>Continue with Google</Text>
+                  <Text style={styles.googleButtonText}>{t('auth.continueWithGoogle')}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -796,10 +795,10 @@ const ProviderRegisterScreen = ({ navigation }) => {
           {/* Footer */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>
-              By creating an account, you agree to our{' '}
-              <Text style={styles.link}>Terms of Service</Text>
-              {' '}and{' '}
-              <Text style={styles.link}>Privacy Policy</Text>
+              {t('auth.agreeTerms')}
+              <Text style={styles.link}>{t('auth.termsOfService')}</Text>
+              {t('auth.and')}
+              <Text style={styles.link}>{t('auth.privacyPolicy')}</Text>
             </Text>
           </View>
         </ScrollView>
@@ -815,19 +814,19 @@ const ProviderRegisterScreen = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalIcon}>👋</Text>
-            <Text style={styles.modalTitle}>Account Already Exists</Text>
+            <Text style={styles.modalTitle}>{t('auth.accountAlreadyExists')}</Text>
             <Text style={styles.modalEmail}>{existingEmail}</Text>
             <Text style={styles.modalMessage}>
               {existingAccountType === 'user'
-                ? 'This email is registered as a User account. Would you like to log in to your user account?'
+                ? t('auth.accountExistsUser')
                 : existingAccountType === 'provider'
-                ? 'This email is already registered as a Provider. Would you like to log in?'
-                : 'An account with this email already exists. Would you like to log in instead?'}
+                ? t('auth.accountExistsProvider')
+                : t('auth.accountExistsGeneric')}
             </Text>
             {existingAccountType && (
               <View style={styles.accountTypeBadge}>
                 <Text style={styles.accountTypeBadgeText}>
-                  {existingAccountType === 'provider' ? 'Provider Account' : 'User Account'}
+                  {existingAccountType === 'provider' ? t('auth.providerAccount') : t('auth.userAccount')}
                 </Text>
               </View>
             )}
@@ -839,7 +838,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
                 activeOpacity={0.8}
               >
                 <Text style={styles.modalPrimaryButtonText}>
-                  {existingAccountType === 'user' ? 'Go to User Login' : 'Log In to My Account'}
+                  {existingAccountType === 'user' ? t('auth.goToProviderLogin') : t('auth.logInToAccount')}
                 </Text>
               </TouchableOpacity>
 
@@ -848,7 +847,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
                 onPress={handleForgotPassword}
                 activeOpacity={0.8}
               >
-                <Text style={styles.modalSecondaryButtonText}>I Forgot My Password</Text>
+                <Text style={styles.modalSecondaryButtonText}>{t('auth.iForgotPassword')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -856,7 +855,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
                 onPress={() => setShowAccountExistsModal(false)}
                 activeOpacity={0.8}
               >
-                <Text style={styles.modalDismissText}>Use a Different Email</Text>
+                <Text style={styles.modalDismissText}>{t('auth.useDifferentEmail')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -873,20 +872,20 @@ const ProviderRegisterScreen = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalIcon}>📱</Text>
-            <Text style={styles.modalTitle}>Number Already Registered</Text>
+            <Text style={styles.modalTitle}>{t('auth.numberAlreadyRegistered')}</Text>
             <Text style={styles.modalEmail}>+91 {existingPhone}</Text>
             <Text style={styles.modalMessage}>
               {existingAccountType === 'user'
-                ? 'This number is registered with a User account.'
+                ? t('auth.numberRegisteredUser')
                 : existingAccountType === 'provider'
-                ? 'This number is registered with a Provider account.'
-                : 'This mobile number is already associated with another account.'}
-              {' '}Would you like to log in instead?
+                ? t('auth.numberRegisteredProvider')
+                : t('auth.numberRegisteredGeneric')}
+              {t('auth.wouldLikeToLogin')}
             </Text>
             {existingAccountType && (
               <View style={styles.accountTypeBadge}>
                 <Text style={styles.accountTypeBadgeText}>
-                  {existingAccountType === 'provider' ? 'Provider Account' : 'User Account'}
+                  {existingAccountType === 'provider' ? t('auth.providerAccount') : t('auth.userAccount')}
                 </Text>
               </View>
             )}
@@ -898,7 +897,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
                 activeOpacity={0.8}
               >
                 <Text style={styles.modalPrimaryButtonText}>
-                  {existingAccountType === 'user' ? 'Go to User Login' : 'Log In to My Account'}
+                  {existingAccountType === 'user' ? t('auth.goToProviderLogin') : t('auth.logInToAccount')}
                 </Text>
               </TouchableOpacity>
 
@@ -907,7 +906,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
                 onPress={handleUseDifferentPhone}
                 activeOpacity={0.8}
               >
-                <Text style={styles.modalDismissText}>Use a Different Number</Text>
+                <Text style={styles.modalDismissText}>{t('auth.useDifferentNumber')}</Text>
               </TouchableOpacity>
             </View>
           </View>
