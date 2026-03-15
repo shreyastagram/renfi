@@ -82,41 +82,41 @@ const C = {
 };
 
 const STATUS_CONFIG = {
-  pending: { label: 'Pending', color: C.primary, bgColor: '#FEF3C7', dotColor: C.primary },
-  awaiting_confirmation: { label: 'Awaiting', color: C.primary, bgColor: '#FEF3C7', dotColor: C.primary },
-  accepted: { label: 'Accepted', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
-  'in-progress': { label: 'In Progress', color: C.purple, bgColor: C.purpleBg, dotColor: C.purple },
-  in_transit: { label: 'On The Way', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
-  arrived: { label: 'Arrived', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
-  completed: { label: 'Completed', color: C.success, bgColor: C.successBg, dotColor: C.success },
-  cancelled: { label: 'Cancelled', color: C.danger, bgColor: C.dangerBg, dotColor: C.danger },
-  rejected: { label: 'Rejected', color: C.danger, bgColor: C.dangerBg, dotColor: C.danger },
-  expired: { label: 'Expired', color: C.muted, bgColor: '#F1F5F9', dotColor: C.muted },
+  pending: { labelKey: 'providerHistory.statusPending', color: C.primary, bgColor: '#FEF3C7', dotColor: C.primary },
+  awaiting_confirmation: { labelKey: 'providerHistory.statusAwaiting', color: C.primary, bgColor: '#FEF3C7', dotColor: C.primary },
+  accepted: { labelKey: 'providerHistory.statusAccepted', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
+  'in-progress': { labelKey: 'providerHistory.statusInProgress', color: C.purple, bgColor: C.purpleBg, dotColor: C.purple },
+  in_transit: { labelKey: 'providerHistory.statusOnTheWay', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
+  arrived: { labelKey: 'providerHistory.statusArrived', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
+  completed: { labelKey: 'providerHistory.statusCompleted', color: C.success, bgColor: C.successBg, dotColor: C.success },
+  cancelled: { labelKey: 'providerHistory.statusCancelled', color: C.danger, bgColor: C.dangerBg, dotColor: C.danger },
+  rejected: { labelKey: 'providerHistory.statusRejected', color: C.danger, bgColor: C.dangerBg, dotColor: C.danger },
+  expired: { labelKey: 'providerHistory.statusExpired', color: C.muted, bgColor: '#F1F5F9', dotColor: C.muted },
 };
 
 const FILTER_TABS = [
-  { key: 'all', label: 'All Jobs' },
-  { key: 'pending', label: 'New' },
-  { key: 'active', label: 'Active' },
-  { key: 'completed', label: 'Done' },
-  { key: 'cancelled', label: 'Cancelled' },
+  { key: 'all', labelKey: 'providerHistory.allJobs' },
+  { key: 'pending', labelKey: 'providerHistory.filterNew' },
+  { key: 'active', labelKey: 'providerHistory.filterActive' },
+  { key: 'completed', labelKey: 'providerHistory.filterDone' },
+  { key: 'cancelled', labelKey: 'providerHistory.filterCancelled' },
 ];
 
 const CATEGORY_TABS = [
-  { key: 'all', label: 'All Types' },
-  { key: 'traditional', label: 'Services' },
-  { key: 'event', label: 'Events' },
-  { key: 'emergency', label: 'Emergency' },
+  { key: 'all', labelKey: 'providerHistory.allTypes' },
+  { key: 'traditional', labelKey: 'providerHistory.services' },
+  { key: 'event', labelKey: 'providerHistory.events' },
+  { key: 'emergency', labelKey: 'providerHistory.emergency' },
 ];
 
 const DATE_PRESETS = [
-  { key: 'all', label: 'All Time' },
-  { key: 'today', label: 'Today' },
-  { key: 'week', label: 'This Week' },
-  { key: 'month', label: 'This Month' },
-  { key: '3months', label: '3 Months' },
-  { key: '6months', label: '6 Months' },
-  { key: 'year', label: 'This Year' },
+  { key: 'all', labelKey: 'providerHistory.allTime' },
+  { key: 'today', labelKey: 'providerHistory.today' },
+  { key: 'week', labelKey: 'providerHistory.thisWeek' },
+  { key: 'month', labelKey: 'providerHistory.thisMonth' },
+  { key: '3months', labelKey: 'providerHistory.threeMonths' },
+  { key: '6months', labelKey: 'providerHistory.sixMonths' },
+  { key: 'year', labelKey: 'providerHistory.thisYear' },
 ];
 
 const ACTIVE_STATUSES = ['pending', 'accepted', 'in-progress', 'awaiting_confirmation', 'in_transit', 'arrived'];
@@ -154,6 +154,7 @@ const StatPill = ({ value, label, color, bgColor }) => (
 /* ── OTP Modal ─────────────────────────────────────────────────────── */
 const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
   const { t } = useLanguage();
+  const otpInsets = useSafeAreaInsets();
   const [otp, setOtp] = useState('');
   const [attempts, setAttempts] = useState(0);
   const MAX_ATTEMPTS = 5;
@@ -178,7 +179,7 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+            <View style={[styles.modalContent, { paddingBottom: Math.max(otpInsets.bottom, 16) + 24 }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>{t('providerHistory.enterCompletionOtp')}</Text>
                 <TouchableOpacity onPress={onClose} style={styles.modalClose}>
@@ -258,7 +259,7 @@ const RequestCard = ({ request, onPress, onCall, onDirections, onComplete, onCan
         </View>
         <View style={[styles.statusBadge, { backgroundColor: status.bgColor }]}>
           <View style={[styles.statusDot, { backgroundColor: status.dotColor }]} />
-          <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
+          <Text style={[styles.statusText, { color: status.color }]}>{t(status.labelKey)}</Text>
         </View>
       </View>
 
@@ -844,10 +845,10 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
       {/* Stats */}
       <View style={styles.statsBar}>
         <View style={styles.statsRow}>
-          <StatPill value={stats.total} label="Total" color={C.secondary} bgColor="#EFF6FF" />
-          <StatPill value={stats.pending} label="New" color={C.primary} bgColor="#FFF7ED" />
-          <StatPill value={stats.active} label="Active" color={C.purple} bgColor="#FAF5FF" />
-          <StatPill value={stats.completed} label="Done" color={C.success} bgColor="#ECFDF5" />
+          <StatPill value={stats.total} label={t('providerHistory.statTotal')} color={C.secondary} bgColor="#EFF6FF" />
+          <StatPill value={stats.pending} label={t('providerHistory.statNew')} color={C.primary} bgColor="#FFF7ED" />
+          <StatPill value={stats.active} label={t('providerHistory.filterActive')} color={C.purple} bgColor="#FAF5FF" />
+          <StatPill value={stats.completed} label={t('providerHistory.filterDone')} color={C.success} bgColor="#ECFDF5" />
         </View>
       </View>
 
@@ -856,11 +857,11 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
         {/* Status filters */}
         <View style={styles.filterRow}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll} style={{ flex: 1 }}>
-            {FILTER_TABS.map(t => {
-              const active = activeFilter === t.key;
+            {FILTER_TABS.map(tab => {
+              const active = activeFilter === tab.key;
               return (
-                <TouchableOpacity key={t.key} style={[styles.filterPill, active && styles.filterPillActive]} onPress={() => setActiveFilter(t.key)} activeOpacity={0.7}>
-                  <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>{t.label}</Text>
+                <TouchableOpacity key={tab.key} style={[styles.filterPill, active && styles.filterPillActive]} onPress={() => setActiveFilter(tab.key)} activeOpacity={0.7}>
+                  <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>{t(tab.labelKey)}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -874,11 +875,11 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
 
         {/* Category filters */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
-          {CATEGORY_TABS.map(t => {
-            const active = categoryFilter === t.key;
+          {CATEGORY_TABS.map(tab => {
+            const active = categoryFilter === tab.key;
             return (
-              <TouchableOpacity key={t.key} style={[styles.categoryChip, active && styles.categoryChipActive]} onPress={() => setCategoryFilter(t.key)} activeOpacity={0.7}>
-                <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>{t.label}</Text>
+              <TouchableOpacity key={tab.key} style={[styles.categoryChip, active && styles.categoryChipActive]} onPress={() => setCategoryFilter(tab.key)} activeOpacity={0.7}>
+                <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>{t(tab.labelKey)}</Text>
               </TouchableOpacity>
             );
           })}
@@ -891,7 +892,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
               const a = datePreset === p.key;
               return (
                 <TouchableOpacity key={p.key} style={[styles.dateChip, a && styles.dateChipOn]} onPress={() => setDatePreset(p.key)} activeOpacity={0.7}>
-                  <Text style={[styles.dateChipText, a && styles.dateChipTextOn]}>{p.label}</Text>
+                  <Text style={[styles.dateChipText, a && styles.dateChipTextOn]}>{t(p.labelKey)}</Text>
                 </TouchableOpacity>
               );
             })}

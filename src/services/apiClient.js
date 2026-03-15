@@ -587,48 +587,39 @@ export const validateAndRefreshTokens = async () => {
   const expired = await isTokenExpired(0); // No buffer for startup check
 
   if (!expired && tokens.accessToken) {
-    // Token is locally valid — but verify the account still exists on server
-    // This catches the case where account was deleted while app was closed
-    try {
-      const verifyRes = await axios.get(
-        `${API_CONFIG.JAVA_AUTH_URL}/api/users/me`,
-        {
-          headers: { ...API_CONFIG.HEADERS, Authorization: `Bearer ${tokens.accessToken}` },
-          timeout: 10000,
+    // Token is locally valid — trust it immediately for fast startup.
+    // Account existence is verified in the background (non-blocking).
+    // If account was deleted, the background check will force logout.
+    // This prevents Render cold-start delays (30-60s) from blocking app launch.
+    console.log('✅ [API] Access token valid locally — launching app');
+
+    // Background verification (doesn't block startup)
+    setTimeout(async () => {
+      try {
+        const verifyRes = await axios.get(
+          `${API_CONFIG.JAVA_AUTH_URL}/api/users/me`,
+          {
+            headers: { ...API_CONFIG.HEADERS, Authorization: `Bearer ${tokens.accessToken}` },
+            timeout: 35000, // 35s for Render cold starts
+          }
+        );
+        if (verifyRes.data?.isActive === false) {
+          console.warn('🚫 [API] Background check: account deactivated — forcing logout');
+          await clearTokens();
+          if (global.onAuthExpired) global.onAuthExpired();
         }
-      );
-      // Check if account is deactivated
-      if (verifyRes.data?.isActive === false) {
-        console.warn('🚫 [API] Account deactivated — clearing session');
-        await clearTokens();
-        return { valid: false, accessToken: null };
+      } catch (verifyErr) {
+        const status = verifyErr.response?.status;
+        const code = verifyErr.response?.data?.code;
+        if (status === 401 && (code === 'ACCOUNT_DELETED' || !verifyErr.response?.data?.message?.includes('expired'))) {
+          console.warn('🚫 [API] Background check: account deleted — forcing logout');
+          await clearTokens();
+          if (global.onAuthExpired) global.onAuthExpired();
+        }
       }
-      console.log('✅ [API] Access token and account verified');
-      return { valid: true, accessToken: tokens.accessToken };
-    } catch (verifyErr) {
-      const status = verifyErr.response?.status;
-      const code = verifyErr.response?.data?.code;
-      // 401 with ACCOUNT_DELETED = definitely deleted
-      if (status === 401 && code === 'ACCOUNT_DELETED') {
-        console.warn('🚫 [API] Account deleted — clearing session');
-        await clearTokens();
-        return { valid: false, accessToken: null };
-      }
-      // Network error / server down — trust the local token (don't lock user out)
-      if (!verifyErr.response) {
-        console.warn('⚠️ [API] Cannot verify account (network), trusting local token');
-        return { valid: true, accessToken: tokens.accessToken };
-      }
-      // Other 401 = token actually invalid
-      if (status === 401) {
-        console.warn('🚫 [API] Token rejected by server — clearing session');
-        await clearTokens();
-        return { valid: false, accessToken: null };
-      }
-      // Any other server error — trust local token
-      console.warn('⚠️ [API] Account verify returned', status, '— trusting local token');
-      return { valid: true, accessToken: tokens.accessToken };
-    }
+    }, 500); // Small delay so app finishes rendering first
+
+    return { valid: true, accessToken: tokens.accessToken };
   }
   
   // Token is expired or expiring, try to refresh

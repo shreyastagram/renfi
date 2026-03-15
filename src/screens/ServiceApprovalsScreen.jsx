@@ -798,6 +798,8 @@ const ServiceApprovalsScreen = ({ navigation }) => {
   const [documents, setDocuments] = useState({});
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitProgress, setSubmitProgress] = useState('');
+  const [submittedServices, setSubmittedServices] = useState(new Set()); // Services successfully submitted this session
 
   // Modal state
   const [detailModalVisible, setDetailModalVisible] = useState(false);
@@ -941,6 +943,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
     setSelectedServices([service.serviceCategory]);
     setDocuments({});
     setCurrentServiceIndex(0);
+    setSubmittedServices(new Set());
     setStep('upload');
   };
 
@@ -1010,6 +1013,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
     setSelectedServices([]);
     setDocuments({});
     setCurrentServiceIndex(0);
+    setSubmittedServices(new Set());
     setStep('select');
   };
 
@@ -1176,14 +1180,32 @@ const ServiceApprovalsScreen = ({ navigation }) => {
   };
 
   /**
+   * Check if a specific service has all required documents
+   */
+  const isServiceComplete = (serviceKey) => {
+    const category = categories.find(c => c.key === serviceKey);
+    const reqs = category?.requiredDocuments || [];
+    const serviceDocs = documents[serviceKey] || {};
+    return reqs.length > 0 && reqs.every(docType => serviceDocs[docType]?.localUri || serviceDocs[docType]?.fileUrl);
+  };
+
+  /**
    * Check if current service is complete
    */
-  const isCurrentServiceComplete = () => {
-    const currentService = selectedServices[currentServiceIndex];
-    const requirements = getCurrentServiceRequirements();
-    const serviceDocs = documents[currentService] || {};
+  const isCurrentServiceComplete = () => isServiceComplete(selectedServices[currentServiceIndex]);
 
-    return requirements.every(docType => serviceDocs[docType]?.localUri || serviceDocs[docType]?.fileUrl);
+  /**
+   * Check if ALL selected services have all required documents uploaded
+   */
+  const areAllServicesComplete = () => {
+    return selectedServices.every(svc => submittedServices.has(svc) || isServiceComplete(svc));
+  };
+
+  /**
+   * Find first incomplete service (for navigation after error)
+   */
+  const findFirstIncompleteService = () => {
+    return selectedServices.findIndex(svc => !submittedServices.has(svc) && !isServiceComplete(svc));
   };
 
   /**
@@ -1193,6 +1215,22 @@ const ServiceApprovalsScreen = ({ navigation }) => {
     if (currentServiceIndex < selectedServices.length - 1) {
       setCurrentServiceIndex(prev => prev + 1);
     } else {
+      // On the last service — check ALL services before submitting
+      if (!areAllServicesComplete()) {
+        const incompleteIdx = findFirstIncompleteService();
+        if (incompleteIdx >= 0) {
+          const incompleteLabel = SERVICE_LABELS[selectedServices[incompleteIdx]] || selectedServices[incompleteIdx];
+          dialog(
+            'Missing Documents',
+            `Please upload all required documents for ${incompleteLabel} before submitting.`,
+            [{
+              text: 'Go There',
+              onPress: () => setCurrentServiceIndex(incompleteIdx),
+            }]
+          );
+        }
+        return;
+      }
       await handleSubmit();
     }
   };
@@ -1202,18 +1240,28 @@ const ServiceApprovalsScreen = ({ navigation }) => {
    */
   const handleSubmit = async () => {
     setSubmitting(true);
+    setUploading(true);
+
+    // Only submit services that haven't been successfully submitted yet
+    const pendingServices = selectedServices.filter(svc => !submittedServices.has(svc));
+    const total = pendingServices.length;
+    let failedService = null;
 
     try {
       const tokens = await getTokens();
 
-      for (const serviceCategory of selectedServices) {
+      for (let i = 0; i < total; i++) {
+        const serviceCategory = pendingServices[i];
+        const serviceLabel = SERVICE_LABELS[serviceCategory] || serviceCategory;
         const serviceDocs = documents[serviceCategory] || {};
         const uploadedDocs = [];
+        failedService = serviceCategory;
 
         // Upload staged documents
+        setSubmitProgress(`Uploading ${serviceLabel} (${i + 1}/${total})...`);
+
         for (const [docType, doc] of Object.entries(serviceDocs)) {
           if (doc?.isStaged && doc?.localUri) {
-            setUploading(true);
             const uploaded = await uploadToCloudinary(doc, serviceCategory, docType);
             uploadedDocs.push(uploaded);
           } else if (doc?.fileUrl) {
@@ -1227,9 +1275,10 @@ const ServiceApprovalsScreen = ({ navigation }) => {
             });
           }
         }
-        setUploading(false);
 
         // Submit to backend
+        setSubmitProgress(`Submitting ${serviceLabel} (${i + 1}/${total})...`);
+
         const response = await fetchWithRetry(
           `${API_BASE_URL}/api/verification/${providerId}/documents`,
           {
@@ -1249,8 +1298,12 @@ const ServiceApprovalsScreen = ({ navigation }) => {
 
         const result = await response.json();
         if (!result.success) {
-          throw new Error(result.error || 'Submission failed');
+          throw new Error(result.error || `Submission failed for ${serviceLabel}`);
         }
+
+        // Mark this service as successfully submitted (locked for this session)
+        setSubmittedServices(prev => new Set([...prev, serviceCategory]));
+        failedService = null;
       }
 
       dialog(
@@ -1263,10 +1316,22 @@ const ServiceApprovalsScreen = ({ navigation }) => {
       fetchData();
       setStep('list');
     } catch (error) {
-      dialog('Error', error.message || 'Failed to submit. Please try again.');
+      // Navigate to the failed service so user can fix and retry
+      if (failedService) {
+        const failedIdx = selectedServices.indexOf(failedService);
+        if (failedIdx >= 0) {
+          setCurrentServiceIndex(failedIdx);
+        }
+      }
+      const successCount = submittedServices.size;
+      const msg = successCount > 0
+        ? `${error.message}\n\n${successCount} service(s) were submitted successfully. Please fix the issue and retry the remaining.`
+        : (error.message || 'Failed to submit. Please try again.');
+      dialog('Submission Error', msg);
     } finally {
       setSubmitting(false);
       setUploading(false);
+      setSubmitProgress('');
     }
   };
 
@@ -1515,13 +1580,57 @@ const ServiceApprovalsScreen = ({ navigation }) => {
         </View>
       </View>
 
+      {/* Service Navigation Pills — tap to switch between selected services */}
+      {selectedServices.length > 1 && (
+        <View style={styles.servicePillsBar}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.servicePillsContainer}
+          >
+            {selectedServices.map((svc, idx) => {
+              const svcDocs = documents[svc] || {};
+              const svcReqs = categories.find(c => c.key === svc)?.requiredDocuments || [];
+              const uploaded = Object.values(svcDocs).filter(d => d?.localUri || d?.fileUrl).length;
+              const complete = uploaded === svcReqs.length && svcReqs.length > 0;
+              const isActive = idx === currentServiceIndex;
+
+              return (
+                <TouchableOpacity
+                  key={svc}
+                  style={[styles.servicePill, isActive && styles.servicePillActive, complete && !isActive && styles.servicePillComplete]}
+                  onPress={() => setCurrentServiceIndex(idx)}
+                  activeOpacity={0.7}
+                >
+                  {submittedServices.has(svc) ? (
+                    <MaterialIcon name="lock" size={14} color="#16A34A" style={{ marginRight: 5 }} />
+                  ) : complete && !isActive ? (
+                    <MaterialIcon name="check-circle" size={14} color="#22C55E" style={{ marginRight: 5 }} />
+                  ) : null}
+                  <Text style={[styles.servicePillText, isActive && styles.servicePillTextActive]} numberOfLines={1}>
+                    {SERVICE_LABELS[svc] || svc}
+                  </Text>
+                  {!complete && (
+                    <View style={[styles.servicePillBadge, isActive && styles.servicePillBadgeActive]}>
+                      <Text style={[styles.servicePillCount, isActive && styles.servicePillCountActive]}>
+                        {uploaded}/{svcReqs.length}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         {/* Service Header */}
         <View style={styles.uploadServiceHeader}>
           <View style={styles.uploadServiceIcon}>
             <MaterialIcon name="build" size={24} color={BRAND.secondary} />
           </View>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.uploadServiceTitle}>
               {SERVICE_LABELS[currentService] || currentService}
             </Text>
@@ -1554,24 +1663,25 @@ const ServiceApprovalsScreen = ({ navigation }) => {
           const hasDoc = doc?.localUri || doc?.fileUrl;
           const isImage = doc?.fileType?.includes('image') ||
             ['jpg', 'jpeg', 'png', 'webp'].some(t => doc?.fileType?.includes(t));
+          const isLocked = submittedServices.has(currentService);
 
           return (
-            <View key={docType} style={styles.uploadDocCard}>
+            <View key={docType} style={[styles.uploadDocCard, isLocked && { opacity: 0.7 }]}>
               <View style={styles.uploadDocHeader}>
                 <View style={styles.uploadDocHeaderLeft}>
                   <MaterialIcon
-                    name={hasDoc ? 'check-circle' : 'upload-file'}
+                    name={isLocked ? 'lock' : hasDoc ? 'check-circle' : 'upload-file'}
                     size={24}
-                    color={hasDoc ? '#22C55E' : '#9CA3AF'}
+                    color={isLocked ? '#16A34A' : hasDoc ? '#22C55E' : '#9CA3AF'}
                   />
                   <View>
                     <Text style={styles.uploadDocTitle}>
                       {DOCUMENT_LABELS[docType] || docType}
                     </Text>
-                    <Text style={styles.uploadDocRequired}>Required</Text>
+                    <Text style={styles.uploadDocRequired}>{isLocked ? 'Submitted' : 'Required'}</Text>
                   </View>
                 </View>
-                {hasDoc && (
+                {hasDoc && !isLocked && (
                   <TouchableOpacity
                     style={styles.uploadDocRemove}
                     onPress={() => removeDocument(currentService, docType)}
@@ -1612,7 +1722,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
                     </Text>
                   </View>
                 </View>
-              ) : (
+              ) : !isLocked ? (
                 <TouchableOpacity
                   style={styles.uploadDocButton}
                   onPress={() => pickDocument(currentService, docType)}
@@ -1621,42 +1731,51 @@ const ServiceApprovalsScreen = ({ navigation }) => {
                   <Text style={styles.uploadDocButtonText}>Tap to Upload</Text>
                   <Text style={styles.uploadDocButtonHint}>PDF, JPG, PNG (Max 5MB)</Text>
                 </TouchableOpacity>
-              )}
+              ) : null}
             </View>
           );
         })}
       </ScrollView>
 
-      {/* Uploading Overlay */}
-      {uploading && (
+      {/* Uploading/Submitting Overlay */}
+      {(uploading || submitting) && (
         <View style={styles.uploadingOverlay}>
           <ActivityIndicator size="large" color="#FFFFFF" />
-          <Text style={styles.uploadingText}>Uploading documents...</Text>
+          <Text style={styles.uploadingText}>{submitProgress || 'Processing...'}</Text>
+          <Text style={styles.uploadingHint}>Please don't close the app</Text>
         </View>
       )}
 
       <View style={[styles.footer, { bottom: 0, paddingBottom: Math.max(insets.bottom, 12) + 16 }]}>
-        <TouchableOpacity
-          style={[
-            styles.primaryButton,
-            (!isCurrentServiceComplete() || submitting) && styles.buttonDisabled,
-          ]}
-          onPress={handleNext}
-          disabled={!isCurrentServiceComplete() || submitting}
-        >
-          {submitting ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <>
-              <Text style={styles.primaryButtonText}>
-                {currentServiceIndex < selectedServices.length - 1
-                  ? 'Next Service'
-                  : 'Submit for Approval'}
-              </Text>
-              <MaterialIcon name="arrow-forward" size={20} color="#FFFFFF" />
-            </>
-          )}
-        </TouchableOpacity>
+        {submittedServices.has(currentService) ? (
+          // This service is already submitted — show locked state
+          <View style={styles.lockedServiceBanner}>
+            <MaterialIcon name="lock" size={18} color="#16A34A" />
+            <Text style={styles.lockedServiceText}>Submitted successfully</Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[
+              styles.primaryButton,
+              (!isCurrentServiceComplete() || submitting) && styles.buttonDisabled,
+            ]}
+            onPress={handleNext}
+            disabled={!isCurrentServiceComplete() || submitting}
+          >
+            {submitting ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Text style={styles.primaryButtonText}>
+                  {currentServiceIndex < selectedServices.length - 1
+                    ? 'Next Service'
+                    : 'Submit for Approval'}
+                </Text>
+                <MaterialIcon name="arrow-forward" size={20} color="#FFFFFF" />
+              </>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -1843,7 +1962,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 14,
     paddingTop: 10,
-    paddingBottom: 90,
+    paddingBottom: 120,
   },
 
   // Service Request Card - Refined with subtle depth
@@ -2472,10 +2591,74 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   uploadingText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#FFFFFF',
-    marginTop: 12,
+    marginTop: 16,
     fontWeight: '600',
+  },
+  uploadingHint: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 6,
+  },
+  // Service navigation pills
+  servicePillsBar: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  servicePillsContainer: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  servicePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+  },
+  servicePillActive: {
+    backgroundColor: '#EFF6FF',
+    borderColor: BRAND.secondary,
+  },
+  servicePillComplete: {
+    borderColor: '#BBF7D0',
+    backgroundColor: '#F0FDF4',
+  },
+  servicePillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+    lineHeight: 18,
+  },
+  servicePillTextActive: {
+    color: BRAND.secondary,
+  },
+  servicePillBadge: {
+    marginLeft: 6,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    minWidth: 24,
+    alignItems: 'center',
+  },
+  servicePillBadgeActive: {
+    backgroundColor: '#DBEAFE',
+  },
+  servicePillCount: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94A3B8',
+    lineHeight: 14,
+  },
+  servicePillCountActive: {
+    color: BRAND.secondary,
   },
 
   // Zoomable Image Viewer
@@ -2601,6 +2784,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopWidth: 0.5,
     borderTopColor: 'rgba(0,0,0,0.06)',
+  },
+  lockedServiceBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#F0FDF4',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  lockedServiceText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#16A34A',
   },
   primaryButton: {
     flexDirection: 'row',

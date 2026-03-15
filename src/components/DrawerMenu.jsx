@@ -27,6 +27,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDialog } from '../context/DialogContext';
+import { useLanguage } from '../context/LanguageContext';
 import Icon from './Icon';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
@@ -219,6 +220,7 @@ export const DrawerMenu = ({
 }) => {
   const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
+  const { t } = useLanguage();
 
   // StatusBar.currentHeight is reliable on Android even inside Modals.
   // insets.top returns 0 inside statusBarTranslucent Modals on Android.
@@ -294,27 +296,27 @@ export const DrawerMenu = ({
   const menuItems = useMemo(() => {
     if (isProvider) {
       return [
-        { id: 'home', iconName: 'home', label: 'Dashboard', screen: 'Home' },
-        { id: 'jobs', iconName: 'briefcase', label: 'My Jobs', tab: 'JobsTab' },
+        { id: 'home', iconName: 'home', label: t('drawer.dashboard'), screen: 'Home' },
+        { id: 'jobs', iconName: 'briefcase', label: t('drawer.myJobs'), tab: 'JobsTab' },
         { id: 'div1', type: 'divider' },
-        { id: 'settings', iconName: 'settings', label: 'Settings', screen: 'Settings' },
-        { id: 'earnings', iconName: 'wallet', label: 'Earnings', action: 'earnings' },
-        { id: 'help', iconName: 'help', label: 'Help & Support', action: 'help' },
+        { id: 'settings', iconName: 'settings', label: t('drawer.settings'), screen: 'Settings' },
+        { id: 'earnings', iconName: 'wallet', label: t('drawer.earnings'), action: 'earnings' },
+        { id: 'help', iconName: 'help', label: t('drawer.helpSupport'), action: 'help' },
         { id: 'div2', type: 'divider' },
-        { id: 'logout', iconName: 'logout', label: 'Logout', action: 'logout', danger: true },
+        { id: 'logout', iconName: 'logout', label: t('drawer.logout'), action: 'logout', danger: true },
       ];
     }
     return [
-      { id: 'home', iconName: 'home', label: 'Home', screen: 'Home' },
-      { id: 'history', iconName: 'history', label: 'Service History', screen: 'UserServiceHistory' },
+      { id: 'home', iconName: 'home', label: t('drawer.home'), screen: 'Home' },
+      { id: 'history', iconName: 'history', label: t('drawer.serviceHistory'), screen: 'UserServiceHistory' },
       { id: 'div1', type: 'divider' },
-      { id: 'settings', iconName: 'settings', label: 'Settings', screen: 'Settings' },
-      { id: 'help', iconName: 'help', label: 'Help & Support', action: 'help' },
-      { id: 'about', iconName: 'info', label: 'About FixHomi', action: 'about' },
+      { id: 'settings', iconName: 'settings', label: t('drawer.settings'), screen: 'Settings' },
+      { id: 'help', iconName: 'help', label: t('drawer.helpSupport'), action: 'help' },
+      { id: 'about', iconName: 'info', label: t('drawer.aboutFixhomi'), action: 'about' },
       { id: 'div2', type: 'divider' },
-      { id: 'logout', iconName: 'logout', label: 'Logout', action: 'logout', danger: true },
+      { id: 'logout', iconName: 'logout', label: t('drawer.logout'), action: 'logout', danger: true },
     ];
-  }, [isProvider]);
+  }, [isProvider, t]);
 
   // ── Handlers ──
   const handleClose = useCallback(() => {
@@ -344,19 +346,19 @@ export const DrawerMenu = ({
       }, 300);
     } else if (item.action === 'logout') {
       setTimeout(() => {
-        dialog('Logout', 'Are you sure you want to logout?', [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Logout', style: 'destructive', onPress: onLogout },
+        dialog(t('drawer.logout'), t('drawer.logoutConfirm'), [
+          { text: t('drawer.cancel'), style: 'cancel' },
+          { text: t('drawer.logout'), style: 'destructive', onPress: onLogout },
         ]);
       }, 300);
     } else if (item.action === 'help') {
       Linking.openURL('mailto:contact@fixhomi.com');
     } else if (item.action === 'earnings') {
-      dialog('Coming Soon', 'Earnings feature will be available soon!');
+      dialog(t('drawer.comingSoon'), t('drawer.earningsComingSoon'));
     } else if (item.action === 'about') {
-      dialog('FixHomi', 'Your trusted home services partner.\n\nVersion 1.5\n\n© 2026 FixHomi. All rights reserved.');
+      dialog('FixHomi', t('settings.aboutDialog', { version: '1.5' }));
     }
-  }, [onClose, userType, navigation, onLogout]);
+  }, [onClose, userType, navigation, onLogout, t]);
 
   const handleProfilePress = useCallback(() => {
     onClose();
@@ -435,19 +437,19 @@ export const DrawerMenu = ({
                     color={BRAND.white}
                     style={{ marginRight: 4 }}
                   />
-                  <Text style={styles.typeBadgeText}>{isProvider ? 'Provider' : 'User'}</Text>
+                  <Text style={styles.typeBadgeText}>{isProvider ? t('drawer.provider') : t('drawer.user')}</Text>
                 </View>
                 {isVerified && (
                   <View style={styles.verifiedBadge}>
                     <Icon name="check-circle" size={10} color="#86EFAC" style={{ marginRight: 3 }} />
-                    <Text style={styles.verifiedText}>Verified</Text>
+                    <Text style={styles.verifiedText}>{t('drawer.verified')}</Text>
                   </View>
                 )}
               </View>
 
               {/* View Profile link */}
               <View style={styles.viewProfileRow}>
-                <Text style={styles.viewProfileText}>View Profile</Text>
+                <Text style={styles.viewProfileText}>{t('drawer.viewProfile')}</Text>
                 <Icon name="chevron-right" size={14} color="rgba(255,255,255,0.55)" />
               </View>
             </TouchableOpacity>

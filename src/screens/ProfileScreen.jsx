@@ -140,27 +140,27 @@ const SectionHeader = React.memo(({ title }) => (
 /**
  * Info Row (Read-only)
  */
-const InfoRow = React.memo(({ label, value, iconName, verified, onVerify, isLoading }) => (
+const InfoRow = React.memo(({ label, value, iconName, verified, onVerify, isLoading, verifiedLabel, verifyLabel }) => (
   <View style={styles.infoRow}>
     <View style={styles.infoIconContainer}>
       <Icon name={iconName} size={20} color="#64748B" />
     </View>
     <View style={styles.infoContent}>
       <Text style={styles.infoLabel} numberOfLines={1} ellipsizeMode="tail">{label}</Text>
-      <Text style={styles.infoValue} numberOfLines={2} ellipsizeMode="tail">{value || 'Not set'}</Text>
+      <Text style={styles.infoValue} numberOfLines={2} ellipsizeMode="tail">{value}</Text>
     </View>
     {verified !== undefined && (
       verified ? (
         <View style={styles.verifiedBadge}>
           <Icon name="check" size={14} color="#10B981" />
-          <Text style={styles.verifiedText}>Verified</Text>
+          <Text style={styles.verifiedText}>{verifiedLabel || 'Verified'}</Text>
         </View>
       ) : (
         <TouchableOpacity style={styles.verifyButton} onPress={onVerify} disabled={isLoading}>
           {isLoading ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
-            <Text style={styles.verifyButtonText}>Verify</Text>
+            <Text style={styles.verifyButtonText}>{verifyLabel || 'Verify'}</Text>
           )}
         </TouchableOpacity>
       )
@@ -171,14 +171,14 @@ const InfoRow = React.memo(({ label, value, iconName, verified, onVerify, isLoad
 /**
  * Editable Field
  */
-const EditableField = React.memo(({ label, value, onChangeText, placeholder, editable = true, locked = false, lockMessage, keyboardType = 'default', maxLength, containerStyle }) => (
+const EditableField = React.memo(({ label, value, onChangeText, placeholder, editable = true, locked = false, lockMessage, lockedLabel, keyboardType = 'default', maxLength, containerStyle }) => (
   <View style={[styles.fieldContainer, containerStyle]}>
     <View style={styles.fieldLabelRow}>
       <Text style={styles.fieldLabel}>{label}</Text>
       {locked && (
         <View style={styles.lockedBadge}>
           <MaterialIcon name="lock" size={12} color="#6B7280" />
-          <Text style={styles.lockedBadgeText}>Locked</Text>
+          <Text style={styles.lockedBadgeText}>{lockedLabel || 'Locked'}</Text>
         </View>
       )}
     </View>
@@ -450,7 +450,7 @@ const ProfileScreen = ({ navigation, route }) => {
       ].filter(Boolean).join('\n');
 
       dialog(
-        'Location Detected',
+        t('profile.detectedLocation'),
         `We found the following from your current location:\n\n${confirmLines}\n\nWould you like to use this?`,
         [
           { text: t('common.cancel'), style: 'cancel' },
@@ -532,7 +532,7 @@ const ProfileScreen = ({ navigation, route }) => {
       address: displayData?.address || '',
       city: displayData?.city || '',
       pincode: displayData?.pincode || '',
-      experience: String(displayData?.experience || ''),
+      experience: displayData?.experience != null && displayData.experience !== '' ? String(displayData.experience).trim() : '',
     };
     setFormData(initial);
     originalFormData.current = initial;
@@ -754,26 +754,26 @@ const ProfileScreen = ({ navigation, route }) => {
           );
         } else if (errorCode === 'NAME_LOCKED') {
           dialog(
-            'Name Locked',
-            'Your name has been locked after Aadhaar verification and cannot be changed. This ensures your profile matches your verified identity.',
-            [{ text: 'OK' }]
+            t('profile.nameLocked'),
+            t('profile.nameLockedMsg'),
+            [{ text: t('common.ok') }]
           );
         } else if (result.error?.isTransient) {
           // Transient network error — offer retry
           dialog(
-            'Connection Issue',
-            'We\'re having trouble connecting. Please try again.',
+            t('profile.connectionIssue'),
+            t('profile.connectionIssueMsg'),
             [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Retry', onPress: () => performSave(userId) },
+              { text: t('common.cancel'), style: 'cancel' },
+              { text: t('common.retry') || 'Retry', onPress: () => performSave(userId) },
             ]
           );
         } else {
-          dialog('Couldn\'t Save', getErrorMessage(result.error, 'Your changes couldn\'t be saved. Please try again.'));
+          dialog(t('profile.couldntSave'), getErrorMessage(result.error, t('profile.couldntSaveMsg')));
         }
       }
     } catch (error) {
-      dialog('Couldn\'t Save', 'Your changes couldn\'t be saved. Please try again.');
+      dialog(t('profile.couldntSave'), t('profile.couldntSaveMsg'));
     } finally {
       setSaving(false);
     }
@@ -784,24 +784,24 @@ const ProfileScreen = ({ navigation, route }) => {
    */
   const handlePhoneVerify = async () => {
     if (!displayData?.phone) {
-      dialog('Error', 'Add a phone number to your profile first.');
+      dialog(t('common.error'), t('profile.addPhoneFirst'));
       return;
     }
 
     setVerifyingPhone(true);
     try {
       const result = await sendPhoneVerificationOtp(displayData.phone);
-      
+
       if (result.success) {
         setPhoneOtpSent(true);
         setOtpCountdown(300); // 5 minutes
         otpPhoneRef.current = formData.phone; // track which phone the OTP was sent to (raw 10 digits)
-        dialog('OTP Sent', `Verification code sent to ${displayData.phone}`);
+        dialog(t('profile.otpSent'), t('profile.otpSentMsg', { phone: displayData.phone }));
       } else {
-        dialog('Error', getErrorMessage(result.error, 'Couldn\'t send verification code. Please try again.'));
+        dialog(t('common.error'), getErrorMessage(result.error, t('profile.otpSendFail')));
       }
     } catch (error) {
-      dialog('Error', 'Couldn\'t send verification code. Please try again.');
+      dialog(t('common.error'), t('profile.otpSendFail'));
     } finally {
       setVerifyingPhone(false);
     }
@@ -820,7 +820,7 @@ const ProfileScreen = ({ navigation, route }) => {
         Animated.timing(otpShakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
         Animated.timing(otpShakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
       ]).start();
-      dialog('Error', 'Please enter a valid 6-digit OTP');
+      dialog(t('common.error'), t('profile.invalidOtp'));
       return;
     }
 
@@ -828,9 +828,9 @@ const ProfileScreen = ({ navigation, route }) => {
     try {
       // Java Auth only needs OTP - phone is extracted from JWT token
       const result = await verifyPhoneOtp(otpCode);
-      
+
       if (result.success) {
-        dialog('Success', 'Phone number verified successfully!');
+        dialog(t('common.success'), t('profile.phoneVerifiedSuccess'));
         setPhoneOtpSent(false);
         setPhoneOtp(Array(6).fill(''));
         setOtpCountdown(0);
@@ -845,10 +845,10 @@ const ProfileScreen = ({ navigation, route }) => {
         ]).start();
         setPhoneOtp(Array(6).fill(''));
         otpInputRefs.current[0]?.focus();
-        dialog('Error', getErrorMessage(result.error, 'Invalid OTP'));
+        dialog(t('common.error'), getErrorMessage(result.error, t('profile.invalidOtp')));
       }
     } catch (error) {
-      dialog('Error', 'Verification didn\'t go through. Please try again.');
+      dialog(t('common.error'), t('profile.verificationFailed'));
     } finally {
       setVerifyingPhone(false);
     }
@@ -901,18 +901,18 @@ const ProfileScreen = ({ navigation, route }) => {
    */
   const handleEmailVerify = async () => {
     if (!displayData?.email) {
-      dialog('Error', 'No email found');
+      dialog(t('common.error'), t('profile.emailNoEmail'));
       return;
     }
 
     setVerifyingEmail(true);
     try {
       const result = await sendEmailVerification();
-      
+
       if (result.success) {
         dialog(
-          '✅ Verification Email Sent',
-          `Please check your email at ${displayData.email} and click the verification link.\n\nAlso check your spam/junk folder if you don't see it.`
+          t('profile.emailSent'),
+          t('profile.emailSentMsg', { email: displayData.email })
         );
       } else {
         // Parse rate-limit errors with remaining seconds
@@ -932,21 +932,21 @@ const ProfileScreen = ({ navigation, route }) => {
             const secs = retrySeconds % 60;
             const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
             dialog(
-              '⏳ Email Already Sent',
+              t('profile.emailAlreadySent'),
               `A verification email was recently sent to ${displayData.email}.\n\nPlease check your inbox (and spam folder). You can request another in ${timeStr}.`
             );
           } else {
             dialog(
-              '⏳ Email Already Sent',
+              t('profile.emailAlreadySent'),
               `A verification email was recently sent to ${displayData.email}.\n\nPlease check your inbox (and spam folder) and wait a couple of minutes before requesting another.`
             );
           }
         } else {
-          dialog('Error', getErrorMessage(result.error, 'Couldn\'t send verification email. Please try again.'));
+          dialog(t('common.error'), getErrorMessage(result.error, t('profile.emailSendFail')));
         }
       }
     } catch (error) {
-      dialog('Error', 'Couldn\'t send verification email. Please try again.');
+      dialog(t('common.error'), t('profile.emailSendFail'));
     } finally {
       setVerifyingEmail(false);
     }
@@ -1011,7 +1011,7 @@ const ProfileScreen = ({ navigation, route }) => {
 
       if (result.didCancel) return;
       if (result.errorCode) {
-        dialog('Error', 'Couldn\'t access your photos. Please check app permissions.');
+        dialog(t('common.error'), t('profile.photoAccessFail'));
         return;
       }
 
@@ -1046,7 +1046,7 @@ const ProfileScreen = ({ navigation, route }) => {
 
       if (result.didCancel) return;
       if (result.errorCode) {
-        dialog('Error', 'Couldn\'t access your photos. Please check app permissions.');
+        dialog(t('common.error'), t('profile.photoAccessFail'));
         return;
       }
 
@@ -1070,7 +1070,7 @@ const ProfileScreen = ({ navigation, route }) => {
       const uploadResult = await uploadToCloudinary(imageUri);
       
       if (!uploadResult.success) {
-        dialog('Error', 'Couldn\'t upload your photo. Please try again.');
+        dialog(t('common.error'), t('profile.photoUploadFail'));
         return;
       }
 
@@ -1083,12 +1083,12 @@ const ProfileScreen = ({ navigation, route }) => {
         if (userId) {
           await refreshProfile(userType, userId, { force: true });
         }
-        dialog('Success', 'Profile picture updated!');
+        dialog(t('common.success'), t('profile.photoUpdated'));
       } else {
-        dialog('Error', 'Photo uploaded but couldn\'t save. Please try again.');
+        dialog(t('common.error'), t('profile.photoSaveFail'));
       }
     } catch (error) {
-      dialog('Error', 'Something unexpected happened. Please try again.');
+      dialog(t('common.error'), t('common.somethingWentWrong'));
     } finally {
       setUploadingPicture(false);
     }
@@ -1108,11 +1108,11 @@ const ProfileScreen = ({ navigation, route }) => {
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Icon name="arrow_back" size={22} color="#0F172A" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profile</Text>
+        <Text style={styles.headerTitle}>{t('profile.title')}</Text>
         {!isEditing ? (
           <TouchableOpacity style={styles.editButton} onPress={() => setIsEditing(true)}>
             <MaterialIcon name="edit-note" size={20} color="#2b76bc" />
-            <Text style={styles.editButtonText}>Edit</Text>
+            <Text style={styles.editButtonText}>{t('profile.edit') || 'Edit'}</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -1120,7 +1120,7 @@ const ProfileScreen = ({ navigation, route }) => {
             onPress={() => setIsEditing(false)}
           >
             <MaterialIcon name="undo" size={18} color="#EF4444" />
-            <Text style={styles.cancelButtonText}>Discard</Text>
+            <Text style={styles.cancelButtonText}>{t('profile.discard')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -1185,14 +1185,14 @@ const ProfileScreen = ({ navigation, route }) => {
             <View style={styles.profileCardBody}>
               <View style={[styles.profileBodyAccent, isProvider ? { backgroundColor: '#FFF7ED' } : { backgroundColor: '#EFF6FF' }]} />
               <View style={styles.profileNameRow}>
-                <Text style={styles.profileName} numberOfLines={2} ellipsizeMode="tail">{displayData?.fullName || 'User'}</Text>
+                <Text style={styles.profileName} numberOfLines={2} ellipsizeMode="tail">{displayData?.fullName || t('profile.userFallback')}</Text>
                 {isProvider && !premiumLoaded && (
                   <SharedShimmerBlock width={55} height={22} borderRadius={11} shimmerAnim={shimmerAnim} />
                 )}
                 {isProvider && premiumLoaded && isPremiumActive && (
                   <View style={styles.proBadge}>
                     <MaterialIcon name="workspace-premium" size={14} color="#F59E0B" />
-                    <Text style={styles.proBadgeText}>PRO</Text>
+                    <Text style={styles.proBadgeText}>{t('profile.proBadge')}</Text>
                   </View>
                 )}
               </View>
@@ -1211,7 +1211,7 @@ const ProfileScreen = ({ navigation, route }) => {
                 <View style={[styles.typeBadge, isProvider && styles.typeBadgeProvider]}>
                   <Icon name={isProvider ? 'provider' : 'user'} size={13} color={isProvider ? '#f67c16' : '#2b76bc'} />
                   <Text style={[styles.typeBadgeText, isProvider && styles.typeBadgeTextProvider]} numberOfLines={1}>
-                    {isProvider ? 'Service Provider' : 'User'}
+                    {isProvider ? t('profile.serviceProvider') : t('profile.user')}
                   </Text>
                 </View>
               </View>
@@ -1227,7 +1227,7 @@ const ProfileScreen = ({ navigation, route }) => {
                     styles.verificationLabel,
                     displayData?.isPhoneVerified && styles.verificationLabelVerified
                   ]} numberOfLines={1}>
-                    {displayData?.isPhoneVerified ? 'Phone ✓' : 'Phone'}
+                    {displayData?.isPhoneVerified ? t('profile.phoneVerified') : t('profile.phoneUnverified')}
                   </Text>
                 </View>
                 <View style={[
@@ -1239,7 +1239,7 @@ const ProfileScreen = ({ navigation, route }) => {
                     styles.verificationLabel,
                     displayData?.isEmailVerified && styles.verificationLabelVerified
                   ]} numberOfLines={1}>
-                    {displayData?.isEmailVerified ? 'Email ✓' : 'Email'}
+                    {displayData?.isEmailVerified ? t('profile.emailVerified') : t('profile.emailUnverified')}
                   </Text>
                 </View>
                 {isProvider && (
@@ -1255,7 +1255,7 @@ const ProfileScreen = ({ navigation, route }) => {
                         styles.verificationLabel,
                         isAadhaarVerified && styles.verificationLabelVerified
                       ]} numberOfLines={1}>
-                        {isAadhaarVerified ? 'KYC ✓' : 'KYC'}
+                        {isAadhaarVerified ? t('profile.kycVerified') : t('profile.kycUnverified')}
                       </Text>
                     </View>
                   )
@@ -1266,7 +1266,7 @@ const ProfileScreen = ({ navigation, route }) => {
                 <View style={styles.verifyWarning}>
                   <Icon name="warning" size={15} color="#f67c16" />
                   <Text style={styles.verifyWarningText} numberOfLines={2} ellipsizeMode="tail">
-                    Verify phone & email to unlock all features
+                    {t('profile.verifyWarning')}
                   </Text>
                 </View>
               )}
@@ -1288,7 +1288,7 @@ const ProfileScreen = ({ navigation, route }) => {
               <View style={styles.imagePickerModal} onStartShouldSetResponder={() => true}>
                 {/* Drag indicator */}
                 <View style={styles.imagePickerDragBar} />
-                <Text style={styles.imagePickerTitle}>Profile Photo</Text>
+                <Text style={styles.imagePickerTitle}>{t('profile.profilePhoto')}</Text>
 
                 {/* View Photo option — only if photo exists */}
                 {displayData?.profilePicture?.url && (
@@ -1303,8 +1303,8 @@ const ProfileScreen = ({ navigation, route }) => {
                       <MaterialIcon name="visibility" size={22} color="#2b76bc" />
                     </View>
                     <View style={styles.imagePickerOptionContent}>
-                      <Text style={styles.imagePickerOptionText}>View Photo</Text>
-                      <Text style={styles.imagePickerOptionHint}>See your profile picture</Text>
+                      <Text style={styles.imagePickerOptionText}>{t('profile.viewPhoto')}</Text>
+                      <Text style={styles.imagePickerOptionHint}>{t('profile.viewPhotoHint')}</Text>
                     </View>
                   </TouchableOpacity>
                 )}
@@ -1314,8 +1314,8 @@ const ProfileScreen = ({ navigation, route }) => {
                     <MaterialIcon name="camera-alt" size={22} color="#16A34A" />
                   </View>
                   <View style={styles.imagePickerOptionContent}>
-                    <Text style={styles.imagePickerOptionText}>Take Photo</Text>
-                    <Text style={styles.imagePickerOptionHint}>Use your camera</Text>
+                    <Text style={styles.imagePickerOptionText}>{t('profile.takePhoto')}</Text>
+                    <Text style={styles.imagePickerOptionHint}>{t('profile.takePhotoHint')}</Text>
                   </View>
                 </TouchableOpacity>
                 
@@ -1324,8 +1324,8 @@ const ProfileScreen = ({ navigation, route }) => {
                     <MaterialIcon name="photo-library" size={22} color="#EA580C" />
                   </View>
                   <View style={styles.imagePickerOptionContent}>
-                    <Text style={styles.imagePickerOptionText}>Choose from Gallery</Text>
-                    <Text style={styles.imagePickerOptionHint}>Pick from your photos</Text>
+                    <Text style={styles.imagePickerOptionText}>{t('profile.chooseGallery')}</Text>
+                    <Text style={styles.imagePickerOptionHint}>{t('profile.chooseGalleryHint')}</Text>
                   </View>
                 </TouchableOpacity>
                 
@@ -1333,7 +1333,7 @@ const ProfileScreen = ({ navigation, route }) => {
                   style={styles.imagePickerCancelBtn}
                   onPress={() => setShowImagePickerModal(false)}
                 >
-                  <Text style={styles.imagePickerCancelText}>Cancel</Text>
+                  <Text style={styles.imagePickerCancelText}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>
@@ -1401,19 +1401,20 @@ const ProfileScreen = ({ navigation, route }) => {
           {/* Edit Mode - Personal Information */}
           {isEditing ? (
             <View style={styles.section}>
-              <SectionHeader title="Edit Profile" />
-              
+              <SectionHeader title={t('profile.editProfile')} />
+
               <EditableField
-                label="Full Name"
+                label={t('profile.fullNameLabel')}
                 value={formData.fullName}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, fullName: text }))}
-                placeholder="Enter your full name"
+                placeholder={t('profile.fullNamePlaceholder')}
                 locked={isProvider && isNameLocked}
+                lockedLabel={t('profile.locked')}
                 lockMessage={isNameLocked ? `Verified as "${aadhaarName || formData.fullName}" via Aadhaar` : undefined}
               />
 
               <PhoneInput
-                label="Phone Number"
+                label={t('profile.phoneLabel')}
                 value={formData.phone}
                 onChangeText={(text) => setFormData(prev => ({ ...prev, phone: text }))}
               />
@@ -1423,14 +1424,14 @@ const ProfileScreen = ({ navigation, route }) => {
                 <View style={styles.phoneChangeWarning}>
                   <MaterialIcon name="warning" size={16} color="#F59E0B" />
                   <Text style={styles.phoneChangeWarningText}>
-                    Changing your phone number will reset your phone verification. You'll need to re-verify via OTP.
+                    {t('profile.phoneChangeWarning')}
                   </Text>
                 </View>
               )}
 
               {/* === Location Section Header with Detect Button === */}
               <View style={styles.locationSectionHeader}>
-                <Text style={styles.locationSectionTitle}>Location Details</Text>
+                <Text style={styles.locationSectionTitle}>{t('profile.locationDetails')}</Text>
                 <TouchableOpacity
                   style={[styles.detectLocationBtn, detectingLocation && styles.detectLocationBtnDisabled]}
                   onPress={handleDetectLocation}
@@ -1443,7 +1444,7 @@ const ProfileScreen = ({ navigation, route }) => {
                     <MaterialIcon name="my-location" size={16} color="#FFFFFF" />
                   )}
                   <Text style={styles.detectLocationBtnText}>
-                    {detectingLocation ? 'Detecting...' : 'Detect My Location'}
+                    {detectingLocation ? t('profile.detectingLocation') : t('profile.detectMyLocation')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -1451,8 +1452,8 @@ const ProfileScreen = ({ navigation, route }) => {
               {/* Address — Mapbox Geocoding powered search */}
               <AddressAutocomplete
                 value={formData.address}
-                label="Address"
-                placeholder="Search your address (e.g., Satyanarayan Layout)..."
+                label={t('profile.addressLabel')}
+                placeholder={t('profile.addressPlaceholder')}
                 onSelectAddress={({ address, city, pincode }) => {
                   setFormData(prev => ({
                     ...prev,
@@ -1468,8 +1469,8 @@ const ProfileScreen = ({ navigation, route }) => {
                   {/* City — Mapbox city search */}
                   <CityAutocomplete
                     value={formData.city}
-                    label="City"
-                    placeholder="Search city..."
+                    label={t('profile.cityLabel')}
+                    placeholder={t('profile.cityPlaceholder')}
                     onSelectCity={({ city, pincode }) => {
                       setFormData(prev => ({
                         ...prev,
@@ -1481,10 +1482,10 @@ const ProfileScreen = ({ navigation, route }) => {
                 </View>
                 <View style={styles.halfField}>
                   <EditableField
-                    label="Pincode"
+                    label={t('profile.pincodeLabel')}
                     value={formData.pincode}
                     onChangeText={(text) => setFormData(prev => ({ ...prev, pincode: text }))}
-                    placeholder="Pincode"
+                    placeholder={t('profile.pincodePlaceholder')}
                     keyboardType="numeric"
                     maxLength={6}
                     containerStyle={{ marginBottom: 0 }}
@@ -1496,13 +1497,13 @@ const ProfileScreen = ({ navigation, route }) => {
               {isProvider && (
                 <View style={styles.categoriesSection}>
                   <View style={styles.categoriesSectionHeader}>
-                    <Text style={styles.fieldLabel}>Verified Service Categories</Text>
+                    <Text style={styles.fieldLabel}>{t('profile.verifiedCategories')}</Text>
                     <View style={styles.verifiedBadgeSmall}>
                       <Icon name="check_circle" size={14} color="#2b76bc" />
                     </View>
                   </View>
                   <Text style={styles.categoriesHint}>
-                    Service categories require approval via Request Service Approvals
+                    {t('profile.categoriesHint')}
                   </Text>
                   
                   {(displayData?.verifiedServiceCategories?.length > 0) ? (
@@ -1524,7 +1525,7 @@ const ProfileScreen = ({ navigation, route }) => {
                   ) : (
                     <View style={styles.noCategoriesWarning}>
                       <Icon name="info" size={16} color="#f67c16" />
-                      <Text style={styles.noCategoriesText}>No verified services yet</Text>
+                      <Text style={styles.noCategoriesText}>{t('profile.noVerifiedServices')}</Text>
                     </View>
                   )}
                   
@@ -1535,8 +1536,8 @@ const ProfileScreen = ({ navigation, route }) => {
                     <Icon name="document" size={18} color="#2b76bc" />
                     <Text style={styles.documentVerificationLinkText}>
                       {(displayData?.verifiedServiceCategories?.length > 0)
-                        ? 'Add More Services'
-                        : 'Get Verified for Services'}
+                        ? t('profile.addMoreServices')
+                        : t('profile.getVerified')}
                     </Text>
                     <Icon name="arrow-forward" size={16} color="#2b76bc" />
                   </TouchableOpacity>
@@ -1546,14 +1547,14 @@ const ProfileScreen = ({ navigation, route }) => {
               {/* Experience - Provider Only */}
               {isProvider && (
                 <EditableField
-                  label="Years of Experience"
+                  label={t('profile.experienceLabel')}
                   value={formData.experience}
                   onChangeText={(text) => {
                     // Allow only digits (numeric input)
                     const numericOnly = text.replace(/[^0-9]/g, '');
                     setFormData(prev => ({ ...prev, experience: numericOnly }));
                   }}
-                  placeholder="e.g., 5"
+                  placeholder={t('profile.experiencePlaceholder')}
                   keyboardType="numeric"
                   maxLength={2}
                 />
@@ -1562,7 +1563,7 @@ const ProfileScreen = ({ navigation, route }) => {
               {/* Phone & Email - Read Only */}
               <View style={styles.readOnlySection}>
                 <Text style={styles.readOnlyNote}>
-                  <Icon name="info" size={14} color="#6B7280" /> Phone and email cannot be changed
+                  <Icon name="info" size={14} color="#6B7280" /> {t('profile.readOnlyNote')}
                 </Text>
               </View>
 
@@ -1576,37 +1577,37 @@ const ProfileScreen = ({ navigation, route }) => {
                 ) : (
                   <>
                     <Icon name="check" size={20} color="#FFFFFF" />
-                    <Text style={styles.saveButtonText}>Save Changes</Text>
+                    <Text style={styles.saveButtonText}>{t('profile.saveChanges')}</Text>
                   </>
                 )}
               </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.section}>
-              <SectionHeader title="Personal Information" />
-              
+              <SectionHeader title={t('profile.personalInfo')} />
+
               <InfoRow
                 iconName="user"
-                label="Full Name"
+                label={t('profile.fullNameInfo')}
                 value={displayData?.fullName}
               />
-              
+
               <InfoRow
                 iconName="location"
-                label="Address"
-                value={displayData?.address || 'Not set'}
+                label={t('profile.addressInfo')}
+                value={displayData?.address || t('profile.notSet')}
               />
-              
+
               <InfoRow
                 iconName="location"
-                label="City"
-                value={displayData?.city || 'Not set'}
+                label={t('profile.cityInfo')}
+                value={displayData?.city || t('profile.notSet')}
               />
-              
+
               <InfoRow
                 iconName="location"
-                label="Pincode"
-                value={displayData?.pincode || 'Not set'}
+                label={t('profile.pincodeInfo')}
+                value={displayData?.pincode || t('profile.notSet')}
               />
               
               {isProvider && (
@@ -1618,14 +1619,14 @@ const ProfileScreen = ({ navigation, route }) => {
                         <Icon name="services" size={20} color="#6B7280" />
                       </View>
                       <View style={styles.infoContent}>
-                        <Text style={styles.infoLabel}>Your Services</Text>
+                        <Text style={styles.infoLabel}>{t('profile.yourServices')}</Text>
                         
                         {/* Verified Services */}
                         {(displayData?.verifiedServiceCategories?.length > 0) && (
                           <>
                             <View style={styles.servicesLabelRow}>
                               <Icon name="verified" size={12} color="#2b76bc" />
-                              <Text style={styles.servicesLabelVerified}>Verified</Text>
+                              <Text style={styles.servicesLabelVerified}>{t('profile.verifiedLabel')}</Text>
                             </View>
                             <View style={styles.categoriesDisplayGrid}>
                               {displayData.verifiedServiceCategories.map((catId) => (
@@ -1647,7 +1648,7 @@ const ProfileScreen = ({ navigation, route }) => {
                           <>
                             <View style={[styles.servicesLabelRow, { marginTop: 8 }]}>
                               <Icon name="clock" size={12} color="#f67c16" />
-                              <Text style={styles.servicesLabelPending}>Pending Approval</Text>
+                              <Text style={styles.servicesLabelPending}>{t('profile.pendingApproval')}</Text>
                             </View>
                             <View style={styles.categoriesDisplayGrid}>
                               {displayData.serviceCategories
@@ -1672,7 +1673,7 @@ const ProfileScreen = ({ navigation, route }) => {
                             onPress={() => navigation.navigate('DocumentVerification')}
                           >
                             <Icon name="document" size={16} color="#2b76bc" />
-                            <Text style={styles.getVerifiedButtonText}>Get Verified for Services</Text>
+                            <Text style={styles.getVerifiedButtonText}>{t('profile.getVerified')}</Text>
                           </TouchableOpacity>
                         )}
                         
@@ -1684,7 +1685,7 @@ const ProfileScreen = ({ navigation, route }) => {
                             onPress={() => navigation.navigate('DocumentVerification')}
                           >
                             <Icon name="add-circle" size={14} color="#2b76bc" />
-                            <Text style={styles.addMoreServicesText}>Add More Services</Text>
+                            <Text style={styles.addMoreServicesText}>{t('profile.addMoreServices')}</Text>
                           </TouchableOpacity>
                         )}
                       </View>
@@ -1692,15 +1693,15 @@ const ProfileScreen = ({ navigation, route }) => {
                   </View>
                   <InfoRow
                     iconName="star"
-                    label="Rating"
-                    value={displayData?.rating ? `${displayData.rating.toFixed(1)} / 5.0` : 'No ratings yet'}
+                    label={t('profile.ratingLabel')}
+                    value={displayData?.rating ? t('profile.ratingValue', { rating: displayData.rating.toFixed(1) }) : t('profile.noRatings')}
                   />
                   <InfoRow
                     iconName="briefcase"
-                    label="Experience"
-                    value={displayData?.experience 
-                      ? `${displayData.experience} year${displayData.experience === '1' || displayData.experience === 1 ? '' : 's'}` 
-                      : 'Not set'}
+                    label={t('profile.experienceInfo')}
+                    value={displayData?.experience && Number(displayData.experience) > 0
+                      ? `${displayData.experience} ${Number(displayData.experience) === 1 ? 'year' : 'years'}`
+                      : t('profile.notSet')}
                   />
                   
                   {/* Portfolio Section - Only for Photographer/Influencer */}
@@ -1712,9 +1713,9 @@ const ProfileScreen = ({ navigation, route }) => {
                           <MaterialIcon name="collections" size={20} color="#7C3AED" />
                         </View>
                         <View style={styles.portfolioTitleContainer}>
-                          <Text style={styles.portfolioTitle}>Portfolio & Social Links</Text>
+                          <Text style={styles.portfolioTitle}>{t('profile.portfolioTitle')}</Text>
                           <Text style={styles.portfolioSubtitle}>
-                            Showcase your work to attract more clients
+                            {t('profile.portfolioSubtitle')}
                           </Text>
                         </View>
                       </View>
@@ -1755,10 +1756,10 @@ const ProfileScreen = ({ navigation, route }) => {
                                   <MaterialIcon name="music-note" size={14} color="#7C3AED" />
                                 </View>
                               )}
-                              <Text style={styles.portfolioEditText}>Edit Links</Text>
+                              <Text style={styles.portfolioEditText}>{t('profile.editLinks')}</Text>
                             </View>
                           ) : (
-                            <Text style={styles.portfolioAddText}>Add your portfolio links</Text>
+                            <Text style={styles.portfolioAddText}>{t('profile.addPortfolioLinks')}</Text>
                           )}
                         </View>
                         <MaterialIcon name="chevron-right" size={20} color="#9CA3AF" />
@@ -1767,7 +1768,7 @@ const ProfileScreen = ({ navigation, route }) => {
                       {/* Bio Preview */}
                       {displayData?.bio && (
                         <View style={styles.bioPreview}>
-                          <Text style={styles.bioPreviewLabel}>Bio</Text>
+                          <Text style={styles.bioPreviewLabel}>{t('profile.bioLabel')}</Text>
                           <Text style={styles.bioPreviewText} numberOfLines={2}>
                             {displayData.bio}
                           </Text>
@@ -1777,7 +1778,7 @@ const ProfileScreen = ({ navigation, route }) => {
                       {/* Specializations Preview */}
                       {displayData?.specializations?.length > 0 && (
                         <View style={styles.specializationsPreview}>
-                          <Text style={styles.specializationsLabel}>Specializations</Text>
+                          <Text style={styles.specializationsLabel}>{t('profile.specializationsLabel')}</Text>
                           <View style={styles.specializationsChips}>
                             {displayData.specializations.slice(0, 3).map((spec, index) => (
                               <View key={index} style={styles.specializationChip}>
@@ -1786,7 +1787,7 @@ const ProfileScreen = ({ navigation, route }) => {
                             ))}
                             {displayData.specializations.length > 3 && (
                               <Text style={styles.moreSpecializations}>
-                                +{displayData.specializations.length - 3} more
+                                {t('profile.moreSpecializations', { n: displayData.specializations.length - 3 })}
                               </Text>
                             )}
                           </View>
@@ -1802,12 +1803,12 @@ const ProfileScreen = ({ navigation, route }) => {
           {/* Verification Section — Users (below profile details) */}
           {!isProvider && (
             <View style={styles.section}>
-              <SectionHeader title="Verification" />
+              <SectionHeader title={t('profile.verification') || 'Verification'} />
 
               <InfoRow
                 iconName="phone"
-                label="Phone Number"
-                value={displayData?.phone || 'Not set'}
+                label={t('profile.phoneLabel')}
+                value={displayData?.phone || t('profile.notSet')}
                 verified={displayData?.isPhoneVerified}
                 onVerify={handlePhoneVerify}
                 isLoading={verifyingPhone && !phoneOtpSent}
@@ -1816,7 +1817,7 @@ const ProfileScreen = ({ navigation, route }) => {
               {/* Phone OTP Input — Modern 6-box design */}
               {phoneOtpSent && (
                 <View style={styles.otpSectionModern}>
-                  <Text style={styles.otpSectionLabel}>Enter the 6-digit code</Text>
+                  <Text style={styles.otpSectionLabel}>{t('profile.enterOtp')}</Text>
                   <Animated.View style={[
                     styles.otpBoxesRow,
                     { transform: [{ translateX: otpShakeAnim }] }
@@ -1857,11 +1858,11 @@ const ProfileScreen = ({ navigation, route }) => {
                   </Animated.View>
                   {otpCountdown > 0 && (
                     <Text style={styles.otpTimerText}>
-                      Code expires in {Math.floor(otpCountdown / 60)}:{String(otpCountdown % 60).padStart(2, '0')}
+                      {t('profile.otpTimer', { time: `${Math.floor(otpCountdown / 60)}:${String(otpCountdown % 60).padStart(2, '0')}` })}
                     </Text>
                   )}
                   {otpCountdown <= 0 && phoneOtpSent && (
-                    <Text style={styles.otpExpiredText}>Code expired. Please request a new one.</Text>
+                    <Text style={styles.otpExpiredText}>{t('profile.otpExpiredText')}</Text>
                   )}
                   <TouchableOpacity
                     style={[
@@ -1877,7 +1878,7 @@ const ProfileScreen = ({ navigation, route }) => {
                     ) : (
                       <View style={styles.otpVerifyButtonContent}>
                         <MaterialIcon name="verified" size={18} color="#FFFFFF" />
-                        <Text style={styles.otpVerifyButtonText}>Verify</Text>
+                        <Text style={styles.otpVerifyButtonText}>{t('profile.verifyBtn')}</Text>
                       </View>
                     )}
                   </TouchableOpacity>
@@ -1887,7 +1888,7 @@ const ProfileScreen = ({ navigation, route }) => {
               <InfoRow
                 iconName="email"
                 label="Email"
-                value={displayData?.email || 'Not set'}
+                value={displayData?.email || t('profile.notSet')}
                 verified={displayData?.isEmailVerified}
                 onVerify={handleEmailVerify}
                 isLoading={verifyingEmail}
@@ -1898,12 +1899,12 @@ const ProfileScreen = ({ navigation, route }) => {
           {/* Verification Section — Providers (below profile details) */}
           {isProvider && (
             <View style={styles.section}>
-              <SectionHeader title="Verification" />
+              <SectionHeader title={t('profile.verification') || 'Verification'} />
 
               <InfoRow
                 iconName="phone"
-                label="Phone Number"
-                value={displayData?.phone || 'Not set'}
+                label={t('profile.phoneLabel')}
+                value={displayData?.phone || t('profile.notSet')}
                 verified={displayData?.isPhoneVerified}
                 onVerify={handlePhoneVerify}
                 isLoading={verifyingPhone && !phoneOtpSent}
@@ -1912,7 +1913,7 @@ const ProfileScreen = ({ navigation, route }) => {
               {/* Phone OTP Input — Modern 6-box design */}
               {phoneOtpSent && (
                 <View style={styles.otpSectionModern}>
-                  <Text style={styles.otpSectionLabel}>Enter the 6-digit code</Text>
+                  <Text style={styles.otpSectionLabel}>{t('profile.enterOtp')}</Text>
                   <Animated.View style={[
                     styles.otpBoxesRow,
                     { transform: [{ translateX: otpShakeAnim }] }
@@ -1953,11 +1954,11 @@ const ProfileScreen = ({ navigation, route }) => {
                   </Animated.View>
                   {otpCountdown > 0 && (
                     <Text style={styles.otpTimerText}>
-                      Code expires in {Math.floor(otpCountdown / 60)}:{String(otpCountdown % 60).padStart(2, '0')}
+                      {t('profile.otpTimer', { time: `${Math.floor(otpCountdown / 60)}:${String(otpCountdown % 60).padStart(2, '0')}` })}
                     </Text>
                   )}
                   {otpCountdown <= 0 && phoneOtpSent && (
-                    <Text style={styles.otpExpiredText}>Code expired. Please request a new one.</Text>
+                    <Text style={styles.otpExpiredText}>{t('profile.otpExpiredText')}</Text>
                   )}
                   <TouchableOpacity
                     style={[
@@ -1973,7 +1974,7 @@ const ProfileScreen = ({ navigation, route }) => {
                     ) : (
                       <View style={styles.otpVerifyButtonContent}>
                         <MaterialIcon name="verified" size={18} color="#FFFFFF" />
-                        <Text style={styles.otpVerifyButtonText}>Verify</Text>
+                        <Text style={styles.otpVerifyButtonText}>{t('profile.verifyBtn')}</Text>
                       </View>
                     )}
                   </TouchableOpacity>
@@ -1983,7 +1984,7 @@ const ProfileScreen = ({ navigation, route }) => {
               <InfoRow
                 iconName="email"
                 label="Email"
-                value={displayData?.email || 'Not set'}
+                value={displayData?.email || t('profile.notSet')}
                 verified={displayData?.isEmailVerified}
                 onVerify={handleEmailVerify}
                 isLoading={verifyingEmail}
@@ -2003,10 +2004,10 @@ const ProfileScreen = ({ navigation, route }) => {
                 <>
                   <InfoRow
                     iconName="verified_user"
-                    label="Aadhaar (KYC)"
+                    label={t('profile.aadhaarLabel')}
                     value={isAadhaarVerified
-                      ? `Verified${aadhaarName ? ` as ${aadhaarName}` : ''}`
-                      : 'Not Verified'}
+                      ? (aadhaarName ? t('profile.aadhaarVerifiedAs', { name: aadhaarName }) : t('profile.aadhaarVerified'))
+                      : t('profile.aadhaarNotVerified')}
                     verified={isAadhaarVerified}
                     onVerify={() => setShowAadhaarModal(true)}
                     isLoading={false}
@@ -2017,7 +2018,7 @@ const ProfileScreen = ({ navigation, route }) => {
                     <View style={styles.nameLockNotice}>
                       <MaterialIcon name="lock" size={14} color="#2b76bc" />
                       <Text style={styles.nameLockNoticeText}>
-                        Name locked after Aadhaar verification
+                        {t('profile.nameLockNotice')}
                       </Text>
                     </View>
                   )}
@@ -2027,7 +2028,7 @@ const ProfileScreen = ({ navigation, route }) => {
                     <View style={styles.aadhaarNotice}>
                       <Icon name="warning" size={16} color="#f67c16" />
                       <Text style={styles.aadhaarNoticeText}>
-                        Verify your Aadhaar to receive service requests
+                        {t('profile.aadhaarVerifyNotice')}
                       </Text>
                     </View>
                   )}
@@ -2039,7 +2040,7 @@ const ProfileScreen = ({ navigation, route }) => {
           {/* Saved Addresses Section */}
           {!isProvider && (
             <View style={styles.section}>
-              <SectionHeader title="Saved Addresses" />
+              <SectionHeader title={t('profile.savedAddresses') || 'Saved Addresses'} />
               <TouchableOpacity
                 style={styles.addressesCard}
                 onPress={() => setShowAddressesModal(true)}
@@ -2049,9 +2050,9 @@ const ProfileScreen = ({ navigation, route }) => {
                   <MaterialIcon name="location-on" size={24} color="#2b76bc" />
                 </View>
                 <View style={styles.addressesContent}>
-                  <Text style={styles.addressesTitle} numberOfLines={1} ellipsizeMode="tail">Manage Addresses</Text>
+                  <Text style={styles.addressesTitle} numberOfLines={1} ellipsizeMode="tail">{t('profile.manageAddresses')}</Text>
                   <Text style={styles.addressesSubtitle} numberOfLines={2} ellipsizeMode="tail">
-                    Add, edit or delete your saved addresses
+                    {t('profile.manageAddressesSub')}
                   </Text>
                 </View>
                 <MaterialIcon name="chevron-right" size={22} color="#94A3B8" />
@@ -2062,7 +2063,7 @@ const ProfileScreen = ({ navigation, route }) => {
           {/* Favorites Section */}
           {!isProvider && (
             <View style={styles.section}>
-              <SectionHeader title="My Favorites" />
+              <SectionHeader title={t('profile.myFavorites') || 'My Favorites'} />
               <TouchableOpacity
                 style={styles.addressesCard}
                 onPress={() => navigation.navigate('Favorites')}
@@ -2170,7 +2171,7 @@ const ProfileScreen = ({ navigation, route }) => {
 
           {/* Account Info */}
           <View style={styles.section}>
-            <SectionHeader title="Account" />
+            <SectionHeader title={t('profile.accountSection') || 'Account'} />
             <InfoRow
               iconName="user"
               label="User ID"

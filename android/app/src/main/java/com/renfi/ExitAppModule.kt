@@ -9,7 +9,7 @@ class ExitAppModule(reactContext: ReactApplicationContext) : ReactContextBaseJav
 
     @ReactMethod
     fun exit() {
-        val activity = currentActivity ?: return
+        val activity = reactApplicationContext.currentActivity ?: return
         activity.finishAndRemoveTask()
         android.os.Process.killProcess(android.os.Process.myPid())
     }

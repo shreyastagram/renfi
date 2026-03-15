@@ -98,6 +98,12 @@ export const DialogProvider = ({ children }) => {
     setDialogState(prev => ({ ...prev, visible: false }));
   }, []);
 
+  // Expose dialog globally so AppContext (which is outside DialogProvider) can use styled dialogs
+  React.useEffect(() => {
+    global.showStyledDialog = dialog;
+    return () => { global.showStyledDialog = null; };
+  }, [dialog]);
+
   return (
     <DialogContext.Provider value={{ dialog, showDialog, showConfirm, showDestructive, showInfo }}>
       {children}

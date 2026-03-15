@@ -36,6 +36,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useDialog } from '../context/DialogContext';
+import { useLanguage } from '../context/LanguageContext';
 import { useApp } from '../context/AppContext';
 import {
   initiateVerification,
@@ -75,6 +76,7 @@ const COLORS = {
 
 const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
   const { dialog } = useDialog();
+  const { t } = useLanguage();
   const { profile } = useApp();
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(STEPS.INTRO);
@@ -176,7 +178,7 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
         if (newAttempts > 20) {
           clearInterval(pollingRef.current);
           pollingRef.current = null;
-          setError('Verification is taking too long. Please try again.');
+          setError(t('aadhaar.timeout'));
           setStep(STEPS.ERROR);
           return prev;
         }
@@ -211,7 +213,7 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
 
   const handleStartVerification = async () => {
     if (!providerName || providerName.trim().length < 2) {
-      setError('Please set your full name (as it appears on your Aadhaar card) in your Profile before starting verification.');
+      setError(t('aadhaar.nameRequired'));
       setStep(STEPS.ERROR);
       return;
     }
@@ -231,19 +233,19 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
         if (opened) {
           setStep(STEPS.VERIFYING);
         } else {
-          setError('Could not open verification page. Please try again.');
+          setError(t('aadhaar.openFailed'));
           setStep(STEPS.ERROR);
         }
       } else {
         if (result.code === 'NAME_REQUIRED') {
-          setError('Please set your full name in your Profile before starting verification.');
+          setError(t('aadhaar.nameRequired'));
         } else {
           setError(result.error || 'Failed to start verification');
         }
         setStep(STEPS.ERROR);
       }
     } catch (err) {
-      setError('Verification couldn\'t be completed. Please try again.');
+      setError(t('aadhaar.genericError'));
       setStep(STEPS.ERROR);
     } finally {
       setLoading(false);
@@ -292,16 +294,16 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
           <MaterialIcon name="verified-user" size={28} color={COLORS.primary} />
         </View>
         <View style={s.headerTextWrap}>
-          <Text style={s.headerTitle}>Identity Verification</Text>
-          <Text style={s.headerSubtitle}>via DigiLocker</Text>
+          <Text style={s.headerTitle}>{t('aadhaar.title')}</Text>
+          <Text style={s.headerSubtitle}>{t('aadhaar.subtitle')}</Text>
         </View>
       </View>
 
       <View style={s.featureList}>
         {[
-          { icon: 'shield', text: 'Government-approved verification' },
-          { icon: 'lock-outline', text: 'Aadhaar number never shared with us' },
-          { icon: 'bolt', text: 'Quick and secure — takes 2 minutes' },
+          { icon: 'shield', text: t('aadhaar.feature1') },
+          { icon: 'lock-outline', text: t('aadhaar.feature2') },
+          { icon: 'bolt', text: t('aadhaar.feature3') },
         ].map((item, i) => (
           <View key={i} style={s.featureRow}>
             <View style={s.featureIconWrap}>
@@ -315,14 +317,14 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
       <View style={s.infoCard}>
         <MaterialIcon name="info-outline" size={16} color={COLORS.primary} />
         <Text style={s.infoText}>
-          You'll be redirected to DigiLocker to verify. After completion, you'll return here automatically.
+          {t('aadhaar.infoText')}
         </Text>
       </View>
 
       <View style={s.warningCard}>
         <MaterialIcon name="warning-amber" size={16} color={COLORS.warning} />
         <Text style={s.warningText}>
-          Your profile name must match your Aadhaar card exactly. Mismatched names will be rejected.
+          {t('aadhaar.warningText')}
         </Text>
       </View>
 
@@ -337,7 +339,7 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
         ) : (
           <>
             <MaterialIcon name="verified-user" size={20} color="#FFF" />
-            <Text style={s.primaryBtnText}>Start Verification</Text>
+            <Text style={s.primaryBtnText}>{t('aadhaar.startBtn')}</Text>
           </>
         )}
       </TouchableOpacity>
@@ -350,17 +352,17 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
         <MaterialIcon name="person-outline" size={36} color={COLORS.primary} />
       </View>
 
-      <Text style={s.stepTitle}>Confirm Your Name</Text>
+      <Text style={s.stepTitle}>{t('aadhaar.confirmName')}</Text>
       <Text style={s.stepDesc}>
-        Your profile name will be matched against your Aadhaar. Verification will fail if they don't match.
+        {t('aadhaar.confirmNameDesc')}
       </Text>
 
       <View style={s.nameCard}>
-        <Text style={s.nameLabel}>PROFILE NAME</Text>
+        <Text style={s.nameLabel}>{t('aadhaar.profileNameLabel')}</Text>
         <Text style={s.nameValue}>{providerName}</Text>
       </View>
 
-      <Text style={s.nameQuestion}>Does this match your Aadhaar card?</Text>
+      <Text style={s.nameQuestion}>{t('aadhaar.nameQuestion')}</Text>
 
       <TouchableOpacity
         style={[s.primaryBtn, loading && s.btnDisabled]}
@@ -373,7 +375,7 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
         ) : (
           <>
             <MaterialIcon name="check-circle-outline" size={20} color="#FFF" />
-            <Text style={s.primaryBtnText}>Yes, Proceed</Text>
+            <Text style={s.primaryBtnText}>{t('aadhaar.yesProceed')}</Text>
           </>
         )}
       </TouchableOpacity>
@@ -383,15 +385,15 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
         onPress={() => {
           onClose();
           dialog(
-            'Update Your Name',
-            'Go to your Profile and update your name to match your Aadhaar card exactly (including spelling and middle name), then return here.',
+            t('aadhaar.updateNameTitle'),
+            t('aadhaar.updateNameMsg'),
             [{ text: 'OK' }]
           );
         }}
         activeOpacity={0.8}
       >
         <MaterialIcon name="edit" size={18} color={COLORS.error} />
-        <Text style={s.outlineBtnText}>No, Update My Name First</Text>
+        <Text style={s.outlineBtnText}>{t('aadhaar.updateName')}</Text>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -401,17 +403,17 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
       <View style={s.pulseWrap}>
         <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
-      <Text style={s.stepTitle}>Verification in Progress</Text>
+      <Text style={s.stepTitle}>{t('aadhaar.inProgress')}</Text>
       <Text style={s.stepDesc}>
-        Complete the verification in DigiLocker.{'\n'}This screen will update automatically.
+        {t('aadhaar.inProgressDesc')}
       </Text>
 
       <TouchableOpacity style={s.secondaryBtn} onPress={handleCheckStatus} disabled={loading} activeOpacity={0.8}>
-        <Text style={s.secondaryBtnText}>{loading ? 'Checking...' : "I've completed verification"}</Text>
+        <Text style={s.secondaryBtnText}>{loading ? t('aadhaar.checking') : t('aadhaar.completedBtn')}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={s.linkBtn} onPress={handleStartVerification} activeOpacity={0.7}>
-        <Text style={s.linkBtnText}>Open DigiLocker again</Text>
+        <Text style={s.linkBtnText}>{t('aadhaar.openAgain')}</Text>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -419,8 +421,8 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
   const renderPollingStep = () => (
     <Animated.View style={[s.centeredContent, { opacity: fadeAnim, paddingVertical: 40 }]}>
       <ActivityIndicator size="large" color={COLORS.primary} />
-      <Text style={[s.stepTitle, { marginTop: 24 }]}>Checking Status</Text>
-      <Text style={s.stepDesc}>Please wait while we confirm your verification...</Text>
+      <Text style={[s.stepTitle, { marginTop: 24 }]}>{t('aadhaar.checkingStatus')}</Text>
+      <Text style={s.stepDesc}>{t('aadhaar.checkingDesc')}</Text>
       <Text style={s.mutedSmall}>Attempt {pollingAttempts} of 20</Text>
     </Animated.View>
   );
@@ -430,16 +432,16 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
       <View style={s.errorCircle}>
         <MaterialIcon name="close" size={36} color={COLORS.error} />
       </View>
-      <Text style={[s.stepTitle, { color: COLORS.error }]}>Verification Failed</Text>
+      <Text style={[s.stepTitle, { color: COLORS.error }]}>{t('aadhaar.failed')}</Text>
       <Text style={[s.stepDesc, { marginBottom: 24 }]}>{error}</Text>
 
       <TouchableOpacity style={s.primaryBtn} onPress={handleRetry} activeOpacity={0.8}>
         <MaterialIcon name="refresh" size={20} color="#FFF" />
-        <Text style={s.primaryBtnText}>Try Again</Text>
+        <Text style={s.primaryBtnText}>{t('aadhaar.tryAgain')}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={s.linkBtn} onPress={onClose} activeOpacity={0.7}>
-        <Text style={s.linkBtnText}>Cancel</Text>
+        <Text style={s.linkBtnText}>{t('aadhaar.cancel')}</Text>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -449,8 +451,8 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
       <View style={s.successCircle}>
         <MaterialIcon name="check" size={44} color="#FFF" />
       </View>
-      <Text style={[s.stepTitle, { color: COLORS.success, marginTop: 20 }]}>Verified!</Text>
-      <Text style={s.stepDesc}>Your identity has been successfully verified through DigiLocker.</Text>
+      <Text style={[s.stepTitle, { color: COLORS.success, marginTop: 20 }]}>{t('aadhaar.verified')}</Text>
+      <Text style={s.stepDesc}>{t('aadhaar.verifiedDesc')}</Text>
     </Animated.View>
   );
 

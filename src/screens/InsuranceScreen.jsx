@@ -680,7 +680,7 @@ const InsuranceScreen = ({ navigation }) => {
 
       {/* ── Sticky Submit Button ──────────────────────────── */}
       {canSubmit && (
-        <View style={[s.stickyFooter, { bottom: insets.bottom, paddingBottom: insets.bottom + 12 }]}>
+        <View style={[s.stickyFooter, { bottom: 0, paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
           <TouchableOpacity
             style={[s.submitBtn, (!hasPAN || !hasAddressProof) && s.submitBtnDisabled]}
             onPress={handleSubmit}

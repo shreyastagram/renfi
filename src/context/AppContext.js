@@ -231,11 +231,11 @@ export const AppProvider = ({ children }) => {
       // Detect deleted/deactivated account — force logout
       if (result.success && result.data?.isActive === false) {
         console.warn('🚫 [AppContext] Account is deactivated — forcing logout');
-        Alert.alert(
+        const showDlg = global.showStyledDialog || Alert.alert;
+        showDlg(
           'Account Deleted',
           'Your account has been deleted. You will be logged out.',
-          [{ text: 'OK', onPress: () => logout(false) }],
-          { cancelable: false }
+          [{ text: 'OK', onPress: () => logout(false) }]
         );
         return null;
       }
@@ -246,11 +246,11 @@ export const AppProvider = ({ children }) => {
         const errCode = result.error?.code;
         if (errStatus === 404 || errCode === 'USER_NOT_FOUND' || errCode === 'PROVIDER_NOT_FOUND') {
           console.warn('🚫 [AppContext] Account not found on backend — forcing logout');
-          Alert.alert(
+          const showDlg = global.showStyledDialog || Alert.alert;
+          showDlg(
             'Account Not Found',
             'Your account no longer exists. You will be logged out.',
-            [{ text: 'OK', onPress: () => logout(false) }],
-            { cancelable: false }
+            [{ text: 'OK', onPress: () => logout(false) }]
           );
           return null;
         }
@@ -503,9 +503,15 @@ export const AppProvider = ({ children }) => {
 
       // Validate and refresh tokens BEFORE setting auth state
       console.log('🔐 [AppContext] Validating stored tokens...');
-      const tokenResult = await validateAndRefreshTokens();
-      
-      if (!tokenResult.valid) {
+      let tokenResult;
+      try {
+        tokenResult = await validateAndRefreshTokens();
+      } catch (validateErr) {
+        console.error('❌ [AppContext] validateAndRefreshTokens threw:', validateErr?.message);
+        tokenResult = { valid: false, accessToken: null };
+      }
+
+      if (!tokenResult?.valid) {
         console.log('❌ [AppContext] Tokens invalid or expired, clearing session...');
         await clearAllData();
         setUser(null);

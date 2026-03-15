@@ -620,6 +620,37 @@ export default {
     invalidOtp: 'Invalid OTP.',
     cancelledDialog: 'Request cancelled.',
     cancelError: 'Failed to cancel.',
+    // Filter tabs
+    filterNew: 'New',
+    filterActive: 'Active',
+    filterDone: 'Done',
+    filterCancelled: 'Cancelled',
+    // Category tabs
+    allTypes: 'All Types',
+    services: 'Services',
+    events: 'Events',
+    emergency: 'Emergency',
+    // Date presets
+    allTime: 'All Time',
+    today: 'Today',
+    thisWeek: 'This Week',
+    thisMonth: 'This Month',
+    threeMonths: '3 Months',
+    sixMonths: '6 Months',
+    thisYear: 'This Year',
+    // Stat pills
+    statTotal: 'Total',
+    // Status labels
+    statusPending: 'Pending',
+    statusAwaiting: 'Awaiting',
+    statusAccepted: 'Accepted',
+    statusInProgress: 'In Progress',
+    statusOnTheWay: 'On The Way',
+    statusArrived: 'Arrived',
+    statusCompleted: 'Completed',
+    statusCancelled: 'Cancelled',
+    statusRejected: 'Rejected',
+    statusExpired: 'Expired',
   },
 
   // ─── Service Request Detail ───────────────────────────
@@ -1161,6 +1192,7 @@ export default {
     premiumActiveSub: 'Active — visible in Traditional & Event searches',
     subscribeSub: 'Activate to appear in search results',
     verificationNote: 'Complete phone, email, Aadhaar verification and get service approval to appear in customer searches. Professional Tools are required for Traditional & Event services.',
+    verificationCompleteNote: 'All verifications complete. Activate Professional Tools to appear in customer searches.',
     // Insurance
     insuranceDocuments: 'Insurance Documents',
     insuranceActiveSub: 'Insurance active — you are covered',
@@ -1204,6 +1236,11 @@ export default {
     // Account
     logoutBtn: 'Logout',
     deleteAccount: 'Delete Account',
+    privacyPolicy: 'Privacy Policy',
+    termsOfService: 'Terms of Service',
+    downloadData: 'Download My Data',
+    downloadDataSub: 'Export all your data',
+    language: 'Language',
     // Footer
     loggedInAs: 'Logged in as %{name}',
     memberSince: 'Member since %{date}',
@@ -1251,6 +1288,27 @@ export default {
     storeOpenFailed: 'Could not open the app store.',
     language: 'Language',
     languageSub: 'Change app display language',
+  },
+
+  // ─── Drawer Menu ───────────────────────────────────────
+  drawer: {
+    dashboard: 'Dashboard',
+    myJobs: 'My Jobs',
+    settings: 'Settings',
+    earnings: 'Earnings',
+    helpSupport: 'Help & Support',
+    logout: 'Logout',
+    home: 'Home',
+    serviceHistory: 'Service History',
+    aboutFixhomi: 'About FixHomi',
+    viewProfile: 'View Profile',
+    provider: 'Provider',
+    user: 'User',
+    verified: 'Verified',
+    logoutConfirm: 'Are you sure you want to logout?',
+    cancel: 'Cancel',
+    comingSoon: 'Coming Soon',
+    earningsComingSoon: 'Earnings feature will be available soon!',
   },
 
   // ─── Profile ──────────────────────────────────────────
@@ -1312,7 +1370,7 @@ export default {
     ratingValue: '%{rating} / 5.0',
     noRatings: 'No ratings yet',
     experienceInfo: 'Experience',
-    experienceValue: '%{n} year(s)',
+    experienceValue: '%{n} years',
     portfolioTitle: 'Portfolio & Social Links',
     portfolioSubtitle: 'Showcase your work to attract more clients',
     editLinks: 'Edit Links',
@@ -1334,6 +1392,10 @@ export default {
     savedAddresses: 'Saved Addresses',
     manageAddresses: 'Manage Addresses',
     manageAddressesSub: 'Add, edit or delete your saved addresses',
+    myFavorites: 'My Favorites',
+    accountSection: 'Account',
+    edit: 'Edit',
+    verification: 'Verification',
 
     // Dialogs
     locationPermRequired: 'Location Permission Required',
@@ -1385,6 +1447,42 @@ export default {
     photoUploadFail: "Couldn't upload your photo. Please try again.",
     photoSaveFail: "Photo uploaded but couldn't save. Please try again.",
     photoUpdated: 'Profile picture updated!',
+  },
+
+  // ─── Aadhaar Verification ────────────────────────────
+  aadhaar: {
+    title: 'Identity Verification',
+    subtitle: 'via DigiLocker',
+    feature1: 'Government-approved verification',
+    feature2: 'Aadhaar number never shared with us',
+    feature3: 'Quick and secure — takes 2 minutes',
+    infoText: "You'll be redirected to DigiLocker to verify. After completion, you'll return here automatically.",
+    warningText: 'Your profile name must match your Aadhaar card exactly. Mismatched names will be rejected.',
+    startBtn: 'Start Verification',
+    confirmName: 'Confirm Your Name',
+    confirmNameDesc: "Your profile name will be matched against your Aadhaar. Verification will fail if they don't match.",
+    profileNameLabel: 'PROFILE NAME',
+    nameQuestion: 'Does this match your Aadhaar card?',
+    yesProceed: 'Yes, Proceed',
+    updateName: 'No, Update My Name First',
+    updateNameTitle: 'Update Your Name',
+    updateNameMsg: 'Go to your Profile and update your name to match your Aadhaar card exactly (including spelling and middle name), then return here.',
+    inProgress: 'Verification in Progress',
+    inProgressDesc: 'Complete the verification in DigiLocker.\nThis screen will update automatically.',
+    completedBtn: "I've completed verification",
+    checking: 'Checking...',
+    openAgain: 'Open DigiLocker again',
+    checkingStatus: 'Checking Status',
+    checkingDesc: 'Please wait while we confirm your verification...',
+    failed: 'Verification Failed',
+    tryAgain: 'Try Again',
+    cancel: 'Cancel',
+    verified: 'Verified!',
+    verifiedDesc: 'Your identity has been successfully verified through DigiLocker.',
+    nameRequired: 'Please set your full name (as it appears on your Aadhaar card) in your Profile before starting verification.',
+    openFailed: 'Could not open verification page. Please try again.',
+    genericError: "Verification couldn't be completed. Please try again.",
+    timeout: 'Verification is taking too long. Please try again.',
   },
 
   // ─── Account Security ─────────────────────────────────

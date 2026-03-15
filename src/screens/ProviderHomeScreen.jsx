@@ -494,33 +494,14 @@ const ProviderHomeScreen = ({ navigation }) => {
   const [verificationLoading, setVerificationLoading] = useState(true);
   const verificationLastFetched = useRef(0);
   const bonusPopupShownRef = useRef(false);
-  const VERIFICATION_STALE_THRESHOLD = 30000; // 30 seconds, matches profile SWR pattern
+  const initialLoadDone = useRef(false);
+  const VERIFICATION_STALE_THRESHOLD = 30000;
 
   // Combined user data - single source of truth for availability
   const displayData = { ...user, ...profile };
 
-  // Cached availability — show last known state instantly, validate from DB
-  const [cachedAvailability, setCachedAvailability] = useState(null);
-  const availabilityLoadedRef = useRef(false);
-
-  // Load cached availability from AsyncStorage on mount
-  useEffect(() => {
-    AsyncStorage.getItem('provider_availability').then(val => {
-      if (val !== null) setCachedAvailability(val === 'true');
-    });
-  }, []);
-
-  // Once DB data loads, sync cache
-  const dbAvailability = displayData?.isAvailable ?? displayData?.isOnline;
-  useEffect(() => {
-    if (dbAvailability !== undefined && dbAvailability !== null && !availabilityLoadedRef.current) {
-      availabilityLoadedRef.current = true;
-      setCachedAvailability(dbAvailability);
-      AsyncStorage.setItem('provider_availability', String(dbAvailability));
-    }
-  }, [dbAvailability]);
-
-  const isAvailable = cachedAvailability ?? dbAvailability ?? false;
+  // Availability reads directly from AppContext (same source as SettingsScreen)
+  const isAvailable = displayData?.isAvailable ?? displayData?.isOnline ?? false;
 
   /**
    * Fetch provider stats from API - includes traditional and event services
@@ -604,15 +585,23 @@ const ProviderHomeScreen = ({ navigation }) => {
   }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id, verificationDashboard]);
 
   // Refresh profile + stats + verification when screen comes into focus
-  // Always force verification refresh on focus — user may have just completed a step
+  // Refresh on focus — but skip the very first focus (initial mount is handled by AppContext)
   useEffect(() => {
     if (isFocused) {
+      if (!initialLoadDone.current) {
+        initialLoadDone.current = true;
+        // First mount: only fetch verification + stats (profile already fetched by AppContext)
+        fetchStats();
+        fetchVerificationData();
+        return;
+      }
+      // Subsequent focuses: user returned from another screen, refresh everything
       const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
       if (providerId && userType === 'provider') {
         refreshProfile(userType, providerId);
       }
       fetchStats();
-      fetchVerificationData(true); // Force refresh — no SWR cache on focus
+      fetchVerificationData(true);
     }
   }, [isFocused]);
 
@@ -636,10 +625,8 @@ const ProviderHomeScreen = ({ navigation }) => {
   const handleAvailabilityToggle = async (value) => {
     if (isUpdatingAvailability) return; // Prevent double-tap
 
-    // Optimistic update -- toggle UI immediately
+    // Optimistic update -- toggle UI immediately via AppContext
     const previousValue = isAvailable;
-    setCachedAvailability(value);
-    AsyncStorage.setItem('provider_availability', String(value));
     updateProviderAvailability(value, true); // optimistic flag
 
     setIsUpdatingAvailability(true);
@@ -648,9 +635,7 @@ const ProviderHomeScreen = ({ navigation }) => {
       const result = await updateProviderAvailability(value);
 
       if (!result.success) {
-        // Revert optimistic update
-        setCachedAvailability(previousValue);
-        AsyncStorage.setItem('provider_availability', String(previousValue));
+        // Revert optimistic update via AppContext
         updateProviderAvailability(previousValue, true);
 
         const errorMsg = result.error || 'Failed to update availability';
@@ -665,8 +650,6 @@ const ProviderHomeScreen = ({ navigation }) => {
           dialog(t('common.error'), errorMsg);
         }
       } else {
-        // DB confirmed — update cache
-        AsyncStorage.setItem('provider_availability', String(value));
         // Start/stop location tracking based on availability
         const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
         if (value && providerId) {
@@ -681,9 +664,7 @@ const ProviderHomeScreen = ({ navigation }) => {
         }
       }
     } catch (error) {
-      // Revert on failure
-      setCachedAvailability(previousValue);
-      AsyncStorage.setItem('provider_availability', String(previousValue));
+      // Revert on failure via AppContext
       updateProviderAvailability(previousValue, true);
       console.error('Failed to update availability:', error);
       dialog(t('common.error'), t('providerHome.availabilityError'));

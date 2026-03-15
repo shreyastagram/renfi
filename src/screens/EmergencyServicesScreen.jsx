@@ -1428,7 +1428,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
                 {t('emergencyServices.serverNotResponding')}
               </Text>
               <TouchableOpacity style={styles.retryButton} onPress={handleRetryProviders} activeOpacity={0.8}>
-                <MaterialIcon name="refresh" size={20} color={COLORS.white} />
+                <MaterialIcon name="refresh" size={20} color={COLORS.primary} />
                 <Text style={styles.retryButtonText}>{t('common.tryAgain')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.cancelSearchButton} onPress={handleCancelSearch} activeOpacity={0.8}>
@@ -1989,7 +1989,9 @@ const styles = StyleSheet.create({
   retryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary,
+    backgroundColor: 'rgba(246,124,22,0.12)',
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
     paddingHorizontal: 28,
     paddingVertical: 14,
     borderRadius: 14,
@@ -1999,7 +2001,7 @@ const styles = StyleSheet.create({
   retryButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.primary,
   },
   cancelSearchButton: {
     paddingHorizontal: 20,

@@ -305,7 +305,7 @@ const SettingsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, profile, userType, logout, refreshProfile, updateProviderAvailability, updateProviderLocationTracking, isProfileLoading } = useApp();
   const { dialog } = useDialog();
-  const { language, setLanguage, languages } = useLanguage();
+  const { t, language, setLanguage, languages } = useLanguage();
   const [showLangModal, setShowLangModal] = React.useState(false);
 
   // Set status bar for dark hero header when this tab is focused
@@ -1001,12 +1001,12 @@ const SettingsScreen = ({ navigation }) => {
         {/* Provider Availability Section */}
         {isProvider && (
           <View style={styles.section}>
-            <SectionHeader title="Availability" />
+            <SectionHeader title={t('settings.availability')} />
 
             <ToggleRow
               iconName="location"
-              title="Available for Work"
-              subtitle={isAvailable ? 'Customers can see and book you' : 'You are hidden from customers'}
+              title={t('settings.availableForWork')}
+              subtitle={isAvailable ? t('settings.customersCanSee') : t('settings.hiddenFromCustomers')}
               value={isAvailable}
               onValueChange={handleAvailabilityChange}
               onInfoPress={showAvailabilityInfo}
@@ -1015,8 +1015,8 @@ const SettingsScreen = ({ navigation }) => {
 
             <ToggleRow
               iconName="my_location"
-              title="Live Location Tracking"
-              subtitle="Allow customers to see your real-time location"
+              title={t('settings.liveLocationTracking')}
+              subtitle={t('settings.liveLocationSub')}
               value={locationTracking}
               onValueChange={handleLocationTrackingChange}
               onInfoPress={showLocationTrackingInfo}
@@ -1025,8 +1025,8 @@ const SettingsScreen = ({ navigation }) => {
 
             <ToggleRow
               iconName="notification"
-              title={'Night Emergency Hours (10 PM \u2013 7 AM)'}
-              subtitle={emergencyServicesEnabled ? 'You are searchable during night hours (10 PM \u2013 7 AM IST)' : 'Toggle ON to be available during night hours'}
+              title={t('settings.nightEmergencyHours')}
+              subtitle={emergencyServicesEnabled ? t('settings.nightEmergencyOnSub') : t('settings.nightEmergencyOffSub')}
               value={emergencyServicesEnabled}
               onValueChange={handleEmergencyServicesChange}
               onInfoPress={showEmergencyServicesInfo}
@@ -1038,34 +1038,34 @@ const SettingsScreen = ({ navigation }) => {
         {/* Provider Verification Section */}
         {isProvider && (
           <View style={styles.section}>
-            <SectionHeader title="Verification" />
+            <SectionHeader title={t('settings.verification')} />
 
             <ActionRow
               iconName="verified"
-              title="Verification Dashboard"
-              subtitle="View your 5-step verification progress"
+              title={t('settings.verificationDashboard')}
+              subtitle={t('settings.verificationDashboardSub')}
               onPress={() => navigation.navigate('VerificationDashboard')}
             />
 
             <ActionRow
               iconName="document"
-              title="Request Service Approvals"
+              title={t('settings.requestServiceApprovals')}
               subtitle={
                 displayData?.documentVerification?.overallStatus === 'fully_verified'
-                  ? 'All services verified'
+                  ? t('settings.allServicesVerified')
                   : displayData?.documentVerification?.overallStatus === 'partially_verified'
-                  ? 'Some services verified'
+                  ? t('settings.someServicesVerified')
                   : displayData?.documentVerification?.overallStatus === 'pending'
-                  ? 'Under review (3-5 business days)'
-                  : 'Get verified to receive requests'
+                  ? t('settings.underReviewServices')
+                  : t('settings.getVerifiedToReceive')
               }
               onPress={() => navigation.navigate('DocumentVerification')}
             />
 
             <ActionRow
               iconName="star"
-              title="Premium Subscription"
-              subtitle={displayData?.isPremium ? 'Active \u2014 visible in Traditional & Event searches' : 'Subscribe to appear in search results'}
+              title={t('settings.premiumSubscription')}
+              subtitle={displayData?.isPremium ? t('settings.premiumActiveSub') : t('settings.subscribeSub')}
               onPress={() => navigation.navigate('Subscription')}
             />
 
@@ -1075,8 +1075,8 @@ const SettingsScreen = ({ navigation }) => {
               </View>
               <Text style={styles.verificationNoteText}>
                 {displayData?.isFullyVerified
-                  ? 'All verifications complete. Activate Professional Tools to appear in customer searches.'
-                  : 'Complete phone, email, Aadhaar verification and get service approval to appear in customer searches. Professional Tools are required for Traditional & Event services.'}
+                  ? t('settings.verificationCompleteNote') || 'All verifications complete. Activate Professional Tools to appear in customer searches.'
+                  : t('settings.verificationNote')}
               </Text>
             </View>
           </View>
@@ -1085,19 +1085,19 @@ const SettingsScreen = ({ navigation }) => {
         {/* Insurance Section — Provider Only */}
         {isProvider && (
           <View style={styles.section}>
-            <SectionHeader title="Insurance" />
+            <SectionHeader title={t('settings.insuranceSection')} />
 
             <ActionRow
               iconName="shield"
-              title="Insurance Documents"
+              title={t('settings.insuranceDocuments')}
               subtitle={
                 displayData?.insuranceVerification?.overallStatus === 'approved'
-                  ? 'Insurance active — you are covered'
+                  ? t('settings.insuranceActiveSub')
                   : displayData?.insuranceVerification?.overallStatus === 'pending' || displayData?.insuranceVerification?.overallStatus === 'under_review'
-                  ? 'Under review (3-5 business days)'
+                  ? t('settings.insuranceReviewSub')
                   : displayData?.insuranceVerification?.overallStatus === 'rejected'
-                  ? 'Rejected — please resubmit documents'
-                  : 'Upload documents to activate insurance'
+                  ? t('settings.insuranceRejectedSub')
+                  : t('settings.insuranceUploadSub')
               }
               onPress={() => navigation.navigate('Insurance')}
             />
@@ -1107,7 +1107,7 @@ const SettingsScreen = ({ navigation }) => {
                 <Icon name="info" size={14} color={COLORS.secondary} />
               </View>
               <Text style={styles.verificationNoteText}>
-                Upload PAN Card and Address Proof to activate Fixhomi insurance coverage. Insurance protects you during service delivery.
+                {t('settings.insuranceNote')}
               </Text>
             </View>
           </View>
@@ -1115,17 +1115,17 @@ const SettingsScreen = ({ navigation }) => {
 
         {/* Notifications Section */}
         <View style={styles.section}>
-          <SectionHeader title="Notifications" />
+          <SectionHeader title={t('settings.notifications')} />
 
           <ToggleRow
             iconName="notification"
-            title="Push Notifications"
+            title={t('settings.pushNotifications')}
             subtitle={
               notificationPermission === RESULTS.BLOCKED
-                ? 'Disabled in system settings'
+                ? t('settings.pushDisabledSystem')
                 : notifications.pushEnabled
-                  ? 'Receive alerts for new requests'
-                  : 'Enable to get important updates'
+                  ? t('settings.pushReceiveAlerts')
+                  : t('settings.pushEnableUpdates')
             }
             value={notifications.pushEnabled}
             onValueChange={handlePushNotificationChange}
@@ -1133,8 +1133,8 @@ const SettingsScreen = ({ navigation }) => {
 
           <ToggleRow
             iconName="email"
-            title="Email Notifications"
-            subtitle="Receive booking confirmations via email"
+            title={t('settings.emailNotifications')}
+            subtitle={t('settings.emailNotificationsSub')}
             value={notifications.emailEnabled}
             onValueChange={handleEmailNotificationChange}
           />
@@ -1142,35 +1142,35 @@ const SettingsScreen = ({ navigation }) => {
 
         {/* App Preferences Section */}
         <View style={styles.section}>
-          <SectionHeader title="Preferences" />
+          <SectionHeader title={t('settings.preferences')} />
 
           <ToggleRow
             iconName="settings"
-            title="Haptic Feedback"
-            subtitle="Vibration feedback for actions"
+            title={t('settings.hapticFeedback')}
+            subtitle={t('settings.hapticFeedbackSub')}
             value={appPreferences.hapticFeedback}
             onValueChange={(value) => handlePreferenceChange('hapticFeedback', value)}
           />
 
           <ToggleRow
             iconName="notification"
-            title="Notification Sound"
-            subtitle="Play sounds for in-app notifications"
+            title={t('settings.notificationSound')}
+            subtitle={t('settings.notificationSoundSub')}
             value={appPreferences.notificationSound}
             onValueChange={(value) => handlePreferenceChange('notificationSound', value)}
           />
 
           <ToggleRow
             iconName="location"
-            title="Distance Unit"
-            subtitle={appPreferences.distanceInKm ? 'Showing distance in km' : 'Showing distance in meters'}
+            title={t('settings.distanceUnit')}
+            subtitle={appPreferences.distanceInKm ? t('settings.distanceKm') : t('settings.distanceMeters')}
             value={appPreferences.distanceInKm}
             onValueChange={(value) => handlePreferenceChange('distanceInKm', value)}
           />
 
           <ActionRow
             iconName="settings"
-            title="Language"
+            title={t('settings.language')}
             subtitle={languages.find(l => l.code === language)?.nativeLabel || 'English'}
             onPress={() => setShowLangModal(true)}
           />
@@ -1178,29 +1178,29 @@ const SettingsScreen = ({ navigation }) => {
 
         {/* App Settings Section */}
         <View style={styles.section}>
-          <SectionHeader title="App" />
+          <SectionHeader title={t('settings.app')} />
 
           <ToggleRow
             iconName="settings"
-            title="Auto-Update"
+            title={t('settings.autoUpdate')}
             subtitle={autoUpdateEnabled
-              ? 'Opens store automatically when updates are available'
-              : 'Manually check for updates'}
+              ? t('settings.autoUpdateOnSub')
+              : t('settings.autoUpdateOffSub')}
             value={autoUpdateEnabled}
             onValueChange={handleAutoUpdateChange}
           />
 
           <ActionRow
             iconName="settings"
-            title="Check for Updates"
-            subtitle={checkingForUpdate ? 'Checking...' : `Current version ${getCurrentAppVersion()}`}
+            title={t('settings.checkForUpdates')}
+            subtitle={checkingForUpdate ? t('settings.checking') : t('settings.currentVersion', { version: getCurrentAppVersion() })}
             onPress={handleCheckForUpdate}
           />
 
           <ActionRow
             iconName="info"
-            title="About FixHomi"
-            subtitle={`Version ${getCurrentAppVersion()}`}
+            title={t('settings.aboutFixhomi')}
+            subtitle={t('settings.version', { version: getCurrentAppVersion() })}
             onPress={() => {
               dialog(
                 'About FixHomi',
@@ -1212,8 +1212,8 @@ const SettingsScreen = ({ navigation }) => {
 
           <ActionRow
             iconName="star"
-            title="Rate FixHomi"
-            subtitle="Love the app? Rate us on the store"
+            title={t('settings.rateFixhomi')}
+            subtitle={t('settings.rateFixhomiSub')}
             onPress={() => {
               dialog(
                 'Rate FixHomi',
@@ -1238,8 +1238,8 @@ const SettingsScreen = ({ navigation }) => {
 
           <ActionRow
             iconName="download"
-            title="Download My Data"
-            subtitle="Export all your data"
+            title={t('settings.downloadData') || 'Download My Data'}
+            subtitle={t('settings.downloadDataSub') || 'Export all your data'}
             onPress={handleExportData}
             loading={isExportingData}
             disabled={isExportingData}
@@ -1247,8 +1247,8 @@ const SettingsScreen = ({ navigation }) => {
 
           <ActionRow
             iconName="help"
-            title="Help & Support"
-            subtitle="Get help with your account"
+            title={t('settings.helpSupport')}
+            subtitle={t('settings.helpSupportSub')}
             onPress={() => {
               dialog(
                 'Help & Support',
@@ -1277,50 +1277,50 @@ const SettingsScreen = ({ navigation }) => {
 
           <ActionRow
             iconName="document"
-            title="Privacy Policy"
+            title={t('settings.privacyPolicy') || 'Privacy Policy'}
             onPress={() => Linking.openURL('https://fixhomi.com/privacy')}
           />
 
           <ActionRow
             iconName="document"
-            title="Terms of Service"
+            title={t('settings.termsOfService') || 'Terms of Service'}
             onPress={() => Linking.openURL('https://fixhomi.com/terms')}
           />
         </View>
 
         {/* Security Section */}
         <View style={styles.section}>
-          <SectionHeader title="Security" />
+          <SectionHeader title={t('settings.security')} />
 
           <ActionRow
             iconName="lock"
-            title="Change Password"
-            subtitle="Update your account password"
+            title={t('settings.changePassword')}
+            subtitle={t('settings.changePasswordSub')}
             onPress={() => navigation.navigate('ChangePassword')}
           />
 
           <ActionRow
             iconName="shield"
-            title="Account Security"
-            subtitle="Manage sessions and trusted devices"
+            title={t('settings.accountSecurity')}
+            subtitle={t('settings.accountSecuritySub')}
             onPress={() => navigation.navigate('AccountSecurity')}
           />
         </View>
 
         {/* Account Actions Section */}
         <View style={styles.section}>
-          <SectionHeader title="Account" />
+          <SectionHeader title={t('settings.account')} />
 
           <ActionRow
             iconName="logout"
-            title="Logout"
+            title={t('settings.logoutBtn')}
             onPress={handleLogout}
             showArrow={false}
           />
 
           <ActionRow
             iconName="close"
-            title={isRequestingOtp ? 'Sending OTP' : 'Delete Account'}
+            title={isRequestingOtp ? 'Sending OTP' : t('settings.deleteAccount')}
             danger
             onPress={handleDeleteAccount}
             showArrow={false}

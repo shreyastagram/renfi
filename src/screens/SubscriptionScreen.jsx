@@ -51,12 +51,12 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // ============================================
 // PREMIUM BADGE (Header)
 // ============================================
-const PremiumBadge = ({ isPremium, daysRemaining }) => {
+const PremiumBadge = ({ isPremium, daysRemaining, t }) => {
   if (!isPremium) return <View style={{ width: 40 }} />;
   return (
     <View style={badgeStyles.wrap}>
       <MaterialIcon name="workspace-premium" size={14} color="#92400E" />
-      <Text style={badgeStyles.text}>PRO</Text>
+      <Text style={badgeStyles.text}>{t('subscription.proBadge') || 'PRO'}</Text>
       {daysRemaining > 0 && (
         <Text style={badgeStyles.days}>{daysRemaining}d</Text>
       )}
@@ -72,7 +72,7 @@ const badgeStyles = StyleSheet.create({
 // ============================================
 // ACTIVE STATUS CARD
 // ============================================
-const ActiveStatusCard = ({ subscription, onRenew, loading }) => {
+const ActiveStatusCard = ({ subscription, onRenew, loading, t }) => {
   const daysRemaining = subscription?.daysRemaining || 0;
   const endDate = subscription?.currentPlan?.endDate;
   const isExpiringSoon = daysRemaining <= 5;
@@ -89,14 +89,14 @@ const ActiveStatusCard = ({ subscription, onRenew, loading }) => {
           </View>
           <View style={activeStyles.statusPill}>
             <View style={activeStyles.statusDot} />
-            <Text style={activeStyles.statusText}>Active</Text>
+            <Text style={activeStyles.statusText}>{t('subscription.active')}</Text>
           </View>
         </View>
-        <Text style={activeStyles.title}>Pro Business Plan</Text>
+        <Text style={activeStyles.title}>{t('subscription.premiumPlan')}</Text>
         <Text style={activeStyles.subtitle}>
           {endDate
-            ? `Valid until ${new Date(endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
-            : 'Your benefits are active'}
+            ? t('subscription.validUntil', { date: new Date(endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) })
+            : t('subscription.benefitsActive')}
         </Text>
       </View>
 
@@ -104,17 +104,17 @@ const ActiveStatusCard = ({ subscription, onRenew, loading }) => {
       <View style={activeStyles.statsRow}>
         <View style={activeStyles.statItem}>
           <Text style={activeStyles.statValue}>{daysRemaining}</Text>
-          <Text style={activeStyles.statLabel}>Days Left</Text>
+          <Text style={activeStyles.statLabel}>{t('subscription.daysLeft')}</Text>
         </View>
         <View style={activeStyles.statDivider} />
         <View style={activeStyles.statItem}>
           <MaterialIcon name="trending-up" size={20} color="#16A34A" />
-          <Text style={activeStyles.statLabel}>Priority</Text>
+          <Text style={activeStyles.statLabel}>{t('subscription.priority')}</Text>
         </View>
         <View style={activeStyles.statDivider} />
         <View style={activeStyles.statItem}>
           <MaterialIcon name="visibility" size={20} color="#2b76bc" />
-          <Text style={activeStyles.statLabel}>Boosted</Text>
+          <Text style={activeStyles.statLabel}>{t('subscription.boosted')}</Text>
         </View>
       </View>
 
@@ -126,7 +126,7 @@ const ActiveStatusCard = ({ subscription, onRenew, loading }) => {
           ) : (
             <>
               <MaterialIcon name="autorenew" size={18} color="#FFFFFF" />
-              <Text style={activeStyles.renewText}>Renew Now</Text>
+              <Text style={activeStyles.renewText}>{t('subscription.renewNow')}</Text>
             </>
           )}
         </TouchableOpacity>
@@ -158,20 +158,20 @@ const activeStyles = StyleSheet.create({
 // ============================================
 // UPGRADE PROMPT CARD (not premium)
 // ============================================
-const UpgradeCard = ({ onSubscribe, loading }) => (
+const UpgradeCard = ({ onSubscribe, loading, t }) => (
   <View style={upgradeStyles.card}>
     <View style={upgradeStyles.decoCircle1} />
     <View style={upgradeStyles.decoCircle2} />
     <View style={upgradeStyles.decoCircle3} />
     <MaterialIcon name="workspace-premium" size={52} color="#FFD700" />
-    <Text style={upgradeStyles.title}>Upgrade to Professional Tools</Text>
-    <Text style={upgradeStyles.subtitle}>Get higher visibility in local searches, verified business badge, and performance insights</Text>
+    <Text style={upgradeStyles.title}>{t('subscription.unlockPremium')}</Text>
+    <Text style={upgradeStyles.subtitle}>{t('subscription.unlockPremiumSub')}</Text>
     <TouchableOpacity style={upgradeStyles.btn} onPress={onSubscribe} disabled={loading}>
       {loading ? (
         <ActivityIndicator size="small" color="#FFFFFF" />
       ) : (
         <>
-          <Text style={upgradeStyles.btnText}>Activate Professional Tools</Text>
+          <Text style={upgradeStyles.btnText}>{t('subscription.subscribeNow')}</Text>
           <MaterialIcon name="arrow-forward" size={18} color="#FFFFFF" />
         </>
       )}
@@ -192,7 +192,7 @@ const upgradeStyles = StyleSheet.create({
 // ============================================
 // PLAN CARD
 // ============================================
-const PlanCard = ({ plan, selected, onSelect, isCurrentPlan }) => (
+const PlanCard = ({ plan, selected, onSelect, isCurrentPlan, t }) => (
   <TouchableOpacity
     style={[planStyles.card, selected && planStyles.selected, isCurrentPlan && planStyles.current]}
     onPress={() => onSelect(plan)}
@@ -202,7 +202,7 @@ const PlanCard = ({ plan, selected, onSelect, isCurrentPlan }) => (
     {plan.id === 'premium_28' && (
       <View style={planStyles.popularTag}>
         <MaterialIcon name="local-fire-department" size={12} color="#FFFFFF" />
-        <Text style={planStyles.popularText}>POPULAR</Text>
+        <Text style={planStyles.popularText}>{t('subscription.popular')}</Text>
       </View>
     )}
 
@@ -229,7 +229,7 @@ const PlanCard = ({ plan, selected, onSelect, isCurrentPlan }) => (
     {isCurrentPlan && (
       <View style={planStyles.currentBadge}>
         <MaterialIcon name="verified" size={14} color="#16A34A" />
-        <Text style={planStyles.currentText}>Current Plan</Text>
+        <Text style={planStyles.currentText}>{t('subscription.currentPlan')}</Text>
       </View>
     )}
   </TouchableOpacity>
@@ -306,13 +306,13 @@ const txStyles = StyleSheet.create({
 // ============================================
 // TRANSACTION DETAIL MODAL
 // ============================================
-const TransactionDetailModal = ({ visible, transaction, onClose }) => {
+const TransactionDetailModal = ({ visible, transaction, onClose, t }) => {
   if (!transaction) return null;
 
   const DetailRow = ({ label, value, valueStyle }) => (
     <View style={modalStyles.row}>
       <Text style={modalStyles.label}>{label}</Text>
-      <Text style={[modalStyles.value, valueStyle]}>{value || 'N/A'}</Text>
+      <Text style={[modalStyles.value, valueStyle]}>{value || t('subscription.na')}</Text>
     </View>
   );
 
@@ -323,7 +323,7 @@ const TransactionDetailModal = ({ visible, transaction, onClose }) => {
           <View style={modalStyles.dragBar} />
 
           <View style={modalStyles.header}>
-            <Text style={modalStyles.title}>Transaction Details</Text>
+            <Text style={modalStyles.title}>{t('subscription.transactionDetails')}</Text>
             <TouchableOpacity style={modalStyles.closeBtn} onPress={onClose}>
               <MaterialIcon name="close" size={20} color="#64748B" />
             </TouchableOpacity>
@@ -331,7 +331,7 @@ const TransactionDetailModal = ({ visible, transaction, onClose }) => {
 
           <ScrollView style={modalStyles.body} showsVerticalScrollIndicator={false}>
             <View style={modalStyles.amountSection}>
-              <Text style={modalStyles.amountLabel}>Amount Paid</Text>
+              <Text style={modalStyles.amountLabel}>{t('subscription.amountPaid')}</Text>
               <Text style={modalStyles.amountValue}>{transaction.amountDisplay}</Text>
               <View style={[modalStyles.statusBadge, {
                 backgroundColor: transaction.status === 'captured' ? '#F0FDF4' : '#FEF2F2',
@@ -349,20 +349,20 @@ const TransactionDetailModal = ({ visible, transaction, onClose }) => {
 
             <View style={modalStyles.divider} />
 
-            <DetailRow label="Plan" value={transaction.planName} />
-            <DetailRow label="Receipt #" value={transaction.receiptNumber} />
-            <DetailRow label="Order ID" value={transaction.orderId} />
+            <DetailRow label={t('subscription.plan')} value={transaction.planName} />
+            <DetailRow label={t('subscription.receiptNo')} value={transaction.receiptNumber} />
+            <DetailRow label={t('subscription.orderId')} value={transaction.orderId} />
             {transaction.paymentId && (
-              <DetailRow label="Payment ID" value={transaction.paymentId} />
+              <DetailRow label={t('subscription.paymentId')} value={transaction.paymentId} />
             )}
-            <DetailRow label="Payment Method" value={transaction.paymentMethodDisplay} />
+            <DetailRow label={t('subscription.paymentMethod')} value={transaction.paymentMethodDisplay} />
             <DetailRow
-              label="Date"
+              label={t('subscription.date')}
               value={new Date(transaction.createdAt).toLocaleString('en-IN')}
             />
             {transaction.subscriptionPeriod && (
               <DetailRow
-                label="Period"
+                label={t('subscription.period')}
                 value={`${new Date(transaction.subscriptionPeriod.startDate).toLocaleDateString('en-IN')} \u2192 ${new Date(transaction.subscriptionPeriod.endDate).toLocaleDateString('en-IN')}`}
               />
             )}
@@ -375,7 +375,7 @@ const TransactionDetailModal = ({ visible, transaction, onClose }) => {
           </ScrollView>
 
           <TouchableOpacity style={modalStyles.doneBtn} onPress={onClose}>
-            <Text style={modalStyles.doneBtnText}>Done</Text>
+            <Text style={modalStyles.doneBtnText}>{t('common.done')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -613,7 +613,7 @@ const SubscriptionScreen = ({ navigation }) => {
           <MaterialIcon name="arrow-back-ios-new" size={20} color="#0F172A" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('subscription.premium')}</Text>
-        <PremiumBadge isPremium={isPremium} daysRemaining={subscription?.daysRemaining} />
+        <PremiumBadge isPremium={isPremium} daysRemaining={subscription?.daysRemaining} t={t} />
       </View>
 
       <ScrollView
@@ -623,9 +623,9 @@ const SubscriptionScreen = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
       >
         {isPremium ? (
-          <ActiveStatusCard subscription={subscription} onRenew={handleSubscribe} loading={subscribing} />
+          <ActiveStatusCard subscription={subscription} onRenew={handleSubscribe} loading={subscribing} t={t} />
         ) : (
-          <UpgradeCard onSubscribe={handleSubscribe} loading={subscribing} />
+          <UpgradeCard onSubscribe={handleSubscribe} loading={subscribing} t={t} />
         )}
 
         {subscriptionStatus ? (
@@ -645,6 +645,7 @@ const SubscriptionScreen = ({ navigation }) => {
                 selected={selectedPlan?.id === plan.id}
                 onSelect={setSelectedPlan}
                 isCurrentPlan={subscription?.currentPlan?.planId === plan.id && isPremium}
+                t={t}
               />
             ))}
 
@@ -746,6 +747,7 @@ const SubscriptionScreen = ({ navigation }) => {
         visible={showTransactionModal}
         transaction={selectedTransaction}
         onClose={() => { setShowTransactionModal(false); setSelectedTransaction(null); }}
+        t={t}
       />
     </View>
   );
