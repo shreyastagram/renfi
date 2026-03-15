@@ -350,7 +350,7 @@ export const DrawerMenu = ({
         ]);
       }, 300);
     } else if (item.action === 'help') {
-      Linking.openURL('mailto:support@fixhomi.com');
+      Linking.openURL('mailto:contact@fixhomi.com');
     } else if (item.action === 'earnings') {
       dialog('Coming Soon', 'Earnings feature will be available soon!');
     } else if (item.action === 'about') {

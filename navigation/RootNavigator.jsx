@@ -112,14 +112,8 @@ export const linking = {
           message: (message) => decodeURIComponent(message || ''),
         },
       },
-      // Aadhaar/DigiLocker verification callback handler
-      AadhaarVerification: {
-        path: 'aadhaar-verification',
-        parse: {
-          status: (status) => status,
-          message: (message) => decodeURIComponent(message || ''),
-        },
-      },
+      // Note: aadhaar-verification deep links are handled by AadhaarVerificationModal
+      // via Linking.addEventListener — NOT by React Navigation
     },
   },
 };

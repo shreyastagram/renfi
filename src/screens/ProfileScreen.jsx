@@ -53,6 +53,7 @@ import Geolocation from '@react-native-community/geolocation';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
 import SavedAddresses from '../components/SavedAddresses';
+import GraphBackground from '../components/GraphBackground';
 import AddressAutocomplete from '../components/AddressAutocomplete';
 import CityAutocomplete from '../components/CityAutocomplete';
 import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
@@ -441,16 +442,16 @@ const ProfileScreen = ({ navigation, route }) => {
       }
 
       // 4. Show confirmation popup
-      const confirmMsg = [
-        `📍 Address: ${detectedAddress || 'Not found'}`,
-        `🏙️ City: ${detectedCity || 'Not found'}`,
-        `📮 Pincode: ${detectedPincode || 'Not found'}`,
-        detectedState ? `🗺️ State: ${detectedState}` : '',
-      ].filter(Boolean).join('\n\n');
+      const confirmLines = [
+        `Address: ${detectedAddress || 'Not found'}`,
+        `City: ${detectedCity || 'Not found'}`,
+        `Pincode: ${detectedPincode || 'Not found'}`,
+        detectedState ? `State: ${detectedState}` : '',
+      ].filter(Boolean).join('\n');
 
       dialog(
-        t('profile.detectedLocation'),
-        `We detected the following from your current location:\n\n${confirmMsg}\n\nWould you like to use this?`,
+        'Location Detected',
+        `We found the following from your current location:\n\n${confirmLines}\n\nWould you like to use this?`,
         [
           { text: t('common.cancel'), style: 'cancel' },
           {
@@ -1016,7 +1017,7 @@ const ProfileScreen = ({ navigation, route }) => {
 
       const asset = result.assets?.[0];
       if (asset?.uri) {
-        await uploadProfilePicture(asset.uri);
+        await handleProfilePictureUpload(asset.uri);
       }
     } catch (error) {
       dialog('Error', 'Couldn\'t access your photos. Please check app permissions.');
@@ -1051,7 +1052,7 @@ const ProfileScreen = ({ navigation, route }) => {
 
       const asset = result.assets?.[0];
       if (asset?.uri) {
-        await uploadProfilePicture(asset.uri);
+        await handleProfilePictureUpload(asset.uri);
       }
     } catch (error) {
       dialog('Error', 'Couldn\'t access your photos. Please check app permissions.');
@@ -1059,9 +1060,9 @@ const ProfileScreen = ({ navigation, route }) => {
   };
 
   /**
-   * Upload profile picture
+   * Handle profile picture upload (pick → upload → save)
    */
-  const uploadProfilePicture = async (imageUri) => {
+  const handleProfilePictureUpload = async (imageUri) => {
     setUploadingPicture(true);
     
     try {
@@ -1077,12 +1078,12 @@ const ProfileScreen = ({ navigation, route }) => {
       const saveResult = await saveProfilePictureToBackend(uploadResult.url, uploadResult.publicId);
       
       if (saveResult.success) {
-        dialog('Success', 'Profile picture updated!');
-        // Refresh profile
+        // Force refresh profile to get updated picture URL from backend
         const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
         if (userId) {
-          await refreshProfile(userType, userId);
+          await refreshProfile(userType, userId, { force: true });
         }
+        dialog('Success', 'Profile picture updated!');
       } else {
         dialog('Error', 'Photo uploaded but couldn\'t save. Please try again.');
       }
@@ -1100,6 +1101,8 @@ const ProfileScreen = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
+      <GraphBackground />
+
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
@@ -1138,7 +1141,7 @@ const ProfileScreen = ({ navigation, route }) => {
         >
           {/* ─── Premium Profile Card ─── */}
           <View style={styles.profileCard}>
-            {/* Colored header band */}
+            {/* Profile header banner */}
             <View style={[styles.profileCardHeader, isProvider ? styles.profileCardHeaderProvider : styles.profileCardHeaderUser]}>
               <View style={styles.profileDecorCircle1} />
               <View style={styles.profileDecorCircle2} />
@@ -2207,41 +2210,30 @@ const ProfileScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F7FB',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 18,
-    paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 0,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    paddingVertical: 12,
+    backgroundColor: 'rgba(255,255,255,0.88)',
+    zIndex: 10,
   },
   backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: '700',
     color: '#0F172A',
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
   },
   editButton: {
     flexDirection: 'row',
@@ -2272,7 +2264,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    padding: 16,
+    padding: 14,
+    paddingTop: 12,
   },
 
   // Row fields for city/pincode
@@ -2285,13 +2278,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   readOnlySection: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'rgba(248,250,252,0.7)',
     padding: 14,
-    borderRadius: 14,
+    borderRadius: 12,
     marginTop: 8,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
   readOnlyNote: {
     fontSize: 13,
@@ -2301,60 +2292,50 @@ const styles = StyleSheet.create({
 
   // Profile Card
   profileCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    marginBottom: 20,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.1,
-        shadowRadius: 28,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    borderRadius: 20,
+    marginBottom: 16,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.95)',
   },
   profileCardHeader: {
-    height: 110,
+    height: 100,
     overflow: 'hidden',
     position: 'relative',
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
   },
   profileCardHeaderUser: {
-    backgroundColor: '#2b76bc',
+    backgroundColor: '#2563EB',
   },
   profileCardHeaderProvider: {
-    backgroundColor: '#f67c16',
+    backgroundColor: '#EA580C',
   },
   profileDecorCircle1: {
     position: 'absolute',
-    top: -30,
-    right: -20,
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    top: -20,
+    right: -10,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   profileDecorCircle2: {
     position: 'absolute',
-    bottom: -20,
-    left: -15,
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    bottom: -15,
+    left: -10,
+    width: 65,
+    height: 65,
+    borderRadius: 33,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   profileDecorCircle3: {
     position: 'absolute',
-    top: 10,
+    top: 25,
     left: '40%',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    width: 35,
+    height: 35,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   profileAvatarWrap: {
     alignSelf: 'center',
@@ -2367,21 +2348,18 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   profileCardBody: {
-    paddingTop: 10,
-    paddingHorizontal: 24,
-    paddingBottom: 24,
+    paddingTop: 8,
+    paddingHorizontal: 22,
+    paddingBottom: 22,
     alignItems: 'center',
-    borderBottomLeftRadius: 22,
-    borderBottomRightRadius: 22,
-    overflow: 'hidden',
   },
   profileBodyAccent: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 60,
-    opacity: 0.45,
+    height: 50,
+    opacity: 0.3,
   },
   avatarContainer: {
     position: 'relative',
@@ -2738,21 +2716,12 @@ const styles = StyleSheet.create({
 
   // Section
   section: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    padding: 20,
-    marginBottom: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.08,
-        shadowRadius: 20,
-      },
-      android: {
-        elevation: 5,
-      },
-    }),
+    backgroundColor: 'rgba(255,255,255,0.82)',
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.9)',
   },
   sectionHeader: {
     fontSize: 13,

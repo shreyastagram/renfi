@@ -1,15 +1,19 @@
 /**
  * Subscription Screen
- * 
- * Premium subscription management for providers:
+ *
+ * Professional Tools management for service providers:
  * - View current subscription status
- * - Subscribe to premium plans
+ * - Activate professional business tools
  * - View transaction history
- * 
- * Production-grade iOS-inspired design
+ *
+ * Platform-specific payment:
+ * - Android: Razorpay in-app checkout (real-world service provider tools)
+ * - iOS: Redirects to fixhomi.com for web-based payment
+ *
+ * Production-grade design
  * Matches Fixhomi brand (primary=#f67c16, secondary=#2b76bc)
- * 
- * @version 2.0.0
+ *
+ * @version 3.0.0
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -25,6 +29,7 @@ import {
   Dimensions,
   Platform,
   StatusBar,
+  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -87,7 +92,7 @@ const ActiveStatusCard = ({ subscription, onRenew, loading }) => {
             <Text style={activeStyles.statusText}>Active</Text>
           </View>
         </View>
-        <Text style={activeStyles.title}>Premium Plan</Text>
+        <Text style={activeStyles.title}>Pro Business Plan</Text>
         <Text style={activeStyles.subtitle}>
           {endDate
             ? `Valid until ${new Date(endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
@@ -159,14 +164,14 @@ const UpgradeCard = ({ onSubscribe, loading }) => (
     <View style={upgradeStyles.decoCircle2} />
     <View style={upgradeStyles.decoCircle3} />
     <MaterialIcon name="workspace-premium" size={52} color="#FFD700" />
-    <Text style={upgradeStyles.title}>Unlock Premium</Text>
-    <Text style={upgradeStyles.subtitle}>Get priority listing, premium badge, and reach more customers instantly</Text>
+    <Text style={upgradeStyles.title}>Upgrade to Professional Tools</Text>
+    <Text style={upgradeStyles.subtitle}>Get higher visibility in local searches, verified business badge, and performance insights</Text>
     <TouchableOpacity style={upgradeStyles.btn} onPress={onSubscribe} disabled={loading}>
       {loading ? (
         <ActivityIndicator size="small" color="#FFFFFF" />
       ) : (
         <>
-          <Text style={upgradeStyles.btnText}>Subscribe Now</Text>
+          <Text style={upgradeStyles.btnText}>Activate Professional Tools</Text>
           <MaterialIcon name="arrow-forward" size={18} color="#FFFFFF" />
         </>
       )}
@@ -227,10 +232,6 @@ const PlanCard = ({ plan, selected, onSelect, isCurrentPlan }) => (
         <Text style={planStyles.currentText}>Current Plan</Text>
       </View>
     )}
-
-    <View style={[planStyles.radio, selected && planStyles.radioSelected]}>
-      {selected && <View style={planStyles.radioDot} />}
-    </View>
   </TouchableOpacity>
 );
 const planStyles = StyleSheet.create({
@@ -252,9 +253,6 @@ const planStyles = StyleSheet.create({
   featureTextSelected: { color: '#334155' },
   currentBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginTop: 14, backgroundColor: '#F0FDF4', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, gap: 5, borderWidth: 1, borderColor: '#BBF7D0' },
   currentText: { fontSize: 12, fontWeight: '600', color: '#16A34A' },
-  radio: { position: 'absolute', top: 18, right: 18, width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#D1D5DB', alignItems: 'center', justifyContent: 'center' },
-  radioSelected: { borderColor: '#2b76bc', borderWidth: 2.5 },
-  radioDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#2b76bc' },
 });
 
 // ============================================
@@ -437,9 +435,11 @@ const SubscriptionScreen = ({ navigation }) => {
 
       if (statusResult.success) setSubscription(statusResult.subscription);
       if (plansResult.success) {
-        setPlans(plansResult.plans);
-        if (!statusResult.subscription?.isPremium && plansResult.plans.length > 0) {
-          setSelectedPlan(plansResult.plans[0]);
+        // Filter out the first approval bonus — it's auto-granted, not a user-selectable plan
+        const selectablePlans = plansResult.plans.filter(p => p.id !== 'first_approval_bonus');
+        setPlans(selectablePlans);
+        if (!statusResult.subscription?.isPremium && selectablePlans.length > 0) {
+          setSelectedPlan(selectablePlans[0]);
         }
       }
       if (transactionsResult.success) setTransactions(transactionsResult.transactions);
@@ -474,6 +474,16 @@ const SubscriptionScreen = ({ navigation }) => {
       dialog(t('subscription.selectPlan'), t('subscription.selectPlanMsg'));
       return;
     }
+
+    // ── iOS: Open web-based subscription page ──
+    // Apple does not allow in-app Razorpay checkout for provider tools.
+    // Users are redirected to fixhomi.com to complete payment securely.
+    if (Platform.OS === 'ios') {
+      handleWebSubscribe();
+      return;
+    }
+
+    // ── Android: Use Razorpay in-app checkout ──
     setSubscribing(true);
     setSubscriptionStatus('');
     try {
@@ -501,6 +511,32 @@ const SubscriptionScreen = ({ navigation }) => {
       setSubscriptionStatus('');
     }
   }, [selectedPlan, loadData, profile]);
+
+  /**
+   * iOS: Open manage account page on fixhomi.com
+   * The web page authenticates the provider via OTP, then shows
+   * subscription management with Razorpay payment.
+   * After payment, the provider returns to the app and pulls to refresh.
+   */
+  const handleWebSubscribe = useCallback(() => {
+    const webUrl = 'https://fixhomi.com/manage-account';
+
+    dialog(
+      t('subscription.webSubscribeTitle'),
+      t('subscription.webSubscribeMsg'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('subscription.webSubscribeBtn'),
+          onPress: () => {
+            Linking.openURL(webUrl).catch(() => {
+              dialog(t('common.error'), 'Unable to open the page. Please visit fixhomi.com in your browser.');
+            });
+          },
+        },
+      ]
+    );
+  }, [dialog, t]);
 
   const handleTransactionPress = useCallback((tx) => {
     setSelectedTransaction(tx);
@@ -627,6 +663,13 @@ const SubscriptionScreen = ({ navigation }) => {
                   </>
                 )}
               </TouchableOpacity>
+            )}
+
+            {/* iOS: Show web payment note */}
+            {Platform.OS === 'ios' && selectedPlan && (
+              <Text style={styles.webPaymentNote}>
+                {t('subscription.webSubscribeNote')}
+              </Text>
             )}
           </View>
         )}
@@ -818,6 +861,13 @@ const styles = StyleSheet.create({
   },
   subscribeBtnDisabled: {
     opacity: 0.7,
+  },
+  webPaymentNote: {
+    fontSize: 12,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginTop: 10,
+    fontWeight: '500',
   },
   subscribeBtnText: {
     fontSize: 16,

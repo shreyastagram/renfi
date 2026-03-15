@@ -29,16 +29,22 @@
         </trust-anchors>
     </debug-overrides>
 
+    <!-- Allow cleartext for Metro bundler (localhost) in debug builds -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <domain includeSubdomains="false">10.0.3.2</domain>
+    </domain-config>
+
     <!-- Pin certificates for production backends -->
     <domain-config cleartextTrafficPermitted="false">
         <!-- Node.js backend (Render) -->
         <domain includeSubdomains="true">noefix.onrender.com</domain>
         <pin-set expiration="2027-01-01">
-            <!-- Primary pin: Render's current certificate chain -->
-            <!-- Run the openssl command above to get the actual hash -->
-            <!-- Placeholder: replace with real pin hash before release -->
-            <pin digest="SHA-256">BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=</pin>
-            <!-- Backup pin: Let's Encrypt ISRG Root X1 (common Render CA) -->
+            <!-- Primary pin: Render's current leaf certificate public key hash -->
+            <!-- Generated: openssl s_client -connect noefix.onrender.com:443 | openssl x509 -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl enc -base64 -->
+            <pin digest="SHA-256">IX2/a47sFHkF9jewioc5OzEDzS0dNQjNMCX8PCQ26Pg=</pin>
+            <!-- Backup pin: Let's Encrypt ISRG Root X1 (Render's CA) -->
             <pin digest="SHA-256">C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=</pin>
         </pin-set>
     </domain-config>
@@ -47,9 +53,9 @@
         <!-- Java Auth backend (Render) -->
         <domain includeSubdomains="true">jauth.onrender.com</domain>
         <pin-set expiration="2027-01-01">
-            <!-- Primary pin: replace with real pin hash before release -->
-            <pin digest="SHA-256">BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=</pin>
-            <!-- Backup pin: Let's Encrypt ISRG Root X1 -->
+            <!-- Primary pin: Render's current leaf certificate public key hash -->
+            <pin digest="SHA-256">IX2/a47sFHkF9jewioc5OzEDzS0dNQjNMCX8PCQ26Pg=</pin>
+            <!-- Backup pin: Let's Encrypt ISRG Root X1 (Render's CA) -->
             <pin digest="SHA-256">C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=</pin>
         </pin-set>
     </domain-config>

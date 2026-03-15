@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">renfi</string>
+    <string name="app_name">Fixhomi</string>
     <string name="mapbox_access_token" translatable="false">pk.eyJ1IjoiZml4aG9taSIsImEiOiJjbWY2Zjg1MTUwMnhmMm1zNnQxaTdkcmtnIn0.AtF-wG4vaenzSf0Ff9aYBg</string>
 </resources>

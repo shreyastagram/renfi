@@ -21,6 +21,7 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { FixhomiLogo } from '../components';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
+import useExitConfirmation from '../hooks/useExitConfirmation';
 
 // Brand colors
 const COLORS = {
@@ -41,6 +42,9 @@ const UserTypeScreen = ({ navigation }) => {
   const { selectUserType } = useApp();
   const { t, language, setLanguage, languages } = useLanguage();
   const [showLangPicker, setShowLangPicker] = React.useState(false);
+
+  // Show "Exit App?" confirmation on Android back button press
+  useExitConfirmation();
 
   /**
    * Handle user type selection

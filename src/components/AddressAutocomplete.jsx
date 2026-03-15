@@ -32,7 +32,7 @@ import {
   ActivityIndicator,
   Keyboard,
   Platform,
-  FlatList,
+  ScrollView,
 } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
@@ -120,10 +120,10 @@ const AddressAutocomplete = ({
   const debounceRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Sync external value changes
+  // Sync external value changes (e.g., from "Detect My Location")
   useEffect(() => {
-    if (value && !showSuggestions) {
-      setQuery(value);
+    if (!showSuggestions) {
+      setQuery(value || '');
     }
   }, [value]);
 
@@ -193,18 +193,36 @@ const AddressAutocomplete = ({
   /**
    * Handle suggestion selection
    */
-  const handleSelect = (suggestion) => {
+  const handleSelect = async (suggestion) => {
     setQuery(suggestion.fullAddress);
     setSelectedAddress(suggestion);
     setShowSuggestions(false);
     setSuggestions([]);
     Keyboard.dismiss();
 
+    let { pincode } = suggestion;
+
+    // If pincode is missing and we have coordinates, do a reverse geocode to find it
+    if (!pincode && suggestion.coordinates) {
+      try {
+        const { longitude, latitude } = suggestion.coordinates;
+        const revUrl = `${GEOCODING_BASE}/${longitude},${latitude}.json?` +
+          `access_token=${MAPBOX_ACCESS_TOKEN}&types=postcode&limit=1&country=IN`;
+        const revRes = await fetch(revUrl);
+        const revData = await revRes.json();
+        if (revData.features?.[0]?.text) {
+          pincode = revData.features[0].text;
+        }
+      } catch (e) {
+        // Pincode lookup failed — continue without it
+      }
+    }
+
     if (onSelectAddress) {
       onSelectAddress({
         address: suggestion.fullAddress,
         city: suggestion.city,
-        pincode: suggestion.pincode,
+        pincode: pincode || '',
         state: suggestion.state,
         district: suggestion.district,
         coordinates: suggestion.coordinates,
@@ -317,16 +335,19 @@ const AddressAutocomplete = ({
       {showSuggestions && (
         <View style={styles.suggestionsContainer}>
           {suggestions.length > 0 ? (
-            <FlatList
-              data={suggestions}
-              keyExtractor={(item) => item.id}
-              renderItem={renderSuggestion}
+            <ScrollView
               style={styles.suggestionsList}
               keyboardShouldPersistTaps="handled"
               nestedScrollEnabled
               showsVerticalScrollIndicator={false}
-              ItemSeparatorComponent={() => <View style={styles.separator} />}
-            />
+            >
+              {suggestions.map((item, index) => (
+                <React.Fragment key={item.id}>
+                  {index > 0 && <View style={styles.separator} />}
+                  {renderSuggestion({ item })}
+                </React.Fragment>
+              ))}
+            </ScrollView>
           ) : !loading && query.length >= 3 ? (
             <View style={styles.noResults}>
               <MaterialIcon name="search-off" size={24} color="#D1D5DB" />
@@ -397,17 +418,15 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   suggestionsContainer: {
-    position: 'absolute',
-    top: 78, // label height + input height + gap
-    left: 0,
-    right: 0,
+    marginTop: 4,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    maxHeight: 300,
+    maxHeight: 320,
     zIndex: 1000,
     elevation: 10,
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000',

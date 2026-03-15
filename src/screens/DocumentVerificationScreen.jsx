@@ -858,7 +858,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
           ))}
         </ScrollView>
         
-        <View style={[styles.footer, { bottom: insets.bottom, paddingBottom: insets.bottom + 16 }]}>
+        <View style={[styles.footer, { bottom: 0, paddingBottom: Math.max(insets.bottom, 12) + 16 }]}>
           <TouchableOpacity
             style={[styles.primaryButton, selectedServices.length === 0 && styles.buttonDisabled]}
             onPress={proceedToUpload}
@@ -927,7 +927,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
         )}
       </ScrollView>
       
-      <View style={[styles.footer, { bottom: insets.bottom, paddingBottom: insets.bottom + 16 }]}>
+      <View style={[styles.footer, { bottom: 0, paddingBottom: Math.max(insets.bottom, 12) + 16 }]}>
         <TouchableOpacity
           style={[
             styles.primaryButton,

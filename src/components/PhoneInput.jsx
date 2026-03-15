@@ -88,6 +88,8 @@ const PhoneInput = ({
           editable={editable}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
+          accessibilityLabel={label || 'Phone number'}
+          accessibilityHint="Enter 10-digit mobile number"
         />
       </View>
 

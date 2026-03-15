@@ -1,3 +1,9 @@
+/* eslint-disable no-var */
+declare var global: typeof globalThis & {
+  onAuthExpired?: (() => void) | null;
+  onEmailVerified?: (() => void) | null;
+};
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Linking, StatusBar, View } from 'react-native';
 import { NavigationContainer, NavigationContainerRef, ParamListBase } from '@react-navigation/native';
@@ -10,6 +16,7 @@ import { DialogProvider } from './src/context/DialogContext';
 import { LanguageProvider } from './src/context/LanguageContext';
 import RootNavigator, { linking as navLinking } from './navigation/RootNavigator';
 import SplashScreen from './src/components/SplashScreen';
+import ErrorBoundary from './src/components/ErrorBoundary';
 import GlobalBanner from './src/components/GlobalBanner';
 import AppUpdateModal from './src/components/AppUpdateModal';
 import { checkForAppUpdate } from './src/services/appUpdateService';
@@ -70,6 +77,11 @@ const linking: any = {
       handleEmailVerifiedDeepLink(url);
     }
 
+    // Don't pass aadhaar-verification to Navigation — handled by AadhaarVerificationModal
+    if (url?.includes('aadhaar-verification')) {
+      return null;
+    }
+
     return url;
   },
   // Subscribe to incoming deep links while app is open
@@ -81,6 +93,11 @@ const linking: any = {
 
       if (url?.includes('email-verified')) {
         handleEmailVerifiedDeepLink(url);
+      }
+
+      // Don't pass aadhaar-verification to Navigation — handled by AadhaarVerificationModal
+      if (url?.includes('aadhaar-verification')) {
+        return;
       }
 
       listener(url);
@@ -110,6 +127,10 @@ const handleEmailVerifiedDeepLink = (url: string) => {
         `Your email ${masked} has been successfully verified. You now have full access to all features.`,
         [{ text: 'OK', style: 'default' }]
       );
+      // Trigger verification status refresh via global callback set by AppContext
+      if (typeof (global as any).onEmailVerified === 'function') {
+        (global as any).onEmailVerified();
+      }
     } else if (status === 'error') {
       Alert.alert(
         'Verification Failed',
@@ -265,6 +286,7 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <ErrorBoundary>
       <SafeAreaProvider>
       <LanguageProvider>
       <AppProvider>
@@ -302,6 +324,7 @@ export default function App() {
       </AppProvider>
       </LanguageProvider>
       </SafeAreaProvider>
+      </ErrorBoundary>
     </GestureHandlerRootView>
   );
 }

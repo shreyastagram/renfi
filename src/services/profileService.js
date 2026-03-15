@@ -464,8 +464,21 @@ export const fetchFullProfile = async (userType, mongoId) => {
       javaAuthLoaded: javaAuthAvailable,
     };
     
-    console.log('✅ [ProfileService] Full profile combined:', combinedProfile);
-    
+    // Detect deleted account: Java Auth failed/inactive AND MongoDB not found/deleted
+    const accountGone = (
+      (!javaAuthAvailable || javaAuthData.isActive === false) &&
+      !mongoResult.success
+    );
+    if (accountGone) {
+      console.warn('🚫 [ProfileService] Account appears deleted on both backends');
+      return {
+        success: false,
+        error: { message: 'Account not found', code: 'USER_NOT_FOUND', status: 404 },
+      };
+    }
+
+    console.log('✅ [ProfileService] Full profile combined');
+
     return {
       success: true,
       data: combinedProfile,
@@ -592,10 +605,20 @@ export const updateProviderProfile = async (providerId, updates) => {
     
     // Handle specific error codes from backend
     const errorCode = error.response?.data?.code;
+    if (errorCode === 'PHONE_ALREADY_EXISTS') {
+      return {
+        success: false,
+        error: {
+          message: error.response.data.message || 'This mobile number is already registered with another account.',
+          code: 'PHONE_ALREADY_EXISTS',
+          status: 409,
+        },
+      };
+    }
     if (errorCode === 'NAME_LOCKED') {
       return {
         success: false,
-        error: { 
+        error: {
           message: error.response.data.error || 'Name is locked after Aadhaar verification',
           code: 'NAME_LOCKED',
         },

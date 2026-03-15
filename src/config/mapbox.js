@@ -26,11 +26,11 @@ try {
   // react-native-config not installed — use fallback
 }
 
-// Strategy 2: Hardcoded fallback for release builds
+// Strategy 2: Fallback from .env value (baked at build time)
 // react-native-config can fail silently on some devices (Redmi/MIUI)
+// This is a PUBLIC token (restricted by bundle ID in Mapbox Console, not a secret)
 if (!MAPBOX_ACCESS_TOKEN) {
   MAPBOX_ACCESS_TOKEN = 'pk.eyJ1IjoiZml4aG9taSIsImEiOiJjbWY2Zjg1MTUwMnhmMm1zNnQxaTdkcmtnIn0.AtF-wG4vaenzSf0Ff9aYBg';
-  console.log('🗺️ [Mapbox] Using fallback access token');
 }
 
 // ============================================

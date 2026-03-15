@@ -18,11 +18,18 @@
  * @version 1.1.0
  */
 
+import { Platform } from 'react-native';
 import { NODE_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
 import { getRazorpayKeyId, getEnvironmentName } from '../config/environment';
 import { getTokens } from '../utils/storage';
-import RazorpayCheckout from 'react-native-razorpay';
+
+// Platform-gated import: react-native-razorpay has Android-only native code.
+// Importing it on iOS will crash the app at module load time.
+let RazorpayCheckout = null;
+if (Platform.OS === 'android') {
+  RazorpayCheckout = require('react-native-razorpay').default;
+}
 
 // Log environment on service import
 console.log('[SubscriptionService] Environment:', getEnvironmentName());
@@ -270,14 +277,19 @@ export const reportPaymentFailure = async (failureData) => {
  * @returns {Promise<Object>} Payment result
  */
 export const openRazorpayCheckout = async ({ order, plan, prefill, razorpayKeyId }) => {
+  // Safety guard: Razorpay is Android-only
+  if (!RazorpayCheckout) {
+    return { success: false, error: 'In-app payment is not available on this platform.', cancelled: false };
+  }
+
   return new Promise((resolve) => {
     const options = {
-      description: `${plan.name} - ${plan.durationDays} days premium access`,
+      description: `${plan.name} - ${plan.durationDays} days professional tools`,
       image: 'https://res.cloudinary.com/dj1aytbae/image/upload/v1707123456/fixhomi_logo.png',
       currency: order.currency,
       key: razorpayKeyId,
       amount: order.amount,
-      name: 'FixHomi Premium',
+      name: 'FixHomi Professional Tools',
       order_id: order.id,
       prefill: {
         email: prefill.email || '',
@@ -525,12 +537,14 @@ export const resetPremium = async () => {
     
     const response = await authFetch(`${NODE_BASE_URL}/api/subscription/reset-premium`, {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-      },
     });
-    
+
+    // Handle non-JSON responses (e.g., HTML 404 from production where this route doesn't exist)
+    const contentType = response.headers?.get?.('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      return { success: false, error: 'Reset is only available on local dev server, not production.' };
+    }
+
     const data = await response.json();
     
     if (data.success) {

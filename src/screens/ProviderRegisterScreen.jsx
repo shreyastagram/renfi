@@ -23,6 +23,7 @@ import {
   PermissionsAndroid,
   ActivityIndicator,
   Modal,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Geolocation from '@react-native-community/geolocation';
@@ -36,6 +37,12 @@ import {
   GOOGLE_AUTH_CODES,
   getGoogleAuthErrorMessage,
 } from '../services/googleAuthService';
+import {
+  signInWithAppleAsProvider,
+  syncAppleProviderToMongoDB,
+  APPLE_AUTH_CODES,
+  getAppleAuthErrorMessage,
+} from '../services/appleAuthService';
 import { isInsideServiceZone, getZoneStatus } from '../utils/serviceZone';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -62,6 +69,8 @@ const ProviderRegisterScreen = ({ navigation }) => {
   // UI state
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [errors, setErrors] = useState({});
   const [alertMessage, setAlertMessage] = useState(null);
   const [alertType, setAlertType] = useState('error');
@@ -339,6 +348,31 @@ const ProviderRegisterScreen = ({ navigation }) => {
         return;
       }
 
+      // Re-check availability before submitting (prevents bypassing the popup)
+      const availParams = { email: formData.email };
+      if (formData.phone) {
+        const digits = formData.phone.replace(/[^0-9]/g, '');
+        if (digits.length === 10) availParams.phone = formData.phone;
+      }
+      const availResult = await checkAvailability(availParams);
+      if (availResult.success && !availResult.available && availResult.conflicts?.length > 0) {
+        const emailConflict = availResult.conflicts.find(c => c.field === 'email');
+        const phoneConflict = availResult.conflicts.find(c => c.field === 'phone');
+        if (emailConflict) {
+          setExistingEmail(formData.email);
+          setExistingAccountType(emailConflict.accountType);
+          setShowAccountExistsModal(true);
+          setErrors(prev => ({ ...prev, email: t('auth.emailAlreadyRegistered') }));
+        }
+        if (phoneConflict) {
+          setExistingPhone(formData.phone);
+          setExistingAccountType(phoneConflict.accountType);
+          setShowPhoneExistsModal(true);
+          setErrors(prev => ({ ...prev, phone: t('auth.phoneAlreadyRegistered') }));
+        }
+        return;
+      }
+
       // Start loading
       setLoading(true);
 
@@ -373,12 +407,29 @@ const ProviderRegisterScreen = ({ navigation }) => {
 
         // Process successful auth
         const authProcessed = await handleAuthSuccess(data);
-        
+
         if (!authProcessed) {
           showAlert(t('auth.registrationSessionFail'), 'warning');
         }
+
+        // Record legal acceptance — use explicit token since authFetch may not have it stored yet
+        if (termsAccepted && data.accessToken) {
+          const { NODE_BASE_URL } = require('../config/api');
+          try {
+            await fetch(`${NODE_BASE_URL}/api/auth/accept-policies`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${data.accessToken}`,
+              },
+              body: JSON.stringify({ termsAccepted: true, privacyAccepted: true }),
+            });
+          } catch (e) {
+            console.warn('[Register] Legal acceptance failed:', e.message);
+          }
+        }
         // Navigation will happen automatically via RootNavigator when isAuthenticated changes
-        
+
       } else {
         // Handle error response
         const { error } = result;
@@ -466,6 +517,10 @@ const ProviderRegisterScreen = ({ navigation }) => {
    * Uses mode="signup" — backend will NOT login existing users
    */
   const handleGoogleSignIn = async () => {
+    if (!termsAccepted) {
+      showAlert('Please accept the Terms & Conditions and Privacy Policy before signing up.', 'warning');
+      return;
+    }
     try {
       setGoogleLoading(true);
       clearAlert();
@@ -532,13 +587,27 @@ const ProviderRegisterScreen = ({ navigation }) => {
         };
         
         const authProcessed = await handleAuthSuccess(authData);
-        
+
         if (!authProcessed) {
           showAlert(t('auth.registrationSessionFail'), 'warning');
         }
+
+        // Record legal acceptance with explicit token
+        if (termsAccepted && accessToken) {
+          const { NODE_BASE_URL } = require('../config/api');
+          try {
+            await fetch(`${NODE_BASE_URL}/api/auth/accept-policies`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+              body: JSON.stringify({ termsAccepted: true, privacyAccepted: true }),
+            });
+          } catch (e) {
+            console.warn('[Register] Legal acceptance failed:', e.message);
+          }
+        }
       } else {
         const { error } = result;
-        
+
         // Don't show error for cancelled sign-in
         if (error.isCancelled) {
           console.log('🔵 [ProviderRegisterScreen] Google Sign-In cancelled by user');
@@ -579,6 +648,103 @@ const ProviderRegisterScreen = ({ navigation }) => {
       showAlert(t('auth.googleSignInFailed'), 'error');
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  /**
+   * Handle Apple Sign-In — SIGNUP MODE for providers (mirrors Google handler)
+   */
+  const handleAppleSignIn = async () => {
+    if (!termsAccepted) {
+      showAlert('Please accept the Terms & Conditions and Privacy Policy before signing up.', 'warning');
+      return;
+    }
+    try {
+      setAppleLoading(true);
+      clearAlert();
+
+      const result = await signInWithAppleAsProvider('signup');
+
+      if (result.success) {
+        const { accessToken, refreshToken, user, isNewUser } = result.data;
+
+        if (isNewUser && user) {
+          let syncResult = await syncAppleProviderToMongoDB({
+            javaUserId: user.id || user.userId,
+            email: user.email,
+            name: user.fullName || user.name || user.email?.split('@')[0],
+            address: formData.address || '',
+            city: formData.city || '',
+            pincode: formData.pincode || '',
+          }, accessToken);
+
+          if (!syncResult.success) {
+            await new Promise(r => setTimeout(r, 2000));
+            syncResult = await syncAppleProviderToMongoDB({
+              javaUserId: user.id || user.userId,
+              email: user.email,
+              name: user.fullName || user.name || user.email?.split('@')[0],
+              address: formData.address || '',
+            }, accessToken);
+          }
+        }
+
+        showAlert(t('auth.appleRegistrationSuccess') || 'Account created successfully!', 'success');
+
+        const authData = {
+          accessToken,
+          refreshToken,
+          userId: user.id || user.userId,
+          javaUserId: user.id || user.userId,
+          mongoId: user.id || user.userId,
+          email: user.email,
+          fullName: user.fullName || user.name,
+          role: user.role,
+          userType: 'provider',
+          isNewUser,
+          authMethod: 'apple',
+        };
+
+        const authProcessed = await handleAuthSuccess(authData);
+        if (!authProcessed) {
+          showAlert(t('auth.registrationSessionFail'), 'warning');
+        }
+
+        // Record legal acceptance with explicit token
+        if (termsAccepted && accessToken) {
+          const { NODE_BASE_URL } = require('../config/api');
+          try {
+            await fetch(`${NODE_BASE_URL}/api/auth/accept-policies`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+              body: JSON.stringify({ termsAccepted: true, privacyAccepted: true }),
+            });
+          } catch (e) {
+            console.warn('[Register] Legal acceptance failed:', e.message);
+          }
+        }
+      } else {
+        const { error } = result;
+        if (error.isCancelled) return;
+        if (error.code === APPLE_AUTH_CODES.NOT_AVAILABLE) return;
+
+        if (error.code === APPLE_AUTH_CODES.ROLE_CONFLICT) {
+          showAlert(t('auth.appleRoleConflict') || 'This account is already registered as a different type.', 'warning');
+          return;
+        }
+        if (error.code === APPLE_AUTH_CODES.ALREADY_REGISTERED) {
+          setExistingEmail('this Apple account');
+          setShowAccountExistsModal(true);
+          return;
+        }
+
+        const errorMessage = getAppleAuthErrorMessage(error.code, error.message);
+        showAlert(errorMessage, 'error');
+      }
+    } catch (error) {
+      showAlert(t('auth.appleSignInFailed') || 'Apple Sign-In failed. Please try again.', 'error');
+    } finally {
+      setAppleLoading(false);
     }
   };
 
@@ -754,11 +920,32 @@ const ProviderRegisterScreen = ({ navigation }) => {
               </Text>
             </View>
 
+            {/* Terms & Privacy Acceptance */}
+            <TouchableOpacity
+              style={styles.termsRow}
+              onPress={() => setTermsAccepted(!termsAccepted)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
+                {termsAccepted && <Text style={styles.checkmark}>{'\u2713'}</Text>}
+              </View>
+              <Text style={styles.termsText}>
+                {'I agree to the '}
+                <Text style={styles.termsLink} onPress={() => Linking.openURL('https://fixhomi.com/terms')}>
+                  Terms &amp; Conditions
+                </Text>
+                {' and '}
+                <Text style={styles.termsLink} onPress={() => Linking.openURL('https://fixhomi.com/privacy')}>
+                  Privacy Policy
+                </Text>
+              </Text>
+            </TouchableOpacity>
+
             <Button
               title={loading ? t('providerRegister.creatingAccount') : t('providerRegister.createProviderAccount')}
               onPress={handleRegister}
               loading={loading}
-              disabled={loading || googleLoading}
+              disabled={loading || googleLoading || appleLoading || !termsAccepted}
               style={styles.submitButton}
             />
 
@@ -773,10 +960,10 @@ const ProviderRegisterScreen = ({ navigation }) => {
             <TouchableOpacity
               style={[
                 styles.googleButton,
-                (loading || googleLoading) && styles.googleButtonDisabled
+                (loading || googleLoading || appleLoading) && styles.googleButtonDisabled
               ]}
               onPress={handleGoogleSignIn}
-              disabled={loading || googleLoading}
+              disabled={loading || googleLoading || appleLoading}
               activeOpacity={0.7}
             >
               {googleLoading ? (
@@ -790,17 +977,38 @@ const ProviderRegisterScreen = ({ navigation }) => {
                 </>
               )}
             </TouchableOpacity>
+
+            {/* Apple Sign-In Button (iOS only) */}
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity
+                style={[
+                  styles.appleButton,
+                  (loading || googleLoading || appleLoading) && styles.appleButtonDisabled
+                ]}
+                onPress={handleAppleSignIn}
+                disabled={loading || googleLoading || appleLoading}
+                activeOpacity={0.7}
+              >
+                {appleLoading ? (
+                  <Text style={styles.appleButtonText}>{t('auth.signingUpApple') || 'Signing up...'}</Text>
+                ) : (
+                  <>
+                    <Text style={styles.appleIcon}>{'\uF8FF'}</Text>
+                    <Text style={styles.appleButtonText}>{t('auth.continueWithApple') || 'Continue with Apple'}</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
 
-          {/* Footer */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>
-              {t('auth.agreeTerms')}
-              <Text style={styles.link}>{t('auth.termsOfService')}</Text>
-              {t('auth.and')}
-              <Text style={styles.link}>{t('auth.privacyPolicy')}</Text>
-            </Text>
-          </View>
+          {/* Footer note */}
+          {!termsAccepted && (
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>
+                Please accept the Terms &amp; Conditions above to continue
+              </Text>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -1159,6 +1367,65 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#374151',
+  },
+  appleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000000',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    marginBottom: 12,
+  },
+  appleButtonDisabled: {
+    opacity: 0.6,
+  },
+  appleIcon: {
+    fontSize: 18,
+    color: '#FFFFFF',
+    marginRight: 10,
+  },
+  appleButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  termsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    marginTop: 8,
+    gap: 12,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  checkboxChecked: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+  },
+  checkmark: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  termsText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 20,
+  },
+  termsLink: {
+    color: '#2563EB',
+    fontWeight: '600',
   },
   footer: {
     paddingVertical: 24,

@@ -547,7 +547,7 @@ const DocumentPreviewModal = ({ visible, service, documents, status, rejectionRe
           )}
 
           {/* Bottom Info Bar */}
-          <View style={[styles.fullscreenInfoBar, { bottom: insets.bottom, paddingBottom: insets.bottom + 16 }]}>
+          <View style={[styles.fullscreenInfoBar, { bottom: 0, paddingBottom: Math.max(insets.bottom, 12) + 16 }]}>
             <Text style={styles.fullscreenDocName} numberOfLines={1}>
               {DOCUMENT_LABELS[currentDoc.documentType] || currentDoc.documentType}
             </Text>
@@ -781,7 +781,7 @@ const StatsBanner = ({ approved, pending, rejected }) => (
 
 const ServiceApprovalsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { user, profile, refreshProfile } = useApp();
+  const { user, profile, userType, refreshProfile } = useApp();
   const { dialog } = useDialog();
 
   const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
@@ -879,6 +879,16 @@ const ServiceApprovalsScreen = ({ navigation }) => {
   useEffect(() => {
     fetchData();
   }, [providerId]);
+
+  // Refresh profile when screen focuses to get latest verification status
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (providerId && userType) {
+        refreshProfile(userType, providerId, { force: true });
+      }
+    });
+    return unsubscribe;
+  }, [navigation, providerId, userType, refreshProfile]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -1460,7 +1470,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
           })}
         </ScrollView>
 
-        <View style={[styles.footer, { bottom: insets.bottom, paddingBottom: insets.bottom + 16 }]}>
+        <View style={[styles.footer, { bottom: 0, paddingBottom: Math.max(insets.bottom, 12) + 16 }]}>
           <TouchableOpacity
             style={[styles.primaryButton, selectedServices.length === 0 && styles.buttonDisabled]}
             onPress={() => setStep('upload')}
@@ -1625,7 +1635,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
         </View>
       )}
 
-      <View style={[styles.footer, { bottom: insets.bottom, paddingBottom: insets.bottom + 16 }]}>
+      <View style={[styles.footer, { bottom: 0, paddingBottom: Math.max(insets.bottom, 12) + 16 }]}>
         <TouchableOpacity
           style={[
             styles.primaryButton,

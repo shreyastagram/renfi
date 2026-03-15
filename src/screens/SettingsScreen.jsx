@@ -28,6 +28,7 @@ import {
   Image,
   Animated,
   StatusBar,
+  Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -193,7 +194,13 @@ const ToggleRow = ({ iconName, title, subtitle, value, onValueChange, disabled, 
  * Settings Row with navigation/action
  */
 const ActionRow = ({ iconName, title, subtitle, onPress, showArrow = true, danger = false, loading = false, disabled = false }) => (
-  <AnimatedPressable onPress={onPress} disabled={loading || disabled}>
+  <AnimatedPressable
+    onPress={onPress}
+    disabled={loading || disabled}
+    accessibilityRole="button"
+    accessibilityLabel={subtitle ? `${title}. ${subtitle}` : title}
+    accessibilityState={{ disabled: loading || disabled }}
+  >
     <View style={[styles.settingsRow, (loading || disabled) && { opacity: 0.6 }]}>
       <View style={[styles.rowIconContainer, danger && styles.rowIconDanger]}>
         {loading ? (
@@ -778,6 +785,47 @@ const SettingsScreen = ({ navigation }) => {
   };
 
   /**
+   * Handle GDPR data export — download all user/provider data
+   */
+  const [isExportingData, setIsExportingData] = useState(false);
+
+  const handleExportData = async () => {
+    try {
+      setIsExportingData(true);
+      const id = user?.mongoId || user?._id;
+      if (!id) {
+        dialog('Error', 'Could not identify your account. Please try logging in again.');
+        return;
+      }
+
+      const endpoint = userType === 'provider'
+        ? `${NODE_BASE_URL}/api/provider/${id}/export`
+        : `${NODE_BASE_URL}/api/user/${id}/export`;
+
+      const response = await authFetch(endpoint);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        dialog('Export Failed', errorData.message || 'Could not export your data right now. Please try again later.');
+        return;
+      }
+
+      const json = await response.json();
+      const exportString = JSON.stringify(json.data, null, 2);
+
+      await Share.share({
+        message: exportString,
+        title: 'FixHomi Data Export',
+      });
+    } catch (error) {
+      console.error('[Settings] Data export error:', error);
+      dialog('Export Failed', 'Something went wrong while exporting your data. Please try again.');
+    } finally {
+      setIsExportingData(false);
+    }
+  };
+
+  /**
    * Handle logout
    */
   const handleLogout = () => {
@@ -874,15 +922,23 @@ const SettingsScreen = ({ navigation }) => {
 
       const result = await response.json();
 
-      // Attempt MongoDB cleanup via Node.js (non-blocking)
       if (response.ok) {
-        try {
-          await authFetch(`${NODE_BASE_URL}/api/auth/cleanup-account`, {
-            method: 'POST',
-            body: JSON.stringify({ reason: deleteReason || 'User requested deletion' }),
-          });
-        } catch (cleanupErr) {
-          console.warn('[Settings] MongoDB cleanup call failed (non-critical):', cleanupErr.message);
+        // MongoDB cleanup — retry up to 2 times to ensure data is fully removed
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            const cleanupRes = await authFetch(`${NODE_BASE_URL}/api/auth/cleanup-account`, {
+              method: 'POST',
+              body: JSON.stringify({ reason: deleteReason || 'User requested deletion' }),
+            });
+            if (cleanupRes.ok) {
+              console.log('[Settings] MongoDB cleanup successful');
+              break;
+            }
+            console.warn(`[Settings] MongoDB cleanup attempt ${attempt} returned:`, cleanupRes.status);
+          } catch (cleanupErr) {
+            console.warn(`[Settings] MongoDB cleanup attempt ${attempt} failed:`, cleanupErr.message);
+          }
+          if (attempt < 2) await new Promise(r => setTimeout(r, 1500));
         }
       }
 
@@ -1018,7 +1074,9 @@ const SettingsScreen = ({ navigation }) => {
                 <Icon name="info" size={14} color={COLORS.secondary} />
               </View>
               <Text style={styles.verificationNoteText}>
-                Complete phone, email, Aadhaar verification and get service approval to appear in customer searches. Premium is required for Traditional & Event services.
+                {displayData?.isFullyVerified
+                  ? 'All verifications complete. Activate Professional Tools to appear in customer searches.'
+                  : 'Complete phone, email, Aadhaar verification and get service approval to appear in customer searches. Professional Tools are required for Traditional & Event services.'}
               </Text>
             </View>
           </View>
@@ -1179,10 +1237,42 @@ const SettingsScreen = ({ navigation }) => {
           />
 
           <ActionRow
+            iconName="download"
+            title="Download My Data"
+            subtitle="Export all your data"
+            onPress={handleExportData}
+            loading={isExportingData}
+            disabled={isExportingData}
+          />
+
+          <ActionRow
             iconName="help"
             title="Help & Support"
             subtitle="Get help with your account"
-            onPress={() => Linking.openURL('mailto:support@fixhomi.com')}
+            onPress={() => {
+              dialog(
+                'Help & Support',
+                'How would you like to reach us?',
+                [
+                  {
+                    text: 'WhatsApp',
+                    onPress: () => Linking.openURL('https://wa.me/918446385312'),
+                  },
+                  {
+                    text: 'Email',
+                    onPress: () => Linking.openURL('mailto:contact@fixhomi.com'),
+                  },
+                  {
+                    text: 'Visit Support Page',
+                    onPress: () => Linking.openURL('https://fixhomi.com/support'),
+                  },
+                  {
+                    text: 'Cancel',
+                    style: 'cancel',
+                  },
+                ]
+              );
+            }}
           />
 
           <ActionRow

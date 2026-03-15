@@ -31,6 +31,7 @@ import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
+import useExitConfirmation from '../hooks/useExitConfirmation';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
@@ -468,6 +469,9 @@ const ProviderHomeScreen = ({ navigation }) => {
   const { dialog } = useDialog();
   const { t } = useLanguage();
 
+  // Show "Exit App?" on Android back press from home screen
+  useExitConfirmation();
+
   // Set status bar for dark hero header when this tab is focused
   useFocusEffect(
     useCallback(() => {
@@ -600,6 +604,7 @@ const ProviderHomeScreen = ({ navigation }) => {
   }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id, verificationDashboard]);
 
   // Refresh profile + stats + verification when screen comes into focus
+  // Always force verification refresh on focus — user may have just completed a step
   useEffect(() => {
     if (isFocused) {
       const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
@@ -607,7 +612,7 @@ const ProviderHomeScreen = ({ navigation }) => {
         refreshProfile(userType, providerId);
       }
       fetchStats();
-      fetchVerificationData();
+      fetchVerificationData(true); // Force refresh — no SWR cache on focus
     }
   }, [isFocused]);
 

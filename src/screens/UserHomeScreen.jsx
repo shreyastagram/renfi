@@ -45,6 +45,7 @@ import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLocation } from '../context/LocationContext';
 import { useLanguage } from '../context/LanguageContext';
+import useExitConfirmation from '../hooks/useExitConfirmation';
 import {
   createServiceRequest,
   getNearbyProviders,
@@ -256,6 +257,9 @@ const UserHomeScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
   const { t } = useLanguage();
+
+  // Show "Exit App?" on Android back press from home screen
+  useExitConfirmation();
 
   // Set status bar for light background when this tab is focused
   useFocusEffect(

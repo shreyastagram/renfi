@@ -91,6 +91,8 @@ const Input = ({
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor="#9CA3AF"
+          accessibilityLabel={label || placeholder}
+          accessibilityHint={error || undefined}
           secureTextEntry={
             rightIcon 
               ? (rightIcon === 'eye' ? true : false)  // controlled by parent
@@ -105,10 +107,12 @@ const Input = ({
         />
         
         {hasRightAction && (
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={onRightIconPress || togglePasswordVisibility}
             style={styles.eyeButton}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={isPasswordVisible ? 'Hide password' : 'Show password'}
           >
             {renderPasswordIcon()}
           </TouchableOpacity>

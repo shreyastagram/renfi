@@ -23,7 +23,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Input, Alert, FixhomiLogo } from '../components';
 import { loginWithEmail, getErrorMessage, AUTH_CODES } from '../services/authService';
-import { 
+import {
   signInWithGoogleAsUser,
   signInWithGoogleAsProvider,
   syncGoogleUserToMongoDB,
@@ -31,6 +31,14 @@ import {
   GOOGLE_AUTH_CODES,
   getGoogleAuthErrorMessage,
 } from '../services/googleAuthService';
+import {
+  signInWithAppleAsUser,
+  signInWithAppleAsProvider,
+  syncAppleUserToMongoDB,
+  syncAppleProviderToMongoDB,
+  APPLE_AUTH_CODES,
+  getAppleAuthErrorMessage,
+} from '../services/appleAuthService';
 import { validateEmail, validatePassword } from '../utils/validation';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -53,6 +61,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
   // UI state
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [alertMessage, setAlertMessage] = useState(null);
   const [alertType, setAlertType] = useState('error');
@@ -362,6 +371,95 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
     }
   }, [conflictExistingRole, userType, navigation]);
 
+  /**
+   * Handle Apple Sign-In — LOGIN MODE ONLY (mirrors Google handler)
+   */
+  const handleAppleSignIn = async () => {
+    try {
+      setAppleLoading(true);
+      clearAlert();
+
+      const isProvider = userType === 'provider';
+      const result = isProvider
+        ? await signInWithAppleAsProvider('login')
+        : await signInWithAppleAsUser('login');
+
+      if (result.success) {
+        const { accessToken, refreshToken, user, isNewUser } = result.data;
+
+        const googleRole = user?.role;
+        const expectedRole = userType === 'provider' ? 'SERVICE_PROVIDER' : 'USER';
+        if (googleRole && googleRole !== expectedRole && googleRole !== 'ADMIN') {
+          const correctScreen = googleRole === 'SERVICE_PROVIDER' ? 'provider' : 'user';
+          showAlert(t('auth.roleMismatch', { role: correctScreen }), 'error');
+          setAppleLoading(false);
+          return;
+        }
+
+        showAlert(t('auth.loginSuccess'), 'success');
+
+        // Sync profile to MongoDB (reuses same Google sync endpoints)
+        if (user) {
+          const syncData = {
+            javaUserId: user.userId,
+            email: user.email,
+            fullName: user.fullName,
+          };
+          try {
+            if (isProvider) {
+              await syncAppleProviderToMongoDB({ ...syncData, name: user.fullName, address: '' }, accessToken);
+            } else {
+              await syncAppleUserToMongoDB(syncData, accessToken);
+            }
+          } catch (syncError) {
+            // Don't fail login — auth middleware auto-sync handles it
+          }
+        }
+
+        const authData = {
+          accessToken,
+          refreshToken,
+          userId: user.userId,
+          javaUserId: user.userId,
+          mongoId: user.userId,
+          email: user.email,
+          fullName: user.fullName,
+          role: user.role,
+          userType,
+          isNewUser,
+          authMethod: 'apple',
+        };
+
+        const authProcessed = await handleAuthSuccess(authData);
+        if (!authProcessed) {
+          showAlert(t('auth.sessionSaveWarning'), 'warning');
+        }
+      } else {
+        const { error } = result;
+        if (error.isCancelled) return;
+
+        if (error.code === APPLE_AUTH_CODES.NOT_REGISTERED) {
+          showAlert(t('auth.appleNotRegistered') || 'No account found. Please register first.', 'warning');
+          return;
+        }
+        if (error.code === APPLE_AUTH_CODES.ROLE_CONFLICT) {
+          const existingRole = error.existingRole || '';
+          setConflictExistingRole(existingRole);
+          setShowRoleConflictModal(true);
+          return;
+        }
+        if (error.code === APPLE_AUTH_CODES.NOT_AVAILABLE) return; // Android — button not shown
+
+        const errorMessage = getAppleAuthErrorMessage(error.code, error.message);
+        showAlert(errorMessage, 'error');
+      }
+    } catch (error) {
+      showAlert(t('auth.appleSignInFailed') || 'Apple Sign-In failed. Please try again.', 'error');
+    } finally {
+      setAppleLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -429,7 +527,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
             <TouchableOpacity 
               style={styles.forgotPassword}
               onPress={() => navigation?.navigate?.('ForgotPassword')}
-              disabled={loading || googleLoading}
+              disabled={loading || googleLoading || appleLoading}
             >
               <Text style={styles.forgotPasswordText}>{t('auth.forgotPassword')}</Text>
             </TouchableOpacity>
@@ -438,7 +536,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
               title={loading ? t('auth.signingIn') : t('auth.signIn')}
               onPress={handleLogin}
               loading={loading}
-              disabled={loading || googleLoading}
+              disabled={loading || googleLoading || appleLoading}
               style={styles.submitButton}
             />
 
@@ -453,10 +551,10 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
             <TouchableOpacity
               style={[
                 styles.googleButton,
-                (loading || googleLoading) && styles.googleButtonDisabled
+                (loading || googleLoading || appleLoading) && styles.googleButtonDisabled
               ]}
               onPress={handleGoogleSignIn}
-              disabled={loading || googleLoading}
+              disabled={loading || googleLoading || appleLoading}
               activeOpacity={0.7}
             >
               {googleLoading ? (
@@ -471,12 +569,34 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
               )}
             </TouchableOpacity>
 
+            {/* Apple Sign-In Button (iOS only) */}
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity
+                style={[
+                  styles.appleButton,
+                  (loading || googleLoading || appleLoading) && styles.appleButtonDisabled
+                ]}
+                onPress={handleAppleSignIn}
+                disabled={loading || googleLoading || appleLoading}
+                activeOpacity={0.7}
+              >
+                {appleLoading ? (
+                  <Text style={styles.appleButtonText}>{t('auth.signingInApple') || 'Signing in...'}</Text>
+                ) : (
+                  <>
+                    <Text style={styles.appleIcon}>{'\uF8FF'}</Text>
+                    <Text style={styles.appleButtonText}>{t('auth.continueWithApple') || 'Continue with Apple'}</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+
             {/* OTP Login Option */}
             <Button
               title={t('auth.signInWithOtp')}
               onPress={onSwitchToOtp}
               variant="outline"
-              disabled={loading || googleLoading}
+              disabled={loading || googleLoading || appleLoading}
               style={styles.otpButton}
             />
           </View>
@@ -658,6 +778,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#1F2937',
+  },
+  // Apple Button Styles
+  appleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000000',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    marginBottom: 12,
+  },
+  appleButtonDisabled: {
+    opacity: 0.6,
+  },
+  appleIcon: {
+    fontSize: 18,
+    color: '#FFFFFF',
+    marginRight: 10,
+  },
+  appleButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   otpButton: {
     marginBottom: 8,

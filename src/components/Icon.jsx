@@ -95,6 +95,7 @@ const ICON_MAP = {
   logout: { family: 'Feather', name: 'log-out' },
   help: { family: 'Feather', name: 'help-circle' },
   info: { family: 'Feather', name: 'info' },
+  download: { family: 'Feather', name: 'download' },
   document: { family: 'Feather', name: 'file-text' },
   notification: { family: 'Ionicons', name: 'notifications-outline' },
   services: { family: 'MaterialCommunityIcons', name: 'toolbox' },

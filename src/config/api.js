@@ -245,9 +245,10 @@ export const ENDPOINTS = {
     CHANGE: '/api/users/change-password',
   },
 
-  // Google OAuth (direct to Java Auth)
+  // OAuth (direct to Java Auth)
   OAUTH: {
     GOOGLE_MOBILE: '/api/auth/oauth2/google/mobile',
+    APPLE_MOBILE: '/api/auth/oauth2/apple/mobile',
   },
 
   // Profile endpoints

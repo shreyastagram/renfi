@@ -88,7 +88,7 @@ const VerificationScreen = ({
   onVerificationComplete,
   onSkip,
 }) => {
-  const { user, profile, refreshVerificationStatus, updateProfileWithAutoSync } = useApp();
+  const { user, profile, userType, refreshVerificationStatus, refreshProfile, updateProfileWithAutoSync } = useApp();
   const { t } = useLanguage();
 
   // Get verificationType from route params (navigation) or props
@@ -236,7 +236,15 @@ const VerificationScreen = ({
 
       if (!javaResult.success) {
         console.error('❌ [VerificationScreen] Failed to update Java Auth:', javaResult.error);
-        showAlert(javaResult.error?.message || t('verificationScreen.failedUpdate', { type: verificationType }), 'error');
+        const errCode = javaResult.error?.code;
+        const errStatus = javaResult.error?.status;
+        if (errCode === 'PHONE_ALREADY_EXISTS' || (errStatus === 409 && !isEmailVerification)) {
+          showAlert(t('profile.phoneConflictMsg') || 'This mobile number is already verified on another account. Please use a different number.', 'error');
+        } else if (errCode === 'EMAIL_ALREADY_EXISTS' || (errStatus === 409 && isEmailVerification)) {
+          showAlert('This email is already verified on another account. Please use a different email.', 'error');
+        } else {
+          showAlert(javaResult.error?.message || t('verificationScreen.failedUpdate', { type: verificationType }), 'error');
+        }
         return;
       }
 
@@ -249,8 +257,12 @@ const VerificationScreen = ({
         await updateProfileWithAutoSync(mongoUpdate);
       }
 
-      // Refresh verification status to get updated user data
+      // Refresh verification status and profile to get updated user data
       await refreshVerificationStatus();
+      const userId = user?.mongoId || profile?.mongoId || profile?._id;
+      if (userId) {
+        await refreshProfile(userType, userId, { force: true });
+      }
 
       console.log(`✅ [VerificationScreen] ${verificationType} saved:`, trimmedValue);
       showAlert(isEmailVerification ? t('verificationScreen.emailUpdated') : t('verificationScreen.phoneUpdated'), 'success');
@@ -415,8 +427,12 @@ const VerificationScreen = ({
       const result = await verifyPhoneOtp(otpCode);
 
       if (result.success) {
-        // Refresh verification status
+        // Refresh verification status and profile
         await refreshVerificationStatus();
+        const uid = user?.mongoId || profile?.mongoId || profile?._id;
+        if (uid) {
+          await refreshProfile(userType, uid, { force: true });
+        }
 
         // Show success state
         setVerified(true);

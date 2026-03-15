@@ -8,6 +8,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { Alert } from 'react-native';
 import { 
   storeTokens, 
   storeUserData, 
@@ -21,9 +22,10 @@ import {
 import { logout as apiLogout } from '../services/authService';
 import { syncPhoneToMongoDB } from '../services/authService';
 import { fetchFullProfile, getCurrentUser, updateProviderOnlineStatus as apiUpdateOnlineStatus, updateProviderProfile as apiUpdateProviderProfile } from '../services/profileService';
-import { saveFcmTokenForUser, saveFcmTokenForProvider, setupForegroundMessageListener, setupTokenRefreshListener } from '../services/fcmService';
+import { saveFcmTokenForUser, saveFcmTokenForProvider, setupForegroundMessageListener, setupTokenRefreshListener, deleteFcmToken } from '../services/fcmService';
 import { validateAndRefreshTokens, warmUpNetworkStack } from '../services/apiClient';
 import { signOutFromGoogle } from '../services/googleAuthService';
+// Note: Apple Sign-In doesn't have a client-side signOut — revocation happens server-side
 import { performFullSync, processSyncQueue, isSyncDue, updateProfileWithSync, SYNC_STATUS } from '../services/profileSyncService';
 import { checkAuthHealth, addAuthStateListener, getDeviceInfo, AUTH_HEALTH } from '../services/authInfraService';
 import { initializeSocket, disconnectSocket } from '../services/socketService';
@@ -60,6 +62,20 @@ export const AppProvider = ({ children }) => {
     
     // Set up global handler for auth expiry (called from apiClient)
     global.onAuthExpired = handleAuthExpired;
+
+    // Set up global handler for email verification (called from App.tsx deep link handler)
+    global.onEmailVerified = async () => {
+      try {
+        console.log('📧 [AppContext] Email verified deep link — refreshing status...');
+        await refreshVerificationStatus();
+        const id = user?.mongoId || user?._id;
+        if (id && userType) {
+          await refreshProfile(userType, id, { force: true });
+        }
+      } catch (err) {
+        console.warn('⚠️ [AppContext] Email verification refresh failed:', err.message);
+      }
+    };
     
     // Subscribe to auth state changes from authInfraService
     const unsubscribeAuthState = addAuthStateListener((state, data) => {
@@ -71,6 +87,7 @@ export const AppProvider = ({ children }) => {
     
     return () => {
       global.onAuthExpired = null;
+      global.onEmailVerified = null;
       unsubscribeAuthState();
     };
   }, []);
@@ -210,7 +227,35 @@ export const AppProvider = ({ children }) => {
       console.log('🔄 [AppContext] Refreshing profile...');
       
       const result = await fetchFullProfile(effectiveType, effectiveMongoId);
-      
+
+      // Detect deleted/deactivated account — force logout
+      if (result.success && result.data?.isActive === false) {
+        console.warn('🚫 [AppContext] Account is deactivated — forcing logout');
+        Alert.alert(
+          'Account Deleted',
+          'Your account has been deleted. You will be logged out.',
+          [{ text: 'OK', onPress: () => logout(false) }],
+          { cancelable: false }
+        );
+        return null;
+      }
+
+      // If profile fetch failed with a 404/not-found error, account may be deleted
+      if (!result.success) {
+        const errStatus = result.error?.status;
+        const errCode = result.error?.code;
+        if (errStatus === 404 || errCode === 'USER_NOT_FOUND' || errCode === 'PROVIDER_NOT_FOUND') {
+          console.warn('🚫 [AppContext] Account not found on backend — forcing logout');
+          Alert.alert(
+            'Account Not Found',
+            'Your account no longer exists. You will be logged out.',
+            [{ text: 'OK', onPress: () => logout(false) }],
+            { cancelable: false }
+          );
+          return null;
+        }
+      }
+
       if (result.success) {
         // Preserve verification fields — they come from Java Auth and must not be lost
         setProfile(prev => ({
@@ -661,18 +706,47 @@ export const AppProvider = ({ children }) => {
   const logout = useCallback(async (callApi = true) => {
     try {
       console.log('🚪 [AppContext] Logging out...');
-      
+
       // Disconnect socket before clearing auth
       disconnectSocket();
-      
+
+      // Clear FCM token from backend so device stops receiving notifications (with retry)
+      if (callApi) {
+        const mongoId = user?.mongoId || user?._id || profile?.mongoId || profile?._id;
+        if (mongoId && userType) {
+          const { authFetch } = require('../utils/authFetch');
+          const { NODE_BASE_URL } = require('../config/api');
+          const endpoint = userType === 'provider'
+            ? `${NODE_BASE_URL}/api/provider/${mongoId}/fcm-token`
+            : `${NODE_BASE_URL}/api/user/${mongoId}/fcm-token`;
+          for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+              const res = await authFetch(endpoint, {
+                method: 'PATCH',
+                body: JSON.stringify({ fcmToken: null }),
+              });
+              if (res.ok) break;
+            } catch (e) {
+              if (attempt < 2) await new Promise(r => setTimeout(r, 1000));
+            }
+          }
+        }
+      }
+
+      // Delete FCM token from device (unregisters from Firebase)
+      try {
+        await deleteFcmToken();
+      } catch (fcmErr) {
+        console.warn('⚠️ [AppContext] FCM token delete failed:', fcmErr.message);
+      }
+
       // Sign out from Google to clear cached session
-      // This ensures the account picker shows on next sign-in
       try {
         await signOutFromGoogle();
       } catch (googleErr) {
         console.warn('⚠️ [AppContext] Google sign-out failed:', googleErr.message);
       }
-      
+
       // Call logout API to revoke refresh token
       if (callApi) {
         const tokens = await getTokens();
@@ -680,12 +754,11 @@ export const AppProvider = ({ children }) => {
           try {
             await apiLogout(tokens.refreshToken);
           } catch (apiError) {
-            // Continue with local logout even if API fails
             console.warn('⚠️ [AppContext] API logout failed:', apiError.message);
           }
         }
       }
-      
+
       // Clear all local data
       await clearAllData();
       

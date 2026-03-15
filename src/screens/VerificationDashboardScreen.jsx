@@ -21,6 +21,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Animated,
+  Linking,
   Platform,
   StatusBar,
 } from 'react-native';
@@ -102,6 +103,13 @@ const STEP_CONFIG = {
     navTarget: 'DocumentVerification',
     navParams: {},
     descriptionKey: 'verificationDashboard.submitDocumentsDesc',
+  },
+  legal_acceptance: {
+    icon: 'document',
+    actionLabelKey: 'verificationDashboard.acceptTerms',
+    navTarget: null, // Handled inline
+    navParams: {},
+    descriptionKey: 'verificationDashboard.acceptTermsDesc',
   },
   premium: {
     icon: 'star',
@@ -285,6 +293,16 @@ const StepCard = ({ step, config, onAction, isLast, t }) => {
             {t('verificationDashboard.verifiedOn', { date: new Date(step.verifiedAt).toLocaleDateString('en-IN') })}
           </Text>
         )}
+        {step.id === 'legal_acceptance' && step.completed && step.acceptedAt && (
+          <Text style={styles.stepDetails}>
+            Accepted on {new Date(step.acceptedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+          </Text>
+        )}
+        {step.id === 'legal_acceptance' && !step.completed && (
+          <Text style={styles.stepDetails}>
+            Read and accept our Terms &amp; Conditions and Privacy Policy
+          </Text>
+        )}
 
         {/* Action button for incomplete steps or phone re-verify */}
         {(!isCompleted || step.phoneChanged) && (
@@ -425,6 +443,47 @@ const VerificationDashboardScreen = ({ navigation }) => {
     // Aadhaar step: open the AadhaarVerificationModal directly (same as ProfileScreen)
     if (stepKey === 'aadhaar') {
       setShowAadhaarModal(true);
+      return;
+    }
+
+    // Legal acceptance step: show confirmation dialog
+    if (stepKey === 'legal_acceptance') {
+      dialog(
+        t('verificationDashboard.acceptTermsTitle') || 'Terms & Privacy Policy',
+        t('verificationDashboard.acceptTermsMsg') || 'By accepting, you agree to the Fixhomi Terms & Conditions and Privacy Policy. This cannot be undone — to revoke, contact support.',
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('verificationDashboard.readTerms') || 'Read Terms',
+            onPress: () => Linking.openURL('https://fixhomi.com/terms'),
+          },
+          {
+            text: t('verificationDashboard.acceptBtn') || 'Accept',
+            onPress: async () => {
+              try {
+                const { authFetch } = require('../utils/authFetch');
+                const { NODE_BASE_URL } = require('../config/api');
+                const res = await authFetch(`${NODE_BASE_URL}/api/auth/accept-policies`, {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    termsAccepted: true,
+                    privacyAccepted: true,
+                  }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                  dialog(t('common.success'), t('verificationDashboard.policiesAccepted') || 'Policies accepted successfully.');
+                  loadDashboard();
+                } else {
+                  dialog(t('common.error'), data.error || 'Unable to save. Please try again.');
+                }
+              } catch (err) {
+                dialog(t('common.error'), 'Unable to save. Please try again.');
+              }
+            },
+          },
+        ]
+      );
       return;
     }
 
