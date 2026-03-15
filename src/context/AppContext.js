@@ -55,6 +55,8 @@ export const AppProvider = ({ children }) => {
   const [activeSessions, setActiveSessions] = useState([]); // Multi-device sessions
   const logoutInProgressRef = useRef(false); // Prevent concurrent logout calls
   const isInitialLoadRef = useRef(true); // True during first launch, false after splash completes
+  const profileFetchInFlight = useRef(false); // Prevent concurrent profile fetches
+  const availabilityUpdateInFlight = useRef(false); // Prevent profile refresh from overwriting optimistic availability
 
   /**
    * Initialize auth state on app load
@@ -225,6 +227,12 @@ export const AppProvider = ({ children }) => {
       return null;
     }
 
+    // Prevent concurrent profile fetches — if one is already in flight, skip
+    if (profileFetchInFlight.current) {
+      console.log('⏭️ [AppContext] Profile fetch already in flight, skipping');
+      return profile;
+    }
+
     // SWR: Skip fetch if data is fresh (< 30s old) unless forced
     const now = Date.now();
     if (!force && profile && (now - profileLastFetched.current) < STALE_THRESHOLD) {
@@ -232,6 +240,7 @@ export const AppProvider = ({ children }) => {
       return profile;
     }
     
+    profileFetchInFlight.current = true;
     try {
       // Only show loading spinner on first load (no cached data yet)
       const isFirstLoad = !profile;
@@ -282,17 +291,21 @@ export const AppProvider = ({ children }) => {
 
       if (result.success) {
         // Preserve verification fields — they come from Java Auth and must not be lost
+        // Preserve availability if a toggle update is in flight — prevents stale DB data from
+        // overwriting the optimistic value the user just set
         setProfile(prev => ({
           ...result.data,
           isEmailVerified: result.data.isEmailVerified ?? prev?.isEmailVerified ?? false,
           isPhoneVerified: result.data.isPhoneVerified ?? prev?.isPhoneVerified ?? false,
+          ...(availabilityUpdateInFlight.current ? { isAvailable: prev?.isAvailable, isOnline: prev?.isOnline } : {}),
         }));
-        
+
         // Update user state with verification status
         setUser(prev => ({
           ...prev,
           isEmailVerified: result.data.isEmailVerified ?? prev?.isEmailVerified ?? false,
           isPhoneVerified: result.data.isPhoneVerified ?? prev?.isPhoneVerified ?? false,
+          ...(availabilityUpdateInFlight.current ? { isAvailable: prev?.isAvailable, isOnline: prev?.isOnline } : {}),
         }));
         
         profileLastFetched.current = Date.now();
@@ -322,6 +335,7 @@ export const AppProvider = ({ children }) => {
       console.error('❌ [AppContext] Profile refresh error:', error);
       return null;
     } finally {
+      profileFetchInFlight.current = false;
       setIsProfileLoading(false);
     }
   }, [userType, user?.mongoId, user?._id, profile]);
@@ -431,6 +445,7 @@ export const AppProvider = ({ children }) => {
 
     console.log(`🔄 [AppContext] Updating provider availability: ${isAvailable}`);
 
+    availabilityUpdateInFlight.current = true;
     try {
       const result = await apiUpdateOnlineStatus(providerId, isAvailable);
 
@@ -450,6 +465,8 @@ export const AppProvider = ({ children }) => {
     } catch (error) {
       console.error('❌ [AppContext] Error updating availability:', error);
       return { success: false, error: error.message || 'Failed to update availability' };
+    } finally {
+      availabilityUpdateInFlight.current = false;
     }
   }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id, setAvailabilityOptimistic]);
 
