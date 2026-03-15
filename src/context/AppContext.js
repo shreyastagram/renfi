@@ -53,6 +53,8 @@ export const AppProvider = ({ children }) => {
   const STALE_THRESHOLD = 30000; // 30 seconds — skip re-fetch if data is fresh
   const [authHealth, setAuthHealth] = useState(null); // Auth service health status
   const [activeSessions, setActiveSessions] = useState([]); // Multi-device sessions
+  const logoutInProgressRef = useRef(false); // Prevent concurrent logout calls
+  const isInitialLoadRef = useRef(true); // True during first launch, false after splash completes
 
   /**
    * Initialize auth state on app load
@@ -94,18 +96,30 @@ export const AppProvider = ({ children }) => {
 
   /**
    * Handle auth expiry (token refresh failed)
+   * Guarded against concurrent calls to prevent cascading state resets
    */
   const handleAuthExpired = useCallback(async () => {
+    if (logoutInProgressRef.current) {
+      console.log('⚠️ [AppContext] Auth expiry already being handled, skipping duplicate');
+      return;
+    }
+    logoutInProgressRef.current = true;
     console.log('⚠️ [AppContext] Auth expired, logging out...');
-    await clearAllData();
+    try {
+      await clearAllData();
+    } catch (e) {
+      console.warn('⚠️ [AppContext] clearAllData error during auth expiry:', e.message);
+    }
     setUser(null);
     setUserTypeState(null);
     setProfile(null);
     setIsAuthenticated(false);
+    setIsAuthLoading(false);
     setAuthHealth(null);
     setActiveSessions([]);
     setAadhaarStatus({ isVerified: false, isNameLocked: false, aadhaarName: null, aadhaarLoaded: false });
     setPremiumStatus({ isPremiumActive: false, premiumDaysLeft: 0, premiumLoaded: false });
+    logoutInProgressRef.current = false;
   }, []);
 
   /**
@@ -229,7 +243,13 @@ export const AppProvider = ({ children }) => {
       const result = await fetchFullProfile(effectiveType, effectiveMongoId);
 
       // Detect deleted/deactivated account — force logout
+      // Skip during initial load to prevent race conditions with splash screen.
+      // The background account check in validateAndRefreshTokens handles this safely.
       if (result.success && result.data?.isActive === false) {
+        if (isInitialLoadRef.current) {
+          console.warn('🚫 [AppContext] Account deactivated (detected during init) — deferring to background check');
+          return null;
+        }
         console.warn('🚫 [AppContext] Account is deactivated — forcing logout');
         const showDlg = global.showStyledDialog || Alert.alert;
         showDlg(
@@ -245,6 +265,10 @@ export const AppProvider = ({ children }) => {
         const errStatus = result.error?.status;
         const errCode = result.error?.code;
         if (errStatus === 404 || errCode === 'USER_NOT_FOUND' || errCode === 'PROVIDER_NOT_FOUND') {
+          if (isInitialLoadRef.current) {
+            console.warn('🚫 [AppContext] Account not found (detected during init) — deferring to background check');
+            return null;
+          }
           console.warn('🚫 [AppContext] Account not found on backend — forcing logout');
           const showDlg = global.showStyledDialog || Alert.alert;
           showDlg(
@@ -707,9 +731,15 @@ export const AppProvider = ({ children }) => {
 
   /**
    * Logout user and clear all data
+   * Guarded against concurrent calls to prevent cascading resets during startup
    * @param {boolean} callApi - Whether to call logout API (default: true)
    */
   const logout = useCallback(async (callApi = true) => {
+    if (logoutInProgressRef.current) {
+      console.log('⚠️ [AppContext] Logout already in progress, skipping duplicate call');
+      return;
+    }
+    logoutInProgressRef.current = true;
     try {
       console.log('🚪 [AppContext] Logging out...');
 
@@ -779,7 +809,7 @@ export const AppProvider = ({ children }) => {
       console.log('✅ [AppContext] Logout successful');
     } catch (error) {
       console.error('❌ [AppContext] Logout failed:', error);
-      
+
       // Force reset state even on error
       setUser(null);
       setUserTypeState(null);
@@ -787,7 +817,19 @@ export const AppProvider = ({ children }) => {
       setIsAuthenticated(false);
       setAadhaarStatus({ isVerified: false, isNameLocked: false, aadhaarName: null, aadhaarLoaded: false });
       setPremiumStatus({ isPremiumActive: false, premiumDaysLeft: 0, premiumLoaded: false });
+    } finally {
+      logoutInProgressRef.current = false;
     }
+  }, []);
+
+  /**
+   * Mark initial load as complete (called after splash screen finishes).
+   * This enables aggressive account-not-found logout in refreshProfile
+   * which is suppressed during startup to prevent race conditions.
+   */
+  const markInitialLoadComplete = useCallback(() => {
+    isInitialLoadRef.current = false;
+    console.log('✅ [AppContext] Initial load complete — account checks now active');
   }, []);
 
   /**
@@ -799,43 +841,46 @@ export const AppProvider = ({ children }) => {
     isAuthLoading,
     user,
     userType,
-    
+
     // Profile state
     profile,
     isProfileLoading,
-    
+
     // Auth infrastructure state (Phase 4)
     authHealth,
     activeSessions,
-    
+
     // Auth actions
     handleAuthSuccess,
     selectUserType,
     logout,
-    
+
     // Profile actions
     refreshProfile,
     refreshVerificationStatus,
     updateProviderAvailability,
     updateProviderLocationTracking,
-    
+
     // Profile sync actions (Phase 3)
     syncProfileIfNeeded,
     updateProfileWithAutoSync,
-    
+
     // Auth health actions (Phase 4)
     checkHealth,
-    
+
     // Aadhaar / KYC status (cached in context to prevent flicker)
     aadhaarStatus,
     setAadhaarStatus,
-    
+
     // Premium subscription status (cached in context to prevent flicker)
     premiumStatus,
     setPremiumStatus,
-    
+
     // Re-initialize (useful for token refresh)
     initializeAuth,
+
+    // Lifecycle
+    markInitialLoadComplete,
   };
 
   return (
@@ -846,8 +891,36 @@ export const AppProvider = ({ children }) => {
 };
 
 /**
+ * @typedef {object} AppContextValue
+ * @property {boolean} isAuthenticated
+ * @property {boolean} isAuthLoading
+ * @property {object|null} user
+ * @property {string|null} userType
+ * @property {object|null} profile
+ * @property {boolean} isProfileLoading
+ * @property {object|null} authHealth
+ * @property {Array} activeSessions
+ * @property {(authData: object) => Promise<boolean>} handleAuthSuccess
+ * @property {(type: string) => Promise<void>} selectUserType
+ * @property {(clearTokens?: boolean) => Promise<void>} logout
+ * @property {(type?: string, mongoId?: string, opts?: {force?: boolean}) => Promise<object|null>} refreshProfile
+ * @property {() => Promise<void>} refreshVerificationStatus
+ * @property {(isAvailable: boolean, optimistic?: boolean) => Promise<{success: boolean}>} updateProviderAvailability
+ * @property {(enabled: boolean) => Promise<void>} updateProviderLocationTracking
+ * @property {() => Promise<object>} syncProfileIfNeeded
+ * @property {(type: string, mongoId: string, updates: object) => Promise<object>} updateProfileWithAutoSync
+ * @property {() => Promise<object>} checkHealth
+ * @property {{isVerified: boolean, isNameLocked: boolean, aadhaarName: string|null, aadhaarLoaded: boolean}} aadhaarStatus
+ * @property {(status: object) => void} setAadhaarStatus
+ * @property {{isPremiumActive: boolean, premiumDaysLeft: number, premiumLoaded: boolean}} premiumStatus
+ * @property {(status: object) => void} setPremiumStatus
+ * @property {() => Promise<void>} initializeAuth
+ * @property {() => void} markInitialLoadComplete
+ */
+
+/**
  * Hook to access app context
- * @returns {Object} App context value
+ * @returns {AppContextValue} App context value
  */
 export const useApp = () => {
   const context = useContext(AppContext);

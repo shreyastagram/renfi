@@ -594,6 +594,10 @@ export const validateAndRefreshTokens = async () => {
     console.log('✅ [API] Access token valid locally — launching app');
 
     // Background verification (doesn't block startup)
+    // Delay 3.5s so splash animation (~3s) completes first.
+    // This prevents a race where the background check triggers logout
+    // (for deleted accounts) while the splash screen is still animating,
+    // which causes cascading state resets and a native crash.
     setTimeout(async () => {
       try {
         const verifyRes = await axios.get(
@@ -617,7 +621,7 @@ export const validateAndRefreshTokens = async () => {
           if (global.onAuthExpired) global.onAuthExpired();
         }
       }
-    }, 500); // Small delay so app finishes rendering first
+    }, 3500); // Wait for splash animation to complete before potentially forcing logout
 
     return { valid: true, accessToken: tokens.accessToken };
   }

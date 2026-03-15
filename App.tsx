@@ -4,13 +4,13 @@ declare var global: typeof globalThis & {
   onEmailVerified?: (() => void) | null;
 };
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Linking, StatusBar, View } from 'react-native';
 import { NavigationContainer, NavigationContainerRef, ParamListBase } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
-import { AppProvider } from './src/context/AppContext';
+import { AppProvider, useApp } from './src/context/AppContext';
 import { LocationProvider } from './src/context/LocationContext';
 import { DialogProvider } from './src/context/DialogContext';
 import { LanguageProvider } from './src/context/LanguageContext';
@@ -240,15 +240,22 @@ const handleNotificationData = (remoteMessage: any) => {
   }
 };
 
-export default function App() {
+/**
+ * Inner app content — rendered inside AppProvider so it can access useApp()
+ */
+function AppContent() {
   const [showSplash, setShowSplash] = useState(true);
   const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const { markInitialLoadComplete } = useApp();
+
+  const handleSplashFinish = useCallback(() => {
+    setShowSplash(false);
+    // Notify AppContext that splash is done — enables aggressive account checks
+    markInitialLoadComplete();
+  }, [markInitialLoadComplete]);
 
   useEffect(() => {
-    // Configure Google Sign-In on app start
-    configureGoogleSignIn();
-
     // Check for app updates on launch
     (checkForAppUpdate() as Promise<any>).then((info) => {
       if (info) {
@@ -285,42 +292,53 @@ export default function App() {
   }, []);
 
   return (
+    <LocationProvider>
+      <DialogProvider>
+      <View style={{ flex: 1 }}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <NavigationContainer
+          ref={navigationRef}
+          linking={linking}
+          onStateChange={(state) => {
+            console.log('📍 [Navigation] State changed:', state?.routes?.[state?.index ?? 0]?.name);
+          }}
+        >
+          <RootNavigator />
+          {/* Global notification banner — overlays all screens */}
+          <GlobalBanner />
+        </NavigationContainer>
+
+        {/* App Update Modal — shown above everything when update needed */}
+        <AppUpdateModal
+          visible={showUpdateModal && !showSplash}
+          updateInfo={updateInfo}
+          onDismiss={() => setShowUpdateModal(false)}
+        />
+
+        {/* Splash Screen - shows on app launch */}
+        <SplashScreen
+          visible={showSplash}
+          onFinish={handleSplashFinish}
+        />
+      </View>
+      </DialogProvider>
+    </LocationProvider>
+  );
+}
+
+export default function App() {
+  useEffect(() => {
+    // Configure Google Sign-In on app start
+    configureGoogleSignIn();
+  }, []);
+
+  return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ErrorBoundary>
       <SafeAreaProvider>
       <LanguageProvider>
       <AppProvider>
-        <LocationProvider>
-          <DialogProvider>
-          <View style={{ flex: 1 }}>
-            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-            <NavigationContainer
-              ref={navigationRef}
-              linking={linking}
-              onStateChange={(state) => {
-                console.log('📍 [Navigation] State changed:', state?.routes?.[state?.index ?? 0]?.name);
-              }}
-            >
-              <RootNavigator />
-              {/* Global notification banner — overlays all screens */}
-              <GlobalBanner />
-            </NavigationContainer>
-
-            {/* App Update Modal — shown above everything when update needed */}
-            <AppUpdateModal
-              visible={showUpdateModal && !showSplash}
-              updateInfo={updateInfo}
-              onDismiss={() => setShowUpdateModal(false)}
-            />
-
-            {/* Splash Screen - shows on app launch */}
-            <SplashScreen
-              visible={showSplash}
-              onFinish={() => setShowSplash(false)}
-            />
-          </View>
-          </DialogProvider>
-        </LocationProvider>
+        <AppContent />
       </AppProvider>
       </LanguageProvider>
       </SafeAreaProvider>

@@ -500,8 +500,8 @@ const ProviderHomeScreen = ({ navigation }) => {
   // Combined user data - single source of truth for availability
   const displayData = { ...user, ...profile };
 
-  // Availability reads directly from AppContext (same source as SettingsScreen)
-  const isAvailable = displayData?.isAvailable ?? displayData?.isOnline ?? false;
+  // Availability reads directly from AppContext (single source of truth: isAvailable)
+  const isAvailable = displayData?.isAvailable ?? false;
 
   /**
    * Fetch provider stats from API - includes traditional and event services

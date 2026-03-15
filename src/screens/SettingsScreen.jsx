@@ -320,8 +320,8 @@ const SettingsScreen = ({ navigation }) => {
   const isProvider = userType === 'provider';
   const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
 
-  // Derive isAvailable from context (single source of truth)
-  const isAvailable = displayData?.isAvailable ?? displayData?.isOnline ?? true;
+  // Derive isAvailable from context (single source of truth: isAvailable)
+  const isAvailable = displayData?.isAvailable ?? false;
 
   // Derive locationTracking from context (single source of truth)
   // Don't default to false - wait for profile to load to show accurate state
