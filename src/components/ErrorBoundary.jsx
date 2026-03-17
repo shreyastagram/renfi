@@ -1,6 +1,13 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 
+let crashlytics = null;
+try {
+  crashlytics = require('@react-native-firebase/crashlytics').default;
+} catch (e) {
+  // Crashlytics not installed yet — graceful fallback
+}
+
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -15,6 +22,17 @@ class ErrorBoundary extends React.Component {
     if (__DEV__) {
       console.error('[ErrorBoundary] Caught error:', error);
       console.error('[ErrorBoundary] Component stack:', errorInfo?.componentStack);
+    }
+
+    if (crashlytics) {
+      try {
+        crashlytics().recordError(error);
+        if (errorInfo?.componentStack) {
+          crashlytics().log(errorInfo.componentStack);
+        }
+      } catch (e) {
+        // Crashlytics reporting failed — ignore
+      }
     }
   }
 

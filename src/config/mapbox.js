@@ -1,36 +1,26 @@
 /**
  * Mapbox Configuration
- * 
+ *
  * Centralized Mapbox access token management.
- * Loads token with multi-strategy fallback:
- *   1. react-native-config (reads .env)
- *   2. Hardcoded fallback (from .env file contents)
- * 
- * @version 2.0.0 - Robust token loading + lazy init + NativeEventEmitter fix
+ * Loads token from react-native-config (.env file).
+ *
+ * @version 3.0.0 - Single source of truth from .env, no hardcoded fallback
  */
 
 import Mapbox from '@rnmapbox/maps';
 
 // ============================================
-// TOKEN LOADING (multi-strategy)
+// TOKEN LOADING (from .env via react-native-config)
 // ============================================
 let MAPBOX_ACCESS_TOKEN = '';
 
-// Strategy 1: Try react-native-config
 try {
   const Config = require('react-native-config').default;
   if (Config?.MAPBOX_ACCESS_TOKEN) {
     MAPBOX_ACCESS_TOKEN = Config.MAPBOX_ACCESS_TOKEN;
   }
 } catch (e) {
-  // react-native-config not installed — use fallback
-}
-
-// Strategy 2: Fallback from .env value (baked at build time)
-// react-native-config can fail silently on some devices (Redmi/MIUI)
-// This is a PUBLIC token (restricted by bundle ID in Mapbox Console, not a secret)
-if (!MAPBOX_ACCESS_TOKEN) {
-  MAPBOX_ACCESS_TOKEN = 'pk.eyJ1IjoiZml4aG9taSIsImEiOiJjbWY2Zjg1MTUwMnhmMm1zNnQxaTdkcmtnIn0.AtF-wG4vaenzSf0Ff9aYBg';
+  // react-native-config not available
 }
 
 // ============================================

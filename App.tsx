@@ -26,6 +26,14 @@ import {
 } from './src/services/fcmService';
 import { configureGoogleSignIn } from './src/services/googleAuthService';
 
+// Crashlytics — graceful import so the app works before npm install
+let crashlytics: any = null;
+try {
+  crashlytics = require('@react-native-firebase/crashlytics').default;
+} catch (e) {
+  // Package not installed yet
+}
+
 // Navigation reference for deep linking and notification handling
 export const navigationRef = React.createRef<NavigationContainerRef<ParamListBase>>();
 
@@ -247,7 +255,26 @@ function AppContent() {
   const [showSplash, setShowSplash] = useState(true);
   const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const { markInitialLoadComplete } = useApp();
+  const { markInitialLoadComplete, user, userType, isAuthenticated } = useApp();
+
+  // Set Crashlytics user context when auth state changes
+  // Only send non-PII identifiers — no email, no name
+  useEffect(() => {
+    if (crashlytics && isAuthenticated && user) {
+      try {
+        const u = user as any;
+        const userId = String(u?.mongoId ?? u?._id ?? '');
+        if (userId) {
+          crashlytics().setUserId(userId);
+        }
+        crashlytics().setAttributes({
+          userType: userType || 'unknown',
+        });
+      } catch (e) {
+        // Crashlytics not available
+      }
+    }
+  }, [isAuthenticated, user, userType]);
 
   const handleSplashFinish = useCallback(() => {
     setShowSplash(false);

@@ -524,10 +524,12 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
             />
 
             {/* Forgot Password */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.forgotPassword}
               onPress={() => navigation?.navigate?.('ForgotPassword')}
               disabled={loading || googleLoading || appleLoading}
+              accessibilityLabel="Forgot password"
+              accessibilityRole="link"
             >
               <Text style={styles.forgotPasswordText}>{t('auth.forgotPassword')}</Text>
             </TouchableOpacity>
@@ -556,6 +558,8 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
               onPress={handleGoogleSignIn}
               disabled={loading || googleLoading || appleLoading}
               activeOpacity={0.7}
+              accessibilityLabel="Continue with Google"
+              accessibilityRole="button"
             >
               {googleLoading ? (
                 <Text style={styles.googleButtonText}>{t('auth.signingInGoogle')}</Text>
@@ -579,6 +583,8 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
                 onPress={handleAppleSignIn}
                 disabled={loading || googleLoading || appleLoading}
                 activeOpacity={0.7}
+                accessibilityLabel="Continue with Apple"
+                accessibilityRole="button"
               >
                 {appleLoading ? (
                   <Text style={styles.appleButtonText}>{t('auth.signingInApple') || 'Signing in...'}</Text>
@@ -604,7 +610,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
           {/* Register Link */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>{t('auth.noAccount')}</Text>
-            <TouchableOpacity onPress={onSwitchToRegister} disabled={loading}>
+            <TouchableOpacity onPress={onSwitchToRegister} disabled={loading} accessibilityLabel="Register for a new account" accessibilityRole="link">
               <Text style={styles.linkText}>{t('auth.register')}</Text>
             </TouchableOpacity>
           </View>
@@ -635,6 +641,8 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
                 style={styles.modalPrimaryButton}
                 onPress={handleRoleConflictProceed}
                 activeOpacity={0.8}
+                accessibilityLabel="Yes, proceed with login"
+                accessibilityRole="button"
               >
                 <Text style={styles.modalPrimaryButtonText}>
                   {conflictExistingRole === 'USER' ? t('auth.yesLoginUser') : t('auth.yesLoginProvider')}
@@ -645,6 +653,8 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
                 style={styles.modalDismissButton}
                 onPress={() => setShowRoleConflictModal(false)}
                 activeOpacity={0.8}
+                accessibilityLabel="Cancel"
+                accessibilityRole="button"
               >
                 <Text style={styles.modalDismissText}>{t('common.cancel')}</Text>
               </TouchableOpacity>

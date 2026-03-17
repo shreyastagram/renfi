@@ -599,7 +599,7 @@ const RegisterScreen = ({ navigation }) => {
         >
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <TouchableOpacity onPress={handleBack} style={styles.backButton} accessibilityLabel="Go back" accessibilityRole="button">
               <Text style={styles.backIcon}>←</Text>
             </TouchableOpacity>
             <View style={styles.logoContainer}>
@@ -670,6 +670,9 @@ const RegisterScreen = ({ navigation }) => {
               style={styles.termsRow}
               onPress={() => setTermsAccepted(!termsAccepted)}
               activeOpacity={0.7}
+              accessibilityLabel={termsAccepted ? 'Terms and conditions accepted. Tap to uncheck' : 'Accept terms and conditions'}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: termsAccepted }}
             >
               <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
                 {termsAccepted && <Text style={styles.checkmark}>{'\u2713'}</Text>}
@@ -710,6 +713,8 @@ const RegisterScreen = ({ navigation }) => {
               onPress={handleGoogleSignIn}
               disabled={loading || googleLoading || appleLoading}
               activeOpacity={0.7}
+              accessibilityLabel="Sign up with Google"
+              accessibilityRole="button"
             >
               {googleLoading ? (
                 <Text style={styles.googleButtonText}>{t('auth.signingUpGoogle')}</Text>
@@ -733,6 +738,8 @@ const RegisterScreen = ({ navigation }) => {
                 onPress={handleAppleSignIn}
                 disabled={loading || googleLoading || appleLoading}
                 activeOpacity={0.7}
+                accessibilityLabel="Sign up with Apple"
+                accessibilityRole="button"
               >
                 {appleLoading ? (
                   <Text style={styles.appleButtonText}>{t('auth.signingUpApple') || 'Signing up...'}</Text>
@@ -789,6 +796,8 @@ const RegisterScreen = ({ navigation }) => {
                 style={styles.modalPrimaryButton}
                 onPress={handleGoToLogin}
                 activeOpacity={0.8}
+                accessibilityLabel="Go to login"
+                accessibilityRole="button"
               >
                 <Text style={styles.modalPrimaryButtonText}>
                   {existingAccountType === 'provider' ? t('auth.goToProviderLogin') : t('auth.logInToAccount')}
@@ -799,6 +808,8 @@ const RegisterScreen = ({ navigation }) => {
                 style={styles.modalSecondaryButton}
                 onPress={handleForgotPassword}
                 activeOpacity={0.8}
+                accessibilityLabel="Forgot password"
+                accessibilityRole="button"
               >
                 <Text style={styles.modalSecondaryButtonText}>{t('auth.iForgotPassword')}</Text>
               </TouchableOpacity>
@@ -807,6 +818,8 @@ const RegisterScreen = ({ navigation }) => {
                 style={styles.modalDismissButton}
                 onPress={() => setShowAccountExistsModal(false)}
                 activeOpacity={0.8}
+                accessibilityLabel="Use a different email"
+                accessibilityRole="button"
               >
                 <Text style={styles.modalDismissText}>{t('auth.useDifferentEmail')}</Text>
               </TouchableOpacity>
@@ -848,6 +861,8 @@ const RegisterScreen = ({ navigation }) => {
                 style={styles.modalPrimaryButton}
                 onPress={handlePhoneGoToLogin}
                 activeOpacity={0.8}
+                accessibilityLabel="Go to login"
+                accessibilityRole="button"
               >
                 <Text style={styles.modalPrimaryButtonText}>
                   {existingAccountType === 'provider' ? t('auth.goToProviderLogin') : t('auth.logInToAccount')}
@@ -858,6 +873,8 @@ const RegisterScreen = ({ navigation }) => {
                 style={styles.modalDismissButton}
                 onPress={handleUseDifferentPhone}
                 activeOpacity={0.8}
+                accessibilityLabel="Use a different phone number"
+                accessibilityRole="button"
               >
                 <Text style={styles.modalDismissText}>{t('auth.useDifferentNumber')}</Text>
               </TouchableOpacity>

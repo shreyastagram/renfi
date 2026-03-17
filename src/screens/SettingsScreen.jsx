@@ -184,6 +184,9 @@ const ToggleRow = ({ iconName, title, subtitle, value, onValueChange, disabled, 
           trackColor={{ false: COLORS.switchTrackOff, true: COLORS.primary + '40' }}
           thumbColor={value ? COLORS.primary : COLORS.switchThumbOff}
           ios_backgroundColor={COLORS.switchTrackOff}
+          accessibilityLabel={title}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: value, disabled }}
         />
       </Animated.View>
     </TouchableOpacity>
@@ -321,7 +324,13 @@ const SettingsScreen = ({ navigation }) => {
   const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
 
   // Derive isAvailable from context (single source of truth: isAvailable)
-  const isAvailable = displayData?.isAvailable ?? false;
+  // Use a ref to hold the last known value so refreshes don't flash the toggle
+  const lastKnownAvailability = useRef(false);
+  const rawAvailable = displayData?.isAvailable;
+  if (rawAvailable !== undefined && rawAvailable !== null) {
+    lastKnownAvailability.current = rawAvailable;
+  }
+  const isAvailable = lastKnownAvailability.current;
 
   // Derive locationTracking from context (single source of truth)
   // Don't default to false - wait for profile to load to show accurate state

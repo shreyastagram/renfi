@@ -501,7 +501,14 @@ const ProviderHomeScreen = ({ navigation }) => {
   const displayData = { ...user, ...profile };
 
   // Availability reads directly from AppContext (single source of truth: isAvailable)
-  const isAvailable = displayData?.isAvailable ?? false;
+  // Use a ref to hold the last known value so refreshes don't flash the toggle to "off"
+  const lastKnownAvailability = useRef(false);
+  const rawAvailable = displayData?.isAvailable;
+  // Only update last known value when we have a definitive boolean (not undefined during loading)
+  if (rawAvailable !== undefined && rawAvailable !== null) {
+    lastKnownAvailability.current = rawAvailable;
+  }
+  const isAvailable = lastKnownAvailability.current;
 
   /**
    * Fetch provider stats from API - includes traditional and event services
@@ -879,15 +886,19 @@ const ProviderHomeScreen = ({ navigation }) => {
               </View>
             </View>
             <View style={styles.switchWrapper}>
-              {isUpdatingAvailability && (
+              {(isUpdatingAvailability || refreshing) && (
                 <ActivityIndicator size="small" color={BRAND.primary} style={{ marginRight: 8 }} />
               )}
               <Switch
                 value={isAvailable}
                 onValueChange={handleAvailabilityToggle}
+                disabled={isUpdatingAvailability || refreshing}
                 trackColor={{ false: '#CBD5E1', true: '#86EFAC' }}
                 thumbColor={isAvailable ? '#22C55E' : '#94A3B8'}
                 ios_backgroundColor="#CBD5E1"
+                accessibilityLabel={isAvailable ? 'Go offline' : 'Go online'}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: isAvailable }}
               />
             </View>
           </View>

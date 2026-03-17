@@ -120,7 +120,7 @@ const ActiveStatusCard = ({ subscription, onRenew, loading, t }) => {
 
       {/* Renew CTA if expiring soon */}
       {isExpiringSoon && (
-        <TouchableOpacity style={activeStyles.renewBtn} onPress={onRenew} disabled={loading}>
+        <TouchableOpacity style={activeStyles.renewBtn} onPress={onRenew} disabled={loading} accessibilityLabel="Renew subscription" accessibilityRole="button">
           {loading ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
@@ -166,7 +166,7 @@ const UpgradeCard = ({ onSubscribe, loading, t }) => (
     <MaterialIcon name="workspace-premium" size={52} color="#FFD700" />
     <Text style={upgradeStyles.title}>{t('subscription.unlockPremium')}</Text>
     <Text style={upgradeStyles.subtitle}>{t('subscription.unlockPremiumSub')}</Text>
-    <TouchableOpacity style={upgradeStyles.btn} onPress={onSubscribe} disabled={loading}>
+    <TouchableOpacity style={upgradeStyles.btn} onPress={onSubscribe} disabled={loading} accessibilityLabel="Subscribe now" accessibilityRole="button">
       {loading ? (
         <ActivityIndicator size="small" color="#FFFFFF" />
       ) : (
@@ -198,6 +198,9 @@ const PlanCard = ({ plan, selected, onSelect, isCurrentPlan, t }) => (
     onPress={() => onSelect(plan)}
     disabled={isCurrentPlan}
     activeOpacity={0.7}
+    accessibilityLabel={`${plan.name} plan${selected ? ', selected' : ''}${isCurrentPlan ? ', current plan' : ''}`}
+    accessibilityRole="radio"
+    accessibilityState={{ selected, disabled: isCurrentPlan }}
   >
     {plan.id === 'premium_28' && (
       <View style={planStyles.popularTag}>
@@ -579,7 +582,7 @@ const SubscriptionScreen = ({ navigation }) => {
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} accessibilityLabel="Go back" accessibilityRole="button">
             <MaterialIcon name="arrow-back-ios-new" size={20} color="#0F172A" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{t('subscription.premium')}</Text>
@@ -609,7 +612,7 @@ const SubscriptionScreen = ({ navigation }) => {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} accessibilityLabel="Go back" accessibilityRole="button">
           <MaterialIcon name="arrow-back-ios-new" size={20} color="#0F172A" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('subscription.premium')}</Text>
@@ -654,6 +657,8 @@ const SubscriptionScreen = ({ navigation }) => {
                 style={[styles.subscribeBtn, subscribing && styles.subscribeBtnDisabled]}
                 onPress={handleSubscribe}
                 disabled={subscribing}
+                accessibilityLabel={`Subscribe for ${selectedPlan.priceDisplay}`}
+                accessibilityRole="button"
               >
                 {subscribing ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />

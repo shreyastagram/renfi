@@ -122,6 +122,8 @@ const ServiceCard = ({ service, onPress }) => {
         onPressIn={onPressIn}
         onPressOut={onPressOut}
         activeOpacity={0.85}
+        accessibilityLabel={`${SERVICE_ID_TO_KEY[service.id] ? t(SERVICE_ID_TO_KEY[service.id]) : service.name} service`}
+        accessibilityRole="button"
       >
         <View style={styles.serviceIconContainer}>
           <ServiceIcon serviceType={service.id} size={26} color={BRAND.secondary} />
@@ -202,6 +204,8 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
         style={styles.viewDetailsIcon}
         onPress={onPress}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        accessibilityLabel={`View details for ${provider.name}`}
+        accessibilityRole="button"
       >
         <MaterialIcon name="chevron-right" size={26} color="#CBD5E1" />
       </TouchableOpacity>
@@ -214,6 +218,8 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
           onCall(provider);
         }}
         disabled={calling}
+        accessibilityLabel={`Call ${provider.name}`}
+        accessibilityRole="button"
       >
         {calling ? (
           <ActivityIndicator size="small" color="#FFFFFF" />
@@ -228,6 +234,8 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
           onBook(provider);
         }}
         disabled={booking}
+        accessibilityLabel={`Book ${provider.name}`}
+        accessibilityRole="button"
       >
         {booking ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.bookButtonText}>{t('userHome.bookButton')}</Text>}
       </TouchableOpacity>
@@ -240,6 +248,8 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
         }}
         disabled={skipping || booking}
         hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+        accessibilityLabel={`Skip ${provider.name}`}
+        accessibilityRole="button"
       >
         {skipping ? (
           <ActivityIndicator size="small" color="#EF4444" />

@@ -48,8 +48,83 @@
 -keep class com.google.gson.** { *; }
 -dontwarn com.google.gson.**
 
+# ── React Native Screens ──
+-keep class com.swmansion.rnscreens.** { *; }
+-dontwarn com.swmansion.rnscreens.**
+
+# ── React Native Gesture Handler ──
+-keep class com.swmansion.gesturehandler.** { *; }
+-dontwarn com.swmansion.gesturehandler.**
+
+# ── React Native Reanimated (if used by dependencies) ──
+-keep class com.swmansion.reanimated.** { *; }
+-dontwarn com.swmansion.reanimated.**
+
+# ── Notifee ──
+-keep class app.notifee.** { *; }
+-dontwarn app.notifee.**
+
+# ── React Native Keychain ──
+-keep class com.oblador.keychain.** { *; }
+-dontwarn com.oblador.keychain.**
+
+# ── Custom Fixhomi native modules ──
+-keep class com.renfi.ExitAppModule { *; }
+-keep class com.renfi.ExitAppPackage { *; }
+
+# ── React Native Config ──
+-keep class com.lugg.RNCConfig.** { *; }
+-dontwarn com.lugg.RNCConfig.**
+
+# ── React Native Device Info ──
+-keep class com.learnium.RNDeviceInfo.** { *; }
+-dontwarn com.learnium.RNDeviceInfo.**
+
+# ── React Native Blob Util ──
+-keep class com.ReactNativeBlobUtil.** { *; }
+-dontwarn com.ReactNativeBlobUtil.**
+
+# ── React Native Image Picker ──
+-keep class com.imagepicker.** { *; }
+-dontwarn com.imagepicker.**
+
+# ── React Native Share ──
+-keep class cl.json.** { *; }
+-dontwarn cl.json.**
+
+# ── React Native Maps ──
+-keep class com.rnmaps.maps.** { *; }
+-dontwarn com.rnmaps.maps.**
+
+# ── React Native Permissions ──
+-keep class com.zoontek.rnpermissions.** { *; }
+-dontwarn com.zoontek.rnpermissions.**
+
+# ── React Native SVG ──
+-keep class com.horcrux.svg.** { *; }
+-dontwarn com.horcrux.svg.**
+
+# ── React Native Background Timer ──
+-keep class com.ocetnik.timer.** { *; }
+-dontwarn com.ocetnik.timer.**
+
+# ── Invertase Firebase (RNFB) ──
+-keep class io.invertase.** { *; }
+-dontwarn io.invertase.**
+
+# ── Google Sign-In ──
+-keep class com.google.android.gms.auth.** { *; }
+
+# ── AndroidX / Fragments (prevent restoration crash) ──
+-keep class androidx.fragment.** { *; }
+-keep class androidx.lifecycle.** { *; }
+
 # ── Keep native module names for React Native bridge ──
 -keepnames class * extends com.facebook.react.bridge.ReactContextBaseJavaModule
+
+# ── Keep all TurboModules (New Architecture) ──
+-keep class * extends com.facebook.react.bridge.NativeModule { *; }
+-keep class * implements com.facebook.react.turbomodule.core.interfaces.TurboModule { *; }
 
 # ── Keep enums ──
 -keepclassmembers enum * { *; }
