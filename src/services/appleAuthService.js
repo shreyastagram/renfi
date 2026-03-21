@@ -30,6 +30,7 @@ export const APPLE_AUTH_CODES = {
   ROLE_CONFLICT: 'APPLE_AUTH_ROLE_CONFLICT',
   NOT_REGISTERED: 'APPLE_AUTH_NOT_REGISTERED',
   ALREADY_REGISTERED: 'APPLE_AUTH_ALREADY_REGISTERED',
+  EMAIL_REQUIRED: 'APPLE_AUTH_EMAIL_REQUIRED',
   SIGN_IN_FAILED: 'APPLE_SIGN_IN_FAILED',
   BACKEND_ERROR: 'APPLE_AUTH_BACKEND_ERROR',
   NETWORK_ERROR: 'NETWORK_ERROR',
@@ -176,6 +177,7 @@ const exchangeAppleTokenForAuth = async ({
   appleUserId,
   role,
   mode,
+  verificationToken,
 }) => {
   try {
     const requestBody = {
@@ -189,6 +191,10 @@ const exchangeAppleTokenForAuth = async ({
 
     if (mode) {
       requestBody.mode = mode;
+    }
+
+    if (verificationToken) {
+      requestBody.verificationToken = verificationToken;
     }
 
     const response = await authClient.post(ENDPOINTS.OAUTH.APPLE_MOBILE, requestBody);
@@ -265,6 +271,18 @@ const exchangeAppleTokenForAuth = async ({
       };
     }
 
+    // Email required (Apple hid the email)
+    if (errorCode === 'EMAIL_REQUIRED') {
+      return {
+        success: false,
+        error: {
+          code: APPLE_AUTH_CODES.EMAIL_REQUIRED,
+          message: 'Please provide your email to complete Apple Sign-In.',
+          appleUserId: validationErrors.existingRole || appleUserId,
+        },
+      };
+    }
+
     // Already registered
     if (errorCode === 'ALREADY_REGISTERED') {
       return {
@@ -310,6 +328,7 @@ export const syncAppleUserToMongoDB = async (userData, accessToken = null) => {
         email: userData.email,
         fullName: userData.fullName,
         profilePicture: userData.profilePicture,
+        authProvider: 'apple',
       },
       config
     );
@@ -345,6 +364,7 @@ export const syncAppleProviderToMongoDB = async (providerData, accessToken = nul
         latitude: providerData.latitude,
         longitude: providerData.longitude,
         profilePicture: providerData.profilePicture,
+        authProvider: 'apple',
       },
       config
     );
@@ -404,12 +424,46 @@ export const getAppleAuthErrorMessage = (code, defaultMessage) => {
     [APPLE_AUTH_CODES.NOT_REGISTERED]: 'No account found. Please register first.',
     [APPLE_AUTH_CODES.ALREADY_REGISTERED]:
       'This account is already registered. Please login instead.',
+    [APPLE_AUTH_CODES.EMAIL_REQUIRED]:
+      'Please provide your email address to complete Apple Sign-In.',
     [APPLE_AUTH_CODES.SIGN_IN_FAILED]: 'Apple Sign-In failed. Please try again.',
     [APPLE_AUTH_CODES.BACKEND_ERROR]: 'Could not complete sign-in. Please try again.',
     [APPLE_AUTH_CODES.NETWORK_ERROR]: 'Something went wrong. Please try again.',
   };
 
   return messages[code] || defaultMessage || 'An error occurred. Please try again.';
+};
+
+// ==================== APPLE EMAIL VERIFICATION ====================
+
+/**
+ * Send OTP to an email address for Apple Sign-In email verification.
+ * Used when Apple hides the user's email and we need to collect + verify it.
+ */
+export const sendAppleEmailOtp = async (email, appleUserId) => {
+  const response = await authClient.post(ENDPOINTS.OAUTH.APPLE_SEND_EMAIL_OTP, { email, appleUserId });
+  return response.data;
+};
+
+/**
+ * Verify an OTP sent to the user's email during Apple Sign-In flow.
+ * Returns a verificationToken on success.
+ */
+export const verifyAppleEmailOtp = async (email, appleUserId, otp) => {
+  const response = await authClient.post(ENDPOINTS.OAUTH.APPLE_VERIFY_EMAIL_OTP, { email, appleUserId, otp });
+  return response.data;
+};
+
+/**
+ * Complete Apple Sign-In after email has been verified.
+ * Retries the original auth request with the verification token.
+ */
+export const completeAppleSignInWithVerifiedEmail = async ({
+  identityToken, authorizationCode, appleUserId, fullName, role, mode, email, verificationToken
+}) => {
+  return exchangeAppleTokenForAuth({
+    identityToken, authorizationCode, fullName, email, appleUserId, role, mode, verificationToken
+  });
 };
 
 // ==================== EXPORTS ====================
@@ -421,6 +475,9 @@ export default {
   syncAppleUserToMongoDB,
   syncAppleProviderToMongoDB,
   getAppleAuthErrorMessage,
+  sendAppleEmailOtp,
+  verifyAppleEmailOtp,
+  completeAppleSignInWithVerifiedEmail,
   APPLE_AUTH_ROLES,
   APPLE_AUTH_CODES,
 };

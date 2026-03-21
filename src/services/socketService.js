@@ -62,16 +62,18 @@ export const initializeSocket = (userType, userId, token) => {
   console.log(`🔌 [Socket] Initializing socket for ${userType}: ${userId}`);
 
   socket = io(NODE_BASE_URL, {
-    transports: ['websocket'],
+    // Start with websocket, fall back to polling on iOS network transitions
+    transports: ['websocket', 'polling'],
+    upgrade: true,
     auth: {
       token,
       userType,
       userId,
     },
     reconnection: true,
-    reconnectionAttempts: Infinity,
+    reconnectionAttempts: 60,
     reconnectionDelay: 1000,
-    reconnectionDelayMax: 10000,
+    reconnectionDelayMax: 15000,
   });
 
   // Connection event handlers

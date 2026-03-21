@@ -134,6 +134,8 @@ export default {
     orContinueWith: 'or continue with',
     signingInGoogle: 'Signing in...',
     continueWithGoogle: 'Continue with Google',
+    continueWithApple: 'Continue with Apple',
+    appleSignInFailed: 'Apple Sign-In failed. Please try again.',
     signInWithOtp: 'Sign In with OTP',
     noAccount: "Don't have an account?",
     register: 'Register',
@@ -293,6 +295,16 @@ export default {
     unableToValidate: 'Unable to validate reset link. Please try again.',
     confirmPasswordRequired: 'Please confirm your password',
     weakPassword: 'Password must be at least 8 characters long',
+
+    // Apple Email Verification
+    appleEmailRequired: 'Please enter your email to complete Apple Sign-In',
+    appleEmailVerify: 'Verify Your Email',
+    appleEmailOtpSent: 'Enter the verification code sent to',
+    appleEmailVerified: 'Email verified! Completing registration...',
+    appleEmailPlaceholder: 'Enter your email address',
+    appleEmailSendOtp: 'Send Verification Code',
+    appleEmailResend: 'Resend Code',
+    appleEmailVerifying: 'Verifying...',
   },
 
   // ─── Provider Register ────────────────────────────────
@@ -1240,7 +1252,6 @@ export default {
     termsOfService: 'Terms of Service',
     downloadData: 'Download My Data',
     downloadDataSub: 'Export all your data',
-    language: 'Language',
     // Footer
     loggedInAs: 'Logged in as %{name}',
     memberSince: 'Member since %{date}',

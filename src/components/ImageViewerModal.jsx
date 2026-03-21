@@ -37,16 +37,30 @@ import ReactNativeBlobUtil from 'react-native-blob-util';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 /**
+ * Auto-orient Cloudinary URLs — injects /a_auto/ transformation
+ * to fix EXIF rotation issues (common on iOS camera uploads)
+ */
+const autoOrientUrl = (url) => {
+  if (!url || typeof url !== 'string') return url;
+  // Only transform Cloudinary URLs
+  if (!url.includes('cloudinary.com')) return url;
+  // Already has a_auto
+  if (url.includes('/a_auto')) return url;
+  // Insert /a_auto/ after /upload/
+  return url.replace('/upload/', '/upload/a_auto/');
+};
+
+/**
  * Normalize image data — handles both string URLs and { url, caption, thumbnail } objects
  */
 const normalizeImages = (images) => {
   if (!images || !Array.isArray(images)) return [];
   return images.map((img, index) => {
     if (typeof img === 'string') {
-      return { url: img, caption: null, index };
+      return { url: autoOrientUrl(img), caption: null, index };
     }
     return {
-      url: img.url || img.uri || img,
+      url: autoOrientUrl(img.url || img.uri || img),
       caption: img.caption || null,
       index,
     };
@@ -62,7 +76,7 @@ const ImageSlide = ({ item, width }) => {
 
   return (
     <View style={[styles.slideContainer, { width }]}>
-      {loading && (
+      {loading && !error && (
         <View style={styles.loaderOverlay}>
           <ActivityIndicator size="large" color="#FFFFFF" />
         </View>
@@ -77,8 +91,7 @@ const ImageSlide = ({ item, width }) => {
           source={{ uri: item.url }}
           style={styles.fullImage}
           resizeMode="contain"
-          onLoadStart={() => setLoading(true)}
-          onLoadEnd={() => setLoading(false)}
+          onLoad={() => setLoading(false)}
           onError={() => {
             setLoading(false);
             setError(true);

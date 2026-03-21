@@ -468,7 +468,6 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
             {/* Cancel */}
             {isPending && (
               <TouchableOpacity style={styles.cancelRequestBtn} onPress={() => onCancel(request)} activeOpacity={0.7}>
-                <Icon name="close" size={15} color={C.danger} />
                 <Text style={styles.cancelRequestText}>{t('userHistory.cancelRequestBtn')}</Text>
               </TouchableOpacity>
             )}
@@ -1178,8 +1177,22 @@ const styles = StyleSheet.create({
   otpResendBtnText: { fontSize: 12, fontWeight: '700', color: C.white },
 
   // Cancel request
-  cancelRequestBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, backgroundColor: '#FEF2F2', paddingVertical: 11, borderRadius: 12, borderWidth: 1, borderColor: '#FECACA', marginBottom: 10 },
-  cancelRequestText: { fontSize: 13, fontWeight: '600', color: C.danger },
+  cancelRequestBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FEF2F2',
+    paddingVertical: 11,
+    borderWidth: 1.5,
+    borderColor: '#FECACA',
+    marginBottom: 10,
+    ...Platform.select({
+      ios: { borderRadius: 14 },
+      android: { borderRadius: 12 },
+    }),
+  },
+  cancelRequestText: { fontSize: 13, fontWeight: '600', color: C.danger, letterSpacing: Platform.OS === 'ios' ? -0.15 : 0 },
 
   // Details row
   detailsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border },

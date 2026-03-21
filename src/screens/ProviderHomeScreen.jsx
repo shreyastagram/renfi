@@ -25,12 +25,16 @@ import {
   Image,
   Animated,
   Platform,
+  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useLocation } from '../context/LocationContext';
+import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import Mapbox from '@rnmapbox/maps';
 import useExitConfirmation from '../hooks/useExitConfirmation';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
 
@@ -271,7 +275,7 @@ const HomeSkeletonLoader = ({ insets }) => {
 /**
  * Stats Card Component
  */
-const StatsCard = ({ iconName, value, label, color, bgColor }) => {
+const StatsCard = ({ iconName, value, label, color, bgColor, materialIconName }) => {
   const { scaleAnim, onPressIn, onPressOut } = usePressAnimation();
 
   return (
@@ -282,11 +286,17 @@ const StatsCard = ({ iconName, value, label, color, bgColor }) => {
         onPressOut={onPressOut}
         style={styles.statsCardInner}
       >
-        <View style={[styles.statsIconCircle, { backgroundColor: bgColor }]}>
-          <Icon name={iconName} size={20} color={color} />
+        <View style={styles.statsTopRow}>
+          <View style={[styles.statsIconCircle, { backgroundColor: bgColor }]}>
+            {materialIconName ? (
+              <MaterialIcon name={materialIconName} size={16} color={color} />
+            ) : (
+              <Icon name={iconName} size={16} color={color} />
+            )}
+          </View>
+          <Text style={styles.statsLabel}>{label}</Text>
         </View>
         <Text style={[styles.statsValue, { color: BRAND.darkText }]}>{value}</Text>
-        <Text style={styles.statsLabel}>{label}</Text>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -468,6 +478,7 @@ const ProviderHomeScreen = ({ navigation }) => {
   const { user, profile, logout, updateProviderAvailability, isProfileLoading, refreshProfile, userType, setPremiumStatus } = useApp();
   const { dialog } = useDialog();
   const { t } = useLanguage();
+  const { currentLocation: providerLocation, locationAddress, displayAddress } = useLocation();
 
   // Show "Exit App?" on Android back press from home screen
   useExitConfirmation();
@@ -486,10 +497,43 @@ const ProviderHomeScreen = ({ navigation }) => {
   const [isUpdatingAvailability, setIsUpdatingAvailability] = useState(false);
   const [stats, setStats] = useState({
     pending: 0,
+    active: 0,
     completed: 0,
     earnings: 0,
     rating: 0,
   });
+  const [recentServices, setRecentServices] = useState([]);
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const locationModalAnim = useRef(new Animated.Value(0)).current;
+  const [locationModalRendered, setLocationModalRendered] = useState(false);
+  const miniMapRef = useRef(null);
+  const [miniMapOrigin, setMiniMapOrigin] = useState({ x: 0, y: 0, w: 0, h: 0 });
+
+  const openLocationModal = useCallback(() => {
+    // Measure the mini card position before opening
+    miniMapRef.current?.measureInWindow((x, y, w, h) => {
+      setMiniMapOrigin({ x, y, w, h });
+      setLocationModalRendered(true);
+      setLocationModalVisible(true);
+      Animated.spring(locationModalAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 50,
+        friction: 8,
+      }).start();
+    });
+  }, [locationModalAnim]);
+
+  const closeLocationModal = useCallback(() => {
+    Animated.timing(locationModalAnim, {
+      toValue: 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => {
+      setLocationModalVisible(false);
+      setLocationModalRendered(false);
+    });
+  }, [locationModalAnim]);
   const [verificationDashboard, setVerificationDashboard] = useState(null);
   const [verificationLoading, setVerificationLoading] = useState(true);
   const verificationLastFetched = useRef(0);
@@ -537,23 +581,32 @@ const ProviderHomeScreen = ({ navigation }) => {
         : Array.isArray(emergencyResult.data) ? emergencyResult.data : [];
       const allRequests = [...traditionalRequests, ...eventRequests, ...emergencyRequests];
 
-      const pendingCount = allRequests.filter(r =>
-        r.status === 'pending' || r.status === 'accepted'
+      const pendingCount = allRequests.filter(r => r.status === 'pending').length;
+      const activeCount = allRequests.filter(r =>
+        r.status === 'accepted' || r.status === 'in-progress'
       ).length;
       const completedCount = allRequests.filter(r => r.status === 'completed').length;
       const rating = user?.rating || profile?.rating || 0;
 
       setStats({
         pending: pendingCount,
+        active: activeCount,
         completed: completedCount,
         earnings: 0, // Will be implemented with earnings API
         rating: rating,
       });
+
+      const activeRequests = allRequests
+        .filter(r => r.status === 'accepted' || r.status === 'in-progress')
+        .sort((a, b) => new Date(b.serviceDate || b.createdAt) - new Date(a.serviceDate || a.createdAt))
+        .slice(0, 3);
+      setRecentServices(activeRequests);
     } catch (error) {
       console.error('[ProviderHome] Error fetching stats:', error);
       // Fallback to profile data
       setStats({
         pending: 0,
+        active: 0,
         completed: 0,
         earnings: 0,
         rating: user?.rating || profile?.rating || 0,
@@ -852,18 +905,17 @@ const ProviderHomeScreen = ({ navigation }) => {
               <Image source={FIXHOMI_LOGO} style={styles.headerLogoImg} />
             </TouchableOpacity>
 
+            <View style={styles.heroTextInline}>
+              <Text style={styles.heroNameInline} numberOfLines={1}>Welcome back, {firstName}</Text>
+              <Text style={styles.heroSubtextInline} numberOfLines={1}>{t('providerHome.manageServices')}</Text>
+            </View>
+
             <AvatarButton
               name={displayData?.fullName}
               profilePicture={displayData?.profilePicture}
               onPress={() => navigation.navigate('Profile')}
               isProvider={true}
             />
-          </View>
-
-          <View style={styles.heroTextBlock}>
-            <Text style={styles.heroGreetingSmall}>{t('providerHome.welcomeBack')}</Text>
-            <Text style={styles.heroName}>{firstName}</Text>
-            <Text style={styles.heroSubtext}>{t('providerHome.manageServices')}</Text>
           </View>
         </View>
 
@@ -893,8 +945,8 @@ const ProviderHomeScreen = ({ navigation }) => {
                 value={isAvailable}
                 onValueChange={handleAvailabilityToggle}
                 disabled={isUpdatingAvailability || refreshing}
-                trackColor={{ false: '#CBD5E1', true: '#86EFAC' }}
-                thumbColor={isAvailable ? '#22C55E' : '#94A3B8'}
+                trackColor={{ false: '#CBD5E1', true: '#22C55E' }}
+                thumbColor={Platform.OS === 'ios' ? '#FFFFFF' : (isAvailable ? '#22C55E' : '#94A3B8')}
                 ios_backgroundColor="#CBD5E1"
                 accessibilityLabel={isAvailable ? 'Go offline' : 'Go online'}
                 accessibilityRole="switch"
@@ -903,23 +955,95 @@ const ProviderHomeScreen = ({ navigation }) => {
             </View>
           </View>
 
-          {/* Verification Status Card */}
-          <VerificationStatusCard
-            dashboard={verificationDashboard}
-            onPress={() => navigation.navigate('VerificationDashboard')}
-            isLoading={verificationLoading || isProfileLoading}
-            t={t}
-          />
+          {/* Verification Status / Location Row */}
+          {(() => {
+            const dashboard = verificationDashboard;
+            const steps = dashboard?.steps || [];
+            const identitySteps = steps.filter(s => s.id !== 'premium');
+            const identityDone = identitySteps.length > 0 && identitySteps.every(s => s.completed);
+            const isPremium = dashboard?.isPremiumActive || false;
+            const isFullyReady = identityDone && isPremium;
+            const percentage = steps.length > 0 ? Math.round((steps.filter(s => s.completed).length / steps.length) * 100) : 0;
+            const premiumStep = steps.find(s => s.id === 'premium');
+            const daysRemaining = premiumStep?.daysRemaining || 0;
+
+            if (isFullyReady) {
+              return (
+                <View style={styles.dualCardRow}>
+                  {/* Compact verification card */}
+                  <TouchableOpacity
+                    style={styles.miniVerificationCard}
+                    onPress={() => navigation.navigate('VerificationDashboard')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.miniVerificationPercent}>100%</Text>
+                    <View style={styles.miniVerificationBadge}>
+                      <MaterialIcon name="verified" size={12} color="#10B981" />
+                      <Text style={styles.miniVerificationBadgeText}>Premium</Text>
+                    </View>
+                    <Text style={styles.miniVerificationDays}>{daysRemaining}d left</Text>
+                  </TouchableOpacity>
+
+                  {/* Location preview card with inline map */}
+                  <TouchableOpacity
+                    ref={miniMapRef}
+                    style={styles.miniLocationCard}
+                    onPress={openLocationModal}
+                    activeOpacity={0.85}
+                  >
+                    {providerLocation?.latitude ? (
+                      <View style={styles.miniMapWrap}>
+                        <Mapbox.MapView
+                          style={styles.miniMapView}
+                          styleURL={Mapbox.StyleURL.Street}
+                          scrollEnabled={false}
+                          pitchEnabled={false}
+                          rotateEnabled={false}
+                          zoomEnabled={false}
+                        >
+                          <Mapbox.Camera
+                            centerCoordinate={[providerLocation.longitude, providerLocation.latitude]}
+                            zoomLevel={14}
+                            animationDuration={0}
+                          />
+                        </Mapbox.MapView>
+                        <View style={styles.miniMapPinOverlay} pointerEvents="none">
+                          <MaterialIcon name="person-pin-circle" size={24} color={BRAND.primary} />
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={styles.miniMapPlaceholder}>
+                        <MaterialIcon name="location-off" size={20} color={BRAND.muted} />
+                      </View>
+                    )}
+                    <Text style={styles.miniLocationLabel} numberOfLines={1}>
+                      {displayAddress || 'My Location'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            }
+
+            // Not fully ready — show original full-width verification card
+            return (
+              <VerificationStatusCard
+                dashboard={verificationDashboard}
+                onPress={() => navigation.navigate('VerificationDashboard')}
+                isLoading={verificationLoading || isProfileLoading}
+                t={t}
+              />
+            );
+          })()}
 
           {/* Stats Grid */}
           <Text style={styles.sectionTitle}>{t('providerHome.overview')}</Text>
           <View style={styles.statsGrid}>
             <StatsCard
-              iconName="clipboard-list"
-              value={stats.pending}
-              label={t('providerHome.statsPending')}
-              color={BRAND.primary}
-              bgColor={BRAND.primary + '18'}
+              materialIconName="play-circle-filled"
+              value={stats.active}
+              label="Active"
+              color="#10B981"
+              bgColor="#10B98118"
             />
             <StatsCard
               iconName="check-circle"
@@ -929,7 +1053,7 @@ const ProviderHomeScreen = ({ navigation }) => {
               bgColor={BRAND.secondary + '18'}
             />
             <StatsCard
-              iconName="star"
+              materialIconName="star"
               value={stats.rating.toFixed(1)}
               label={t('providerHome.statsRating')}
               color="#EAB308"
@@ -937,16 +1061,92 @@ const ProviderHomeScreen = ({ navigation }) => {
             />
           </View>
 
-          {/* Quick Actions */}
-          <Text style={styles.sectionTitle}>{t('providerHome.quickActions')}</Text>
+          {/* Recent Active Services */}
+          <Text style={styles.sectionTitle}>ACTIVE JOBS <Text style={{ color: '#CBD5E1', fontSize: 11, fontWeight: '500', textTransform: 'none' }}>(Recent 3)</Text></Text>
 
-          <ActionCard
-            iconName="clipboard-list"
-            title={t('providerHome.myJobs')}
-            subtitle={t('providerHome.myJobsSub')}
-            onPress={() => navigation.navigate('ProviderJobs')}
-            color={BRAND.secondary}
-          />
+          {recentServices.length > 0 ? (
+            recentServices.map((req) => {
+              const userName = req.userDetails?.name || req.userName || 'Customer';
+              const serviceDate = req.serviceDate || req.eventDate || req.createdAt;
+              const dateStr = serviceDate ? new Date(serviceDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '';
+              const timeStr = serviceDate ? new Date(serviceDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '';
+              const phone = req.userDetails?.phone;
+              const serviceLabel = formatServiceName(req.serviceType) || req.serviceType;
+
+              // Get coords for directions
+              let lat, lng;
+              if (req.location?.coordinates && Array.isArray(req.location.coordinates) && req.location.coordinates.length === 2) {
+                [lng, lat] = req.location.coordinates;
+              } else if (req.location?.latitude && req.location?.longitude) {
+                lat = req.location.latitude;
+                lng = req.location.longitude;
+              }
+
+              return (
+                <TouchableOpacity
+                  key={req._id}
+                  style={styles.recentServiceCard}
+                  onPress={() => navigation.navigate('ServiceRequestDetail', {
+                    requestId: req._id,
+                    request: req,
+                    isEventService: req.isEventService,
+                    isEmergencyService: req.isEmergencyService,
+                  })}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.recentServiceTop}>
+                    <View style={styles.recentServiceInfo}>
+                      <Text style={styles.recentServiceName} numberOfLines={1}>{userName}</Text>
+                      <Text style={styles.recentServiceType} numberOfLines={1}>{serviceLabel}</Text>
+                    </View>
+                    <View style={styles.recentServiceDate}>
+                      <Text style={styles.recentServiceDateText}>{dateStr}</Text>
+                      <Text style={styles.recentServiceTimeText}>{timeStr}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.recentServiceActions}>
+                    {lat && lng && (
+                      <TouchableOpacity
+                        style={styles.recentActionBtn}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          const url = Platform.select({
+                            ios: `maps:?daddr=${lat},${lng}`,
+                            android: `google.navigation:q=${lat},${lng}`,
+                          });
+                          Linking.openURL(url).catch(() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`));
+                        }}
+                      >
+                        <MaterialIcon name="directions" size={16} color={BRAND.secondary} />
+                        <Text style={styles.recentActionText}>Directions</Text>
+                      </TouchableOpacity>
+                    )}
+                    {phone && (
+                      <TouchableOpacity
+                        style={styles.recentActionBtn}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => {});
+                        }}
+                      >
+                        <MaterialIcon name="phone" size={16} color="#10B981" />
+                        <Text style={[styles.recentActionText, { color: '#10B981' }]}>Call</Text>
+                      </TouchableOpacity>
+                    )}
+                    <View style={styles.recentActionBtn}>
+                      <MaterialIcon name="chevron-right" size={16} color={BRAND.muted} />
+                      <Text style={[styles.recentActionText, { color: BRAND.muted }]}>Details</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          ) : (
+            <View style={styles.noRecentCard}>
+              <MaterialIcon name="inbox" size={28} color={BRAND.muted} />
+              <Text style={styles.noRecentText}>No active services right now</Text>
+            </View>
+          )}
 
           {/* Service Categories - Only show verified services */}
           <Text style={styles.sectionTitle}>{t('providerHome.yourServices')}</Text>
@@ -956,7 +1156,7 @@ const ProviderHomeScreen = ({ navigation }) => {
               displayData.verifiedServiceCategories.map((cat, index) => (
                 <View key={`verified-${index}`} style={styles.serviceTag}>
                   <View style={styles.serviceTagIconCircle}>
-                    <Icon name="verified" size={13} color={BRAND.secondary} />
+                    <Icon name="verified" size={11} color={BRAND.secondary} />
                   </View>
                   <Text style={styles.serviceTagText}>{formatServiceName(cat)}</Text>
                 </View>
@@ -969,7 +1169,7 @@ const ProviderHomeScreen = ({ navigation }) => {
                 .map((cat, index) => (
                   <View key={`pending-${index}`} style={[styles.serviceTag, styles.serviceTagPending]}>
                     <View style={[styles.serviceTagIconCircle, styles.serviceTagIconCirclePending]}>
-                      <Icon name="clock" size={13} color={BRAND.primary} />
+                      <Icon name="clock" size={11} color={BRAND.primary} />
                     </View>
                     <Text style={[styles.serviceTagText, styles.serviceTagTextPending]}>{formatServiceName(cat)}</Text>
                     <View style={styles.pendingBadge}>
@@ -1014,6 +1214,118 @@ const ProviderHomeScreen = ({ navigation }) => {
         </View>
       </ScrollView>
 
+      {/* Location Preview — animated floating card from mini map origin */}
+      {locationModalRendered && (
+        <View style={StyleSheet.absoluteFill} pointerEvents={locationModalVisible ? 'auto' : 'none'}>
+          {/* Backdrop */}
+          <Animated.View
+            style={[
+              styles.locationModalOverlay,
+              { opacity: locationModalAnim },
+            ]}
+          >
+            <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeLocationModal} />
+          </Animated.View>
+
+          {/* Card — flies from mini map center to screen center */}
+          <Animated.View
+            style={[
+              styles.locationModalCardWrap,
+              {
+                opacity: locationModalAnim.interpolate({
+                  inputRange: [0, 0.3, 1],
+                  outputRange: [0, 1, 1],
+                }),
+                transform: [
+                  {
+                    // Start at mini card center, end at screen center (0,0 offset)
+                    translateX: locationModalAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [
+                        miniMapOrigin.x + miniMapOrigin.w / 2 - SCREEN_WIDTH / 2,
+                        0,
+                      ],
+                    }),
+                  },
+                  {
+                    translateY: locationModalAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [
+                        miniMapOrigin.y + miniMapOrigin.h / 2 - Dimensions.get('window').height / 2,
+                        0,
+                      ],
+                    }),
+                  },
+                  {
+                    scale: locationModalAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.15, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <View style={styles.locationModalCard} onStartShouldSetResponder={() => true}>
+              {providerLocation?.latitude && providerLocation?.longitude ? (
+                <>
+                  <View style={styles.locationModalMap}>
+                    <Mapbox.MapView
+                      style={{ flex: 1 }}
+                      styleURL={Mapbox.StyleURL.Street}
+                      scrollEnabled
+                      pitchEnabled={false}
+                      rotateEnabled={false}
+                      zoomEnabled
+                    >
+                      <Mapbox.Camera
+                        centerCoordinate={[providerLocation.longitude, providerLocation.latitude]}
+                        zoomLevel={16}
+                        animationDuration={800}
+                      />
+                      {Platform.OS === 'ios' ? (
+                        <Mapbox.MarkerView id="provider-loc" coordinate={[providerLocation.longitude, providerLocation.latitude]}>
+                          <View style={styles.locationPinOuter}>
+                            <MaterialIcon name="person-pin-circle" size={36} color={BRAND.primary} />
+                          </View>
+                        </Mapbox.MarkerView>
+                      ) : (
+                        <Mapbox.PointAnnotation id="provider-loc" coordinate={[providerLocation.longitude, providerLocation.latitude]}>
+                          <View style={styles.locationPinOuter}>
+                            <MaterialIcon name="person-pin-circle" size={36} color={BRAND.primary} />
+                          </View>
+                        </Mapbox.PointAnnotation>
+                      )}
+                    </Mapbox.MapView>
+
+                    <TouchableOpacity
+                      style={styles.locationModalClose}
+                      onPress={closeLocationModal}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <MaterialIcon name="close" size={18} color="#1F2937" />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.locationModalAddress}>
+                    <MaterialIcon name="place" size={16} color={BRAND.primary} />
+                    <Text style={styles.locationModalAddressMain} numberOfLines={1}>
+                      {locationAddress?.shortAddress || locationAddress?.city || displayAddress || 'Your current location'}
+                    </Text>
+                  </View>
+                </>
+              ) : (
+                <View style={styles.locationModalNoData}>
+                  <MaterialIcon name="location-off" size={36} color="#94A3B8" />
+                  <Text style={styles.locationModalNoText}>Location unavailable</Text>
+                  <Text style={styles.locationModalNoSub}>Enable location services</Text>
+                </View>
+              )}
+            </View>
+          </Animated.View>
+        </View>
+      )}
+
       {/* Drawer Menu */}
       <DrawerMenu
         visible={isDrawerOpen}
@@ -1045,7 +1357,7 @@ const styles = StyleSheet.create({
   heroHeader: {
     backgroundColor: BRAND.dark,
     paddingHorizontal: 20,
-    paddingBottom: 32,
+    paddingBottom: 18,
     overflow: 'hidden',
   },
   decorCircle: {
@@ -1077,7 +1389,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    gap: 12,
   },
   headerLogoBtn: {
     width: 46,
@@ -1094,34 +1406,27 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 10,
   },
-  heroTextBlock: {
-    paddingLeft: 2,
+  heroTextInline: {
+    flex: 1,
   },
-  heroGreetingSmall: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: BRAND.muted,
-    letterSpacing: 0.3,
-  },
-  heroName: {
-    fontSize: 30,
-    fontWeight: '800',
+  heroNameInline: {
+    fontSize: 17,
+    fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: -0.5,
-    marginTop: 2,
+    letterSpacing: -0.3,
   },
-  heroSubtext: {
-    fontSize: 14,
+  heroSubtextInline: {
+    fontSize: 12,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.45)',
-    marginTop: 4,
+    color: 'rgba(255,255,255,0.5)',
+    marginTop: 2,
     letterSpacing: 0.1,
   },
 
   // ===== Content Area =====
   contentArea: {
     paddingHorizontal: 18,
-    paddingTop: 20,
+    paddingTop: 14,
   },
 
   // ===== Availability Card =====
@@ -1291,57 +1596,61 @@ const styles = StyleSheet.create({
     color: BRAND.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
-    marginBottom: 14,
-    marginTop: 8,
+    marginBottom: 10,
+    marginTop: 4,
   },
 
   // ===== Stats Grid =====
   statsGrid: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
+    gap: 10,
+    marginBottom: 16,
   },
   statsCard: {
     flex: 1,
     backgroundColor: BRAND.white,
-    borderRadius: 22,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#F1F5F9',
     ...Platform.select({
       ios: {
         shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.08,
-        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
       },
       android: {
-        elevation: 6,
+        elevation: 4,
       },
     }),
   },
   statsCardInner: {
-    padding: 16,
+    padding: 10,
     alignItems: 'center',
+  },
+  statsTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 4,
   },
   statsIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
   },
   statsValue: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
   statsLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: BRAND.muted,
-    marginTop: 2,
     fontWeight: '600',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
 
   // ===== Action Cards =====
@@ -1408,18 +1717,18 @@ const styles = StyleSheet.create({
   serviceTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: '#EFF6FF',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: BRAND.secondary + '20',
   },
   serviceTagIconCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: BRAND.secondary + '15',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1432,7 +1741,7 @@ const styles = StyleSheet.create({
     borderColor: BRAND.primary + '20',
   },
   serviceTagText: {
-    fontSize: 13,
+    fontSize: 12,
     color: BRAND.secondary,
     fontWeight: '700',
     letterSpacing: -0.1,
@@ -1442,13 +1751,13 @@ const styles = StyleSheet.create({
   },
   pendingBadge: {
     backgroundColor: BRAND.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 8,
     marginLeft: 2,
   },
   pendingBadgeText: {
-    fontSize: 9,
+    fontSize: 8,
     color: '#FFFFFF',
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -1640,6 +1949,254 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     textAlign: 'center',
     paddingBottom: 24,
+  },
+
+  // ===== Dual Card Row (verification + location) =====
+  dualCardRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  miniVerificationCard: {
+    flex: 3,
+    backgroundColor: '#ECFDF5',
+    borderRadius: 16,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#10B98130',
+    ...Platform.select({
+      ios: { shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12 },
+      android: { elevation: 4 },
+    }),
+  },
+  miniVerificationPercent: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#10B981',
+    letterSpacing: -0.3,
+  },
+  miniVerificationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginTop: 6,
+  },
+  miniVerificationBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  miniVerificationDays: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  miniLocationCard: {
+    flex: 7,
+    backgroundColor: BRAND.dark,
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 14 },
+      android: { elevation: 6 },
+    }),
+  },
+  miniMapWrap: {
+    width: '100%',
+    height: 72,
+  },
+  miniMapView: {
+    flex: 1,
+  },
+  miniMapPinOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  miniMapPlaceholder: {
+    width: '100%',
+    height: 72,
+    backgroundColor: '#1E293B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  miniLocationLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: BRAND.darkText,
+    textAlign: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    backgroundColor: BRAND.white,
+  },
+
+  // ===== Recent Service Cards =====
+  recentServiceCard: {
+    backgroundColor: BRAND.white,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    ...Platform.select({
+      ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12 },
+      android: { elevation: 4 },
+    }),
+  },
+  recentServiceTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  recentServiceInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  recentServiceName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: BRAND.darkText,
+    letterSpacing: -0.2,
+  },
+  recentServiceType: {
+    fontSize: 12,
+    color: BRAND.muted,
+    fontWeight: '500',
+    marginTop: 2,
+    textTransform: 'capitalize',
+  },
+  recentServiceDate: {
+    alignItems: 'flex-end',
+  },
+  recentServiceDateText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: BRAND.darkText,
+  },
+  recentServiceTimeText: {
+    fontSize: 11,
+    color: BRAND.muted,
+    marginTop: 1,
+  },
+  recentServiceActions: {
+    flexDirection: 'row',
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 10,
+  },
+  recentActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+  },
+  recentActionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: BRAND.secondary,
+  },
+  noRecentCard: {
+    backgroundColor: BRAND.white,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  noRecentText: {
+    fontSize: 13,
+    color: BRAND.muted,
+    fontWeight: '500',
+  },
+
+  // ===== Location Modal =====
+  // ===== Location Modal — animated floating card =====
+  locationModalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  locationModalCardWrap: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  locationModalCard: {
+    width: '100%',
+    overflow: 'hidden',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: BRAND.white,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.35, shadowRadius: 30 },
+      android: { elevation: 24 },
+    }),
+  },
+  locationModalClose: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4 },
+      android: { elevation: 4 },
+    }),
+  },
+  locationModalMap: {
+    height: 360,
+  },
+  locationPinOuter: {
+    alignItems: 'center',
+  },
+  locationModalNoData: {
+    height: 300,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  locationModalNoText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: BRAND.darkText,
+  },
+  locationModalNoSub: {
+    fontSize: 12,
+    color: BRAND.muted,
+  },
+  locationModalAddress: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: BRAND.white,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    gap: 8,
+  },
+  locationModalAddressMain: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: BRAND.darkText,
+    letterSpacing: -0.1,
   },
 });
 

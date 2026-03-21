@@ -310,11 +310,14 @@ const StatusTimeline = ({ currentStatus, isProvider = false, cancelledBy = null 
                     <Text style={s.timelineNumber}>{step.step}</Text>
                   )}
                 </View>
-                <Text style={[
-                  s.timelineLabel,
-                  isActive && s.timelineLabelActive,
-                  isCurrent && s.timelineLabelCurrent,
-                ]}>{step.label}</Text>
+                <Text
+                  style={[
+                    s.timelineLabel,
+                    isActive && s.timelineLabelActive,
+                    isCurrent && s.timelineLabelCurrent,
+                  ]}
+                  numberOfLines={1}
+                >{step.label}</Text>
               </View>
               {index < steps.length - 1 && (
                 <View style={s.timelineConnectorWrapper}>
@@ -542,12 +545,21 @@ const LocationMapPreview = ({ location, address }) => {
         {mapLoading && (<View style={s.mapLoadingOverlay}><ActivityIndicator size="small" color={BRAND.secondary} /></View>)}
         <Mapbox.MapView style={s.mapPreview} styleURL={Mapbox.StyleURL.Street} scrollEnabled={false} pitchEnabled={false} rotateEnabled={false} zoomEnabled={false} onDidFinishLoadingMap={() => setMapLoading(false)}>
           <Mapbox.Camera centerCoordinate={[lng, lat]} zoomLevel={15} animationDuration={0} />
-          <Mapbox.PointAnnotation id="service-location" coordinate={[lng, lat]}>
-            <View style={s.mapPinOuter}>
-              <View style={s.mapPin}><Icon name="location" size={16} color="#FFFFFF" /></View>
-              <View style={s.mapPinShadow} />
-            </View>
-          </Mapbox.PointAnnotation>
+          {Platform.OS === 'ios' ? (
+            <Mapbox.MarkerView id="service-location" coordinate={[lng, lat]}>
+              <View style={s.mapPinOuter}>
+                <View style={s.mapPin}><Icon name="location" size={16} color="#FFFFFF" /></View>
+                <View style={s.mapPinShadow} />
+              </View>
+            </Mapbox.MarkerView>
+          ) : (
+            <Mapbox.PointAnnotation id="service-location" coordinate={[lng, lat]}>
+              <View style={s.mapPinOuter}>
+                <View style={s.mapPin}><Icon name="location" size={16} color="#FFFFFF" /></View>
+                <View style={s.mapPinShadow} />
+              </View>
+            </Mapbox.PointAnnotation>
+          )}
         </Mapbox.MapView>
       </View>
       <View style={[s.rowCenter, { gap: 8, marginBottom: 10 }]}>
@@ -1871,7 +1883,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         <View style={[s.card, { alignItems: 'center' }]}>
           <Text style={{ fontSize: 14, fontWeight: '700', color: BRAND.text, marginBottom: 4 }}>{t('detail.needHelp')}</Text>
           <Text style={{ fontSize: 12, color: BRAND.textSecondary, textAlign: 'center', marginBottom: 10 }}>{t('detail.needHelpSub')}</Text>
-          <TouchableOpacity style={s.helpBtn}><Icon name="email" size={14} color={BRAND.secondary} /><Text style={s.helpBtnText}>{t('detail.contactSupport')}</Text></TouchableOpacity>
+          <TouchableOpacity style={s.helpBtn} onPress={() => dialog('Help & Support', 'How would you like to reach us?', [{ text: 'WhatsApp', onPress: () => Linking.openURL('https://wa.me/918446385312') }, { text: 'Email', onPress: () => Linking.openURL('mailto:contact@fixhomi.com').catch(() => dialog('Email Us', 'contact@fixhomi.com')) }, { text: 'Visit Support Page', onPress: () => Linking.openURL('https://fixhomi.com/support') }, { text: t('common.cancel') || 'Cancel', style: 'cancel' }])}><Icon name="email" size={14} color={BRAND.secondary} /><Text style={s.helpBtnText}>{t('detail.contactSupport')}</Text></TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -1935,19 +1947,19 @@ const s = StyleSheet.create({
   iconCircle: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
 
   // Card base
-  card: { backgroundColor: BRAND.white, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: BRAND.border, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+  card: { backgroundColor: BRAND.white, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: '#E8ECF1', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8 },
 
   // Status Pill
   statusPill: { borderRadius: 14, paddingVertical: 10, paddingHorizontal: 16, marginBottom: 14 },
   statusPillText: { fontSize: 13, fontWeight: '600', textAlign: 'center' },
 
   // Timeline
-  timelineContainer: { backgroundColor: BRAND.white, borderRadius: 20, padding: 20, marginBottom: 12, borderWidth: 1, borderColor: BRAND.border, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3 },
+  timelineContainer: { backgroundColor: BRAND.white, borderRadius: 20, padding: 20, marginBottom: 12, borderWidth: 1, borderColor: '#E8ECF1', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8 },
   timelineCancelledPill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#FEF2F2', borderRadius: 16, paddingVertical: 12, paddingHorizontal: 20, borderWidth: 1, borderColor: '#FECACA' },
   timelineCancelledIcon: { width: 22, height: 22, borderRadius: 11, backgroundColor: BRAND.danger, justifyContent: 'center', alignItems: 'center' },
   timelineCancelledText: { fontSize: 13, color: '#B91C1C', fontWeight: '600', letterSpacing: 0.1 },
   timeline: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 2, paddingTop: 2 },
-  timelineStep: { alignItems: 'center', width: 52 },
+  timelineStep: { alignItems: 'center', minWidth: 52, flexShrink: 0 },
   timelineConnectorWrapper: { flex: 1, justifyContent: 'center', paddingTop: 2, height: 32 },
   timelineConnector: { height: 3, backgroundColor: '#E2E8F0', borderRadius: 1.5 },
   timelineConnectorActive: { backgroundColor: BRAND.success },
@@ -1974,7 +1986,7 @@ const s = StyleSheet.create({
   infoValue: { flex: 1, fontSize: 13, color: BRAND.text, fontWeight: '600', textAlign: 'right', marginLeft: 12 },
 
   // OTP Card (User)
-  otpCard: { backgroundColor: BRAND.white, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1.5, borderColor: '#DDD6FE', shadowColor: '#7C3AED', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 3 },
+  otpCard: { backgroundColor: BRAND.white, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1.5, borderColor: '#DDD6FE', shadowColor: '#7C3AED', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8 },
   otpHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   otpHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   otpLockCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center' },
@@ -2042,7 +2054,7 @@ const s = StyleSheet.create({
   directionsBtnText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
 
   // Compact Action Card (provider)
-  compactActionCard: { backgroundColor: BRAND.white, borderRadius: 20, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: BRAND.border, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+  compactActionCard: { backgroundColor: BRAND.white, borderRadius: 20, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#E8ECF1', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8 },
   compactActionRow: { flexDirection: 'row', justifyContent: 'center', gap: 20 },
   compactActionBtn: { alignItems: 'center', gap: 6, minWidth: 64 },
   compactActionIcon: { width: 46, height: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
@@ -2062,7 +2074,7 @@ const s = StyleSheet.create({
   providerOtpBtnTextDisabled: { color: '#94A3B8' },
 
   // Accept/Reject
-  acceptRejectCard: { backgroundColor: BRAND.white, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 2, borderColor: BRAND.primary + '30', shadowColor: BRAND.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 3 },
+  acceptRejectCard: { backgroundColor: BRAND.white, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 2, borderColor: BRAND.primary + '30', shadowColor: BRAND.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 8 },
   acceptRejectTitle: { fontSize: 14, fontWeight: '700', color: BRAND.primary, marginBottom: 12, textAlign: 'center' },
   acceptRejectRow: { flexDirection: 'row', gap: 10 },
   rejectBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FEF2F2', borderRadius: 14, paddingVertical: 13, borderWidth: 1, borderColor: '#FECACA' },

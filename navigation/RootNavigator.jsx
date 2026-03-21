@@ -122,31 +122,30 @@ export const linking = {
  * Tab Icon Component - Unified styling for both User and Provider tabs
  * Uses proper icon families with consistent sizing
  */
-const TabIcon = ({ focused, iconFamily, iconName, label, isProvider = false }) => {
-  const activeColor = isProvider ? BRAND.secondary : BRAND.primary;
+const VERIFIED_BLUE = '#2b76bc';
+
+const TabIcon = ({ focused, iconFamily, iconName, focusedIconName, label }) => {
+  const activeColor = VERIFIED_BLUE;
   const inactiveColor = BRAND.gray;
   const color = focused ? activeColor : inactiveColor;
-  
-  // Render icon based on family
+  const currentIcon = focused && focusedIconName ? focusedIconName : iconName;
+  const iconSize = 24;
+
   const renderIcon = () => {
-    const iconSize = 22;
-    
     switch (iconFamily) {
       case 'MaterialCommunityIcons':
-        return <MaterialCommunityIcons name={iconName} size={iconSize} color={color} />;
-      case 'Feather':
-        return <Feather name={iconName} size={iconSize} color={color} />;
+        return <MaterialCommunityIcons name={currentIcon} size={iconSize} color={color} />;
       case 'Ionicons':
-        return <Ionicons name={iconName} size={iconSize} color={color} />;
+        return <Ionicons name={currentIcon} size={iconSize} color={color} />;
       default:
-        return <Feather name={iconName} size={iconSize} color={color} />;
+        return <MaterialCommunityIcons name={currentIcon} size={iconSize} color={color} />;
     }
   };
 
   return (
     <View style={styles.tabIconWrapper}>
       {renderIcon()}
-      <Text 
+      <Text
         style={[
           styles.tabLabelText,
           { color },
@@ -163,27 +162,45 @@ const TabIcon = ({ focused, iconFamily, iconName, label, isProvider = false }) =
 
 /**
  * Shared Tab Bar Styles - Production Grade
+ *
+ * iOS: insets.bottom is ~34 on Face ID devices, 0 on older.
+ *      We use the full inset so the bar extends into the home indicator area
+ *      but keep the tab content above it.
+ * Android gesture nav: insets.bottom is 0 — small fixed padding.
+ * Android 3-button nav: insets.bottom is ~48 — we need padding above the buttons.
  */
-const getTabBarStyle = (insets, isProvider = false) => {
-  // Android 15+ (API 35+) ENFORCES edge-to-edge — the app draws behind
-  // the system navigation bar. insets.bottom tells us how much space the
-  // 3-button / 2-button nav bar occupies (0 for gesture navigation).
-  // We must add that inset as padding so the tab bar sits above it.
-  const bottomPadding = Math.max(12, insets.bottom);
+const getTabBarStyle = (insets) => {
+  let bottomPadding;
+
+  if (Platform.OS === 'ios') {
+    // iOS home indicator is ~34px but we only need enough to clear it
+    // Not the full inset — that creates too much white space
+    bottomPadding = insets.bottom > 0 ? Math.min(insets.bottom, 20) : 4;
+  } else {
+    // Android: insets.bottom > 0 means 3-button/2-button nav bar is present
+    // insets.bottom === 0 means gesture navigation (no bar)
+    bottomPadding = insets.bottom > 0 ? insets.bottom : 8;
+  }
 
   return {
-    height: 65 + bottomPadding,
-    paddingTop: 10,
+    height: 56 + bottomPadding,
+    paddingTop: 8,
     paddingBottom: bottomPadding,
     paddingHorizontal: 8,
     backgroundColor: BRAND.white,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: BRAND.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 12,
+      },
+    }),
   };
 };
 
@@ -200,7 +217,8 @@ const UserTabNavigator = () => {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
-        tabBarStyle: getTabBarStyle(insets, false),
+        tabBarStyle: getTabBarStyle(insets),
+
         tabBarHideOnKeyboard: true,
       }}
     >
@@ -209,11 +227,12 @@ const UserTabNavigator = () => {
         component={UserHomeScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon 
-              focused={focused} 
-              iconFamily="Feather" 
-              iconName="home" 
-              label="Home" 
+            <TabIcon
+              focused={focused}
+              iconFamily="MaterialCommunityIcons"
+              iconName="home-variant-outline"
+              focusedIconName="home-variant"
+              label="Home"
             />
           ),
         }}
@@ -223,11 +242,12 @@ const UserTabNavigator = () => {
         component={UserServiceHistoryScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon 
-              focused={focused} 
-              iconFamily="MaterialCommunityIcons" 
-              iconName="history" 
-              label="History" 
+            <TabIcon
+              focused={focused}
+              iconFamily="MaterialCommunityIcons"
+              iconName="clipboard-text-clock-outline"
+              focusedIconName="clipboard-text-clock"
+              label="History"
             />
           ),
         }}
@@ -237,11 +257,12 @@ const UserTabNavigator = () => {
         component={SettingsScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon 
-              focused={focused} 
-              iconFamily="Ionicons" 
-              iconName="settings-outline" 
-              label="Settings" 
+            <TabIcon
+              focused={focused}
+              iconFamily="Ionicons"
+              iconName="settings-outline"
+              focusedIconName="settings"
+              label="Settings"
             />
           ),
         }}
@@ -251,11 +272,12 @@ const UserTabNavigator = () => {
         component={ProfileScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon 
-              focused={focused} 
-              iconFamily="Feather" 
-              iconName="user" 
-              label="Profile" 
+            <TabIcon
+              focused={focused}
+              iconFamily="MaterialCommunityIcons"
+              iconName="account-circle-outline"
+              focusedIconName="account-circle"
+              label="Profile"
             />
           ),
         }}
@@ -278,7 +300,8 @@ const ProviderTabNavigator = () => {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
-        tabBarStyle: getTabBarStyle(insets, true),
+        tabBarStyle: getTabBarStyle(insets),
+
         tabBarHideOnKeyboard: true,
       }}
     >
@@ -287,12 +310,12 @@ const ProviderTabNavigator = () => {
         component={ProviderHomeScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon 
-              focused={focused} 
-              iconFamily="Feather" 
-              iconName="home" 
-              label="Home" 
-              isProvider={true}
+            <TabIcon
+              focused={focused}
+              iconFamily="MaterialCommunityIcons"
+              iconName="home-variant-outline"
+              focusedIconName="home-variant"
+              label="Home"
             />
           ),
         }}
@@ -305,9 +328,9 @@ const ProviderTabNavigator = () => {
             <TabIcon
               focused={focused}
               iconFamily="MaterialCommunityIcons"
-              iconName="briefcase-outline"
+              iconName="hammer-wrench"
+              focusedIconName="hammer-wrench"
               label="Jobs"
-              isProvider={true}
             />
           ),
         }}
@@ -317,12 +340,12 @@ const ProviderTabNavigator = () => {
         component={SettingsScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon 
-              focused={focused} 
-              iconFamily="Ionicons" 
-              iconName="settings-outline" 
-              label="Settings" 
-              isProvider={true}
+            <TabIcon
+              focused={focused}
+              iconFamily="Ionicons"
+              iconName="settings-outline"
+              focusedIconName="settings"
+              label="Settings"
             />
           ),
         }}
@@ -332,12 +355,12 @@ const ProviderTabNavigator = () => {
         component={ProfileScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon 
-              focused={focused} 
-              iconFamily="Feather" 
-              iconName="user" 
-              label="Profile" 
-              isProvider={true}
+            <TabIcon
+              focused={focused}
+              iconFamily="MaterialCommunityIcons"
+              iconName="account-circle-outline"
+              focusedIconName="account-circle"
+              label="Profile"
             />
           ),
         }}
@@ -613,7 +636,7 @@ const styles = StyleSheet.create({
   tabIconWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: (SCREEN_WIDTH - 16) / 4, // Equal distribution for 4 tabs
+    width: (SCREEN_WIDTH - 16) / 4,
     paddingTop: 2,
   },
   tabLabelText: {

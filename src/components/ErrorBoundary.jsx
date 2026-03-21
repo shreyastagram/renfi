@@ -46,7 +46,9 @@ class ErrorBoundary extends React.Component {
   };
 
   handleContactSupport = () => {
-    Linking.openURL('mailto:contact@fixhomi.com?subject=App%20Error%20Report');
+    Linking.openURL('mailto:contact@fixhomi.com?subject=App%20Error%20Report').catch(() => {
+      Linking.openURL('https://wa.me/918446385312?text=App%20Error%20Report');
+    });
   };
 
   render() {

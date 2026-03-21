@@ -134,6 +134,8 @@ export default {
     orContinueWith: 'या इसके साथ जारी रखें',
     signingInGoogle: 'साइन इन हो रहा है...',
     continueWithGoogle: 'Google के साथ जारी रखें',
+    continueWithApple: 'Apple के साथ जारी रखें',
+    appleSignInFailed: 'Apple साइन-इन विफल रहा। कृपया पुनः प्रयास करें।',
     signInWithOtp: 'OTP से साइन इन करें',
     noAccount: 'खाता नहीं है?',
     register: 'रजिस्टर करें',
@@ -293,6 +295,16 @@ export default {
     unableToValidate: 'रीसेट लिंक सत्यापित करने में असमर्थ। कृपया पुनः प्रयास करें।',
     confirmPasswordRequired: 'कृपया अपने पासवर्ड की पुष्टि करें',
     weakPassword: 'पासवर्ड कम से कम 8 अक्षर लंबा होना चाहिए',
+
+    // Apple Email Verification
+    appleEmailRequired: 'Apple साइन-इन पूरा करने के लिए कृपया अपना ईमेल दर्ज करें',
+    appleEmailVerify: 'अपना ईमेल सत्यापित करें',
+    appleEmailOtpSent: 'इस पर भेजा गया सत्यापन कोड दर्ज करें',
+    appleEmailVerified: 'ईमेल सत्यापित! पंजीकरण पूरा हो रहा है...',
+    appleEmailPlaceholder: 'अपना ईमेल पता दर्ज करें',
+    appleEmailSendOtp: 'सत्यापन कोड भेजें',
+    appleEmailResend: 'कोड पुनः भेजें',
+    appleEmailVerifying: 'सत्यापित हो रहा है...',
   },
 
   // ─── Provider Register ────────────────────────────────
@@ -1186,7 +1198,6 @@ export default {
     termsOfService: 'सेवा की शर्तें',
     downloadData: 'मेरा डेटा डाउनलोड करें',
     downloadDataSub: 'अपना सारा डेटा निर्यात करें',
-    language: 'भाषा',
     loggedInAs: '%{name} के रूप में लॉगिन',
     memberSince: '%{date} से सदस्य',
     fixYourHome: 'अपना घर ठीक करें, कभी भी',

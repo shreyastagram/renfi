@@ -37,6 +37,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import LinearGradient from 'react-native-linear-gradient';
+import { BlurView } from '@react-native-community/blur';
+import EmergencyIcon from '../assets/serviceIcons/EmergencyIcon';
+import EventsIcon from '../assets/serviceIcons/EventsIcon';
 import { LocationMap, Icon, ServiceIcon, DateTimePicker, LocationPicker, ProviderDetailsModal, FixhomiLogo, CancellationReasonModal } from '../components';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
 
@@ -63,7 +67,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 // Bottom sheet heights
 const SHEET_MIN_HEIGHT = 160;
 const SHEET_MID_HEIGHT = SCREEN_HEIGHT * 0.40; // 40% for initial state - shows user location
-const SHEET_MAX_HEIGHT = SCREEN_HEIGHT * 0.80; // Never exceed 80% of screen
+// SHEET_MAX_HEIGHT is computed dynamically in the component using insets (see safeMaxHeight)
 
 // Brand colors
 const BRAND = {
@@ -108,11 +112,29 @@ const SERVICE_ID_TO_KEY = {
   ac_repair: 'services.acRepair',
 };
 
+// Per-service accent colors (from ICON_MAP) for 3D icon backgrounds
+const SERVICE_COLORS = {
+  electrician: '#F59E0B',
+  plumber: '#3B82F6',
+  electronics_technician: '#6366F1',
+  carpenter: '#8B5CF6',
+  painter: '#EC4899',
+  solar_repairing: '#EAB308',
+  welder: '#EF4444',
+  salon: '#F472B6',
+  vehicle_cleaning: '#0EA5E9',
+  mason_tiler: '#78716C',
+  driver: '#14B8A6',
+  ac_repair: '#06B6D4',
+};
+
 const ServiceCard = ({ service, onPress }) => {
   const { t } = useLanguage();
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const onPressIn = () => Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true, friction: 8 }).start();
-  const onPressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, friction: 8 }).start();
+  const accent = SERVICE_COLORS[service.id] || BRAND.secondary;
+
+  const onPressIn = () => Animated.spring(scaleAnim, { toValue: 0.92, useNativeDriver: true, speed: 50, bounciness: 4 }).start();
+  const onPressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 16, bounciness: 8 }).start();
 
   return (
     <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
@@ -121,12 +143,13 @@ const ServiceCard = ({ service, onPress }) => {
         onPress={() => onPress(service)}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
-        activeOpacity={0.85}
+        activeOpacity={1}
         accessibilityLabel={`${SERVICE_ID_TO_KEY[service.id] ? t(SERVICE_ID_TO_KEY[service.id]) : service.name} service`}
         accessibilityRole="button"
       >
-        <View style={styles.serviceIconContainer}>
-          <ServiceIcon serviceType={service.id} size={26} color={BRAND.secondary} />
+        {/* Service icon — custom SVG illustration or vector fallback */}
+        <View style={styles.serviceIconWrap}>
+          <ServiceIcon serviceType={service.id} size={58} useSvg={true} color={accent} />
         </View>
         <Text style={styles.serviceName}>{SERVICE_ID_TO_KEY[service.id] ? t(SERVICE_ID_TO_KEY[service.id]) : service.name}</Text>
       </TouchableOpacity>
@@ -280,8 +303,8 @@ const UserHomeScreen = ({ navigation, route }) => {
   );
 
   const useKm = useDistanceUnit();
-  // Cap sheet max height — 80% of screen ensures it stays below the top bar icons
-  const safeMaxHeight = SHEET_MAX_HEIGHT;
+  // Max sheet height — 75% of screen, hard cap so it never overlaps header
+  const safeMaxHeight = Math.min(SCREEN_HEIGHT * 0.75, SCREEN_HEIGHT - insets.top - 90);
   const mapRef = useRef(null);
   const { user, profile, userType, logout, isProfileLoading, isAuthLoading } = useApp();
 
@@ -1352,21 +1375,19 @@ const UserHomeScreen = ({ navigation, route }) => {
             {/* Quick Access Buttons */}
             <View style={styles.quickAccessRow}>
               <QuickAccessCard
-                iconName="warning"
-                iconColor="#DC2626"
+                SvgIcon={EmergencyIcon}
                 label={t('userHome.emergency')}
                 borderColor="#FECACA"
                 bgColor="#FEF2F2"
-                iconBg="rgba(220, 38, 38, 0.1)"
+                iconBg="rgba(220, 38, 38, 0.08)"
                 onPress={() => navigation.navigate('EmergencyServices')}
               />
               <QuickAccessCard
-                iconName="camera"
-                iconColor="#7C3AED"
+                SvgIcon={EventsIcon}
                 label={t('userHome.events')}
                 borderColor="#C7D2FE"
                 bgColor="#EEF2FF"
-                iconBg="rgba(124, 58, 237, 0.1)"
+                iconBg="rgba(124, 58, 237, 0.08)"
                 onPress={() => navigation.navigate('EventServices')}
               />
               <QuickAccessCard
@@ -1590,7 +1611,7 @@ const UserHomeScreen = ({ navigation, route }) => {
 };
 
 // QuickAccessCard sub-component with press animation
-const QuickAccessCard = ({ iconName, iconColor, label, borderColor, bgColor, iconBg, onPress }) => {
+const QuickAccessCard = ({ iconName, iconColor, label, borderColor, bgColor, iconBg, onPress, SvgIcon }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const onPressIn = () => Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true, friction: 8 }).start();
   const onPressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, friction: 8 }).start();
@@ -1605,7 +1626,7 @@ const QuickAccessCard = ({ iconName, iconColor, label, borderColor, bgColor, ico
         activeOpacity={0.85}
       >
         <View style={[styles.quickAccessIconContainer, { backgroundColor: iconBg }]}>
-          <Icon name={iconName} size={24} color={iconColor} />
+          {SvgIcon ? <SvgIcon size={32} /> : <Icon name={iconName} size={24} color={iconColor} />}
         </View>
         <Text style={styles.quickAccessLabel}>{label}</Text>
       </TouchableOpacity>
@@ -1996,45 +2017,41 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 20,
   },
+  // Card — clean flat surface
   serviceCard: {
     width: Math.floor((SCREEN_WIDTH - 64) / 3),
-    paddingVertical: 18,
+    paddingTop: 18,
+    paddingBottom: 14,
     paddingHorizontal: 6,
-    borderRadius: 18,
+    borderRadius: 20,
     alignItems: 'center',
-    backgroundColor: BRAND.white,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#F1F5F9',
     ...Platform.select({
       ios: {
         shadowColor: '#0F172A',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
+        shadowOpacity: 0.07,
+        shadowRadius: 10,
       },
       android: {
-        elevation: 3,
+        elevation: 4,
       },
     }),
   },
-  serviceIconContainer: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: BRAND.secondary + '0D',
-    justifyContent: 'center',
+  serviceIconWrap: {
+    marginBottom: 8,
     alignItems: 'center',
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: BRAND.secondary + '15',
+    justifyContent: 'center',
   },
   serviceName: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '700',
     color: '#1E293B',
     textAlign: 'center',
-    lineHeight: 15,
-    letterSpacing: -0.2,
+    lineHeight: 14,
+    letterSpacing: -0.15,
   },
 
   // ─── Quick Actions ─────────────────────────────────────────

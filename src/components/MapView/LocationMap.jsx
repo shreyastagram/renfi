@@ -59,34 +59,63 @@ const requestLocationPermission = async () => {
 
 /**
  * Custom Marker Component
+ * Uses MarkerView on iOS (PointAnnotation has bugs with Fabric/New Architecture)
+ * Uses PointAnnotation on Android (works correctly)
  */
-const CustomMarker = ({ coordinate, title, color = '#2563EB', icon = '📍', onPress }) => (
-  <Mapbox.PointAnnotation
-    id={`marker-${coordinate.latitude}-${coordinate.longitude}`}
-    coordinate={[coordinate.longitude, coordinate.latitude]}
-    title={title}
-    onSelected={onPress}
-  >
-    <View style={[styles.markerContainer, { backgroundColor: color }]}>
-      <Text style={styles.markerIcon}>{icon}</Text>
-    </View>
-  </Mapbox.PointAnnotation>
-);
+const CustomMarker = ({ coordinate, title, color = '#2563EB', icon = '📍', onPress }) => {
+  const coord = [coordinate.longitude, coordinate.latitude];
+  if (Platform.OS === 'ios') {
+    return (
+      <Mapbox.MarkerView
+        id={`marker-${coordinate.latitude}-${coordinate.longitude}`}
+        coordinate={coord}
+      >
+        <View style={[styles.markerContainer, { backgroundColor: color }]}>
+          <Text style={styles.markerIcon}>{icon}</Text>
+        </View>
+      </Mapbox.MarkerView>
+    );
+  }
+  return (
+    <Mapbox.PointAnnotation
+      id={`marker-${coordinate.latitude}-${coordinate.longitude}`}
+      coordinate={coord}
+      title={title}
+      onSelected={onPress}
+    >
+      <View style={[styles.markerContainer, { backgroundColor: color }]}>
+        <Text style={styles.markerIcon}>{icon}</Text>
+      </View>
+    </Mapbox.PointAnnotation>
+  );
+};
 
 /**
  * User Location Marker
  */
-const UserLocationMarker = ({ coordinate }) => (
-  <Mapbox.PointAnnotation
-    id="user-location"
-    coordinate={[coordinate.longitude, coordinate.latitude]}
-    anchor={{ x: 0.5, y: 0.5 }}
-  >
-    <View style={styles.userMarkerOuter}>
-      <View style={styles.userMarkerInner} />
-    </View>
-  </Mapbox.PointAnnotation>
-);
+const UserLocationMarker = ({ coordinate }) => {
+  const coord = [coordinate.longitude, coordinate.latitude];
+  if (Platform.OS === 'ios') {
+    return (
+      <Mapbox.MarkerView id="user-location" coordinate={coord}>
+        <View style={styles.userMarkerOuter}>
+          <View style={styles.userMarkerInner} />
+        </View>
+      </Mapbox.MarkerView>
+    );
+  }
+  return (
+    <Mapbox.PointAnnotation
+      id="user-location"
+      coordinate={coord}
+      anchor={{ x: 0.5, y: 0.5 }}
+    >
+      <View style={styles.userMarkerOuter}>
+        <View style={styles.userMarkerInner} />
+      </View>
+    </Mapbox.PointAnnotation>
+  );
+};
 
 /**
  * LocationMap Component
@@ -321,19 +350,35 @@ const LocationMap = forwardRef(({
 
         {/* Selected location marker (service address) - industry-grade pin */}
         {isMapReady && selectedLocation && (
-          <Mapbox.PointAnnotation
-            id="selected-service-location"
-            coordinate={[selectedLocation.longitude, selectedLocation.latitude]}
-            anchor={{ x: 0.5, y: 1 }}
-          >
-            <View style={styles.serviceLocationMarker}>
-              <View style={styles.serviceLocationPin}>
-                <MaterialIcon name="place" size={32} color="#FFFFFF" />
+          Platform.OS === 'ios' ? (
+            <Mapbox.MarkerView
+              key={`sel-${selectedLocation.latitude.toFixed(4)}-${selectedLocation.longitude.toFixed(4)}`}
+              id="selected-service-location"
+              coordinate={[selectedLocation.longitude, selectedLocation.latitude]}
+              anchor={{ x: 0.5, y: 1 }}
+            >
+              <View style={styles.serviceLocationMarker}>
+                <View style={styles.serviceLocationPin}>
+                  <MaterialIcon name="place" size={32} color="#FFFFFF" />
+                </View>
+                <View style={styles.serviceLocationPinTail} />
               </View>
-              <View style={styles.serviceLocationPinTail} />
-            </View>
-            <Mapbox.Callout title={selectedLocation.shortAddress || selectedLocation.address || 'Service Location'} />
-          </Mapbox.PointAnnotation>
+            </Mapbox.MarkerView>
+          ) : (
+            <Mapbox.PointAnnotation
+              id="selected-service-location"
+              coordinate={[selectedLocation.longitude, selectedLocation.latitude]}
+              anchor={{ x: 0.5, y: 1 }}
+            >
+              <View style={styles.serviceLocationMarker}>
+                <View style={styles.serviceLocationPin}>
+                  <MaterialIcon name="place" size={32} color="#FFFFFF" />
+                </View>
+                <View style={styles.serviceLocationPinTail} />
+              </View>
+              <Mapbox.Callout title={selectedLocation.shortAddress || selectedLocation.address || 'Service Location'} />
+            </Mapbox.PointAnnotation>
+          )
         )}
 
         {/* Custom markers - only render after map is ready */}

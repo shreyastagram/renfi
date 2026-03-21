@@ -52,6 +52,9 @@ import { addToFavorites } from '../services/favoritesService';
 import { CancellationReasonModal } from '../components';
 import { formatDistance, formatDistanceFromMeters, useDistanceUnit } from '../utils/formatDistance';
 import ScreenShimmer from '../components/ShimmerLoader';
+import AmbulanceIcon from '../assets/serviceIcons/AmbulanceIcon';
+import SnakeCatcherIcon from '../assets/serviceIcons/SnakeCatcherIcon';
+import MortuaryVanIcon from '../assets/serviceIcons/MortuaryVanIcon';
 
 // Service-specific placeholder hints for notes input
 const EMERGENCY_NOTES_PLACEHOLDERS = {
@@ -138,27 +141,41 @@ const AnimatedPressable = ({ children, onPress, style, disabled }) => {
 /**
  * Service Card Component - Premium design with animated press
  */
-const ServiceCard = ({ service, onPress, isStatic }) => (
-  <AnimatedPressable
-    style={[styles.serviceCard, isStatic && styles.staticServiceCard]}
-    onPress={() => onPress(service)}
-  >
-    <View style={[styles.serviceIconContainer, isStatic && styles.staticIconContainer]}>
-      <MaterialIcon
-        name={EMERGENCY_SERVICE_ICONS[service.id]}
-        size={28}
-        color={isStatic ? COLORS.danger : COLORS.secondary}
-      />
-    </View>
-    <Text style={styles.serviceName} numberOfLines={2}>{service.name}</Text>
-    {isStatic && (
-      <View style={styles.staticBadge}>
-        <MaterialIcon name="phone" size={11} color={COLORS.danger} />
-        <Text style={styles.staticBadgeText}>Call</Text>
+const EMERGENCY_SVG_ICONS = {
+  private_ambulance: AmbulanceIcon,
+  snake_catcher: SnakeCatcherIcon,
+  mortuary_van: MortuaryVanIcon,
+};
+
+const ServiceCard = ({ service, onPress, isStatic }) => {
+  const SvgIcon = EMERGENCY_SVG_ICONS[service.id];
+
+  return (
+    <AnimatedPressable
+      style={[styles.serviceCard, isStatic && styles.staticServiceCard]}
+      onPress={() => onPress(service)}
+    >
+      <View style={[styles.serviceIconContainer, isStatic && styles.staticIconContainer]}>
+        {SvgIcon ? (
+          <SvgIcon size={36} />
+        ) : (
+          <MaterialIcon
+            name={EMERGENCY_SERVICE_ICONS[service.id]}
+            size={28}
+            color={isStatic ? COLORS.danger : COLORS.secondary}
+          />
+        )}
       </View>
-    )}
-  </AnimatedPressable>
-);
+      <Text style={styles.serviceName} numberOfLines={2}>{service.name}</Text>
+      {isStatic && (
+        <View style={styles.staticBadge}>
+          <MaterialIcon name="phone" size={11} color={COLORS.danger} />
+          <Text style={styles.staticBadgeText}>Call</Text>
+        </View>
+      )}
+    </AnimatedPressable>
+  );
+};
 
 /**
  * Provider Card Component — Premium with profile picture, phone, status
@@ -1149,7 +1166,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
           </Text>
         </View>
         <TouchableOpacity
-          style={styles.retryButton}
+          style={styles.headerRetryButton}
           onPress={handleRetrySearch}
           disabled={refreshing}
           activeOpacity={0.7}
@@ -1692,19 +1709,13 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     marginTop: 2,
   },
-  retryButton: {
+  headerRetryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 8,
     backgroundColor: '#FFF7ED',
     borderRadius: 14,
-  },
-  retryButtonText: {
-    fontSize: 13,
-    color: COLORS.primary,
-    fontWeight: '600',
-    marginLeft: 4,
   },
   providersList: {
     paddingBottom: 80,

@@ -19,6 +19,8 @@ setupBackgroundMessageHandler();
 LogBox.ignoreLogs([
   '`new NativeEventEmitter()` was called with a non-null argument without the required `addListener` method.',
   '`new NativeEventEmitter()` was called with a non-null argument without the required `removeListeners` method.',
+  'Unknown reactTag',
+  'PointAnnotation supports max 1 subview',
 ]);
 
 AppRegistry.registerComponent(appName, () => App);

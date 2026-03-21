@@ -38,7 +38,7 @@ const GOOGLE_WEB_CLIENT_ID = '752028559781-q0mi48eo45foh0lag7mkmtthevcrhcm9.apps
  * iOS Client ID - Used for iOS Google Sign-In
  * This should also be configured in ios/renfi/Info.plist
  */
-const GOOGLE_IOS_CLIENT_ID = '752028559781-q0mi48eo45foh0lag7mkmtthevcrhcm9.apps.googleusercontent.com';
+const GOOGLE_IOS_CLIENT_ID = '752028559781-0ga547aouj0tpiq4br1j08dhrqtrqru4.apps.googleusercontent.com';
 
 /**
  * Role types for Google OAuth registration
@@ -454,6 +454,7 @@ export const syncGoogleUserToMongoDB = async (userData, accessToken = null) => {
       fullName: userData.fullName,
       googleId: userData.googleId,
       profilePicture: userData.profilePicture,
+      authProvider: 'google',
     }, config);
 
     console.log('✅ [GoogleAuth] User profile synced to MongoDB');
@@ -524,6 +525,7 @@ export const syncGoogleProviderToMongoDB = async (providerData, accessToken = nu
       longitude: providerData.longitude,
       googleId: providerData.googleId,
       profilePicture: providerData.profilePicture,
+      authProvider: 'google',
     }, config);
 
     console.log('✅ [GoogleAuth] Provider profile synced to MongoDB');

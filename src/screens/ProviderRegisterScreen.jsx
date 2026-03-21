@@ -40,9 +40,11 @@ import {
 import {
   signInWithAppleAsProvider,
   syncAppleProviderToMongoDB,
+  completeAppleSignInWithVerifiedEmail,
   APPLE_AUTH_CODES,
   getAppleAuthErrorMessage,
 } from '../services/appleAuthService';
+import AppleEmailCollectionModal from '../components/AppleEmailCollectionModal';
 import { isInsideServiceZone, getZoneStatus } from '../utils/serviceZone';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -86,6 +88,10 @@ const ProviderRegisterScreen = ({ navigation }) => {
 
   // Account type of existing account (for routing to correct login)
   const [existingAccountType, setExistingAccountType] = useState(null);
+
+  // Apple email verification state
+  const [showAppleEmailModal, setShowAppleEmailModal] = useState(false);
+  const [pendingAppleAuth, setPendingAppleAuth] = useState(null);
 
   // Debounce timers for availability checks
   const emailCheckTimer = useRef(null);
@@ -652,6 +658,74 @@ const ProviderRegisterScreen = ({ navigation }) => {
   };
 
   /**
+   * Process a successful Apple auth result for providers.
+   * Mirrors the Google Sign-In post-signup flow exactly.
+   */
+  const processAppleAuthSuccess = async (resultData) => {
+    const { accessToken, refreshToken, user, isNewUser } = resultData;
+
+    if (isNewUser && user) {
+      console.log('[ProviderRegisterScreen] New Apple provider - syncing to MongoDB...');
+      let syncResult = await syncAppleProviderToMongoDB({
+        javaUserId: user.id || user.userId,
+        email: user.email,
+        name: user.fullName || user.name || user.email?.split('@')[0],
+        address: formData.address || '',
+        city: formData.city || '',
+        pincode: formData.pincode || '',
+        latitude: location?.latitude,
+        longitude: location?.longitude,
+      }, accessToken);
+
+      if (!syncResult.success) {
+        console.warn('[ProviderRegisterScreen] MongoDB sync failed, retrying in 2s...');
+        await new Promise(r => setTimeout(r, 2000));
+        syncResult = await syncAppleProviderToMongoDB({
+          javaUserId: user.id || user.userId,
+          email: user.email,
+          name: user.fullName || user.name || user.email?.split('@')[0],
+          address: formData.address || '',
+        }, accessToken);
+      }
+    }
+
+    showAlert(t('auth.appleRegistrationSuccess') || 'Account created successfully!', 'success');
+
+    const authData = {
+      accessToken,
+      refreshToken,
+      userId: user.id || user.userId,
+      javaUserId: user.id || user.userId,
+      mongoId: user.id || user.userId,
+      email: user.email,
+      fullName: user.fullName || user.name,
+      role: user.role,
+      userType: 'provider',
+      isNewUser,
+      authMethod: 'apple',
+    };
+
+    const authProcessed = await handleAuthSuccess(authData);
+    if (!authProcessed) {
+      showAlert(t('auth.registrationSessionFail'), 'warning');
+    }
+
+    // Record legal acceptance with explicit token
+    if (termsAccepted && accessToken) {
+      const { NODE_BASE_URL } = require('../config/api');
+      try {
+        await fetch(`${NODE_BASE_URL}/api/auth/accept-policies`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ termsAccepted: true, privacyAccepted: true }),
+        });
+      } catch (e) {
+        console.warn('[Register] Legal acceptance failed:', e.message);
+      }
+    }
+  };
+
+  /**
    * Handle Apple Sign-In — SIGNUP MODE for providers (mirrors Google handler)
    */
   const handleAppleSignIn = async () => {
@@ -666,67 +740,22 @@ const ProviderRegisterScreen = ({ navigation }) => {
       const result = await signInWithAppleAsProvider('signup');
 
       if (result.success) {
-        const { accessToken, refreshToken, user, isNewUser } = result.data;
-
-        if (isNewUser && user) {
-          let syncResult = await syncAppleProviderToMongoDB({
-            javaUserId: user.id || user.userId,
-            email: user.email,
-            name: user.fullName || user.name || user.email?.split('@')[0],
-            address: formData.address || '',
-            city: formData.city || '',
-            pincode: formData.pincode || '',
-          }, accessToken);
-
-          if (!syncResult.success) {
-            await new Promise(r => setTimeout(r, 2000));
-            syncResult = await syncAppleProviderToMongoDB({
-              javaUserId: user.id || user.userId,
-              email: user.email,
-              name: user.fullName || user.name || user.email?.split('@')[0],
-              address: formData.address || '',
-            }, accessToken);
-          }
-        }
-
-        showAlert(t('auth.appleRegistrationSuccess') || 'Account created successfully!', 'success');
-
-        const authData = {
-          accessToken,
-          refreshToken,
-          userId: user.id || user.userId,
-          javaUserId: user.id || user.userId,
-          mongoId: user.id || user.userId,
-          email: user.email,
-          fullName: user.fullName || user.name,
-          role: user.role,
-          userType: 'provider',
-          isNewUser,
-          authMethod: 'apple',
-        };
-
-        const authProcessed = await handleAuthSuccess(authData);
-        if (!authProcessed) {
-          showAlert(t('auth.registrationSessionFail'), 'warning');
-        }
-
-        // Record legal acceptance with explicit token
-        if (termsAccepted && accessToken) {
-          const { NODE_BASE_URL } = require('../config/api');
-          try {
-            await fetch(`${NODE_BASE_URL}/api/auth/accept-policies`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-              body: JSON.stringify({ termsAccepted: true, privacyAccepted: true }),
-            });
-          } catch (e) {
-            console.warn('[Register] Legal acceptance failed:', e.message);
-          }
-        }
+        await processAppleAuthSuccess(result.data);
       } else {
         const { error } = result;
         if (error.isCancelled) return;
         if (error.code === APPLE_AUTH_CODES.NOT_AVAILABLE) return;
+
+        // EMAIL_REQUIRED — Apple hid the email, collect it from the user
+        if (error.code === APPLE_AUTH_CODES.EMAIL_REQUIRED) {
+          setPendingAppleAuth({
+            appleUserId: error.appleUserId,
+            role: 'SERVICE_PROVIDER',
+            mode: 'signup',
+          });
+          setShowAppleEmailModal(true);
+          return;
+        }
 
         if (error.code === APPLE_AUTH_CODES.ROLE_CONFLICT) {
           showAlert(t('auth.appleRoleConflict') || 'This account is already registered as a different type.', 'warning');
@@ -745,6 +774,48 @@ const ProviderRegisterScreen = ({ navigation }) => {
       showAlert(t('auth.appleSignInFailed') || 'Apple Sign-In failed. Please try again.', 'error');
     } finally {
       setAppleLoading(false);
+    }
+  };
+
+  /**
+   * Callback when Apple email verification completes for providers.
+   * Retries Apple auth with the verified email + verification token.
+   */
+  const handleAppleEmailVerified = async (verifiedEmail, verificationToken) => {
+    setShowAppleEmailModal(false);
+
+    if (!pendingAppleAuth) {
+      showAlert('Something went wrong. Please try Apple Sign-In again.', 'error');
+      return;
+    }
+
+    try {
+      setAppleLoading(true);
+      clearAlert();
+
+      const retryResult = await completeAppleSignInWithVerifiedEmail({
+        identityToken: null,
+        authorizationCode: null,
+        appleUserId: pendingAppleAuth.appleUserId,
+        fullName: null,
+        role: pendingAppleAuth.role,
+        mode: pendingAppleAuth.mode,
+        email: verifiedEmail,
+        verificationToken,
+      });
+
+      if (retryResult.success) {
+        await processAppleAuthSuccess(retryResult.data);
+      } else {
+        const errorMessage = getAppleAuthErrorMessage(retryResult.error?.code, retryResult.error?.message);
+        showAlert(errorMessage, 'error');
+      }
+    } catch (err) {
+      console.error('[ProviderRegisterScreen] Apple email retry error:', err);
+      showAlert('Could not complete registration. Please try again.', 'error');
+    } finally {
+      setAppleLoading(false);
+      setPendingAppleAuth(null);
     }
   };
 
@@ -1120,6 +1191,17 @@ const ProviderRegisterScreen = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Apple Email Collection + OTP Verification Modal */}
+      <AppleEmailCollectionModal
+        visible={showAppleEmailModal}
+        appleUserId={pendingAppleAuth?.appleUserId}
+        onVerified={handleAppleEmailVerified}
+        onCancel={() => {
+          setShowAppleEmailModal(false);
+          setPendingAppleAuth(null);
+        }}
+      />
     </SafeAreaView>
   );
 };

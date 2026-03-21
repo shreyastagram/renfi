@@ -387,10 +387,10 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
       if (result.success) {
         const { accessToken, refreshToken, user, isNewUser } = result.data;
 
-        const googleRole = user?.role;
+        const appleRole = user?.role;
         const expectedRole = userType === 'provider' ? 'SERVICE_PROVIDER' : 'USER';
-        if (googleRole && googleRole !== expectedRole && googleRole !== 'ADMIN') {
-          const correctScreen = googleRole === 'SERVICE_PROVIDER' ? 'provider' : 'user';
+        if (appleRole && appleRole !== expectedRole && appleRole !== 'ADMIN') {
+          const correctScreen = appleRole === 'SERVICE_PROVIDER' ? 'provider' : 'user';
           showAlert(t('auth.roleMismatch', { role: correctScreen }), 'error');
           setAppleLoading(false);
           return;
@@ -439,6 +439,10 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
         if (error.isCancelled) return;
 
         if (error.code === APPLE_AUTH_CODES.NOT_REGISTERED) {
+          showAlert(t('auth.appleNotRegistered') || 'No account found. Please register first.', 'warning');
+          return;
+        }
+        if (error.code === APPLE_AUTH_CODES.EMAIL_REQUIRED) {
           showAlert(t('auth.appleNotRegistered') || 'No account found. Please register first.', 'warning');
           return;
         }

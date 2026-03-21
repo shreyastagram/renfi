@@ -70,7 +70,7 @@ export const checkIsEmulator = async () => {
  * 
  * For WiFi-connected devices, use your machine's IP address
  */
-const LOCAL_MACHINE_IP = '192.168.29.71';  // UPDATE THIS to your computer's IP
+const LOCAL_MACHINE_IP = '192.168.1.17';  // UPDATE THIS to your computer's IP
 
 /**
  * Determine the correct host based on device type
@@ -81,8 +81,9 @@ const getDevServerHost = () => {
   }
 
   if (Platform.OS === 'ios') {
-    // iOS simulator can always use localhost
-    return 'localhost';
+    // iOS simulator uses localhost, physical devices need WiFi IP
+    console.log('🔧 [API] iOS device — using WiFi IP:', LOCAL_MACHINE_IP);
+    return LOCAL_MACHINE_IP;
   }
 
   // For Android:
@@ -249,6 +250,8 @@ export const ENDPOINTS = {
   OAUTH: {
     GOOGLE_MOBILE: '/api/auth/oauth2/google/mobile',
     APPLE_MOBILE: '/api/auth/oauth2/apple/mobile',
+    APPLE_SEND_EMAIL_OTP: '/api/auth/oauth2/apple/send-email-otp',
+    APPLE_VERIFY_EMAIL_OTP: '/api/auth/oauth2/apple/verify-email-otp',
   },
 
   // Profile endpoints

@@ -31,11 +31,14 @@ import {
   AppState,
   Image,
   StatusBar,
+  Animated,
+  Vibration,
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { BlurView } from '@react-native-community/blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -44,6 +47,7 @@ import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
 import { Icon, ServiceIcon, CancellationReasonModal } from '../components';
+import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import ScreenShimmer from '../components/ShimmerLoader';
 import {
   getProviderRequests,
@@ -163,7 +167,6 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
   useEffect(() => { if (visible) { setOtp(''); setAttempts(0); } }, [visible]);
 
   const handleOtpChange = (text) => {
-    // Security: Only allow numeric digits
     const sanitized = text.replace(/[^0-9]/g, '');
     if (sanitized.length <= 6) setOtp(sanitized);
   };
@@ -174,9 +177,103 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
     onVerify(otp);
   };
 
+  if (Platform.OS === 'ios') {
+    const isDisabled = otp.length !== 6 || isLocked;
+
+    return (
+      <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+        {/* Full-screen dark overlay — stays behind keyboard too */}
+        <View style={styles.iosOtpBg}>
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View style={styles.iosOtpCenter}>
+                <View style={styles.iosOtpWrap}>
+                  {/* Main card */}
+                  <View style={styles.iosOtpCardOuter}>
+                    <BlurView
+                      style={styles.iosBlurFill}
+                      blurType="light"
+                      blurAmount={80}
+                      reducedTransparencyFallbackColor="#F2F2F7"
+                    >
+                      <View style={styles.iosOtpContent}>
+                        <Text style={{ fontSize: 36, marginBottom: 12 }}>🔐</Text>
+                        <Text style={styles.iosOtpTitle}>{t('providerHistory.enterCompletionOtp')}</Text>
+                        <Text style={styles.iosOtpSubtitle}>{t('providerHistory.enterCompletionOtpSub')}</Text>
+
+                        <TextInput
+                          style={[styles.iosOtpInput, isLocked && { backgroundColor: 'rgba(255,59,48,0.08)' }]}
+                          value={otp}
+                          onChangeText={handleOtpChange}
+                          placeholder="000000"
+                          placeholderTextColor="rgba(0,0,0,0.2)"
+                          keyboardType="number-pad"
+                          maxLength={6}
+                          autoFocus
+                          editable={!isLocked && !isVerifying}
+                          autoComplete="one-time-code"
+                          textContentType="oneTimeCode"
+                          returnKeyType="done"
+                          onSubmitEditing={handleVerify}
+                        />
+
+                        {error ? <Text style={styles.iosOtpError}>{error}</Text> : null}
+                        {isLocked && <Text style={styles.iosOtpError}>{t('providerHistory.tooManyAttempts')}</Text>}
+                        {attempts > 0 && attempts < MAX_ATTEMPTS && !error && (
+                          <Text style={styles.iosOtpHint}>{t('providerHistory.attemptsRemaining', { n: MAX_ATTEMPTS - attempts })}</Text>
+                        )}
+                      </View>
+
+                      {/* Verify button */}
+                      <View style={styles.iosOtpActions}>
+                        <TouchableOpacity
+                          style={[styles.iosVerifyBtn, isDisabled && styles.iosVerifyBtnDisabled]}
+                          onPress={handleVerify}
+                          disabled={isDisabled || isVerifying}
+                          activeOpacity={0.7}
+                        >
+                          {isVerifying ? (
+                            <ActivityIndicator color="#FFFFFF" size="small" />
+                          ) : (
+                            <Text style={[styles.iosVerifyBtnText, isDisabled && styles.iosVerifyBtnTextDisabled]}>
+                              {t('providerHistory.verifyComplete')}
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    </BlurView>
+                  </View>
+
+                  {/* Cancel — separate frosted card */}
+                  <View style={styles.iosCancelOuter}>
+                    <BlurView
+                      style={styles.iosBlurFill}
+                      blurType="light"
+                      blurAmount={80}
+                      reducedTransparencyFallbackColor="#F2F2F7"
+                    >
+                      <TouchableOpacity
+                        style={styles.iosCancelBtn}
+                        onPress={onClose}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.iosCancelBtnText}>{t('common.cancel') || 'Cancel'}</Text>
+                      </TouchableOpacity>
+                    </BlurView>
+                  </View>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+    );
+  }
+
+  // ─── Android: existing bottom-sheet design ──
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="height">
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={styles.modalOverlay}>
             <View style={[styles.modalContent, { paddingBottom: Math.max(otpInsets.bottom, 16) + 24 }]}>
@@ -385,8 +482,8 @@ const RequestCard = ({ request, onPress, onCall, onDirections, onComplete, onCan
                 <Icon name="check-circle" size={15} color={C.white} />
                 <Text style={styles.completeBtnText}>{t('providerHistory.complete')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelIconBtn} onPress={() => onCancel(request)} activeOpacity={0.7}>
-                <Icon name="close" size={17} color={C.danger} />
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => onCancel(request)} activeOpacity={0.7}>
+                <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -445,7 +542,12 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [datePreset, setDatePreset] = useState('all');
   const [showDateFilter, setShowDateFilter] = useState(false);
+  const [showCategoryFilter, setShowCategoryFilter] = useState(false);
+  const [filtersVisible, setFiltersVisible] = useState(true);
   const [stats, setStats] = useState({ total: 0, active: 0, completed: 0, pending: 0, rating: 0 });
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  const hasActiveFilters = activeFilter !== 'all' || categoryFilter !== 'all' || datePreset !== 'all';
 
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
 
@@ -833,30 +935,69 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
+      {/* Header row — fades between title and compact stats */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => setIsDrawerOpen(true)} activeOpacity={0.7} style={styles.headerLogoBtn}>
           <Image source={FIXHOMI_LOGO} style={styles.headerLogoImg} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('providerHistory.myJobs')}</Text>
+
+        <View style={styles.headerCenter}>
+          {/* "My Jobs" title — visible at rest, fades on scroll */}
+          <Animated.Text style={[styles.headerTitle, {
+            opacity: scrollY.interpolate({ inputRange: [0, 40], outputRange: [1, 0], extrapolate: 'clamp' }),
+          }]}>
+            {t('providerHistory.myJobs')}
+          </Animated.Text>
+
+          {/* Compact inline stat pills — appear on scroll */}
+          <Animated.View style={[styles.headerCompactStats, {
+            opacity: scrollY.interpolate({ inputRange: [30, 70], outputRange: [0, 1], extrapolate: 'clamp' }),
+            position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, justifyContent: 'center',
+          }]}>
+            <View style={[styles.headerInlinePill, { backgroundColor: '#EFF6FF' }]}>
+              <View style={styles.headerInlineSvg}>
+                <Svg width="100%" height="100%" viewBox="0 0 120 36" preserveAspectRatio="xMidYMid slice">
+                  <Circle cx="100" cy="0" r="18" fill={C.secondary} opacity={0.07} />
+                  <Path d="M0 28 Q30 14 60 24 T120 18" stroke={C.secondary} strokeWidth="0.8" fill="none" opacity={0.1} />
+                </Svg>
+              </View>
+              <Text style={[styles.headerInlineLabel, { color: C.secondary }]}>Total</Text>
+              <Text style={[styles.headerInlineValue, { color: C.secondary }]}>{stats.total}</Text>
+            </View>
+            <View style={[styles.headerInlinePill, { backgroundColor: '#FAF5FF' }]}>
+              <View style={styles.headerInlineSvg}>
+                <Svg width="100%" height="100%" viewBox="0 0 120 36" preserveAspectRatio="xMidYMid slice">
+                  <Circle cx="100" cy="0" r="18" fill={C.purple} opacity={0.07} />
+                  <Path d="M0 28 Q30 14 60 24 T120 18" stroke={C.purple} strokeWidth="0.8" fill="none" opacity={0.1} />
+                </Svg>
+              </View>
+              <Text style={[styles.headerInlineLabel, { color: C.purple }]}>Active</Text>
+              <Text style={[styles.headerInlineValue, { color: C.purple }]}>{stats.active}</Text>
+            </View>
+          </Animated.View>
+        </View>
+
         <AvatarButton name={displayData?.fullName} profilePicture={displayData?.profilePicture} onPress={() => navigation.navigate('Profile')} isProvider={true} />
       </View>
 
-      {/* Stats */}
-      <View style={styles.statsBar}>
+      {/* Full 4-pill stats bar — collapses on scroll */}
+      <Animated.View style={[styles.statsBar, {
+        opacity: scrollY.interpolate({ inputRange: [0, 60], outputRange: [1, 0], extrapolate: 'clamp' }),
+        maxHeight: scrollY.interpolate({ inputRange: [0, 80], outputRange: [60, 0], extrapolate: 'clamp' }),
+      }]}>
         <View style={styles.statsRow}>
           <StatPill value={stats.total} label={t('providerHistory.statTotal')} color={C.secondary} bgColor="#EFF6FF" />
           <StatPill value={stats.pending} label={t('providerHistory.statNew')} color={C.primary} bgColor="#FFF7ED" />
           <StatPill value={stats.active} label={t('providerHistory.filterActive')} color={C.purple} bgColor="#FAF5FF" />
           <StatPill value={stats.completed} label={t('providerHistory.filterDone')} color={C.success} bgColor="#ECFDF5" />
         </View>
-      </View>
+      </Animated.View>
 
-      {/* Filter Section */}
-      <View style={styles.filterSection}>
-        {/* Status filters */}
-        <View style={styles.filterRow}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll} style={{ flex: 1 }}>
+      {/* Filters — toggleable via FAB */}
+      {filtersVisible && (
+        <View style={styles.filterSection}>
+          {/* Status filters — always top row */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
             {FILTER_TABS.map(tab => {
               const active = activeFilter === tab.key;
               return (
@@ -866,27 +1007,22 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
               );
             })}
           </ScrollView>
-          <View style={styles.filterIconSeparator} />
-          <TouchableOpacity style={[styles.filterIconBtn, showDateFilter && styles.filterIconBtnOn]} onPress={() => setShowDateFilter(v => !v)} activeOpacity={0.7}>
-            <Icon name={showDateFilter || datePreset !== 'all' ? 'filter-outline' : 'filter-off-outline'} size={18} color={showDateFilter ? C.white : C.textSec} />
-            {datePreset !== 'all' && <View style={styles.filterDot} />}
-          </TouchableOpacity>
-        </View>
 
-        {/* Category filters */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
-          {CATEGORY_TABS.map(tab => {
-            const active = categoryFilter === tab.key;
-            return (
-              <TouchableOpacity key={tab.key} style={[styles.categoryChip, active && styles.categoryChipActive]} onPress={() => setCategoryFilter(tab.key)} activeOpacity={0.7}>
-                <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>{t(tab.labelKey)}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+          {/* Category filters — separated */}
+          <View style={styles.filterDivider} />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
+            {CATEGORY_TABS.map(tab => {
+              const active = categoryFilter === tab.key;
+              return (
+                <TouchableOpacity key={tab.key} style={[styles.categoryChip, active && styles.categoryChipActive]} onPress={() => setCategoryFilter(tab.key)} activeOpacity={0.7}>
+                  <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>{t(tab.labelKey)}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
-        {/* Date chips */}
-        {showDateFilter && (
+          {/* Date filters — separated */}
+          <View style={styles.filterDivider} />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateScroll}>
             {DATE_PRESETS.map(p => {
               const a = datePreset === p.key;
@@ -897,11 +1033,12 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
               );
             })}
           </ScrollView>
-        )}
-      </View>
+
+        </View>
+      )}
 
       {/* List */}
-      <FlatList
+      <Animated.FlatList
         data={filteredRequests}
         keyExtractor={item => item._id}
         ListHeaderComponent={
@@ -927,11 +1064,36 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
         contentContainerStyle={[styles.listPad, { paddingBottom: insets.bottom + 40 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} />}
         showsVerticalScrollIndicator={false}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
+        scrollEventThrottle={8}
       />
 
       <DrawerMenu visible={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} user={displayData} userType={userType} navigation={navigation} onLogout={logout} isVerified={displayData?.isPhoneVerified && displayData?.isEmailVerified} activeTab="jobs" />
       <OTPModal visible={otpModalVisible} onClose={() => { setOtpModalVisible(false); setSelectedJob(null); setOtpError(''); }} onVerify={handleVerifyOtp} isVerifying={isVerifyingOtp} error={otpError} />
-      <CancellationReasonModal visible={cancelModalVisible} onClose={() => { setCancelModalVisible(false); setCancelJob(null); }} onSubmit={executeCancellation} loading={!!cancellingId} />
+      <CancellationReasonModal visible={cancelModalVisible} onClose={() => { setCancelModalVisible(false); setCancelJob(null); }} onSubmit={executeCancellation} loading={!!cancellingId} cancellerRole="provider" />
+
+      {/* Filter bar — always above tab bar, respects safe area + nav buttons */}
+      {/* Filter pill — right-fixed, just above tab bar */}
+      {/* Filter toggle — icon only, right-fixed above footer */}
+      <View style={[styles.filterBar, { bottom: Math.max(insets.bottom, 0) }]}>
+        <TouchableOpacity
+          style={[styles.filterBarPill, filtersVisible && styles.filterBarPillOn]}
+          onPress={() => setFiltersVisible(v => !v)}
+          onLongPress={() => {
+            if (hasActiveFilters) {
+              Vibration.vibrate(Platform.OS === 'ios' ? 10 : [0, 50]);
+              setActiveFilter('all');
+              setCategoryFilter('all');
+              setDatePreset('all');
+            }
+          }}
+          delayLongPress={1000}
+          activeOpacity={0.75}
+        >
+          <MaterialIcon name="tune" size={20} color={filtersVisible ? '#FFFFFF' : '#94A3B8'} />
+          {hasActiveFilters && <View style={styles.filterBarActiveDot} />}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -940,8 +1102,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
 
   // Header
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 14, backgroundColor: C.white },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: C.text, letterSpacing: -0.3 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 10, backgroundColor: C.white, gap: 12 },
+  headerCenter: { flex: 1, minHeight: 36, justifyContent: 'center' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: C.text, letterSpacing: -0.3, textAlign: 'center' },
+  headerCompactStats: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  headerInlinePill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, overflow: 'hidden' },
+  headerInlineSvg: { ...StyleSheet.absoluteFillObject },
+  headerInlineLabel: { fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3 },
+  headerInlineValue: { fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
   headerLogoBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.95)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
   headerLogoImg: { width: 30, height: 30, borderRadius: 8 },
 
@@ -950,25 +1118,57 @@ const styles = StyleSheet.create({
   loaderText: { marginTop: 12, fontSize: 14, fontWeight: '500', color: C.textSec },
 
   // Stats
-  statsBar: { backgroundColor: C.white, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 12 },
-  statsRow: { flexDirection: 'row', gap: 8 },
-  statPill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 16, overflow: 'hidden', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3 },
+  statsBar: { backgroundColor: C.white, paddingHorizontal: 14, paddingTop: 2, paddingBottom: 10, overflow: 'hidden' },
+  statsRow: { flexDirection: 'row', gap: 6 },
+  statPill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 8, borderRadius: 14, overflow: 'hidden', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3 },
   statSvgBg: { ...StyleSheet.absoluteFillObject },
-  statValue: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5, marginBottom: 1 },
-  statLabel: { fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
+  statValue: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3, lineHeight: 22 },
+  statLabel: { fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.3, marginTop: 3, lineHeight: 12 },
 
   // Filter section — unified container
-  filterSection: { backgroundColor: C.white, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: '#E8ECF0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 3 },
-  filterRow: { flexDirection: 'row', alignItems: 'center' },
+  filterSection: { backgroundColor: C.white, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: '#E8ECF0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 3 },
+  filterDivider: { height: 1, backgroundColor: '#F1F5F9', marginHorizontal: 16, marginVertical: 4 },
   filterScroll: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
   filterPill: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#F1F5F9', borderRadius: 20, borderWidth: 1, borderColor: '#E2E8F0' },
   filterPillActive: { backgroundColor: C.primary, borderColor: C.primary },
   filterPillText: { fontSize: 13, fontWeight: '600', color: C.textSec },
   filterPillTextActive: { color: C.white },
-  filterIconSeparator: { width: 1, height: 24, backgroundColor: '#E2E8F0', marginRight: 10 },
-  filterIconBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center', marginRight: 14, borderWidth: 1, borderColor: '#E2E8F0' },
-  filterIconBtnOn: { backgroundColor: C.secondary, borderColor: C.secondary },
-  filterDot: { position: 'absolute', top: 3, right: 3, width: 7, height: 7, borderRadius: 4, backgroundColor: C.primary, borderWidth: 1.5, borderColor: C.white },
+  // Filter FAB — draggable floating button
+  // Filter bar — centered floating pill above tab bar
+  filterBar: {
+    position: 'absolute',
+    right: 14,
+    zIndex: 999,
+  },
+  filterBarPill: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6 },
+      android: { elevation: 4 },
+    }),
+  },
+  filterBarPillOn: {
+    backgroundColor: '#1E293B',
+    borderColor: '#1E293B',
+  },
+  filterBarActiveDot: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
 
   // Category chips
   categoryScroll: { paddingHorizontal: 16, paddingTop: 2, paddingBottom: 8, gap: 6 },
@@ -1046,9 +1246,49 @@ const styles = StyleSheet.create({
 
   // Active: Complete + Cancel
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-  completeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.success, borderRadius: 12, paddingVertical: 11, gap: 6, shadowColor: C.success, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
-  completeBtnText: { fontSize: 14, fontWeight: '700', color: C.white },
-  cancelIconBtn: { width: 42, height: 42, borderRadius: 12, borderWidth: 1.5, borderColor: C.danger, backgroundColor: C.dangerBg, alignItems: 'center', justifyContent: 'center' },
+  completeBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: C.success,
+    paddingVertical: 12,
+    gap: 6,
+    ...Platform.select({
+      ios: {
+        borderRadius: 14,
+        shadowColor: C.success,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+      },
+      android: {
+        borderRadius: 12,
+        elevation: 4,
+      },
+    }),
+  },
+  completeBtnText: { fontSize: 14, fontWeight: '700', color: C.white, letterSpacing: Platform.OS === 'ios' ? -0.2 : 0 },
+  cancelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1.5,
+    borderColor: C.danger,
+    backgroundColor: C.dangerBg,
+    ...Platform.select({
+      ios: {
+        borderRadius: 14,
+      },
+      android: {
+        borderRadius: 12,
+      },
+    }),
+  },
+  cancelBtnText: { fontSize: 13, fontWeight: '600', color: C.danger },
 
   // Details row
   detailsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border },
@@ -1073,6 +1313,27 @@ const styles = StyleSheet.create({
   verifyBtn: { backgroundColor: C.success, borderRadius: 14, paddingVertical: 15, alignItems: 'center', shadowColor: C.success, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
   verifyBtnDisabled: { backgroundColor: '#94A3B8', shadowOpacity: 0, elevation: 0 },
   verifyBtnText: { fontSize: 15, fontWeight: '700', color: C.white },
+
+  // ─── iOS OTP Modal ─────────────────────────────────────────────
+  iosOtpBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' },
+  iosOtpCenter: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
+  iosOtpWrap: { width: '100%', maxWidth: 300 },
+  iosOtpCardOuter: { borderRadius: 20, overflow: 'hidden' },
+  iosBlurFill: {},
+  iosOtpContent: { paddingTop: 28, paddingBottom: 6, paddingHorizontal: 22, alignItems: 'center' },
+  iosOtpTitle: { fontSize: 18, fontWeight: '700', color: '#000', textAlign: 'center', lineHeight: 24, letterSpacing: -0.45 },
+  iosOtpSubtitle: { fontSize: 14, fontWeight: '400', color: 'rgba(0,0,0,0.55)', textAlign: 'center', lineHeight: 20, letterSpacing: -0.15, marginTop: 6, marginBottom: 20 },
+  iosOtpInput: { width: '100%', backgroundColor: 'rgba(120,120,128,0.12)', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16, fontSize: 24, fontWeight: '600', textAlign: 'center', letterSpacing: 10, color: '#000', marginBottom: 10 },
+  iosOtpError: { fontSize: 13, fontWeight: '400', color: '#FF3B30', textAlign: 'center', marginBottom: 8, letterSpacing: -0.08 },
+  iosOtpHint: { fontSize: 12, fontWeight: '400', color: 'rgba(0,0,0,0.4)', textAlign: 'center', marginBottom: 6 },
+  iosOtpActions: { paddingHorizontal: 18, paddingTop: 14, paddingBottom: 18 },
+  iosVerifyBtn: { backgroundColor: C.success, borderRadius: 14, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
+  iosVerifyBtnDisabled: { backgroundColor: '#C7C7CC' },
+  iosVerifyBtnText: { fontSize: 17, fontWeight: '600', color: '#FFFFFF', letterSpacing: -0.41 },
+  iosVerifyBtnTextDisabled: { color: 'rgba(255,255,255,0.7)' },
+  iosCancelOuter: { borderRadius: 20, overflow: 'hidden', marginTop: 10 },
+  iosCancelBtn: { paddingVertical: 16, alignItems: 'center', justifyContent: 'center' },
+  iosCancelBtnText: { fontSize: 17, fontWeight: '600', color: '#007AFF', letterSpacing: -0.41 },
 });
 
 export default ProviderServiceHistoryScreen;

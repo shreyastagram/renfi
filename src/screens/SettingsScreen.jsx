@@ -29,10 +29,14 @@ import {
   Animated,
   StatusBar,
   Share,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
+import { BlurView } from '@react-native-community/blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
+import { check, request, checkNotifications, requestNotifications, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
@@ -181,8 +185,8 @@ const ToggleRow = ({ iconName, title, subtitle, value, onValueChange, disabled, 
           value={value}
           onValueChange={onValueChange}
           disabled={disabled}
-          trackColor={{ false: COLORS.switchTrackOff, true: COLORS.primary + '40' }}
-          thumbColor={value ? COLORS.primary : COLORS.switchThumbOff}
+          trackColor={{ false: COLORS.switchTrackOff, true: COLORS.primary }}
+          thumbColor={Platform.OS === 'ios' ? '#FFFFFF' : (value ? COLORS.primary : COLORS.switchThumbOff)}
           ios_backgroundColor={COLORS.switchTrackOff}
           accessibilityLabel={title}
           accessibilityRole="switch"
@@ -463,11 +467,13 @@ const SettingsScreen = ({ navigation }) => {
    */
   const checkNotificationPermission = async () => {
     try {
-      const permission = Platform.OS === 'ios'
-        ? PERMISSIONS.IOS.NOTIFICATIONS
-        : PERMISSIONS.ANDROID.POST_NOTIFICATIONS;
-
-      const result = await check(permission);
+      let result;
+      if (Platform.OS === 'ios') {
+        const { status } = await checkNotifications();
+        result = status;
+      } else {
+        result = await check(PERMISSIONS.ANDROID.POST_NOTIFICATIONS);
+      }
       setNotificationPermission(result);
 
       // If denied, update local state to match
@@ -484,13 +490,14 @@ const SettingsScreen = ({ navigation }) => {
    */
   const handlePushNotificationChange = async (value) => {
     if (value) {
-      // User wants to enable - check/request system permission
-      const permission = Platform.OS === 'ios'
-        ? PERMISSIONS.IOS.NOTIFICATIONS
-        : PERMISSIONS.ANDROID.POST_NOTIFICATIONS;
-
       try {
-        const currentStatus = await check(permission);
+        let currentStatus;
+        if (Platform.OS === 'ios') {
+          const { status } = await checkNotifications();
+          currentStatus = status;
+        } else {
+          currentStatus = await check(PERMISSIONS.ANDROID.POST_NOTIFICATIONS);
+        }
 
         if (currentStatus === RESULTS.BLOCKED) {
           // Permission permanently denied - guide user to settings, but still toggle app-level pref
@@ -505,7 +512,13 @@ const SettingsScreen = ({ navigation }) => {
           // Still update the app-level preference (falls through below)
         } else if (currentStatus === RESULTS.DENIED) {
           // Request permission
-          const result = await request(permission);
+          let result;
+          if (Platform.OS === 'ios') {
+            const { status } = await requestNotifications(['alert', 'badge', 'sound']);
+            result = status;
+          } else {
+            result = await request(PERMISSIONS.ANDROID.POST_NOTIFICATIONS);
+          }
           if (result === RESULTS.GRANTED || result === RESULTS.LIMITED) {
             setNotificationPermission(RESULTS.GRANTED);
           }
@@ -1269,7 +1282,7 @@ const SettingsScreen = ({ navigation }) => {
                   },
                   {
                     text: 'Email',
-                    onPress: () => Linking.openURL('mailto:contact@fixhomi.com'),
+                    onPress: () => Linking.openURL('mailto:contact@fixhomi.com').catch(() => dialog('Email Us', 'contact@fixhomi.com')),
                   },
                   {
                     text: 'Visit Support Page',
@@ -1410,7 +1423,7 @@ const SettingsScreen = ({ navigation }) => {
       <Modal
         visible={deleteOtpModalVisible}
         transparent
-        animationType="slide"
+        animationType={Platform.OS === 'ios' ? 'fade' : 'slide'}
         onRequestClose={() => {
           if (!isDeletingAccount) {
             setDeleteOtpModalVisible(false);
@@ -1419,85 +1432,202 @@ const SettingsScreen = ({ navigation }) => {
           }
         }}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeaderBar} />
-            <Text style={styles.modalTitle}>Verify Account Deletion</Text>
-            <Text style={styles.modalSubtitle}>
-              Enter the 6-digit OTP sent to {maskedPhone}
-            </Text>
+        {Platform.OS === 'ios' ? (
+          /* ── iOS: Frosted glass OTP modal ── */
+          <View style={styles.iosDeleteBg}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+              <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                <View style={styles.iosDeleteCenter}>
+                <View style={styles.iosDeleteWrap}>
+                  {/* Main card */}
+                  <View style={styles.iosDeleteCardOuter}>
+                    <BlurView
+                      style={styles.iosBlurFill}
+                      blurType="light"
+                      blurAmount={80}
+                      reducedTransparencyFallbackColor="#F2F2F7"
+                    >
+                      <View style={styles.iosDeleteContent}>
+                        <Text style={styles.iosDeleteIcon}>⚠️</Text>
+                        <Text style={styles.iosDeleteTitle}>Verify Account Deletion</Text>
+                        <Text style={styles.iosDeleteSubtitle}>
+                          Enter the 6-digit OTP sent to {maskedPhone}
+                        </Text>
 
-            <TextInput
-              style={[styles.otpInput, isDeletingAccount && { opacity: 0.5 }]}
-              placeholder="Enter 6-digit OTP"
-              placeholderTextColor={COLORS.muted}
-              keyboardType="number-pad"
-              maxLength={6}
-              value={deleteOtp}
-              onChangeText={setDeleteOtp}
-              autoFocus
-              editable={!isDeletingAccount}
-            />
+                        <TextInput
+                          style={[styles.iosOtpInput, isDeletingAccount && { opacity: 0.5 }]}
+                          placeholder="000000"
+                          placeholderTextColor="rgba(0,0,0,0.2)"
+                          keyboardType="number-pad"
+                          maxLength={6}
+                          value={deleteOtp}
+                          onChangeText={setDeleteOtp}
+                          autoFocus
+                          editable={!isDeletingAccount}
+                          autoComplete="one-time-code"
+                          textContentType="oneTimeCode"
+                        />
 
-            <TextInput
-              style={[styles.reasonInput, isDeletingAccount && { opacity: 0.5 }]}
-              placeholder="Reason for leaving (optional)"
-              placeholderTextColor={COLORS.muted}
-              value={deleteReason}
-              onChangeText={setDeleteReason}
-              multiline
-              numberOfLines={2}
-              editable={!isDeletingAccount}
-            />
+                        <TextInput
+                          style={[styles.iosReasonInput, isDeletingAccount && { opacity: 0.5 }]}
+                          placeholder="Reason for leaving (optional)"
+                          placeholderTextColor="rgba(0,0,0,0.2)"
+                          value={deleteReason}
+                          onChangeText={setDeleteReason}
+                          multiline
+                          numberOfLines={2}
+                          editable={!isDeletingAccount}
+                        />
 
-            <TouchableOpacity
-              style={[styles.resendButton, (isRequestingOtp || isDeletingAccount) && { opacity: 0.5 }]}
-              onPress={resendDeleteOtp}
-              disabled={isRequestingOtp || isDeletingAccount}
-            >
-              {isRequestingOtp ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <ActivityIndicator size={14} color={COLORS.primary} />
-                  <Text style={styles.resendButtonText}>Sending...</Text>
+                        <TouchableOpacity
+                          style={[styles.iosResendBtn, (isRequestingOtp || isDeletingAccount) && { opacity: 0.4 }]}
+                          onPress={resendDeleteOtp}
+                          disabled={isRequestingOtp || isDeletingAccount}
+                        >
+                          {isRequestingOtp ? (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <ActivityIndicator size={14} color="#007AFF" />
+                              <Text style={styles.iosResendText}>Sending...</Text>
+                            </View>
+                          ) : (
+                            <Text style={styles.iosResendText}>Resend OTP</Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Delete button */}
+                      <View style={styles.iosDeleteActions}>
+                        <TouchableOpacity
+                          style={[styles.iosDeleteBtn, (isDeletingAccount || deleteOtp.length !== 6) && styles.iosDeleteBtnDisabled]}
+                          onPress={confirmDeleteWithOtp}
+                          disabled={isDeletingAccount || deleteOtp.length !== 6}
+                          activeOpacity={0.7}
+                        >
+                          {isDeletingAccount ? (
+                            <ActivityIndicator color="#FFFFFF" size="small" />
+                          ) : (
+                            <Text style={styles.iosDeleteBtnText}>Delete Account</Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    </BlurView>
+                  </View>
+
+                  {/* Cancel — separate frosted card */}
+                  <View style={styles.iosCancelOuter}>
+                    <BlurView
+                      style={styles.iosBlurFill}
+                      blurType="light"
+                      blurAmount={80}
+                      reducedTransparencyFallbackColor="#F2F2F7"
+                    >
+                      <TouchableOpacity
+                        style={styles.iosCancelBtn}
+                        onPress={() => {
+                          if (!isDeletingAccount) {
+                            setDeleteOtpModalVisible(false);
+                            setDeleteOtp('');
+                            setDeleteReason('');
+                          }
+                        }}
+                        disabled={isDeletingAccount}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.iosCancelBtnText}>Cancel</Text>
+                      </TouchableOpacity>
+                    </BlurView>
+                  </View>
                 </View>
-              ) : (
-                <Text style={styles.resendButtonText}>Resend OTP</Text>
-              )}
-            </TouchableOpacity>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton, isDeletingAccount && styles.disabledButton]}
-                onPress={() => {
-                  if (!isDeletingAccount) {
-                    setDeleteOtpModalVisible(false);
-                    setDeleteOtp('');
-                    setDeleteReason('');
-                  }
-                }}
-                disabled={isDeletingAccount}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.modalButton,
-                  styles.deleteButton,
-                  (isDeletingAccount || deleteOtp.length !== 6) && styles.disabledButton
-                ]}
-                onPress={confirmDeleteWithOtp}
-                disabled={isDeletingAccount || deleteOtp.length !== 6}
-              >
-                {isDeletingAccount ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.deleteButtonText}>Delete Account</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </KeyboardAvoidingView>
         </View>
+        ) : (
+          /* ── Android: Existing card design ── */
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior="height">
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View style={styles.modalOverlay}>
+                <View style={styles.modalContent}>
+                  <View style={styles.modalHeaderBar} />
+                  <Text style={styles.modalTitle}>Verify Account Deletion</Text>
+                  <Text style={styles.modalSubtitle}>
+                    Enter the 6-digit OTP sent to {maskedPhone}
+                  </Text>
+
+                  <TextInput
+                    style={[styles.otpInput, isDeletingAccount && { opacity: 0.5 }]}
+                    placeholder="Enter 6-digit OTP"
+                    placeholderTextColor={COLORS.muted}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    value={deleteOtp}
+                    onChangeText={setDeleteOtp}
+                    autoFocus
+                    editable={!isDeletingAccount}
+                  />
+
+                  <TextInput
+                    style={[styles.reasonInput, isDeletingAccount && { opacity: 0.5 }]}
+                    placeholder="Reason for leaving (optional)"
+                    placeholderTextColor={COLORS.muted}
+                    value={deleteReason}
+                    onChangeText={setDeleteReason}
+                    multiline
+                    numberOfLines={2}
+                    editable={!isDeletingAccount}
+                  />
+
+                  <TouchableOpacity
+                    style={[styles.resendButton, (isRequestingOtp || isDeletingAccount) && { opacity: 0.5 }]}
+                    onPress={resendDeleteOtp}
+                    disabled={isRequestingOtp || isDeletingAccount}
+                  >
+                    {isRequestingOtp ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <ActivityIndicator size={14} color={COLORS.primary} />
+                        <Text style={styles.resendButtonText}>Sending...</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.resendButtonText}>Resend OTP</Text>
+                    )}
+                  </TouchableOpacity>
+
+                  <View style={styles.modalButtons}>
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.cancelButton, isDeletingAccount && styles.disabledButton]}
+                      onPress={() => {
+                        if (!isDeletingAccount) {
+                          setDeleteOtpModalVisible(false);
+                          setDeleteOtp('');
+                          setDeleteReason('');
+                        }
+                      }}
+                      disabled={isDeletingAccount}
+                    >
+                      <Text style={styles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.modalButton,
+                        styles.deleteButton,
+                        (isDeletingAccount || deleteOtp.length !== 6) && styles.disabledButton
+                      ]}
+                      onPress={confirmDeleteWithOtp}
+                      disabled={isDeletingAccount || deleteOtp.length !== 6}
+                    >
+                      {isDeletingAccount ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <Text style={styles.deleteButtonText}>Delete Account</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </KeyboardAvoidingView>
+        )}
       </Modal>
 
       {/* Logout / Sign-out overlay — blocks interaction during cleanup */}
@@ -1849,6 +1979,128 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.5,
+  },
+
+  // ─── iOS Delete Account OTP ────────────────────────────────────
+  iosDeleteBg: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+  },
+  iosDeleteCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 30,
+  },
+  iosDeleteWrap: {
+    width: '100%',
+    maxWidth: 300,
+  },
+  iosDeleteCardOuter: {
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  iosBlurFill: {},
+  iosDeleteContent: {
+    paddingTop: 28,
+    paddingBottom: 6,
+    paddingHorizontal: 22,
+    alignItems: 'center',
+  },
+  iosDeleteIcon: {
+    fontSize: 36,
+    marginBottom: 12,
+  },
+  iosDeleteTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000000',
+    textAlign: 'center',
+    lineHeight: 24,
+    letterSpacing: -0.45,
+  },
+  iosDeleteSubtitle: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: 'rgba(0, 0, 0, 0.55)',
+    textAlign: 'center',
+    lineHeight: 20,
+    letterSpacing: -0.15,
+    marginTop: 6,
+    marginBottom: 20,
+  },
+  iosOtpInput: {
+    width: '100%',
+    backgroundColor: 'rgba(120, 120, 128, 0.12)',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    fontSize: 24,
+    fontWeight: '600',
+    textAlign: 'center',
+    letterSpacing: 10,
+    color: '#000000',
+    marginBottom: 12,
+  },
+  iosReasonInput: {
+    width: '100%',
+    backgroundColor: 'rgba(120, 120, 128, 0.12)',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    color: '#000000',
+    marginBottom: 12,
+    minHeight: 52,
+    textAlignVertical: 'top',
+  },
+  iosResendBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    marginBottom: 4,
+  },
+  iosResendText: {
+    fontSize: 15,
+    color: '#007AFF',
+    fontWeight: '400',
+    letterSpacing: -0.24,
+  },
+  iosDeleteActions: {
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 18,
+  },
+  iosDeleteBtn: {
+    backgroundColor: '#FF3B30',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iosDeleteBtnDisabled: {
+    backgroundColor: '#C7C7CC',
+  },
+  iosDeleteBtnText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    letterSpacing: -0.41,
+  },
+  iosCancelOuter: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginTop: 10,
+  },
+  iosCancelBtn: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iosCancelBtnText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#007AFF',
+    letterSpacing: -0.41,
   },
 
   // Logout overlay

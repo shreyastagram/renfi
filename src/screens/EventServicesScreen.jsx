@@ -11,6 +11,8 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import PhotographerIcon from '../assets/serviceIcons/PhotographerIcon';
+import InfluencerIcon from '../assets/serviceIcons/InfluencerIcon';
 import {
   View,
   Text,
@@ -161,23 +163,36 @@ const SectionHeader = ({ title, style: customStyle }) => (
 /**
  * Service Card Component - Premium design
  */
-const ServiceCard = ({ service, onPress }) => (
-  <AnimatedPressable
-    style={styles.serviceCard}
-    onPress={() => onPress(service)}
-  >
-    <View style={styles.serviceIconContainer}>
-      <MaterialIcon name={service.icon} size={24} color={COLORS.secondary} />
-    </View>
-    <View style={styles.serviceInfo}>
-      <Text style={styles.serviceName}>{service.name}</Text>
-      <Text style={styles.serviceDescription}>{service.description}</Text>
-    </View>
-    <View style={styles.serviceChevronWrap}>
-      <MaterialIcon name="chevron-right" size={22} color={COLORS.muted} />
-    </View>
-  </AnimatedPressable>
-);
+const EVENT_SVG_ICONS = {
+  photographer: PhotographerIcon,
+  influencer: InfluencerIcon,
+};
+
+const ServiceCard = ({ service, onPress }) => {
+  const SvgIcon = EVENT_SVG_ICONS[service.id];
+
+  return (
+    <AnimatedPressable
+      style={styles.serviceCard}
+      onPress={() => onPress(service)}
+    >
+      <View style={styles.serviceIconContainer}>
+        {SvgIcon ? (
+          <SvgIcon size={36} />
+        ) : (
+          <MaterialIcon name={service.icon} size={24} color={COLORS.secondary} />
+        )}
+      </View>
+      <View style={styles.serviceInfo}>
+        <Text style={styles.serviceName}>{service.name}</Text>
+        <Text style={styles.serviceDescription}>{service.description}</Text>
+      </View>
+      <View style={styles.serviceChevronWrap}>
+        <MaterialIcon name="chevron-right" size={22} color={COLORS.muted} />
+      </View>
+    </AnimatedPressable>
+  );
+};
 
 /**
  * Portfolio Link Button

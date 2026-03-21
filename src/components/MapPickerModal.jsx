@@ -130,6 +130,7 @@ const MapPickerModal = ({
   title = 'Select Location',
 }) => {
   const insets = useSafeAreaInsets();
+  const mapRef = useRef(null);
   const cameraRef = useRef(null);
 
   const getValidInitialLocation = () => {
@@ -171,7 +172,8 @@ const MapPickerModal = ({
         // Has valid initial location — use it
         setCenterLocation(validInitial);
         centerRef.current = validInitial;
-        // Geocode will happen via onMapIdle
+        // Trigger initial geocode directly — also queries native map center as fallback
+        setTimeout(() => handleRegionChange(validInitial.latitude, validInitial.longitude), 600);
       } else {
         // No initial location — try GPS
         Geolocation.getCurrentPosition(
@@ -194,7 +196,7 @@ const MapPickerModal = ({
             // GPS failed, use fallback
             setCenterLocation(FALLBACK_LOCATION);
             centerRef.current = FALLBACK_LOCATION;
-            // Geocode will happen via onMapIdle
+            setTimeout(() => handleRegionChange(FALLBACK_LOCATION.latitude, FALLBACK_LOCATION.longitude), 500);
           },
           { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
         );
@@ -206,10 +208,14 @@ const MapPickerModal = ({
       setShowSearchResults(false);
       isMapMovingRef.current = false;
       setPinLifted(false);
+      lastGeocodedRef.current = null;
+      isGeocodingRef.current = false;
     }
     return () => {
       if (geocodeTimer.current) clearTimeout(geocodeTimer.current);
       if (searchTimer.current) clearTimeout(searchTimer.current);
+      if (cameraIdleTimer.current) clearTimeout(cameraIdleTimer.current);
+      if (touchSafetyTimer.current) clearTimeout(touchSafetyTimer.current);
     };
   }, [visible, initialLocation]);
 
@@ -245,32 +251,143 @@ const MapPickerModal = ({
     }
   }, []);
 
+  // Uber/Ola approach: bypass all Mapbox event callbacks (unreliable on iOS
+  // with Fabric/New Architecture inside Modal). Instead:
+  // 1. Detect touch start/end on the map's wrapper View (always fires on iOS)
+  // 2. After touch end + deceleration delay, query the native MapView for
+  //    the coordinate at the screen center using getCoordinateFromView()
+  // 3. This converts the pin's pixel position → map coordinate, 100% reliable
+  const cameraIdleTimer = useRef(null);
+  const lastGeocodedRef = useRef(null);
+  const mapLayoutRef = useRef({ width: 0, height: 0 });
+  const touchActiveRef = useRef(false);
+  // Guard: prevents overlapping geocode calls and re-entrant loops
+  const isGeocodingRef = useRef(false);
+
+  // Query the native map for the coordinate at the screen center (where the pin is)
+  const geocodeMapCenter = useCallback(async () => {
+    // Prevent re-entrant calls (onMapIdle can fire after state updates)
+    if (isGeocodingRef.current) return;
+    if (!mapRef.current) return;
+
+    try {
+      isGeocodingRef.current = true;
+      let latitude, longitude;
+
+      // Primary: getCoordinateFromView — converts screen pixel → map coordinate
+      if (mapLayoutRef.current.width > 0) {
+        const screenCenter = [
+          mapLayoutRef.current.width / 2,
+          mapLayoutRef.current.height / 2,
+        ];
+        const coord = await mapRef.current.getCoordinateFromView(screenCenter);
+        if (coord) {
+          longitude = coord[0];
+          latitude = coord[1];
+        }
+      }
+
+      // Fallback: getCenter()
+      if (latitude === undefined) {
+        const center = await mapRef.current.getCenter();
+        if (center) {
+          longitude = center[0];
+          latitude = center[1];
+        }
+      }
+
+      if (latitude === undefined || longitude === undefined) return;
+
+      // Dedup: skip if we already geocoded this exact spot
+      const key = `${latitude.toFixed(5)},${longitude.toFixed(5)}`;
+      if (lastGeocodedRef.current === key) return;
+      lastGeocodedRef.current = key;
+
+      centerRef.current = { latitude, longitude };
+      if (isProgrammaticMoveRef.current) {
+        isProgrammaticMoveRef.current = false;
+      }
+      handleRegionChange(latitude, longitude);
+    } catch (err) {
+      console.warn('geocodeMapCenter error:', err.message);
+      // Don't call handleRegionChange in catch — avoids loop if native calls keep failing
+    } finally {
+      isGeocodingRef.current = false;
+    }
+  }, [handleRegionChange]);
+
+  // Called when user touches the map — lift pin
+  // Safety: auto-reset touchActive after 3s in case onTouchEnd never fires
+  // (Android's MapView can swallow touch events from the parent View)
+  const touchSafetyTimer = useRef(null);
+  const handleMapTouchStart = useCallback(() => {
+    if (showSearchResults) {
+      setShowSearchResults(false);
+      Keyboard.dismiss();
+    }
+    touchActiveRef.current = true;
+    if (!isProgrammaticMoveRef.current) {
+      isMapMovingRef.current = true;
+      setPinLifted(true);
+    }
+    // Safety net: if onTouchEnd never fires, reset after 3s
+    if (touchSafetyTimer.current) clearTimeout(touchSafetyTimer.current);
+    touchSafetyTimer.current = setTimeout(() => {
+      if (touchActiveRef.current) {
+        touchActiveRef.current = false;
+      }
+    }, 3000);
+  }, [showSearchResults]);
+
+  // Called when user lifts finger — wait for deceleration then geocode
+  const handleMapTouchEnd = useCallback(() => {
+    touchActiveRef.current = false;
+    if (touchSafetyTimer.current) clearTimeout(touchSafetyTimer.current);
+    if (cameraIdleTimer.current) clearTimeout(cameraIdleTimer.current);
+    cameraIdleTimer.current = setTimeout(() => {
+      isMapMovingRef.current = false;
+      setPinLifted(false);
+      geocodeMapCenter();
+    }, 800);
+  }, [geocodeMapCenter]);
+
+  // onCameraChanged — center tracking + debounced geocode trigger
+  // This is the PRIMARY geocode path on Android (where touch events may not fire)
   const onCameraChanged = useCallback((event) => {
-    const { center } = event.properties;
-    if (center) {
+    const props = event.properties || {};
+    const center = props.center;
+    if (center && Array.isArray(center)) {
       centerRef.current = { latitude: center[1], longitude: center[0] };
     }
-  }, []);
 
+    // Lift pin if not already (Android path — touch events may not reach wrapper)
+    if (!isProgrammaticMoveRef.current && !isMapMovingRef.current) {
+      isMapMovingRef.current = true;
+      setPinLifted(true);
+    }
+
+    // Debounce: when camera stops for 500ms, geocode the center
+    if (cameraIdleTimer.current) clearTimeout(cameraIdleTimer.current);
+    cameraIdleTimer.current = setTimeout(() => {
+      touchActiveRef.current = false; // Always reset — prevents stuck state
+      isMapMovingRef.current = false;
+      setPinLifted(false);
+      geocodeMapCenter();
+    }, 500);
+  }, [geocodeMapCenter]);
+
+  // onMapIdle — backup trigger. Only geocode if map was actually moving
+  // (prevents loop: geocode → state update → re-render → onMapIdle → geocode)
   const onMapIdle = useCallback(() => {
+    if (cameraIdleTimer.current) clearTimeout(cameraIdleTimer.current);
+    touchActiveRef.current = false; // Always reset
+    const wasMoving = isMapMovingRef.current;
     isMapMovingRef.current = false;
     setPinLifted(false);
-    if (isProgrammaticMoveRef.current) {
-      isProgrammaticMoveRef.current = false;
-      // Still geocode, but with longer delay to let camera settle
-      if (geocodeTimer.current) clearTimeout(geocodeTimer.current);
-      geocodeTimer.current = setTimeout(() => {
-        const loc = centerRef.current;
-        handleRegionChange(loc.latitude, loc.longitude);
-      }, 400);
-      return;
+    if (wasMoving) {
+      geocodeMapCenter();
     }
-    if (geocodeTimer.current) clearTimeout(geocodeTimer.current);
-    geocodeTimer.current = setTimeout(() => {
-      const loc = centerRef.current;
-      handleRegionChange(loc.latitude, loc.longitude);
-    }, 300);
-  }, [handleRegionChange]);
+  }, [geocodeMapCenter]);
 
   const handleConfirm = useCallback(() => {
     if (selectedAddress) {
@@ -294,6 +411,8 @@ const MapPickerModal = ({
             zoomLevel: 16,
             animationDuration: 1000,
           });
+          lastGeocodedRef.current = null;
+          setTimeout(() => geocodeMapCenter(), 1200);
         },
         () => {},
         { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
@@ -306,7 +425,9 @@ const MapPickerModal = ({
       zoomLevel: 16,
       animationDuration: 1000,
     });
-  }, [initialLocation]);
+    lastGeocodedRef.current = null;
+    setTimeout(() => geocodeMapCenter(), 1200);
+  }, [initialLocation, geocodeMapCenter]);
 
   // Search handler with debounce
   const handleSearchChange = useCallback((text) => {
@@ -345,8 +466,10 @@ const MapPickerModal = ({
       animationDuration: 1000,
     });
 
-    // Geocode will happen via onMapIdle after camera animation
-  }, []);
+    // Programmatic move — geocode after animation settles (touch events won't fire)
+    lastGeocodedRef.current = null; // Force re-geocode
+    setTimeout(() => geocodeMapCenter(), 1200);
+  }, [geocodeMapCenter]);
 
   return (
     <Modal
@@ -424,8 +547,19 @@ const MapPickerModal = ({
         </View>
 
         {/* Map */}
-        <View style={styles.mapContainer}>
+        <View
+          style={styles.mapContainer}
+          onLayout={(e) => {
+            mapLayoutRef.current = {
+              width: e.nativeEvent.layout.width,
+              height: e.nativeEvent.layout.height,
+            };
+          }}
+          onTouchStart={handleMapTouchStart}
+          onTouchEnd={handleMapTouchEnd}
+        >
           <Mapbox.MapView
+            ref={mapRef}
             style={styles.map}
             styleURL={Mapbox.StyleURL.Street}
             zoomEnabled
@@ -434,18 +568,6 @@ const MapPickerModal = ({
             rotateEnabled={false}
             onCameraChanged={onCameraChanged}
             onMapIdle={onMapIdle}
-            onTouchStart={() => {
-              if (showSearchResults) {
-                setShowSearchResults(false);
-                Keyboard.dismiss();
-              }
-              // Don't animate pin during programmatic camera moves
-              if (isProgrammaticMoveRef.current) return;
-              if (!isMapMovingRef.current) {
-                isMapMovingRef.current = true;
-                setPinLifted(true);
-              }
-            }}
           >
             <Mapbox.Camera
               ref={cameraRef}

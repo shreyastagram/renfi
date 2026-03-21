@@ -419,7 +419,10 @@ const VerificationDashboardScreen = ({ navigation }) => {
       const result = await syncVerificationStatus(providerId);
 
       if (result.success) {
-        setDashboard(result.data);
+        // Re-fetch the full dashboard after sync — the sync endpoint returns
+        // a different data shape than the dashboard endpoint, so using its
+        // response directly would show incorrect progress/steps.
+        await fetchDashboard(false);
         if (refreshProfile) {
           refreshProfile();
         }

@@ -134,8 +134,12 @@ const GlobalBanner = () => {
       return;
     }
 
-    // Vibrate to alert
-    Vibration.vibrate([0, 400, 200, 400]);
+    // Vibrate to alert — iOS only supports simple vibration
+    if (Platform.OS === 'ios') {
+      Vibration.vibrate(400);
+    } else {
+      Vibration.vibrate([0, 400, 200, 400]);
+    }
 
     // Play notification sound (respects user preference)
     playNotificationSound({
@@ -437,7 +441,7 @@ const GlobalBanner = () => {
         {personPhone ? (
           <TouchableOpacity
             style={styles.callBtn}
-            onPress={() => Linking.openURL(`tel:${personPhone.replace(/\s/g, '')}`)}
+            onPress={() => Linking.openURL(`tel:${personPhone.replace(/\s/g, '')}`).catch(() => {})}
           >
             <Icon name="phone" size={16} color="#10B981" />
             <Text style={styles.callText}>Call</Text>
@@ -504,16 +508,31 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
     paddingHorizontal: 16,
     paddingBottom: 16,
     zIndex: 9999,
-    elevation: 30,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
+    ...Platform.select({
+      ios: {
+        // iOS: inset card floating below notch with rounded corners all around
+        marginHorizontal: 8,
+        marginTop: 4,
+        borderRadius: 22,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+      },
+      android: {
+        // Android: full-width top sheet
+        borderBottomLeftRadius: 24,
+        borderBottomRightRadius: 24,
+        elevation: 30,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 14,
+      },
+    }),
   },
   pill: {
     width: 40,

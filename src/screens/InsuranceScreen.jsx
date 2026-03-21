@@ -645,7 +645,7 @@ const InsuranceScreen = ({ navigation }) => {
             {t('insurance.termsNote')}
             <Text
               style={s.tcLink}
-              onPress={() => Linking.openURL('https://fixhomi.com/insurance')}
+              onPress={() => Linking.openURL('https://fixhomi.com/terms')}
             >
               {t('insurance.termsLink')}
             </Text>
@@ -669,7 +669,7 @@ const InsuranceScreen = ({ navigation }) => {
           </View>
           <TouchableOpacity
             style={s.learnMoreBtn}
-            onPress={() => Linking.openURL('https://fixhomi.com/insurance')}
+            onPress={() => Linking.openURL('https://fixhomi.com/terms')}
             activeOpacity={0.7}
           >
             <Text style={s.learnMoreText}>{t('insurance.learnMore')}</Text>

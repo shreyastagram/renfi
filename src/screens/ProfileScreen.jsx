@@ -36,7 +36,14 @@ import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { Icon, PhoneInput, AadhaarVerificationModal } from '../components';
+import ImageViewerModal from '../components/ImageViewerModal';
 import { useShimmerAnimation, ShimmerBlock as SharedShimmerBlock } from '../components/ShimmerLoader';
+
+/** Auto-orient Cloudinary URLs to fix EXIF rotation on iOS */
+const autoOrient = (url) => {
+  if (!url || typeof url !== 'string' || !url.includes('cloudinary.com') || url.includes('/a_auto')) return url;
+  return url.replace('/upload/', '/upload/a_auto/');
+};
 import { updateUserProfile, updateProviderProfile } from '../services/profileService';
 import { SERVICE_CATEGORIES } from '../services/authService';
 import { NODE_BASE_URL } from '../config/api';
@@ -140,10 +147,14 @@ const SectionHeader = React.memo(({ title }) => (
 /**
  * Info Row (Read-only)
  */
-const InfoRow = React.memo(({ label, value, iconName, verified, onVerify, isLoading, verifiedLabel, verifyLabel }) => (
+const InfoRow = React.memo(({ label, value, iconName, verified, onVerify, isLoading, verifiedLabel, verifyLabel, iconColor, iconBg, materialIcon }) => (
   <View style={styles.infoRow}>
-    <View style={styles.infoIconContainer}>
-      <Icon name={iconName} size={20} color="#64748B" />
+    <View style={[styles.infoIconContainer, iconBg && { backgroundColor: iconBg }]}>
+      {materialIcon ? (
+        <MaterialIcon name={materialIcon} size={20} color={iconColor || '#64748B'} />
+      ) : (
+        <Icon name={iconName} size={20} color={iconColor || '#64748B'} />
+      )}
     </View>
     <View style={styles.infoContent}>
       <Text style={styles.infoLabel} numberOfLines={1} ellipsizeMode="tail">{label}</Text>
@@ -335,6 +346,8 @@ const ProfileScreen = ({ navigation, route }) => {
   
   // Aadhaar verification state — derived from context cache (no flicker)
   const [showAadhaarModal, setShowAadhaarModal] = useState(false);
+  const [galleryViewerVisible, setGalleryViewerVisible] = useState(false);
+  const [galleryViewerIndex, setGalleryViewerIndex] = useState(0);
   const isAadhaarVerified = aadhaarStatus.isVerified;
   const isNameLocked = aadhaarStatus.isNameLocked;
   const aadhaarName = aadhaarStatus.aadhaarName;
@@ -482,7 +495,7 @@ const ProfileScreen = ({ navigation, route }) => {
               text: t('userHome.enableGps'),
               onPress: () => {
                 if (Platform.OS === 'ios') {
-                  Linking.openURL('app-settings:');
+                  Linking.openURL('app-settings:').catch(() => Linking.openSettings());
                 } else {
                   Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS').catch(() => {
                     Linking.openSettings();
@@ -1110,16 +1123,17 @@ const ProfileScreen = ({ navigation, route }) => {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('profile.title')}</Text>
         {!isEditing ? (
-          <TouchableOpacity style={styles.editButton} onPress={() => setIsEditing(true)}>
-            <MaterialIcon name="edit-note" size={20} color="#2b76bc" />
+          <TouchableOpacity style={styles.editButton} onPress={() => setIsEditing(true)} activeOpacity={0.8}>
+            <MaterialIcon name="edit" size={16} color="#FFFFFF" />
             <Text style={styles.editButtonText}>{t('profile.edit') || 'Edit'}</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
             style={[styles.editButton, styles.editButtonCancel]}
             onPress={() => setIsEditing(false)}
+            activeOpacity={0.8}
           >
-            <MaterialIcon name="undo" size={18} color="#EF4444" />
+            <MaterialIcon name="close" size={16} color="#FFFFFF" />
             <Text style={styles.cancelButtonText}>{t('profile.discard')}</Text>
           </TouchableOpacity>
         )}
@@ -1139,27 +1153,33 @@ const ProfileScreen = ({ navigation, route }) => {
           keyboardShouldPersistTaps="handled"
           nestedScrollEnabled
         >
-          {/* ─── Premium Profile Card ─── */}
+          {/* ─── Modern Profile Card ─── */}
           <View style={styles.profileCard}>
-            {/* Profile header banner */}
+            {/* Gradient-style banner with avatar overlapping */}
             <View style={[styles.profileCardHeader, isProvider ? styles.profileCardHeaderProvider : styles.profileCardHeaderUser]}>
               <View style={styles.profileDecorCircle1} />
               <View style={styles.profileDecorCircle2} />
               <View style={styles.profileDecorCircle3} />
+              {/* Type badge floating on banner */}
+              <View style={styles.profileBannerBadge}>
+                <Icon name={isProvider ? 'provider' : 'user'} size={11} color="#FFFFFF" />
+                <Text style={styles.profileBannerBadgeText}>
+                  {isProvider ? t('profile.serviceProvider') : t('profile.user')}
+                </Text>
+              </View>
             </View>
 
-            {/* Avatar */}
+            {/* Avatar overlapping banner */}
             <View style={styles.profileAvatarWrap}>
               <TouchableOpacity
                 style={styles.avatarContainer}
                 onPress={() => setShowImagePickerModal(true)}
                 disabled={uploadingPicture}
               >
-                {/* Outer ring */}
                 <View style={[styles.avatarRing, isProvider && styles.avatarRingProvider]}>
                   {displayData?.profilePicture?.url ? (
                     <Image
-                      source={{ uri: displayData.profilePicture.url }}
+                      source={{ uri: autoOrient(displayData.profilePicture.url) }}
                       style={styles.avatarImage}
                     />
                   ) : (
@@ -1170,20 +1190,19 @@ const ProfileScreen = ({ navigation, route }) => {
                     </View>
                   )}
                 </View>
-                {/* Camera overlay */}
                 <View style={[styles.cameraIconOverlay, isProvider && styles.cameraIconOverlayProvider]}>
                   {uploadingPicture ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
-                    <MaterialIcon name="camera-alt" size={15} color="#FFFFFF" />
+                    <MaterialIcon name="camera-alt" size={14} color="#FFFFFF" />
                   )}
                 </View>
               </TouchableOpacity>
             </View>
 
-            {/* Body */}
+            {/* Body — centered info */}
             <View style={styles.profileCardBody}>
-              <View style={[styles.profileBodyAccent, isProvider ? { backgroundColor: '#FFF7ED' } : { backgroundColor: '#EFF6FF' }]} />
+              {/* Name + Pro badge */}
               <View style={styles.profileNameRow}>
                 <Text style={styles.profileName} numberOfLines={2} ellipsizeMode="tail">{displayData?.fullName || t('profile.userFallback')}</Text>
                 {isProvider && !premiumLoaded && (
@@ -1197,23 +1216,20 @@ const ProfileScreen = ({ navigation, route }) => {
                 )}
               </View>
 
-              {/* Email */}
-              <Text style={styles.profileEmail} numberOfLines={1} ellipsizeMode="tail" adjustsFontSizeToFit minimumFontScale={0.8}>
-                {displayData?.email || ''}
-              </Text>
-              {/* Phone */}
-              <Text style={styles.profilePhone} numberOfLines={1} ellipsizeMode="tail">
-                {displayData?.phone || ''}
-              </Text>
-
-              {/* Type badge */}
-              <View style={styles.profileBadgeRow}>
-                <View style={[styles.typeBadge, isProvider && styles.typeBadgeProvider]}>
-                  <Icon name={isProvider ? 'provider' : 'user'} size={13} color={isProvider ? '#f67c16' : '#2b76bc'} />
-                  <Text style={[styles.typeBadgeText, isProvider && styles.typeBadgeTextProvider]} numberOfLines={1}>
-                    {isProvider ? t('profile.serviceProvider') : t('profile.user')}
-                  </Text>
-                </View>
+              {/* Contact info row */}
+              <View style={styles.profileContactRow}>
+                {displayData?.email ? (
+                  <View style={styles.profileContactItem}>
+                    <MaterialIcon name="mail-outline" size={14} color="#94A3B8" />
+                    <Text style={styles.profileContactText} numberOfLines={1}>{displayData.email}</Text>
+                  </View>
+                ) : null}
+                {displayData?.phone ? (
+                  <View style={styles.profileContactItem}>
+                    <MaterialIcon name="phone" size={14} color="#94A3B8" />
+                    <Text style={styles.profileContactText} numberOfLines={1}>{displayData.phone}</Text>
+                  </View>
+                ) : null}
               </View>
 
               {/* Verification pills */}
@@ -1222,7 +1238,7 @@ const ProfileScreen = ({ navigation, route }) => {
                   styles.verificationItem,
                   displayData?.isPhoneVerified && styles.verificationItemVerified,
                 ]}>
-                  <Icon name="phone" size={14} color={displayData?.isPhoneVerified ? '#FFFFFF' : '#6B7280'} />
+                  <Icon name="phone" size={13} color={displayData?.isPhoneVerified ? '#FFFFFF' : '#6B7280'} />
                   <Text style={[
                     styles.verificationLabel,
                     displayData?.isPhoneVerified && styles.verificationLabelVerified
@@ -1234,7 +1250,7 @@ const ProfileScreen = ({ navigation, route }) => {
                   styles.verificationItem,
                   displayData?.isEmailVerified && styles.verificationItemVerified,
                 ]}>
-                  <Icon name="email" size={14} color={displayData?.isEmailVerified ? '#FFFFFF' : '#6B7280'} />
+                  <Icon name="email" size={13} color={displayData?.isEmailVerified ? '#FFFFFF' : '#6B7280'} />
                   <Text style={[
                     styles.verificationLabel,
                     displayData?.isEmailVerified && styles.verificationLabelVerified
@@ -1250,7 +1266,7 @@ const ProfileScreen = ({ navigation, route }) => {
                       styles.verificationItem,
                       isAadhaarVerified && styles.verificationItemVerified,
                     ]}>
-                      <Icon name="verified_user" size={14} color={isAadhaarVerified ? '#FFFFFF' : '#6B7280'} />
+                      <Icon name="verified_user" size={13} color={isAadhaarVerified ? '#FFFFFF' : '#6B7280'} />
                       <Text style={[
                         styles.verificationLabel,
                         isAadhaarVerified && styles.verificationLabelVerified
@@ -1481,14 +1497,16 @@ const ProfileScreen = ({ navigation, route }) => {
                   />
                 </View>
                 <View style={styles.halfField}>
-                  <EditableField
-                    label={t('profile.pincodeLabel')}
+                  {/* Manual label + input to match CityAutocomplete layout exactly */}
+                  <Text style={styles.fieldLabel}>{t('profile.pincodeLabel')}</Text>
+                  <TextInput
+                    style={styles.fieldInput}
                     value={formData.pincode}
                     onChangeText={(text) => setFormData(prev => ({ ...prev, pincode: text }))}
                     placeholder={t('profile.pincodePlaceholder')}
+                    placeholderTextColor="#9CA3AF"
                     keyboardType="numeric"
                     maxLength={6}
-                    containerStyle={{ marginBottom: 0 }}
                   />
                 </View>
               </View>
@@ -1615,8 +1633,8 @@ const ProfileScreen = ({ navigation, route }) => {
                   {/* Service Categories */}
                   <View style={styles.serviceCategoriesDisplay}>
                     <View style={styles.infoRow}>
-                      <View style={styles.infoIconContainer}>
-                        <Icon name="services" size={20} color="#6B7280" />
+                      <View style={[styles.infoIconContainer, { backgroundColor: '#EFF6FF' }]}>
+                        <MaterialIcon name="home-repair-service" size={20} color="#2b76bc" />
                       </View>
                       <View style={styles.infoContent}>
                         <Text style={styles.infoLabel}>{t('profile.yourServices')}</Text>
@@ -1695,6 +1713,8 @@ const ProfileScreen = ({ navigation, route }) => {
                     iconName="star"
                     label={t('profile.ratingLabel')}
                     value={displayData?.rating ? t('profile.ratingValue', { rating: displayData.rating.toFixed(1) }) : t('profile.noRatings')}
+                    iconColor="#F59E0B"
+                    iconBg="#FFFBEB"
                   />
                   <InfoRow
                     iconName="briefcase"
@@ -1702,6 +1722,9 @@ const ProfileScreen = ({ navigation, route }) => {
                     value={displayData?.experience && Number(displayData.experience) > 0
                       ? `${displayData.experience} ${Number(displayData.experience) === 1 ? 'year' : 'years'}`
                       : t('profile.notSet')}
+                    iconColor="#0891B2"
+                    iconBg="#ECFEFF"
+                    materialIcon="work-history"
                   />
                   
                   {/* Portfolio Section - Only for Photographer/Influencer */}
@@ -1793,6 +1816,42 @@ const ProfileScreen = ({ navigation, route }) => {
                           </View>
                         </View>
                       )}
+
+                      {/* Portfolio Gallery Preview */}
+                      {displayData?.portfolioGallery?.length > 0 && (
+                        <View style={styles.galleryPreviewSection}>
+                          <Text style={styles.galleryPreviewLabel}>Gallery</Text>
+                          <View style={styles.galleryPreviewGrid}>
+                            {displayData.portfolioGallery.slice(0, 6).map((img, index) => {
+                              const rawUri = typeof img === 'string' ? img : img?.url || img?.uri;
+                              const uri = autoOrient(rawUri);
+                              if (!uri) return null;
+                              return (
+                                <TouchableOpacity
+                                  key={index}
+                                  style={styles.galleryPreviewItem}
+                                  onPress={() => { setGalleryViewerIndex(index); setGalleryViewerVisible(true); }}
+                                  activeOpacity={0.8}
+                                >
+                                  <Image source={{ uri }} style={styles.galleryPreviewImage} />
+                                  {index === 5 && displayData.portfolioGallery.length > 6 && (
+                                    <View style={styles.galleryPreviewOverlay}>
+                                      <Text style={styles.galleryPreviewOverlayText}>+{displayData.portfolioGallery.length - 6}</Text>
+                                    </View>
+                                  )}
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      )}
+
+                      <ImageViewerModal
+                        visible={galleryViewerVisible}
+                        images={displayData?.portfolioGallery || []}
+                        initialIndex={galleryViewerIndex}
+                        onClose={() => setGalleryViewerVisible(false)}
+                      />
                     </View>
                   )}
                 </>
@@ -2239,27 +2298,44 @@ const styles = StyleSheet.create({
   editButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: '#2b76bc',
+    borderRadius: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#2b76bc',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
+      },
+      android: { elevation: 3 },
+    }),
   },
   editButtonCancel: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
+    backgroundColor: '#EF4444',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#EF4444',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
+      },
+      android: { elevation: 3 },
+    }),
   },
   editButtonText: {
-    fontSize: 14,
-    color: '#2b76bc',
-    fontWeight: '700',
+    fontSize: 13,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    letterSpacing: 0.1,
   },
   cancelButtonText: {
-    fontSize: 14,
-    color: '#EF4444',
-    fontWeight: '700',
+    fontSize: 13,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    letterSpacing: 0.1,
   },
   content: {
     flex: 1,
@@ -2272,8 +2348,9 @@ const styles = StyleSheet.create({
   // Row fields for city/pincode
   rowFields: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 18,
+    gap: 14,
+    marginBottom: 20,
+    alignItems: 'flex-start',
   },
   halfField: {
     flex: 1,
@@ -2282,8 +2359,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(248,250,252,0.7)',
     padding: 14,
     borderRadius: 12,
-    marginTop: 8,
-    marginBottom: 16,
+    marginTop: 12,
+    marginBottom: 4,
   },
   readOnlyNote: {
     fontSize: 13,
@@ -2293,15 +2370,22 @@ const styles = StyleSheet.create({
 
   // Profile Card
   profileCard: {
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
     marginBottom: 16,
     overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.95)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.12,
+        shadowRadius: 24,
+      },
+      android: { elevation: 10 },
+    }),
   },
   profileCardHeader: {
-    height: 100,
+    height: 110,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -2313,62 +2397,72 @@ const styles = StyleSheet.create({
   },
   profileDecorCircle1: {
     position: 'absolute',
-    top: -20,
-    right: -10,
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    top: -25,
+    right: -15,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255,255,255,0.10)',
   },
   profileDecorCircle2: {
     position: 'absolute',
-    bottom: -15,
-    left: -10,
-    width: 65,
-    height: 65,
-    borderRadius: 33,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    bottom: -20,
+    left: -15,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.07)',
   },
   profileDecorCircle3: {
     position: 'absolute',
-    top: 25,
-    left: '40%',
-    width: 35,
-    height: 35,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    top: 20,
+    left: '35%',
+    width: 45,
+    height: 45,
+    borderRadius: 23,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  profileBannerBadge: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  profileBannerBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
   profileAvatarWrap: {
     alignSelf: 'center',
-    marginTop: -52,
+    marginTop: -54,
     zIndex: 10,
     ...Platform.select({
       ios: {},
       android: { elevation: 10 },
     }),
-    marginBottom: 0,
+    marginBottom: 4,
   },
   profileCardBody: {
-    paddingTop: 8,
+    paddingTop: 4,
     paddingHorizontal: 22,
     paddingBottom: 22,
     alignItems: 'center',
-  },
-  profileBodyAccent: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 50,
-    opacity: 0.3,
   },
   avatarContainer: {
     position: 'relative',
   },
   avatarRing: {
-    width: 108,
-    height: 108,
-    borderRadius: 54,
+    width: 112,
+    height: 112,
+    borderRadius: 56,
     borderWidth: 4,
     borderColor: '#FFFFFF',
     alignItems: 'center',
@@ -2377,12 +2471,12 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.18,
+        shadowRadius: 16,
       },
       android: {
-        elevation: 8,
+        elevation: 10,
       },
     }),
   },
@@ -2390,17 +2484,17 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 104,
+    height: 104,
+    borderRadius: 52,
     backgroundColor: '#2b76bc',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 104,
+    height: 104,
+    borderRadius: 52,
   },
   cameraIconOverlay: {
     position: 'absolute',
@@ -2437,44 +2531,37 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '800',
   },
-  profileBadgeRow: {
-    marginTop: 12,
-    marginBottom: 14,
+  profileContactRow: {
     alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+    marginBottom: 16,
   },
-  profileEmail: {
+  profileContactItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  profileContactText: {
     fontSize: 13,
     color: '#94A3B8',
-    marginTop: 4,
     letterSpacing: 0.1,
     flexShrink: 1,
-    maxWidth: '90%',
-    textAlign: 'center',
-  },
-  profilePhone: {
-    fontSize: 13,
-    color: '#94A3B8',
-    marginTop: 2,
-    marginBottom: 2,
-    letterSpacing: 0.1,
-    flexShrink: 1,
-    maxWidth: '90%',
-    textAlign: 'center',
   },
   profileNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginBottom: 2,
-    marginTop: 8,
+    marginBottom: 0,
+    marginTop: 6,
     maxWidth: '100%',
   },
   profileName: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '800',
     color: '#0F172A',
-    letterSpacing: -0.4,
+    letterSpacing: -0.5,
     textAlign: 'center',
     flexShrink: 1,
   },
@@ -2507,6 +2594,7 @@ const styles = StyleSheet.create({
     marginLeft: 3,
     letterSpacing: 0.5,
   },
+  // typeBadge styles kept for backward compat (used elsewhere)
   typeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2717,12 +2805,23 @@ const styles = StyleSheet.create({
 
   // Section
   section: {
-    backgroundColor: 'rgba(255,255,255,0.82)',
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
     padding: 18,
     marginBottom: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.9)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.10,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 6,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: 'rgba(0,0,0,0.04)',
+      },
+    }),
   },
   sectionHeader: {
     fontSize: 13,
@@ -2937,7 +3036,7 @@ const styles = StyleSheet.create({
 
   // Editable Field
   fieldContainer: {
-    marginBottom: 18,
+    marginBottom: 20,
   },
   fieldLabel: {
     fontSize: 13,
@@ -2947,12 +3046,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
   },
   fieldInput: {
-    height: 52,
+    height: 50,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    borderRadius: 14,
+    borderRadius: 12,
     paddingHorizontal: 16,
-    fontSize: 16,
+    fontSize: 15,
     color: '#0F172A',
     backgroundColor: '#FAFBFC',
     fontWeight: '500',
@@ -3033,7 +3132,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f67c16',
     height: 56,
     borderRadius: 16,
-    marginTop: 18,
+    marginTop: 24,
     ...Platform.select({
       ios: {
         shadowColor: '#f67c16',
@@ -3055,8 +3154,9 @@ const styles = StyleSheet.create({
 
   // Service Categories Styles
   categoriesSection: {
-    marginTop: 16,
-    paddingTop: 16,
+    marginTop: 20,
+    paddingTop: 20,
+    marginBottom: 24,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
   },
@@ -3114,7 +3214,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 16,
+    marginTop: 18,
     paddingVertical: 14,
     paddingHorizontal: 16,
     backgroundColor: '#EFF6FF',
@@ -3432,13 +3532,57 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
+  // Portfolio Gallery Preview
+  galleryPreviewSection: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  galleryPreviewLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  galleryPreviewGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  galleryPreviewItem: {
+    width: Math.floor((SCREEN_WIDTH - 28 - 36 - 12) / 3),
+    aspectRatio: 1,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#F1F5F9',
+  },
+  galleryPreviewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  galleryPreviewOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+  },
+  galleryPreviewOverlayText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+
   // Detect My Location
   locationSectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
-    marginTop: 4,
+    marginBottom: 14,
+    marginTop: 8,
   },
   locationSectionTitle: {
     fontSize: 14,
@@ -3487,11 +3631,11 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.08,
-        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.12,
+        shadowRadius: 24,
       },
-      android: { elevation: 5 },
+      android: { elevation: 8 },
     }),
   },
   premiumLoadingShimmer: {
@@ -3504,24 +3648,36 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   premiumCardActive: {
-    borderRadius: 22,
+    borderRadius: Platform.OS === 'ios' ? 20 : 22,
     backgroundColor: '#FFFFFF',
     overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.1,
-        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.12,
+        shadowRadius: 24,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.04)',
       },
       android: { elevation: 6 },
     }),
   },
   premiumActiveHeader: {
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 22,
-    paddingTop: 22,
-    paddingBottom: 20,
+    ...Platform.select({
+      ios: {
+        backgroundColor: '#1C1C1E',
+        paddingHorizontal: 20,
+        paddingTop: 20,
+        paddingBottom: 18,
+      },
+      android: {
+        backgroundColor: '#0F172A',
+        paddingHorizontal: 22,
+        paddingTop: 22,
+        paddingBottom: 20,
+      },
+    }),
     overflow: 'hidden',
     position: 'relative',
   },
@@ -3550,9 +3706,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   premiumActiveIconBg: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: Platform.OS === 'ios' ? 44 : 48,
+    height: Platform.OS === 'ios' ? 44 : 48,
+    borderRadius: Platform.OS === 'ios' ? 12 : 16,
     backgroundColor: '#FFD700',
     alignItems: 'center',
     justifyContent: 'center',
@@ -3560,34 +3716,54 @@ const styles = StyleSheet.create({
   premiumActiveBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(22,163,74,0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
+    ...Platform.select({
+      ios: {
+        backgroundColor: 'rgba(52,199,89,0.2)',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 14,
+      },
+      android: {
+        backgroundColor: 'rgba(22,163,74,0.15)',
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 20,
+      },
+    }),
     gap: 4,
   },
   premiumActiveBadgeText: {
     fontSize: 11,
-    fontWeight: '800',
-    color: '#4ADE80',
-    letterSpacing: 0.5,
+    fontWeight: '700',
+    color: Platform.OS === 'ios' ? '#34C759' : '#4ADE80',
+    letterSpacing: Platform.OS === 'ios' ? 0.3 : 0.5,
   },
   premiumActiveTitle: {
-    fontSize: 22,
-    fontWeight: '800',
+    fontSize: Platform.OS === 'ios' ? 20 : 22,
+    fontWeight: Platform.OS === 'ios' ? '700' : '800',
     color: '#FFFFFF',
-    letterSpacing: -0.3,
+    letterSpacing: Platform.OS === 'ios' ? -0.45 : -0.3,
   },
   premiumActiveSubtitle: {
     fontSize: 13,
-    color: '#94A3B8',
+    color: Platform.OS === 'ios' ? '#8E8E93' : '#94A3B8',
     marginTop: 4,
+    letterSpacing: Platform.OS === 'ios' ? -0.08 : 0,
   },
   premiumStatsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 12,
+    ...Platform.select({
+      ios: {
+        paddingVertical: 16,
+        paddingHorizontal: 8,
+        backgroundColor: '#FAFAFA',
+      },
+      android: {
+        paddingVertical: 18,
+        paddingHorizontal: 12,
+      },
+    }),
   },
   premiumStatItem: {
     flex: 1,
@@ -3596,51 +3772,54 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   premiumStatValue: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontSize: Platform.OS === 'ios' ? 24 : 26,
+    fontWeight: Platform.OS === 'ios' ? '700' : '800',
+    color: Platform.OS === 'ios' ? '#1C1C1E' : '#0F172A',
   },
   premiumStatLabel: {
     fontSize: 11.5,
     fontWeight: '600',
-    color: '#94A3B8',
-    letterSpacing: 0.2,
+    color: Platform.OS === 'ios' ? '#8E8E93' : '#94A3B8',
+    letterSpacing: Platform.OS === 'ios' ? -0.07 : 0.2,
   },
   premiumStatDivider: {
-    width: 1,
+    width: StyleSheet.hairlineWidth,
     height: 32,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: Platform.OS === 'ios' ? '#C6C6C8' : '#E2E8F0',
   },
   premiumActiveFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    paddingVertical: Platform.OS === 'ios' ? 13 : 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Platform.OS === 'ios' ? '#C6C6C8' : '#F1F5F9',
     gap: 6,
   },
   premiumActiveFooterText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748B',
+    color: Platform.OS === 'ios' ? '#007AFF' : '#64748B',
+    letterSpacing: Platform.OS === 'ios' ? -0.15 : 0,
   },
   premiumCardInactive: {
-    borderRadius: 22,
+    borderRadius: Platform.OS === 'ios' ? 20 : 22,
     overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#4338CA',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.2,
-        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.18,
+        shadowRadius: 24,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.04)',
       },
       android: { elevation: 6 },
     }),
   },
   premiumInactiveGradient: {
-    backgroundColor: '#1E293B',
-    paddingVertical: 32,
+    backgroundColor: Platform.OS === 'ios' ? '#1C1C1E' : '#1E293B',
+    paddingVertical: Platform.OS === 'ios' ? 28 : 32,
     paddingHorizontal: 24,
     alignItems: 'center',
     position: 'relative',
@@ -3665,26 +3844,27 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(99,102,241,0.08)',
   },
   premiumInactiveTitle: {
-    fontSize: 26,
-    fontWeight: '800',
+    fontSize: Platform.OS === 'ios' ? 24 : 26,
+    fontWeight: Platform.OS === 'ios' ? '700' : '800',
     color: '#FFFFFF',
     marginTop: 14,
-    letterSpacing: -0.3,
+    letterSpacing: Platform.OS === 'ios' ? -0.45 : -0.3,
   },
   premiumInactiveSubtitle: {
     fontSize: 14,
-    color: '#94A3B8',
+    color: Platform.OS === 'ios' ? '#8E8E93' : '#94A3B8',
     textAlign: 'center',
     marginTop: 6,
     lineHeight: 20,
+    letterSpacing: Platform.OS === 'ios' ? -0.15 : 0,
   },
   premiumInactiveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f67c16',
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    borderRadius: 30,
+    paddingHorizontal: Platform.OS === 'ios' ? 24 : 28,
+    paddingVertical: Platform.OS === 'ios' ? 13 : 14,
+    borderRadius: Platform.OS === 'ios' ? 14 : 30,
     marginTop: 22,
     gap: 8,
     ...Platform.select({
@@ -3698,9 +3878,10 @@ const styles = StyleSheet.create({
     }),
   },
   premiumInactiveBtnText: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: Platform.OS === 'ios' ? 15 : 16,
+    fontWeight: Platform.OS === 'ios' ? '600' : '700',
     color: '#FFFFFF',
+    letterSpacing: Platform.OS === 'ios' ? -0.24 : 0,
   },
 });
 

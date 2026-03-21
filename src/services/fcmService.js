@@ -19,6 +19,7 @@ import {
   AuthorizationStatus,
 } from '@react-native-firebase/messaging';
 import { getApp } from '@react-native-firebase/app';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from './apiClient';
 
@@ -287,15 +288,29 @@ export async function deleteFcmToken() {
   try {
     const messaging = getMessagingInstance();
     if (!messaging) return { success: false, error: 'Messaging not available' };
-    
+
     // Use legacy API for deleteToken as modular doesn't export it yet
     const legacyMessaging = require('@react-native-firebase/messaging').default;
-    await legacyMessaging().deleteToken();
+    try {
+      await legacyMessaging().deleteToken();
+    } catch (deleteError) {
+      // iOS: "Failed to checkin before token registration" happens when the
+      // FCM/APNs checkin hasn't completed (common during logout).
+      // Safe to ignore — clearing the local token is sufficient; FCM will
+      // issue a fresh token on next login.
+      if (Platform.OS === 'ios' && deleteError.code === 'messaging/unknown') {
+        console.log('iOS FCM deleteToken checkin not ready — clearing local token only');
+      } else {
+        throw deleteError;
+      }
+    }
     await AsyncStorage.removeItem(FCM_TOKEN_KEY);
     console.log('✅ FCM token deleted');
     return { success: true };
   } catch (error) {
     console.error('Error deleting FCM token:', error);
+    // Always clear local token even if server-side delete fails
+    await AsyncStorage.removeItem(FCM_TOKEN_KEY).catch(() => {});
     return { success: false, error: error.message };
   }
 }

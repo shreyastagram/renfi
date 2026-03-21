@@ -29,6 +29,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import Icon from './Icon';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
@@ -53,16 +54,8 @@ const BRAND = {
   iconBg: '#F1F5F9',
 };
 
-// Icon accent colors per menu item
-const ICON_COLORS = {
-  home: '#3B82F6',
-  briefcase: '#8B5CF6',
-  history: '#06B6D4',
-  settings: '#64748B',
-  wallet: '#10B981',
-  help: '#F59E0B',
-  info: '#6366F1',
-};
+// Unified icon color — all menu icons use the same brand secondary
+const MENU_ICON_COLOR = BRAND.secondary;
 
 /**
  * Get user initials from name
@@ -179,12 +172,12 @@ const AnimatedMenuItem = React.memo(({ item, index, onPress, isReady, isActive }
     return <Animated.View key={item.id} style={[styles.divider, { opacity }]} />;
   }
 
-  const iconColor = item.danger ? BRAND.danger : (ICON_COLORS[item.iconName] || BRAND.textSecondary);
+  const iconColor = item.danger ? BRAND.danger : (isActive ? BRAND.secondary : BRAND.textSecondary);
   const iconBgColor = item.danger
     ? BRAND.dangerBg
     : isActive
-      ? (ICON_COLORS[item.iconName] ? `${ICON_COLORS[item.iconName]}20` : '#E0E7FF')
-      : (ICON_COLORS[item.iconName] ? `${ICON_COLORS[item.iconName]}12` : BRAND.iconBg);
+      ? `${BRAND.secondary}15`
+      : BRAND.iconBg;
 
   return (
     <Animated.View style={{ transform: [{ translateX }, { scale: pressAnim }], opacity }}>
@@ -197,10 +190,14 @@ const AnimatedMenuItem = React.memo(({ item, index, onPress, isReady, isActive }
       >
         {isActive && <View style={styles.activeIndicator} />}
         <View style={[styles.menuIconContainer, { backgroundColor: iconBgColor }]}>
-          <Icon name={item.iconName} size={20} color={iconColor} />
+          {item.iconGlyph ? (
+            <MaterialCommunityIcons name={item.iconGlyph} size={22} color={iconColor} />
+          ) : (
+            <Icon name={item.iconName} size={20} color={iconColor} />
+          )}
         </View>
         <Text style={[styles.menuLabel, item.danger && styles.menuLabelDanger, isActive && styles.menuLabelActive]}>{item.label}</Text>
-        {!item.danger && <Icon name="chevron-right" size={16} color={isActive ? BRAND.secondary : BRAND.textMuted} style={{ marginLeft: 'auto' }} />}
+        {!item.danger && <MaterialCommunityIcons name="chevron-right" size={18} color={isActive ? BRAND.secondary : BRAND.textMuted} style={{ marginLeft: 'auto' }} />}
       </TouchableOpacity>
     </Animated.View>
   );
@@ -234,6 +231,7 @@ export const DrawerMenu = ({
   const contentAnim = useRef(new Animated.Value(0)).current;
   const [menuReady, setMenuReady] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const onCloseCallbackRef = useRef(null);
 
   const profileUrl = getProfilePicUrl(user?.profilePicture);
   const isProvider = userType === 'provider';
@@ -288,6 +286,13 @@ export const DrawerMenu = ({
         }),
       ]).start(() => {
         setIsAnimating(false);
+        // Fire any pending callback after drawer fully closed
+        if (onCloseCallbackRef.current) {
+          const cb = onCloseCallbackRef.current;
+          onCloseCallbackRef.current = null;
+          // Small delay to ensure modal is unmounted before showing dialog
+          setTimeout(cb, 50);
+        }
       });
     }
   }, [visible]);
@@ -296,25 +301,25 @@ export const DrawerMenu = ({
   const menuItems = useMemo(() => {
     if (isProvider) {
       return [
-        { id: 'home', iconName: 'home', label: t('drawer.dashboard'), screen: 'Home' },
-        { id: 'jobs', iconName: 'briefcase', label: t('drawer.myJobs'), tab: 'JobsTab' },
+        { id: 'home', iconName: 'home', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'view-dashboard-outline', label: t('drawer.dashboard'), screen: 'Home' },
+        { id: 'jobs', iconName: 'briefcase', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'hammer-wrench', label: t('drawer.myJobs'), tab: 'JobsTab' },
         { id: 'div1', type: 'divider' },
-        { id: 'settings', iconName: 'settings', label: t('drawer.settings'), screen: 'Settings' },
-        { id: 'earnings', iconName: 'wallet', label: t('drawer.earnings'), action: 'earnings' },
-        { id: 'help', iconName: 'help', label: t('drawer.helpSupport'), action: 'help' },
+        { id: 'settings', iconName: 'settings', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'cog-outline', label: t('drawer.settings'), screen: 'Settings' },
+        { id: 'earnings', iconName: 'wallet', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'wallet-outline', label: t('drawer.earnings'), action: 'earnings' },
+        { id: 'help', iconName: 'help', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'lifebuoy', label: t('drawer.helpSupport'), action: 'help' },
         { id: 'div2', type: 'divider' },
-        { id: 'logout', iconName: 'logout', label: t('drawer.logout'), action: 'logout', danger: true },
+        { id: 'logout', iconName: 'logout', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'logout-variant', label: t('drawer.logout'), action: 'logout', danger: true },
       ];
     }
     return [
-      { id: 'home', iconName: 'home', label: t('drawer.home'), screen: 'Home' },
-      { id: 'history', iconName: 'history', label: t('drawer.serviceHistory'), screen: 'UserServiceHistory' },
+      { id: 'home', iconName: 'home', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'home-variant-outline', label: t('drawer.home'), screen: 'Home' },
+      { id: 'history', iconName: 'history', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'clipboard-text-clock-outline', label: t('drawer.serviceHistory'), screen: 'UserServiceHistory' },
       { id: 'div1', type: 'divider' },
-      { id: 'settings', iconName: 'settings', label: t('drawer.settings'), screen: 'Settings' },
-      { id: 'help', iconName: 'help', label: t('drawer.helpSupport'), action: 'help' },
-      { id: 'about', iconName: 'info', label: t('drawer.aboutFixhomi'), action: 'about' },
+      { id: 'settings', iconName: 'settings', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'cog-outline', label: t('drawer.settings'), screen: 'Settings' },
+      { id: 'help', iconName: 'help', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'lifebuoy', label: t('drawer.helpSupport'), action: 'help' },
+      { id: 'about', iconName: 'info', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'information-outline', label: t('drawer.aboutFixhomi'), action: 'about' },
       { id: 'div2', type: 'divider' },
-      { id: 'logout', iconName: 'logout', label: t('drawer.logout'), action: 'logout', danger: true },
+      { id: 'logout', iconName: 'logout', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'logout-variant', label: t('drawer.logout'), action: 'logout', danger: true },
     ];
   }, [isProvider, t]);
 
@@ -324,9 +329,46 @@ export const DrawerMenu = ({
   }, [onClose]);
 
   const handleMenuPress = useCallback((item) => {
+    if (item.action === 'logout') {
+      onCloseCallbackRef.current = () => {
+        dialog(t('drawer.logout'), t('drawer.logoutConfirm'), [
+          { text: t('drawer.cancel'), style: 'cancel' },
+          { text: t('drawer.logout'), style: 'destructive', onPress: onLogout },
+        ]);
+      };
+      onClose();
+      return;
+    }
+
+    if (item.action === 'earnings') {
+      onCloseCallbackRef.current = () => dialog(t('drawer.comingSoon'), t('drawer.earningsComingSoon'));
+      onClose();
+      return;
+    }
+
+    if (item.action === 'about') {
+      onCloseCallbackRef.current = () => dialog('FixHomi', t('settings.aboutDialog', { version: '1.5' }));
+      onClose();
+      return;
+    }
+
+    if (item.action === 'help') {
+      onCloseCallbackRef.current = () => dialog(
+        'Help & Support',
+        'How would you like to reach us?',
+        [
+          { text: 'WhatsApp', onPress: () => Linking.openURL('https://wa.me/918446385312') },
+          { text: 'Email', onPress: () => Linking.openURL('mailto:contact@fixhomi.com').catch(() => dialog('Email Us', 'contact@fixhomi.com')) },
+          { text: 'Visit Support Page', onPress: () => Linking.openURL('https://fixhomi.com/support') },
+          { text: t('common.cancel') || 'Cancel', style: 'cancel' },
+        ]
+      );
+      onClose();
+      return;
+    }
+
     onClose();
     if (item.tab) {
-      // Navigate to a specific bottom tab
       setTimeout(() => {
         const tabNavigator = userType === 'provider' ? 'ProviderTabs' : 'UserTabs';
         navigation.navigate(tabNavigator, { screen: item.tab });
@@ -344,21 +386,8 @@ export const DrawerMenu = ({
           navigation.navigate(item.screen);
         }
       }, 300);
-    } else if (item.action === 'logout') {
-      setTimeout(() => {
-        dialog(t('drawer.logout'), t('drawer.logoutConfirm'), [
-          { text: t('drawer.cancel'), style: 'cancel' },
-          { text: t('drawer.logout'), style: 'destructive', onPress: onLogout },
-        ]);
-      }, 300);
-    } else if (item.action === 'help') {
-      Linking.openURL('mailto:contact@fixhomi.com');
-    } else if (item.action === 'earnings') {
-      dialog(t('drawer.comingSoon'), t('drawer.earningsComingSoon'));
-    } else if (item.action === 'about') {
-      dialog('FixHomi', t('settings.aboutDialog', { version: '1.5' }));
     }
-  }, [onClose, userType, navigation, onLogout, t]);
+  }, [onClose, userType, navigation, onLogout, t, dialog]);
 
   const handleProfilePress = useCallback(() => {
     onClose();
@@ -819,7 +848,7 @@ const styles = StyleSheet.create({
   menuIconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 12,
     backgroundColor: BRAND.iconBg,
     justifyContent: 'center',
     alignItems: 'center',

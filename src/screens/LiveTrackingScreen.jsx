@@ -434,23 +434,41 @@ const LiveTrackingScreen = ({ navigation, route }) => {
 
         {/* User marker */}
         {userLocation && (!destinationLocation || Math.abs(userLocation.latitude - destinationLocation.latitude) > 0.001 || Math.abs(userLocation.longitude - destinationLocation.longitude) > 0.001) && (
-          <Mapbox.PointAnnotation id="user-marker" coordinate={[userLocation.longitude, userLocation.latitude]}>
-            <View style={styles.userMarker}><MaterialIcon name="person-pin" size={16} color={C.white} /></View>
-          </Mapbox.PointAnnotation>
+          Platform.OS === 'ios' ? (
+            <Mapbox.MarkerView id="user-marker" coordinate={[userLocation.longitude, userLocation.latitude]}>
+              <View style={styles.userMarker}><MaterialIcon name="person-pin" size={16} color={C.white} /></View>
+            </Mapbox.MarkerView>
+          ) : (
+            <Mapbox.PointAnnotation id="user-marker" coordinate={[userLocation.longitude, userLocation.latitude]}>
+              <View style={styles.userMarker}><MaterialIcon name="person-pin" size={16} color={C.white} /></View>
+            </Mapbox.PointAnnotation>
+          )
         )}
 
         {/* Service location marker — blue (brand secondary) with home icon */}
         {destinationLocation && (
-          <Mapbox.PointAnnotation id="dest-marker" coordinate={[destinationLocation.longitude, destinationLocation.latitude]}>
-            <View style={styles.destMarker}><MaterialIcon name="home" size={18} color={C.white} /></View>
-          </Mapbox.PointAnnotation>
+          Platform.OS === 'ios' ? (
+            <Mapbox.MarkerView id="dest-marker" coordinate={[destinationLocation.longitude, destinationLocation.latitude]}>
+              <View style={styles.destMarker}><MaterialIcon name="home" size={18} color={C.white} /></View>
+            </Mapbox.MarkerView>
+          ) : (
+            <Mapbox.PointAnnotation id="dest-marker" coordinate={[destinationLocation.longitude, destinationLocation.latitude]}>
+              <View style={styles.destMarker}><MaterialIcon name="home" size={18} color={C.white} /></View>
+            </Mapbox.PointAnnotation>
+          )
         )}
 
         {/* Provider marker — Fixhomi logo (rendered LAST so it's on top of everything) */}
         {providerLocation && (
-          <Mapbox.PointAnnotation id="provider-marker" coordinate={[providerLocation.longitude, providerLocation.latitude]}>
-            <View style={styles.providerMarker}><FixhomiLogo size={28} /></View>
-          </Mapbox.PointAnnotation>
+          Platform.OS === 'ios' ? (
+            <Mapbox.MarkerView id="provider-marker" coordinate={[providerLocation.longitude, providerLocation.latitude]}>
+              <View style={styles.providerMarker}><FixhomiLogo size={28} /></View>
+            </Mapbox.MarkerView>
+          ) : (
+            <Mapbox.PointAnnotation id="provider-marker" coordinate={[providerLocation.longitude, providerLocation.latitude]}>
+              <View style={styles.providerMarker}><FixhomiLogo size={28} /></View>
+            </Mapbox.PointAnnotation>
+          )
         )}
       </Mapbox.MapView>
 

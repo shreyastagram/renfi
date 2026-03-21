@@ -19,19 +19,19 @@ import Feather from 'react-native-vector-icons/Feather';
  * Icon mapping for service types and common icons
  */
 const ICON_MAP = {
-  // Service Types
-  electrician: { family: 'MaterialCommunityIcons', name: 'flash', color: '#F59E0B' },
-  plumber: { family: 'MaterialCommunityIcons', name: 'pipe-wrench', color: '#3B82F6' },
-  carpenter: { family: 'MaterialCommunityIcons', name: 'hammer', color: '#8B5CF6' },
-  painter: { family: 'MaterialCommunityIcons', name: 'format-paint', color: '#EC4899' },
-  ac_repair: { family: 'MaterialCommunityIcons', name: 'air-conditioner', color: '#06B6D4' },
-  electronics_technician: { family: 'MaterialIcons', name: 'tv', color: '#6366F1' },
-  solar_repairing: { family: 'MaterialCommunityIcons', name: 'solar-panel', color: '#EAB308' },
-  driver: { family: 'MaterialCommunityIcons', name: 'car', color: '#14B8A6' },
-  welder: { family: 'MaterialCommunityIcons', name: 'fire', color: '#EF4444' },
-  salon: { family: 'MaterialCommunityIcons', name: 'content-cut', color: '#F472B6' },
-  vehicle_cleaning: { family: 'MaterialCommunityIcons', name: 'car-wash', color: '#0EA5E9' },
-  mason_tiler: { family: 'MaterialCommunityIcons', name: 'wall', color: '#78716C' },
+  // Service Types — rich detailed icons
+  electrician: { family: 'MaterialCommunityIcons', name: 'lightning-bolt', color: '#F59E0B' },
+  plumber: { family: 'MaterialCommunityIcons', name: 'water-pump', color: '#3B82F6' },
+  carpenter: { family: 'MaterialCommunityIcons', name: 'hand-saw', color: '#8B5CF6' },
+  painter: { family: 'MaterialCommunityIcons', name: 'brush-variant', color: '#EC4899' },
+  ac_repair: { family: 'MaterialCommunityIcons', name: 'hvac', color: '#06B6D4' },
+  electronics_technician: { family: 'MaterialCommunityIcons', name: 'monitor-cellphone', color: '#6366F1' },
+  solar_repairing: { family: 'MaterialCommunityIcons', name: 'solar-power', color: '#EAB308' },
+  driver: { family: 'MaterialCommunityIcons', name: 'steering', color: '#14B8A6' },
+  welder: { family: 'MaterialCommunityIcons', name: 'soldering-iron', color: '#EF4444' },
+  salon: { family: 'MaterialCommunityIcons', name: 'hair-dryer', color: '#F472B6' },
+  vehicle_cleaning: { family: 'MaterialCommunityIcons', name: 'spray-bottle', color: '#0EA5E9' },
+  mason_tiler: { family: 'MaterialCommunityIcons', name: 'shovel', color: '#78716C' },
   // Event Services
   photographer: { family: 'MaterialCommunityIcons', name: 'camera', color: '#8B5CF6' },
   influencer: { family: 'MaterialCommunityIcons', name: 'account-star', color: '#EC4899' },
@@ -227,12 +227,62 @@ const Icon = ({
  * Service Icon - Specific for service types with background
  * Supports both 'type' and 'serviceType' props for flexibility
  */
-export const ServiceIcon = ({ type, serviceType, size = 24, color, backgroundColor, style }) => {
+// Custom SVG icons for service cards (rich illustrations)
+import ElectricianIcon from '../assets/serviceIcons/ElectricianIcon';
+import PlumberIcon from '../assets/serviceIcons/PlumberIcon';
+import ElectronicsIcon from '../assets/serviceIcons/ElectronicsIcon';
+import CarpenterIcon from '../assets/serviceIcons/CarpenterIcon';
+import PainterIcon from '../assets/serviceIcons/PainterIcon';
+import SolarIcon from '../assets/serviceIcons/SolarIcon';
+import WelderIcon from '../assets/serviceIcons/WelderIcon';
+import SalonIcon from '../assets/serviceIcons/SalonIcon';
+import VehicleCleaningIcon from '../assets/serviceIcons/VehicleCleaningIcon';
+import MasonTilerIcon from '../assets/serviceIcons/MasonTilerIcon';
+import DriverIcon from '../assets/serviceIcons/DriverIcon';
+import AcRepairIcon from '../assets/serviceIcons/AcRepairIcon';
+import EmergencyIcon from '../assets/serviceIcons/EmergencyIcon';
+import AmbulanceIcon from '../assets/serviceIcons/AmbulanceIcon';
+import SnakeCatcherIcon from '../assets/serviceIcons/SnakeCatcherIcon';
+import MortuaryVanIcon from '../assets/serviceIcons/MortuaryVanIcon';
+import PhotographerIcon from '../assets/serviceIcons/PhotographerIcon';
+import InfluencerIcon from '../assets/serviceIcons/InfluencerIcon';
+
+const CUSTOM_SVG_ICONS = {
+  electrician: ElectricianIcon,
+  plumber: PlumberIcon,
+  electronics_technician: ElectronicsIcon,
+  carpenter: CarpenterIcon,
+  painter: PainterIcon,
+  solar_repairing: SolarIcon,
+  welder: WelderIcon,
+  salon: SalonIcon,
+  vehicle_cleaning: VehicleCleaningIcon,
+  mason_tiler: MasonTilerIcon,
+  driver: DriverIcon,
+  ac_repair: AcRepairIcon,
+  emergency: EmergencyIcon,
+  private_ambulance: AmbulanceIcon,
+  snake_catcher: SnakeCatcherIcon,
+  mortuary_van: MortuaryVanIcon,
+  photographer: PhotographerIcon,
+  influencer: InfluencerIcon,
+};
+
+export const ServiceIcon = ({ type, serviceType, size = 24, color, backgroundColor, style, useSvg }) => {
   const iconType = type || serviceType;
+
+  // Always use custom SVG if available (unless explicitly disabled)
+  if (useSvg !== false) {
+    const SvgIcon = CUSTOM_SVG_ICONS[iconType];
+    if (SvgIcon) {
+      return <SvgIcon size={size} />;
+    }
+  }
+
   const iconConfig = ICON_MAP[iconType] || ICON_MAP.electrician;
   const iconColor = color || iconConfig.color || '#6B7280';
   const bgColor = backgroundColor || `${iconColor}20`;
-  
+
   return (
     <View style={[styles.serviceIconContainer, { backgroundColor: bgColor, width: size * 1.8, height: size * 1.8, borderRadius: size * 0.9 }, style]}>
       <Icon name={iconType} size={size} color={iconColor} />

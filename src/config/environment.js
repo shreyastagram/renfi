@@ -43,11 +43,11 @@ export const USE_PRODUCTION_JAVA_AUTH = true;
 // ============================================
 
 export const PRODUCTION_CONFIG = {
-  // Node.js Backend (Railway)
-  NODE_API_URL: 'https://noefix.onrender.com',
-  
-  // Java Auth Service (Render)
-  JAVA_AUTH_URL: 'https://jauth.onrender.com',
+  // Node.js Backend (Render - Dev)
+  NODE_API_URL: 'https://noefix-dev.onrender.com',
+
+  // Java Auth Service (Render - Dev)
+  JAVA_AUTH_URL: 'https://jauth-dev.onrender.com',
   
   // Razorpay key — set via RAZORPAY_KEY_ID env var at build time
   // NEVER commit live or test keys here
@@ -63,7 +63,7 @@ export const LOCAL_CONFIG = {
   // Keeping them here for reference
   EMULATOR_HOST: '10.0.2.2',
   LOCALHOST: 'localhost',
-  WIFI_IP: '192.168.29.71', // Update this to your machine's IP
+  WIFI_IP: '192.168.1.17', // Update this to your machine's IP
   
   NODE_PORT: 5001,
   JAVA_PORT: 8080,

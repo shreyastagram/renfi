@@ -276,6 +276,17 @@ const handleResponseError = async (error, client) => {
     console.error('🚫 [API] Cannot connect to server after retry. Is the backend running?');
   }
 
+  // Handle 429 Too Many Requests — silently retry after the server-specified delay
+  // This prevents rate-limit errors from surfacing to users on normal app usage (open/close)
+  if (error.response?.status === 429 && !originalRequest._retried429) {
+    originalRequest._retried429 = true;
+    const retryAfter = (error.response?.data?.retryAfter || 5) * 1000;
+    const delayMs = Math.min(retryAfter, 10000); // cap at 10s
+    console.log(`⏳ [API] Rate limited, retrying in ${delayMs / 1000}s...`);
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+    return client(originalRequest);
+  }
+
   // Handle 503 Service Unavailable — auth service temporarily down (e.g., Render cold start)
   // Do NOT treat as auth failure, do NOT trigger token refresh/clearing
   if (error.response?.status === 503 && error.response?.data?.isTransient) {
