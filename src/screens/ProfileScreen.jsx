@@ -10,12 +10,10 @@
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   TextInput,
   ActivityIndicator,
   RefreshControl,
@@ -26,11 +24,14 @@ import {
   Animated,
   Dimensions,
   Linking,
-  StatusBar,
+  StatusBar
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
@@ -147,7 +148,7 @@ const SectionHeader = React.memo(({ title }) => (
 /**
  * Info Row (Read-only)
  */
-const InfoRow = React.memo(({ label, value, iconName, verified, onVerify, isLoading, verifiedLabel, verifyLabel, iconColor, iconBg, materialIcon }) => (
+const InfoRow = React.memo(({ label, value, iconName, verified, onVerify, isLoading, otpSent, verifiedLabel, verifyLabel, iconColor, iconBg, materialIcon }) => (
   <View style={styles.infoRow}>
     <View style={[styles.infoIconContainer, iconBg && { backgroundColor: iconBg }]}>
       {materialIcon ? (
@@ -165,6 +166,11 @@ const InfoRow = React.memo(({ label, value, iconName, verified, onVerify, isLoad
         <View style={styles.verifiedBadge}>
           <Icon name="check" size={14} color="#10B981" />
           <Text style={styles.verifiedText}>{verifiedLabel || 'Verified'}</Text>
+        </View>
+      ) : otpSent ? (
+        <View style={styles.otpSentBadge}>
+          <MaterialIcon name="mark-email-read" size={14} color="#F59E0B" />
+          <Text style={styles.otpSentText}>OTP Sent</Text>
         </View>
       ) : (
         <TouchableOpacity style={styles.verifyButton} onPress={onVerify} disabled={isLoading}>
@@ -308,22 +314,24 @@ const ProfileScreen = ({ navigation, route }) => {
   const [phoneOtp, setPhoneOtp] = useState(Array(6).fill(''));
   const [otpFocusedIndex, setOtpFocusedIndex] = useState(-1);
   const [otpCountdown, setOtpCountdown] = useState(0);
+  const otpExpiryRef = useRef(0); // absolute timestamp when OTP expires
   const otpPhoneRef = useRef(''); // tracks which phone the OTP was sent to
-  
+
   // OTP input refs & animations
   const otpInputRefs = useRef([]);
   const otpScaleAnims = useRef(Array(6).fill(null).map(() => new Animated.Value(1))).current;
   const otpShakeAnim = useRef(new Animated.Value(0)).current;
 
-  // OTP countdown timer (5 minutes)
+  // OTP countdown timer — uses absolute expiry timestamp so it survives app minimize
   useEffect(() => {
-    if (otpCountdown <= 0) return;
-    const timer = setInterval(() => {
-      setOtpCountdown(prev => {
-        if (prev <= 1) { clearInterval(timer); return 0; }
-        return prev - 1;
-      });
-    }, 1000);
+    if (!otpExpiryRef.current) return;
+    const tick = () => {
+      const remaining = Math.max(0, Math.round((otpExpiryRef.current - Date.now()) / 1000));
+      setOtpCountdown(remaining);
+      if (remaining <= 0) otpExpiryRef.current = 0;
+    };
+    tick(); // immediate sync on resume
+    const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
   }, [otpCountdown > 0]);
 
@@ -333,6 +341,7 @@ const ProfileScreen = ({ navigation, route }) => {
       setPhoneOtpSent(false);
       setPhoneOtp(Array(6).fill(''));
       setOtpCountdown(0);
+      otpExpiryRef.current = 0;
     }
   }, [formData.phone, phoneOtpSent]);
 
@@ -558,39 +567,39 @@ const ProfileScreen = ({ navigation, route }) => {
   
   const fetchProviderStatuses = useCallback(async () => {
     if (!isProvider) return;
-    try {
-      const result = await getAadhaarStatus();
-      if (result.success) {
-        setAadhaarStatus({
-          isVerified: result.aadhaar?.isVerified || false,
-          isNameLocked: result.aadhaar?.isNameLocked || false,
-          aadhaarName: result.aadhaar?.aadhaarName || null,
-          aadhaarLoaded: true,
-        });
-      } else {
-        setAadhaarStatus(prev => ({ ...prev, aadhaarLoaded: true }));
-      }
-    } catch (error) {
-      console.log('Error fetching Aadhaar status:', error);
+    const pid = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+
+    // Run both fetches in parallel instead of sequentially
+    const [aadhaarResult, dashResult] = await Promise.allSettled([
+      getAadhaarStatus(),
+      pid ? getVerificationDashboard(pid) : Promise.resolve(null),
+    ]);
+
+    // Process Aadhaar result
+    if (aadhaarResult.status === 'fulfilled' && aadhaarResult.value?.success) {
+      const a = aadhaarResult.value.aadhaar;
+      const status = {
+        isVerified: a?.isVerified || false,
+        isNameLocked: a?.isNameLocked || false,
+        aadhaarName: a?.aadhaarName || null,
+        aadhaarLoaded: true,
+      };
+      setAadhaarStatus(status);
+      // Cache for instant display on next cold start
+      AsyncStorage.setItem('cached_aadhaar_status', JSON.stringify(status)).catch(() => {});
+    } else {
       setAadhaarStatus(prev => ({ ...prev, aadhaarLoaded: true }));
     }
-    // Fetch premium status from verification dashboard
-    try {
-      const pid = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
-      if (pid) {
-        const dashResult = await getVerificationDashboard(pid);
-        if (dashResult.success && dashResult.data) {
-          const premStep = dashResult.data.steps?.find(s => s.id === 'premium');
-          setPremiumStatus({
-            isPremiumActive: dashResult.data.isPremiumActive || false,
-            premiumDaysLeft: premStep?.daysRemaining || 0,
-            premiumLoaded: true,
-          });
-        }
-      }
-    } catch (error) {
-      console.log('Error fetching premium status:', error);
-      // Mark as loaded even on error so UI doesn't stay in loading state forever
+
+    // Process premium/dashboard result
+    if (dashResult.status === 'fulfilled' && dashResult.value?.success && dashResult.value?.data) {
+      const premStep = dashResult.value.data.steps?.find(s => s.id === 'premium');
+      setPremiumStatus({
+        isPremiumActive: dashResult.value.data.isPremiumActive || false,
+        premiumDaysLeft: premStep?.daysRemaining || 0,
+        premiumLoaded: true,
+      });
+    } else {
       setPremiumStatus(prev => ({ ...prev, premiumLoaded: true }));
     }
   }, [isProvider, user?.mongoId, profile?.mongoId]);
@@ -807,7 +816,9 @@ const ProfileScreen = ({ navigation, route }) => {
 
       if (result.success) {
         setPhoneOtpSent(true);
-        setOtpCountdown(300); // 5 minutes
+        otpExpiryRef.current = Date.now() + 300000; // 5 minutes from now
+        setOtpCountdown(300);
+        setPhoneOtp(Array(6).fill(''));
         otpPhoneRef.current = formData.phone; // track which phone the OTP was sent to (raw 10 digits)
         dialog(t('profile.otpSent'), t('profile.otpSentMsg', { phone: displayData.phone }));
       } else {
@@ -1157,9 +1168,22 @@ const ProfileScreen = ({ navigation, route }) => {
           <View style={styles.profileCard}>
             {/* Gradient-style banner with avatar overlapping */}
             <View style={[styles.profileCardHeader, isProvider ? styles.profileCardHeaderProvider : styles.profileCardHeaderUser]}>
-              <View style={styles.profileDecorCircle1} />
-              <View style={styles.profileDecorCircle2} />
-              <View style={styles.profileDecorCircle3} />
+              <View style={StyleSheet.absoluteFill}>
+                <Svg width="100%" height="100%" viewBox="0 0 400 110" preserveAspectRatio="xMidYMid slice">
+                  {/* Organic flowing curves */}
+                  <Path d="M0 85 Q60 40 130 70 T260 50 T400 75" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" fill="none" />
+                  <Path d="M0 95 Q80 55 170 80 T340 60 T400 90" stroke="rgba(255,255,255,0.08)" strokeWidth="1" fill="none" />
+                  <Path d="M0 70 Q50 30 120 55 T250 35 T400 60" stroke="rgba(255,255,255,0.06)" strokeWidth="0.8" fill="none" />
+                  {/* Soft scattered circles */}
+                  <Circle cx="340" cy="20" r="45" fill="rgba(255,255,255,0.06)" />
+                  <Circle cx="370" cy="90" r="25" fill="rgba(255,255,255,0.05)" />
+                  <Circle cx="50" cy="15" r="30" fill="rgba(255,255,255,0.04)" />
+                  {/* Geometric accents */}
+                  <Circle cx="280" cy="45" r="3" fill="rgba(255,255,255,0.15)" />
+                  <Circle cx="100" cy="80" r="2.5" fill="rgba(255,255,255,0.12)" />
+                  <Circle cx="200" cy="25" r="2" fill="rgba(255,255,255,0.1)" />
+                </Svg>
+              </View>
               {/* Type badge floating on banner */}
               <View style={styles.profileBannerBadge}>
                 <Icon name={isProvider ? 'provider' : 'user'} size={11} color="#FFFFFF" />
@@ -1871,6 +1895,7 @@ const ProfileScreen = ({ navigation, route }) => {
                 verified={displayData?.isPhoneVerified}
                 onVerify={handlePhoneVerify}
                 isLoading={verifyingPhone && !phoneOtpSent}
+                otpSent={phoneOtpSent}
               />
 
               {/* Phone OTP Input — Modern 6-box design */}
@@ -1921,26 +1946,45 @@ const ProfileScreen = ({ navigation, route }) => {
                     </Text>
                   )}
                   {otpCountdown <= 0 && phoneOtpSent && (
-                    <Text style={styles.otpExpiredText}>{t('profile.otpExpiredText')}</Text>
+                    <View style={styles.otpExpiredRow}>
+                      <Text style={styles.otpExpiredText}>{t('profile.otpExpiredText')}</Text>
+                      <TouchableOpacity
+                        style={styles.otpResendButton}
+                        onPress={handlePhoneVerify}
+                        disabled={verifyingPhone}
+                        activeOpacity={0.7}
+                      >
+                        {verifyingPhone ? (
+                          <ActivityIndicator size="small" color="#F59E0B" />
+                        ) : (
+                          <View style={styles.otpResendButtonContent}>
+                            <MaterialIcon name="refresh" size={16} color="#F59E0B" />
+                            <Text style={styles.otpResendButtonText}>{t('profile.resendOtp') || 'Resend OTP'}</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    </View>
                   )}
-                  <TouchableOpacity
-                    style={[
-                      styles.otpVerifyButton,
-                      (verifyingPhone || phoneOtp.join('').length !== 6 || otpCountdown <= 0) && styles.otpVerifyButtonDisabled,
-                    ]}
-                    onPress={handleVerifyPhoneOtp}
-                    disabled={verifyingPhone || phoneOtp.join('').length !== 6 || otpCountdown <= 0}
-                    activeOpacity={0.8}
-                  >
-                    {verifyingPhone ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <View style={styles.otpVerifyButtonContent}>
-                        <MaterialIcon name="verified" size={18} color="#FFFFFF" />
-                        <Text style={styles.otpVerifyButtonText}>{t('profile.verifyBtn')}</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
+                  {otpCountdown > 0 && (
+                    <TouchableOpacity
+                      style={[
+                        styles.otpVerifyButton,
+                        (verifyingPhone || phoneOtp.join('').length !== 6) && styles.otpVerifyButtonDisabled,
+                      ]}
+                      onPress={handleVerifyPhoneOtp}
+                      disabled={verifyingPhone || phoneOtp.join('').length !== 6}
+                      activeOpacity={0.8}
+                    >
+                      {verifyingPhone ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <View style={styles.otpVerifyButtonContent}>
+                          <MaterialIcon name="verified" size={18} color="#FFFFFF" />
+                          <Text style={styles.otpVerifyButtonText}>{t('profile.verifyBtn')}</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
 
@@ -1967,6 +2011,7 @@ const ProfileScreen = ({ navigation, route }) => {
                 verified={displayData?.isPhoneVerified}
                 onVerify={handlePhoneVerify}
                 isLoading={verifyingPhone && !phoneOtpSent}
+                otpSent={phoneOtpSent}
               />
 
               {/* Phone OTP Input — Modern 6-box design */}
@@ -2017,26 +2062,45 @@ const ProfileScreen = ({ navigation, route }) => {
                     </Text>
                   )}
                   {otpCountdown <= 0 && phoneOtpSent && (
-                    <Text style={styles.otpExpiredText}>{t('profile.otpExpiredText')}</Text>
+                    <View style={styles.otpExpiredRow}>
+                      <Text style={styles.otpExpiredText}>{t('profile.otpExpiredText')}</Text>
+                      <TouchableOpacity
+                        style={styles.otpResendButton}
+                        onPress={handlePhoneVerify}
+                        disabled={verifyingPhone}
+                        activeOpacity={0.7}
+                      >
+                        {verifyingPhone ? (
+                          <ActivityIndicator size="small" color="#F59E0B" />
+                        ) : (
+                          <View style={styles.otpResendButtonContent}>
+                            <MaterialIcon name="refresh" size={16} color="#F59E0B" />
+                            <Text style={styles.otpResendButtonText}>{t('profile.resendOtp') || 'Resend OTP'}</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    </View>
                   )}
-                  <TouchableOpacity
-                    style={[
-                      styles.otpVerifyButton,
-                      (verifyingPhone || phoneOtp.join('').length !== 6 || otpCountdown <= 0) && styles.otpVerifyButtonDisabled,
-                    ]}
-                    onPress={handleVerifyPhoneOtp}
-                    disabled={verifyingPhone || phoneOtp.join('').length !== 6 || otpCountdown <= 0}
-                    activeOpacity={0.8}
-                  >
-                    {verifyingPhone ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <View style={styles.otpVerifyButtonContent}>
-                        <MaterialIcon name="verified" size={18} color="#FFFFFF" />
-                        <Text style={styles.otpVerifyButtonText}>{t('profile.verifyBtn')}</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
+                  {otpCountdown > 0 && (
+                    <TouchableOpacity
+                      style={[
+                        styles.otpVerifyButton,
+                        (verifyingPhone || phoneOtp.join('').length !== 6) && styles.otpVerifyButtonDisabled,
+                      ]}
+                      onPress={handleVerifyPhoneOtp}
+                      disabled={verifyingPhone || phoneOtp.join('').length !== 6}
+                      activeOpacity={0.8}
+                    >
+                      {verifyingPhone ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <View style={styles.otpVerifyButtonContent}>
+                          <MaterialIcon name="verified" size={18} color="#FFFFFF" />
+                          <Text style={styles.otpVerifyButtonText}>{t('profile.verifyBtn')}</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
 
@@ -2395,32 +2459,8 @@ const styles = StyleSheet.create({
   profileCardHeaderProvider: {
     backgroundColor: '#EA580C',
   },
-  profileDecorCircle1: {
-    position: 'absolute',
-    top: -25,
-    right: -15,
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255,255,255,0.10)',
-  },
-  profileDecorCircle2: {
-    position: 'absolute',
-    bottom: -20,
-    left: -15,
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-  },
-  profileDecorCircle3: {
-    position: 'absolute',
-    top: 20,
-    left: '35%',
-    width: 45,
-    height: 45,
-    borderRadius: 23,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+  // Old decor circles removed — replaced by SVG art in JSX
+  _profileDecorLegacy: {
   },
   profileBannerBadge: {
     position: 'absolute',
@@ -2885,6 +2925,23 @@ const styles = StyleSheet.create({
     color: '#16A34A',
     fontWeight: '700',
   },
+  otpSentBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFFBEB',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    flexShrink: 0,
+  },
+  otpSentText: {
+    fontSize: 11,
+    color: '#D97706',
+    fontWeight: '700',
+  },
   verifyButton: {
     backgroundColor: '#f67c16',
     paddingHorizontal: 18,
@@ -3026,12 +3083,37 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 8,
   },
+  otpExpiredRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
   otpExpiredText: {
     fontSize: 13,
     color: '#EF4444',
-    textAlign: 'center',
-    marginBottom: 8,
     fontWeight: '600',
+  },
+  otpResendButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  otpResendButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  otpResendButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#D97706',
   },
 
   // Editable Field

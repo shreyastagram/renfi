@@ -12,17 +12,16 @@
  */
 
 import React, { useEffect, useRef, useCallback } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
   Modal,
-  TouchableOpacity,
   Animated,
   BackHandler,
   Platform,
-  Image,
+  Image
 } from 'react-native';
+import TouchableOpacity from './TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { dismissUpdate, openStorePage } from '../services/appUpdateService';
 

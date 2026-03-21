@@ -12,20 +12,19 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
   Modal,
-  TouchableOpacity,
   TextInput,
   ActivityIndicator,
   Animated,
   Dimensions,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
+  ScrollView
 } from 'react-native';
+import TouchableOpacity from './TouchableOpacity';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -266,7 +265,7 @@ const CancellationReasonModal = ({
           </ScrollView>
 
           {/* Action Buttons */}
-          <View style={[styles.actions, { paddingBottom: Math.max(16, insets.bottom) }]}>
+          <View style={[styles.actions, { paddingBottom: Math.max(16, insets.bottom + 12) }]}>
             <TouchableOpacity
               style={styles.keepButton}
               onPress={onClose}

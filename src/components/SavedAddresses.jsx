@@ -14,18 +14,17 @@
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   FlatList,
   Modal,
   ActivityIndicator,
   RefreshControl,
   Animated,
-  Platform,
+  Platform
 } from 'react-native';
+import TouchableOpacity from './TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useDialog } from '../context/DialogContext';

@@ -13,11 +13,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import PhotographerIcon from '../assets/serviceIcons/PhotographerIcon';
 import InfluencerIcon from '../assets/serviceIcons/InfluencerIcon';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ScrollView,
   FlatList,
   ActivityIndicator,
@@ -30,8 +28,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   Animated,
-  StatusBar,
+  StatusBar
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -388,22 +387,12 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
   const memberSince = getMemberSince();
 
   /**
-   * Handle book now with popup if not called
+   * Handle book now — close this modal first, then let parent handle dialog/booking
    */
   const handleBookPress = () => {
-    if (!hasContacted) {
-      dialog(
-        t('eventServices.contactFirst'),
-        t('eventServices.contactFirstMsg'),
-        [
-          { text: t('eventServices.callProviderBtn'), onPress: () => onContactProvider(provider) },
-          { text: t('eventServices.bookAnywayBtn'), onPress: () => onBookNow(provider), style: 'default' },
-          { text: t('common.cancel'), style: 'cancel' },
-        ]
-      );
-      return;
-    }
-    onBookNow(provider);
+    onClose();
+    // Small delay to let this modal fully close before parent opens dialog or booking modal
+    setTimeout(() => onBookNow(provider), 350);
   };
 
   return (
@@ -799,12 +788,13 @@ const EventServicesScreen = ({ navigation }) => {
    */
   const executeBooking = (provider) => {
     setSelectedProvider(provider);
-    setShowDetails(false);
+    setShowDetails(false); // no-op if already closed
     setEventDate(new Date());
     setEventDescription('');
     setEventVenue('');
     setVenueCoords(null);
-    setShowBookingModal(true);
+    // Delay opening booking modal to avoid iOS modal conflict
+    setTimeout(() => setShowBookingModal(true), 100);
   };
 
   /**

@@ -13,17 +13,16 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
   Image,
   Platform,
-  StatusBar,
+  StatusBar
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
@@ -33,6 +32,7 @@ import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { Icon } from '../components';
+import GraphBackground from '../components/GraphBackground';
 import { NODE_BASE_URL as API_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
 
@@ -739,6 +739,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
     
     return (
       <View style={styles.container}>
+        <GraphBackground />
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
@@ -833,6 +834,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
   if (step === 'select') {
     return (
       <View style={styles.container}>
+        <GraphBackground />
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
@@ -881,6 +883,7 @@ const DocumentVerificationScreen = ({ navigation }) => {
   
   return (
     <View style={styles.container}>
+      <GraphBackground />
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity

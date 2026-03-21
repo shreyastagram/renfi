@@ -11,20 +11,19 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   TextInput,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Image,
   Linking,
-  StatusBar,
+  StatusBar
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary } from 'react-native-image-picker';

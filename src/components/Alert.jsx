@@ -9,7 +9,8 @@
  */
 
 import React, { useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Animated, Dimensions} from 'react-native';
+import TouchableOpacity from './TouchableOpacity';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

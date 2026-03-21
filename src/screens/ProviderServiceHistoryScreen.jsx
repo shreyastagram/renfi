@@ -15,13 +15,11 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import {
-  View,
+import {  View,
   Text,
   TextInput,
   Modal,
   StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
   FlatList,
@@ -35,8 +33,9 @@ import {
   Vibration,
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
-  Keyboard,
+  Keyboard
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { BlurView } from '@react-native-community/blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -46,6 +45,8 @@ import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
+import SvgArt from '../components/SvgArt';
+import GraphBackground from '../components/GraphBackground';
 import { Icon, ServiceIcon, CancellationReasonModal } from '../components';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import ScreenShimmer from '../components/ShimmerLoader';
@@ -339,6 +340,17 @@ const RequestCard = ({ request, onPress, onCall, onDirections, onComplete, onCan
 
   return (
     <TouchableOpacity style={[styles.card, isPending && styles.cardPending, isDone && styles.cardCompact]} onPress={onPress} activeOpacity={0.7}>
+      {/* SVG accent for pending cards */}
+      {isPending && (
+        <View style={styles.cardSvgBg}>
+          <Svg width="100%" height="100%" viewBox="0 0 400 60" preserveAspectRatio="xMidYMid slice">
+            <Path d="M0 45 Q80 20 160 40 T320 30 T400 45" stroke={C.primary} strokeWidth="1" fill="none" opacity={0.1} />
+            <Path d="M0 55 Q100 30 200 50 T400 40" stroke={C.primary} strokeWidth="0.7" fill="none" opacity={0.07} />
+            <Circle cx="350" cy="12" r="20" fill={C.primary} opacity={0.04} />
+            <Circle cx="380" cy="45" r="12" fill={C.primary} opacity={0.03} />
+          </Svg>
+        </View>
+      )}
       {/* Header */}
       <View style={[styles.cardTop, isDone && { marginBottom: 4 }]}>
         <View style={styles.cardTopLeft}>
@@ -459,8 +471,8 @@ const RequestCard = ({ request, onPress, onCall, onDirections, onComplete, onCan
                 onPress={() => onReject(request)}
                 disabled={isRejecting || isAccepting}
               >
-                {isRejecting ? <ActivityIndicator color={C.danger} size="small" /> : (
-                  <><Icon name="close" size={15} color={C.danger} /><Text style={styles.rejectBtnText}>{t('providerHistory.reject')}</Text></>
+                {isRejecting ? <ActivityIndicator color="#64748B" size="small" /> : (
+                  <><Icon name="close" size={15} color="#94A3B8" /><Text style={styles.rejectBtnText}>{t('providerHistory.reject')}</Text></>
                 )}
               </TouchableOpacity>
               <TouchableOpacity
@@ -543,7 +555,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
   const [datePreset, setDatePreset] = useState('all');
   const [showDateFilter, setShowDateFilter] = useState(false);
   const [showCategoryFilter, setShowCategoryFilter] = useState(false);
-  const [filtersVisible, setFiltersVisible] = useState(true);
+  const [filtersVisible, setFiltersVisible] = useState(false);
   const [stats, setStats] = useState({ total: 0, active: 0, completed: 0, pending: 0, rating: 0 });
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -566,10 +578,13 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
   const displayData = { ...user, ...profile };
   const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
 
-  // Load auto-refresh preference
+  // Load auto-refresh preference + filter visibility
   useEffect(() => {
     AsyncStorage.getItem('app_preferences').then(saved => {
       if (saved) { const p = JSON.parse(saved); setAutoRefreshEnabled(p.autoRefresh !== false); }
+    }).catch(() => {});
+    AsyncStorage.getItem('provider_filters_visible').then(val => {
+      if (val !== null) setFiltersVisible(val === 'true');
     }).catch(() => {});
   }, []);
 
@@ -935,8 +950,10 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <GraphBackground />
       {/* Header row — fades between title and compact stats */}
-      <View style={styles.header}>
+      <View style={[styles.header, { overflow: 'hidden' }]}>
+        <SvgArt color="#f67c16" height={60} />
         <TouchableOpacity onPress={() => setIsDrawerOpen(true)} activeOpacity={0.7} style={styles.headerLogoBtn}>
           <Image source={FIXHOMI_LOGO} style={styles.headerLogoImg} />
         </TouchableOpacity>
@@ -979,19 +996,6 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
 
         <AvatarButton name={displayData?.fullName} profilePicture={displayData?.profilePicture} onPress={() => navigation.navigate('Profile')} isProvider={true} />
       </View>
-
-      {/* Full 4-pill stats bar — collapses on scroll */}
-      <Animated.View style={[styles.statsBar, {
-        opacity: scrollY.interpolate({ inputRange: [0, 60], outputRange: [1, 0], extrapolate: 'clamp' }),
-        maxHeight: scrollY.interpolate({ inputRange: [0, 80], outputRange: [60, 0], extrapolate: 'clamp' }),
-      }]}>
-        <View style={styles.statsRow}>
-          <StatPill value={stats.total} label={t('providerHistory.statTotal')} color={C.secondary} bgColor="#EFF6FF" />
-          <StatPill value={stats.pending} label={t('providerHistory.statNew')} color={C.primary} bgColor="#FFF7ED" />
-          <StatPill value={stats.active} label={t('providerHistory.filterActive')} color={C.purple} bgColor="#FAF5FF" />
-          <StatPill value={stats.completed} label={t('providerHistory.filterDone')} color={C.success} bgColor="#ECFDF5" />
-        </View>
-      </Animated.View>
 
       {/* Filters — toggleable via FAB */}
       {filtersVisible && (
@@ -1042,9 +1046,19 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
         data={filteredRequests}
         keyExtractor={item => item._id}
         ListHeaderComponent={
-          (activeFilter !== 'all' || categoryFilter !== 'all' || datePreset !== 'all') ? (
-            <Text style={styles.resultCount}>{filteredRequests.length} {filteredRequests.length === 1 ? t('providerHistory.job') : t('providerHistory.jobs')}</Text>
-          ) : null
+          <>
+            <View style={styles.statsBarInner}>
+              <View style={styles.statsRow}>
+                <StatPill value={stats.total} label={t('providerHistory.statTotal')} color={C.secondary} bgColor="#EFF6FF" />
+                <StatPill value={stats.pending} label={t('providerHistory.statNew')} color={C.primary} bgColor="#FFF7ED" />
+                <StatPill value={stats.active} label={t('providerHistory.filterActive')} color={C.purple} bgColor="#FAF5FF" />
+                <StatPill value={stats.completed} label={t('providerHistory.filterDone')} color={C.success} bgColor="#ECFDF5" />
+              </View>
+            </View>
+            {hasActiveFilters ? (
+              <Text style={styles.resultCount}>{filteredRequests.length} {filteredRequests.length === 1 ? t('providerHistory.job') : t('providerHistory.jobs')}</Text>
+            ) : null}
+          </>
         }
         renderItem={({ item }) => (
           <RequestCard
@@ -1064,7 +1078,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
         contentContainerStyle={[styles.listPad, { paddingBottom: insets.bottom + 40 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} />}
         showsVerticalScrollIndicator={false}
-        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
         scrollEventThrottle={8}
       />
 
@@ -1078,7 +1092,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
       <View style={[styles.filterBar, { bottom: Math.max(insets.bottom, 0) }]}>
         <TouchableOpacity
           style={[styles.filterBarPill, filtersVisible && styles.filterBarPillOn]}
-          onPress={() => setFiltersVisible(v => !v)}
+          onPress={() => setFiltersVisible(v => { const next = !v; AsyncStorage.setItem('provider_filters_visible', String(next)); return next; })}
           onLongPress={() => {
             if (hasActiveFilters) {
               Vibration.vibrate(Platform.OS === 'ios' ? 10 : [0, 50]);
@@ -1118,7 +1132,8 @@ const styles = StyleSheet.create({
   loaderText: { marginTop: 12, fontSize: 14, fontWeight: '500', color: C.textSec },
 
   // Stats
-  statsBar: { backgroundColor: C.white, paddingHorizontal: 14, paddingTop: 2, paddingBottom: 10, overflow: 'hidden' },
+  // statsBarOuter removed — stats are now inside FlatList ListHeaderComponent
+  statsBarInner: { paddingHorizontal: 14, paddingTop: 2, paddingBottom: 10 },
   statsRow: { flexDirection: 'row', gap: 6 },
   statPill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 8, borderRadius: 14, overflow: 'hidden', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3 },
   statSvgBg: { ...StyleSheet.absoluteFillObject },
@@ -1188,9 +1203,10 @@ const styles = StyleSheet.create({
   listPad: { padding: 14 },
 
   // Card
-  card: { backgroundColor: C.white, borderRadius: 20, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: C.border, shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 5 },
-  cardPending: { borderColor: C.primary + '50', borderWidth: 1.5, borderLeftWidth: 4, borderLeftColor: C.primary },
+  card: { backgroundColor: C.white, borderRadius: 20, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: C.border, shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 5, overflow: 'hidden' },
+  cardPending: { borderColor: C.primary + '35', borderWidth: 1.5 },
   cardCompact: { padding: 14, marginBottom: 10 },
+  cardSvgBg: { position: 'absolute', top: 0, left: 0, right: 0, height: 60 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   cardTopLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 },
   svcIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#FFF7ED', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
@@ -1238,8 +1254,8 @@ const styles = StyleSheet.create({
   // Pending: Map + Accept/Reject row
   pendingActionRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
   viewMapBtnCompact: { width: 42, alignItems: 'center', justifyContent: 'center', backgroundColor: C.secondary + '12', borderRadius: 10, borderWidth: 1, borderColor: C.secondary + '30' },
-  rejectBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FEE2E2', paddingVertical: 11, borderRadius: 10, gap: 5, borderWidth: 1, borderColor: C.danger + '40' },
-  rejectBtnText: { color: C.danger, fontSize: 14, fontWeight: '600' },
+  rejectBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', paddingVertical: 11, borderRadius: 12, gap: 5, borderWidth: 1.5, borderColor: '#E2E8F0' },
+  rejectBtnText: { color: '#64748B', fontSize: 13, fontWeight: '600' },
   acceptBtn: { flex: 1.3, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.primary, paddingVertical: 11, borderRadius: 10, gap: 5 },
   acceptBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   btnDisabled: { opacity: 0.5 },

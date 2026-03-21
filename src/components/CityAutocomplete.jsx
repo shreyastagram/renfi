@@ -11,17 +11,16 @@
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import {
-  View,
+import {  View,
   Text,
   TextInput,
   StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
   Keyboard,
   Platform,
-  ScrollView,
+  ScrollView
 } from 'react-native';
+import TouchableOpacity from './TouchableOpacity';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
 

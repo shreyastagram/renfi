@@ -10,17 +10,16 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
   TextInput,
-  AppState,
+  AppState
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Input, PhoneInput, Alert, FixhomiLogo } from '../components';
 import {

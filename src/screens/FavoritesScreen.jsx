@@ -14,11 +14,9 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
   Linking,
   RefreshControl,
@@ -30,8 +28,9 @@ import {
   StatusBar,
   Platform,
   Animated,
-  PanResponder,
+  PanResponder
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useApp } from '../context/AppContext';

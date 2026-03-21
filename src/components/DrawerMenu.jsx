@@ -9,12 +9,10 @@
  */
 
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
   Modal,
-  TouchableOpacity,
   TouchableWithoutFeedback,
   Animated,
   Dimensions,
@@ -23,8 +21,9 @@ import {
   ScrollView,
   Platform,
   Easing,
-  StatusBar,
+  StatusBar
 } from 'react-native';
+import TouchableOpacity from './TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';

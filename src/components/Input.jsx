@@ -8,13 +8,12 @@
  */
 
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  StyleSheet,
-  TouchableOpacity 
+import {  View,
+  Text,
+  TextInput,
+  StyleSheet
 } from 'react-native';
+import TouchableOpacity from './TouchableOpacity';
 
 /**
  * Input Component

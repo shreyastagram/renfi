@@ -9,11 +9,9 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ScrollView,
   FlatList,
   ActivityIndicator,
@@ -27,8 +25,9 @@ import {
   PanResponder,
   Dimensions,
   KeyboardAvoidingView,
-  StatusBar,
+  StatusBar
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useApp } from '../context/AppContext';

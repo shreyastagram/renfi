@@ -10,20 +10,19 @@
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
   Modal,
-  TouchableOpacity,
   Dimensions,
   ActivityIndicator,
   Platform,
   Animated,
   TextInput,
   FlatList,
-  Keyboard,
+  Keyboard
 } from 'react-native';
+import TouchableOpacity from './TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Mapbox from '@rnmapbox/maps';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';

@@ -11,11 +11,9 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   StatusBar,
   ScrollView,
   RefreshControl,
@@ -25,8 +23,9 @@ import {
   Image,
   Animated,
   Platform,
-  Linking,
+  Linking
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { useApp } from '../context/AppContext';
@@ -37,6 +36,7 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import Mapbox from '@rnmapbox/maps';
 import useExitConfirmation from '../hooks/useExitConfirmation';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
+import SvgArt from '../components/SvgArt';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 import { Icon } from '../components';
@@ -205,8 +205,7 @@ const HomeSkeletonLoader = ({ insets }) => {
       <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]} scrollEnabled={false}>
         {/* Hero Header skeleton */}
         <View style={[styles.heroHeader, { paddingTop: insets.top + 16 }]}>
-          <View style={[styles.decorCircle, styles.decorCircle1]} />
-          <View style={[styles.decorCircle, styles.decorCircle2]} />
+          <SvgArt color="rgba(255,255,255,1)" height={110} />
           <View style={styles.headerRow}>
             <ShimmerBlock width={40} height={40} borderRadius={20} shimmerAnim={shimmerAnim} style={{ backgroundColor: 'rgba(255,255,255,0.15)' }} />
             <ShimmerBlock width={40} height={40} borderRadius={20} shimmerAnim={shimmerAnim} style={{ backgroundColor: 'rgba(255,255,255,0.15)' }} />
@@ -646,22 +645,27 @@ const ProviderHomeScreen = ({ navigation }) => {
 
   // Refresh profile + stats + verification when screen comes into focus
   // Refresh on focus — but skip the very first focus (initial mount is handled by AppContext)
+  const lastRefreshRef = useRef(0);
   useEffect(() => {
     if (isFocused) {
       if (!initialLoadDone.current) {
         initialLoadDone.current = true;
+        lastRefreshRef.current = Date.now();
         // First mount: only fetch verification + stats (profile already fetched by AppContext)
         fetchStats();
         fetchVerificationData();
         return;
       }
-      // Subsequent focuses: user returned from another screen, refresh everything
+      // Subsequent focuses: only refresh if data is stale (>30s since last refresh)
+      const elapsed = Date.now() - lastRefreshRef.current;
+      if (elapsed < 30000) return;
+      lastRefreshRef.current = Date.now();
       const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
       if (providerId && userType === 'provider') {
         refreshProfile(userType, providerId);
       }
       fetchStats();
-      fetchVerificationData(true);
+      fetchVerificationData({ force: true });
     }
   }, [isFocused]);
 
@@ -670,6 +674,7 @@ const ProviderHomeScreen = ({ navigation }) => {
    */
   const onRefresh = async () => {
     setRefreshing(true);
+    lastRefreshRef.current = Date.now();
     const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
     await Promise.all([
       fetchStats(),
@@ -797,25 +802,18 @@ const ProviderHomeScreen = ({ navigation }) => {
 
   // Listen for socket events so provider's dashboard refreshes in real-time
   useEffect(() => {
-    // When a new request arrives, refresh stats so pending count updates
-    const removeNewReq = addEventListener('new:request', () => {
-      console.log('[ProviderHome] Socket: new:request -- refreshing stats');
+    const socketRefresh = (label) => {
+      console.log(`[ProviderHome] Socket: ${label} -- refreshing stats`);
+      lastRefreshRef.current = Date.now();
       fetchStats();
-    });
+    };
+    // When a new request arrives, refresh stats so pending count updates
+    const removeNewReq = addEventListener('new:request', () => socketRefresh('new:request'));
 
     // When a request is accepted/completed/cancelled, refresh stats
-    const removeAccepted = addEventListener('request:accepted', () => {
-      console.log('[ProviderHome] Socket: request:accepted -- refreshing stats');
-      fetchStats();
-    });
-    const removeCompleted = addEventListener('request:completed', () => {
-      console.log('[ProviderHome] Socket: request:completed -- refreshing stats');
-      fetchStats();
-    });
-    const removeCancelled = addEventListener('request:cancelled', () => {
-      console.log('[ProviderHome] Socket: request:cancelled -- refreshing stats');
-      fetchStats();
-    });
+    const removeAccepted = addEventListener('request:accepted', () => socketRefresh('request:accepted'));
+    const removeCompleted = addEventListener('request:completed', () => socketRefresh('request:completed'));
+    const removeCancelled = addEventListener('request:cancelled', () => socketRefresh('request:cancelled'));
 
     return () => {
       removeNewReq();
@@ -879,7 +877,7 @@ const ProviderHomeScreen = ({ navigation }) => {
   const firstName = displayData?.fullName?.split(' ')[0] || 'Provider';
 
   // Show skeleton loader until profile data is available
-  if (!profile || (isProfileLoading && !displayData?.fullName)) {
+  if (!user && !profile) {
     return <HomeSkeletonLoader insets={insets} />;
   }
 
@@ -895,10 +893,7 @@ const ProviderHomeScreen = ({ navigation }) => {
       >
         {/* Hero Header */}
         <View style={[styles.heroHeader, { paddingTop: insets.top + 16 }]}>
-          {/* Decorative circles */}
-          <View style={[styles.decorCircle, styles.decorCircle1]} />
-          <View style={[styles.decorCircle, styles.decorCircle2]} />
-          <View style={[styles.decorCircle, styles.decorCircle3]} />
+          <SvgArt color="rgba(255,255,255,1)" height={110} />
 
           <View style={styles.headerRow}>
             <TouchableOpacity onPress={() => setIsDrawerOpen(true)} activeOpacity={0.7} style={styles.headerLogoBtn}>

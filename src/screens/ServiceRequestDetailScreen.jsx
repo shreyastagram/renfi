@@ -12,12 +12,10 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
   Linking,
   RefreshControl,
@@ -28,14 +26,18 @@ import {
   Switch,
   AppState,
   Animated,
-  StatusBar,
+  StatusBar
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { Icon, ServiceIcon, StatusIcon, RatingModal, CancellationReasonModal } from '../components';
+import Svg, { Circle, Path } from 'react-native-svg';
+import SvgArt from '../components/SvgArt';
+import GraphBackground from '../components/GraphBackground';
 import ScreenShimmer, { useShimmerAnimation, ShimmerBlock } from '../components/ShimmerLoader';
 import { NODE_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
@@ -1316,9 +1318,11 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
 
   return (
     <View style={s.screenContainer}>
+      <GraphBackground />
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       {/* ─── Simple Fixed Header ────────────────────────────────── */}
-      <View style={[s.headerOuter, { paddingTop: insets.top + 8 }]}>
+      <View style={[s.headerOuter, { paddingTop: insets.top + 8, overflow: 'hidden' }]}>
+        <SvgArt color="#f67c16" height={70} />
         <View style={s.headerTopRow}>
           <TouchableOpacity style={s.headerBackBtn} onPress={() => navigation.goBack()}>
             <Icon name="back" size={20} color={BRAND.text} />
@@ -1358,10 +1362,19 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         {/* Accept / Reject (provider pending) */}
         {isProvider && ['pending', 'awaiting_confirmation'].includes(request.status) && (
           <View style={s.acceptRejectCard}>
+            {/* SVG accent art */}
+            <View style={s.acceptRejectSvgBg}>
+              <Svg width="100%" height="100%" viewBox="0 0 400 100" preserveAspectRatio="xMidYMid slice">
+                <Path d="M0 70 Q60 35 140 60 T280 45 T400 65" stroke={BRAND.primary} strokeWidth="1.2" fill="none" opacity={0.1} />
+                <Path d="M0 85 Q90 50 180 75 T360 55 T400 80" stroke={BRAND.primary} strokeWidth="0.8" fill="none" opacity={0.06} />
+                <Circle cx="360" cy="20" r="30" fill={BRAND.primary} opacity={0.04} />
+                <Circle cx="30" cy="15" r="18" fill={BRAND.primary} opacity={0.03} />
+              </Svg>
+            </View>
             <Text style={s.acceptRejectTitle}>{t('detail.respondToRequest')}</Text>
             <View style={s.acceptRejectRow}>
               <TouchableOpacity style={s.rejectBtn} onPress={handleRejectRequest} disabled={rejecting || accepting}>
-                {rejecting ? <ActivityIndicator size="small" color="#DC2626" /> : (<><Icon name="close" size={16} color="#DC2626" /><Text style={s.rejectBtnText}>{t('providerHistory.reject')}</Text></>)}
+                {rejecting ? <ActivityIndicator size="small" color="#64748B" /> : (<><Icon name="close" size={16} color="#94A3B8" /><Text style={s.rejectBtnText}>{t('providerHistory.reject')}</Text></>)}
               </TouchableOpacity>
               <TouchableOpacity style={s.acceptBtn} onPress={handleAcceptRequest} disabled={accepting || rejecting}>
                 {accepting ? <ActivityIndicator size="small" color="#FFFFFF" /> : (<><Icon name="check" size={16} color="#FFFFFF" /><Text style={s.acceptBtnText}>{t('providerHistory.accept')}</Text></>)}
@@ -1947,14 +1960,14 @@ const s = StyleSheet.create({
   iconCircle: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
 
   // Card base
-  card: { backgroundColor: BRAND.white, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: '#E8ECF1', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8 },
+  card: { backgroundColor: BRAND.white, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: '#E8ECF1', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8, overflow: 'hidden' },
 
   // Status Pill
   statusPill: { borderRadius: 14, paddingVertical: 10, paddingHorizontal: 16, marginBottom: 14 },
   statusPillText: { fontSize: 13, fontWeight: '600', textAlign: 'center' },
 
   // Timeline
-  timelineContainer: { backgroundColor: BRAND.white, borderRadius: 20, padding: 20, marginBottom: 12, borderWidth: 1, borderColor: '#E8ECF1', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8 },
+  timelineContainer: { backgroundColor: BRAND.white, borderRadius: 20, padding: 20, marginBottom: 12, borderWidth: 1, borderColor: '#E8ECF1', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8, overflow: 'hidden' },
   timelineCancelledPill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#FEF2F2', borderRadius: 16, paddingVertical: 12, paddingHorizontal: 20, borderWidth: 1, borderColor: '#FECACA' },
   timelineCancelledIcon: { width: 22, height: 22, borderRadius: 11, backgroundColor: BRAND.danger, justifyContent: 'center', alignItems: 'center' },
   timelineCancelledText: { fontSize: 13, color: '#B91C1C', fontWeight: '600', letterSpacing: 0.1 },
@@ -2074,11 +2087,12 @@ const s = StyleSheet.create({
   providerOtpBtnTextDisabled: { color: '#94A3B8' },
 
   // Accept/Reject
-  acceptRejectCard: { backgroundColor: BRAND.white, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 2, borderColor: BRAND.primary + '30', shadowColor: BRAND.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 8 },
+  acceptRejectCard: { backgroundColor: BRAND.white, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1.5, borderColor: BRAND.primary + '25', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8, overflow: 'hidden' },
+  acceptRejectSvgBg: { position: 'absolute', top: 0, left: 0, right: 0, height: 100 },
   acceptRejectTitle: { fontSize: 14, fontWeight: '700', color: BRAND.primary, marginBottom: 12, textAlign: 'center' },
   acceptRejectRow: { flexDirection: 'row', gap: 10 },
-  rejectBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FEF2F2', borderRadius: 14, paddingVertical: 13, borderWidth: 1, borderColor: '#FECACA' },
-  rejectBtnText: { fontSize: 15, fontWeight: '700', color: '#DC2626' },
+  rejectBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: 'transparent', borderRadius: 14, paddingVertical: 13, borderWidth: 1.5, borderColor: '#E2E8F0' },
+  rejectBtnText: { fontSize: 15, fontWeight: '600', color: '#64748B' },
   acceptBtn: { flex: 1.3, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: BRAND.primary, borderRadius: 14, paddingVertical: 13, shadowColor: BRAND.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
   acceptBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
 

@@ -218,22 +218,30 @@ const LocationMap = forwardRef(({
    */
   useImperativeHandle(ref, () => ({
     animateToLocation: (location, duration = 500) => {
-      if (cameraRef.current && location) {
-        cameraRef.current.setCamera({
-          centerCoordinate: [location.longitude, location.latitude],
-          zoomLevel: DEFAULT_ZOOM,
-          animationDuration: duration,
-        });
+      try {
+        if (cameraRef.current && location) {
+          cameraRef.current.setCamera({
+            centerCoordinate: [location.longitude, location.latitude],
+            zoomLevel: DEFAULT_ZOOM,
+            animationDuration: duration,
+          });
+        }
+      } catch (e) {
+        // Mapbox native view may be recycled — safe to ignore
       }
     },
     animateToUserLocation: (loc) => {
-      const target = loc || userLocation;
-      if (cameraRef.current && target) {
-        cameraRef.current.setCamera({
-          centerCoordinate: [target.longitude, target.latitude],
-          zoomLevel: DEFAULT_ZOOM,
-          animationDuration: 500,
-        });
+      try {
+        const target = loc || userLocation;
+        if (cameraRef.current && target) {
+          cameraRef.current.setCamera({
+            centerCoordinate: [target.longitude, target.latitude],
+            zoomLevel: DEFAULT_ZOOM,
+            animationDuration: 500,
+          });
+        }
+      } catch (e) {
+        // Mapbox native view may be recycled — safe to ignore
       }
     },
     getCurrentLocation: () => userLocation,

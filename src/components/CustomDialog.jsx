@@ -7,16 +7,15 @@
  */
 
 import React, { useRef, useEffect } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Modal,
   Animated,
   Dimensions,
-  Platform,
+  Platform
 } from 'react-native';
+import TouchableOpacity from './TouchableOpacity';
 import { BlurView } from '@react-native-community/blur';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');

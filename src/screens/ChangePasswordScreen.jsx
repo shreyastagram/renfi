@@ -13,17 +13,16 @@
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
   ActivityIndicator,
-  TextInput,
+  TextInput
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Input, Alert } from '../components';
 import { 

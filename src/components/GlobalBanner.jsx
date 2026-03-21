@@ -1,33 +1,25 @@
 /**
  * GlobalBanner Component
- * 
- * A centralized, app-wide notification banner (Uber/Ola style)
- * that displays FCM foreground notifications on ANY screen for
- * both user and provider roles.
- * 
- * Handles all notification types:
- * - NEW_JOB_REQUEST (provider)
- * - REQUEST_ACCEPTED (user)
- * - REQUEST_REJECTED (user)
- * - REQUEST_CANCELLED (user/provider)
- * - REQUEST_COMPLETED (user)
- * - PROVIDER_ARRIVED (user)
- * 
- * @version 1.0.0
+ *
+ * App-wide notification banner (Uber/Ola style) for FCM foreground
+ * notifications on ANY screen. Frosted glass design.
+ *
+ * @version 2.0.0
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Animated,
   Vibration,
   Platform,
   Linking,
   Image,
+  Dimensions
 } from 'react-native';
+import TouchableOpacity from './TouchableOpacity';
+import { BlurView } from '@react-native-community/blur';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -36,6 +28,8 @@ import { useApp } from '../context/AppContext';
 import { setupForegroundMessageListener } from '../services/fcmService';
 import { addEventListener } from '../services/socketService';
 import { playNotificationSound } from '../utils/notificationSound';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Brand colors
 const BRAND = {
@@ -47,42 +41,39 @@ const BRAND = {
 // Banner type configuration
 const BANNER_CONFIG = {
   new_request: {
-    bgColor: '#1a1a2e',
-    iconColor: BRAND.primary,
+    accentColor: BRAND.primary,
     iconName: 'inbox',
     autoDismissMs: 30000,
   },
   accepted: {
-    bgColor: '#0d3320',
-    iconColor: '#10B981',
+    accentColor: '#10B981',
     iconName: 'check_circle',
     autoDismissMs: 8000,
   },
   rejected: {
-    bgColor: '#3d0d0d',
-    iconColor: '#EF4444',
+    accentColor: '#EF4444',
     iconName: 'cancelled',
     autoDismissMs: 8000,
   },
   cancelled: {
-    bgColor: '#2d1a0d',
-    iconColor: '#F59E0B',
+    accentColor: '#F59E0B',
     iconName: 'cancelled',
     autoDismissMs: 8000,
   },
   completed: {
-    bgColor: '#0d2a3d',
-    iconColor: '#3B82F6',
+    accentColor: BRAND.secondary,
     iconName: 'check_circle',
     autoDismissMs: 8000,
   },
   arrived: {
-    bgColor: '#0d3320',
-    iconColor: '#10B981',
+    accentColor: '#10B981',
     iconName: 'location',
     autoDismissMs: 8000,
   },
 };
+
+// Off-screen position — percentage based so works on all screen sizes
+const OFFSCREEN_Y = -(SCREEN_HEIGHT * 0.5);
 
 /**
  * GlobalBanner — mounts once at app level, listens to FCM foreground
@@ -94,16 +85,12 @@ const GlobalBanner = () => {
   const { userType } = useApp();
 
   const [bannerData, setBannerData] = useState(null);
-  const bannerAnim = useRef(new Animated.Value(-300)).current;
+  const bannerAnim = useRef(new Animated.Value(OFFSCREEN_Y)).current;
   const bannerTimer = useRef(null);
-  // Dedup: prevent showing same notification from both FCM and Socket
   const lastBannerRef = useRef({ key: '', ts: 0 });
 
   const isProvider = userType === 'provider';
 
-  /**
-   * Check if push notifications are enabled in user preferences
-   */
   const isPushEnabledRef = useRef(true);
 
   useEffect(() => {
@@ -114,34 +101,22 @@ const GlobalBanner = () => {
           const parsed = JSON.parse(saved);
           isPushEnabledRef.current = parsed.pushEnabled !== false;
         }
-      } catch (e) {
-        // Default to enabled
-      }
+      } catch (e) {}
     };
     loadPushPref();
-    // Re-check when component re-renders (userType change etc.)
     const interval = setInterval(loadPushPref, 5000);
     return () => clearInterval(interval);
   }, []);
 
-  /**
-   * Show the banner with slide-in animation
-   */
   const showBanner = useCallback((data) => {
-    // Respect user's push notification preference
-    if (!isPushEnabledRef.current) {
-      console.log('[GlobalBanner] Push notifications disabled — suppressing banner');
-      return;
-    }
+    if (!isPushEnabledRef.current) return;
 
-    // Vibrate to alert — iOS only supports simple vibration
     if (Platform.OS === 'ios') {
       Vibration.vibrate(400);
     } else {
       Vibration.vibrate([0, 400, 200, 400]);
     }
 
-    // Play notification sound (respects user preference)
     playNotificationSound({
       title: data.title || 'Fixhomi',
       body: data.body || '',
@@ -149,7 +124,6 @@ const GlobalBanner = () => {
 
     setBannerData(data);
 
-    // Slide in
     Animated.spring(bannerAnim, {
       toValue: 0,
       useNativeDriver: true,
@@ -157,7 +131,6 @@ const GlobalBanner = () => {
       friction: 10,
     }).start();
 
-    // Auto-dismiss
     const config = BANNER_CONFIG[data.bannerType] || BANNER_CONFIG.new_request;
     if (bannerTimer.current) clearTimeout(bannerTimer.current);
     bannerTimer.current = setTimeout(() => {
@@ -165,12 +138,9 @@ const GlobalBanner = () => {
     }, config.autoDismissMs);
   }, [bannerAnim]);
 
-  /**
-   * Dismiss the banner with slide-out animation
-   */
   const dismissBanner = useCallback(() => {
     Animated.timing(bannerAnim, {
-      toValue: -300,
+      toValue: OFFSCREEN_Y,
       duration: 300,
       useNativeDriver: true,
     }).start(() => {
@@ -182,81 +152,34 @@ const GlobalBanner = () => {
     }
   }, [bannerAnim]);
 
-  /**
-   * Show banner with deduplication — prevents showing the same event
-   * from both FCM and Socket within 3 seconds
-   */
   const showBannerDeduped = useCallback((data) => {
     const dedupKey = `${data.requestId || data.serviceRequestId || ''}_${data.bannerType}`;
     const now = Date.now();
     if (dedupKey && dedupKey === lastBannerRef.current.key && now - lastBannerRef.current.ts < 3000) {
-      console.log('[GlobalBanner] Dedup: skipping duplicate banner', dedupKey);
       return;
     }
     lastBannerRef.current = { key: dedupKey, ts: now };
     showBanner(data);
   }, [showBanner]);
 
-  /**
-   * FCM Foreground Listener — single, global listener
-   */
+  // FCM Foreground Listener
   useEffect(() => {
     const unsubscribe = setupForegroundMessageListener((remoteMessage) => {
       const msgType = remoteMessage?.data?.type;
       const data = remoteMessage?.data || {};
-      console.log('[GlobalBanner] FCM foreground:', msgType, data);
 
-      // ---- Provider-facing notifications ----
       if (msgType === 'new_request' || msgType === 'NEW_SERVICE_REQUEST' || msgType === 'NEW_JOB_REQUEST') {
-        showBannerDeduped({
-          ...data,
-          title: remoteMessage?.notification?.title || '🔔 New Service Request!',
-          body: remoteMessage?.notification?.body || 'You have a new service request!',
-          bannerType: 'new_request',
-        });
-      }
-      // ---- User-facing notifications ----
-      else if (msgType === 'REQUEST_ACCEPTED' || msgType === 'PROVIDER_ACCEPTED' || msgType === 'request_accepted' || msgType === 'BOOKING_ACCEPTED') {
-        showBannerDeduped({
-          ...data,
-          title: remoteMessage?.notification?.title || '✅ Request Accepted!',
-          body: remoteMessage?.notification?.body || 'A provider has accepted your request!',
-          bannerType: 'accepted',
-        });
-      }
-      else if (msgType === 'REQUEST_REJECTED' || msgType === 'BOOKING_REJECTED' || msgType === 'EMERGENCY_REJECTED' || msgType === 'PROVIDER_REJECTED') {
-        showBannerDeduped({
-          ...data,
-          title: remoteMessage?.notification?.title || '❌ Request Rejected',
-          body: remoteMessage?.notification?.body || 'The provider has declined your request.',
-          bannerType: 'rejected',
-        });
-      }
-      else if (msgType === 'REQUEST_CANCELLED' || msgType === 'BOOKING_CANCELLED') {
-        showBannerDeduped({
-          ...data,
-          title: '⚠️ Request Cancelled',
-          body: remoteMessage?.notification?.body || (isProvider
-            ? 'A customer has cancelled their request.'
-            : 'Your request has been cancelled.'),
-          bannerType: 'cancelled',
-        });
-      }
-      else if (msgType === 'REQUEST_COMPLETED' || msgType === 'SERVICE_COMPLETED' || msgType === 'request_completed') {
-        showBannerDeduped({
-          ...data,
-          title: '🎉 Service Completed!',
-          body: remoteMessage?.notification?.body || 'The service has been completed.',
-          bannerType: 'completed',
-        });
-      }
-      else if (msgType === 'PROVIDER_ARRIVED' || msgType === 'provider_arrived') {
-        showBannerDeduped({
-          ...data,
-          title: '📍 Provider Arrived',
-          body: remoteMessage?.notification?.body || 'Your provider has arrived at the location.',
-          bannerType: 'arrived',
-        });
+        showBannerDeduped({ ...data, title: remoteMessage?.notification?.title || '🔔 New Service Request!', body: remoteMessage?.notification?.body || 'You have a new service request!', bannerType: 'new_request' });
+      } else if (msgType === 'REQUEST_ACCEPTED' || msgType === 'PROVIDER_ACCEPTED' || msgType === 'request_accepted' || msgType === 'BOOKING_ACCEPTED') {
+        showBannerDeduped({ ...data, title: remoteMessage?.notification?.title || '✅ Request Accepted!', body: remoteMessage?.notification?.body || 'A provider has accepted your request!', bannerType: 'accepted' });
+      } else if (msgType === 'REQUEST_REJECTED' || msgType === 'BOOKING_REJECTED' || msgType === 'EMERGENCY_REJECTED' || msgType === 'PROVIDER_REJECTED') {
+        showBannerDeduped({ ...data, title: remoteMessage?.notification?.title || '❌ Request Rejected', body: remoteMessage?.notification?.body || 'The provider has declined your request.', bannerType: 'rejected' });
+      } else if (msgType === 'REQUEST_CANCELLED' || msgType === 'BOOKING_CANCELLED') {
+        showBannerDeduped({ ...data, title: '⚠️ Request Cancelled', body: remoteMessage?.notification?.body || (isProvider ? 'A customer has cancelled their request.' : 'Your request has been cancelled.'), bannerType: 'cancelled' });
+      } else if (msgType === 'REQUEST_COMPLETED' || msgType === 'SERVICE_COMPLETED' || msgType === 'request_completed') {
+        showBannerDeduped({ ...data, title: '🎉 Service Completed!', body: remoteMessage?.notification?.body || 'The service has been completed.', bannerType: 'completed' });
+      } else if (msgType === 'PROVIDER_ARRIVED' || msgType === 'provider_arrived') {
+        showBannerDeduped({ ...data, title: '📍 Provider Arrived', body: remoteMessage?.notification?.body || 'Your provider has arrived at the location.', bannerType: 'arrived' });
       }
     });
 
@@ -266,104 +189,35 @@ const GlobalBanner = () => {
     };
   }, [isProvider, showBannerDeduped]);
 
-  /**
-   * Socket Event Listeners — real-time events via Socket.IO
-   * These fire instantly (before FCM push arrives), giving true
-   * real-time banners on any screen. Dedup prevents double-showing
-   * when FCM arrives 1-2s later.
-   */
+  // Socket Event Listeners
   useEffect(() => {
-    // new:request — provider receives a new service request
     const removeNewRequest = addEventListener('new:request', (data) => {
-      console.log('[GlobalBanner] Socket: new:request', data);
-      showBannerDeduped({
-        ...data,
-        title: '🔔 New Service Request!',
-        body: `New ${data.serviceType || 'service'} request received`,
-        bannerType: 'new_request',
-      });
+      showBannerDeduped({ ...data, title: '🔔 New Service Request!', body: `New ${data.serviceType || 'service'} request received`, bannerType: 'new_request' });
     });
 
-    // request:accepted — user/provider sees acceptance
     const removeAccepted = addEventListener('request:accepted', (data) => {
-      console.log('[GlobalBanner] Socket: request:accepted', data);
-      showBannerDeduped({
-        ...data,
-        title: '✅ Request Accepted!',
-        body: isProvider
-          ? 'You have accepted this request.'
-          : `${data.providerName || 'A provider'} has accepted your request!`,
-        bannerType: 'accepted',
-      });
+      showBannerDeduped({ ...data, title: '✅ Request Accepted!', body: isProvider ? 'You have accepted this request.' : `${data.providerName || 'A provider'} has accepted your request!`, bannerType: 'accepted' });
     });
 
-    // request:completed — both sides see completion
     const removeCompleted = addEventListener('request:completed', (data) => {
-      console.log('[GlobalBanner] Socket: request:completed', data);
-      showBannerDeduped({
-        ...data,
-        title: '🎉 Service Completed!',
-        body: 'The service has been completed successfully.',
-        bannerType: 'completed',
-      });
+      showBannerDeduped({ ...data, title: '🎉 Service Completed!', body: 'The service has been completed successfully.', bannerType: 'completed' });
     });
 
-    // request:cancelled — only show banner if the OTHER party cancelled
-    // If user cancelled their own request, they already see the Alert confirmation
-    // If provider cancelled their own, they already know — no redundant banner
     const removeCancelled = addEventListener('request:cancelled', (data) => {
-      console.log('[GlobalBanner] Socket: request:cancelled', data);
-
-      // Skip banner if this user initiated the cancel (they already see Alert)
-      const selfCancelled =
-        (!isProvider && data.cancelledBy === 'user') ||
-        (isProvider && data.cancelledBy === 'provider');
-
-      if (selfCancelled) {
-        console.log('[GlobalBanner] Skipping cancel banner — self-initiated cancellation');
-        return;
-      }
-
-      showBannerDeduped({
-        ...data,
-        title: '⚠️ Request Cancelled',
-        body: data.cancelledBy === 'user'
-          ? 'The customer has cancelled their request.'
-          : data.cancelledBy === 'provider'
-            ? 'The provider has cancelled the request.'
-            : 'The request has been cancelled.',
-        bannerType: 'cancelled',
-      });
+      const selfCancelled = (!isProvider && data.cancelledBy === 'user') || (isProvider && data.cancelledBy === 'provider');
+      if (selfCancelled) return;
+      showBannerDeduped({ ...data, title: '⚠️ Request Cancelled', body: data.cancelledBy === 'user' ? 'The customer has cancelled their request.' : data.cancelledBy === 'provider' ? 'The provider has cancelled the request.' : 'The request has been cancelled.', bannerType: 'cancelled' });
     });
 
-    // request:status — generic status update fallback
     const removeStatus = addEventListener('request:status', (data) => {
-      console.log('[GlobalBanner] Socket: request:status', data);
-      const statusMap = {
-        accepted: 'accepted',
-        completed: 'completed',
-        cancelled: 'cancelled',
-        rejected: 'rejected',
-      };
+      const statusMap = { accepted: 'accepted', completed: 'completed', cancelled: 'cancelled', rejected: 'rejected' };
       const bannerType = statusMap[data.status] || 'new_request';
-      showBannerDeduped({
-        ...data,
-        title: `📊 Request ${(data.status || 'updated').charAt(0).toUpperCase() + (data.status || 'updated').slice(1)}`,
-        body: `Your request status has been updated to ${data.status || 'unknown'}.`,
-        bannerType,
-      });
+      showBannerDeduped({ ...data, title: `📊 Request ${(data.status || 'updated').charAt(0).toUpperCase() + (data.status || 'updated').slice(1)}`, body: `Your request status has been updated to ${data.status || 'unknown'}.`, bannerType });
     });
 
-    return () => {
-      removeNewRequest();
-      removeAccepted();
-      removeCompleted();
-      removeCancelled();
-      removeStatus();
-    };
+    return () => { removeNewRequest(); removeAccepted(); removeCompleted(); removeCancelled(); removeStatus(); };
   }, [isProvider, showBannerDeduped]);
 
-  // Nothing to render
   if (!bannerData) return null;
 
   const config = BANNER_CONFIG[bannerData.bannerType] || BANNER_CONFIG.new_request;
@@ -377,51 +231,51 @@ const GlobalBanner = () => {
         styles.container,
         {
           transform: [{ translateY: bannerAnim }],
-          paddingTop: insets.top + 8,
-          backgroundColor: config.bgColor,
+          paddingTop: insets.top + 10,
         },
       ]}
     >
+      {/* Frosted glass background */}
+      <BlurView
+        style={[StyleSheet.absoluteFill, styles.blurFill]}
+        blurType={Platform.OS === 'ios' ? 'chromeMaterialDark' : 'dark'}
+        blurAmount={Platform.OS === 'ios' ? 30 : 25}
+        reducedTransparencyFallbackColor="rgba(15,23,42,0.95)"
+      />
+
+      {/* Accent top stripe */}
+      <View style={[styles.accentStripe, { backgroundColor: config.accentColor }]} />
+
       <View style={styles.pill} />
 
       {/* Header */}
       <View style={styles.header}>
-        <View style={[styles.pulse, { backgroundColor: config.iconColor }]}>
-          <Icon name={config.iconName} size={20} color="#fff" />
+        <View style={[styles.iconWrap, { backgroundColor: config.accentColor + '22' }]}>
+          <Icon name={config.iconName} size={20} color={config.accentColor} />
         </View>
         <View style={styles.headerText}>
-          <Text style={styles.title}>
-            {bannerData.title || '🔔 Notification'}
-          </Text>
-          <Text style={styles.subtitle} numberOfLines={2}>
-            {bannerData.body || ''}
-          </Text>
+          <Text style={styles.title}>{bannerData.title || '🔔 Notification'}</Text>
+          <Text style={styles.subtitle} numberOfLines={2}>{bannerData.body || ''}</Text>
         </View>
-        <TouchableOpacity onPress={dismissBanner} style={styles.closeBtn}>
-          <Icon name="close" size={20} color="#fff" />
+        <TouchableOpacity onPress={dismissBanner} style={styles.closeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Icon name="close" size={18} color="rgba(255,255,255,0.45)" />
         </TouchableOpacity>
       </View>
 
-      {/* Person Info (customer for providers, provider for users) */}
+      {/* Person Info */}
       {(personName || personPicture) && (
         <View style={styles.personRow}>
           {personPicture ? (
             <Image source={{ uri: personPicture }} style={styles.avatar} />
           ) : (
             <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarText}>
-                {(personName || '?').charAt(0).toUpperCase()}
-              </Text>
+              <Text style={styles.avatarText}>{(personName || '?').charAt(0).toUpperCase()}</Text>
             </View>
           )}
           <View style={styles.personDetails}>
             <Text style={styles.personName} numberOfLines={1}>{personName}</Text>
-            {personPhone ? (
-              <Text style={styles.personPhone}>{personPhone}</Text>
-            ) : null}
+            {personPhone ? <Text style={styles.personPhone}>{personPhone}</Text> : null}
           </View>
-
-          {/* Distance badge (new request) */}
           {bannerData.distance ? (
             <View style={styles.distanceBadge}>
               <Icon name="location" size={12} color="#fff" />
@@ -437,18 +291,13 @@ const GlobalBanner = () => {
 
       {/* Action buttons */}
       <View style={styles.actions}>
-        {/* Call */}
         {personPhone ? (
-          <TouchableOpacity
-            style={styles.callBtn}
-            onPress={() => Linking.openURL(`tel:${personPhone.replace(/\s/g, '')}`).catch(() => {})}
-          >
+          <TouchableOpacity style={styles.callBtn} onPress={() => Linking.openURL(`tel:${personPhone.replace(/\s/g, '')}`).catch(() => {})}>
             <Icon name="phone" size={16} color="#10B981" />
             <Text style={styles.callText}>Call</Text>
           </TouchableOpacity>
         ) : null}
 
-        {/* Directions (new request with location) */}
         {(bannerData.latitude || bannerData.lat) ? (
           <TouchableOpacity
             style={styles.directionsBtn}
@@ -469,26 +318,21 @@ const GlobalBanner = () => {
           </TouchableOpacity>
         ) : null}
 
-        {/* View Details */}
         <TouchableOpacity
           style={styles.viewBtn}
           onPress={() => {
             dismissBanner();
             const requestId = bannerData.requestId || bannerData.serviceRequestId;
             if (requestId) {
-              // Detect service category from FCM data
               const svcType = bannerData.serviceType || '';
               const EVENT_TYPES = ['photographer', 'influencer'];
               const EMERGENCY_TYPES = ['snake_catcher', 'private_ambulance', 'mortuary_van', 'fire_brigade', 'police', 'hospital'];
-              const isEvent = EVENT_TYPES.includes(svcType);
-              const isEmergency = EMERGENCY_TYPES.includes(svcType);
-
               navigation.navigate('ServiceRequestDetail', {
                 requestId,
                 fromNotification: true,
                 serviceType: svcType || undefined,
-                isEventService: isEvent || undefined,
-                isEmergencyService: isEmergency || undefined,
+                isEventService: EVENT_TYPES.includes(svcType) || undefined,
+                isEmergencyService: EMERGENCY_TYPES.includes(svcType) || undefined,
                 serviceName: bannerData.serviceName || undefined,
               });
             }
@@ -509,49 +353,52 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 18,
     zIndex: 9999,
+    overflow: 'hidden',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
     ...Platform.select({
       ios: {
-        // iOS: inset card floating below notch with rounded corners all around
-        marginHorizontal: 8,
-        marginTop: 4,
-        borderRadius: 22,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 16,
-      },
-      android: {
-        // Android: full-width top sheet
-        borderBottomLeftRadius: 24,
-        borderBottomRightRadius: 24,
-        elevation: 30,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.35,
-        shadowRadius: 14,
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 24,
       },
     }),
   },
+  blurFill: {
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  accentStripe: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+  },
   pill: {
-    width: 40,
+    width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignSelf: 'center',
     marginBottom: 12,
-    marginTop: 8,
+    marginTop: 6,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 14,
   },
-  pulse: {
+  iconWrap: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -572,11 +419,10 @@ const styles = StyleSheet.create({
   closeBtn: {
     padding: 8,
   },
-  // Person row
   personRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 14,
     padding: 12,
     marginBottom: 12,
@@ -629,7 +475,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
   },
-  // Actions
   actions: {
     flexDirection: 'row',
     gap: 8,
@@ -637,13 +482,13 @@ const styles = StyleSheet.create({
   callBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16,185,129,0.2)',
+    backgroundColor: 'rgba(16,185,129,0.15)',
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
     gap: 6,
     borderWidth: 1,
-    borderColor: 'rgba(16,185,129,0.4)',
+    borderColor: 'rgba(16,185,129,0.3)',
   },
   callText: {
     fontSize: 13,
@@ -653,13 +498,13 @@ const styles = StyleSheet.create({
   directionsBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(59,130,246,0.2)',
+    backgroundColor: 'rgba(59,130,246,0.15)',
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
     gap: 6,
     borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.4)',
+    borderColor: 'rgba(59,130,246,0.3)',
   },
   directionsText: {
     fontSize: 13,

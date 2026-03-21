@@ -1540,6 +1540,15 @@ export default {
     signOutAllOther: 'Sign Out All Other Devices',
     noActiveSessions: 'No active sessions found. This could be because session tracking is not yet enabled on the server.',
     signOutThisDevice: 'Sign Out from This Device',
+    signOutThisDeviceMsg: 'You will be logged out of this device.',
+    notTrusted: 'Not Trusted',
+    removeTrust: 'Remove',
+    securityActions: 'Security',
+    changePasswordSub: 'Update your login credentials',
+    refreshToken: 'Refresh Auth Token',
+    refreshTokenSub: 'Force refresh your session token',
+    tokenStatus: 'Token Status',
+    sessionTrackingHint: 'Session tracking will be available in a future update',
   },
 
   // ─── Change Password ──────────────────────────────────

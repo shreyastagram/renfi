@@ -8,15 +8,14 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
-  RefreshControl,
+  RefreshControl
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../components';
 import { useApp } from '../context/AppContext';

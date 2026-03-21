@@ -13,7 +13,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Platform, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Platform, Dimensions, Pressable, Image } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -124,7 +124,7 @@ export const linking = {
  */
 const VERIFIED_BLUE = '#2b76bc';
 
-const TabIcon = ({ focused, iconFamily, iconName, focusedIconName, label }) => {
+const TabIcon = ({ focused, iconFamily, iconName, focusedIconName, label, profilePicture }) => {
   const activeColor = VERIFIED_BLUE;
   const inactiveColor = BRAND.gray;
   const color = focused ? activeColor : inactiveColor;
@@ -132,6 +132,17 @@ const TabIcon = ({ focused, iconFamily, iconName, focusedIconName, label }) => {
   const iconSize = 24;
 
   const renderIcon = () => {
+    // Profile picture avatar for Profile tab
+    if (profilePicture) {
+      const uri = typeof profilePicture === 'string' ? profilePicture : profilePicture?.url;
+      if (uri) {
+        return (
+          <View style={[styles.tabAvatar, focused && styles.tabAvatarFocused]}>
+            <Image source={{ uri }} style={styles.tabAvatarImg} />
+          </View>
+        );
+      }
+    }
     switch (iconFamily) {
       case 'MaterialCommunityIcons':
         return <MaterialCommunityIcons name={currentIcon} size={iconSize} color={color} />;
@@ -209,7 +220,9 @@ const getTabBarStyle = (insets) => {
  */
 const UserTabNavigator = () => {
   const insets = useSafeAreaInsets();
-  
+  const { user, profile } = useApp();
+  const profilePicture = profile?.profilePicture || user?.profilePicture;
+
   return (
     <Tab.Navigator
       initialRouteName="HomeTab"
@@ -218,8 +231,12 @@ const UserTabNavigator = () => {
         headerShown: false,
         tabBarShowLabel: false,
         tabBarStyle: getTabBarStyle(insets),
-
         tabBarHideOnKeyboard: true,
+        freezeOnBlur: true,
+        animation: 'none',
+        tabBarButton: (props) => (
+          <Pressable {...props} android_ripple={null} />
+        ),
       }}
     >
       <Tab.Screen
@@ -278,6 +295,7 @@ const UserTabNavigator = () => {
               iconName="account-circle-outline"
               focusedIconName="account-circle"
               label="Profile"
+              profilePicture={profilePicture}
             />
           ),
         }}
@@ -292,7 +310,9 @@ const UserTabNavigator = () => {
  */
 const ProviderTabNavigator = () => {
   const insets = useSafeAreaInsets();
-  
+  const { user, profile } = useApp();
+  const profilePicture = profile?.profilePicture || user?.profilePicture;
+
   return (
     <Tab.Navigator
       initialRouteName="HomeTab"
@@ -301,8 +321,12 @@ const ProviderTabNavigator = () => {
         headerShown: false,
         tabBarShowLabel: false,
         tabBarStyle: getTabBarStyle(insets),
-
         tabBarHideOnKeyboard: true,
+        freezeOnBlur: true,
+        animation: 'none',
+        tabBarButton: (props) => (
+          <Pressable {...props} android_ripple={null} />
+        ),
       }}
     >
       <Tab.Screen
@@ -361,6 +385,7 @@ const ProviderTabNavigator = () => {
               iconName="account-circle-outline"
               focusedIconName="account-circle"
               label="Profile"
+              profilePicture={profilePicture}
             />
           ),
         }}
@@ -648,6 +673,23 @@ const styles = StyleSheet.create({
   },
   tabLabelActive: {
     fontWeight: '600',
+  },
+  tabAvatar: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1.5,
+    borderColor: BRAND.gray,
+    overflow: 'hidden',
+  },
+  tabAvatarFocused: {
+    borderColor: VERIFIED_BLUE,
+    borderWidth: 2,
+  },
+  tabAvatarImg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 13,
   },
 });
 

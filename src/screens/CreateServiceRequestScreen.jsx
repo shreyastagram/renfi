@@ -16,11 +16,9 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ScrollView,
   ActivityIndicator,
   Platform,
@@ -28,8 +26,9 @@ import {
   FlatList,
   RefreshControl,
   Linking,
-  StatusBar,
+  StatusBar
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import Geolocation from '@react-native-community/geolocation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';

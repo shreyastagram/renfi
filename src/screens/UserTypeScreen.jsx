@@ -8,14 +8,13 @@
  */
 
 import React from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Modal,
-  Pressable,
+  Pressable
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { FixhomiLogo } from '../components';

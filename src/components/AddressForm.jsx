@@ -10,19 +10,18 @@
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   TextInput,
   ScrollView,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   PermissionsAndroid,
-  Linking,
+  Linking
 } from 'react-native';
+import TouchableOpacity from './TouchableOpacity';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useDialog } from '../context/DialogContext';
 import Geolocation from '@react-native-community/geolocation';

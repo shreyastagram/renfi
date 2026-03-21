@@ -14,11 +14,9 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   StatusBar,
   Dimensions,
   FlatList,
@@ -30,8 +28,9 @@ import {
   Platform,
   PermissionsAndroid,
   Modal,
-  Image,
+  Image
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import RazorpayCheckout from 'react-native-razorpay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -43,6 +42,7 @@ import EmergencyIcon from '../assets/serviceIcons/EmergencyIcon';
 import EventsIcon from '../assets/serviceIcons/EventsIcon';
 import { LocationMap, Icon, ServiceIcon, DateTimePicker, LocationPicker, ProviderDetailsModal, FixhomiLogo, CancellationReasonModal } from '../components';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
+import SvgArt from '../components/SvgArt';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 import { useApp } from '../context/AppContext';
@@ -174,6 +174,9 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
     activeOpacity={0.85}
     disabled={skipping}
   >
+    {/* Decorative bg circles */}
+    <View style={styles.providerDecor1} />
+    <View style={styles.providerDecor2} />
     <View style={styles.providerInfo}>
       {/* Profile Picture or Avatar */}
       {provider.profilePicture?.url ? (
@@ -247,7 +250,7 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
         {calling ? (
           <ActivityIndicator size="small" color="#FFFFFF" />
         ) : (
-          <Icon name="phone" size={22} color="#FFFFFF" />
+          <Icon name="phone" size={20} color="#FFFFFF" />
         )}
       </TouchableOpacity>
       <TouchableOpacity
@@ -260,7 +263,7 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
         accessibilityLabel={`Book ${provider.name}`}
         accessibilityRole="button"
       >
-        {booking ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.bookButtonText}>{t('userHome.bookButton')}</Text>}
+        {booking ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.bookButtonText}>{t('userHome.bookButton')}</Text>}
       </TouchableOpacity>
       {/* Skip / Remove Provider Button */}
       <TouchableOpacity
@@ -277,7 +280,7 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
         {skipping ? (
           <ActivityIndicator size="small" color="#EF4444" />
         ) : (
-          <MaterialIcon name="close" size={20} color="#EF4444" />
+          <MaterialIcon name="skip-next" size={20} color="#EF4444" />
         )}
       </TouchableOpacity>
     </View>
@@ -366,9 +369,17 @@ const UserHomeScreen = ({ navigation, route }) => {
     }
   }, [route?.params?.preSelectedService]);
 
-  // Animated sheet height
-  const sheetHeight = useRef(new Animated.Value(SHEET_MID_HEIGHT)).current;
+  // Animated sheet — uses translateY with native driver for jitter-free animation.
+  // translateY = 0 means sheet is at full max height. Positive translateY = pushed down.
+  // For a target "visible height" h, translateY = safeMaxHeight - h.
+  const initialTranslateY = safeMaxHeight - SHEET_MID_HEIGHT;
+  const sheetTranslateY = useRef(new Animated.Value(initialTranslateY)).current;
   const currentHeightRef = useRef(SHEET_MID_HEIGHT);
+  // Keep a legacy sheetHeight ref so any code reading it still works (unused by Animated)
+  const sheetHeight = { setValue: () => {}, stopAnimation: (cb) => cb && cb(currentHeightRef.current) };
+
+  // Convert height target to translateY
+  const heightToTranslateY = useCallback((h) => safeMaxHeight - h, [safeMaxHeight]);
 
   // Pan responder for swipe gestures on the bottom sheet handle
   const panResponder = useMemo(() =>
@@ -379,22 +390,20 @@ const UserHomeScreen = ({ navigation, route }) => {
         return Math.abs(gestureState.dy) > 3;
       },
       onPanResponderGrant: () => {
-        // Store current height when gesture starts
-        sheetHeight.stopAnimation((value) => {
-          currentHeightRef.current = value;
+        // Store current translateY when gesture starts
+        sheetTranslateY.stopAnimation((value) => {
+          sheetTranslateY.setOffset(value);
+          sheetTranslateY.setValue(0);
         });
       },
       onPanResponderMove: (_, gestureState) => {
-        // Calculate new height based on drag (negative dy = swipe up = increase height)
-        const newHeight = Math.max(
-          SHEET_MIN_HEIGHT,
-          Math.min(safeMaxHeight, currentHeightRef.current - gestureState.dy)
-        );
-        sheetHeight.setValue(newHeight);
+        // gestureState.dy > 0 = dragging down = increase translateY (reduce visible height)
+        sheetTranslateY.setValue(gestureState.dy);
       },
       onPanResponderRelease: (_, gestureState) => {
+        sheetTranslateY.flattenOffset();
         const velocity = gestureState.vy;
-        const currentValue = currentHeightRef.current - gestureState.dy;
+        const currentVisibleHeight = currentHeightRef.current - gestureState.dy;
         const dragDistance = gestureState.dy;
 
         let targetHeight = SHEET_MID_HEIGHT;
@@ -430,9 +439,9 @@ const UserHomeScreen = ({ navigation, route }) => {
           const midPoint1 = (SHEET_MIN_HEIGHT + SHEET_MID_HEIGHT) / 2;
           const midPoint2 = (SHEET_MID_HEIGHT + safeMaxHeight) / 2;
 
-          if (currentValue < midPoint1) {
+          if (currentVisibleHeight < midPoint1) {
             targetHeight = SHEET_MIN_HEIGHT;
-          } else if (currentValue < midPoint2) {
+          } else if (currentVisibleHeight < midPoint2) {
             targetHeight = SHEET_MID_HEIGHT;
           } else {
             targetHeight = safeMaxHeight;
@@ -440,28 +449,28 @@ const UserHomeScreen = ({ navigation, route }) => {
         }
 
         currentHeightRef.current = targetHeight;
-        Animated.spring(sheetHeight, {
-          toValue: targetHeight,
-          useNativeDriver: false,
+        Animated.spring(sheetTranslateY, {
+          toValue: heightToTranslateY(targetHeight),
+          useNativeDriver: true,
           friction: 7,
           tension: 50,
           overshootClamping: true,
         }).start();
       },
     }),
-  [sheetHeight, safeMaxHeight]);
+  [sheetTranslateY, safeMaxHeight, heightToTranslateY]);
 
   // Function to animate sheet to a specific height
   const animateSheetTo = useCallback((targetHeight) => {
     currentHeightRef.current = targetHeight;
-    Animated.spring(sheetHeight, {
-      toValue: targetHeight,
-      useNativeDriver: false,
+    Animated.spring(sheetTranslateY, {
+      toValue: heightToTranslateY(targetHeight),
+      useNativeDriver: true,
       friction: 8,
       tension: 65,
       overshootClamping: true,
     }).start();
-  }, [sheetHeight]);
+  }, [sheetTranslateY, heightToTranslateY]);
 
   // If a pre-selected service was set from Favorites, animate the sheet up
   useEffect(() => {
@@ -485,7 +494,7 @@ const UserHomeScreen = ({ navigation, route }) => {
       setCreatedRequest(resumeRequest);
       setSelectedService(SERVICE_CATEGORIES.find(s => s.id === resumeRequest.serviceType) || null);
       setStep('providers');
-      animateSheetTo(SHEET_MAX_HEIGHT);
+      animateSheetTo(safeMaxHeight);
       // Trigger provider search
       setTimeout(() => fetchProviders(resumeRequest._id), 300);
       // Clear the param so it doesn't re-trigger
@@ -961,7 +970,7 @@ const UserHomeScreen = ({ navigation, route }) => {
           style: 'destructive',
           onPress: async () => {
             if (!createdRequest?._id) return;
-
+            // Set loading immediately so spinner shows while dialog closes
             setSkippingProviderId(provider._id);
             try {
               // Send all currently-visible provider IDs so backend excludes them
@@ -1070,6 +1079,7 @@ const UserHomeScreen = ({ navigation, route }) => {
   };
 
   const executeBookProvider = async (provider) => {
+    // bookingProvider may already be set by handleBookProvider — safe to re-set
     setBookingProvider(provider._id);
     try {
       // Pass distance from provider object (from getNearbyProviders response)
@@ -1095,12 +1105,22 @@ const UserHomeScreen = ({ navigation, route }) => {
         t('userHome.contactFirstMsg'),
         [
           { text: t('userHome.callProvider'), onPress: () => handleCallProvider(provider) },
-          { text: t('userHome.bookAnyway'), onPress: () => executeBookProvider(provider), style: 'default' },
+          {
+            text: t('userHome.bookAnyway'),
+            onPress: () => {
+              // Set loading immediately so spinner shows while dialog closes
+              setBookingProvider(provider._id);
+              executeBookProvider(provider);
+            },
+            style: 'default',
+          },
           { text: t('common.cancel'), style: 'cancel' },
         ]
       );
       return;
     }
+    // Set loading immediately for contacted providers too
+    setBookingProvider(provider._id);
     executeBookProvider(provider);
   };
 
@@ -1259,7 +1279,7 @@ const UserHomeScreen = ({ navigation, route }) => {
                 disabled={!selectedDateTime || creatingRequest || (!currentLocation && !serviceLocation)}
               >
                 {creatingRequest ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <>
                     <MaterialIcon name="check-circle" size={22} color="#FFFFFF" />
@@ -1516,7 +1536,8 @@ const UserHomeScreen = ({ navigation, route }) => {
       </View>
 
       {/* Bottom Sheet */}
-      <Animated.View style={[styles.bottomSheet, { height: sheetHeight, paddingBottom: 8 }]}>
+      <Animated.View style={[styles.bottomSheet, { height: safeMaxHeight, paddingBottom: 8, transform: [{ translateY: sheetTranslateY }] }]}>
+        <SvgArt color="#f67c16" height={100} />
         <View style={styles.sheetHandle} {...panResponder.panHandlers}>
           <View style={styles.sheetHandleBar} />
         </View>
@@ -1917,30 +1938,26 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: BRAND.primary,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.35,
-        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
       },
       android: {
-        elevation: 8,
+        elevation: 6,
       },
     }),
   },
   createButtonDisabled: {
     backgroundColor: '#CBD5E1',
     ...Platform.select({
-      ios: {
-        shadowOpacity: 0,
-      },
-      android: {
-        elevation: 0,
-      },
+      ios: { shadowOpacity: 0 },
+      android: { elevation: 0 },
     }),
   },
   createButtonText: {
     fontSize: 17,
     fontWeight: '800',
-    color: BRAND.white,
+    color: '#FFFFFF',
     letterSpacing: -0.3,
   },
 
@@ -2171,22 +2188,41 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 16,
     marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.1,
-        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 14,
       },
       android: {
-        elevation: 6,
+        elevation: 4,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
       },
     }),
   },
   providerCardSkipping: {
     opacity: 0.5,
+  },
+  providerDecor1: {
+    position: 'absolute',
+    top: -20,
+    right: -20,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(43,118,188,0.04)',
+  },
+  providerDecor2: {
+    position: 'absolute',
+    bottom: -15,
+    left: -15,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(246,124,22,0.03)',
   },
   providerInfo: {
     flexDirection: 'row',
@@ -2298,84 +2334,85 @@ const styles = StyleSheet.create({
   // ─── Provider Actions ──────────────────────────────────────
   providerActions: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     alignItems: 'center',
   },
   callButton: {
-    width: 50,
-    height: 46,
+    width: 46,
+    height: 42,
     backgroundColor: '#10B981',
-    borderRadius: 14,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       ios: {
         shadowColor: '#10B981',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.35,
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
       },
       android: {
-        elevation: 4,
+        elevation: 3,
       },
     }),
   },
   callButtonCalling: {
-    backgroundColor: '#94A3B8',
+    backgroundColor: '#CBD5E1',
     ...Platform.select({
-      ios: {
-        shadowOpacity: 0,
-      },
-      android: {
-        elevation: 0,
-      },
+      ios: { shadowOpacity: 0 },
+      android: { elevation: 0 },
     }),
   },
   bookButton: {
     flex: 1,
-    height: 46,
+    height: 42,
     backgroundColor: BRAND.primary,
-    borderRadius: 14,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       ios: {
         shadowColor: BRAND.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.35,
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
       },
       android: {
-        elevation: 4,
+        elevation: 3,
       },
     }),
   },
   bookButtonLoading: {
-    backgroundColor: BRAND.primary + '80',
+    backgroundColor: '#F5A856',
     ...Platform.select({
-      ios: {
-        shadowOpacity: 0,
-      },
-      android: {
-        elevation: 0,
-      },
+      ios: { shadowOpacity: 0 },
+      android: { elevation: 0 },
     }),
   },
   bookButtonText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
-    color: BRAND.white,
+    color: '#FFFFFF',
     letterSpacing: -0.2,
   },
   skipButton: {
-    width: 42,
-    height: 46,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#FCA5A5',
+    width: 46,
+    height: 42,
+    borderRadius: 12,
     backgroundColor: '#FEF2F2',
     alignItems: 'center',
     justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#EF4444',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   skipButtonLoading: {
     opacity: 0.5,

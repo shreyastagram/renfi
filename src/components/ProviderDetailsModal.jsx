@@ -12,18 +12,17 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
   Modal,
-  TouchableOpacity,
   ActivityIndicator,
   ScrollView,
   Image,
   Dimensions,
-  Linking,
+  Linking
 } from 'react-native';
+import TouchableOpacity from './TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDialog } from '../context/DialogContext';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';

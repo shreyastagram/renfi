@@ -11,6 +11,9 @@ if (localPropsFile.exists()) {
     localProps.load(new FileInputStream(localPropsFile))
 }
 
+// react-native-config (.env loading)
+apply from: project(':react-native-config').projectDir.getPath() + "/dotenv.gradle"
+
 // Vector icons fonts
 apply from: file("../../node_modules/react-native-vector-icons/fonts.gradle")
 

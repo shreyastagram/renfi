@@ -21,9 +21,22 @@ import {
 import { getApp } from '@react-native-firebase/app';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import notifee, { AndroidImportance } from '@notifee/react-native';
 import apiClient from './apiClient';
 
 const FCM_TOKEN_KEY = '@fixhomi_fcm_token';
+
+// Create the default notification channel on Android
+// Must match the channelId sent by the backend ('fixhomi_notifications')
+if (Platform.OS === 'android') {
+  notifee.createChannel({
+    id: 'fixhomi_notifications',
+    name: 'Fixhomi Notifications',
+    importance: AndroidImportance.HIGH,
+    sound: 'default',
+    vibration: true,
+  }).catch(() => {});
+}
 
 // Get messaging instance using modular API
 const getMessagingInstance = () => {

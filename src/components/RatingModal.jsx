@@ -12,12 +12,10 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
   Modal,
-  TouchableOpacity,
   TextInput,
   ActivityIndicator,
   Animated,
@@ -25,8 +23,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Image,
+  Image
 } from 'react-native';
+import TouchableOpacity from './TouchableOpacity';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');

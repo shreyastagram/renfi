@@ -12,19 +12,18 @@
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
   PermissionsAndroid,
   ActivityIndicator,
   Modal,
-  Linking,
+  Linking
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Geolocation from '@react-native-community/geolocation';
 import { Button, Input, PhoneInput, Alert, FixhomiLogo } from '../components';

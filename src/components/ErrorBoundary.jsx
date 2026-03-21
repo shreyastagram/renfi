@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
+import { View, Text, StyleSheet, Linking} from 'react-native';
+import TouchableOpacity from './TouchableOpacity';
 
 let crashlytics = null;
 try {

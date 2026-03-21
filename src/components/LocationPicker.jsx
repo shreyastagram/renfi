@@ -11,11 +11,9 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   TextInput,
   Modal,
   ActivityIndicator,
@@ -24,8 +22,9 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Linking,
-  PermissionsAndroid,
+  PermissionsAndroid
 } from 'react-native';
+import TouchableOpacity from './TouchableOpacity';
 import Geolocation from '@react-native-community/geolocation';
 import Icon from './Icon';
 import { useDialog } from '../context/DialogContext';
@@ -935,7 +934,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    paddingTop: Platform.OS === 'ios' ? 56 : 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },

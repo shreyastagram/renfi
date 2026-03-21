@@ -12,12 +12,10 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   Switch,
   ActivityIndicator,
   TextInput,
@@ -31,8 +29,9 @@ import {
   Share,
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
-  Keyboard,
+  Keyboard
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { BlurView } from '@react-native-community/blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -43,6 +42,8 @@ import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { startLocationTracking, stopLocationTracking } from '../services/socketService';
 import { Icon } from '../components';
+import SvgArt from '../components/SvgArt';
+import GraphBackground from '../components/GraphBackground';
 import { useShimmerAnimation, ShimmerBlock } from '../components/ShimmerLoader';
 import { NODE_BASE_URL, JAVA_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
@@ -1006,8 +1007,10 @@ const SettingsScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      <GraphBackground />
       {/* Premium Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 8, overflow: 'hidden' }]}>
+        <SvgArt color="rgba(255,255,255,1)" height={80} />
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Icon name="arrow_back" size={22} color={COLORS.cardWhite} />
         </TouchableOpacity>

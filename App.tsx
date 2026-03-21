@@ -5,7 +5,12 @@ declare var global: typeof globalThis & {
 };
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Linking, StatusBar, View } from 'react-native';
+import { Alert, Linking, StatusBar, View, LogBox } from 'react-native';
+
+// Suppress known Mapbox Fabric view recycling warning (harmless on both iOS & Android)
+LogBox.ignoreLogs(['view: null found with tag']);
+// Suppress Firebase v22 migration warnings (will fix in next major update)
+LogBox.ignoreLogs(['This method is deprecated']);
 import { NavigationContainer, NavigationContainerRef, ParamListBase } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -25,6 +30,19 @@ import {
   getAppInitialNotification
 } from './src/services/fcmService';
 import { configureGoogleSignIn } from './src/services/googleAuthService';
+
+// Suppress Mapbox view-tag unhandled promise rejections (Fabric race condition)
+const originalHandler = (global as any).ErrorUtils?.getGlobalHandler?.();
+if ((global as any).ErrorUtils) {
+  (global as any).ErrorUtils.setGlobalHandler((error: any, isFatal: boolean) => {
+    // Suppress Mapbox view recycling errors — harmless on both platforms
+    const msg = error?.message || String(error || '');
+    if (msg.includes('view: null found with tag') || msg.includes('not the correct type')) {
+      return; // swallow silently
+    }
+    if (originalHandler) originalHandler(error, isFatal);
+  });
+}
 
 // Crashlytics — graceful import so the app works before npm install
 let crashlytics: any = null;

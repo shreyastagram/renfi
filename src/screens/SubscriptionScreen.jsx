@@ -17,20 +17,19 @@
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
   Modal,
   Dimensions,
   Platform,
   StatusBar,
-  Linking,
+  Linking
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useApp } from '../context/AppContext';

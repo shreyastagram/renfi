@@ -14,20 +14,19 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import {
-  View,
+import {  View,
   Text,
   TextInput,
   StyleSheet,
   Modal,
-  TouchableOpacity,
   ActivityIndicator,
   Keyboard,
   Platform,
   Dimensions,
   Animated,
-  KeyboardAvoidingView,
+  KeyboardAvoidingView
 } from 'react-native';
+import TouchableOpacity from './TouchableOpacity';
 import { useLanguage } from '../context/LanguageContext';
 import { sendAppleEmailOtp, verifyAppleEmailOtp } from '../services/appleAuthService';
 import { parseApiError } from '../services/apiClient';

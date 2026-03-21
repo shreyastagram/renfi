@@ -9,17 +9,16 @@
  */
 
 import React, { useState, useCallback, useRef } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
   Modal,
-  Linking,
+  Linking
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Input, PhoneInput, Alert, FixhomiLogo } from '../components';
 import { registerUser, getErrorMessage, AUTH_CODES, checkAvailability } from '../services/authService';

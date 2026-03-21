@@ -11,15 +11,14 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Modal,
   Platform,
-  ScrollView,
+  ScrollView
 } from 'react-native';
+import TouchableOpacity from './TouchableOpacity';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Icon from './Icon';
 
@@ -35,7 +34,7 @@ const generateQuickDateOptions = () => {
   options.push({
     date: new Date(), // Current time
     label: 'Instant',
-    shortLabel: '⚡ Now',
+    shortLabel: 'Now',
     isInstant: true,
   });
   
@@ -292,7 +291,7 @@ const DateTimePickerComponent = ({
     
     // Show "Instant Service - Now" when instant is selected
     if (isInstantSelected) {
-      return '⚡ Instant Service - ASAP';
+      return 'Instant Service - ASAP';
     }
     
     const dateStr = value.toLocaleDateString('en-US', {

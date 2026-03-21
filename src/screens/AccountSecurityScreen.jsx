@@ -1,15 +1,15 @@
 /**
  * Account Security Screen
- * 
- * Phase 4: Auth Infrastructure UI
- * Allows users to manage their account security:
- * - View active sessions
- * - Sign out from other devices
- * - Trust/Untrust devices
- * - View auth health status
- * - Change password
- * 
- * @version 1.0.0
+ *
+ * Premium design matching Settings screen.
+ * Features:
+ * - Auth health status with visual indicator
+ * - Device trust management
+ * - Active sessions list with revoke
+ * - Change password navigation
+ * - Sign out (this device / all devices)
+ *
+ * @version 2.0.0 — Premium UI revamp
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -18,12 +18,14 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
   Platform,
   StatusBar,
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation } from '@react-navigation/native';
 import {
   getActiveSessions,
@@ -35,610 +37,449 @@ import {
   trustCurrentDevice,
   untrustDevice,
   AUTH_HEALTH,
-  SESSION_STATUS,
 } from '../services/authInfraService';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
+import { Icon } from '../components';
 import ScreenShimmer from '../components/ShimmerLoader';
+import GraphBackground from '../components/GraphBackground';
+import SvgArt from '../components/SvgArt';
 
-// ==================== COLORS ====================
-
-const COLORS = {
-  primary: '#1a73e8',
-  success: '#34a853',
-  warning: '#fbbc05',
-  danger: '#ea4335',
-  background: '#f5f5f5',
-  surface: '#ffffff',
-  text: '#212121',
-  textSecondary: '#757575',
-  border: '#e0e0e0',
+// ─── Design Tokens (matching Settings / Profile) ────────────────────
+const C = {
+  dark: '#0F172A',
+  bg: '#F1F5F9',
+  white: '#FFFFFF',
+  primary: '#f67c16',
+  secondary: '#2b76bc',
+  success: '#10B981',
+  successBg: '#ECFDF5',
+  warning: '#F59E0B',
+  warningBg: '#FFFBEB',
+  danger: '#EF4444',
+  dangerBg: '#FEF2F2',
+  text: '#1E293B',
+  textSec: '#64748B',
+  muted: '#94A3B8',
+  border: '#F1F5F9',
+  iconBg: '#F1F5F9',
 };
 
-// ==================== COMPONENTS ====================
+const SHADOWS = Platform.select({
+  ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 20 },
+  android: { elevation: 5 },
+});
 
-/**
- * Section Header
- */
+const CARD_RADIUS = 22;
+const ICON_SIZE = 42;
+
+// ─── Health config (labels are translation keys) ────────────────────
+const HEALTH_MAP = {
+  [AUTH_HEALTH.HEALTHY]: { icon: 'verified-user', color: C.success, bg: C.successBg, labelKey: 'accountSecurity.healthy' },
+  [AUTH_HEALTH.TOKEN_EXPIRING]: { icon: 'schedule', color: C.warning, bg: C.warningBg, labelKey: 'accountSecurity.tokenExpiring' },
+  [AUTH_HEALTH.TOKEN_EXPIRED]: { icon: 'error-outline', color: C.danger, bg: C.dangerBg, labelKey: 'accountSecurity.tokenExpired' },
+  [AUTH_HEALTH.NO_SESSION]: { icon: 'cancel', color: C.muted, bg: C.border, labelKey: 'accountSecurity.noSession' },
+  [AUTH_HEALTH.SERVICE_ERROR]: { icon: 'cloud-off', color: C.warning, bg: C.warningBg, labelKey: 'accountSecurity.serviceUnavailable' },
+};
+
+// ─── Section Header ─────────────────────────────────────────────────
 const SectionHeader = ({ title }) => (
-  <View style={styles.sectionHeader}>
-    <Text style={styles.sectionTitle}>{title}</Text>
+  <View style={s.sectionHeaderWrap}>
+    <View style={s.sectionAccent} />
+    <Text style={s.sectionTitle}>{title}</Text>
   </View>
 );
 
-/**
- * Health Status Badge
- */
-const HealthBadge = ({ status }) => {
-  const getStyle = () => {
-    switch (status) {
-      case AUTH_HEALTH.HEALTHY:
-        return { bg: COLORS.success, text: 'Healthy' };
-      case AUTH_HEALTH.TOKEN_EXPIRING:
-        return { bg: COLORS.warning, text: 'Token Expiring' };
-      case AUTH_HEALTH.TOKEN_EXPIRED:
-        return { bg: COLORS.danger, text: 'Token Expired' };
-      case AUTH_HEALTH.NO_SESSION:
-        return { bg: COLORS.textSecondary, text: 'No Session' };
-      case AUTH_HEALTH.SERVICE_ERROR:
-        return { bg: COLORS.warning, text: 'Service Unavailable' };
-      default:
-        return { bg: COLORS.textSecondary, text: 'Unknown' };
-    }
-  };
-
-  const style = getStyle();
-  
-  return (
-    <View style={[styles.badge, { backgroundColor: style.bg }]}>
-      <Text style={styles.badgeText}>{style.text}</Text>
+// ─── Menu Row ───────────────────────────────────────────────────────
+const MenuRow = ({ icon, iconBg, iconColor, label, sublabel, onPress, trailing, disabled }) => (
+  <TouchableOpacity style={s.menuRow} onPress={onPress} activeOpacity={0.7} disabled={disabled}>
+    <View style={[s.menuIcon, { backgroundColor: iconBg || C.iconBg }]}>
+      <MaterialIcon name={icon} size={22} color={iconColor || C.textSec} />
     </View>
-  );
-};
+    <View style={s.menuTextWrap}>
+      <Text style={s.menuLabel}>{label}</Text>
+      {sublabel ? <Text style={s.menuSublabel} numberOfLines={1}>{sublabel}</Text> : null}
+    </View>
+    {trailing || <MaterialIcon name="chevron-right" size={22} color={C.muted} />}
+  </TouchableOpacity>
+);
 
-/**
- * Session Card
- */
+// ─── Session Card ───────────────────────────────────────────────────
 const SessionCard = ({ session, isCurrentDevice, onRevoke, isRevoking }) => {
-  const getDeviceIcon = () => {
-    const platform = session.platform || session.deviceInfo?.platform || 'unknown';
-    if (platform === 'ios') return '📱';
-    if (platform === 'android') return '📱';
-    if (platform === 'web') return '💻';
-    return '📟';
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Unknown';
-    const date = new Date(dateString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+  const platformIcon = (session.platform || '').toLowerCase() === 'ios' ? 'phone-iphone' : 'phone-android';
+  const formatDate = (d) => {
+    if (!d) return 'Unknown';
+    const date = new Date(d);
+    return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
   return (
-    <View style={[styles.sessionCard, isCurrentDevice && styles.currentSessionCard]}>
-      <View style={styles.sessionHeader}>
-        <Text style={styles.deviceIcon}>{getDeviceIcon()}</Text>
-        <View style={styles.sessionInfo}>
-          <Text style={styles.deviceName}>
+    <View style={[s.sessionCard, isCurrentDevice && s.sessionCardCurrent]}>
+      <View style={s.sessionRow}>
+        <View style={[s.menuIcon, { backgroundColor: isCurrentDevice ? '#EFF6FF' : C.iconBg }]}>
+          <MaterialIcon name={platformIcon} size={22} color={isCurrentDevice ? C.secondary : C.textSec} />
+        </View>
+        <View style={s.menuTextWrap}>
+          <Text style={s.menuLabel}>
             {session.deviceName || session.deviceModel || 'Unknown Device'}
-            {isCurrentDevice && ' (This Device)'}
           </Text>
-          <Text style={styles.deviceDetails}>
-            {session.platform || 'Unknown Platform'} {session.systemVersion || ''}
+          <Text style={s.menuSublabel}>
+            {session.platform || 'Unknown'} {session.systemVersion || ''}
+            {isCurrentDevice ? '  —  This device' : ''}
           </Text>
         </View>
         {!isCurrentDevice && (
           <TouchableOpacity
-            style={styles.revokeButton}
+            style={s.sessionRevokeBtn}
             onPress={() => onRevoke(session.id || session.sessionId)}
             disabled={isRevoking}
+            activeOpacity={0.7}
           >
             {isRevoking ? (
-              <ActivityIndicator size="small" color={COLORS.danger} />
+              <ActivityIndicator size="small" color={C.danger} />
             ) : (
-              <Text style={styles.revokeButtonText}>Sign Out</Text>
+              <MaterialIcon name="logout" size={18} color={C.danger} />
             )}
           </TouchableOpacity>
         )}
       </View>
-      <View style={styles.sessionMeta}>
-        <Text style={styles.sessionMetaText}>
-          Last active: {formatDate(session.lastActive || session.lastActivityAt)}
-        </Text>
-        {session.location && (
-          <Text style={styles.sessionMetaText}>
-            📍 {session.location}
-          </Text>
-        )}
+      <View style={s.sessionMeta}>
+        <MaterialIcon name="access-time" size={13} color={C.muted} />
+        <Text style={s.sessionMetaText}>{formatDate(session.lastActive || session.lastActivityAt)}</Text>
       </View>
     </View>
   );
 };
 
-// ==================== MAIN SCREEN ====================
-
+// ═══════════════════════════════════════════════════════════════════
 const AccountSecurityScreen = () => {
   const navigation = useNavigation();
-  const { user, logout } = useApp();
+  const insets = useSafeAreaInsets();
+  const { user, profile, logout } = useApp();
   const { dialog } = useDialog();
   const { t } = useLanguage();
-  
-  // State
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [healthStatus, setHealthStatus] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [currentDeviceId, setCurrentDeviceId] = useState(null);
   const [isTrusted, setIsTrusted] = useState(false);
+  const [trustLoading, setTrustLoading] = useState(false);
   const [revokingSession, setRevokingSession] = useState(null);
   const [revokingAll, setRevokingAll] = useState(false);
 
-  /**
-   * Load all security data
-   */
   const loadSecurityData = useCallback(async () => {
     try {
-      console.log('🔒 [AccountSecurity] Loading security data...');
-      
-      // Fetch all data in parallel
       const [healthResult, sessionsResult, deviceInfo, trusted] = await Promise.all([
         checkAuthHealth(),
         getActiveSessions(),
         getDeviceInfo(),
         isCurrentDeviceTrusted(),
       ]);
-      
       setHealthStatus(healthResult);
       setCurrentDeviceId(deviceInfo.deviceId);
       setIsTrusted(trusted);
-      
-      if (sessionsResult.success) {
-        setSessions(sessionsResult.data || []);
-      }
-      
-      console.log('✅ [AccountSecurity] Security data loaded');
+      if (sessionsResult.success) setSessions(sessionsResult.data || []);
     } catch (error) {
-      console.error('❌ [AccountSecurity] Failed to load:', error);
+      console.error('[AccountSecurity] Load failed:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
-  useEffect(() => {
-    loadSecurityData();
-  }, [loadSecurityData]);
+  useEffect(() => { loadSecurityData(); }, [loadSecurityData]);
 
-  /**
-   * Refresh data
-   */
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadSecurityData();
-  }, [loadSecurityData]);
+  const onRefresh = useCallback(() => { setRefreshing(true); loadSecurityData(); }, [loadSecurityData]);
 
-  /**
-   * Handle revoking a specific session
-   */
-  const handleRevokeSession = async (sessionId) => {
-    dialog(
-      t('accountSecurity.signOutDevice'),
-      t('accountSecurity.signOutDeviceMsg'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('accountSecurity.signOut'),
-          style: 'destructive',
-          onPress: async () => {
-            setRevokingSession(sessionId);
-            const result = await revokeSession(sessionId);
-            setRevokingSession(null);
-            
-            if (result.success) {
-              setSessions(prev => prev.filter(s => (s.id || s.sessionId) !== sessionId));
-              dialog(t('common.success'), t('accountSecurity.deviceSignedOut'));
-            } else {
-              dialog(t('common.error'), result.error?.message || t('accountSecurity.signOutFailed'));
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  /**
-   * Handle revoking all other sessions
-   */
-  const handleRevokeAll = async () => {
-    dialog(
-      t('accountSecurity.signOutAll'),
-      t('accountSecurity.signOutAllMsg'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('accountSecurity.signOutAllBtn'),
-          style: 'destructive',
-          onPress: async () => {
-            setRevokingAll(true);
-            const result = await revokeAllOtherSessions();
-            setRevokingAll(false);
-            
-            if (result.success) {
-              setSessions(prev => prev.filter(s => s.deviceId === currentDeviceId));
-              dialog(t('common.success'), t('accountSecurity.signedOutDevices', { count: result.revokedCount || 0 }));
-            } else {
-              dialog(t('common.error'), result.error?.message || t('accountSecurity.signOutAllFailed'));
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  /**
-   * Handle trusting/untrusting current device
-   */
   const handleTrustDevice = async () => {
-    if (isTrusted) {
-      const result = await untrustDevice(currentDeviceId);
-      if (result.success) {
-        setIsTrusted(false);
-        dialog(t('accountSecurity.deviceUntrusted'), t('accountSecurity.deviceUntrustedMsg'));
+    setTrustLoading(true);
+    try {
+      if (isTrusted) {
+        const result = await untrustDevice(currentDeviceId);
+        if (result.success) { setIsTrusted(false); dialog(t('accountSecurity.deviceUntrusted'), t('accountSecurity.deviceUntrustedMsg')); }
+      } else {
+        const result = await trustCurrentDevice();
+        if (result.success) { setIsTrusted(true); dialog(t('accountSecurity.deviceTrusted'), t('accountSecurity.deviceTrustedMsg')); }
       }
-    } else {
-      const result = await trustCurrentDevice();
-      if (result.success) {
-        setIsTrusted(true);
-        dialog(t('accountSecurity.deviceTrusted'), t('accountSecurity.deviceTrustedMsg'));
-      }
-    }
+    } catch {} finally { setTrustLoading(false); }
   };
 
-  /**
-   * Navigate to change password
-   */
-  const handleChangePassword = () => {
-    navigation.navigate('ChangePassword');
+  const handleRevokeSession = (sessionId) => {
+    dialog(t('accountSecurity.signOutDevice'), t('accountSecurity.signOutDeviceMsg'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('accountSecurity.signOut'), style: 'destructive',
+        onPress: async () => {
+          setRevokingSession(sessionId);
+          const result = await revokeSession(sessionId);
+          setRevokingSession(null);
+          if (result.success) {
+            setSessions(prev => prev.filter(s => (s.id || s.sessionId) !== sessionId));
+            dialog(t('common.success'), t('accountSecurity.deviceSignedOut'));
+          } else {
+            dialog(t('common.error'), result.error?.message || t('accountSecurity.signOutFailed'));
+          }
+        },
+      },
+    ]);
   };
 
-  // Loading state
+  const handleRevokeAll = () => {
+    dialog(t('accountSecurity.signOutAll'), t('accountSecurity.signOutAllMsg'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('accountSecurity.signOutAllBtn'), style: 'destructive',
+        onPress: async () => {
+          setRevokingAll(true);
+          const result = await revokeAllOtherSessions();
+          setRevokingAll(false);
+          if (result.success) {
+            setSessions(prev => prev.filter(ses => ses.deviceId === currentDeviceId));
+            dialog(t('common.success'), t('accountSecurity.signedOutDevices', { count: result.revokedCount || 0 }));
+          } else {
+            dialog(t('common.error'), result.error?.message || t('accountSecurity.signOutAllFailed'));
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleSignOut = () => {
+    dialog(t('accountSecurity.signOutThisDevice'), t('accountSecurity.signOutThisDeviceMsg'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('accountSecurity.signOut'), style: 'destructive', onPress: () => logout(true) },
+    ]);
+  };
+
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={[s.container, { paddingTop: insets.top }]}>
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <ScreenShimmer type="security" />
       </View>
     );
   }
 
+  const health = HEALTH_MAP[healthStatus?.status] || HEALTH_MAP[AUTH_HEALTH.NO_SESSION];
+  const displayData = { ...user, ...profile };
+  const maskedEmail = displayData?.email ? displayData.email.replace(/(.{2})(.*)(@.*)/, '$1***$3') : null;
+
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
+    <View style={s.container}>
+      <GraphBackground />
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-      {/* Auth Health Section */}
-      <SectionHeader title={t('accountSecurity.accountStatus')} />
-      <View style={styles.card}>
-        <View style={styles.healthRow}>
-          <Text style={styles.healthLabel}>{t('accountSecurity.authStatus')}</Text>
-          <HealthBadge status={healthStatus?.status} />
-        </View>
-        <Text style={styles.healthMessage}>
-          {healthStatus?.message || t('accountSecurity.checkingStatus')}
-        </Text>
+
+      {/* Header */}
+      <View style={[s.header, { paddingTop: insets.top + 8, overflow: 'hidden' }]}>
+        <SvgArt color="#f67c16" height={70} />
+        <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+          <MaterialIcon name="arrow-back" size={22} color={C.text} />
+        </TouchableOpacity>
+        <Text style={s.headerTitle}>{t('accountSecurity.title')}</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      {/* Current Device Section */}
-      <SectionHeader title={t('accountSecurity.thisDeviceSection')} />
-      <View style={styles.card}>
-        <View style={styles.deviceRow}>
-          <Text style={styles.deviceLabel}>{t('accountSecurity.deviceId')}</Text>
-          <Text style={styles.deviceValue} numberOfLines={1}>
-            {currentDeviceId?.substring(0, 20)}...
-          </Text>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 30 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} />}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ─── Auth Health Card ────────────────────────────────── */}
+        <View style={s.section}>
+          <SectionHeader title={t('accountSecurity.accountStatus')} />
+          <View style={s.healthCard}>
+            <View style={[s.healthIconWrap, { backgroundColor: health.bg }]}>
+              <MaterialIcon name={health.icon} size={26} color={health.color} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[s.healthLabel, { color: health.color }]}>{t(health.labelKey)}</Text>
+              <Text style={s.healthMsg} numberOfLines={2}>{healthStatus?.message || t('accountSecurity.checkingStatus')}</Text>
+            </View>
+          </View>
+          {maskedEmail && (
+            <View style={s.infoRow}>
+              <MaterialIcon name="email" size={16} color={C.muted} />
+              <Text style={s.infoText}>{maskedEmail}</Text>
+            </View>
+          )}
         </View>
-        <View style={styles.deviceRow}>
-          <Text style={styles.deviceLabel}>{t('accountSecurity.trustedDevice')}</Text>
-          <TouchableOpacity
-            style={[styles.trustButton, isTrusted && styles.trustedButton]}
-            onPress={handleTrustDevice}
-          >
-            <Text style={[styles.trustButtonText, isTrusted && styles.trustedButtonText]}>
-              {isTrusted ? `✓ ${t('accountSecurity.trusted')}` : t('accountSecurity.trustDevice')}
-            </Text>
+
+        {/* ─── This Device ────────────────────────────────────── */}
+        <View style={s.section}>
+          <SectionHeader title={t('accountSecurity.thisDeviceSection')} />
+          <View style={s.deviceTrustRow}>
+            <View style={[s.menuIcon, { backgroundColor: isTrusted ? C.successBg : C.iconBg }]}>
+              <MaterialIcon name={isTrusted ? 'verified-user' : 'security'} size={22} color={isTrusted ? C.success : C.textSec} />
+            </View>
+            <View style={s.menuTextWrap}>
+              <Text style={s.menuLabel}>{isTrusted ? t('accountSecurity.trusted') : t('accountSecurity.notTrusted')}</Text>
+              <Text style={s.menuSublabel}>{t('accountSecurity.trustHint')}</Text>
+            </View>
+            <TouchableOpacity
+              style={[s.trustBtn, isTrusted ? s.trustBtnOn : s.trustBtnOff]}
+              onPress={handleTrustDevice}
+              disabled={trustLoading}
+              activeOpacity={0.7}
+            >
+              {trustLoading ? (
+                <ActivityIndicator size="small" color={isTrusted ? C.white : C.secondary} />
+              ) : (
+                <Text style={[s.trustBtnText, isTrusted ? s.trustBtnTextOn : s.trustBtnTextOff]}>
+                  {isTrusted ? t('accountSecurity.removeTrust') : t('accountSecurity.trustDevice')}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+          {currentDeviceId && (
+            <View style={s.deviceIdRow}>
+              <MaterialIcon name="fingerprint" size={14} color={C.muted} />
+              <Text style={s.deviceIdText}>{currentDeviceId.substring(0, 24)}...</Text>
+            </View>
+          )}
+        </View>
+
+        {/* ─── Security Actions ───────────────────────────────── */}
+        <View style={s.section}>
+          <SectionHeader title={t('accountSecurity.securityActions')} />
+          <MenuRow
+            icon="lock-reset"
+            iconBg="#EFF6FF"
+            iconColor={C.secondary}
+            label={t('accountSecurity.changePasswordMenu')}
+            sublabel={t('accountSecurity.changePasswordSub')}
+            onPress={() => navigation.navigate('ChangePassword')}
+          />
+          <View style={s.divider} />
+          <MenuRow
+            icon="refresh"
+            iconBg="#FFF7ED"
+            iconColor={C.primary}
+            label={t('accountSecurity.refreshToken')}
+            sublabel={t('accountSecurity.refreshTokenSub')}
+            onPress={async () => {
+              const result = await checkAuthHealth();
+              setHealthStatus(result);
+              dialog(t('accountSecurity.tokenStatus'), result?.message || t('accountSecurity.checkingStatus'));
+            }}
+          />
+        </View>
+
+        {/* ─── Active Sessions ────────────────────────────────── */}
+        <View style={s.section}>
+          <SectionHeader title={t('accountSecurity.activeSessions')} />
+          {sessions.length === 0 ? (
+            <View style={s.emptySessionWrap}>
+              <MaterialIcon name="devices" size={36} color={C.muted} />
+              <Text style={s.emptySessionText}>{t('accountSecurity.noActiveSessions')}</Text>
+              <Text style={s.emptySessionHint}>{t('accountSecurity.sessionTrackingHint')}</Text>
+            </View>
+          ) : (
+            <>
+              {sessions.map((session, index) => (
+                <SessionCard
+                  key={session.id || session.sessionId || index}
+                  session={session}
+                  isCurrentDevice={session.deviceId === currentDeviceId}
+                  onRevoke={handleRevokeSession}
+                  isRevoking={revokingSession === (session.id || session.sessionId)}
+                />
+              ))}
+              {sessions.length > 1 && (
+                <TouchableOpacity style={s.revokeAllBtn} onPress={handleRevokeAll} disabled={revokingAll} activeOpacity={0.7}>
+                  {revokingAll ? (
+                    <ActivityIndicator size="small" color={C.danger} />
+                  ) : (
+                    <>
+                      <MaterialIcon name="logout" size={16} color={C.danger} />
+                      <Text style={s.revokeAllText}>{t('accountSecurity.signOutAllOther')}</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+        </View>
+
+        {/* ─── Danger Zone ────────────────────────────────────── */}
+        <View style={[s.section, s.dangerSection]}>
+          <SectionHeader title={t('accountSecurity.dangerZone')} />
+          <TouchableOpacity style={s.dangerBtn} onPress={handleSignOut} activeOpacity={0.7}>
+            <MaterialIcon name="exit-to-app" size={20} color={C.danger} />
+            <Text style={s.dangerBtnText}>{t('accountSecurity.signOutThisDevice') || 'Sign out of this device'}</Text>
           </TouchableOpacity>
         </View>
-        <Text style={styles.trustHint}>
-          {t('accountSecurity.trustHint')}
-        </Text>
-      </View>
-
-      {/* Password Section */}
-      <SectionHeader title={t('accountSecurity.passwordSection')} />
-      <TouchableOpacity style={styles.card} onPress={handleChangePassword}>
-        <View style={styles.menuRow}>
-          <Text style={styles.menuLabel}>{t('accountSecurity.changePasswordMenu')}</Text>
-          <Text style={styles.menuArrow}>›</Text>
-        </View>
-      </TouchableOpacity>
-
-      {/* Active Sessions Section */}
-      <SectionHeader title={t('accountSecurity.activeSessions')} />
-      
-      {sessions.length > 1 && (
-        <TouchableOpacity
-          style={styles.revokeAllButton}
-          onPress={handleRevokeAll}
-          disabled={revokingAll}
-        >
-          {revokingAll ? (
-            <ActivityIndicator size="small" color={COLORS.surface} />
-          ) : (
-            <Text style={styles.revokeAllButtonText}>
-              {t('accountSecurity.signOutAllOther')}
-            </Text>
-          )}
-        </TouchableOpacity>
-      )}
-      
-      {sessions.length === 0 ? (
-        <View style={styles.card}>
-          <Text style={styles.noSessionsText}>
-            {t('accountSecurity.noActiveSessions')}
-          </Text>
-        </View>
-      ) : (
-        sessions.map((session, index) => (
-          <SessionCard
-            key={session.id || session.sessionId || index}
-            session={session}
-            isCurrentDevice={session.deviceId === currentDeviceId}
-            onRevoke={handleRevokeSession}
-            isRevoking={revokingSession === (session.id || session.sessionId)}
-          />
-        ))
-      )}
-
-      {/* Danger Zone */}
-      <SectionHeader title={t('accountSecurity.dangerZone')} />
-      <TouchableOpacity
-        style={[styles.card, styles.dangerCard]}
-        onPress={() => logout(true)}
-      >
-        <Text style={styles.dangerText}>{t('accountSecurity.signOutThisDevice')}</Text>
-      </TouchableOpacity>
-
-      <View style={styles.footer} />
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
-// ==================== STYLES ====================
+// ═══════════════════════════════════════════════════════════════════
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.bg },
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-  },
-  loadingText: {
-    marginTop: 12,
-    color: COLORS.textSecondary,
-  },
-  sectionHeader: {
-    paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 8,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    marginHorizontal: 16,
-    marginBottom: 8,
-    borderRadius: 12,
-    padding: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  healthRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  healthLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: COLORS.text,
-  },
-  healthMessage: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-  },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.surface,
-  },
-  deviceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  deviceLabel: {
-    fontSize: 16,
-    color: COLORS.text,
-  },
-  deviceValue: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    maxWidth: '50%',
-  },
-  trustButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-  },
-  trustedButton: {
-    backgroundColor: COLORS.success,
-    borderColor: COLORS.success,
-  },
-  trustButtonText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: COLORS.primary,
-  },
-  trustedButtonText: {
-    color: COLORS.surface,
-  },
-  trustHint: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    fontStyle: 'italic',
-  },
-  menuRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  menuLabel: {
-    fontSize: 16,
-    color: COLORS.text,
-  },
-  menuArrow: {
-    fontSize: 24,
-    color: COLORS.textSecondary,
-  },
-  sessionCard: {
-    backgroundColor: COLORS.surface,
-    marginHorizontal: 16,
-    marginBottom: 8,
-    borderRadius: 12,
-    padding: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  currentSessionCard: {
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-  },
-  sessionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  deviceIcon: {
-    fontSize: 28,
-    marginRight: 12,
-  },
-  sessionInfo: {
-    flex: 1,
-  },
-  deviceName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: COLORS.text,
-  },
-  deviceDetails: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  revokeButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.danger,
-  },
-  revokeButtonText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: COLORS.danger,
-  },
-  sessionMeta: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  sessionMetaText: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    marginBottom: 4,
-  },
-  revokeAllButton: {
-    backgroundColor: COLORS.danger,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 8,
-    padding: 14,
-    alignItems: 'center',
-  },
-  revokeAllButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.surface,
-  },
-  noSessionsText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  dangerCard: {
-    borderWidth: 1,
-    borderColor: COLORS.danger,
-  },
-  dangerText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: COLORS.danger,
-    textAlign: 'center',
-  },
-  footer: {
-    height: 40,
-  },
+  // Header — matches Settings
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 14, backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: C.border },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.iconBg, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: C.text, letterSpacing: -0.3 },
+
+  // Section card — matches Settings
+  section: { backgroundColor: C.white, borderRadius: CARD_RADIUS, padding: 20, marginBottom: 16, ...SHADOWS },
+  sectionHeaderWrap: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  sectionAccent: { width: 4, height: 18, backgroundColor: C.primary, borderRadius: 2, marginRight: 10 },
+  sectionTitle: { fontSize: 14, fontWeight: '800', color: C.text, textTransform: 'uppercase', letterSpacing: 0.5 },
+
+  // Health card
+  healthCard: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 },
+  healthIconWrap: { width: 50, height: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  healthLabel: { fontSize: 16, fontWeight: '700' },
+  healthMsg: { fontSize: 12, color: C.textSec, marginTop: 2, lineHeight: 17 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border },
+  infoText: { fontSize: 13, color: C.muted, fontWeight: '500' },
+
+  // Menu row — matches Settings
+  menuRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
+  menuIcon: { width: ICON_SIZE, height: ICON_SIZE, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  menuTextWrap: { flex: 1 },
+  menuLabel: { fontSize: 15, fontWeight: '600', color: C.text },
+  menuSublabel: { fontSize: 12, color: C.textSec, marginTop: 2 },
+  divider: { height: 1, backgroundColor: C.border, marginLeft: ICON_SIZE + 14 },
+
+  // Device trust
+  deviceTrustRow: { flexDirection: 'row', alignItems: 'center' },
+  trustBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, minWidth: 70, alignItems: 'center' },
+  trustBtnOn: { backgroundColor: C.danger + '12', borderWidth: 1, borderColor: C.danger + '30' },
+  trustBtnOff: { backgroundColor: C.secondary, },
+  trustBtnText: { fontSize: 13, fontWeight: '700' },
+  trustBtnTextOn: { color: C.danger },
+  trustBtnTextOff: { color: C.white },
+  deviceIdRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border },
+  deviceIdText: { fontSize: 11, color: C.muted, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+
+  // Sessions
+  sessionCard: { backgroundColor: C.bg, borderRadius: 16, padding: 14, marginBottom: 8 },
+  sessionCardCurrent: { borderWidth: 1.5, borderColor: C.secondary + '40' },
+  sessionRow: { flexDirection: 'row', alignItems: 'center' },
+  sessionRevokeBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: C.dangerBg, alignItems: 'center', justifyContent: 'center' },
+  sessionMeta: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border, marginLeft: ICON_SIZE + 14 },
+  sessionMetaText: { fontSize: 11, color: C.muted },
+
+  // Empty sessions
+  emptySessionWrap: { alignItems: 'center', paddingVertical: 20, gap: 8 },
+  emptySessionText: { fontSize: 14, fontWeight: '600', color: C.textSec },
+  emptySessionHint: { fontSize: 12, color: C.muted, textAlign: 'center' },
+
+  // Revoke all
+  revokeAllBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, marginTop: 4, borderRadius: 12, backgroundColor: C.dangerBg, borderWidth: 1, borderColor: C.danger + '30' },
+  revokeAllText: { fontSize: 14, fontWeight: '700', color: C.danger },
+
+  // Danger zone
+  dangerSection: { borderWidth: 1, borderColor: C.danger + '20' },
+  dangerBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 14, backgroundColor: C.dangerBg, borderWidth: 1, borderColor: C.danger + '30' },
+  dangerBtnText: { fontSize: 15, fontWeight: '700', color: C.danger },
 });
 
 export default AccountSecurityScreen;

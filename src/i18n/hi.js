@@ -1479,6 +1479,15 @@ export default {
     signOutAllOther: 'सभी अन्य डिवाइस साइन आउट करें',
     noActiveSessions: 'कोई सक्रिय सत्र नहीं मिला। ऐसा इसलिए हो सकता है क्योंकि सर्वर पर सत्र ट्रैकिंग अभी सक्षम नहीं है।',
     signOutThisDevice: 'इस डिवाइस से साइन आउट करें',
+    signOutThisDeviceMsg: 'आप इस डिवाइस से लॉग आउट हो जाएंगे।',
+    notTrusted: 'विश्वसनीय नहीं',
+    removeTrust: 'हटाएं',
+    securityActions: 'सुरक्षा',
+    changePasswordSub: 'अपना लॉगिन पासवर्ड बदलें',
+    refreshToken: 'टोकन रीफ्रेश करें',
+    refreshTokenSub: 'सत्र टोकन को बलपूर्वक रीफ्रेश करें',
+    tokenStatus: 'टोकन स्थिति',
+    sessionTrackingHint: 'सत्र ट्रैकिंग भविष्य के अपडेट में उपलब्ध होगी',
   },
 
   // ─── Change Password ──────────────────────────────────

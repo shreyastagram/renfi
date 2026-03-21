@@ -2,6 +2,12 @@
 <Workspace
    version = "1.0">
    <FileRef
+      location = "group:MockLocation.gpx">
+   </FileRef>
+   <FileRef
+      location = "group:YavatmalStation.gpx">
+   </FileRef>
+   <FileRef
       location = "group:renfi.xcodeproj">
    </FileRef>
    <FileRef

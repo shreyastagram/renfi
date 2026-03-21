@@ -12,19 +12,18 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
   Linking,
   Platform,
   Image,
   Animated,
   Dimensions,
-  StatusBar,
+  StatusBar
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Mapbox from '@rnmapbox/maps';
 import Geolocation from '@react-native-community/geolocation';

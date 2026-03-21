@@ -15,11 +15,9 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import {
-  View,
+import {  View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
   Linking,
@@ -30,7 +28,9 @@ import {
   Animated,
   Dimensions,
   StatusBar,
+  Vibration
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import Svg, { Circle, Path } from 'react-native-svg';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -40,7 +40,10 @@ import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
+import SvgArt from '../components/SvgArt';
+import GraphBackground from '../components/GraphBackground';
 import { Icon, ServiceIcon, StatusIcon, RatingModal, FixhomiLogo, CancellationReasonModal } from '../components';
+import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import ScreenShimmer, { useShimmerAnimation, ShimmerBlock } from '../components/ShimmerLoader';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
@@ -121,7 +124,6 @@ const DATE_PRESETS = [
 
 const ACTIVE_STATUSES = ['pending', 'accepted', 'in-progress', 'awaiting_confirmation', 'in_transit', 'arrived'];
 const PAGE_SIZE = 20;
-const STATS_HEIGHT = 100;
 
 const getDateRange = (preset) => {
   const now = new Date();
@@ -202,6 +204,17 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
         onPressOut={handlePressOut}
         activeOpacity={1}
       >
+        {/* SVG accent for pending cards */}
+        {isPending && (
+          <View style={styles.cardSvgBg}>
+            <Svg width="100%" height="100%" viewBox="0 0 400 60" preserveAspectRatio="xMidYMid slice">
+              <Path d="M0 45 Q80 20 160 40 T320 30 T400 45" stroke={C.primary} strokeWidth="1" fill="none" opacity={0.1} />
+              <Path d="M0 55 Q100 30 200 50 T400 40" stroke={C.primary} strokeWidth="0.7" fill="none" opacity={0.07} />
+              <Circle cx="350" cy="12" r="20" fill={C.primary} opacity={0.04} />
+              <Circle cx="380" cy="45" r="12" fill={C.primary} opacity={0.03} />
+            </Svg>
+          </View>
+        )}
         {/* Header */}
         <View style={[styles.cardTop, isDone && { marginBottom: 4 }]}>
           <View style={styles.cardTopLeft}>
@@ -529,8 +542,10 @@ const UserServiceHistoryScreen = ({ navigation }) => {
   const [activeFilter, setActiveFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [datePreset, setDatePreset] = useState('all');
-  const [showDateFilter, setShowDateFilter] = useState(false);
+  const [filtersVisible, setFiltersVisible] = useState(false);
   const [stats, setStats] = useState({ total: 0, active: 0, completed: 0 });
+
+  const hasActiveFilters = activeFilter !== 'all' || categoryFilter !== 'all' || datePreset !== 'all';
 
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -549,9 +564,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
   const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
 
   // Animated collapse — fade + translate for smooth visual instead of height clip
-  const statsOpacity = scrollY.interpolate({ inputRange: [0, 60], outputRange: [1, 0], extrapolate: 'clamp' });
-  const statsHeight = scrollY.interpolate({ inputRange: [0, 100], outputRange: [STATS_HEIGHT, 0], extrapolate: 'clamp' });
-  const statsTranslateY = scrollY.interpolate({ inputRange: [0, 100], outputRange: [0, -20], extrapolate: 'clamp' });
+  // Stats bar collapse + header pill crossfade are driven by scrollY interpolations inline
 
   // Prevent concurrent fetches from multiple triggers
   const fetchInProgressRef = useRef(false);
@@ -712,10 +725,13 @@ const UserServiceHistoryScreen = ({ navigation }) => {
     if (allRequests.length > 0) fetchRatingStatuses();
   }, [allRequests]);
 
-  // Auto-refresh preference
+  // Auto-refresh preference + filter visibility
   useEffect(() => {
     AsyncStorage.getItem('app_preferences').then(saved => {
       if (saved) { const p = JSON.parse(saved); setAutoRefreshEnabled(p.autoRefresh !== false); }
+    }).catch(() => {});
+    AsyncStorage.getItem('user_filters_visible').then(val => {
+      if (val !== null) setFiltersVisible(val === 'true');
     }).catch(() => {});
   }, []);
 
@@ -933,61 +949,83 @@ const UserServiceHistoryScreen = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
+      <GraphBackground />
+      {/* Header row — fades between title and compact stats */}
+      <View style={[styles.header, { overflow: 'hidden' }]}>
+        <SvgArt color="#f67c16" height={60} />
         <TouchableOpacity onPress={() => setIsDrawerOpen(true)} activeOpacity={0.7} style={styles.logoBtn}>
           <Image source={FIXHOMI_LOGO} style={styles.logoImg} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('userHistory.myBookings')}</Text>
+
+        <View style={styles.headerCenter}>
+          {/* "My Bookings" title — visible at rest, fades on scroll */}
+          <Animated.Text style={[styles.headerTitle, {
+            opacity: scrollY.interpolate({ inputRange: [0, 40], outputRange: [1, 0], extrapolate: 'clamp' }),
+          }]}>
+            {t('userHistory.myBookings')}
+          </Animated.Text>
+
+          {/* Compact inline stat pills — appear on scroll */}
+          <Animated.View style={[styles.headerCompactStats, {
+            opacity: scrollY.interpolate({ inputRange: [30, 70], outputRange: [0, 1], extrapolate: 'clamp' }),
+            position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, justifyContent: 'center',
+          }]}>
+            <View style={[styles.headerInlinePill, { backgroundColor: C.successBg }]}>
+              <View style={styles.headerInlineSvg}>
+                <Svg width="100%" height="100%" viewBox="0 0 120 36" preserveAspectRatio="xMidYMid slice">
+                  <Circle cx="100" cy="0" r="18" fill={C.success} opacity={0.07} />
+                  <Path d="M0 28 Q30 14 60 24 T120 18" stroke={C.success} strokeWidth="0.8" fill="none" opacity={0.1} />
+                </Svg>
+              </View>
+              <Text style={[styles.headerInlineLabel, { color: C.success }]}>Active</Text>
+              <Text style={[styles.headerInlineValue, { color: C.success }]}>{stats.active}</Text>
+            </View>
+            <View style={[styles.headerInlinePill, { backgroundColor: '#EFF6FF' }]}>
+              <View style={styles.headerInlineSvg}>
+                <Svg width="100%" height="100%" viewBox="0 0 120 36" preserveAspectRatio="xMidYMid slice">
+                  <Circle cx="100" cy="0" r="18" fill={C.secondary} opacity={0.07} />
+                  <Path d="M0 28 Q30 14 60 24 T120 18" stroke={C.secondary} strokeWidth="0.8" fill="none" opacity={0.1} />
+                </Svg>
+              </View>
+              <Text style={[styles.headerInlineLabel, { color: C.secondary }]}>Done</Text>
+              <Text style={[styles.headerInlineValue, { color: C.secondary }]}>{stats.completed}</Text>
+            </View>
+          </Animated.View>
+        </View>
+
         <AvatarButton name={displayData?.fullName} profilePicture={displayData?.profilePicture} onPress={() => navigation.navigate('Profile')} />
       </View>
 
-      {/* Collapsible Stats */}
-      <Animated.View style={{ height: statsHeight, overflow: 'hidden', backgroundColor: C.white }}>
-        <Animated.View style={[styles.statsBar, { opacity: statsOpacity, transform: [{ translateY: statsTranslateY }] }]}>
-          <View style={styles.statsRow}>
-            <StatPill value={stats.total} label="Total" color={C.primary} bgColor="#FFF7ED" />
-            <StatPill value={stats.active} label="Active" color={C.success} bgColor={C.successBg} />
-            <StatPill value={stats.completed} label="Done" color={C.secondary} bgColor="#EFF6FF" />
-          </View>
-        </Animated.View>
-      </Animated.View>
-
-      {/* Filter Section */}
-      <View style={styles.filterSection}>
-        {/* Status filters */}
-        <View style={styles.filterRow}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll} style={{ flex: 1 }}>
-            {FILTER_TABS.map(t => {
-              const active = activeFilter === t.key;
+      {/* Filters — toggleable via FAB */}
+      {filtersVisible && (
+        <View style={styles.filterSection}>
+          {/* Status filters — always top row */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+            {FILTER_TABS.map(tab => {
+              const active = activeFilter === tab.key;
               return (
-                <TouchableOpacity key={t.key} style={[styles.filterPill, active && styles.filterPillActive]} onPress={() => setActiveFilter(t.key)} activeOpacity={0.7}>
-                  <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>{t.label}</Text>
+                <TouchableOpacity key={tab.key} style={[styles.filterPill, active && styles.filterPillActive]} onPress={() => setActiveFilter(tab.key)} activeOpacity={0.7}>
+                  <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>{tab.label}</Text>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
-          <View style={styles.filterIconSeparator} />
-          <TouchableOpacity style={[styles.filterIconBtn, showDateFilter && styles.filterIconBtnOn]} onPress={() => setShowDateFilter(v => !v)} activeOpacity={0.7}>
-            <Icon name={showDateFilter || datePreset !== 'all' ? 'filter-outline' : 'filter-off-outline'} size={18} color={showDateFilter ? C.white : C.textSec} />
-            {datePreset !== 'all' && <View style={styles.filterDot} />}
-          </TouchableOpacity>
-        </View>
 
-        {/* Category filters */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
-          {CATEGORY_TABS.map(t => {
-            const active = categoryFilter === t.key;
-            return (
-              <TouchableOpacity key={t.key} style={[styles.categoryChip, active && styles.categoryChipActive]} onPress={() => setCategoryFilter(t.key)} activeOpacity={0.7}>
-                <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>{t.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+          {/* Category filters — separated */}
+          <View style={styles.filterDivider} />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
+            {CATEGORY_TABS.map(tab => {
+              const active = categoryFilter === tab.key;
+              return (
+                <TouchableOpacity key={tab.key} style={[styles.categoryChip, active && styles.categoryChipActive]} onPress={() => setCategoryFilter(tab.key)} activeOpacity={0.7}>
+                  <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>{tab.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
-        {/* Date chips */}
-        {showDateFilter && (
+          {/* Date filters — separated */}
+          <View style={styles.filterDivider} />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateScroll}>
             {DATE_PRESETS.map(p => {
               const a = datePreset === p.key;
@@ -998,19 +1036,28 @@ const UserServiceHistoryScreen = ({ navigation }) => {
               );
             })}
           </ScrollView>
-        )}
-      </View>
+        </View>
+      )}
 
       {/* List */}
       <Animated.FlatList
         data={filteredRequests}
         keyExtractor={item => item.requestId || item._id}
-        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
         scrollEventThrottle={8}
         ListHeaderComponent={
-          (activeFilter !== 'all' || categoryFilter !== 'all' || datePreset !== 'all') ? (
-            <Text style={styles.resultCount}>{filteredRequests.length} {filteredRequests.length === 1 ? 'booking' : 'bookings'}</Text>
-          ) : null
+          <>
+            <View style={styles.statsBarInner}>
+              <View style={styles.statsRow}>
+                <StatPill value={stats.total} label="Total" color={C.primary} bgColor="#FFF7ED" />
+                <StatPill value={stats.active} label="Active" color={C.success} bgColor={C.successBg} />
+                <StatPill value={stats.completed} label="Done" color={C.secondary} bgColor="#EFF6FF" />
+              </View>
+            </View>
+            {hasActiveFilters ? (
+              <Text style={styles.resultCount}>{filteredRequests.length} {filteredRequests.length === 1 ? 'booking' : 'bookings'}</Text>
+            ) : null}
+          </>
         }
         renderItem={({ item }) => (
           <RequestCard
@@ -1055,6 +1102,27 @@ const UserServiceHistoryScreen = ({ navigation }) => {
         loading={cancellingRequest}
         serviceName={SERVICE_TYPE_LABELS[requestToCancel?.serviceType] || requestToCancel?.serviceType}
       />
+
+      {/* Filter toggle — icon only, right-fixed above footer */}
+      <View style={[styles.filterBar, { bottom: Math.max(insets.bottom, 0) }]}>
+        <TouchableOpacity
+          style={[styles.filterBarPill, filtersVisible && styles.filterBarPillOn]}
+          onPress={() => setFiltersVisible(v => { const next = !v; AsyncStorage.setItem('user_filters_visible', String(next)); return next; })}
+          onLongPress={() => {
+            if (hasActiveFilters) {
+              Vibration.vibrate(Platform.OS === 'ios' ? 10 : [0, 50]);
+              setActiveFilter('all');
+              setCategoryFilter('all');
+              setDatePreset('all');
+            }
+          }}
+          delayLongPress={1000}
+          activeOpacity={0.75}
+        >
+          <MaterialIcon name="tune" size={20} color={filtersVisible ? '#FFFFFF' : '#94A3B8'} />
+          {hasActiveFilters && <View style={styles.filterBarActiveDot} />}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -1063,17 +1131,24 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F0F2F5' },
 
   // Header
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 14, backgroundColor: C.white, zIndex: 10 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: C.text, letterSpacing: -0.3 },
-  logoBtn: { width: 40, height: 40, borderRadius: 20, overflow: 'hidden' },
-  logoImg: { width: 40, height: 40, borderRadius: 20 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 10, backgroundColor: C.white, zIndex: 10, gap: 12 },
+  headerCenter: { flex: 1, minHeight: 36, justifyContent: 'center' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: C.text, letterSpacing: -0.3, textAlign: 'center' },
+  headerCompactStats: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  headerInlinePill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, overflow: 'hidden' },
+  headerInlineSvg: { ...StyleSheet.absoluteFillObject },
+  headerInlineLabel: { fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3 },
+  headerInlineValue: { fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
+  logoBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.95)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
+  logoImg: { width: 30, height: 30, borderRadius: 8 },
 
   // Loader
   loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loaderText: { marginTop: 12, fontSize: 14, fontWeight: '500', color: C.textSec },
 
   // Collapsible Stats
-  statsBar: { backgroundColor: C.white, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 12, justifyContent: 'center' },
+  // statsBarOuter removed — stats are now inside FlatList ListHeaderComponent
+  statsBarInner: { paddingHorizontal: 14, paddingTop: 2, paddingBottom: 10 },
   statsRow: { flexDirection: 'row', gap: 8 },
   statPill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 16, overflow: 'hidden', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3 },
   statSvgBg: { ...StyleSheet.absoluteFillObject },
@@ -1081,17 +1156,48 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
 
   // Filter section — unified container
-  filterSection: { backgroundColor: C.white, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: '#E8ECF0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 3 },
-  filterRow: { flexDirection: 'row', alignItems: 'center' },
+  filterSection: { backgroundColor: C.white, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: '#E8ECF0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 3 },
+  filterDivider: { height: 1, backgroundColor: '#F1F5F9', marginHorizontal: 16, marginVertical: 4 },
   filterScroll: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
   filterPill: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#F1F5F9', borderRadius: 20, borderWidth: 1, borderColor: '#E2E8F0' },
   filterPillActive: { backgroundColor: C.primary, borderColor: C.primary },
   filterPillText: { fontSize: 13, fontWeight: '600', color: C.textSec },
   filterPillTextActive: { color: C.white },
-  filterIconSeparator: { width: 1, height: 24, backgroundColor: '#E2E8F0', marginRight: 10 },
-  filterIconBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center', marginRight: 14, borderWidth: 1, borderColor: '#E2E8F0' },
-  filterIconBtnOn: { backgroundColor: C.secondary, borderColor: C.secondary },
-  filterDot: { position: 'absolute', top: 3, right: 3, width: 7, height: 7, borderRadius: 4, backgroundColor: C.primary, borderWidth: 1.5, borderColor: C.white },
+  // Filter bar — floating pill above tab bar
+  filterBar: {
+    position: 'absolute',
+    right: 14,
+    zIndex: 999,
+  },
+  filterBarPill: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6 },
+      android: { elevation: 4 },
+    }),
+  },
+  filterBarPillOn: {
+    backgroundColor: '#1E293B',
+    borderColor: '#1E293B',
+  },
+  filterBarActiveDot: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
 
   // Category chips
   categoryScroll: { paddingHorizontal: 16, paddingTop: 2, paddingBottom: 8, gap: 6 },
@@ -1114,9 +1220,10 @@ const styles = StyleSheet.create({
   listPad: { padding: 14, paddingBottom: 40 },
 
   // Card
-  card: { backgroundColor: C.white, borderRadius: 20, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: '#E8ECF0', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 6 },
-  cardPending: { borderColor: C.primary + '50', borderWidth: 1.5, borderLeftWidth: 4, borderLeftColor: C.primary },
+  card: { backgroundColor: C.white, borderRadius: 20, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: '#E8ECF0', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 6, overflow: 'hidden' },
+  cardPending: { borderColor: C.primary + '35', borderWidth: 1.5 },
   cardCompact: { padding: 14, marginBottom: 12 },
+  cardSvgBg: { position: 'absolute', top: 0, left: 0, right: 0, height: 60 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   cardTopLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 },
   svcIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#FFF7ED', alignItems: 'center', justifyContent: 'center', marginRight: 10 },

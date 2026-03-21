@@ -596,6 +596,17 @@ export const AppProvider = ({ children }) => {
         }
       }
       
+      // Restore cached Aadhaar status instantly (no shimmer on cold start)
+      if (storedUserType === 'provider') {
+        try {
+          const cachedAadhaar = await AsyncStorage.getItem('cached_aadhaar_status');
+          if (cachedAadhaar) {
+            const parsed = JSON.parse(cachedAadhaar);
+            setAadhaarStatus({ ...parsed, aadhaarLoaded: true });
+          }
+        } catch {} // ignore — will fetch fresh on ProfileScreen
+      }
+
       // Fetch fresh profile data in background
       if (storedUserData.mongoId) {
         refreshProfile(storedUserType, storedUserData.mongoId);
