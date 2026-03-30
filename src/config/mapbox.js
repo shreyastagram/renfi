@@ -12,6 +12,9 @@ import Mapbox from '@rnmapbox/maps';
 // ============================================
 // TOKEN LOADING (from .env via react-native-config)
 // ============================================
+// Public token (pk.*) — safe to embed, not a secret key
+const FALLBACK_TOKEN = 'pk.eyJ1IjoiZml4aG9taSIsImEiOiJjbWY2Zjg1MTUwMnhmMm1zNnQxaTdkcmtnIn0.AtF-wG4vaenzSf0Ff9aYBg';
+
 let MAPBOX_ACCESS_TOKEN = '';
 
 try {
@@ -20,7 +23,12 @@ try {
     MAPBOX_ACCESS_TOKEN = Config.MAPBOX_ACCESS_TOKEN;
   }
 } catch (e) {
-  // react-native-config not available
+  // react-native-config not available in release builds
+}
+
+// Fallback for release builds where react-native-config may not inject .env
+if (!MAPBOX_ACCESS_TOKEN) {
+  MAPBOX_ACCESS_TOKEN = FALLBACK_TOKEN;
 }
 
 // ============================================

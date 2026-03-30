@@ -357,9 +357,26 @@ const sendLocationUpdate = async (providerId, coords) => {
 
 // ==================== PER-REQUEST LOCATION TRACKING ====================
 
+// Minimum distance (meters) before broadcasting — filters GPS noise when stationary
+const MIN_BROADCAST_DISTANCE_M = 5;
+let lastBroadcastCoords = null;
+
+/**
+ * Haversine distance in meters between two lat/lng points.
+ */
+const haversineMeters = (lat1, lon1, lat2, lon2) => {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
 /**
  * Broadcast a location update to ALL actively tracked requests.
  * Uses one GPS reading → fans out to N socket rooms + REST endpoints.
+ * Skips broadcast if provider hasn't moved more than 5m (GPS noise filter).
  */
 const broadcastRequestLocation = (coords) => {
   if (activeTrackingRequests.size === 0) return;
@@ -371,6 +388,16 @@ const broadcastRequestLocation = (coords) => {
     console.warn('⚠️ [Socket] Invalid coordinates, skipping broadcast');
     return;
   }
+
+  // Skip if provider hasn't moved meaningfully (filters GPS jitter when stationary)
+  if (lastBroadcastCoords) {
+    const dist = haversineMeters(
+      lastBroadcastCoords.latitude, lastBroadcastCoords.longitude,
+      coords.latitude, coords.longitude,
+    );
+    if (dist < MIN_BROADCAST_DISTANCE_M) return;
+  }
+  lastBroadcastCoords = { latitude: coords.latitude, longitude: coords.longitude };
 
   // Track last successful GPS reading for health checks
   lastGpsUpdateTimestamp = Date.now();
@@ -538,6 +565,7 @@ export const stopRequestLocationTracking = (requestId) => {
     if (activeTrackingRequests.size > 0) {
       console.log(`📍 [Socket] Stopping all request tracking (${activeTrackingRequests.size} requests)`);
       activeTrackingRequests.clear();
+      lastBroadcastCoords = null; // Reset distance filter
     }
     if (requestLocationWatchId !== null) {
       Geolocation.clearWatch(requestLocationWatchId);

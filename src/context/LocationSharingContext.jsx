@@ -19,6 +19,7 @@
 
 import React, { createContext, useContext, useEffect, useRef, useCallback } from 'react';
 import { useApp } from './AppContext';
+import { useDialog } from './DialogContext';
 import {
   addEventListener,
   startRequestLocationTracking,
@@ -30,9 +31,22 @@ import {
   restartGpsWatcher,
   subscribeToRequest,
 } from '../services/socketService';
+import {
+  startBackgroundTracking,
+  stopBackgroundTrackingForRequest,
+  stopAllBackgroundTracking,
+} from '../services/backgroundLocationService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  requestBackgroundLocationPermission,
+  showBatteryOptimizationDialog,
+  isBackgroundLocationGranted,
+} from '../utils/permissions';
 import { getProviderRequests } from '../services/traditionalServiceService';
 import { authFetch } from '../utils/authFetch';
 import { NODE_BASE_URL } from '../config/api';
+
+const BG_PERMISSION_ASKED_KEY = 'fixhomi_bg_location_asked';
 
 const LocationSharingContext = createContext(null);
 
@@ -91,6 +105,7 @@ const fetchAllActiveRequests = async (providerId) => {
 
 export const LocationSharingProvider = ({ children }) => {
   const { user, profile, userType } = useApp();
+  const { dialog } = useDialog();
   const isProvider = userType === 'provider';
   const providerId =
     user?.mongoId || profile?.mongoId || user?._id || profile?._id || null;
@@ -99,11 +114,57 @@ export const LocationSharingProvider = ({ children }) => {
   const providerIdRef = useRef(providerId);
   providerIdRef.current = providerId;
 
+  // Track whether we've already prompted this session (in-memory guard)
+  const bgPermissionPromptedRef = useRef(false);
+
+  /**
+   * Start background tracking with permission check.
+   *
+   * Key design: TransistorSoft works with "When in Use" permission (via foreground
+   * service). "Allow all the time" is only needed for killed-state tracking.
+   * So we ALWAYS start TransistorSoft if we have any location permission,
+   * and only prompt for "Always" once as a bonus.
+   *
+   * Flow:
+   * 1. Always start TransistorSoft (works with foreground location permission)
+   * 2. If "Always" not granted and never asked → prompt once for killed-state support
+   * 3. If user declines "Always" → TransistorSoft still works in foreground+background
+   */
+  const startBackgroundWithPermission = useCallback(async (pid, reqId) => {
+    // Always start TransistorSoft — it works with "When in Use" via foreground service
+    startBackgroundTracking(pid, reqId);
+
+    // Check if "Allow all the time" is already granted (for killed-state support)
+    const alwaysGranted = await isBackgroundLocationGranted();
+    if (alwaysGranted) return; // All good — killed-state tracking works too
+
+    // Prompt for "Always" permission once — bonus for killed-state, not a blocker
+    if (bgPermissionPromptedRef.current) return;
+
+    try {
+      const alreadyAsked = await AsyncStorage.getItem(BG_PERMISSION_ASKED_KEY);
+      if (alreadyAsked === 'true') return;
+    } catch {}
+
+    bgPermissionPromptedRef.current = true;
+    await AsyncStorage.setItem(BG_PERMISSION_ASKED_KEY, 'true').catch(() => {});
+
+    const granted = await requestBackgroundLocationPermission(dialog);
+    if (granted) {
+      setTimeout(() => showBatteryOptimizationDialog(dialog), 800);
+    }
+  }, [dialog]);
+
   // Mounted guard — prevents interval/async callbacks from running after unmount
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+      // Provider session ending (logout or unmount) — stop all background tracking
+      // Critical for App Store compliance: no tracking without active requests
+      stopAllBackgroundTracking();
+    };
   }, []);
 
   // ─── Resume: fetch active requests and start tracking for enabled ones ──
@@ -129,6 +190,9 @@ export const LocationSharingProvider = ({ children }) => {
           // Ensure the request room is subscribed so the backend broadcasts
           // reach this provider (and so the user's broadcasts route correctly)
           subscribeToRequest(reqId);
+          // Start background tracking alongside foreground socket
+          // (reads tokens from Keychain, configures TransistorSoft if needed)
+          startBackgroundWithPermission(pid, reqId);
           started++;
         }
       }
@@ -173,12 +237,14 @@ export const LocationSharingProvider = ({ children }) => {
               category,
             );
             subscribeToRequest(data.requestId);
+            startBackgroundWithPermission(pid, data.requestId);
           }
         } else {
           console.log(
             `[LocationSharingCtx] DISABLED ${data.requestId} — stopping tracking`,
           );
           stopRequestLocationTracking(data.requestId);
+          stopBackgroundTrackingForRequest(data.requestId);
         }
       },
     );
@@ -196,6 +262,7 @@ export const LocationSharingProvider = ({ children }) => {
           `[LocationSharingCtx] Request ${data.requestId} completed — stopping tracking`,
         );
         stopRequestLocationTracking(data.requestId);
+        stopBackgroundTrackingForRequest(data.requestId);
       }
     });
 
@@ -205,6 +272,7 @@ export const LocationSharingProvider = ({ children }) => {
           `[LocationSharingCtx] Request ${data.requestId} cancelled — stopping tracking`,
         );
         stopRequestLocationTracking(data.requestId);
+        stopBackgroundTrackingForRequest(data.requestId);
       }
     });
 

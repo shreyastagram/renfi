@@ -22,6 +22,11 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 
 import { initializeMapbox } from '../../config/mapbox';
 
+// Initialize Mapbox at module level — BEFORE any MapView renders.
+// In release builds, useEffect runs after first render, by which time
+// the native MapView has already tried to load tiles without a token.
+initializeMapbox();
+
 // Default location (India - Mumbai)
 const DEFAULT_LOCATION = {
   latitude: 19.0760,

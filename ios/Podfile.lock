@@ -11,6 +11,9 @@ PODS:
     - PromisesObjC (~> 2.4)
   - BVLinearGradient (2.8.3):
     - React-Core
+  - CocoaLumberjack (3.8.5):
+    - CocoaLumberjack/Core (= 3.8.5)
+  - CocoaLumberjack/Core (3.8.5)
   - FBLazyVector (0.84.1)
   - Firebase/CoreOnly (12.8.0):
     - FirebaseCore (~> 12.8.0)
@@ -2159,6 +2162,30 @@ PODS:
   - ReactNativeDependencies (0.84.1)
   - RNAppleAuthentication (2.5.1):
     - React-Core
+  - RNBackgroundGeolocation (5.0.5):
+    - CocoaLumberjack (~> 3.8.5)
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - TSLocationManager (~> 4.0.10)
+    - Yoga
   - RNCAsyncStorage (2.2.0):
     - hermes-engine
     - RCTRequired
@@ -2203,7 +2230,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - RNCPicker (2.11.1):
+  - RNCPicker (2.11.4):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2579,6 +2606,9 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - TSBackgroundFetch (4.0.6)
+  - TSLocationManager (4.0.30):
+    - TSBackgroundFetch (~> 4.0.6)
   - Turf (2.8.0)
   - Yoga (0.0.0)
 
@@ -2668,6 +2698,7 @@ DEPENDENCIES:
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - ReactNativeDependencies (from `../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
   - "RNAppleAuthentication (from `../node_modules/@invertase/react-native-apple-authentication`)"
+  - RNBackgroundGeolocation (from `../node_modules/react-native-background-geolocation`)
   - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
   - "RNCClipboard (from `../node_modules/@react-native-clipboard/clipboard`)"
   - "RNCPicker (from `../node_modules/@react-native-picker/picker`)"
@@ -2692,6 +2723,7 @@ SPEC REPOS:
   trunk:
     - AppAuth
     - AppCheckCore
+    - CocoaLumberjack
     - Firebase
     - FirebaseCore
     - FirebaseCoreExtension
@@ -2715,6 +2747,8 @@ SPEC REPOS:
     - PromisesSwift
     - razorpay-core-pod
     - razorpay-pod
+    - TSBackgroundFetch
+    - TSLocationManager
     - Turf
 
 EXTERNAL SOURCES:
@@ -2887,6 +2921,8 @@ EXTERNAL SOURCES:
     :podspec: "../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec"
   RNAppleAuthentication:
     :path: "../node_modules/@invertase/react-native-apple-authentication"
+  RNBackgroundGeolocation:
+    :path: "../node_modules/react-native-background-geolocation"
   RNCAsyncStorage:
     :path: "../node_modules/@react-native-async-storage/async-storage"
   RNCClipboard:
@@ -2930,6 +2966,7 @@ SPEC CHECKSUMS:
   AppAuth: 1c1a8afa7e12f2ec3a294d9882dfa5ab7d3cb063
   AppCheckCore: cc8fd0a3a230ddd401f326489c99990b013f0c4f
   BVLinearGradient: 880f91a7854faff2df62518f0281afb1c60d49a3
+  CocoaLumberjack: 6a459bc897d6d80bd1b8c78482ec7ad05dffc3f0
   FBLazyVector: e97c19a5a442429d1988f182a1940fb08df514da
   Firebase: 9a58fdbc9d8655ed7b79a19cf9690bb007d3d46d
   FirebaseCore: 0dbad74bda10b8fb9ca34ad8f375fb9dd3ebef7c
@@ -3036,9 +3073,10 @@ SPEC CHECKSUMS:
   ReactCommon: 309419492d417c4cbb87af06f67735afa40ecb9d
   ReactNativeDependencies: ee0cb975bb824634506664896739e01254aed4e2
   RNAppleAuthentication: d6fe579e5f43cf8db54bdc48518bccea61c592a4
+  RNBackgroundGeolocation: 4e308187027eb7122cf3ef0d54604fdf03a48b46
   RNCAsyncStorage: e85a99325df9eb0191a6ee2b2a842644c7eb29f4
   RNCClipboard: 398455e1ad6a44a94d679452b951ffb788e8599b
-  RNCPicker: f97c908b7774248c1093ec3831ca70d338627bf7
+  RNCPicker: e0149590451d5eae242cf686014a6f6d808f93c7
   RNDateTimePicker: 5e0666de98f1edfac67ee7dde6be8a5415e487a0
   RNDeviceInfo: 53f9c84e28e854a308d3e548e25ef120b4615531
   RNFBApp: fb9fbbea9d08a98825aeb86b75945eea8a38c7a4
@@ -3054,8 +3092,10 @@ SPEC CHECKSUMS:
   RNShare: ff5af9247238eef4163d0f52cc3b99fdea6e9e8f
   RNSVG: ab21c7dd854210d72d228737b7ddda1c6c0b5256
   RNVectorIcons: af977c18ed27deba54ed038b439fca2911a08cfc
+  TSBackgroundFetch: 0afbeaae4e1132866e1d4b6e55265af26b5958ae
+  TSLocationManager: 49250cf21d1f5e88b1462664b4b880d7a537ab80
   Turf: aa2ede4298009639d10db36aba1a7ebaad072a5e
-  Yoga: 7c1c3b93e408ac46c7ed64b5641ca7161747378d
+  Yoga: c0b3f2c7e8d3e327e450223a2414ca3fa296b9a2
 
 PODFILE CHECKSUM: 37bd0592a0f7eb40e6e7901aec7fd85a2e675513
 

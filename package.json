@@ -33,6 +33,7 @@
     "i18n-js": "^4.5.3",
     "react": "^19.2.3",
     "react-native": "^0.84.1",
+    "react-native-background-geolocation": "^5.0.5",
     "react-native-background-timer": "^2.4.1",
     "react-native-blob-util": "^0.24.7",
     "react-native-config": "^1.6.1",

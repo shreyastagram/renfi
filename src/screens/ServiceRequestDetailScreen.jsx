@@ -43,6 +43,7 @@ import { NODE_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
 import Mapbox from '@rnmapbox/maps';
 import { initializeMapbox } from '../config/mapbox';
+initializeMapbox();
 import {
   getRequestDetails,
   cancelRequest,

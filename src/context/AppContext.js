@@ -269,10 +269,19 @@ export const AppProvider = ({ children }) => {
         return null;
       }
 
-      // If profile fetch failed with a 404/not-found error, account may be deleted
+      // If profile fetch failed, distinguish between network errors and account deletion
       if (!result.success) {
         const errStatus = result.error?.status;
         const errCode = result.error?.code;
+
+        // Network error — don't logout, just skip this refresh cycle
+        const networkCodes = ['NETWORK_ERROR', 'SERVER_UNREACHABLE', 'NO_INTERNET', 'SERVER_TIMEOUT'];
+        if (networkCodes.includes(errCode)) {
+          console.warn('⚠️ [AppContext] Profile fetch failed due to network — keeping session');
+          return profile; // Return cached profile, don't logout
+        }
+
+        // Definitive 404 — account was deleted on the backend
         if (errStatus === 404 || errCode === 'USER_NOT_FOUND' || errCode === 'PROVIDER_NOT_FOUND') {
           if (isInitialLoadRef.current) {
             console.warn('🚫 [AppContext] Account not found (detected during init) — deferring to background check');

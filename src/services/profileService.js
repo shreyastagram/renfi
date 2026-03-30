@@ -465,10 +465,26 @@ export const fetchFullProfile = async (userType, mongoId) => {
     };
     
     // Detect deleted account: Java Auth failed/inactive AND MongoDB not found/deleted
+    // IMPORTANT: Only conclude "account gone" if at least one backend responded
+    // with a definitive "not found" (404). If both failed due to network errors,
+    // it's a connectivity issue — NOT a deleted account.
+    const networkErrorCodes = ['NETWORK_ERROR', 'SERVER_UNREACHABLE', 'NO_INTERNET', 'SERVER_TIMEOUT', 'ERR_NETWORK'];
+    const javaAuthIsNetworkError = !javaAuthAvailable && networkErrorCodes.includes(javaAuthResult.error?.code);
+    const mongoIsNetworkError = !mongoResult.success && networkErrorCodes.includes(mongoResult.error?.code);
+    const bothAreNetworkErrors = javaAuthIsNetworkError && mongoIsNetworkError;
+
     const accountGone = (
       (!javaAuthAvailable || javaAuthData.isActive === false) &&
-      !mongoResult.success
+      !mongoResult.success &&
+      !bothAreNetworkErrors // Don't treat network failures as account deletion
     );
+    if (bothAreNetworkErrors) {
+      console.warn('⚠️ [ProfileService] Both backends unreachable — network issue, not account deletion');
+      return {
+        success: false,
+        error: { message: 'No internet connection. Please check your network and try again.', code: 'NETWORK_ERROR' },
+      };
+    }
     if (accountGone) {
       console.warn('🚫 [ProfileService] Account appears deleted on both backends');
       return {

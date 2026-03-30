@@ -34,6 +34,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { NODE_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
 import { MAPBOX_ACCESS_TOKEN, initializeMapbox } from '../config/mapbox';
+initializeMapbox();
 import { formatDistance, useDistanceUnit } from '../utils/formatDistance';
 import {
   addEventListener as addSocketListener,
@@ -309,6 +310,32 @@ const LiveTrackingScreen = ({ navigation, route }) => {
   useEffect(() => {
     Animated.spring(slideAnim, { toValue: 1, tension: 50, friction: 9, useNativeDriver: true }).start();
   }, [slideAnim]);
+
+  // Fetch provider profile (name, phone, profilePicture) once on mount
+  // For emergency services this is already included in the request data;
+  // for traditional/event we need a separate fetch.
+  useEffect(() => {
+    if (!providerId || isEmergencyService) return;
+    (async () => {
+      try {
+        const res = await authFetch(
+          `${NODE_BASE_URL}/api/traditional-services/provider/${providerId}/details`,
+        );
+        const data = await res.json();
+        const p = data?.provider || data?.data;
+        if (p) {
+          setProviderData({
+            name: p.name || providerName,
+            phone: p.phone || p.verifiedPhone,
+            profilePicture: p.profilePicture,
+            isOnline: p.isOnline ?? true,
+          });
+        }
+      } catch {
+        // Non-critical — falls back to initials
+      }
+    })();
+  }, [providerId, isEmergencyService]);
 
   // Smart polling: fast initially, then slow
   useEffect(() => {

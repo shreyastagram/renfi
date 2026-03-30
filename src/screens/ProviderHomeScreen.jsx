@@ -37,6 +37,7 @@ import Mapbox from '@rnmapbox/maps';
 import useExitConfirmation from '../hooks/useExitConfirmation';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
 import SvgArt from '../components/SvgArt';
+import LocationTrackingBanner from '../components/LocationTrackingBanner';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 import { Icon } from '../components';
@@ -465,6 +466,60 @@ const VerificationStatusCard = ({ dashboard, onPress, isLoading = false, t }) =>
         </View>
       </TouchableOpacity>
     </Animated.View>
+  );
+};
+
+/**
+ * Animated Online/Offline toggle pad.
+ * Scale bounce on press, instant color swap.
+ */
+const StatusTogglePad = ({ isAvailable, isUpdating, onToggle }) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePress = () => {
+    if (isUpdating) return;
+    Animated.sequence([
+      Animated.timing(scaleAnim, { toValue: 0.93, duration: 80, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, tension: 300, friction: 10, useNativeDriver: true }),
+    ]).start();
+    onToggle();
+  };
+
+  return (
+    <TouchableOpacity
+      onPress={handlePress}
+      disabled={isUpdating}
+      activeOpacity={1}
+      accessibilityLabel={isAvailable ? 'Go offline' : 'Go online'}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: isAvailable }}
+      style={{ flex: 1 }}
+    >
+      <Animated.View
+        style={[
+          styles.statusPad,
+          {
+            backgroundColor: isAvailable ? '#22C55E' : '#FFFFFF',
+            borderColor: isAvailable ? '#16A34A' : '#E2E8F0',
+            transform: [{ scale: scaleAnim }],
+          },
+        ]}
+      >
+        {isUpdating ? (
+          <ActivityIndicator size="small" color={isAvailable ? '#FFFFFF' : '#94A3B8'} />
+        ) : (
+          <>
+            <PulsingDot isOnline={isAvailable} />
+            <Text style={[
+              styles.statusPadText,
+              { color: isAvailable ? '#FFFFFF' : '#94A3B8' },
+            ]}>
+              {isAvailable ? 'Online' : 'Offline'}
+            </Text>
+          </>
+        )}
+      </Animated.View>
+    </TouchableOpacity>
   );
 };
 
@@ -916,38 +971,23 @@ const ProviderHomeScreen = ({ navigation }) => {
 
         {/* Content area with padding */}
         <View style={styles.contentArea}>
-          {/* Availability Toggle Card */}
-          <View style={[
-            styles.availabilityCard,
-            isAvailable && styles.availabilityCardOnline,
-          ]}>
-            <View style={styles.availabilityContent}>
-              <PulsingDot isOnline={isAvailable} />
-              <View style={styles.availabilityTextBlock}>
-                <Text style={styles.availabilityTitle}>
-                  {isAvailable ? t('providerHome.youreOnline') : t('providerHome.youreOffline')}
-                </Text>
-                <Text style={styles.availabilitySubtitle}>
-                  {isAvailable ? t('providerHome.onlineSubtitle') : t('providerHome.offlineSubtitle')}
-                </Text>
+          {/* Status Pads Row — location sharing (left) + online toggle (right) */}
+          <View style={styles.statusPadsRow}>
+            {/* Location Sharing Pad — left side, only visible when tracking */}
+            <LocationTrackingBanner />
+
+            {/* Online/Offline Toggle Pad — right side */}
+            {isProfileLoading ? (
+              <View style={[styles.statusPad, { backgroundColor: BRAND.white, borderColor: '#E2E8F0' }]}>
+                <ActivityIndicator size="small" color={BRAND.muted} />
               </View>
-            </View>
-            <View style={styles.switchWrapper}>
-              {(isUpdatingAvailability || refreshing) && (
-                <ActivityIndicator size="small" color={BRAND.primary} style={{ marginRight: 8 }} />
-              )}
-              <Switch
-                value={isAvailable}
-                onValueChange={handleAvailabilityToggle}
-                disabled={isUpdatingAvailability || refreshing}
-                trackColor={{ false: '#CBD5E1', true: '#22C55E' }}
-                thumbColor={Platform.OS === 'ios' ? '#FFFFFF' : (isAvailable ? '#22C55E' : '#94A3B8')}
-                ios_backgroundColor="#CBD5E1"
-                accessibilityLabel={isAvailable ? 'Go offline' : 'Go online'}
-                accessibilityRole="switch"
-                accessibilityState={{ checked: isAvailable }}
+            ) : (
+              <StatusTogglePad
+                isAvailable={isAvailable}
+                isUpdating={isUpdatingAvailability || refreshing}
+                onToggle={() => handleAvailabilityToggle(!isAvailable)}
               />
-            </View>
+            )}
           </View>
 
           {/* Verification Status / Location Row */}
@@ -1424,7 +1464,41 @@ const styles = StyleSheet.create({
     paddingTop: 14,
   },
 
-  // ===== Availability Card =====
+  // ===== Status Pads Row =====
+  statusPadsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  statusPad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1.5,
+    flex: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.06,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  statusPadText: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+
+  // ===== Availability Card (legacy — kept for skeleton loader) =====
   availabilityCard: {
     flexDirection: 'row',
     alignItems: 'center',
