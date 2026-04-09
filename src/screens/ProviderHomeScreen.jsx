@@ -23,7 +23,8 @@ import {  View,
   Image,
   Animated,
   Platform,
-  Linking
+  Linking,
+  InteractionManager
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -93,6 +94,23 @@ const SERVICE_LABELS = {
 };
 
 /**
+ * Casual greeting based on time of day — rotates between variants
+ */
+const getGreeting = (name) => {
+  const hour = new Date().getHours();
+  if (hour < 12) {
+    const g = [`Good morning, ${name}`, `Morning, ${name}`, `Hi, ${name}`, `Hey, ${name}`];
+    return g[Math.floor(Date.now() / 60000) % g.length];
+  }
+  if (hour < 17) {
+    const g = [`Good afternoon, ${name}`, `Hi, ${name}`, `Hey, ${name}`, `Hey there, ${name}`];
+    return g[Math.floor(Date.now() / 60000) % g.length];
+  }
+  const g = [`Good evening, ${name}`, `Hi, ${name}`, `Hey, ${name}`, `Hey there, ${name}`];
+  return g[Math.floor(Date.now() / 60000) % g.length];
+};
+
+/**
  * Format service name - removes underscores and capitalizes
  */
 const formatServiceName = (service) => {
@@ -133,12 +151,13 @@ const usePressAnimation = () => {
 /**
  * Pulsing dot component for online status
  */
-const PulsingDot = ({ isOnline }) => {
+const PulsingDot = ({ isOnline, paused }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(0.6)).current;
 
   useEffect(() => {
-    if (isOnline) {
+    // Don't run animation when screen is not focused (paused=true)
+    if (isOnline && !paused) {
       const pulse = Animated.loop(
         Animated.parallel([
           Animated.sequence([
@@ -168,9 +187,13 @@ const PulsingDot = ({ isOnline }) => {
         ])
       );
       pulse.start();
-      return () => pulse.stop();
+      return () => {
+        pulse.stop();
+        pulseAnim.setValue(1);
+        opacityAnim.setValue(0.6);
+      };
     }
-  }, [isOnline, pulseAnim, opacityAnim]);
+  }, [isOnline, paused, pulseAnim, opacityAnim]);
 
   return (
     <View style={styles.pulsingDotContainer}>
@@ -473,7 +496,7 @@ const VerificationStatusCard = ({ dashboard, onPress, isLoading = false, t }) =>
  * Animated Online/Offline toggle pad.
  * Scale bounce on press, instant color swap.
  */
-const StatusTogglePad = ({ isAvailable, isUpdating, onToggle }) => {
+const StatusTogglePad = ({ isAvailable, isUpdating, onToggle, paused }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePress = () => {
@@ -509,7 +532,7 @@ const StatusTogglePad = ({ isAvailable, isUpdating, onToggle }) => {
           <ActivityIndicator size="small" color={isAvailable ? '#FFFFFF' : '#94A3B8'} />
         ) : (
           <>
-            <PulsingDot isOnline={isAvailable} />
+            <PulsingDot isOnline={isAvailable} paused={paused} />
             <Text style={[
               styles.statusPadText,
               { color: isAvailable ? '#FFFFFF' : '#94A3B8' },
@@ -537,6 +560,9 @@ const ProviderHomeScreen = ({ navigation }) => {
   // Show "Exit App?" on Android back press from home screen
   useExitConfirmation();
 
+  // Shimmer animation for inline loading states
+  const shimmerAnim = useShimmerAnimation();
+
   // Set status bar for dark hero header when this tab is focused
   useFocusEffect(
     useCallback(() => {
@@ -557,6 +583,7 @@ const ProviderHomeScreen = ({ navigation }) => {
     rating: 0,
   });
   const [recentServices, setRecentServices] = useState([]);
+  const [statsLoaded, setStatsLoaded] = useState(false);
   const [locationModalVisible, setLocationModalVisible] = useState(false);
   const locationModalAnim = useRef(new Animated.Value(0)).current;
   const [locationModalRendered, setLocationModalRendered] = useState(false);
@@ -655,8 +682,10 @@ const ProviderHomeScreen = ({ navigation }) => {
         .sort((a, b) => new Date(b.serviceDate || b.createdAt) - new Date(a.serviceDate || a.createdAt))
         .slice(0, 3);
       setRecentServices(activeRequests);
+      setStatsLoaded(true);
     } catch (error) {
       console.error('[ProviderHome] Error fetching stats:', error);
+      setStatsLoaded(true);
       // Fallback to profile data
       setStats({
         pending: 0,
@@ -703,24 +732,26 @@ const ProviderHomeScreen = ({ navigation }) => {
   const lastRefreshRef = useRef(0);
   useEffect(() => {
     if (isFocused) {
-      if (!initialLoadDone.current) {
-        initialLoadDone.current = true;
+      // Defer fetches until after tab transition animation completes
+      const task = InteractionManager.runAfterInteractions(() => {
+        if (!initialLoadDone.current) {
+          initialLoadDone.current = true;
+          lastRefreshRef.current = Date.now();
+          fetchStats();
+          fetchVerificationData();
+          return;
+        }
+        const elapsed = Date.now() - lastRefreshRef.current;
+        if (elapsed < 30000) return;
         lastRefreshRef.current = Date.now();
-        // First mount: only fetch verification + stats (profile already fetched by AppContext)
+        const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+        if (providerId && userType === 'provider') {
+          refreshProfile(userType, providerId);
+        }
         fetchStats();
-        fetchVerificationData();
-        return;
-      }
-      // Subsequent focuses: only refresh if data is stale (>30s since last refresh)
-      const elapsed = Date.now() - lastRefreshRef.current;
-      if (elapsed < 30000) return;
-      lastRefreshRef.current = Date.now();
-      const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
-      if (providerId && userType === 'provider') {
-        refreshProfile(userType, providerId);
-      }
-      fetchStats();
-      fetchVerificationData({ force: true });
+        fetchVerificationData({ force: true });
+      });
+      return () => task.cancel();
     }
   }, [isFocused]);
 
@@ -855,28 +886,28 @@ const ProviderHomeScreen = ({ navigation }) => {
   //     LocationSharingContext (always-mounted, screen-independent).
   //     ProviderHomeScreen only listens for socket events to refresh stats. ───
 
-  // Listen for socket events so provider's dashboard refreshes in real-time
-  useEffect(() => {
-    const socketRefresh = (label) => {
-      console.log(`[ProviderHome] Socket: ${label} -- refreshing stats`);
-      lastRefreshRef.current = Date.now();
-      fetchStats();
-    };
-    // When a new request arrives, refresh stats so pending count updates
-    const removeNewReq = addEventListener('new:request', () => socketRefresh('new:request'));
+  // Listen for socket events ONLY when this tab is focused
+  // Prevents background tabs from triggering API calls on socket events
+  useFocusEffect(
+    useCallback(() => {
+      const socketRefresh = (label) => {
+        console.log(`[ProviderHome] Socket: ${label} -- refreshing stats`);
+        lastRefreshRef.current = Date.now();
+        fetchStats();
+      };
+      const removeNewReq = addEventListener('new:request', () => socketRefresh('new:request'));
+      const removeAccepted = addEventListener('request:accepted', () => socketRefresh('request:accepted'));
+      const removeCompleted = addEventListener('request:completed', () => socketRefresh('request:completed'));
+      const removeCancelled = addEventListener('request:cancelled', () => socketRefresh('request:cancelled'));
 
-    // When a request is accepted/completed/cancelled, refresh stats
-    const removeAccepted = addEventListener('request:accepted', () => socketRefresh('request:accepted'));
-    const removeCompleted = addEventListener('request:completed', () => socketRefresh('request:completed'));
-    const removeCancelled = addEventListener('request:cancelled', () => socketRefresh('request:cancelled'));
-
-    return () => {
-      removeNewReq();
-      removeAccepted();
-      removeCompleted();
-      removeCancelled();
-    };
-  }, [fetchStats]);
+      return () => {
+        removeNewReq();
+        removeAccepted();
+        removeCompleted();
+        removeCancelled();
+      };
+    }, [fetchStats])
+  );
 
   useEffect(() => {
     fetchStats();
@@ -956,7 +987,7 @@ const ProviderHomeScreen = ({ navigation }) => {
             </TouchableOpacity>
 
             <View style={styles.heroTextInline}>
-              <Text style={styles.heroNameInline} numberOfLines={1}>Welcome back, {firstName}</Text>
+              <Text style={styles.heroNameInline} numberOfLines={1}>{getGreeting(firstName)}</Text>
               <Text style={styles.heroSubtextInline} numberOfLines={1}>{t('providerHome.manageServices')}</Text>
             </View>
 
@@ -986,6 +1017,7 @@ const ProviderHomeScreen = ({ navigation }) => {
                 isAvailable={isAvailable}
                 isUpdating={isUpdatingAvailability || refreshing}
                 onToggle={() => handleAvailabilityToggle(!isAvailable)}
+                paused={!isFocused}
               />
             )}
           </View>
@@ -1072,6 +1104,17 @@ const ProviderHomeScreen = ({ navigation }) => {
 
           {/* Stats Grid */}
           <Text style={styles.sectionTitle}>{t('providerHome.overview')}</Text>
+          {!statsLoaded ? (
+            <View style={styles.statsGrid}>
+              {[0,1,2,3].map(i => (
+                <View key={i} style={[styles.statsCard, { padding: 14, alignItems: 'center' }]}>
+                  <ShimmerBlock width={36} height={36} borderRadius={18} shimmerAnim={shimmerAnim} />
+                  <ShimmerBlock width={30} height={20} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginTop: 8 }} />
+                  <ShimmerBlock width={50} height={10} borderRadius={5} shimmerAnim={shimmerAnim} style={{ marginTop: 4 }} />
+                </View>
+              ))}
+            </View>
+          ) : (
           <View style={styles.statsGrid}>
             <StatsCard
               materialIconName="play-circle-filled"
@@ -1095,11 +1138,26 @@ const ProviderHomeScreen = ({ navigation }) => {
               bgColor="#EAB30818"
             />
           </View>
+          )}
 
           {/* Recent Active Services */}
           <Text style={styles.sectionTitle}>ACTIVE JOBS <Text style={{ color: '#CBD5E1', fontSize: 11, fontWeight: '500', textTransform: 'none' }}>(Recent 3)</Text></Text>
 
-          {recentServices.length > 0 ? (
+          {!statsLoaded ? (
+            /* Shimmer placeholders while stats are loading */
+            [0, 1].map(i => (
+              <View key={i} style={[styles.recentServiceCard, { padding: 16 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <ShimmerBlock width={40} height={40} borderRadius={12} shimmerAnim={shimmerAnim} />
+                  <View style={{ flex: 1 }}>
+                    <ShimmerBlock width={120} height={14} borderRadius={6} shimmerAnim={shimmerAnim} />
+                    <ShimmerBlock width={80} height={11} borderRadius={5} shimmerAnim={shimmerAnim} style={{ marginTop: 6 }} />
+                  </View>
+                  <ShimmerBlock width={50} height={24} borderRadius={8} shimmerAnim={shimmerAnim} />
+                </View>
+              </View>
+            ))
+          ) : recentServices.length > 0 ? (
             recentServices.map((req) => {
               const userName = req.userDetails?.name || req.userName || 'Customer';
               const serviceDate = req.serviceDate || req.eventDate || req.createdAt;
@@ -1185,6 +1243,16 @@ const ProviderHomeScreen = ({ navigation }) => {
 
           {/* Service Categories - Only show verified services */}
           <Text style={styles.sectionTitle}>{t('providerHome.yourServices')}</Text>
+          {isProfileLoading && !displayData?.serviceCategories?.length ? (
+            <View style={styles.servicesContainer}>
+              {[0,1,2].map(i => (
+                <View key={i} style={[styles.serviceTag, { paddingVertical: 10, paddingHorizontal: 14 }]}>
+                  <ShimmerBlock width={18} height={18} borderRadius={9} shimmerAnim={shimmerAnim} />
+                  <ShimmerBlock width={80 + i * 15} height={13} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginLeft: 8 }} />
+                </View>
+              ))}
+            </View>
+          ) : (
           <View style={styles.servicesContainer}>
             {/* Show Verified Services */}
             {(displayData?.verifiedServiceCategories?.length > 0) && (
@@ -1230,6 +1298,7 @@ const ProviderHomeScreen = ({ navigation }) => {
               </TouchableOpacity>
             )}
           </View>
+          )}
 
           {/* Tips Section */}
           <View style={styles.tipsCard}>
@@ -1500,6 +1569,7 @@ const styles = StyleSheet.create({
 
   // ===== Availability Card (legacy — kept for skeleton loader) =====
   availabilityCard: {
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1676,6 +1746,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   statsCard: {
+    overflow: 'hidden',
     flex: 1,
     backgroundColor: BRAND.white,
     borderRadius: 16,
@@ -1724,6 +1795,7 @@ const styles = StyleSheet.create({
 
   // ===== Action Cards =====
   actionCard: {
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: BRAND.white,
@@ -1949,6 +2021,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   drawerAvatar: {
+    overflow: 'hidden',
     width: 64,
     height: 64,
     borderRadius: 32,
@@ -2107,6 +2180,7 @@ const styles = StyleSheet.create({
 
   // ===== Recent Service Cards =====
   recentServiceCard: {
+    overflow: 'hidden',
     backgroundColor: BRAND.white,
     borderRadius: 16,
     padding: 14,

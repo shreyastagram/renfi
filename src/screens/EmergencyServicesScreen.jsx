@@ -38,6 +38,7 @@ import {
   EMERGENCY_SERVICE_TYPES,
   LOCATION_BASED_SERVICES,
   STATIC_NUMBER_SERVICES,
+  GOVERNMENT_HELPLINE_SERVICES,
   EMERGENCY_SERVICE_LABELS,
   EMERGENCY_SERVICE_ICONS,
   getStaticEmergencyNumbers,
@@ -666,13 +667,18 @@ const EmergencyServicesScreen = ({ navigation }) => {
     name: EMERGENCY_SERVICE_LABELS[id],
   }));
 
+  const governmentHelplines = GOVERNMENT_HELPLINE_SERVICES.map(id => ({
+    id,
+    name: EMERGENCY_SERVICE_LABELS[id],
+  }));
+
   /**
    * Handle service selection
    */
   const handleServiceSelect = async (service) => {
     setSelectedService(service);
 
-    if (STATIC_NUMBER_SERVICES.includes(service.id)) {
+    if (STATIC_NUMBER_SERVICES.includes(service.id) || GOVERNMENT_HELPLINE_SERVICES.includes(service.id)) {
       // Static service - fetch numbers without showing full-screen loading
       const result = await getStaticEmergencyNumbers(service.id);
 
@@ -1135,6 +1141,42 @@ const EmergencyServicesScreen = ({ navigation }) => {
             isStatic={true}
           />
         ))}
+      </View>
+
+      {/* Government Helplines Section */}
+      <View style={[styles.sectionHeader, { marginTop: 28 }]}>
+        <View style={[styles.sectionAccentBar, { backgroundColor: COLORS.secondary }]} />
+        <View style={[styles.sectionIconContainer, { backgroundColor: '#EFF6FF' }]}>
+          <MaterialIcon name="account-balance" size={20} color={COLORS.secondary} />
+        </View>
+        <Text style={styles.sectionTitle}>Government Helplines</Text>
+      </View>
+      <Text style={styles.sectionSubtitle}>
+        Verified public helplines for your safety
+      </Text>
+
+      <View style={styles.servicesGrid}>
+        {governmentHelplines.map(service => (
+          <ServiceCard
+            key={service.id}
+            service={service}
+            onPress={handleServiceSelect}
+            isStatic={true}
+          />
+        ))}
+      </View>
+
+      {/* Government disclaimer */}
+      <View style={[styles.emergencyInfoCard, { borderColor: '#E2E8F0', backgroundColor: '#F8FAFC' }]}>
+        <View style={[styles.emergencyInfoIcon, { backgroundColor: '#F1F5F9' }]}>
+          <MaterialIcon name="verified" size={20} color={COLORS.secondary} />
+        </View>
+        <View style={styles.emergencyInfoContent}>
+          <Text style={[styles.emergencyInfoTitle, { color: '#334155' }]}>Verified Government Services</Text>
+          <Text style={[styles.emergencyInfoText, { color: '#64748B' }]}>
+            All listed helplines are owned and operated by their respective government departments. Fixhomi does not operate, control, or monitor these services.
+          </Text>
+        </View>
       </View>
 
       {/* Emergency info card */}

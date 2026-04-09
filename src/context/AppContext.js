@@ -7,7 +7,7 @@
  * @version 3.0.0
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Alert } from 'react-native';
 import { 
   storeTokens, 
@@ -872,7 +872,7 @@ export const AppProvider = ({ children }) => {
   /**
    * Context value
    */
-  const value = {
+  const value = useMemo(() => ({
     // Auth state
     isAuthenticated,
     isAuthLoading,
@@ -918,7 +918,19 @@ export const AppProvider = ({ children }) => {
 
     // Lifecycle
     markInitialLoadComplete,
-  };
+  }), [
+    isAuthenticated, isAuthLoading, user, userType,
+    profile, isProfileLoading,
+    authHealth, activeSessions,
+    handleAuthSuccess, selectUserType, logout,
+    refreshProfile, refreshVerificationStatus,
+    updateProviderAvailability, updateProviderLocationTracking,
+    syncProfileIfNeeded, updateProfileWithAutoSync,
+    checkHealth,
+    aadhaarStatus, setAadhaarStatus,
+    premiumStatus, setPremiumStatus,
+    initializeAuth, markInitialLoadComplete,
+  ]);
 
   return (
     <AppContext.Provider value={value}>

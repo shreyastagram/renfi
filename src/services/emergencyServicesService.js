@@ -34,6 +34,13 @@ export const LOCATION_BASED_SERVICES = ['snake_catcher', 'private_ambulance', 'm
 export const STATIC_NUMBER_SERVICES = ['fire_brigade', 'police', 'hospital'];
 
 /**
+ * Government helpline categories (static numbers — no provider matching)
+ */
+export const GOVERNMENT_HELPLINE_SERVICES = [
+  'general', 'women_child', 'traffic_transport', 'cyber_crime', 'public_services'
+];
+
+/**
  * Service labels for display
  */
 export const EMERGENCY_SERVICE_LABELS = {
@@ -42,19 +49,29 @@ export const EMERGENCY_SERVICE_LABELS = {
   mortuary_van: 'Mortuary Van',
   fire_brigade: 'Fire Brigade',
   police: 'Police',
-  hospital: 'Hospital'
+  hospital: 'Hospital',
+  general: 'General Emergency',
+  women_child: 'Women & Child',
+  traffic_transport: 'Traffic & Transport',
+  cyber_crime: 'Cyber & Security',
+  public_services: 'Public Services',
 };
 
 /**
  * Service icons - MaterialIcon names for production-grade UI
  */
 export const EMERGENCY_SERVICE_ICONS = {
-  snake_catcher: 'pest-control', // Material icon for pest/snake
-  private_ambulance: 'local-hospital', // Ambulance/medical icon
-  mortuary_van: 'airport-shuttle', // Van/transport icon
-  fire_brigade: 'local-fire-department', // Fire icon
-  police: 'local-police', // Police icon
-  hospital: 'medical-services' // Hospital icon
+  snake_catcher: 'pest-control',
+  private_ambulance: 'local-hospital',
+  mortuary_van: 'airport-shuttle',
+  fire_brigade: 'local-fire-department',
+  police: 'local-police',
+  hospital: 'medical-services',
+  general: 'emergency',
+  women_child: 'family-restroom',
+  traffic_transport: 'directions-car',
+  cyber_crime: 'security',
+  public_services: 'account-balance',
 };
 
 /**

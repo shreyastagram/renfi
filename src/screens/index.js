@@ -75,3 +75,10 @@ export { default as VerificationDashboardScreen } from './VerificationDashboardS
 
 // Insurance (Provider only)
 export { default as InsuranceScreen } from './InsuranceScreen';
+
+// Referral & Rewards
+export { default as ReferralScreen } from './ReferralScreen';
+
+// Personal Safety Alerts (PSA)
+export { default as PSAContactsScreen } from './PSAContactsScreen';
+export { default as PSATriggerScreen } from './PSATriggerScreen';

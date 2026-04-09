@@ -33,7 +33,8 @@ import {  View,
   Vibration,
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
-  Keyboard
+  Keyboard,
+  InteractionManager
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -141,7 +142,7 @@ const getDateRange = (preset) => {
 };
 
 /* ── Stat Pill ─────────────────────────────────────────────────────── */
-const StatPill = ({ value, label, color, bgColor }) => (
+const StatPill = React.memo(({ value, label, color, bgColor }) => (
   <View style={[styles.statPill, { backgroundColor: bgColor }]}>
     <View style={styles.statSvgBg}>
       <Svg width="100%" height="100%" viewBox="0 0 100 70" preserveAspectRatio="xMidYMid slice">
@@ -154,7 +155,7 @@ const StatPill = ({ value, label, color, bgColor }) => (
     <Text style={[styles.statValue, { color }]}>{value}</Text>
     <Text style={[styles.statLabel, { color: color + 'B0' }]}>{label}</Text>
   </View>
-);
+));
 
 /* ── OTP Modal ─────────────────────────────────────────────────────── */
 const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
@@ -324,7 +325,7 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
 };
 
 /* ── Request Card ──────────────────────────────────────────────────── */
-const RequestCard = ({ request, onPress, onCall, onDirections, onComplete, onCancel, onAccept, onReject, isAccepting, isRejecting }) => {
+const RequestCard = React.memo(({ request, onPress, onCall, onDirections, onComplete, onCancel, onAccept, onReject, isAccepting, isRejecting }) => {
   const { t } = useLanguage();
   const status = STATUS_CONFIG[request.status] || STATUS_CONFIG.pending;
   const serviceDate = new Date(request.serviceDate || request.createdAt);
@@ -339,7 +340,7 @@ const RequestCard = ({ request, onPress, onCall, onDirections, onComplete, onCan
   const serviceAddress = request.serviceAddress || request.location?.address || request.address;
 
   return (
-    <TouchableOpacity style={[styles.card, isPending && styles.cardPending, isDone && styles.cardCompact]} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity style={[styles.card, isPending && styles.cardPending, isDone && styles.cardCompact]} onPress={() => onPress(request)} activeOpacity={0.7}>
       {/* SVG accent for pending cards */}
       {isPending && (
         <View style={styles.cardSvgBg}>
@@ -509,7 +510,7 @@ const RequestCard = ({ request, onPress, onCall, onDirections, onComplete, onCan
       )}
     </TouchableOpacity>
   );
-};
+});
 
 /* ── Empty State ───────────────────────────────────────────────────── */
 const EmptyState = ({ filter }) => {
@@ -603,7 +604,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
     if (showLoading) setLoading(true);
     try {
       const [traditionalResult, eventResult, emergencyResult] = await Promise.all([
-        getProviderRequests(providerId, { page: 1, limit: 500, sortBy: 'createdAt', sortOrder: 'desc' }),
+        getProviderRequests(providerId, { page: 1, limit: 50, sortBy: 'createdAt', sortOrder: 'desc' }),
         authFetch(`${NODE_BASE_URL}/api/event-services/provider/${providerId}`, {
           method: 'GET', headers: { 'Content-Type': 'application/json' },
         }).then(r => r.json()).catch(err => {
@@ -692,15 +693,27 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
   useEffect(() => () => { if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current); }, []);
 
   // Fetch on mount
-  useEffect(() => { fetchJobs(); }, [fetchJobs]);
+  // Defer initial fetch until after tab transition animation
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => fetchJobs());
+    return () => task.cancel();
+  }, [fetchJobs]);
 
-  // Auto-refresh on focus (debounced to avoid duplicate calls)
-  useEffect(() => { if (isFocused && autoRefreshEnabled && !loading) debouncedRefresh(); }, [isFocused]);
+  // Auto-refresh on focus — skip if data is fresh (< 15s old)
+  const jobsLastFetchRef = useRef(0);
+  useEffect(() => {
+    if (isFocused && autoRefreshEnabled && !loading) {
+      const elapsed = Date.now() - jobsLastFetchRef.current;
+      if (elapsed < 15000) return; // Data is still fresh
+      jobsLastFetchRef.current = Date.now();
+      debouncedRefresh();
+    }
+  }, [isFocused]);
 
   // Periodic auto-refresh every 30s
   useEffect(() => {
     if (!isFocused || !autoRefreshEnabled) return;
-    const interval = setInterval(() => debouncedRefresh(), 30000);
+    const interval = setInterval(() => debouncedRefresh(), 60000); // 60s — data doesn't change every 30s
     return () => clearInterval(interval);
   }, [isFocused, autoRefreshEnabled, debouncedRefresh]);
 
@@ -713,17 +726,19 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
     return () => sub.remove();
   }, [isFocused, autoRefreshEnabled, debouncedRefresh]);
 
-  // Socket listeners (debounced to coalesce rapid events)
-  useEffect(() => {
-    const cleanups = [
-      addSocketListener('new:request', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
-      addSocketListener('request:cancelled', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
-      addSocketListener('request:status', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
-      addSocketListener('request:accepted', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
-      addSocketListener('request:completed', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
-    ];
-    return () => cleanups.forEach(fn => fn());
-  }, [autoRefreshEnabled, debouncedRefresh]);
+  // Socket listeners — only active when this tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      const cleanups = [
+        addSocketListener('new:request', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
+        addSocketListener('request:cancelled', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
+        addSocketListener('request:status', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
+        addSocketListener('request:accepted', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
+        addSocketListener('request:completed', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
+      ];
+      return () => cleanups.forEach(fn => fn());
+    }, [autoRefreshEnabled, debouncedRefresh])
+  );
 
   // FCM foreground listener (debounced)
   useEffect(() => {
@@ -942,6 +957,21 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
     return f;
   }, [allRequests, activeFilter, categoryFilter, datePreset]);
 
+  const renderRequestItem = useCallback(({ item }) => (
+    <RequestCard
+      request={item}
+      onPress={handleViewDetails}
+      onCall={handleCall}
+      onDirections={handleDirections}
+      onComplete={handleComplete}
+      onCancel={handleCancel}
+      onAccept={handleAccept}
+      onReject={handleReject}
+      isAccepting={acceptingId === item._id}
+      isRejecting={rejectingId === item._id}
+    />
+  ), [handleViewDetails, handleCall, handleDirections, handleComplete, handleCancel, handleAccept, handleReject, acceptingId, rejectingId]);
+
   if (loading) return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScreenShimmer type="cardList" />
@@ -1060,26 +1090,19 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
             ) : null}
           </>
         }
-        renderItem={({ item }) => (
-          <RequestCard
-            request={item}
-            onPress={() => handleViewDetails(item)}
-            onCall={handleCall}
-            onDirections={handleDirections}
-            onComplete={handleComplete}
-            onCancel={handleCancel}
-            onAccept={handleAccept}
-            onReject={handleReject}
-            isAccepting={acceptingId === item._id}
-            isRejecting={rejectingId === item._id}
-          />
-        )}
+        renderItem={renderRequestItem}
+        extraData={`${acceptingId}-${rejectingId}`}
         ListEmptyComponent={<EmptyState filter={activeFilter} />}
         contentContainerStyle={[styles.listPad, { paddingBottom: insets.bottom + 40 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} />}
         showsVerticalScrollIndicator={false}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
-        scrollEventThrottle={8}
+        scrollEventThrottle={16}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        initialNumToRender={8}
+        windowSize={5}
       />
 
       <DrawerMenu visible={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} user={displayData} userType={userType} navigation={navigation} onLogout={logout} isVerified={displayData?.isPhoneVerified && displayData?.isEmailVerified} activeTab="jobs" />
@@ -1231,7 +1254,7 @@ const styles = StyleSheet.create({
   // Customer
   customerRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: C.border, marginBottom: 10 },
   customerAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.secondary + '18', alignItems: 'center', justifyContent: 'center', marginRight: 10, overflow: 'hidden' },
-  customerAvatarImg: { width: 36, height: 36, borderRadius: 18 },
+  customerAvatarImg: { overflow: 'hidden', width: 36, height: 36, borderRadius: 18 },
   customerInitial: { fontSize: 15, fontWeight: '700', color: C.secondary },
   customerName: { fontSize: 14, fontWeight: '600', color: C.text },
   customerPhone: { fontSize: 11, color: C.textSec, marginTop: 1 },

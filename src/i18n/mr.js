@@ -135,6 +135,8 @@ export default {
     signingInGoogle: 'साइन इन होत आहे...',
     continueWithGoogle: 'Google सह सुरू ठेवा',
     continueWithApple: 'Apple सह सुरू ठेवा',
+    signingUpApple: 'साइन अप होत आहे...',
+    signingInApple: 'साइन इन होत आहे...',
     appleSignInFailed: 'Apple साइन-इन अयशस्वी. कृपया पुन्हा प्रयत्न करा.',
     signInWithOtp: 'OTP ने साइन इन करा',
     noAccount: 'खाते नाही?',
@@ -274,6 +276,8 @@ export default {
     passwordResetDone: 'पासवर्ड रीसेट झाला!',
     passwordResetMsg: 'तुमचा पासवर्ड यशस्वीरित्या रीसेट झाला आहे.\nआता तुम्ही तुमच्या नवीन पासवर्डने लॉगिन करू शकता.',
     backToLogin: 'लॉगिनवर परत जा',
+    viaPhone: 'फोनद्वारे',
+    viaEmail: 'ईमेलद्वारे',
 
     // Reset Password Screen
     validatingLink: 'रीसेट लिंक सत्यापित होत आहे...',
@@ -1261,6 +1265,8 @@ export default {
     cancel: 'रद्द करा',
     comingSoon: 'लवकरच येत आहे',
     earningsComingSoon: 'कमाई वैशिष्ट्य लवकरच उपलब्ध होईल!',
+    language: 'भाषा',
+    selectLanguage: 'तुमची पसंतीची भाषा निवडा',
   },
 
   // ─── Profile ──────────────────────────────────────────
@@ -1487,7 +1493,7 @@ export default {
     refreshToken: 'टोकन रीफ्रेश करा',
     refreshTokenSub: 'सत्र टोकन सक्तीने रीफ्रेश करा',
     tokenStatus: 'टोकन स्थिती',
-    sessionTrackingHint: 'सत्र ट्रॅकिंग भविष्यातील अपडेटमध्ये उपलब्ध होईल',
+    sessionTrackingHint: 'तुम्ही अनेक डिव्हाइसवर साइन इन केल्यावर तुमचे सक्रिय सत्र येथे दिसतील',
   },
 
   // ─── Change Password ──────────────────────────────────

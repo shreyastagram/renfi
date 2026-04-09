@@ -3,6 +3,49 @@
  */
 
 import { AppRegistry, LogBox } from 'react-native';
+
+// ── Suppress Mapbox "view: null" crashes ─────────────────────────────────
+// Known @rnmapbox/maps issue: native MapView is destroyed during navigation
+// but the JS bridge still holds a stale reference. This triggers an unhandled
+// promise rejection that crashes the app. Safe to swallow — purely cosmetic.
+
+// 1. Synchronous errors
+const originalHandler = global.ErrorUtils?.getGlobalHandler();
+global.ErrorUtils?.setGlobalHandler((error, isFatal) => {
+  const msg = error?.message || String(error);
+  if (msg.includes('view: null found with tag') || msg.includes('ViewTagResolver')) {
+    return;
+  }
+  if (originalHandler) originalHandler(error, isFatal);
+});
+
+// 2. Unhandled promise rejections (the actual crash path for this Mapbox bug)
+const originalRejectionHandler = global.ErrorUtils?.getGlobalHandler();
+const patchRejectionTracking = () => {
+  try {
+    const tracking = require('promise/setimmediate/rejection-tracking');
+    tracking.disable();
+    tracking.enable({
+      allRejections: true,
+      onUnhandled: (id, error) => {
+        const msg = error?.message || String(error);
+        if (msg.includes('view: null found with tag') || msg.includes('ViewTagResolver')) {
+          return; // Swallow Mapbox view lifecycle rejection
+        }
+        // Default RN behavior: report as error
+        const { ExceptionsManager } = require('react-native');
+        if (ExceptionsManager) {
+          ExceptionsManager.handleException(error, false);
+        }
+      },
+      onHandled: () => {},
+    });
+  } catch {
+    // Fallback: if promise tracking module isn't available, do nothing
+  }
+};
+patchRejectionTracking();
+
 import App from './App';
 import { name as appName } from './app.json';
 import { setupBackgroundMessageHandler } from './src/services/fcmService';
@@ -51,6 +94,8 @@ LogBox.ignoreLogs([
   '`new NativeEventEmitter()` was called with a non-null argument without the required `removeListeners` method.',
   'Unknown reactTag',
   'PointAnnotation supports max 1 subview',
+  'view: null found with tag',
+  'ViewTagResolver',
 ]);
 
 AppRegistry.registerComponent(appName, () => App);

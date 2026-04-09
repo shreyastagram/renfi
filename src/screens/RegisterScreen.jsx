@@ -8,7 +8,7 @@
  * @version 2.1.0
  */
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {  View,
   Text,
   StyleSheet,
@@ -20,7 +20,10 @@ import {  View,
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { Button, Input, PhoneInput, Alert, FixhomiLogo } from '../components';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { registerUser, getErrorMessage, AUTH_CODES, checkAvailability } from '../services/authService';
 import { validateRegistrationForm } from '../utils/validation';
 import { useApp } from '../context/AppContext';
@@ -55,7 +58,18 @@ const RegisterScreen = ({ navigation }) => {
     password: '',
     fullName: '',
     phone: '',
+    referralCode: '',
   });
+
+  // Load pending referral code from deep link
+  useEffect(() => {
+    AsyncStorage.getItem('pendingReferralCode').then((code) => {
+      if (code) {
+        setFormData((prev) => ({ ...prev, referralCode: code }));
+        AsyncStorage.removeItem('pendingReferralCode');
+      }
+    });
+  }, []);
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -85,6 +99,7 @@ const RegisterScreen = ({ navigation }) => {
   // Debounce timers for availability checks
   const emailCheckTimer = useRef(null);
   const phoneCheckTimer = useRef(null);
+  const scrollViewRef = useRef(null);
 
   /**
    * Check email/phone availability (debounced)
@@ -157,6 +172,8 @@ const RegisterScreen = ({ navigation }) => {
     setAlertMessage(message);
     setAlertType(type);
     setAlertHint(hint);
+    // Auto-scroll to top so user sees the alert (important after Google/Apple auth at bottom)
+    setTimeout(() => scrollViewRef.current?.scrollTo?.({ y: 0, animated: true }), 100);
   }, []);
 
   /**
@@ -261,6 +278,7 @@ const RegisterScreen = ({ navigation }) => {
         password: formData.password,
         fullName: formData.fullName,
         phone: formData.phone || undefined,
+        referralCode: formData.referralCode?.trim() || undefined,
       });
 
       if (result.success) {
@@ -395,12 +413,17 @@ const RegisterScreen = ({ navigation }) => {
         // If new user, sync profile to MongoDB
         if (isNewUser && user) {
           console.log('🆕 [RegisterScreen] New user - syncing to MongoDB...');
+          // Get pending referral code for Google OAuth registration
+          const pendingRefCode = formData.referralCode?.trim() || await AsyncStorage.getItem('pendingReferralCode') || undefined;
+          if (pendingRefCode) AsyncStorage.removeItem('pendingReferralCode');
+
           let syncResult = await syncGoogleUserToMongoDB({
             javaUserId: user.id || user.userId,
             email: user.email,
             fullName: user.fullName || user.name,
             googleId: user.googleId,
             profilePicture: user.profilePicture,
+            referralCode: pendingRefCode,
           }, accessToken);
 
           // Retry once on failure — backend may still be warming up
@@ -413,6 +436,7 @@ const RegisterScreen = ({ navigation }) => {
               fullName: user.fullName || user.name,
               googleId: user.googleId,
               profilePicture: user.profilePicture,
+              referralCode: pendingRefCode,
             }, accessToken);
           }
 
@@ -675,6 +699,7 @@ const RegisterScreen = ({ navigation }) => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
+          ref={scrollViewRef}
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
@@ -682,8 +707,8 @@ const RegisterScreen = ({ navigation }) => {
         >
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity onPress={handleBack} style={styles.backButton} accessibilityLabel="Go back" accessibilityRole="button">
-              <Text style={styles.backIcon}>←</Text>
+            <TouchableOpacity onPress={handleBack} style={styles.backButton} accessibilityLabel="Go back" accessibilityRole="button" activeOpacity={0.7}>
+              <Ionicons name="arrow-back" size={20} color="#1E293B" />
             </TouchableOpacity>
             <View style={styles.logoContainer}>
               <FixhomiLogo size={44} />
@@ -746,6 +771,16 @@ const RegisterScreen = ({ navigation }) => {
               value={formData.phone}
               onChangeText={(value) => updateField('phone', value)}
               error={errors.phone}
+            />
+
+            {/* Referral Code (optional) */}
+            <Input
+              label="Referral Code (optional)"
+              placeholder="e.g. FXSHR8K2M4"
+              value={formData.referralCode}
+              onChangeText={(value) => updateField('referralCode', value.toUpperCase())}
+              autoCapitalize="characters"
+              maxLength={12}
             />
 
             {/* Terms & Privacy Acceptance */}
@@ -856,7 +891,9 @@ const RegisterScreen = ({ navigation }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalIcon}>👋</Text>
+            <View style={styles.modalIconCircle}>
+              <MaterialIcons name="person" size={28} color="#f67c16" />
+            </View>
             <Text style={styles.modalTitle}>{t('auth.accountAlreadyExists')}</Text>
             <Text style={styles.modalEmail}>{existingEmail}</Text>
             <Text style={styles.modalMessage}>
@@ -920,7 +957,9 @@ const RegisterScreen = ({ navigation }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalIcon}>📱</Text>
+            <View style={styles.modalIconCircle}>
+              <MaterialIcons name="phone-android" size={28} color="#f67c16" />
+            </View>
             <Text style={styles.modalTitle}>{t('auth.numberAlreadyRegistered')}</Text>
             <Text style={styles.modalEmail}>+91 {existingPhone}</Text>
             <Text style={styles.modalMessage}>
@@ -981,290 +1020,110 @@ const RegisterScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-  },
-  header: {
-    marginBottom: 24,
-    alignItems: 'center',
-  },
+  // ── Layout ──
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  keyboardView: { flex: 1 },
+  scrollView: { flex: 1 },
+  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 },
+
+  // ── Header ──
+  header: { marginBottom: 28, alignItems: 'center' },
   backButton: {
-    marginBottom: 16,
-    padding: 4,
-    alignSelf: 'flex-start',
-  },
-  backIcon: {
-    fontSize: 24,
-    color: '#374151',
+    width: 38, height: 38, borderRadius: 12, backgroundColor: '#F1F5F9',
+    justifyContent: 'center', alignItems: 'center', alignSelf: 'flex-start', marginBottom: 18,
   },
   logoContainer: {
-    width: 68,
-    height: 68,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#f67c16',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: '#f67c1615',
+    width: 64, height: 64, borderRadius: 16, backgroundColor: '#FFFFFF',
+    justifyContent: 'center', alignItems: 'center', overflow: 'hidden',
+    ...Platform.select({
+      ios: { shadowColor: '#f67c16', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
+      android: { elevation: 5 },
+    }),
   },
-  brandName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#f67c16',
-    marginTop: 10,
-    marginBottom: 12,
-    letterSpacing: 0.5,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6B7280',
-    lineHeight: 22,
-  },
-  form: {
-    flex: 1,
-  },
-  submitButton: {
-    marginTop: 8,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 20,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E5E7EB',
-  },
-  dividerText: {
-    marginHorizontal: 12,
-    color: '#9CA3AF',
-    fontSize: 14,
-  },
+  brandName: { fontSize: 18, fontWeight: '800', color: '#f67c16', marginTop: 10, letterSpacing: 0.3 },
+  title: { fontSize: 24, fontWeight: '800', color: '#1E293B', marginTop: 10, marginBottom: 6 },
+  subtitle: { fontSize: 14, color: '#64748B', lineHeight: 21, textAlign: 'center', paddingHorizontal: 8 },
+
+  // ── Form ──
+  form: { flex: 1 },
+  submitButton: { marginTop: 8 },
+
+  // ── Divider ──
+  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 20 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#E2E8F0' },
+  dividerText: { marginHorizontal: 14, color: '#94A3B8', fontSize: 13, fontWeight: '500' },
+
+  // ── Google Button ──
   googleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    marginBottom: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0',
+    borderRadius: 14, paddingVertical: 14, paddingHorizontal: 20, marginBottom: 10,
   },
-  googleButtonDisabled: {
-    opacity: 0.6,
-  },
+  googleButtonDisabled: { opacity: 0.5 },
   googleIconContainer: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#4285F4',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: '#4285F4', alignItems: 'center', justifyContent: 'center', marginRight: 10,
   },
-  googleIcon: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  googleButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-  },
+  googleIcon: { color: '#FFF', fontSize: 13, fontWeight: 'bold' },
+  googleButtonText: { fontSize: 15, fontWeight: '600', color: '#1E293B' },
+
+  // ── Apple Button ──
   appleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#000000',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    marginBottom: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#000000', borderRadius: 14,
+    paddingVertical: 14, paddingHorizontal: 24, marginBottom: 12,
   },
-  appleButtonDisabled: {
-    opacity: 0.6,
-  },
-  appleIcon: {
-    fontSize: 18,
-    color: '#FFFFFF',
-    marginRight: 10,
-  },
-  appleButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  termsRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-    marginTop: 8,
-    gap: 12,
-  },
+  appleButtonDisabled: { opacity: 0.5 },
+  appleIcon: { fontSize: 18, color: '#FFF', marginRight: 10 },
+  appleButtonText: { fontSize: 15, fontWeight: '600', color: '#FFF' },
+
+  // ── Terms ──
+  termsRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16, marginTop: 8, gap: 10 },
   checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 1,
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#CBD5E1',
+    alignItems: 'center', justifyContent: 'center', marginTop: 1,
   },
-  checkboxChecked: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
-  },
-  checkmark: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  termsText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#6B7280',
-    lineHeight: 20,
-  },
-  termsLink: {
-    color: '#2563EB',
-    fontWeight: '600',
-  },
-  footer: {
-    paddingVertical: 24,
-  },
-  footerText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  link: {
-    color: '#2563EB',
-    fontWeight: '500',
-  },
-  // Account Exists Modal Styles
+  checkboxChecked: { backgroundColor: '#f67c16', borderColor: '#f67c16' },
+  checkmark: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  termsText: { flex: 1, fontSize: 13, color: '#64748B', lineHeight: 20 },
+  termsLink: { color: '#2b76bc', fontWeight: '600' },
+
+  // ── Footer ──
+  footer: { paddingVertical: 20 },
+  footerText: { fontSize: 12, color: '#94A3B8', textAlign: 'center', lineHeight: 18 },
+  link: { color: '#2b76bc', fontWeight: '500' },
+
+  // ── Modals ──
   modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    justifyContent: 'center', alignItems: 'center', padding: 24,
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    maxWidth: 340,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
+    backgroundColor: '#FFF', borderRadius: 20, padding: 28, width: '100%', maxWidth: 340,
+    ...Platform.select({
+      ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 24 },
+      android: { elevation: 10 },
+    }),
   },
-  modalIcon: {
-    fontSize: 48,
-    textAlign: 'center',
-    marginBottom: 16,
+  modalIconCircle: {
+    width: 56, height: 56, borderRadius: 16, backgroundColor: 'rgba(246,124,22,0.08)',
+    justifyContent: 'center', alignItems: 'center', alignSelf: 'center', marginBottom: 16,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  modalEmail: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 8,
-    fontStyle: 'italic',
-  },
-  modalMessage: {
-    fontSize: 15,
-    color: '#4B5563',
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 22,
-  },
-  modalButtons: {
-    gap: 12,
-  },
-  modalPrimaryButton: {
-    backgroundColor: '#f67c16',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  modalPrimaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalSecondaryButton: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  modalSecondaryButtonText: {
-    color: '#374151',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalDismissButton: {
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  modalDismissText: {
-    color: '#9CA3AF',
-    fontSize: 14,
-  },
+  modalTitle: { fontSize: 19, fontWeight: '700', color: '#1E293B', textAlign: 'center', marginBottom: 8 },
+  modalEmail: { fontSize: 14, color: '#64748B', textAlign: 'center', marginBottom: 8, fontStyle: 'italic' },
+  modalMessage: { fontSize: 14, color: '#64748B', textAlign: 'center', marginBottom: 24, lineHeight: 21 },
+  modalButtons: { gap: 10 },
+  modalPrimaryButton: { backgroundColor: '#f67c16', borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
+  modalPrimaryButtonText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+  modalSecondaryButton: { backgroundColor: '#F1F5F9', borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
+  modalSecondaryButtonText: { color: '#1E293B', fontSize: 15, fontWeight: '600' },
+  modalDismissButton: { paddingVertical: 10, alignItems: 'center', marginTop: 4 },
+  modalDismissText: { color: '#94A3B8', fontSize: 14, fontWeight: '500' },
   accountTypeBadge: {
-    alignSelf: 'center',
-    backgroundColor: '#EFF6FF',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
+    alignSelf: 'center', backgroundColor: 'rgba(43,118,188,0.08)',
+    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, marginBottom: 16,
   },
-  accountTypeBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#2563EB',
-  },
+  accountTypeBadgeText: { fontSize: 12, fontWeight: '600', color: '#2b76bc' },
 });
 
 export default RegisterScreen;

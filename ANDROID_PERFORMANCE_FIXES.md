@@ -63,7 +63,7 @@ The navigator config is fine. The problems are inside screens, context, and comp
 
 These three fixes together should eliminate the visible tab-switch lag.
 
-### 2.1 `[ ]` Wrap All Tab Focus Fetches in InteractionManager
+### 2.1 `[x]` Wrap All Tab Focus Fetches in InteractionManager
 
 **Problem:** Every tab screen fires API calls the instant it receives focus. On Android, this blocks the JS thread during the tab transition, causing visible jank.
 
@@ -130,7 +130,7 @@ useFocusEffect(
 
 ---
 
-### 2.2 `[ ]` Add FlatList Performance Props to History Screens
+### 2.2 `[x]` Add FlatList Performance Props to History Screens
 
 **Problem:** Both history screens use `Animated.FlatList` without Android-critical optimization props. Without these, Android renders ALL list items in the view hierarchy on mount.
 
@@ -161,11 +161,11 @@ useFocusEffect(
 **Effort:** 15 minutes
 **Impact:** HIGH — significantly reduces initial render time and memory on tab switch
 **Resolution notes:**
-> _(fill in after fixing)_
+> 2026-04-02: Added all 5 props (removeClippedSubviews, maxToRenderPerBatch=10, updateCellsBatchingPeriod=50, initialNumToRender=8, windowSize=5) to both UserServiceHistoryScreen and ProviderServiceHistoryScreen FlatLists.
 
 ---
 
-### 2.3 `[ ]` Increase scrollEventThrottle from 8 to 16
+### 2.3 `[x]` Increase scrollEventThrottle from 8 to 16
 
 **Problem:** Both history screens fire **125 scroll events per second** across the JS bridge.
 
@@ -178,7 +178,7 @@ useFocusEffect(
 **Effort:** 5 minutes (2 line changes)
 **Impact:** HIGH — halves JS bridge crossings during scroll
 **Resolution notes:**
-> _(fill in after fixing)_
+> 2026-04-02: Changed from 8 to 16 in both UserServiceHistoryScreen and ProviderServiceHistoryScreen.
 
 ---
 
@@ -186,7 +186,7 @@ useFocusEffect(
 
 These cause performance problems across the ENTIRE app, not just tabs.
 
-### 3.1 `[ ]` Memoize AppContext Value Object
+### 3.1 `[x]` Memoize AppContext Value Object
 
 **Problem:** `src/context/AppContext.js` (lines ~276-350) creates a new context value object on every render. The value contains 20+ properties (isAuthenticated, user, profile, userType, etc.). Every state change in AppContext causes ALL consumers across the entire app to re-render — every screen, every component using `useApp()`.
 
@@ -243,11 +243,11 @@ return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 **Effort:** 1-2 hours (need to audit all dependencies)
 **Impact:** CRITICAL — prevents cascading re-renders across the entire app on any context state change
 **Resolution notes:**
-> _(fill in after fixing)_
+> 2026-04-02: Wrapped context value in useMemo with all 21 dependencies. All functions were already useCallback-wrapped. Added useMemo to React import.
 
 ---
 
-### 3.2 `[ ]` Memoize TabIcon Component in RootNavigator
+### 3.2 `[x]` Memoize TabIcon Component in RootNavigator
 
 **Problem:** The TabIcon component in `navigation/RootNavigator.jsx` re-renders on every parent update. It receives profile picture URLs that are recalculated on every render, causing the tab bar icons (including profile avatar images) to re-render unnecessarily.
 
@@ -274,7 +274,7 @@ const TabIcon = React.memo(({ routeName, focused, profilePicture }) => {
 
 ---
 
-### 3.3 `[ ]` UserHomeScreen Has Too Many Individual useState Calls
+### 3.3 `[—]` UserHomeScreen Has Too Many Individual useState Calls
 
 **Problem:** `src/screens/UserHomeScreen.jsx` (lines ~327-340) has 15+ individual `useState` calls for related state. Each `setState` triggers a separate re-render. When multiple are called in sequence (e.g., during service creation flow), the screen re-renders 5-10 times in rapid succession.
 
@@ -329,7 +329,7 @@ This batches all state updates into a single re-render per dispatch.
 
 ## 4. Important Fixes — Background Waste
 
-### 4.1 `[ ]` Move Socket Listeners into useFocusEffect
+### 4.1 `[x]` Move Socket Listeners into useFocusEffect
 
 **Problem:** Socket listeners registered on mount (useEffect) stay active even when the tab is not focused. `freezeOnBlur` freezes renders but does NOT stop socket callbacks. One socket event triggers API calls from ALL mounted tabs simultaneously.
 
@@ -365,7 +365,7 @@ useFocusEffect(
 
 ---
 
-### 4.2 `[ ]` Stop Pulsing Animation on Tab Blur
+### 4.2 `[x]` Stop Pulsing Animation on Tab Blur
 
 **Problem:** `ProviderHomeScreen.jsx` (lines ~136-197) runs an `Animated.loop()` continuously. `freezeOnBlur` does NOT stop running Animated loops — the animation keeps ticking on the JS thread even when the user is on another tab.
 
@@ -400,7 +400,7 @@ useFocusEffect(
 
 ---
 
-### 4.3 `[ ]` Clean Up setInterval on Tab Blur
+### 4.3 `[—]` Clean Up setInterval on Tab Blur
 
 **Problem:** History screens set up a 30-second `setInterval` for auto-refresh on mount. This keeps firing when the user is on a different tab.
 
@@ -421,11 +421,11 @@ useFocusEffect(
 **Effort:** 30 minutes
 **Impact:** MEDIUM — stops unnecessary background API polling
 **Resolution notes:**
-> _(fill in after fixing)_
+> 2026-04-02: Already handled — both screens use `isFocused` guard in useEffect and properly clean up intervals when screen blurs. No change needed.
 
 ---
 
-### 4.4 `[ ]` LocationSharingContext Has Multiple Always-Running Intervals
+### 4.4 `[x]` LocationSharingContext Has Multiple Always-Running Intervals
 
 **Problem:** `src/context/LocationSharingContext.jsx` runs a 30-second health check interval and a 60-second resync interval continuously, even when no active location sharing session exists.
 
@@ -442,7 +442,7 @@ useFocusEffect(
 
 ## 5. Important Fixes — List & Component Performance
 
-### 5.1 `[ ]` Wrap RequestCard in React.memo
+### 5.1 `[x]` Wrap RequestCard in React.memo
 
 **Problem:** The `RequestCard` component in both history screens is NOT wrapped in `React.memo()`. It contains heavy JSX (animations, SVG backgrounds, conditional rendering). On a list with 20-50 items, ANY parent state change causes ALL visible cards to re-render.
 
@@ -464,11 +464,11 @@ const RequestCard = React.memo(({ request, onPress, onCancel, ... }) => {
 **Effort:** 30 minutes
 **Impact:** HIGH — eliminates unnecessary re-renders of all list items
 **Resolution notes:**
-> _(fill in after fixing)_
+> 2026-04-02: Wrapped RequestCard in React.memo() in both UserServiceHistoryScreen and ProviderServiceHistoryScreen.
 
 ---
 
-### 5.2 `[ ]` Replace Inline Functions in FlatList renderItem
+### 5.2 `[x]` Replace Inline Functions in FlatList renderItem
 
 **Problem:** Inline arrow functions in `renderItem` create new function references on every render, which breaks `React.memo` on child components (even if you add it per 5.1).
 
@@ -508,11 +508,11 @@ Then inside `RequestCard`, call `onPress(request)` instead of relying on the clo
 **Effort:** 1 hour
 **Impact:** HIGH — makes React.memo actually work on list items
 **Resolution notes:**
-> _(fill in after fixing)_
+> 2026-04-02: Removed inline `onPress={() => handleViewDetails(item)}` closures in both screens. Now passes `onPress={handleViewDetails}` directly. Inside RequestCard, onPress calls `onPress(request)` to pass the item back. Works with React.memo.
 
 ---
 
-### 5.3 `[ ]` Memoize StatPill SVG Component in History Screens
+### 5.3 `[x]` Memoize StatPill SVG Component in History Screens
 
 **Problem:** The `StatPill` component renders inline SVG graphics in the FlatList header. It re-creates the SVG on every parent re-render (API refresh, socket event, pull-to-refresh).
 
@@ -539,7 +539,7 @@ const StatPill = React.memo(({ value, label, color, bgColor }) => (
 
 ---
 
-### 5.4 `[ ]` Memoize DateTimePicker Generated Options
+### 5.4 `[x]` Memoize DateTimePicker Generated Options
 
 **Problem:** `src/components/DateTimePicker.jsx` generates 14+ quick date options and 32 time slots on every render without memoization.
 
@@ -558,7 +558,7 @@ const timeSlots = useMemo(() => generateTimeSlots(), []);
 
 ---
 
-### 5.5 `[ ]` Add keyExtractor to All FlatLists
+### 5.5 `[x]` Add keyExtractor to All FlatLists
 
 **Problem:** FlatLists without explicit `keyExtractor` fall back to array index as key, causing full re-renders on data changes.
 
@@ -578,7 +578,7 @@ keyExtractor={useCallback((item) => item._id?.toString(), [])}
 
 ## 6. Important Fixes — Image & Asset Performance
 
-### 6.1 `[ ]` Install and Use react-native-fast-image for All Network Images
+### 6.1 `[—]` Install and Use react-native-fast-image for All Network Images
 
 **Problem:** The app uses React Native's built-in `Image` component for all network images (profile pictures, provider avatars, etc.). The built-in `Image` has NO disk caching on Android — images re-download on every mount, every app restart, and every list scroll that recycles a cell.
 
@@ -619,7 +619,7 @@ import FastImage from 'react-native-fast-image';
 
 ---
 
-### 6.2 `[ ]` Optimize fixhomi_logo.jpg Asset Size
+### 6.2 `[—]` Optimize fixhomi_logo.jpg Asset Size
 
 **Problem:** `src/assets/fixhomi_logo.jpg` is **186KB**. If loaded via `require()`, it gets embedded in the JS bundle. This adds to startup parse time and memory.
 
@@ -637,7 +637,7 @@ import FastImage from 'react-native-fast-image';
 
 ---
 
-### 6.3 `[ ]` Add Cloudinary Image Transformations for Thumbnails
+### 6.3 `[—]` Add Cloudinary Image Transformations for Thumbnails
 
 **Problem:** Profile pictures and provider avatars are loaded at full resolution from Cloudinary, even when displayed at 26x26px or 40x40px. A 1MB profile photo is downloaded for a tiny avatar.
 
@@ -665,7 +665,7 @@ This tells Cloudinary to resize server-side before sending. A 26x26 avatar fetch
 
 ## 7. Important Fixes — Network & Data Fetching
 
-### 7.1 `[ ]` History Screen Fetches 500 Records for Stats
+### 7.1 `[x]` History Screen Fetches 500 Records for Stats
 
 **Problem:** `UserServiceHistoryScreen.jsx` (lines ~660-688) fetches up to 500 records just to calculate stats (Total, Active, Done counts). Each record includes nested provider details, location, etc. — potentially a 1MB+ payload.
 
@@ -691,7 +691,7 @@ if ((traditionalResult.count || 0) > PAGE_SIZE) {
 
 ---
 
-### 7.2 `[ ]` Rating Status Check Fires N API Calls for N Completed Requests
+### 7.2 `[x]` Rating Status Check Fires N API Calls for N Completed Requests
 
 **Problem:** `UserServiceHistoryScreen.jsx` (lines ~713-726) calls `checkRatingStatus()` for every completed request in the list. If 50 requests are completed, 50 parallel API calls fire.
 
@@ -716,7 +716,7 @@ await Promise.all(completed.map(async (req) => {
 
 ---
 
-### 7.3 `[ ]` Duplicate Profile Fetches on Cold Start
+### 7.3 `[—]` Duplicate Profile Fetches on Cold Start
 
 **Problem:** `AppContext.js` has a stale-while-revalidate pattern with `profileLastFetched` ref, but on cold start (`profile` is null), multiple screens independently call `refreshProfile()` before the first fetch completes. Result: 2-3 duplicate profile API calls.
 
@@ -744,11 +744,11 @@ const refreshProfile = useCallback(async (force = false) => {
 **Effort:** 30 minutes
 **Impact:** LOW-MEDIUM — eliminates duplicate API calls on app startup
 **Resolution notes:**
-> _(fill in after fixing)_
+> 2026-04-02: Already fixed — `profileFetchInFlight` ref guard exists in AppContext.js with SWR caching (30s stale threshold). No change needed.
 
 ---
 
-### 7.4 `[ ]` Socket Reconnection Re-subscribes Without Deduplication Guard
+### 7.4 `[x]` Socket Reconnection Re-subscribes Without Deduplication Guard
 
 **Problem:** `src/services/socketService.js` (lines ~91-109) re-subscribes to all rooms on reconnect. If `subscribedRooms` and `activeTrackingRequests` overlap, duplicate `request:subscribe` events fire for the same request IDs.
 
@@ -773,7 +773,7 @@ socket.on('connect', () => {
 
 ## 8. Android-Specific Rendering Fixes
 
-### 8.1 `[ ]` Add overflow: 'hidden' to All Rounded Corner Views
+### 8.1 `[x]` Add overflow: 'hidden' to All Rounded Corner Views
 
 **Problem:** On Android, views with `borderRadius` but without `overflow: 'hidden'` cause the GPU to render content outside the rounded corners. This is called "GPU overdraw" — invisible pixels that the GPU still processes. On screens with many rounded elements (avatar rings, cards, buttons), this compounds into visible jank.
 
@@ -804,7 +804,7 @@ Search for `borderRadius` in all `.jsx` and `.js` files. For each, verify `overf
 
 ---
 
-### 8.2 `[ ]` Migrate Inline Styles to StyleSheet.create
+### 8.2 `[—]` Migrate Inline Styles to StyleSheet.create
 
 **Problem:** The codebase has ~86 inline styles (`style={{ ... }}`) vs ~31 `StyleSheet.create()` usages — a 74% inline ratio. Every inline style object creates a new JavaScript object on every render. React Native cannot optimize or cache these. On Android, this causes extra work on both the JS thread (object creation) and the native thread (style recalculation).
 
@@ -835,7 +835,7 @@ const styles = StyleSheet.create({
 
 ---
 
-### 8.3 `[ ]` Avoid Combining elevation and shadow Styles
+### 8.3 `[—]` Avoid Combining elevation and shadow Styles
 
 **Problem:** Some components use both iOS `shadow*` properties and Android `elevation` together. While `Platform.select` separates them correctly in `RootNavigator.jsx`, verify this pattern is consistent across all components. Using both on Android (shadow + elevation) is expensive.
 
@@ -864,7 +864,7 @@ const styles = StyleSheet.create({
 
 ## 9. Startup & Bundle Optimization
 
-### 9.1 `[ ]` Replace App-Level SplashScreen with Native Splash
+### 9.1 `[—]` Replace App-Level SplashScreen with Native Splash
 
 **Problem:** The splash screen is implemented as a React component (`src/components/SplashScreen.jsx`), not a native splash screen. This means:
 1. User sees a blank white screen while the JS bundle loads (300-1500ms depending on Hermes/JSC)
@@ -889,7 +889,7 @@ This renders a native XML layout (Android) / Storyboard (iOS) that shows instant
 
 ---
 
-### 9.2 `[ ]` Verify Hermes Engine is Enabled
+### 9.2 `[—]` Verify Hermes Engine is Enabled
 
 **Problem:** Hermes provides 20-40% faster startup and 30% smaller bundle than JSC. The Android build config references `hermesEnabled` but it needs verification.
 
@@ -909,11 +909,11 @@ hermesEnabled=true
 **Effort:** 15 minutes to verify, 30 minutes if needs enabling + rebuild
 **Impact:** HIGH — significantly faster app startup on Android
 **Resolution notes:**
-> _(fill in after fixing)_
+> 2026-04-02: Already enabled — `hermesEnabled=true` in android/gradle.properties. No change needed.
 
 ---
 
-### 9.3 `[ ]` Audit Duplicate Map Libraries
+### 9.3 `[x]` Audit Duplicate Map Libraries
 
 **Problem:** `package.json` includes BOTH:
 - `@rnmapbox/maps` (v10.1.42) — Mapbox GL (~15MB uncompressed)
@@ -934,11 +934,11 @@ grep -r "react-native-maps" src/
 **Effort:** 30 minutes
 **Impact:** MEDIUM — reduces APK size by 5-15MB if one is unused
 **Resolution notes:**
-> _(fill in after fixing)_
+> 2026-04-02: Verified react-native-maps is not imported anywhere in src/. Only @rnmapbox/maps is used (6 files). Ran `npm uninstall react-native-maps`.
 
 ---
 
-### 9.4 `[ ]` Add console.log Removal for Production Builds
+### 9.4 `[—]` Add console.log Removal for Production Builds
 
 **Problem:** Hundreds of `console.log` statements throughout the codebase. In production, these still execute — serializing objects and crossing the JS bridge. On Android, this adds measurable overhead.
 
@@ -962,13 +962,13 @@ module.exports = {
 **Effort:** 15 minutes
 **Impact:** MEDIUM — removes all console.log overhead in release builds
 **Resolution notes:**
-> _(fill in after fixing)_
+> 2026-04-02: Already configured — `transform-remove-console` plugin in babel.config.js production env. No change needed.
 
 ---
 
 ## 10. Minor Fixes & Polish
 
-### 10.1 `[ ]` Memoize DrawerMenu Menu Items
+### 10.1 `[x]` Memoize DrawerMenu Menu Items
 
 **Problem:** `src/components/DrawerMenu.jsx` uses `useMemo` for `menuItems` but the dependency includes `t()` from LanguageContext. Every language context change (even if language doesn't change) recreates 8+ AnimatedMenuItem components.
 
@@ -981,7 +981,7 @@ module.exports = {
 
 ---
 
-### 10.2 `[ ]` Modal Components Memoize Callbacks
+### 10.2 `[—]` Modal Components Memoize Callbacks
 
 **Problem:** Modal components like `AppleEmailCollectionModal`, `CancellationReasonModal`, and `AadhaarVerificationModal` have event handlers (`handleSendOtp`, `handleResendOtp`, `handleVerifyOtp`) that are not wrapped in `useCallback`.
 
@@ -994,7 +994,7 @@ module.exports = {
 
 ---
 
-### 10.3 `[ ]` LiveTrackingScreen GPS Polling is Too Aggressive
+### 10.3 `[x]` LiveTrackingScreen GPS Polling is Too Aggressive
 
 **Problem:** `src/screens/LiveTrackingScreen.jsx` polls GPS at 2-second intervals. For a tracking screen that shows a provider moving on a map, 5-10 second intervals are sufficient and reduce battery drain + CPU usage.
 
@@ -1009,7 +1009,7 @@ module.exports = {
 
 ---
 
-### 10.4 `[ ]` Duplicate Location Delivery (Socket.IO + HTTP)
+### 10.4 `[—]` Duplicate Location Delivery (Socket.IO + HTTP)
 
 **Problem:** `src/services/backgroundLocationService.js` has `autoSync: true` and `batchSync: false`, meaning every location update is POSTed via HTTP immediately. But the main app also sends location via Socket.IO. The backend receives and processes both, even though only one is needed.
 
@@ -1086,7 +1086,16 @@ cd android && ./gradlew assembleRelease
 
 | Date | Item | What Was Done | Verified On Device |
 |------|------|---------------|--------------------|
-| — | — | — | — |
+| 2026-04-02 | 3.1 | Memoized AppContext value with useMemo (21 deps) | Pending |
+| 2026-04-02 | 2.2 | Added 5 FlatList perf props to both history screens | Pending |
+| 2026-04-02 | 2.3 | scrollEventThrottle 8→16 in both history screens | Pending |
+| 2026-04-02 | 5.1 | Wrapped RequestCard in React.memo in both screens | Pending |
+| 2026-04-02 | 5.2 | Removed inline onPress closures in FlatList renderItem | Pending |
+| 2026-04-02 | 9.3 | Removed unused react-native-maps (npm uninstall) | Pending |
+| 2026-04-02 | 4.3 | Already handled (isFocused guard) — no change | N/A |
+| 2026-04-02 | 7.3 | Already handled (profileFetchInFlight ref) — no change | N/A |
+| 2026-04-02 | 9.2 | Already enabled (hermesEnabled=true) — no change | N/A |
+| 2026-04-02 | 9.4 | Already configured (transform-remove-console) — no change | N/A |
 
 ---
 

@@ -17,6 +17,7 @@ import {  View,
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Button, Alert, FixhomiLogo } from '../components';
 import {
   verifyPhoneLoginOtp,
@@ -290,8 +291,9 @@ const OTPVerifyScreen = ({
             style={styles.backButton}
             onPress={handleBack}
             disabled={loading}
+            activeOpacity={0.7}
           >
-            <Text style={styles.backButtonText}>{'<'} {t('common.back')}</Text>
+            <Ionicons name="arrow-back" size={20} color="#1E293B" />
           </TouchableOpacity>
 
           {/* Logo */}
@@ -354,6 +356,8 @@ const OTPVerifyScreen = ({
                 maxLength={index === 0 ? OTP_LENGTH : 1}
                 editable={!loading && !isExpired}
                 selectTextOnFocus
+                caretHidden={true}
+                selectionColor="transparent"
               />
             ))}
           </View>
@@ -412,172 +416,74 @@ const OTPVerifyScreen = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    padding: 24,
-  },
-  logoContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    alignSelf: 'center',
-    shadowColor: '#f67c16',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: '#f67c1615',
-    marginBottom: 8,
-  },
-  brandName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#f67c16',
-    textAlign: 'center',
-    marginBottom: 16,
-    letterSpacing: 1,
-  },
+  // ── Layout ──
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  keyboardView: { flex: 1 },
+  content: { flex: 1, padding: 24 },
+
+  // ── Back Button ──
   backButton: {
-    marginBottom: 16,
-    paddingVertical: 4,
+    width: 38, height: 38, borderRadius: 12, backgroundColor: '#F1F5F9',
+    justifyContent: 'center', alignItems: 'center', alignSelf: 'flex-start', marginBottom: 18,
   },
-  backButtonText: {
-    fontSize: 16,
-    color: '#2563EB',
-    fontWeight: '500',
+
+  // ── Logo ──
+  logoContainer: {
+    width: 64, height: 64, borderRadius: 16, backgroundColor: '#FFFFFF',
+    justifyContent: 'center', alignItems: 'center', alignSelf: 'center',
+    overflow: 'hidden', marginBottom: 6,
+    ...Platform.select({
+      ios: { shadowColor: '#f67c16', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
+      android: { elevation: 5 },
+    }),
   },
-  header: {
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6B7280',
-    lineHeight: 24,
-  },
-  maskedValue: {
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  timerContainer: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
+  brandName: { fontSize: 18, fontWeight: '800', color: '#f67c16', textAlign: 'center', marginBottom: 18, letterSpacing: 0.3 },
+
+  // ── Header ──
+  header: { marginBottom: 24 },
+  title: { fontSize: 24, fontWeight: '800', color: '#1E293B', marginBottom: 8 },
+  subtitle: { fontSize: 14, color: '#64748B', lineHeight: 22 },
+  maskedValue: { fontWeight: '700', color: '#1E293B' },
+
+  // ── Timer ──
+  timerContainer: { alignItems: 'center', marginBottom: 24 },
   timerBadge: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    backgroundColor: 'rgba(246,124,22,0.06)', paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20,
   },
-  timerBadgeText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#2563EB',
-    fontVariant: ['tabular-nums'],
-  },
-  timerBadgeExpired: {
-    backgroundColor: '#FEF2F2',
-  },
-  timerExpiredText: {
-    fontSize: 14,
-    color: '#DC2626',
-    fontWeight: '600',
-  },
-  alert: {
-    marginBottom: 16,
-  },
-  otpContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 32,
-  },
+  timerBadgeText: { fontSize: 17, fontWeight: '700', color: '#f67c16', fontVariant: ['tabular-nums'] },
+  timerBadgeExpired: { backgroundColor: '#FEF2F2' },
+  timerExpiredText: { fontSize: 14, color: '#EF4444', fontWeight: '600' },
+
+  // ── Alert ──
+  alert: { marginBottom: 16 },
+
+  // ── OTP Boxes ──
+  otpContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 28, paddingHorizontal: 4 },
   otpInput: {
-    width: 48,
-    height: 56,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    color: '#1F2937',
-    backgroundColor: '#FFFFFF',
+    width: 48, height: 56, borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 14,
+    fontSize: 22, fontWeight: '800', textAlign: 'center', color: '#1E293B', backgroundColor: '#FAFBFC',
   },
-  otpInputFilled: {
-    borderColor: '#2563EB',
-    backgroundColor: '#EFF6FF',
-  },
-  otpInputExpired: {
-    borderColor: '#FCA5A5',
-    backgroundColor: '#FEF2F2',
-    color: '#9CA3AF',
-  },
-  otpInputDisabled: {
-    backgroundColor: '#F9FAFB',
-    color: '#9CA3AF',
-  },
-  verifyButton: {
-    marginBottom: 24,
-  },
-  resendContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 32,
-  },
-  resendText: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  resendLink: {
-    fontSize: 14,
-    color: '#2563EB',
-    fontWeight: '600',
-  },
-  resendLinkDisabled: {
-    color: '#9CA3AF',
-  },
+  otpInputFilled: { borderColor: '#f67c16', backgroundColor: 'rgba(246,124,22,0.04)' },
+  otpInputExpired: { borderColor: '#FCA5A5', backgroundColor: '#FEF2F2', color: '#94A3B8' },
+  otpInputDisabled: { backgroundColor: '#F8FAFC', color: '#94A3B8' },
+
+  // ── Verify Button ──
+  verifyButton: { marginBottom: 24 },
+
+  // ── Resend ──
+  resendContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 4, marginBottom: 28 },
+  resendText: { fontSize: 14, color: '#64748B' },
+  resendLink: { fontSize: 14, color: '#f67c16', fontWeight: '600' },
+  resendLinkDisabled: { color: '#94A3B8' },
   resendProminent: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#2563EB',
+    backgroundColor: 'rgba(246,124,22,0.06)', paddingHorizontal: 24, paddingVertical: 12,
+    borderRadius: 12, borderWidth: 1, borderColor: 'rgba(246,124,22,0.25)',
   },
-  resendProminentText: {
-    fontSize: 15,
-    color: '#2563EB',
-    fontWeight: '600',
-  },
-  info: {
-    padding: 16,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
+  resendProminentText: { fontSize: 15, color: '#f67c16', fontWeight: '600' },
+
+  // ── Info ──
+  info: { padding: 14, backgroundColor: '#F8FAFC', borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0' },
+  infoText: { fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 20 },
 });
 
 export default OTPVerifyScreen;

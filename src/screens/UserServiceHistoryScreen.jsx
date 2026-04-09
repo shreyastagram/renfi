@@ -28,7 +28,8 @@ import {  View,
   Animated,
   Dimensions,
   StatusBar,
-  Vibration
+  Vibration,
+  InteractionManager
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -140,7 +141,7 @@ const getDateRange = (preset) => {
 };
 
 /* -- Stat Pill ----------------------------------------------------------- */
-const StatPill = ({ value, label, color, bgColor }) => (
+const StatPill = React.memo(({ value, label, color, bgColor }) => (
   <View style={[styles.statPill, { backgroundColor: bgColor }]}>
     <View style={styles.statSvgBg}>
       <Svg width="100%" height="100%" viewBox="0 0 100 70" preserveAspectRatio="xMidYMid slice">
@@ -153,10 +154,10 @@ const StatPill = ({ value, label, color, bgColor }) => (
     <Text style={[styles.statValue, { color }]}>{value}</Text>
     <Text style={[styles.statLabel, { color: color + 'B0' }]}>{label}</Text>
   </View>
-);
+));
 
 /* -- Request Card -------------------------------------------------------- */
-const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvider, onRate, onFindProviders, ratingStatus, onResendOtp, resendingOtpId }) => {
+const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, onTrackProvider, onRate, onFindProviders, ratingStatus, onResendOtp, resendingOtpId }) => {
   const { dialog } = useDialog();
   const { t } = useLanguage();
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -199,7 +200,7 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
     <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
       <TouchableOpacity
         style={[styles.card, isPending && styles.cardPending, isDone && styles.cardCompact]}
-        onPress={onPress}
+        onPress={() => onPress(request)}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         activeOpacity={1}
@@ -495,7 +496,7 @@ const RequestCard = ({ request, onPress, onCancel, onCallProvider, onTrackProvid
       </TouchableOpacity>
     </Animated.View>
   );
-};
+});
 
 /* -- Empty State --------------------------------------------------------- */
 const EmptyState = ({ filter, onBookService }) => {
@@ -656,37 +657,15 @@ const UserServiceHistoryScreen = ({ navigation }) => {
         const combined = [...newTraditional, ...eventBookings, ...emergencyBookings].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setAllRequests(combined);
 
-        // If there are more traditional requests than loaded, fetch ALL for accurate stats before setting
-        if ((traditionalResult.count || 0) > PAGE_SIZE) {
-          getUserRequests(userId, { limit: 500, page: 1 }).then(allResult => {
-            if (allResult.success) {
-              const allTraditional = allResult.requests || [];
-              const allCombined = [...allTraditional, ...eventBookings, ...emergencyBookings];
-              const ns = {
-                total: allCombined.length,
-                active: allCombined.filter(r => ACTIVE_STATUSES.includes(r.status)).length,
-                completed: allCombined.filter(r => r.status === 'completed').length,
-              };
-              setStats(prev => prev.total === ns.total && prev.active === ns.active && prev.completed === ns.completed ? prev : ns);
-            }
-          }).catch(() => {
-            // Fallback to partial stats if full fetch fails
-            const ns = {
-              total: combined.length,
-              active: combined.filter(r => ACTIVE_STATUSES.includes(r.status)).length,
-              completed: combined.filter(r => r.status === 'completed').length,
-            };
-            setStats(prev => prev.total === ns.total && prev.active === ns.active && prev.completed === ns.completed ? prev : ns);
-          });
-        } else {
-          // All data already loaded — set stats once
-          const ns = {
-            total: combined.length,
-            active: combined.filter(r => ACTIVE_STATUSES.includes(r.status)).length,
-            completed: combined.filter(r => r.status === 'completed').length,
-          };
-          setStats(prev => prev.total === ns.total && prev.active === ns.active && prev.completed === ns.completed ? prev : ns);
-        }
+        // Use backend count + stats from loaded data (avoid fetching 500 records)
+        // The backend response includes `count` for total traditional, and we have event/emergency counts
+        const totalTraditional = traditionalResult.count || newTraditional.length;
+        const ns = {
+          total: totalTraditional + eventBookings.length + emergencyBookings.length,
+          active: combined.filter(r => ACTIVE_STATUSES.includes(r.status)).length,
+          completed: combined.filter(r => r.status === 'completed').length,
+        };
+        setStats(prev => prev.total === ns.total && prev.active === ns.active && prev.completed === ns.completed ? prev : ns);
       }
       setPage(pageNum);
     } catch (error) {
@@ -706,21 +685,36 @@ const UserServiceHistoryScreen = ({ navigation }) => {
 
   const onRefresh = async () => { setRefreshing(true); setPage(1); setHasMore(true); await fetchRequests(1, false); setRefreshing(false); };
 
-  // Initial fetch on mount
-  useEffect(() => { fetchRequests(1, false); hasMountedRef.current = true; }, [fetchRequests]);
+  // Initial fetch — deferred until after tab transition animation
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
+      fetchRequests(1, false);
+      hasMountedRef.current = true;
+    });
+    return () => task.cancel();
+  }, [fetchRequests]);
 
-  // Rating statuses
+  // Rating statuses — only fetch for NEW completed requests not already cached
   useEffect(() => {
     const fetchRatingStatuses = async () => {
       const completed = allRequests.filter(r => r.status === 'completed');
-      if (completed.length === 0) return;
+      // Only fetch for IDs we haven't checked yet
+      const unchecked = completed.filter(r => !ratingStatuses[r._id]);
+      if (unchecked.length === 0) return;
+
+      // Batch: fetch max 5 at a time to avoid N parallel API calls
+      const BATCH_SIZE = 5;
       const statuses = {};
-      await Promise.all(completed.map(async (req) => {
-        if (ratingStatuses[req._id]) { statuses[req._id] = ratingStatuses[req._id]; return; }
-        try { statuses[req._id] = await checkRatingStatus(req._id); }
-        catch { statuses[req._id] = { rated: false }; }
-      }));
-      setRatingStatuses(prev => ({ ...prev, ...statuses }));
+      for (let i = 0; i < unchecked.length; i += BATCH_SIZE) {
+        const batch = unchecked.slice(i, i + BATCH_SIZE);
+        await Promise.all(batch.map(async (req) => {
+          try { statuses[req._id] = await checkRatingStatus(req._id); }
+          catch { statuses[req._id] = { rated: false }; }
+        }));
+      }
+      if (Object.keys(statuses).length > 0) {
+        setRatingStatuses(prev => ({ ...prev, ...statuses }));
+      }
     };
     if (allRequests.length > 0) fetchRatingStatuses();
   }, [allRequests]);
@@ -759,7 +753,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
   // Periodic refresh — 30s interval (only when focused)
   useEffect(() => {
     if (!isFocused || !autoRefreshEnabled) return;
-    const interval = setInterval(() => fetchRequests(), 30000);
+    const interval = setInterval(() => fetchRequests(), 60000); // 60s — socket events handle real-time updates
     return () => clearInterval(interval);
   }, [isFocused, autoRefreshEnabled, fetchRequests]);
 
@@ -772,16 +766,18 @@ const UserServiceHistoryScreen = ({ navigation }) => {
     return () => sub.remove();
   }, [isFocused, autoRefreshEnabled, debouncedRefresh]);
 
-  // Socket listeners — debounced to coalesce rapid events
-  useEffect(() => {
-    const cleanups = [
-      addSocketListener('request:accepted', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
-      addSocketListener('request:completed', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
-      addSocketListener('request:status', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
-      addSocketListener('provider:assigned', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
-    ];
-    return () => cleanups.forEach(fn => fn());
-  }, [autoRefreshEnabled, debouncedRefresh]);
+  // Socket listeners — only active when this tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      const cleanups = [
+        addSocketListener('request:accepted', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
+        addSocketListener('request:completed', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
+        addSocketListener('request:status', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
+        addSocketListener('provider:assigned', () => { if (autoRefreshEnabled) debouncedRefresh(); }),
+      ];
+      return () => cleanups.forEach(fn => fn());
+    }, [autoRefreshEnabled, debouncedRefresh])
+  );
 
   // FCM foreground — debounced
   useEffect(() => {
@@ -941,6 +937,21 @@ const UserServiceHistoryScreen = ({ navigation }) => {
     return f;
   }, [allRequests, activeFilter, categoryFilter, datePreset]);
 
+  const renderRequestItem = useCallback(({ item }) => (
+    <RequestCard
+      request={item}
+      onPress={handleViewDetails}
+      onCancel={handleCancel}
+      onCallProvider={handleCallProvider}
+      onTrackProvider={handleTrackProvider}
+      onRate={handleOpenRating}
+      onFindProviders={handleFindProviders}
+      ratingStatus={ratingStatuses[item._id]}
+      onResendOtp={handleResendOtp}
+      resendingOtpId={resendingOtpId}
+    />
+  ), [handleViewDetails, handleCancel, handleCallProvider, handleTrackProvider, handleOpenRating, handleFindProviders, ratingStatuses, handleResendOtp, resendingOtpId]);
+
   if (loading) return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScreenShimmer type="cardList" />
@@ -1044,7 +1055,12 @@ const UserServiceHistoryScreen = ({ navigation }) => {
         data={filteredRequests}
         keyExtractor={item => item.requestId || item._id}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
-        scrollEventThrottle={8}
+        scrollEventThrottle={16}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        initialNumToRender={8}
+        windowSize={5}
         ListHeaderComponent={
           <>
             <View style={styles.statsBarInner}>
@@ -1059,20 +1075,8 @@ const UserServiceHistoryScreen = ({ navigation }) => {
             ) : null}
           </>
         }
-        renderItem={({ item }) => (
-          <RequestCard
-            request={item}
-            onPress={() => handleViewDetails(item)}
-            onCancel={handleCancel}
-            onCallProvider={handleCallProvider}
-            onTrackProvider={handleTrackProvider}
-            onRate={handleOpenRating}
-            onFindProviders={handleFindProviders}
-            ratingStatus={ratingStatuses[item._id]}
-            onResendOtp={handleResendOtp}
-            resendingOtpId={resendingOtpId}
-          />
-        )}
+        renderItem={renderRequestItem}
+        extraData={`${resendingOtpId}-${Object.keys(ratingStatuses).length}`}
         ListEmptyComponent={<EmptyState filter={activeFilter} onBookService={() => navigation.navigate('Home')} />}
         ListFooterComponent={loadingMore ? <View style={styles.footerLoader}><ActivityIndicator size="small" color={C.primary} /><Text style={styles.footerText}>Loading more...</Text></View> : null}
         onEndReached={loadMore}
@@ -1263,8 +1267,8 @@ const styles = StyleSheet.create({
   providerRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: C.border, marginBottom: 10 },
   providerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10 },
   avatarWrap: { position: 'relative' },
-  providerAvatar: { width: 36, height: 36, borderRadius: 18, borderWidth: 2, borderColor: C.secondary },
-  providerAvatarFallback: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.secondary, alignItems: 'center', justifyContent: 'center' },
+  providerAvatar: { overflow: 'hidden', width: 36, height: 36, borderRadius: 18, borderWidth: 2, borderColor: C.secondary },
+  providerAvatarFallback: { overflow: 'hidden', width: 36, height: 36, borderRadius: 18, backgroundColor: C.secondary, alignItems: 'center', justifyContent: 'center' },
   providerInitial: { fontSize: 15, fontWeight: '700', color: C.white },
   verifiedBadge: { position: 'absolute', bottom: -1, right: -1, width: 14, height: 14, borderRadius: 7, backgroundColor: C.success, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.white },
   providerName: { fontSize: 14, fontWeight: '600', color: C.text },

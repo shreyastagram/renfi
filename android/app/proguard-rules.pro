@@ -108,6 +108,12 @@
 -keep class com.ocetnik.timer.** { *; }
 -dontwarn com.ocetnik.timer.**
 
+# ── TransistorSoft Background Geolocation ──
+-keep class com.transistorsoft.** { *; }
+-dontwarn com.transistorsoft.**
+-keep class org.greenrobot.eventbus.** { *; }
+-dontwarn org.greenrobot.eventbus.**
+
 # ── Invertase Firebase (RNFB) ──
 -keep class io.invertase.** { *; }
 -dontwarn io.invertase.**

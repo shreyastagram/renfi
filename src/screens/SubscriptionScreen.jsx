@@ -16,7 +16,7 @@
  * @version 3.0.0
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {  View,
   Text,
   StyleSheet,
@@ -24,6 +24,7 @@ import {  View,
   ActivityIndicator,
   RefreshControl,
   Modal,
+  Animated,
   Dimensions,
   Platform,
   StatusBar,
@@ -309,6 +310,36 @@ const txStyles = StyleSheet.create({
 // TRANSACTION DETAIL MODAL
 // ============================================
 const TransactionDetailModal = ({ visible, transaction, onClose, t }) => {
+  const [modalVisible, setModalVisible] = useState(false);
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const sheetTranslateY = useRef(new Animated.Value(800)).current;
+  const isDismissing = useRef(false);
+
+  useEffect(() => {
+    if (visible && transaction) {
+      isDismissing.current = false;
+      setModalVisible(true);
+      sheetTranslateY.setValue(800);
+      overlayOpacity.setValue(0);
+      Animated.parallel([
+        Animated.spring(sheetTranslateY, { toValue: 0, useNativeDriver: true, tension: 50, friction: 7, overshootClamping: true }),
+        Animated.timing(overlayOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible, transaction]);
+
+  const animatedClose = useCallback(() => {
+    if (isDismissing.current) return;
+    isDismissing.current = true;
+    Animated.parallel([
+      Animated.spring(sheetTranslateY, { toValue: 800, useNativeDriver: true, tension: 50, friction: 7, overshootClamping: true }),
+      Animated.timing(overlayOpacity, { toValue: 0, duration: 250, useNativeDriver: true }),
+    ]).start(() => {
+      setModalVisible(false);
+      onClose();
+    });
+  }, [onClose]);
+
   if (!transaction) return null;
 
   const DetailRow = ({ label, value, valueStyle }) => (
@@ -319,14 +350,18 @@ const TransactionDetailModal = ({ visible, transaction, onClose, t }) => {
   );
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={modalStyles.overlay}>
+    <Modal visible={modalVisible} animationType="none" transparent statusBarTranslucent onRequestClose={animatedClose}>
+      <View style={{ flex: 1 }}>
+        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(15, 23, 42, 0.6)', opacity: overlayOpacity }]}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={animatedClose} />
+        </Animated.View>
+        <Animated.View style={[StyleSheet.absoluteFillObject, { justifyContent: 'flex-end', transform: [{ translateY: sheetTranslateY }] }]}>
         <View style={modalStyles.content}>
           <View style={modalStyles.dragBar} />
 
           <View style={modalStyles.header}>
             <Text style={modalStyles.title}>{t('subscription.transactionDetails')}</Text>
-            <TouchableOpacity style={modalStyles.closeBtn} onPress={onClose}>
+            <TouchableOpacity style={modalStyles.closeBtn} onPress={animatedClose}>
               <MaterialIcon name="close" size={20} color="#64748B" />
             </TouchableOpacity>
           </View>
@@ -376,16 +411,16 @@ const TransactionDetailModal = ({ visible, transaction, onClose, t }) => {
             )}
           </ScrollView>
 
-          <TouchableOpacity style={modalStyles.doneBtn} onPress={onClose}>
+          <TouchableOpacity style={modalStyles.doneBtn} onPress={animatedClose}>
             <Text style={modalStyles.doneBtnText}>{t('common.done')}</Text>
           </TouchableOpacity>
         </View>
+        </Animated.View>
       </View>
     </Modal>
   );
 };
 const modalStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(15,23,42,0.5)', justifyContent: 'flex-end' },
   content: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '82%' },
   dragBar: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center', marginTop: 12 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 22, paddingTop: 18, paddingBottom: 14 },

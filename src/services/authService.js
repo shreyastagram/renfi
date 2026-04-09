@@ -160,6 +160,7 @@ export const registerUser = async (userData) => {
       fullName: userData.fullName.trim(),
       phone: userData.phone?.trim() ? normalizePhoneForApi(userData.phone) : undefined,
       location: userData.location || undefined,
+      referralCode: userData.referralCode || undefined,
     });
     
     console.log('✅ [AuthService] Registration successful');
@@ -207,7 +208,8 @@ export const registerProvider = async (providerData) => {
       requestBody.latitude = providerData.latitude;
       requestBody.longitude = providerData.longitude;
     }
-    
+    if (providerData.referralCode) requestBody.referralCode = providerData.referralCode;
+
     const response = await apiClient.post(ENDPOINTS.AUTH.PROVIDER_REGISTER, requestBody);
     
     console.log('✅ [AuthService] Provider registration successful');

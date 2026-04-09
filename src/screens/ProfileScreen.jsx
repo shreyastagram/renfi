@@ -24,7 +24,8 @@ import {  View,
   Animated,
   Dimensions,
   Linking,
-  StatusBar
+  StatusBar,
+  InteractionManager
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -611,14 +612,21 @@ const ProfileScreen = ({ navigation, route }) => {
     }
   }, [isProvider]);
 
-  // Auto-refresh profile when screen gains focus
-  // SWR: refreshProfile internally skips if data is < 30s old
+  // Auto-refresh profile when screen gains focus — with 30s staleness guard
+  const profileLastRefreshRef = useRef(0);
   useFocusEffect(
     useCallback(() => {
-      const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
-      if (userId && userType) {
-        refreshProfile(userType, userId);
-      }
+      const elapsed = Date.now() - profileLastRefreshRef.current;
+      if (elapsed < 30000) return; // Skip if refreshed within last 30s
+
+      const task = InteractionManager.runAfterInteractions(() => {
+        const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+        if (userId && userType) {
+          profileLastRefreshRef.current = Date.now();
+          refreshProfile(userType, userId);
+        }
+      });
+      return () => task.cancel();
     }, [user?.mongoId, profile?.mongoId, userType, refreshProfile])
   );
 
@@ -2500,6 +2508,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   avatarRing: {
+    overflow: 'hidden',
     width: 112,
     height: 112,
     borderRadius: 56,
@@ -2524,6 +2533,7 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
   },
   avatar: {
+    overflow: 'hidden',
     width: 104,
     height: 104,
     borderRadius: 52,
@@ -2532,6 +2542,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarImage: {
+    overflow: 'hidden',
     width: 104,
     height: 104,
     borderRadius: 52,
@@ -2758,6 +2769,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   viewPhotoImage: {
+    overflow: 'hidden',
     width: SCREEN_WIDTH * 0.85,
     height: SCREEN_WIDTH * 0.85,
     borderRadius: 22,

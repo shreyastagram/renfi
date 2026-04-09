@@ -801,8 +801,8 @@ const SettingsScreen = ({ navigation }) => {
    */
   const handleEditWorkingHours = (day) => {
     dialog(
-      `Edit ${day} Hours`,
-      'Working hours editor will be available in the next update.',
+      `${day} Working Hours`,
+      'Your working hours are displayed to customers to help them know when you are available. To update your hours, please contact support.',
       [{ text: 'OK' }]
     );
   };
@@ -1107,6 +1107,17 @@ const SettingsScreen = ({ navigation }) => {
           </View>
         )}
 
+        {/* Refer & Earn Section — Both Users and Providers */}
+        <View style={styles.section}>
+          <SectionHeader title="Refer & Earn" />
+          <ActionRow
+            iconName="star"
+            title="Refer & Earn Rewards"
+            subtitle="Share your code, earn points, win prizes"
+            onPress={() => navigation.navigate('ReferralScreen')}
+          />
+        </View>
+
         {/* Insurance Section — Provider Only */}
         {isProvider && (
           <View style={styles.section}>
@@ -1135,6 +1146,19 @@ const SettingsScreen = ({ navigation }) => {
                 {t('settings.insuranceNote')}
               </Text>
             </View>
+          </View>
+        )}
+
+        {/* DEV: BG Location Test — only visible in development builds */}
+        {__DEV__ && isProvider && (
+          <View style={styles.section}>
+            <SectionHeader title="Developer Tools" />
+            <ActionRow
+              iconName="location"
+              title="BG Location Test"
+              subtitle="Test TransistorSoft background tracking"
+              onPress={() => navigation.navigate('BGLocationTest')}
+            />
           </View>
         )}
 

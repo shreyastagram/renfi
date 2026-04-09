@@ -21,6 +21,8 @@ import {  View,
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { Button, Input, PhoneInput, Alert, FixhomiLogo } from '../components';
 import {
   forgotPasswordPhone,
@@ -34,16 +36,16 @@ import { validatePhone, validatePassword, validateEmail } from '../utils/validat
 import { useLanguage } from '../context/LanguageContext';
 
 const COLORS = {
-  primary: '#FF6B35',
-  primaryLight: '#FFF0EB',
+  primary: '#f67c16',
+  primaryLight: 'rgba(246,124,22,0.06)',
   background: '#FFFFFF',
-  surface: '#F8F9FA',
-  text: '#1A1A2E',
-  textSecondary: '#6C757D',
-  textLight: '#ADB5BD',
-  border: '#E9ECEF',
-  error: '#DC3545',
-  success: '#28A745',
+  surface: '#F8FAFC',
+  text: '#1E293B',
+  textSecondary: '#64748B',
+  textLight: '#94A3B8',
+  border: '#E2E8F0',
+  error: '#EF4444',
+  success: '#10B981',
   white: '#FFFFFF',
 };
 
@@ -367,7 +369,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
   const renderSuccessState = () => (
     <View style={styles.successContainer}>
       <View style={styles.successIconContainer}>
-        <Text style={styles.successIcon}>✅</Text>
+        <MaterialIcons name="check-circle" size={48} color="#10B981" />
       </View>
       <Text style={styles.successTitle}>{t('auth.passwordResetDone')}</Text>
       <Text style={styles.successMessage}>
@@ -453,7 +455,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
         style={styles.backLink}
         onPress={onGoBack || (() => navigation?.goBack())}
       >
-        <Text style={styles.backLinkText}>{'<'} {t('auth.backToLogin')}</Text>
+        <View style={styles.backLinkRow}><Ionicons name="arrow-back" size={16} color={COLORS.primary} /><Text style={styles.backLinkText}>{t('auth.backToLogin')}</Text></View>
       </TouchableOpacity>
     </View>
   );
@@ -501,6 +503,8 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
             maxLength={index === 0 ? OTP_LENGTH : 1}
             editable={!loading && !isExpired}
             selectTextOnFocus
+            caretHidden={true}
+            selectionColor="transparent"
           />
         ))}
       </View>
@@ -592,7 +596,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
 
       {/* Back */}
       <TouchableOpacity style={styles.backLink} onPress={handleGoBack}>
-        <Text style={styles.backLinkText}>{'<'} {t('common.back')}</Text>
+        <View style={styles.backLinkRow}><Ionicons name="arrow-back" size={16} color={COLORS.primary} /><Text style={styles.backLinkText}>{t('common.back')}</Text></View>
       </TouchableOpacity>
     </View>
   );
@@ -638,245 +642,89 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  keyboardAvoid: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-  },
-  alert: {
-    marginBottom: 16,
-  },
-  logoContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    alignSelf: 'center',
-    shadowColor: '#f67c16',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: '#f67c1615',
-    marginTop: 20,
-    marginBottom: 8,
-  },
-  brandName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#f67c16',
-    textAlign: 'center',
-    marginBottom: 24,
-    letterSpacing: 1,
-  },
+  // ── Layout ──
+  container: { flex: 1, backgroundColor: COLORS.background },
+  keyboardAvoid: { flex: 1 },
+  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24 },
+  alert: { marginBottom: 16 },
 
-  formContainer: {
-    flex: 1,
+  // ── Logo ──
+  logoContainer: {
+    width: 64, height: 64, borderRadius: 16, backgroundColor: '#FFFFFF',
+    justifyContent: 'center', alignItems: 'center', alignSelf: 'center',
+    overflow: 'hidden', marginTop: 16, marginBottom: 6,
+    ...Platform.select({
+      ios: { shadowColor: '#f67c16', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
+      android: { elevation: 5 },
+    }),
   },
-  methodToggle: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 20,
-  },
-  methodTab: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
+  brandName: { fontSize: 18, fontWeight: '800', color: '#f67c16', textAlign: 'center', marginBottom: 20, letterSpacing: 0.3 },
+
+  // ── Form ──
+  formContainer: { flex: 1 },
+
+  // ── Method Toggle ──
+  methodToggle: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 14, padding: 4, marginBottom: 20 },
+  methodTab: { flex: 1, paddingVertical: 11, borderRadius: 10, alignItems: 'center' },
   methodTabActive: {
     backgroundColor: COLORS.white,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    ...Platform.select({
+      ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4 },
+      android: { elevation: 2 },
+    }),
   },
-  methodTabText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: COLORS.textSecondary,
-  },
-  methodTabTextActive: {
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
-  header: {
-    marginBottom: 32,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 12,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-    lineHeight: 24,
-  },
-  maskedValue: {
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 8,
-  },
-  actionButton: {
-    marginTop: 24,
-  },
-  backLink: {
-    alignItems: 'center',
-    marginTop: 24,
-    paddingVertical: 12,
-  },
-  backLinkText: {
-    fontSize: 16,
-    color: COLORS.primary,
-    fontWeight: '500',
-  },
+  methodTabText: { fontSize: 14, fontWeight: '500', color: COLORS.textLight },
+  methodTabTextActive: { color: COLORS.primary, fontWeight: '700' },
 
-  // Timer
-  timerContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  timerBadge: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  timerBadgeText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#2563EB',
-    fontVariant: ['tabular-nums'],
-  },
-  timerBadgeExpired: {
-    backgroundColor: '#FEF2F2',
-  },
-  timerExpiredText: {
-    fontSize: 14,
-    color: COLORS.error,
-    fontWeight: '600',
-  },
+  // ── Header ──
+  header: { marginBottom: 28 },
+  title: { fontSize: 24, fontWeight: '800', color: COLORS.text, marginBottom: 8 },
+  subtitle: { fontSize: 14, color: COLORS.textSecondary, lineHeight: 22 },
+  maskedValue: { fontWeight: '700', color: COLORS.text },
+  inputLabel: { fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8 },
+  actionButton: { marginTop: 24 },
 
-  // OTP
-  otpContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
+  // ── Back Link ──
+  backLink: { alignItems: 'center', marginTop: 20, paddingVertical: 10 },
+  backLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  backLinkText: { fontSize: 14, color: COLORS.primary, fontWeight: '600' },
+
+  // ── Timer ──
+  timerContainer: { alignItems: 'center', marginBottom: 20 },
+  timerBadge: { backgroundColor: COLORS.primaryLight, paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20 },
+  timerBadgeText: { fontSize: 17, fontWeight: '700', color: COLORS.primary, fontVariant: ['tabular-nums'] },
+  timerBadgeExpired: { backgroundColor: '#FEF2F2' },
+  timerExpiredText: { fontSize: 14, color: COLORS.error, fontWeight: '600' },
+
+  // ── OTP ──
+  otpContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, paddingHorizontal: 4 },
   otpInput: {
-    width: 48,
-    height: 56,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    fontSize: 24,
-    fontWeight: '600',
-    color: COLORS.text,
-    backgroundColor: COLORS.surface,
-    textAlign: 'center',
+    width: 48, height: 56, borderWidth: 1.5, borderColor: COLORS.border, borderRadius: 14,
+    fontSize: 22, fontWeight: '800', color: COLORS.text, backgroundColor: COLORS.surface, textAlign: 'center',
   },
-  otpInputFilled: {
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.primaryLight,
-  },
-  otpInputExpired: {
-    borderColor: '#FCA5A5',
-    backgroundColor: '#FEF2F2',
-    color: '#9CA3AF',
-  },
+  otpInputFilled: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
+  otpInputExpired: { borderColor: '#FCA5A5', backgroundColor: '#FEF2F2', color: '#94A3B8' },
 
-  // Resend
-  resendRow: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  resendText: {
-    fontSize: 14,
-    color: COLORS.primary,
-    fontWeight: '500',
-  },
-  resendTextDisabled: {
-    color: COLORS.textLight,
-  },
-  resendProminentText: {
-    fontSize: 15,
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
+  // ── Resend ──
+  resendRow: { alignItems: 'center', marginBottom: 24 },
+  resendText: { fontSize: 14, color: COLORS.primary, fontWeight: '500' },
+  resendTextDisabled: { color: COLORS.textLight },
+  resendProminentText: { fontSize: 15, color: COLORS.primary, fontWeight: '600' },
 
-  // Password hints
-  passwordHints: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 8,
-  },
-  hintTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  hintText: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    marginBottom: 2,
-  },
-  hintMet: {
-    color: COLORS.success,
-  },
+  // ── Password Hints ──
+  passwordHints: { backgroundColor: COLORS.surface, borderRadius: 12, padding: 12, marginTop: 8, borderWidth: 1, borderColor: COLORS.border },
+  hintTitle: { fontSize: 12, fontWeight: '600', color: COLORS.text, marginBottom: 4 },
+  hintText: { fontSize: 11, color: COLORS.textSecondary, marginBottom: 2 },
+  hintMet: { color: COLORS.success },
 
-  // Success
-  successContainer: {
-    flex: 1,
-    alignItems: 'center',
-    paddingTop: 20,
-  },
+  // ── Success ──
+  successContainer: { flex: 1, alignItems: 'center', paddingTop: 24 },
   successIconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: COLORS.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
+    width: 88, height: 88, borderRadius: 22, backgroundColor: 'rgba(16,185,129,0.08)',
+    alignItems: 'center', justifyContent: 'center', marginBottom: 24,
   },
-  successIcon: {
-    fontSize: 48,
-  },
-  successTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 16,
-  },
-  successMessage: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
-  },
+  successTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text, marginBottom: 12 },
+  successMessage: { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 32, paddingHorizontal: 16 },
 });
 
 export default ForgotPasswordScreen;

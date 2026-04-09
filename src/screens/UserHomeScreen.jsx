@@ -791,7 +791,7 @@ const UserHomeScreen = ({ navigation, route }) => {
           t('userHome.locationRequired'),
           t('userHome.locationRequiredGpsMsg'),
           [
-            { text: t('userHome.selectAddress'), onPress: () => {} },
+            { text: t('common.cancel'), style: 'cancel' },
             {
               text: t('userHome.enableGps'),
               onPress: () => {
@@ -2036,6 +2036,7 @@ const styles = StyleSheet.create({
   },
   // Card — clean flat surface
   serviceCard: {
+    overflow: 'hidden',
     width: Math.floor((SCREEN_WIDTH - 64) / 3),
     paddingTop: 18,
     paddingBottom: 14,
@@ -2237,6 +2238,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   providerAvatar: {
+    overflow: 'hidden',
     width: 48,
     height: 48,
     borderRadius: 24,
@@ -2245,6 +2247,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   providerAvatarImage: {
+    overflow: 'hidden',
     width: 48,
     height: 48,
     borderRadius: 24,

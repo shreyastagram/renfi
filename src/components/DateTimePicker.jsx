@@ -10,7 +10,7 @@
  * @version 1.0.0
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {  View,
   Text,
   StyleSheet,
@@ -216,8 +216,8 @@ const DateTimePickerComponent = ({
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showModal, setShowModal] = useState(false);
   
-  const quickDates = generateQuickDateOptions();
-  const timeSlots = generateTimeSlots();
+  const quickDates = useMemo(() => generateQuickDateOptions(), []);
+  const timeSlots = useMemo(() => generateTimeSlots(), []);
   
   const minDate = minimumDate || new Date();
   

@@ -234,26 +234,31 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
           </View>
 
           {/* Method Tabs */}
-          <View style={styles.tabs}>
-            <TouchableOpacity
-              style={[styles.tab, method === 'phone' && styles.tabActive]}
-              onPress={() => switchMethod('phone')}
-              disabled={loading}
-            >
-              <Text style={[styles.tabText, method === 'phone' && styles.tabTextActive]}>
-                {t('auth.phone')}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, method === 'email' && styles.tabActive]}
-              onPress={() => switchMethod('email')}
-              disabled={loading}
-            >
-              <Text style={[styles.tabText, method === 'email' && styles.tabTextActive]}>
-                {t('auth.email')}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {(() => {
+            const accent = userType === 'provider' ? '#2b76bc' : '#f67c16';
+            return (
+              <View style={styles.tabs}>
+                <TouchableOpacity
+                  style={[styles.tab, method === 'phone' && styles.tabActive]}
+                  onPress={() => switchMethod('phone')}
+                  disabled={loading}
+                >
+                  <Text style={[styles.tabText, method === 'phone' && { color: accent, fontWeight: '700' }]}>
+                    {t('auth.phone')}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.tab, method === 'email' && styles.tabActive]}
+                  onPress={() => switchMethod('email')}
+                  disabled={loading}
+                >
+                  <Text style={[styles.tabText, method === 'email' && { color: accent, fontWeight: '700' }]}>
+                    {t('auth.email')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            );
+          })()}
 
           {/* Alert */}
           {alertMessage && (
@@ -330,121 +335,55 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    padding: 24,
-  },
-  header: {
-    marginBottom: 24,
-    alignItems: 'center',
-  },
+  // ── Layout ──
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  keyboardView: { flex: 1 },
+  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24 },
+
+  // ── Header ──
+  header: { marginBottom: 28, alignItems: 'center' },
   logoContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#f67c16',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: '#f67c1615',
+    width: 64, height: 64, borderRadius: 16, backgroundColor: '#FFFFFF',
+    justifyContent: 'center', alignItems: 'center', overflow: 'hidden',
+    ...Platform.select({
+      ios: { shadowColor: '#f67c16', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
+      android: { elevation: 5 },
+    }),
   },
-  brandName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#f67c16',
-    marginTop: 10,
-    marginBottom: 16,
-    letterSpacing: 1,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6B7280',
-    lineHeight: 24,
-  },
+  brandName: { fontSize: 18, fontWeight: '800', color: '#f67c16', marginTop: 10, marginBottom: 14, letterSpacing: 0.3 },
+  title: { fontSize: 24, fontWeight: '800', color: '#1E293B', marginBottom: 6 },
+  subtitle: { fontSize: 14, color: '#64748B', lineHeight: 21, textAlign: 'center', paddingHorizontal: 8 },
+
+  // ── Tabs ──
   tabs: {
-    flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 24,
+    flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 14, padding: 4, marginBottom: 24,
   },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderRadius: 8,
-  },
+  tab: { flex: 1, paddingVertical: 11, alignItems: 'center', borderRadius: 10 },
   tabActive: {
     backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    ...Platform.select({
+      ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4 },
+      android: { elevation: 2 },
+    }),
   },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6B7280',
-  },
-  tabTextActive: {
-    color: '#2563EB',
-    fontWeight: '600',
-  },
-  alert: {
-    marginBottom: 16,
-  },
-  form: {
-    gap: 16,
-  },
-  submitButton: {
-    marginTop: 8,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 16,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E5E7EB',
-  },
-  dividerText: {
-    marginHorizontal: 16,
-    color: '#9CA3AF',
-    fontSize: 14,
-  },
-  info: {
-    marginTop: 32,
-    padding: 16,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
+  tabText: { fontSize: 14, fontWeight: '500', color: '#94A3B8' },
+  // tabTextActive is now inline — color changes based on userType (orange for user, blue for provider)
+
+  // ── Alert ──
+  alert: { marginBottom: 16 },
+
+  // ── Form ──
+  form: { gap: 16 },
+  submitButton: { marginTop: 8 },
+
+  // ── Divider ──
+  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 16 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#E2E8F0' },
+  dividerText: { marginHorizontal: 14, color: '#94A3B8', fontSize: 13, fontWeight: '500' },
+
+  // ── Info ──
+  info: { marginTop: 28, padding: 14, backgroundColor: '#F8FAFC', borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0' },
+  infoText: { fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 20 },
 });
 
 export default OTPLoginScreen;

@@ -12,7 +12,7 @@
  * @version 8.0.0 - Added Emergency, Event, Favorites screens
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Platform, Dimensions, Pressable, Image } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -52,7 +52,11 @@ import {
   SubscriptionScreen,
   VerificationDashboardScreen,
   InsuranceScreen,
+  ReferralScreen,
+  PSAContactsScreen,
+  PSATriggerScreen,
 } from '../src/screens';
+import BGLocationTestScreen from '../src/screens/BGLocationTest';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -124,7 +128,7 @@ export const linking = {
  */
 const VERIFIED_BLUE = '#2b76bc';
 
-const TabIcon = ({ focused, iconFamily, iconName, focusedIconName, label, profilePicture }) => {
+const TabIcon = React.memo(({ focused, iconFamily, iconName, focusedIconName, label, profilePicture }) => {
   const activeColor = VERIFIED_BLUE;
   const inactiveColor = BRAND.gray;
   const color = focused ? activeColor : inactiveColor;
@@ -169,7 +173,7 @@ const TabIcon = ({ focused, iconFamily, iconName, focusedIconName, label, profil
       </Text>
     </View>
   );
-};
+});
 
 /**
  * Shared Tab Bar Styles - Production Grade
@@ -221,7 +225,7 @@ const getTabBarStyle = (insets) => {
 const UserTabNavigator = () => {
   const insets = useSafeAreaInsets();
   const { user, profile } = useApp();
-  const profilePicture = profile?.profilePicture || user?.profilePicture;
+  const profilePicture = useMemo(() => profile?.profilePicture || user?.profilePicture, [profile?.profilePicture, user?.profilePicture]);
 
   return (
     <Tab.Navigator
@@ -311,7 +315,7 @@ const UserTabNavigator = () => {
 const ProviderTabNavigator = () => {
   const insets = useSafeAreaInsets();
   const { user, profile } = useApp();
-  const profilePicture = profile?.profilePicture || user?.profilePicture;
+  const profilePicture = useMemo(() => profile?.profilePicture || user?.profilePicture, [profile?.profilePicture, user?.profilePicture]);
 
   return (
     <Tab.Navigator
@@ -498,10 +502,25 @@ const UserMainNavigator = () => {
         component={FavoritesScreen}
         options={{ animation: 'slide_from_right' }}
       />
-      <Stack.Screen 
-        name="PortfolioEdit" 
+      <Stack.Screen
+        name="PortfolioEdit"
         component={PortfolioEditScreen}
         options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="ReferralScreen"
+        component={ReferralScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="PSAContacts"
+        component={PSAContactsScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="PSATrigger"
+        component={PSATriggerScreen}
+        options={{ animation: 'slide_from_bottom' }}
       />
     </Stack.Navigator>
   );
@@ -595,6 +614,26 @@ const ProviderMainNavigator = () => {
         name="Insurance"
         component={InsuranceScreen}
         options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="ReferralScreen"
+        component={ReferralScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="BGLocationTest"
+        component={BGLocationTestScreen}
+        options={{ animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="PSAContacts"
+        component={PSAContactsScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="PSATrigger"
+        component={PSATriggerScreen}
+        options={{ animation: 'slide_from_bottom' }}
       />
     </Stack.Navigator>
   );

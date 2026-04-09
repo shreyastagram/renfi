@@ -19,6 +19,7 @@ import { AppProvider, useApp } from './src/context/AppContext';
 import { LocationProvider } from './src/context/LocationContext';
 import { DialogProvider } from './src/context/DialogContext';
 import { LanguageProvider } from './src/context/LanguageContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import RootNavigator, { linking as navLinking } from './navigation/RootNavigator';
 import SplashScreen from './src/components/SplashScreen';
 import ErrorBoundary from './src/components/ErrorBoundary';
@@ -103,6 +104,9 @@ const linking: any = {
       handleEmailVerifiedDeepLink(url);
     }
 
+    // Handle referral deep links: fixhomi://ref/CODE or https://fixhomi.com/ref/CODE
+    if (url) handleReferralDeepLink(url);
+
     // Don't pass aadhaar-verification to Navigation — handled by AadhaarVerificationModal
     if (url?.includes('aadhaar-verification')) {
       return null;
@@ -121,6 +125,9 @@ const linking: any = {
         handleEmailVerifiedDeepLink(url);
       }
 
+      // Handle referral deep links
+      if (url) handleReferralDeepLink(url);
+
       // Don't pass aadhaar-verification to Navigation — handled by AadhaarVerificationModal
       if (url?.includes('aadhaar-verification')) {
         return;
@@ -130,6 +137,26 @@ const linking: any = {
     });
     return () => subscription.remove();
   },
+};
+
+/**
+ * Handle referral deep link — store code in AsyncStorage for registration.
+ * Formats: fixhomi://ref/CODE or https://fixhomi.com/ref/CODE
+ */
+const handleReferralDeepLink = (url: string) => {
+  try {
+    // Match /ref/CODE in the URL
+    const match = url.match(/\/ref\/([A-Za-z0-9]+)/);
+    if (!match) return;
+
+    const code = match[1].toUpperCase();
+    if (code.length < 6 || code.length > 12) return;
+
+    console.log('[DeepLink] Referral code captured:', code);
+    AsyncStorage.setItem('pendingReferralCode', code).catch(() => {});
+  } catch {
+    // Silent fail — don't break deep link flow
+  }
 };
 
 /**

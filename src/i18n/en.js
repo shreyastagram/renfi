@@ -135,6 +135,8 @@ export default {
     signingInGoogle: 'Signing in...',
     continueWithGoogle: 'Continue with Google',
     continueWithApple: 'Continue with Apple',
+    signingUpApple: 'Signing up...',
+    signingInApple: 'Signing in...',
     appleSignInFailed: 'Apple Sign-In failed. Please try again.',
     signInWithOtp: 'Sign In with OTP',
     noAccount: "Don't have an account?",
@@ -274,6 +276,8 @@ export default {
     passwordResetDone: 'Password Reset!',
     passwordResetMsg: 'Your password has been reset successfully.\nYou can now login with your new password.',
     backToLogin: 'Back to Login',
+    viaPhone: 'Via Phone',
+    viaEmail: 'Via Email',
 
     // Reset Password Screen
     validatingLink: 'Validating reset link...',
@@ -1318,8 +1322,10 @@ export default {
     verified: 'Verified',
     logoutConfirm: 'Are you sure you want to logout?',
     cancel: 'Cancel',
-    comingSoon: 'Coming Soon',
-    earningsComingSoon: 'Earnings feature will be available soon!',
+    comingSoon: '',
+    earningsComingSoon: '',
+    language: 'Language',
+    selectLanguage: 'Choose your preferred language',
   },
 
   // ─── Profile ──────────────────────────────────────────
@@ -1548,7 +1554,7 @@ export default {
     refreshToken: 'Refresh Auth Token',
     refreshTokenSub: 'Force refresh your session token',
     tokenStatus: 'Token Status',
-    sessionTrackingHint: 'Session tracking will be available in a future update',
+    sessionTrackingHint: 'Your active sessions will appear here when you sign in on multiple devices',
   },
 
   // ─── Change Password ──────────────────────────────────

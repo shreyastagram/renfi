@@ -455,6 +455,7 @@ export const syncGoogleUserToMongoDB = async (userData, accessToken = null) => {
       googleId: userData.googleId,
       profilePicture: userData.profilePicture,
       authProvider: 'google',
+      referralCode: userData.referralCode || undefined,
     }, config);
 
     console.log('✅ [GoogleAuth] User profile synced to MongoDB');
@@ -526,6 +527,7 @@ export const syncGoogleProviderToMongoDB = async (providerData, accessToken = nu
       googleId: providerData.googleId,
       profilePicture: providerData.profilePicture,
       authProvider: 'google',
+      referralCode: providerData.referralCode || undefined,
     }, config);
 
     console.log('✅ [GoogleAuth] Provider profile synced to MongoDB');

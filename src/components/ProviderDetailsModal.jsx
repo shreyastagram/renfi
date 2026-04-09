@@ -11,7 +11,7 @@
  * @version 1.0.0
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {  View,
   Text,
   StyleSheet,
@@ -19,6 +19,7 @@ import {  View,
   ActivityIndicator,
   ScrollView,
   Image,
+  Animated,
   Dimensions,
   Linking
 } from 'react-native';
@@ -119,10 +120,41 @@ const ProviderDetailsModal = ({
   const [loading, setLoading] = useState(true);
   const [provider, setProvider] = useState(null);
   const [error, setError] = useState(null);
-  
+  const [modalVisible, setModalVisible] = useState(false);
+
   // In-app image viewer state
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [imageViewerIndex, setImageViewerIndex] = useState(0);
+
+  // Smooth animated backdrop
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const sheetTranslateY = useRef(new Animated.Value(800)).current;
+  const isDismissing = useRef(false);
+
+  useEffect(() => {
+    if (visible) {
+      isDismissing.current = false;
+      setModalVisible(true);
+      sheetTranslateY.setValue(800);
+      overlayOpacity.setValue(0);
+      Animated.parallel([
+        Animated.spring(sheetTranslateY, { toValue: 0, useNativeDriver: true, tension: 50, friction: 7, overshootClamping: true }),
+        Animated.timing(overlayOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible]);
+
+  const animatedClose = useCallback(() => {
+    if (isDismissing.current) return;
+    isDismissing.current = true;
+    Animated.parallel([
+      Animated.spring(sheetTranslateY, { toValue: 800, useNativeDriver: true, tension: 50, friction: 7, overshootClamping: true }),
+      Animated.timing(overlayOpacity, { toValue: 0, duration: 250, useNativeDriver: true }),
+    ]).start(() => {
+      setModalVisible(false);
+      onClose();
+    });
+  }, [onClose]);
 
   const fetchDetails = useCallback(async () => {
     if (!providerId) {
@@ -235,16 +267,22 @@ const ProviderDetailsModal = ({
 
   return (
     <Modal
-      visible={visible}
+      visible={modalVisible}
       transparent
-      animationType="slide"
-      onRequestClose={onClose}
+      animationType="none"
+      statusBarTranslucent
+      onRequestClose={animatedClose}
     >
+      <View style={{ flex: 1 }}>
+        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(15, 23, 42, 0.6)', opacity: overlayOpacity }]}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={animatedClose} />
+        </Animated.View>
+        <Animated.View style={[StyleSheet.absoluteFillObject, { justifyContent: 'flex-end', transform: [{ translateY: sheetTranslateY }] }]}>
       <View style={styles.overlay}>
         <View style={[styles.modalContainer, { paddingBottom: insets.bottom + 16 }]}>
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <TouchableOpacity style={styles.closeButton} onPress={animatedClose}>
               <MaterialIcon name="close" size={24} color="#6B7280" />
             </TouchableOpacity>
             <Text style={styles.title}>Provider Details</Text>
@@ -555,6 +593,8 @@ const ProviderDetailsModal = ({
           )}
         </View>
       </View>
+        </Animated.View>
+      </View>
     </Modal>
   );
 };
@@ -562,7 +602,6 @@ const ProviderDetailsModal = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   modalContainer: {

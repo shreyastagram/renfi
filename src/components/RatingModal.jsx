@@ -11,7 +11,7 @@
  * @version 1.0.0
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {  View,
   Text,
   StyleSheet,
@@ -28,7 +28,7 @@ import {  View,
 import TouchableOpacity from './TouchableOpacity';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Brand colors
 const BRAND = {
@@ -111,6 +111,36 @@ const RatingModal = ({
   const [review, setReview] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const sheetTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const isDismissing = useRef(false);
+
+  useEffect(() => {
+    if (visible) {
+      isDismissing.current = false;
+      setModalVisible(true);
+      sheetTranslateY.setValue(SCREEN_HEIGHT);
+      overlayOpacity.setValue(0);
+      Animated.parallel([
+        Animated.spring(sheetTranslateY, { toValue: 0, useNativeDriver: true, tension: 50, friction: 7, overshootClamping: true }),
+        Animated.timing(overlayOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible]);
+
+  const animatedClose = useCallback(() => {
+    if (isDismissing.current) return;
+    isDismissing.current = true;
+    Animated.parallel([
+      Animated.spring(sheetTranslateY, { toValue: SCREEN_HEIGHT, useNativeDriver: true, tension: 50, friction: 7, overshootClamping: true }),
+      Animated.timing(overlayOpacity, { toValue: 0, duration: 250, useNativeDriver: true }),
+    ]).start(() => {
+      setModalVisible(false);
+      onClose();
+    });
+  }, [onClose]);
 
   const handleSubmit = useCallback(async () => {
     if (rating === 0 || submitting) return;
@@ -133,8 +163,8 @@ const RatingModal = ({
     setReview('');
     setSubmitted(false);
     setSubmitting(false);
-    onClose();
-  }, [onClose]);
+    animatedClose();
+  }, [animatedClose]);
 
   if (submitted) {
     return (
@@ -161,12 +191,18 @@ const RatingModal = ({
 
   return (
     <Modal
-      visible={visible}
+      visible={modalVisible}
       transparent
-      animationType="slide"
+      animationType="none"
+      statusBarTranslucent
       onRequestClose={handleClose}
     >
-      <KeyboardAvoidingView 
+      <View style={{ flex: 1 }}>
+        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(15, 23, 42, 0.6)', opacity: overlayOpacity }]}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={handleClose} />
+        </Animated.View>
+        <Animated.View style={[StyleSheet.absoluteFillObject, { justifyContent: 'flex-end', transform: [{ translateY: sheetTranslateY }] }]}>
+      <KeyboardAvoidingView
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
@@ -265,6 +301,8 @@ const RatingModal = ({
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
+        </Animated.View>
+      </View>
     </Modal>
   );
 };
@@ -272,7 +310,6 @@ const RatingModal = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   modalContainer: {

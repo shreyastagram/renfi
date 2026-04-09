@@ -877,7 +877,7 @@ const EventServicesScreen = ({ navigation }) => {
       if (!createResponse.ok || (createData.statusCode && createData.statusCode >= 400)) {
         // Handle geofence rejection with user-friendly message
         if (createData.code === 'OUTSIDE_SERVICE_ZONE') {
-          const suggestion = createData.details?.suggestion || 'Event services are currently available only in Yavatmal City, Maharashtra. We\'re expanding soon!';
+          const suggestion = createData.details?.suggestion || 'Event services are currently available in select cities. Please check back for availability in your area.';
           dialog(t('userHome.outsideServiceZone'), suggestion, [{ text: t('common.ok') }]);
           setSendingRequest(false);
           return;

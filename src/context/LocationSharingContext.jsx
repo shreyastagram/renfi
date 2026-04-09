@@ -18,6 +18,7 @@
  */
 
 import React, { createContext, useContext, useEffect, useRef, useCallback } from 'react';
+import { AppState } from 'react-native';
 import { useApp } from './AppContext';
 import { useDialog } from './DialogContext';
 import {
@@ -161,55 +162,94 @@ export const LocationSharingProvider = ({ children }) => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      // Provider session ending (logout or unmount) — stop all background tracking
-      // Critical for App Store compliance: no tracking without active requests
-      stopAllBackgroundTracking();
+      // DO NOT call stopAllBackgroundTracking() here!
+      // When the app is swiped away, React unmounts components which triggers
+      // this cleanup. If we call stop() here, we kill the native service right
+      // before the process dies, preventing killed-state tracking entirely.
+      // TransistorSoft's stopOnTerminate:false handles the kill case natively.
+      // Background tracking is stopped on logout via the isProvider/providerId effect below.
     };
   }, []);
 
+  // Stop background tracking when provider logs out (isProvider becomes false or providerId becomes null)
+  const prevIsProviderRef = useRef(isProvider);
+  const prevProviderIdRef = useRef(providerId);
+  useEffect(() => {
+    const wasProvider = prevIsProviderRef.current;
+    const hadId = prevProviderIdRef.current;
+    prevIsProviderRef.current = isProvider;
+    prevProviderIdRef.current = providerId;
+
+    // Detect logout: was a provider, now isn't
+    if (wasProvider && hadId && (!isProvider || !providerId)) {
+      console.log('[LocationSharingCtx] Provider logged out — stopping background tracking');
+      stopAllBackgroundTracking();
+    }
+  }, [isProvider, providerId]);
+
   // ─── Resume: fetch active requests and start tracking for enabled ones ──
   const resumeTracking = useCallback(async () => {
-    if (!mountedRef.current) return;
+    if (!mountedRef.current) {
+      console.log('[LocationSharingCtx] resumeTracking: NOT MOUNTED — skipping');
+      return;
+    }
     const pid = providerIdRef.current;
-    if (!pid) return;
+    if (!pid) {
+      console.log('[LocationSharingCtx] resumeTracking: NO providerId — skipping');
+      return;
+    }
+
+    console.log(`[LocationSharingCtx] resumeTracking: starting for provider ${pid}`);
 
     try {
       const allActive = await fetchAllActiveRequests(pid);
+      console.log(`[LocationSharingCtx] resumeTracking: fetched ${allActive.length} active request(s)`);
+
       const alreadyTracking = new Set(getActiveTrackingRequests());
+      console.log(`[LocationSharingCtx] resumeTracking: already tracking ${alreadyTracking.size} request(s):`, [...alreadyTracking]);
+
       let started = 0;
+      let skippedAlreadyTracking = 0;
+      let skippedNoLocationSharing = 0;
 
       for (const req of allActive) {
         const reqId = req._id;
-        if (!reqId || alreadyTracking.has(reqId)) continue;
+        if (!reqId) continue;
+
+        if (alreadyTracking.has(reqId)) {
+          skippedAlreadyTracking++;
+          continue;
+        }
 
         const category = req._serviceCategory || 'traditional';
         const lsEnabled = req.locationSharing?.enabled === true;
 
+        console.log(`[LocationSharingCtx] Request ${reqId}: locationSharing=${JSON.stringify(req.locationSharing)}, enabled=${lsEnabled}, category=${category}, status=${req.status}`);
+
         if (lsEnabled) {
           startRequestLocationTracking(reqId, pid, null, category);
-          // Ensure the request room is subscribed so the backend broadcasts
-          // reach this provider (and so the user's broadcasts route correctly)
           subscribeToRequest(reqId);
-          // Start background tracking alongside foreground socket
-          // (reads tokens from Keychain, configures TransistorSoft if needed)
           startBackgroundWithPermission(pid, reqId);
           started++;
+        } else {
+          skippedNoLocationSharing++;
         }
       }
 
-      if (started > 0) {
-        console.log(
-          `[LocationSharingCtx] Resumed tracking for ${started} request(s)`,
-        );
-      }
+      console.log(`[LocationSharingCtx] resumeTracking DONE: started=${started}, skippedAlreadyTracking=${skippedAlreadyTracking}, skippedNoLocationSharing=${skippedNoLocationSharing}`);
     } catch (err) {
-      console.warn('[LocationSharingCtx] Resume failed:', err.message);
+      console.warn('[LocationSharingCtx] Resume failed:', err.message, err.stack);
     }
   }, []);
 
   // ─── Mount: initial resume (with small delay for socket init) ──────────
   useEffect(() => {
-    if (!isProvider || !providerId) return;
+    console.log(`[LocationSharingCtx] Mount effect: isProvider=${isProvider}, providerId=${providerId}`);
+    if (!isProvider || !providerId) {
+      console.log('[LocationSharingCtx] Mount effect: SKIPPING — not a provider or no ID');
+      return;
+    }
+    console.log('[LocationSharingCtx] Mount effect: scheduling resumeTracking in 2s');
     const timer = setTimeout(resumeTracking, 2000);
     return () => clearTimeout(timer);
   }, [isProvider, providerId, resumeTracking]);
@@ -318,10 +358,19 @@ export const LocationSharingProvider = ({ children }) => {
   // ─── Periodic re-sync with backend ─────────────────────────────────────
   // Catches any requests whose sharing was enabled/disabled while the socket
   // was disconnected or events were missed.
+  // Only runs the full resumeTracking when there are active tracked requests,
+  // otherwise just checks once (lightweight).
   useEffect(() => {
     if (!isProvider || !providerId) return;
 
-    const interval = setInterval(resumeTracking, RESYNC_INTERVAL_MS);
+    const interval = setInterval(() => {
+      const activeCount = getActiveTrackingRequests().length;
+      // If already tracking requests, resync to catch missed events
+      // If NOT tracking, still check once in case a new request was enabled while socket was down
+      if (activeCount > 0 || !mountedRef.current) {
+        resumeTracking();
+      }
+    }, RESYNC_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [isProvider, providerId, resumeTracking]);
 

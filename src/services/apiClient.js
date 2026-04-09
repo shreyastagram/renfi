@@ -15,6 +15,7 @@
 import axios from 'axios';
 import { API_CONFIG } from '../config/api';
 import { getTokens, storeTokens, clearTokens, isTokenExpired } from '../utils/storage';
+import { syncTokensToBackgroundService } from './backgroundLocationService';
 
 // Track if we're currently refreshing tokens to avoid infinite loops
 let isRefreshing = false;
@@ -121,7 +122,8 @@ const proactiveTokenRefresh = async () => {
           
           console.log('✅ [API] Proactive token refresh successful');
           onTokenRefreshed(accessToken);
-          
+          syncTokensToBackgroundService(accessToken, newRefreshToken);
+
           return accessToken;
         } catch (err) {
           lastError = err;
@@ -351,7 +353,8 @@ const handleResponseError = async (error, client) => {
                 isRefreshing = false;
                 refreshPromise = null;
                 onTokenRefreshed(accessToken);
-                
+                syncTokensToBackgroundService(accessToken, newRefreshToken);
+
                 // Retry original request with new token
                 originalRequest.headers.Authorization = `Bearer ${accessToken}`;
                 return client(originalRequest);
@@ -651,6 +654,7 @@ export const validateAndRefreshTokens = async () => {
     await storeTokens(accessToken, newRefreshToken, expiresIn || 86400);
     
     console.log('✅ [API] Token refresh successful on startup');
+    syncTokensToBackgroundService(accessToken, newRefreshToken);
     return { valid: true, accessToken };
   } catch (error) {
     console.error('❌ [API] Token refresh failed on startup:', error.message);

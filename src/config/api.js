@@ -321,6 +321,14 @@ export const ENDPOINTS = {
   APP_VERSION: {
     CHECK: '/api/admin/app-version/check',
   },
+
+  // PSA (Personal Safety Alerts) — via Node.js backend
+  PSA: {
+    CONTACTS: '/api/psa/contacts',           // GET (list), POST (add)
+    CONTACT: '/api/psa/contacts',            // + /:contactId — PUT (update), DELETE
+    USAGE: '/api/psa/usage',                 // GET — monthly usage stats
+    TRIGGER: '/api/psa/trigger',             // POST — send SOS alert
+  },
 };
 
 // Alias for backward compatibility

@@ -53,29 +53,37 @@ import { uploadDocument } from '../services/cloudinaryService';
  * Document type labels
  */
 const DOCUMENT_LABELS = {
-  skill_certificate: 'Skill Certificate (ITI/Vocational)',
+  // Current document types
+  skill_certificate: 'Skill Certificate (ITI / Vocational / Diploma / Contractor Auth)',
+  driving_license: 'Driving License (Valid)',
+  commercial_driving_license: 'Commercial Driving License (Transport / LMV-TR)',
+  salon_license: 'Salon License',
+  beauty_certificate: 'Beauty Course Certificate',
+  social_media_verification: 'Social Media Verification',
+  business_registration: 'Business Registration Certificate',
+  gst_certificate: 'GST Certificate',
+  trade_license: 'Municipal Trade License',
+  portfolio_proof: 'Portfolio Proof (Website / Social Media / Studio)',
+  wildlife_rescue_certificate: 'Wildlife Rescue Authorization Certificate',
+  pan_card: 'PAN Card',
+  voter_id: 'Voter ID',
+  vehicle_photo: 'Vehicle Photo with Number Plate',
+  vehicle_rc: 'Vehicle RC',
+  staff_id_proof: 'Staff ID Proof',
+  bls_als_certificate: 'BLS/ALS Certificate',
+  mortuary_certificate: 'Mortuary Services Certificate',
+  e_shram_card: 'E-Shram Card',
+  // Legacy labels (for viewing old submissions)
   experience_proof: 'Experience Proof',
   iti_diploma: 'ITI/Diploma Certificate',
   trade_certificate: 'Trade Training Certificate',
-  shop_license: 'Shop License/GST Registration',
+  shop_license: 'Shop License',
   gst_registration: 'GST Registration',
-  salon_license: 'Salon License',
-  beauty_certificate: 'Beauty Course Certificate',
-  driving_license: 'Driving License',
-  vehicle_rc: 'Vehicle RC',
   vehicle_insurance: 'Vehicle Insurance',
-  commercial_badge: 'Commercial Badge (Yellow Badge)',
-  social_media_verification: 'Social Media Verification',
-  business_registration: 'Business Registration',
-  trade_license: 'Municipal Trade License',
-  id_proof: 'ID Proof (Aadhaar/PAN/Voter ID)',
+  commercial_badge: 'Commercial Badge',
+  id_proof: 'ID Proof',
   forest_department_certificate: 'Forest Dept. Certificate',
-  vehicle_photo: 'Vehicle Photo with Number',
-  staff_id_proof: 'Staff ID Proof',
-  bls_als_certificate: 'BLS/ALS Certificate',
   firefighting_certificate: 'Firefighting Certificate',
-  mortuary_certificate: 'Mortuary Certificate',
-  portfolio_proof: 'Portfolio Proof',
 };
 
 /**
@@ -87,17 +95,17 @@ const SERVICE_LABELS = {
   carpenter: 'Carpenter',
   painter: 'Painter',
   welder: 'Welder',
-  electronics_technician: 'Electronics Technician',
+  electronics_technician: 'Electronics Technician (AC/Fridge/TV)',
   solar_repairing: 'Solar Installer/Repairer',
   salon: 'Salon/Beautician',
   driver: 'Driver (Car/Taxi/Auto)',
   mason_tiler: 'Mason/Tiler',
   influencer: 'Influencer',
   vehicle_cleaning: 'Vehicle Cleaning',
-  snake_catcher: 'Snake Catcher',
-  ambulance_services: 'Ambulance Services',
+  snake_catcher: 'Snake Catcher / Wildlife Rescuer',
+  ambulance_services: 'Private Ambulance Service',
   fire_brigade: 'Fire Brigade/Services',
-  mortuary_van: 'Mortuary Van Services',
+  mortuary_van: 'Mortuary Van Service',
   photographer: 'Photographer',
   ac_repair: 'AC Repair',
   cleaning: 'Cleaning Services',
@@ -1044,10 +1052,29 @@ const ServiceApprovalsScreen = ({ navigation }) => {
   /**
    * Get requirements for current service
    */
+  /**
+   * Get all document types needed for a service category.
+   * Returns { allDocs: [...docType], required: [...], anyOneOf: [...], optional: [...] }
+   */
+  const getServiceRequirements = (serviceKey) => {
+    const category = categories.find(c => c.key === serviceKey);
+    const reqs = category?.requirements;
+    if (reqs && reqs.required) {
+      // New structure: { required, anyOneOf, optional }
+      return {
+        required: reqs.required || [],
+        anyOneOf: reqs.anyOneOf || [],
+        optional: reqs.optional || [],
+        allDocs: [...(reqs.required || []), ...(reqs.anyOneOf || []), ...(reqs.optional || [])],
+      };
+    }
+    // Legacy fallback: flat array (old backend)
+    const flat = category?.requiredDocuments || [];
+    return { required: flat, anyOneOf: [], optional: [], allDocs: flat };
+  };
+
   const getCurrentServiceRequirements = () => {
-    const currentService = selectedServices[currentServiceIndex];
-    const category = categories.find(c => c.key === currentService);
-    return category?.requiredDocuments || [];
+    return getServiceRequirements(selectedServices[currentServiceIndex]).allDocs;
   };
 
   /**
@@ -1125,7 +1152,21 @@ const ServiceApprovalsScreen = ({ navigation }) => {
     }
   };
 
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
   const stageDocument = (serviceCategory, documentType, asset) => {
+    const fileSize = asset.fileSize || asset.size || 0;
+
+    // Frontend file size validation — fail fast instead of waiting for backend
+    if (fileSize > MAX_FILE_SIZE) {
+      const sizeMB = (fileSize / (1024 * 1024)).toFixed(1);
+      dialog(
+        'File Too Large',
+        `This file is ${sizeMB} MB. Maximum allowed size is 10 MB. Please choose a smaller file or compress it.`,
+      );
+      return;
+    }
+
     setDocuments(prev => ({
       ...prev,
       [serviceCategory]: {
@@ -1134,7 +1175,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
           localUri: asset.uri,
           fileName: asset.fileName || asset.name || 'document',
           fileType: asset.type || 'image/jpeg',
-          fileSize: asset.fileSize || asset.size || 0,
+          fileSize,
           isStaged: true,
         },
       },
@@ -1174,7 +1215,12 @@ const ServiceApprovalsScreen = ({ navigation }) => {
       };
     } catch (error) {
       console.error('[RSAS] Upload error:', error);
-      throw new Error(`Upload failed: ${error.message}`);
+      const msg = error.name === 'AbortError'
+        ? 'Upload timed out. Please check your internet connection and try again.'
+        : error.message?.includes('Network')
+          ? 'No internet connection. Please check your network and try again.'
+          : `Upload failed. Please try again.`;
+      throw new Error(msg);
     }
   };
 
@@ -1182,10 +1228,16 @@ const ServiceApprovalsScreen = ({ navigation }) => {
    * Check if a specific service has all required documents
    */
   const isServiceComplete = (serviceKey) => {
-    const category = categories.find(c => c.key === serviceKey);
-    const reqs = category?.requiredDocuments || [];
+    const { required, anyOneOf } = getServiceRequirements(serviceKey);
     const serviceDocs = documents[serviceKey] || {};
-    return reqs.length > 0 && reqs.every(docType => serviceDocs[docType]?.localUri || serviceDocs[docType]?.fileUrl);
+    const hasDoc = (docType) => serviceDocs[docType]?.localUri || serviceDocs[docType]?.fileUrl;
+
+    // All required docs must be present
+    const allRequiredMet = required.length > 0 && required.every(hasDoc);
+    // At least one from anyOneOf must be present (if the group is non-empty)
+    const anyOneOfMet = anyOneOf.length === 0 || anyOneOf.some(hasDoc);
+
+    return allRequiredMet && anyOneOfMet;
   };
 
   /**
@@ -1237,7 +1289,13 @@ const ServiceApprovalsScreen = ({ navigation }) => {
   /**
    * Submit all documents
    */
+  const submitLockRef = useRef(false);
+
   const handleSubmit = async () => {
+    // Prevent duplicate submissions from rapid taps
+    if (submitLockRef.current) return;
+    submitLockRef.current = true;
+
     setSubmitting(true);
     setUploading(true);
 
@@ -1331,6 +1389,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
       setSubmitting(false);
       setUploading(false);
       setSubmitProgress('');
+      submitLockRef.current = false;
     }
   };
 
@@ -1503,7 +1562,11 @@ const ServiceApprovalsScreen = ({ navigation }) => {
                       {SERVICE_LABELS[category.key] || category.key}
                     </Text>
                     <Text style={styles.selectServiceDocs}>
-                      {category.requiredDocuments?.length || 0} documents required
+                      {(() => {
+                        const r = category?.requirements;
+                        const count = r?.required ? (r.required.length + (r.anyOneOf?.length > 0 ? 1 : 0)) : (category?.requiredDocuments?.length || 0);
+                        return `${count} document${count !== 1 ? 's' : ''} required`;
+                      })()}
                     </Text>
                   </View>
                 </View>
@@ -1589,9 +1652,9 @@ const ServiceApprovalsScreen = ({ navigation }) => {
           >
             {selectedServices.map((svc, idx) => {
               const svcDocs = documents[svc] || {};
-              const svcReqs = categories.find(c => c.key === svc)?.requiredDocuments || [];
+              const { allDocs: svcReqs } = getServiceRequirements(svc);
               const uploaded = Object.values(svcDocs).filter(d => d?.localUri || d?.fileUrl).length;
-              const complete = uploaded === svcReqs.length && svcReqs.length > 0;
+              const complete = isServiceComplete(svc);
               const isActive = idx === currentServiceIndex;
 
               return (
@@ -1634,7 +1697,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
               {SERVICE_LABELS[currentService] || currentService}
             </Text>
             <Text style={styles.uploadServiceSubtitle}>
-              Upload {requirements.length} required document{requirements.length > 1 ? 's' : ''}
+              Upload required documents
             </Text>
           </View>
         </View>
@@ -1646,23 +1709,45 @@ const ServiceApprovalsScreen = ({ navigation }) => {
               style={[
                 styles.progressFill,
                 {
-                  width: `${(Object.values(serviceDocs).filter(d => d?.localUri || d?.fileUrl).length / requirements.length) * 100}%`,
+                  width: requirements.length > 0
+                    ? `${(Object.values(serviceDocs).filter(d => d?.localUri || d?.fileUrl).length / requirements.length) * 100}%`
+                    : '0%',
                 },
               ]}
             />
           </View>
           <Text style={styles.progressText}>
-            {Object.values(serviceDocs).filter(d => d?.localUri || d?.fileUrl).length} of {requirements.length} uploaded
+            {Object.values(serviceDocs).filter(d => d?.localUri || d?.fileUrl).length} of {requirements.length} documents
           </Text>
         </View>
 
         {/* Document Cards */}
-        {requirements.map(docType => {
+        {(() => {
+          const { required: reqDocs, anyOneOf: anyDocs, optional: optDocs } = getServiceRequirements(currentService);
+          const allDocTypes = [
+            ...reqDocs.map(d => ({ type: d, rule: 'required' })),
+            ...anyDocs.map(d => ({ type: d, rule: 'anyOneOf' })),
+            ...optDocs.map(d => ({ type: d, rule: 'optional' })),
+          ];
+
+          // Check if anyOneOf is satisfied (at least one uploaded)
+          const anyOneOfSatisfied = anyDocs.length === 0 || anyDocs.some(d => {
+            const doc = serviceDocs[d];
+            return doc?.localUri || doc?.fileUrl;
+          });
+
+          return allDocTypes.map(({ type: docType, rule }) => {
           const doc = serviceDocs[docType];
           const hasDoc = doc?.localUri || doc?.fileUrl;
           const isImage = doc?.fileType?.includes('image') ||
             ['jpg', 'jpeg', 'png', 'webp'].some(t => doc?.fileType?.includes(t));
           const isLocked = submittedServices.has(currentService);
+
+          const ruleLabel = isLocked ? 'Submitted'
+            : rule === 'required' ? 'Required'
+            : rule === 'anyOneOf' ? (anyOneOfSatisfied && !hasDoc ? 'Upload any one (satisfied)' : 'Upload at least one')
+            : 'Optional';
+          const ruleColor = rule === 'optional' ? '#94A3B8' : rule === 'anyOneOf' ? '#F59E0B' : undefined;
 
           return (
             <View key={docType} style={[styles.uploadDocCard, isLocked && { opacity: 0.7 }]}>
@@ -1677,7 +1762,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
                     <Text style={styles.uploadDocTitle}>
                       {DOCUMENT_LABELS[docType] || docType}
                     </Text>
-                    <Text style={styles.uploadDocRequired}>{isLocked ? 'Submitted' : 'Required'}</Text>
+                    <Text style={[styles.uploadDocRequired, ruleColor && { color: ruleColor }]}>{ruleLabel}</Text>
                   </View>
                 </View>
                 {hasDoc && !isLocked && (
@@ -1733,7 +1818,8 @@ const ServiceApprovalsScreen = ({ navigation }) => {
               ) : null}
             </View>
           );
-        })}
+          });
+        })()}
       </ScrollView>
 
       {/* Uploading/Submitting Overlay */}

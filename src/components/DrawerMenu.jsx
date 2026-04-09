@@ -171,17 +171,20 @@ const AnimatedMenuItem = React.memo(({ item, index, onPress, isReady, isActive }
     return <Animated.View key={item.id} style={[styles.divider, { opacity }]} />;
   }
 
-  const iconColor = item.danger ? BRAND.danger : (isActive ? BRAND.secondary : BRAND.textSecondary);
+  const accentColor = item.accent ? '#DC2626' : null;
+  const iconColor = item.danger ? BRAND.danger : accentColor || (isActive ? BRAND.secondary : BRAND.textSecondary);
   const iconBgColor = item.danger
     ? BRAND.dangerBg
-    : isActive
-      ? `${BRAND.secondary}15`
-      : BRAND.iconBg;
+    : item.accent
+      ? 'rgba(220,38,38,0.08)'
+      : isActive
+        ? `${BRAND.secondary}15`
+        : BRAND.iconBg;
 
   return (
     <Animated.View style={{ transform: [{ translateX }, { scale: pressAnim }], opacity }}>
       <TouchableOpacity
-        style={[styles.menuItem, item.danger && styles.menuItemDanger, isActive && styles.menuItemActive]}
+        style={[styles.menuItem, item.danger && styles.menuItemDanger, item.accent && styles.menuItemAccent, isActive && styles.menuItemActive]}
         onPress={() => onPress(item)}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
@@ -195,7 +198,7 @@ const AnimatedMenuItem = React.memo(({ item, index, onPress, isReady, isActive }
             <Icon name={item.iconName} size={20} color={iconColor} />
           )}
         </View>
-        <Text style={[styles.menuLabel, item.danger && styles.menuLabelDanger, isActive && styles.menuLabelActive]}>{item.label}</Text>
+        <Text style={[styles.menuLabel, item.danger && styles.menuLabelDanger, item.accent && styles.menuLabelAccent, isActive && styles.menuLabelActive]}>{item.label}</Text>
         {!item.danger && <MaterialCommunityIcons name="chevron-right" size={18} color={isActive ? BRAND.secondary : BRAND.textMuted} style={{ marginLeft: 'auto' }} />}
       </TouchableOpacity>
     </Animated.View>
@@ -216,7 +219,7 @@ export const DrawerMenu = ({
 }) => {
   const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
-  const { t } = useLanguage();
+  const { t, language, setLanguage, languages } = useLanguage();
 
   // StatusBar.currentHeight is reliable on Android even inside Modals.
   // insets.top returns 0 inside statusBarTranslucent Modals on Android.
@@ -300,25 +303,33 @@ export const DrawerMenu = ({
   const menuItems = useMemo(() => {
     if (isProvider) {
       return [
-        { id: 'home', iconName: 'home', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'view-dashboard-outline', label: t('drawer.dashboard'), screen: 'Home' },
-        { id: 'jobs', iconName: 'briefcase', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'hammer-wrench', label: t('drawer.myJobs'), tab: 'JobsTab' },
+        { id: 'home', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'view-dashboard-outline', label: t('drawer.dashboard'), screen: 'Home' },
+        { id: 'jobs', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'hammer-wrench', label: t('drawer.myJobs'), tab: 'JobsTab' },
         { id: 'div1', type: 'divider' },
-        { id: 'settings', iconName: 'settings', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'cog-outline', label: t('drawer.settings'), screen: 'Settings' },
-        { id: 'earnings', iconName: 'wallet', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'wallet-outline', label: t('drawer.earnings'), action: 'earnings' },
-        { id: 'help', iconName: 'help', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'lifebuoy', label: t('drawer.helpSupport'), action: 'help' },
+        { id: 'referral', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'gift-outline', label: 'Refer & Earn', screen: 'ReferralScreen' },
+        { id: 'rsas', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'clipboard-check-outline', label: 'Service Approvals', screen: 'DocumentVerification' },
+        { id: 'subscription', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'diamond-stone', label: 'Professional Tools', screen: 'Subscription' },
+        { id: 'psa', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'shield-alert-outline', label: 'Personal Safety', screen: 'PSAContacts', accent: true },
         { id: 'div2', type: 'divider' },
-        { id: 'logout', iconName: 'logout', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'logout-variant', label: t('drawer.logout'), action: 'logout', danger: true },
+        { id: 'language', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'translate', label: t('drawer.language') || 'Language', action: 'language' },
+        { id: 'settings', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'cog-outline', label: t('drawer.settings'), screen: 'Settings' },
+        { id: 'help', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'lifebuoy', label: t('drawer.helpSupport'), action: 'help' },
+        { id: 'div3', type: 'divider' },
+        { id: 'logout', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'logout-variant', label: t('drawer.logout'), action: 'logout', danger: true },
       ];
     }
     return [
-      { id: 'home', iconName: 'home', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'home-variant-outline', label: t('drawer.home'), screen: 'Home' },
-      { id: 'history', iconName: 'history', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'clipboard-text-clock-outline', label: t('drawer.serviceHistory'), screen: 'UserServiceHistory' },
+      { id: 'home', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'home-variant-outline', label: t('drawer.home'), screen: 'Home' },
+      { id: 'history', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'clipboard-text-clock-outline', label: t('drawer.serviceHistory'), screen: 'UserServiceHistory' },
       { id: 'div1', type: 'divider' },
-      { id: 'settings', iconName: 'settings', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'cog-outline', label: t('drawer.settings'), screen: 'Settings' },
-      { id: 'help', iconName: 'help', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'lifebuoy', label: t('drawer.helpSupport'), action: 'help' },
-      { id: 'about', iconName: 'info', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'information-outline', label: t('drawer.aboutFixhomi'), action: 'about' },
+      { id: 'referral', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'gift-outline', label: 'Refer & Earn', screen: 'ReferralScreen' },
+      { id: 'psa', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'shield-alert-outline', label: 'Personal Safety', screen: 'PSAContacts', accent: true },
       { id: 'div2', type: 'divider' },
-      { id: 'logout', iconName: 'logout', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'logout-variant', label: t('drawer.logout'), action: 'logout', danger: true },
+      { id: 'language', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'translate', label: t('drawer.language') || 'Language', action: 'language' },
+      { id: 'settings', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'cog-outline', label: t('drawer.settings'), screen: 'Settings' },
+      { id: 'help', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'lifebuoy', label: t('drawer.helpSupport'), action: 'help' },
+      { id: 'div3', type: 'divider' },
+      { id: 'logout', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'logout-variant', label: t('drawer.logout'), action: 'logout', danger: true },
     ];
   }, [isProvider, t]);
 
@@ -339,14 +350,15 @@ export const DrawerMenu = ({
       return;
     }
 
-    if (item.action === 'earnings') {
-      onCloseCallbackRef.current = () => dialog(t('drawer.comingSoon'), t('drawer.earningsComingSoon'));
-      onClose();
-      return;
-    }
-
-    if (item.action === 'about') {
-      onCloseCallbackRef.current = () => dialog('FixHomi', t('settings.aboutDialog', { version: '1.5' }));
+    if (item.action === 'language') {
+      onCloseCallbackRef.current = () => {
+        const options = languages.map(lang => ({
+          text: `${lang.nativeLabel} (${lang.label})${language === lang.code ? ' ✓' : ''}`,
+          onPress: () => setLanguage(lang.code),
+        }));
+        options.push({ text: t('common.cancel') || 'Cancel', style: 'cancel' });
+        dialog(t('drawer.language') || 'Language', t('drawer.selectLanguage') || 'Choose your preferred language', options);
+      };
       onClose();
       return;
     }
@@ -513,10 +525,31 @@ export const DrawerMenu = ({
               },
             ]}
           >
-            <View style={styles.footerLogoWrap}>
-              <Image source={FIXHOMI_LOGO} style={styles.footerLogo} />
-            </View>
-            <Text style={styles.footerVersion}>v1.5</Text>
+            <TouchableOpacity
+              style={styles.footerTouchable}
+              onPress={() => {
+                onClose();
+                setTimeout(() => {
+                  const { checkForAppUpdate } = require('../services/appUpdateService');
+                  checkForAppUpdate?.().then(result => {
+                    if (result?.updateAvailable) {
+                      dialog('Update Available', `Version ${result.latestVersion} is available.`, [
+                        { text: 'Update', onPress: () => Linking.openURL(result.storeUrl || 'https://play.google.com/store/apps/details?id=com.fixhomi.app') },
+                        { text: 'Later', style: 'cancel' },
+                      ]);
+                    } else {
+                      dialog('Up to Date', 'You are on the latest version.');
+                    }
+                  }).catch(() => dialog('Up to Date', 'You are on the latest version.'));
+                }, 300);
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={styles.footerLogoWrap}>
+                <Image source={FIXHOMI_LOGO} style={styles.footerLogo} />
+              </View>
+              <Text style={styles.footerVersion}>v1.0.2 — Tap to check for updates</Text>
+            </TouchableOpacity>
           </Animated.View>
         </Animated.View>
       </View>
@@ -863,6 +896,15 @@ const styles = StyleSheet.create({
     color: BRAND.danger,
     fontWeight: '700',
   },
+  menuItemAccent: {
+    backgroundColor: 'rgba(220,38,38,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(220,38,38,0.12)',
+  },
+  menuLabelAccent: {
+    color: '#991B1B',
+    fontWeight: '700',
+  },
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: BRAND.divider,
@@ -899,6 +941,9 @@ const styles = StyleSheet.create({
   footerLogo: {
     width: 30,
     height: 30,
+  },
+  footerTouchable: {
+    alignItems: 'center', gap: 4,
   },
   footerVersion: {
     fontSize: 10.5,

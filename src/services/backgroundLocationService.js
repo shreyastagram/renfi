@@ -25,8 +25,8 @@
  */
 
 import BackgroundGeolocation from 'react-native-background-geolocation';
-import { getTokens } from '../utils/storage';
-import { NODE_BASE_URL } from '../config/api';
+import { getTokens, storeTokens } from '../utils/storage';
+import { NODE_BASE_URL, JAVA_BASE_URL } from '../config/api';
 
 // ── Module state ──
 let isConfigured = false;
@@ -66,7 +66,23 @@ const buildConfig = (providerId, accessToken, refreshToken) => ({
   httpRootProperty: '.',
   headers: {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${accessToken}`,
+  },
+
+  // ── JWT Authorization: TransistorSoft handles token refresh automatically ──
+  // On 401 or token expiry, the SDK POSTs to refreshUrl and extracts new tokens.
+  // This works in killed state — critical for long-running background tracking.
+  authorization: {
+    strategy: 'JWT',
+    accessToken,
+    refreshToken,
+    refreshUrl: `${JAVA_BASE_URL}/api/auth/refresh`,
+    refreshPayload: {
+      refreshToken: '{refreshToken}',
+    },
+    refreshHeaders: {
+      'Content-Type': 'application/json',
+    },
+    expires: 86400, // 24h — matches Java Auth token TTL
   },
   // Hand-crafted template — latitude/longitude/accuracy are NUMBERS (no quotes)
   // providerId is interpolated at config time (it's a string MongoDB ID)
@@ -114,11 +130,10 @@ const buildConfig = (providerId, accessToken, refreshToken) => ({
   disableStopDetection: false,
 });
 
-// NOTE: JWT refresh is handled by the foreground apiClient (proactive refresh).
-// When apiClient refreshes tokens, it should call syncTokensToBackgroundService()
-// to update the Authorization header in TransistorSoft's config.
-// TransistorSoft's built-in authorization block was removed because it silently
-// blocked HTTP POSTs when the auth config format didn't match expectations.
+// JWT refresh is handled TWO ways:
+// 1. Foreground: apiClient proactive refresh → syncTokensToBackgroundService()
+// 2. Background/Killed: TransistorSoft's authorization block auto-refreshes on 401
+//    and the onAuthorization listener syncs new tokens back to Keychain.
 
 /**
  * Handle HTTP responses from TransistorSoft.
@@ -203,17 +218,36 @@ export const startBackgroundTracking = async (providerId, requestId) => {
       );
       BackgroundGeolocation.onHttp(handleHttp);
       BackgroundGeolocation.onProviderChange((event) => console.log('[BGLocation] Provider change:', event.enabled, event.status));
+      BackgroundGeolocation.onAuthorization(async (event) => {
+        if (event.success) {
+          // TransistorSoft refreshed the token (background/killed state)
+          // Sync new tokens back to Keychain so foreground apiClient uses them too
+          const { accessToken: newAccess, refreshToken: newRefresh, expiresIn } = event.response;
+          if (newAccess) {
+            await storeTokens(newAccess, newRefresh, expiresIn || 86400);
+            console.log('[BGLocation] Token auto-refreshed by TransistorSoft — synced to Keychain');
+          }
+        } else {
+          console.warn('[BGLocation] Token refresh failed:', event.error);
+        }
+      });
 
       isConfigured = true;
+
+      // If ready() returned enabled:true, the service is already running
+      // (survived from previous session via stopOnTerminate:false)
+      if (state.enabled) {
+        isRunning = true;
+        console.log(`[BGLocation] Already running from previous session — tracking ${activeBackgroundRequests.size} request(s)`);
+      }
     } else if (currentProviderId !== providerId) {
       // Provider changed (shouldn't happen normally, but handle it)
       await BackgroundGeolocation.setConfig(config);
       console.log('[BGLocation] Config updated for new provider:', providerId);
     } else {
-      // Same provider, maybe tokens changed — update auth config only
+      // Same provider, maybe tokens changed — update authorization config
       await BackgroundGeolocation.setConfig({
         authorization: config.authorization,
-        locationTemplate: config.locationTemplate,
       });
     }
 
@@ -300,14 +334,23 @@ export const getBackgroundTrackingCount = () => activeBackgroundRequests.size;
  * @param {string} accessToken - New access token
  * @param {string} refreshToken - New refresh token
  */
-export const syncTokensToBackgroundService = async (accessToken) => {
+export const syncTokensToBackgroundService = async (accessToken, refreshToken) => {
   if (!isConfigured || !isRunning) return;
 
   try {
     await BackgroundGeolocation.setConfig({
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
+      authorization: {
+        strategy: 'JWT',
+        accessToken,
+        refreshToken,
+        refreshUrl: `${JAVA_BASE_URL}/api/auth/refresh`,
+        refreshPayload: {
+          refreshToken: '{refreshToken}',
+        },
+        refreshHeaders: {
+          'Content-Type': 'application/json',
+        },
+        expires: 86400,
       },
     });
     console.log('[BGLocation] Token synced from foreground refresh');
