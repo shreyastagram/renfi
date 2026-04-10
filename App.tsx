@@ -25,6 +25,7 @@ import SplashScreen from './src/components/SplashScreen';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import GlobalBanner from './src/components/GlobalBanner';
 import AppUpdateModal from './src/components/AppUpdateModal';
+import MaintenanceModal from './src/components/MaintenanceModal';
 import { checkForAppUpdate } from './src/services/appUpdateService';
 import {
   setupNotificationOpenedHandler,
@@ -300,6 +301,8 @@ function AppContent() {
   const [showSplash, setShowSplash] = useState(true);
   const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [maintenanceInfo, setMaintenanceInfo] = useState<any>(null);
+  const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
   const { markInitialLoadComplete, user, userType, isAuthenticated } = useApp();
 
   // Set Crashlytics user context when auth state changes
@@ -331,8 +334,13 @@ function AppContent() {
     // Check for app updates on launch
     (checkForAppUpdate() as Promise<any>).then((info) => {
       if (info) {
-        setUpdateInfo(info);
-        setShowUpdateModal(true);
+        if (info.maintenance) {
+          setMaintenanceInfo(info);
+          setShowMaintenanceModal(true);
+        } else {
+          setUpdateInfo(info);
+          setShowUpdateModal(true);
+        }
       }
     });
 
@@ -380,9 +388,15 @@ function AppContent() {
           <GlobalBanner />
         </NavigationContainer>
 
+        {/* Maintenance Modal — blocks app when maintenance is active */}
+        <MaintenanceModal
+          visible={showMaintenanceModal && !showSplash}
+          info={maintenanceInfo}
+        />
+
         {/* App Update Modal — shown above everything when update needed */}
         <AppUpdateModal
-          visible={showUpdateModal && !showSplash}
+          visible={showUpdateModal && !showSplash && !showMaintenanceModal}
           updateInfo={updateInfo}
           onDismiss={() => setShowUpdateModal(false)}
         />

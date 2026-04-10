@@ -22,6 +22,7 @@ import {  View,
   Linking
 } from 'react-native';
 import TouchableOpacity from './TouchableOpacity';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useDialog } from '../context/DialogContext';
 import Geolocation from '@react-native-community/geolocation';
@@ -145,6 +146,7 @@ const FormInput = ({
  * @param {Function} onClose - Callback to close form
  */
 const AddressForm = ({ userId, address, onSave, onClose }) => {
+  const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
   const isEditing = !!address;
   
@@ -397,7 +399,7 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
   
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { paddingTop: insets.top }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       {/* Header */}
@@ -611,7 +613,7 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
       </ScrollView>
       
       {/* Save Button */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(16, insets.bottom) }]}>
         <TouchableOpacity
           style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           onPress={handleSave}

@@ -2,19 +2,17 @@
 <!--
   Network Security Configuration for FixHomi
 
-  Certificate pinning: Pins the SSL certificates for backend servers
-  to prevent MITM attacks. Pin hashes must be updated when server
-  certificates are rotated.
+  Certificate pinning is NOT used because traffic goes through Cloudflare,
+  which rotates certificates automatically. Pinning behind a CDN/proxy
+  is an anti-pattern that can brick the app when certs rotate.
 
-  To get pin hashes, run:
-    openssl s_client -connect <host>:443 | openssl x509 -pubkey -noout | \
-    openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl enc -base64
-
-  IMPORTANT: Always include a backup pin (from a different CA or a future cert)
-  to avoid bricking the app if the primary cert is rotated.
+  Security is provided by:
+  - HTTPS enforced (cleartextTrafficPermitted="false")
+  - Cloudflare edge SSL + origin SSL to Render
+  - JWT authentication on all API requests
 -->
 <network-security-config>
-    <!-- Allow cleartext only in debug builds (Metro bundler needs it) -->
+    <!-- Enforce HTTPS for all connections in production -->
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
@@ -34,29 +32,5 @@
         <domain includeSubdomains="false">localhost</domain>
         <domain includeSubdomains="false">10.0.2.2</domain>
         <domain includeSubdomains="false">10.0.3.2</domain>
-    </domain-config>
-
-    <!-- Pin certificates for production backends -->
-    <domain-config cleartextTrafficPermitted="false">
-        <!-- Node.js backend (Render) -->
-        <domain includeSubdomains="true">noefix.onrender.com</domain>
-        <pin-set expiration="2027-01-01">
-            <!-- Primary pin: Render's current leaf certificate public key hash -->
-            <!-- Generated: openssl s_client -connect noefix.onrender.com:443 | openssl x509 -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl enc -base64 -->
-            <pin digest="SHA-256">IX2/a47sFHkF9jewioc5OzEDzS0dNQjNMCX8PCQ26Pg=</pin>
-            <!-- Backup pin: Let's Encrypt ISRG Root X1 (Render's CA) -->
-            <pin digest="SHA-256">C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=</pin>
-        </pin-set>
-    </domain-config>
-
-    <domain-config cleartextTrafficPermitted="false">
-        <!-- Java Auth backend (Render) -->
-        <domain includeSubdomains="true">jauth.onrender.com</domain>
-        <pin-set expiration="2027-01-01">
-            <!-- Primary pin: Render's current leaf certificate public key hash -->
-            <pin digest="SHA-256">IX2/a47sFHkF9jewioc5OzEDzS0dNQjNMCX8PCQ26Pg=</pin>
-            <!-- Backup pin: Let's Encrypt ISRG Root X1 (Render's CA) -->
-            <pin digest="SHA-256">C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=</pin>
-        </pin-set>
     </domain-config>
 </network-security-config>

@@ -75,8 +75,60 @@ export const EMERGENCY_SERVICE_ICONS = {
 };
 
 /**
+ * Offline fallback data for government helpline numbers.
+ * These are static government numbers that never change — safe to hardcode.
+ * The app tries the API first; if offline, falls back to these.
+ */
+const OFFLINE_HELPLINE_NUMBERS = {
+  fire_brigade: [
+    { name: 'Fire Brigade Emergency', number: '101', description: 'National Fire Emergency Number' },
+    { name: 'Mumbai Fire Brigade', number: '1800220101', description: 'Mumbai Fire Brigade Toll-Free' },
+    { name: 'Delhi Fire Service', number: '23416666', description: 'Delhi Fire Control Room' },
+  ],
+  police: [
+    { name: 'Police Emergency', number: '100', description: 'National Police Emergency Number' },
+    { name: 'Women Helpline', number: '1091', description: 'Women Emergency Helpline' },
+    { name: 'Child Helpline', number: '1098', description: 'CHILDLINE India Foundation' },
+  ],
+  hospital: [
+    { name: 'Ambulance', number: '102', description: 'Government Ambulance Service' },
+    { name: 'Ambulance (Pan India)', number: '108', description: 'Emergency Medical Service' },
+    { name: 'Blood Bank', number: '1910', description: 'Health & Family Welfare' },
+    { name: 'Anti-Poison Centre', number: '1066', description: 'AIIMS Poison Information Centre' },
+  ],
+  general: [
+    { name: 'National Emergency', number: '112', description: 'Integrated Emergency Response (Police, Fire, Ambulance)' },
+    { name: 'Disaster Management', number: '1096', description: 'NDMA / National Disaster Management' },
+    { name: 'Highway Accident', number: '1073', description: 'NHAI Control Room' },
+  ],
+  women_child: [
+    { name: 'Women Helpline', number: '181', description: 'Women & Child Development' },
+    { name: 'Women Emergency', number: '1091', description: 'Women Emergency Helpline' },
+    { name: 'Child Helpline', number: '1098', description: 'CHILDLINE India Foundation' },
+  ],
+  traffic_transport: [
+    { name: 'Traffic Police', number: '103', description: 'Maharashtra Traffic Control' },
+    { name: 'Railway Enquiry', number: '139', description: 'Indian Railways Enquiry' },
+    { name: 'Railway Security', number: '1322', description: 'Railway Protection Force' },
+    { name: 'Tourist Helpline', number: '1363', description: 'Ministry of Tourism' },
+  ],
+  cyber_crime: [
+    { name: 'Cyber Crime Helpline', number: '1930', description: 'MHA Cyber Security Wing' },
+    { name: 'Anti-Terror Helpline', number: '1090', description: 'ATS / Ministry of Home Affairs' },
+    { name: 'Anti-Corruption', number: '1064', description: 'CBI / ACB Maharashtra' },
+    { name: 'Narcotics Control', number: '1933', description: 'NCB National Control Bureau' },
+  ],
+  public_services: [
+    { name: 'Kisan Call Centre', number: '18001801551', description: 'Agriculture & Farmers Welfare' },
+    { name: 'Public Distribution', number: '18002244950', description: 'Food & Civil Supplies Maharashtra' },
+    { name: 'NIC Technical Support', number: '1800111555', description: 'NIC e-Governance Support' },
+  ],
+};
+
+/**
  * Get static emergency numbers
- * @param {string} type - Optional: filter by type (fire_brigade, police, hospital)
+ * Tries API first; falls back to hardcoded numbers if offline.
+ * @param {string} type - Optional: filter by type (fire_brigade, police, hospital, etc.)
  * @returns {Promise<Object>}
  */
 export const getStaticEmergencyNumbers = async (type = null) => {
@@ -104,7 +156,21 @@ export const getStaticEmergencyNumbers = async (type = null) => {
       data: data.data || data.numbers
     };
   } catch (error) {
-    console.error('[EmergencyService] Get numbers error:', error);
+    console.error('[EmergencyService] Get numbers error, using offline fallback:', error);
+    // Offline fallback — return hardcoded government helpline numbers
+    if (type && OFFLINE_HELPLINE_NUMBERS[type]) {
+      return {
+        success: true,
+        data: OFFLINE_HELPLINE_NUMBERS[type],
+      };
+    }
+    // Return all numbers if no type specified
+    if (!type) {
+      return {
+        success: true,
+        data: OFFLINE_HELPLINE_NUMBERS,
+      };
+    }
     return {
       success: false,
       error: error.message || 'Failed to fetch emergency numbers'

@@ -66,6 +66,8 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>NSMotionUsageDescription</key>
+	<string>Fixhomi uses motion data to improve location accuracy when service providers are navigating to customer locations during active service visits.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>This app needs camera access to take photos for your profile picture and service documents.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
@@ -111,6 +113,11 @@
 		<string>location</string>
 		<string>fetch</string>
 		<string>processing</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.transistorsoft.fetch</string>
+		<string>com.transistorsoft.customtask</string>
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>

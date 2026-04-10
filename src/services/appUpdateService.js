@@ -51,6 +51,20 @@ export const checkForAppUpdate = async () => {
     );
 
     const data = response.data?.data;
+
+    // Check maintenance mode first — takes priority over updates
+    if (data?.maintenance?.enabled) {
+      console.log('[AppUpdate] Maintenance mode active');
+      return {
+        maintenance: true,
+        maintenanceTitle: data.maintenance.title,
+        maintenanceMessage: data.maintenance.message,
+        maintenanceNotes: data.maintenance.notes,
+        maintenanceStartTime: data.maintenance.startTime,
+        maintenanceEndTime: data.maintenance.endTime,
+      };
+    }
+
     if (!data || !data.updateRequired) {
       console.log('[AppUpdate] App is up to date');
       return null;
