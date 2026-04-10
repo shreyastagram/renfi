@@ -24,16 +24,16 @@
 
 /**
  * Toggle for Node.js Backend (fixhomi-backend)
- * 
- * true  = Use Railway hosted backend (for Razorpay, webhooks, etc.)
+ *
+ * true  = Use production backend (api.fixhomi.com via Cloudflare)
  * false = Use local development server
  */
 export const USE_PRODUCTION_NODE_API = true;
 
 /**
  * Toggle for Java Auth Service (jarbac)
- * 
- * true  = Use Render hosted Java Auth
+ *
+ * true  = Use production auth (auth.fixhomi.com via Cloudflare)
  * false = Use local Java Auth server
  */
 export const USE_PRODUCTION_JAVA_AUTH = true;
@@ -80,8 +80,8 @@ export const LOCAL_CONFIG = {
  * Get the current environment name (shows both services)
  */
 export const getEnvironmentName = () => {
-  const nodeEnv = USE_PRODUCTION_NODE_API ? 'Railway' : 'Local';
-  const javaEnv = USE_PRODUCTION_JAVA_AUTH ? 'Render' : 'Local';
+  const nodeEnv = USE_PRODUCTION_NODE_API ? 'Production' : 'Local';
+  const javaEnv = USE_PRODUCTION_JAVA_AUTH ? 'Production' : 'Local';
   return `Node: ${nodeEnv} | Java: ${javaEnv}`;
 };
 
@@ -104,5 +104,5 @@ export const getRazorpayKeyId = () => {
 
 // Log current environment on import
 console.log('🌍 [Environment] Current Mode:', getEnvironmentName());
-console.log('🔗 [Environment] Node API:', USE_PRODUCTION_NODE_API ? 'PRODUCTION (Railway)' : 'LOCAL');
-console.log('🔗 [Environment] Java Auth:', USE_PRODUCTION_JAVA_AUTH ? 'PRODUCTION (Render)' : 'LOCAL');
+console.log('🔗 [Environment] Node API:', USE_PRODUCTION_NODE_API ? 'PRODUCTION' : 'LOCAL');
+console.log('🔗 [Environment] Java Auth:', USE_PRODUCTION_JAVA_AUTH ? 'PRODUCTION' : 'LOCAL');

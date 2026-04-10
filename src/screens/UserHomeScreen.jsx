@@ -66,7 +66,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Bottom sheet heights
 const SHEET_MIN_HEIGHT = 160;
-const SHEET_MID_HEIGHT = SCREEN_HEIGHT * 0.40; // 40% for initial state - shows user location
+const SHEET_MID_HEIGHT = SCREEN_HEIGHT * 0.40; // 40% for initial state - shows map + top services
 // SHEET_MAX_HEIGHT is computed dynamically in the component using insets (see safeMaxHeight)
 
 // Brand colors
@@ -128,7 +128,7 @@ const SERVICE_COLORS = {
   ac_repair: '#06B6D4',
 };
 
-const ServiceCard = ({ service, onPress }) => {
+const ServiceCard = React.memo(({ service, onPress }) => {
   const { t } = useLanguage();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const accent = SERVICE_COLORS[service.id] || BRAND.secondary;
@@ -155,7 +155,7 @@ const ServiceCard = ({ service, onPress }) => {
       </TouchableOpacity>
     </Animated.View>
   );
-};
+});
 
 const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, contacted, calling, skipping }) => {
   const { t } = useLanguage();
@@ -375,102 +375,91 @@ const UserHomeScreen = ({ navigation, route }) => {
   const initialTranslateY = safeMaxHeight - SHEET_MID_HEIGHT;
   const sheetTranslateY = useRef(new Animated.Value(initialTranslateY)).current;
   const currentHeightRef = useRef(SHEET_MID_HEIGHT);
+  const [sheetExpanded, setSheetExpanded] = useState(false);
+  const scrollOffsetRef = useRef(0); // tracks ScrollView scroll position
+  const scrollViewRef = useRef(null);
+  // Date view slides up from below to cover the select view (iOS modal style)
+  const dateStepTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   // Keep a legacy sheetHeight ref so any code reading it still works (unused by Animated)
   const sheetHeight = { setValue: () => {}, stopAnimation: (cb) => cb && cb(currentHeightRef.current) };
 
   // Convert height target to translateY
   const heightToTranslateY = useCallback((h) => safeMaxHeight - h, [safeMaxHeight]);
 
-  // Pan responder for swipe gestures on the bottom sheet handle
-  const panResponder = useMemo(() =>
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Very sensitive to vertical movement for easy drag
-        return Math.abs(gestureState.dy) > 3;
-      },
-      onPanResponderGrant: () => {
-        // Store current translateY when gesture starts
-        sheetTranslateY.stopAnimation((value) => {
-          sheetTranslateY.setOffset(value);
-          sheetTranslateY.setValue(0);
-        });
-      },
-      onPanResponderMove: (_, gestureState) => {
-        // gestureState.dy > 0 = dragging down = increase translateY (reduce visible height)
-        sheetTranslateY.setValue(gestureState.dy);
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        sheetTranslateY.flattenOffset();
-        const velocity = gestureState.vy;
-        const currentVisibleHeight = currentHeightRef.current - gestureState.dy;
-        const dragDistance = gestureState.dy;
-
-        let targetHeight = SHEET_MID_HEIGHT;
-
-        // Very low velocity threshold for easier swiping in both directions
-        if (Math.abs(velocity) > 0.15) {
-          if (velocity < 0) {
-            // Swiping up fast
-            targetHeight = safeMaxHeight;
-          } else {
-            // Swiping down — always step down one level
-            if (currentHeightRef.current >= safeMaxHeight * 0.7) {
-              targetHeight = SHEET_MID_HEIGHT;
-            } else {
-              targetHeight = SHEET_MIN_HEIGHT;
-            }
-          }
-        } else if (Math.abs(dragDistance) > 30) {
-          // Even very small drags (30px) should trigger state change
-          if (dragDistance > 0) {
-            // Dragging down — step down one level
-            if (currentHeightRef.current >= safeMaxHeight * 0.7) {
-              targetHeight = SHEET_MID_HEIGHT;
-            } else {
-              targetHeight = SHEET_MIN_HEIGHT;
-            }
-          } else {
-            // Dragging up
-            targetHeight = safeMaxHeight;
-          }
-        } else {
-          // Snap to nearest position based on current position
-          const midPoint1 = (SHEET_MIN_HEIGHT + SHEET_MID_HEIGHT) / 2;
-          const midPoint2 = (SHEET_MID_HEIGHT + safeMaxHeight) / 2;
-
-          if (currentVisibleHeight < midPoint1) {
-            targetHeight = SHEET_MIN_HEIGHT;
-          } else if (currentVisibleHeight < midPoint2) {
-            targetHeight = SHEET_MID_HEIGHT;
-          } else {
-            targetHeight = safeMaxHeight;
-          }
-        }
-
-        currentHeightRef.current = targetHeight;
-        Animated.spring(sheetTranslateY, {
-          toValue: heightToTranslateY(targetHeight),
-          useNativeDriver: true,
-          friction: 7,
-          tension: 50,
-          overshootClamping: true,
-        }).start();
-      },
-    }),
-  [sheetTranslateY, safeMaxHeight, heightToTranslateY]);
-
-  // Function to animate sheet to a specific height
-  const animateSheetTo = useCallback((targetHeight) => {
+  // Snap sheet to a target height with smooth spring animation
+  // Note: scroll position is preserved across collapse/expand for better UX
+  const snapToHeight = useCallback((targetHeight) => {
     currentHeightRef.current = targetHeight;
+    const expanded = targetHeight >= safeMaxHeight * 0.95;
+    setSheetExpanded(expanded);
     Animated.spring(sheetTranslateY, {
       toValue: heightToTranslateY(targetHeight),
       useNativeDriver: true,
       friction: 8,
-      tension: 65,
+      tension: 55,
       overshootClamping: true,
     }).start();
-  }, [sheetTranslateY, heightToTranslateY]);
+  }, [sheetTranslateY, heightToTranslateY, safeMaxHeight]);
+
+  // Determine snap target from gesture
+  const getSnapTarget = useCallback((gestureState) => {
+    const velocity = gestureState.vy;
+    const dragDistance = gestureState.dy;
+    const currentVisibleHeight = currentHeightRef.current - dragDistance;
+
+    // Fast swipe — use velocity
+    if (Math.abs(velocity) > 0.3) {
+      if (velocity < 0) return safeMaxHeight; // swipe up → expand
+      // Swipe down — step down one level
+      return currentHeightRef.current >= safeMaxHeight * 0.7 ? SHEET_MID_HEIGHT : SHEET_MIN_HEIGHT;
+    }
+
+    // Moderate drag — use distance
+    if (Math.abs(dragDistance) > 40) {
+      if (dragDistance < 0) return safeMaxHeight; // drag up → expand
+      // Drag down — step down
+      return currentHeightRef.current >= safeMaxHeight * 0.7 ? SHEET_MID_HEIGHT : SHEET_MIN_HEIGHT;
+    }
+
+    // Small drag — snap to nearest
+    const midPoint1 = (SHEET_MIN_HEIGHT + SHEET_MID_HEIGHT) / 2;
+    const midPoint2 = (SHEET_MID_HEIGHT + safeMaxHeight) / 2;
+    if (currentVisibleHeight < midPoint1) return SHEET_MIN_HEIGHT;
+    if (currentVisibleHeight < midPoint2) return SHEET_MID_HEIGHT;
+    return safeMaxHeight;
+  }, [safeMaxHeight]);
+
+  // Pan responder — on handle only (no gesture conflicts with ScrollView)
+  const isDraggingRef = useRef(false);
+  const panResponder = useMemo(() =>
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 5,
+      onPanResponderGrant: () => {
+        isDraggingRef.current = true;
+        // Capture current position as offset — no stopAnimation to avoid blink
+        const currentTranslateY = heightToTranslateY(currentHeightRef.current);
+        sheetTranslateY.setOffset(currentTranslateY);
+        sheetTranslateY.setValue(0);
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const maxUpDy = -(safeMaxHeight - currentHeightRef.current);
+        const clamped = Math.max(gestureState.dy, maxUpDy);
+        sheetTranslateY.setValue(clamped);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        isDraggingRef.current = false;
+        sheetTranslateY.flattenOffset();
+        const target = getSnapTarget(gestureState);
+        snapToHeight(target);
+      },
+    }),
+  [sheetTranslateY, safeMaxHeight, heightToTranslateY, getSnapTarget, snapToHeight]);
+
+  // Public function to animate sheet to a specific height (used by service selection, etc.)
+  const animateSheetTo = useCallback((targetHeight) => {
+    snapToHeight(targetHeight);
+  }, [snapToHeight]);
 
   // If a pre-selected service was set from Favorites, animate the sheet up
   useEffect(() => {
@@ -480,6 +469,25 @@ const UserHomeScreen = ({ navigation, route }) => {
       setTimeout(() => animateSheetTo(safeMaxHeight), 150);
     }
   }, [step, animateSheetTo, safeMaxHeight]);
+
+  // Slide transition: date view slides up to cover, slides down to reveal select
+  useEffect(() => {
+    if (step === 'date') {
+      Animated.spring(dateStepTranslateY, {
+        toValue: 0,
+        useNativeDriver: true,
+        friction: 11,
+        tension: 70,
+      }).start();
+    } else if (step === 'select') {
+      Animated.spring(dateStepTranslateY, {
+        toValue: SCREEN_HEIGHT,
+        useNativeDriver: true,
+        friction: 11,
+        tension: 70,
+      }).start();
+    }
+  }, [step, dateStepTranslateY]);
 
   // Refs to avoid stale closures in focus listener
   const createdRequestRef = useRef(null);
@@ -1125,8 +1133,12 @@ const UserHomeScreen = ({ navigation, route }) => {
   };
 
   const resetFlow = () => {
+    // Switch step immediately — the services view is already mounted (always rendered)
+    // so the swap is instant. The date view stays mounted (selectedService still set)
+    // until cleanup, so its display: 'none' simply hides it without remounting later.
     setStep('select');
-    setSelectedService(null);
+    snapToHeight(SHEET_MID_HEIGHT);
+    // Clear request-related state immediately
     setSelectedDateTime(null);
     setServiceLocation(null);
     setServiceDescription('');
@@ -1134,10 +1146,13 @@ const UserHomeScreen = ({ navigation, route }) => {
     setProviders([]);
     setProviderDetailsVisible(false);
     setSelectedProvider(null);
-    setContactedProviderIds(new Set()); // Reset per search session — don't carry over from previous bookings
+    setContactedProviderIds(new Set());
     setSkippingProviderId(null);
     setAllProvidersRejected(false);
-    animateSheetTo(SHEET_MID_HEIGHT);
+    // Clear selectedService AFTER the sheet animation finishes (so date view
+    // doesn't unmount mid-transition causing a flicker). We use a long enough
+    // delay to cover the spring settling time.
+    setTimeout(() => setSelectedService(null), 350);
     // Return map camera to user's GPS location
     mapRef.current?.animateToUserLocation(currentLocation);
   };
@@ -1180,11 +1195,43 @@ const UserHomeScreen = ({ navigation, route }) => {
   const handleLogout = async () => await logout();
   const handleProfilePress = () => navigation.navigate('Profile');
 
+  // Render the select view as the base layer (always mounted, takes the layout space).
+  // Date view slides up from below to cover it. Providers view replaces both.
+  // This keeps the expensive services view (12 SVG cards) mounted across step
+  // changes, eliminating the ~1s delay caused by remounting the SVG icons.
   const renderSheetContent = () => {
-    switch (step) {
-      case 'date':
-        return (
-          <ScrollView style={styles.sheetContent} showsVerticalScrollIndicator={false} bounces={false}>
+    return (
+      <View style={{ flex: 1, backgroundColor: BRAND.white, overflow: 'hidden' }}>
+        {/* SELECT STEP — always mounted, base layer */}
+        <View style={{ flex: 1 }}>
+          {renderSelectStep()}
+        </View>
+        {/* DATE STEP — slides up from below */}
+        {selectedService && (
+          <Animated.View
+            style={[
+              styles.absoluteFill,
+              { backgroundColor: BRAND.white, transform: [{ translateY: dateStepTranslateY }] },
+            ]}
+            pointerEvents={step === 'date' ? 'auto' : 'none'}
+          >
+            {renderDateStep()}
+          </Animated.View>
+        )}
+        {/* PROVIDERS STEP — overlay when there's a created request */}
+        {createdRequest && (
+          <View style={[styles.absoluteFill, step !== 'providers' && styles.hidden]}>
+            {renderProvidersStep()}
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const renderDateStep = () => {
+    if (!selectedService) return null;
+    return (
+      <ScrollView style={styles.sheetContent} showsVerticalScrollIndicator={false} bounces={false}>
             {/* Header: Back + Selected Service (compact row) */}
             <View style={styles.dateStepHeader}>
               <TouchableOpacity style={styles.backRow} onPress={resetFlow}>
@@ -1289,10 +1336,12 @@ const UserHomeScreen = ({ navigation, route }) => {
               </TouchableOpacity>
             </View>
           </ScrollView>
-        );
-      case 'providers':
-        return (
-          <View style={styles.sheetContent}>
+    );
+  };
+
+  const renderProvidersStep = () => {
+    return (
+      <View style={styles.sheetContent}>
             <View style={styles.providersHeader}>
               <View style={styles.providerHeaderActions}>
                 {/* No "Done" button — it would leave the request in pending with no provider assigned.
@@ -1375,17 +1424,25 @@ const UserHomeScreen = ({ navigation, route }) => {
                 showsVerticalScrollIndicator={false}
               />
             )}
-          </View>
-        );
-      default:
-        return (
-          <ScrollView
+      </View>
+    );
+  };
+
+  const renderSelectStep = () => {
+    return (
+      <ScrollView
+            ref={scrollViewRef}
             style={styles.sheetContent}
             showsVerticalScrollIndicator={false}
             bounces={true}
-            alwaysBounceVertical={true}
-            contentContainerStyle={styles.servicesScrollContent}
+            contentContainerStyle={[
+              styles.servicesScrollContent,
+              // Extra bottom padding when collapsed so user can scroll past the visible 40% window
+              !sheetExpanded && { paddingBottom: (safeMaxHeight - SHEET_MID_HEIGHT) + 40 },
+            ]}
             nestedScrollEnabled={true}
+            keyboardShouldPersistTaps="handled"
+            removeClippedSubviews={false}
           >
             <View style={styles.welcomeSection}>
               <Text style={styles.welcomeText}>{displayData?.fullName?.split(' ')[0] ? t('userHome.hello', { name: displayData.fullName.split(' ')[0] }) : t('userHome.helloDefault')}</Text>
@@ -1437,8 +1494,7 @@ const UserHomeScreen = ({ navigation, route }) => {
               </TouchableOpacity>
             </View>
           </ScrollView>
-        );
-    }
+    );
   };
 
   return (
@@ -1659,6 +1715,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: BRAND.background,
+  },
+  hidden: {
+    display: 'none',
+  },
+  absoluteFill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: BRAND.white,
   },
 
   // ─── Top Bar ───────────────────────────────────────────────

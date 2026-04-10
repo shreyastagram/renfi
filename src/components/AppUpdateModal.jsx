@@ -66,7 +66,10 @@ const AppUpdateModal = ({
   }, [updateInfo?.latestVersion, onDismiss]);
 
   const handleCloseApp = useCallback(() => {
-    BackHandler.exitApp();
+    if (Platform.OS === 'android') {
+      BackHandler.exitApp();
+    }
+    // iOS: Apple doesn't allow programmatic app exit — modal stays blocking
   }, []);
 
   // Animate in/out and handle auto-redirect
@@ -108,7 +111,7 @@ const AppUpdateModal = ({
 
   // Handle Android back button
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || Platform.OS !== 'android') return;
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       if (isCritical) {
@@ -225,13 +228,17 @@ const AppUpdateModal = ({
             </TouchableOpacity>
 
             {isCritical ? (
-              <TouchableOpacity
-                style={styles.closeAppButton}
-                onPress={handleCloseApp}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.closeAppButtonText}>Close App</Text>
-              </TouchableOpacity>
+              Platform.OS === 'android' ? (
+                <TouchableOpacity
+                  style={styles.closeAppButton}
+                  onPress={handleCloseApp}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.closeAppButtonText}>Close App</Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.iosCloseHint}>Please update to continue using FixHomi</Text>
+              )
             ) : (
               <TouchableOpacity
                 style={styles.dismissButton}
@@ -416,6 +423,13 @@ const styles = StyleSheet.create({
     color: COLORS.criticalRed,
     fontSize: 15,
     fontWeight: '600',
+  },
+  iosCloseHint: {
+    fontSize: 13,
+    color: COLORS.secondaryText,
+    fontWeight: '500',
+    textAlign: 'center',
+    paddingVertical: 8,
   },
 });
 

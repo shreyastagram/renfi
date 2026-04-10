@@ -5,7 +5,7 @@ declare var global: typeof globalThis & {
 };
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Linking, StatusBar, View, LogBox } from 'react-native';
+import { Alert, AppState, Linking, StatusBar, View, LogBox } from 'react-native';
 
 // Suppress known Mapbox Fabric view recycling warning (harmless on both iOS & Android)
 LogBox.ignoreLogs(['view: null found with tag']);
@@ -330,17 +330,36 @@ function AppContent() {
     markInitialLoadComplete();
   }, [markInitialLoadComplete]);
 
-  useEffect(() => {
-    // Check for app updates on launch
+  // Shared version/maintenance check — runs on launch and on foreground resume
+  const runVersionCheck = useCallback(() => {
     (checkForAppUpdate() as Promise<any>).then((info) => {
       if (info) {
         if (info.maintenance) {
           setMaintenanceInfo(info);
           setShowMaintenanceModal(true);
+          setShowUpdateModal(false);
         } else {
+          setMaintenanceInfo(null);
+          setShowMaintenanceModal(false);
           setUpdateInfo(info);
           setShowUpdateModal(true);
         }
+      } else {
+        // No update/maintenance — clear any active modals
+        setMaintenanceInfo(null);
+        setShowMaintenanceModal(false);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    // Check on launch
+    runVersionCheck();
+
+    // Re-check when app returns from background
+    const subscription = AppState.addEventListener('change', (nextState: string) => {
+      if (nextState === 'active') {
+        runVersionCheck();
       }
     });
 
@@ -365,11 +384,12 @@ function AppContent() {
     checkInitialNotification();
 
     return () => {
+      subscription.remove();
       if (unsubscribe) {
         unsubscribe();
       }
     };
-  }, []);
+  }, [runVersionCheck]);
 
   return (
     <LocationProvider>

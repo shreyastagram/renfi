@@ -15,6 +15,7 @@ import {
   Modal,
   Animated,
   BackHandler,
+  Platform,
   Image,
 } from 'react-native';
 import TouchableOpacity from './TouchableOpacity';
@@ -80,7 +81,7 @@ const MaintenanceModal = ({ visible, info }) => {
 
   // Block Android back button — only allow closing the app
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || Platform.OS !== 'android') return;
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       BackHandler.exitApp();
       return true;
@@ -89,6 +90,8 @@ const MaintenanceModal = ({ visible, info }) => {
   }, [visible]);
 
   if (!visible || !info) return null;
+
+  const isIOS = Platform.OS === 'ios';
 
   const startFormatted = formatTime(info.maintenanceStartTime);
   const endFormatted = formatTime(info.maintenanceEndTime);
@@ -99,7 +102,7 @@ const MaintenanceModal = ({ visible, info }) => {
       transparent
       animationType="none"
       statusBarTranslucent
-      onRequestClose={() => BackHandler.exitApp()}
+      onRequestClose={() => { if (Platform.OS === 'android') BackHandler.exitApp(); }}
     >
       <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
         <Animated.View
@@ -158,17 +161,23 @@ const MaintenanceModal = ({ visible, info }) => {
             </View>
           ) : null}
 
-          {/* Close App Button */}
+          {/* Close App / Info */}
           <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => BackHandler.exitApp()}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.closeButtonText}>Close App</Text>
-            </TouchableOpacity>
+            {isIOS ? (
+              <Text style={styles.iosHint}>
+                Please close the app and try again later.
+              </Text>
+            ) : (
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => BackHandler.exitApp()}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.closeButtonText}>Close App</Text>
+              </TouchableOpacity>
+            )}
             <Text style={styles.retryHint}>
-              Please try again later
+              We apologise for the inconvenience
             </Text>
           </View>
         </Animated.View>
@@ -299,6 +308,14 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '700',
+  },
+  iosHint: {
+    fontSize: 15,
+    color: COLORS.darkText,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingVertical: 16,
   },
   retryHint: {
     marginTop: 12,

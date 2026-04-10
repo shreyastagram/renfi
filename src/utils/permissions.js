@@ -308,21 +308,17 @@ export const showBatteryOptimizationDialog = async (dialog) => {
 
     dialog(
       'Keep Location Active',
-      'Some phones (Xiaomi, Samsung, Oppo, Vivo) aggressively stop background apps. To ensure your location is shared reliably during service requests, please disable battery optimization for Fixhomi.',
+      'Some phones (Xiaomi, Samsung, Oppo, Vivo) aggressively stop background apps. To ensure reliable service delivery, open Fixhomi\'s app settings → tap Battery → select Unrestricted.',
       [
         {
-          text: 'Open Settings',
+          text: 'Open Fixhomi Settings',
           onPress: () => {
-            // Try the direct battery optimization intent first
-            Linking.sendIntent(
-              'android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
-              [{ key: 'package', value: 'com.renfi' }],
-            ).catch(() => {
-              // Fallback: open general battery settings
-              Linking.sendIntent('android.settings.BATTERY_SAVER_SETTINGS').catch(() => {
-                // Final fallback: open app settings
-                openSettings();
-              });
+            // openSettings() opens APPLICATION_DETAILS_SETTINGS for our app.
+            // User lands on the Fixhomi app info page and can tap
+            // Battery → Unrestricted from there.
+            openSettings().catch(() => {
+              // Fallback: react-native Linking.openSettings (same target)
+              Linking.openSettings();
             });
           },
         },
