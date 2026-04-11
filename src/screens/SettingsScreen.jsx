@@ -1149,19 +1149,6 @@ const SettingsScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* DEV: BG Location Test — only visible in development builds */}
-        {__DEV__ && isProvider && (
-          <View style={styles.section}>
-            <SectionHeader title="Developer Tools" />
-            <ActionRow
-              iconName="location"
-              title="BG Location Test"
-              subtitle="Test TransistorSoft background tracking"
-              onPress={() => navigation.navigate('BGLocationTest')}
-            />
-          </View>
-        )}
-
         {/* Notifications Section */}
         <View style={styles.section}>
           <SectionHeader title={t('settings.notifications')} />

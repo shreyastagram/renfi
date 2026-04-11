@@ -56,7 +56,6 @@ import {
   PSAContactsScreen,
   PSATriggerScreen,
 } from '../src/screens';
-import BGLocationTestScreen from '../src/screens/BGLocationTest';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -619,11 +618,6 @@ const ProviderMainNavigator = () => {
         name="ReferralScreen"
         component={ReferralScreen}
         options={{ animation: 'slide_from_right' }}
-      />
-      <Stack.Screen
-        name="BGLocationTest"
-        component={BGLocationTestScreen}
-        options={{ animation: 'slide_from_bottom' }}
       />
       <Stack.Screen
         name="PSAContacts"
