@@ -329,6 +329,7 @@ export const syncAppleUserToMongoDB = async (userData, accessToken = null) => {
         fullName: userData.fullName,
         profilePicture: userData.profilePicture,
         authProvider: 'apple',
+        referralCode: userData.referralCode || undefined,
       },
       config
     );
@@ -365,6 +366,7 @@ export const syncAppleProviderToMongoDB = async (providerData, accessToken = nul
         longitude: providerData.longitude,
         profilePicture: providerData.profilePicture,
         authProvider: 'apple',
+        referralCode: providerData.referralCode || undefined,
       },
       config
     );

@@ -21,7 +21,8 @@ import {  View,
   Image,
   Animated,
   Dimensions,
-  Linking
+  Linking,
+  Platform
 } from 'react-native';
 import TouchableOpacity from './TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -228,7 +229,20 @@ const ProviderDetailsModal = ({
   };
 
   const handleBook = () => {
-    if (onBook && provider) {
+    if (!onBook || !provider) return;
+
+    if (Platform.OS === 'ios') {
+      // iOS modal-in-modal deadlock prevention: this Modal must fully unmount
+      // BEFORE the parent opens its confirmation dialog, otherwise iOS freezes
+      // because two <Modal> components would be mounted simultaneously.
+      // Use animatedClose() to run the close animation + set internal modalVisible=false,
+      // then defer onBook() until after the animation completes (~350ms).
+      const providerToBook = provider;
+      animatedClose();
+      setTimeout(() => onBook(providerToBook), 350);
+    } else {
+      // Android: original behavior (identical to Play build 5 — do not change).
+      // Android handles concurrent Modals permissively; no freeze risk.
       onBook(provider);
       onClose();
     }

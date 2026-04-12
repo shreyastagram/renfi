@@ -687,27 +687,38 @@ const ProviderRegisterScreen = ({ navigation }) => {
     const { accessToken, refreshToken, user, isNewUser } = resultData;
 
     if (isNewUser && user) {
-      console.log('[ProviderRegisterScreen] New Apple provider - syncing to MongoDB...');
-      let syncResult = await syncAppleProviderToMongoDB({
+      console.log('🆕 [ProviderRegisterScreen] New Apple provider - syncing to MongoDB...');
+
+      // Get pending referral code for Apple OAuth registration (mirrors Google flow)
+      const pendingRefCode = formData.referralCode?.trim() || await AsyncStorage.getItem('pendingReferralCode') || undefined;
+      if (pendingRefCode) AsyncStorage.removeItem('pendingReferralCode');
+
+      const syncPayload = {
         javaUserId: user.id || user.userId,
         email: user.email,
         name: user.fullName || user.name || user.email?.split('@')[0],
-        address: formData.address || '',
-        city: formData.city || '',
-        pincode: formData.pincode || '',
+        address: formData.address?.trim() || '',
+        profilePicture: user.profilePicture,
+        phone: formData.phone?.trim() || undefined,
+        city: formData.city?.trim() || undefined,
+        pincode: formData.pincode?.trim() || undefined,
         latitude: location?.latitude,
         longitude: location?.longitude,
-      }, accessToken);
+        referralCode: pendingRefCode,
+      };
+
+      let syncResult = await syncAppleProviderToMongoDB(syncPayload, accessToken);
+
+      // Retry once on failure — backend may still be warming up (use FULL payload, not partial)
+      if (!syncResult.success) {
+        console.warn('⚠️ [ProviderRegisterScreen] MongoDB sync failed, retrying in 2s...');
+        await new Promise(r => setTimeout(r, 2000));
+        syncResult = await syncAppleProviderToMongoDB(syncPayload, accessToken);
+      }
 
       if (!syncResult.success) {
-        console.warn('[ProviderRegisterScreen] MongoDB sync failed, retrying in 2s...');
-        await new Promise(r => setTimeout(r, 2000));
-        syncResult = await syncAppleProviderToMongoDB({
-          javaUserId: user.id || user.userId,
-          email: user.email,
-          name: user.fullName || user.name || user.email?.split('@')[0],
-          address: formData.address || '',
-        }, accessToken);
+        console.warn('⚠️ [ProviderRegisterScreen] MongoDB sync failed after retry, auth still succeeded');
+        showAlert(t('auth.appleProfileSetup') || 'Account created. Profile setup may take a moment.', 'warning');
       }
     }
 
@@ -718,7 +729,8 @@ const ProviderRegisterScreen = ({ navigation }) => {
       refreshToken,
       userId: user.id || user.userId,
       javaUserId: user.id || user.userId,
-      mongoId: user.id || user.userId,
+      mongoId: user.id || user.userId, // Same in unified system
+      providerId: user.id || user.userId, // For provider profile fetching (parity with Google flow)
       email: user.email,
       fullName: user.fullName || user.name,
       role: user.role,
@@ -780,7 +792,8 @@ const ProviderRegisterScreen = ({ navigation }) => {
         }
 
         if (error.code === APPLE_AUTH_CODES.ROLE_CONFLICT) {
-          showAlert(t('auth.appleRoleConflict') || 'This account is already registered as a different type.', 'warning');
+          const existingRole = error.existingRole === 'USER' ? 'User' : 'Service Provider';
+          showAlert(t('auth.appleRoleConflict', { role: existingRole }), 'warning');
           return;
         }
         if (error.code === APPLE_AUTH_CODES.ALREADY_REGISTERED) {

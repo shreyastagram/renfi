@@ -30,7 +30,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
-import { pick, types } from '@react-native-documents/picker';
+import { pick, types, keepLocalCopy } from '@react-native-documents/picker';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -367,18 +367,53 @@ const InsuranceScreen = ({ navigation }) => {
   };
 
   const pickPDF = async (docType) => {
+    // iOS modal-in-modal prevention: called from a dialog onPress handler.
+    // iOS UIDocumentPickerViewController fails to present while the previous
+    // dialog modal is still dismissing. Wait for the dialog to fade out first.
+    if (Platform.OS === 'ios') {
+      await new Promise(resolve => setTimeout(resolve, 400));
+    }
+
     try {
       const result = await pick({ type: [types.pdf] });
       if (result?.[0]) {
+        let fileUri = result[0].uri;
+        const fileName = result[0].name || 'document.pdf';
+
+        // iOS: Copy the picked file into the app's cache directory to escape
+        // the iOS security-scoped URL which expires outside the picker callback.
+        // Without this, submit fails with "Network request failed" on iOS.
+        if (Platform.OS === 'ios') {
+          try {
+            const copies = await keepLocalCopy({
+              files: [{ uri: result[0].uri, fileName }],
+              destination: 'cachesDirectory',
+            });
+            if (copies?.[0]?.status === 'success' && copies[0].localUri) {
+              fileUri = copies[0].localUri;
+            } else {
+              console.warn('[Insurance] iOS keepLocalCopy failed, using original URI:', copies?.[0]);
+            }
+          } catch (copyErr) {
+            console.warn('[Insurance] iOS keepLocalCopy threw, using original URI:', copyErr);
+          }
+        }
+
         stageDoc(docType, {
-          uri: result[0].uri,
-          fileName: result[0].name,
-          type: result[0].type,
+          uri: fileUri,
+          fileName,
+          type: result[0].type || 'application/pdf',
           fileSize: result[0].size,
         });
       }
     } catch (err) {
-      if (err?.code !== 'DOCUMENT_PICKER_CANCELED' && !err?.message?.includes('cancel')) {
+      // Cancel detection — v12 uses OPERATION_CANCELED; older library used DOCUMENT_PICKER_CANCELED
+      const isCancel =
+        err?.code === 'DOCUMENT_PICKER_CANCELED' ||
+        err?.code === 'OPERATION_CANCELED' ||
+        /cancel/i.test(err?.message || '');
+      if (!isCancel) {
+        console.error('[Insurance] pickPDF error:', err?.code, err?.message, err);
         dialog(t('common.error'), t('insurance.pickDocFailed'));
       }
     }

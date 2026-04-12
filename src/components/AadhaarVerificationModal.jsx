@@ -273,10 +273,21 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
       setError(result.message || 'Could not retrieve your name from DigiLocker. Please try again.');
       setStep(STEPS.ERROR);
     } else if (result.status === 'pending') {
-      dialog('Still Processing', 'Please complete the verification in DigiLocker first.', [
-        { text: 'Open DigiLocker', onPress: () => handleStartVerification() },
-        { text: 'OK', style: 'cancel' },
-      ]);
+      if (Platform.OS === 'ios') {
+        // iOS modal-in-modal deadlock prevention: this Modal is still mounted
+        // when the dialog() would be called, which freezes iOS. Instead, use
+        // the same inline error state pattern already used above for
+        // name_mismatch / name_retrieval_failed. User can tap "Start Verification"
+        // to reopen DigiLocker from the ERROR step.
+        setError('Verification still processing. Please complete the verification in DigiLocker first, then tap the button below to try again.');
+        setStep(STEPS.ERROR);
+      } else {
+        // Android: original behavior (identical to Play build 5 — do not change).
+        dialog('Still Processing', 'Please complete the verification in DigiLocker first.', [
+          { text: 'Open DigiLocker', onPress: () => handleStartVerification() },
+          { text: 'OK', style: 'cancel' },
+        ]);
+      }
     } else {
       setError(result.message || 'Verification not complete');
     }
@@ -382,12 +393,27 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
       <TouchableOpacity
         style={s.outlineBtn}
         onPress={() => {
-          onClose();
-          dialog(
-            t('aadhaar.updateNameTitle'),
-            t('aadhaar.updateNameMsg'),
-            [{ text: 'OK' }]
-          );
+          if (Platform.OS === 'ios') {
+            // iOS modal-in-modal deadlock prevention: close this Modal first,
+            // then defer the dialog() until after the Modal has fully unmounted.
+            // Otherwise iOS freezes with two Modals simultaneously mounted.
+            onClose();
+            setTimeout(() => {
+              dialog(
+                t('aadhaar.updateNameTitle'),
+                t('aadhaar.updateNameMsg'),
+                [{ text: 'OK' }]
+              );
+            }, 400);
+          } else {
+            // Android: original behavior (identical to Play build 5 — do not change).
+            onClose();
+            dialog(
+              t('aadhaar.updateNameTitle'),
+              t('aadhaar.updateNameMsg'),
+              [{ text: 'OK' }]
+            );
+          }
         }}
         activeOpacity={0.8}
       >

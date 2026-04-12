@@ -21,6 +21,11 @@
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" tools:node="remove" />
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove" />
   <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" tools:node="remove" />
+  <!-- TransistorSoft injects ACTIVITY_RECOGNITION but we use disableMotionActivityUpdates:true.
+       Removing avoids triggering Play Store Health declaration requirements. -->
+  <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" tools:node="remove" />
+  <uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION" tools:node="remove" />
+  <uses-permission android:name="com.huawei.hms.permission.ACTIVITY_RECOGNITION" tools:node="remove" />
 
   <!-- Required for Android 11+ (API 30+) to query URL schemes -->
   <queries>

@@ -59,10 +59,24 @@ export const signedUpload = async ({
   // 1. Get signature from backend
   const sig = await getUploadSignature(context, subFolder);
 
-  // 2. Fix Android URI
+  // 2. Normalize URI per platform
+  // CRITICAL: On Android, the document picker returns `content://` URIs from the
+  // Storage Access Framework (SAF) for files picked from Downloads, Drive, etc.
+  // React Native's FormData can read `content://` URIs natively via InputStream,
+  // but if we blindly prepend `file://` we produce `file://content://...` which
+  // is invalid and causes "Network request failed" at upload time. Only prepend
+  // `file://` for bare filesystem paths that lack a scheme.
   let fileUri = uri;
-  if (Platform.OS === 'android' && !fileUri.startsWith('file://')) {
-    fileUri = `file://${fileUri}`;
+  if (Platform.OS === 'android') {
+    if (
+      !fileUri.startsWith('file://') &&
+      !fileUri.startsWith('content://') &&
+      !fileUri.startsWith('http://') &&
+      !fileUri.startsWith('https://')
+    ) {
+      fileUri = `file://${fileUri}`;
+    }
+    // else: use as-is (content:// URIs are handled natively by RN's FormData)
   }
 
   // 3. Build FormData with signature params

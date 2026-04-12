@@ -537,24 +537,31 @@ const RegisterScreen = ({ navigation }) => {
     const { accessToken, refreshToken, user, isNewUser } = resultData;
 
     if (isNewUser && user) {
-      console.log('[RegisterScreen] New Apple user - syncing to MongoDB...');
-      let syncResult = await syncAppleUserToMongoDB({
+      console.log('🆕 [RegisterScreen] New Apple user - syncing to MongoDB...');
+
+      // Get pending referral code for Apple OAuth registration (mirrors Google flow)
+      const pendingRefCode = formData.referralCode?.trim() || await AsyncStorage.getItem('pendingReferralCode') || undefined;
+      if (pendingRefCode) AsyncStorage.removeItem('pendingReferralCode');
+
+      const syncPayload = {
         javaUserId: user.id || user.userId,
         email: user.email,
         fullName: user.fullName || user.name,
-      }, accessToken);
+        profilePicture: user.profilePicture,
+        referralCode: pendingRefCode,
+      };
 
+      let syncResult = await syncAppleUserToMongoDB(syncPayload, accessToken);
+
+      // Retry once on failure — backend may still be warming up
       if (!syncResult.success) {
-        console.warn('[RegisterScreen] MongoDB sync failed, retrying in 2s...');
+        console.warn('⚠️ [RegisterScreen] MongoDB sync failed, retrying in 2s...');
         await new Promise(r => setTimeout(r, 2000));
-        syncResult = await syncAppleUserToMongoDB({
-          javaUserId: user.id || user.userId,
-          email: user.email,
-          fullName: user.fullName || user.name,
-        }, accessToken);
+        syncResult = await syncAppleUserToMongoDB(syncPayload, accessToken);
       }
 
       if (!syncResult.success) {
+        console.warn('⚠️ [RegisterScreen] MongoDB sync failed after retry, auth still succeeded');
         showAlert(t('auth.appleProfileSetup') || 'Account created. Profile setup may take a moment.', 'warning');
       }
     }
@@ -630,7 +637,7 @@ const RegisterScreen = ({ navigation }) => {
 
         if (error.code === APPLE_AUTH_CODES.ROLE_CONFLICT) {
           const existingRole = error.existingRole === 'SERVICE_PROVIDER' ? 'Service Provider' : 'User';
-          showAlert(t('auth.appleRoleConflict') || `This account is registered as a ${existingRole}.`, 'warning');
+          showAlert(t('auth.appleRoleConflict', { role: existingRole }), 'warning');
           return;
         }
 

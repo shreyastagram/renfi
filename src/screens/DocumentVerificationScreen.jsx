@@ -27,7 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
-import { pick, types } from '@react-native-documents/picker';
+import { pick, types, keepLocalCopy } from '@react-native-documents/picker';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -432,23 +432,56 @@ const DocumentVerificationScreen = ({ navigation }) => {
    * Pick PDF file
    */
   const pickPDF = async (serviceCategory, documentType) => {
+    // iOS modal-in-modal prevention: called from a dialog onPress handler.
+    // iOS UIDocumentPickerViewController fails to present while the previous
+    // dialog modal is still dismissing. Wait for the dialog to fade out first.
+    if (Platform.OS === 'ios') {
+      await new Promise(resolve => setTimeout(resolve, 400));
+    }
+
     try {
       const result = await pick({
         type: [types.pdf],
       });
-      
+
       if (result?.[0]) {
+        let fileUri = result[0].uri;
+        const fileName = result[0].name || 'document.pdf';
+
+        // iOS: Copy the picked file into the app's cache directory to escape
+        // the iOS security-scoped URL which expires outside the picker callback.
+        // Without this, submit fails with "Network request failed" on iOS.
+        if (Platform.OS === 'ios') {
+          try {
+            const copies = await keepLocalCopy({
+              files: [{ uri: result[0].uri, fileName }],
+              destination: 'cachesDirectory',
+            });
+            if (copies?.[0]?.status === 'success' && copies[0].localUri) {
+              fileUri = copies[0].localUri;
+            } else {
+              console.warn('[DocumentVerification] iOS keepLocalCopy failed, using original URI:', copies?.[0]);
+            }
+          } catch (copyErr) {
+            console.warn('[DocumentVerification] iOS keepLocalCopy threw, using original URI:', copyErr);
+          }
+        }
+
         stageDocument(serviceCategory, documentType, {
-          uri: result[0].uri,
-          fileName: result[0].name,
-          type: result[0].type,
+          uri: fileUri,
+          fileName,
+          type: result[0].type || 'application/pdf',
           fileSize: result[0].size,
         });
       }
     } catch (error) {
-      // Check if it's a cancel error - the new API throws an error with code property
-      if (error?.code !== 'DOCUMENT_PICKER_CANCELED' && !error?.message?.includes('cancel')) {
-        console.error('[DocumentVerification] Document picker error:', error);
+      // Cancel detection — v12 uses OPERATION_CANCELED; older library used DOCUMENT_PICKER_CANCELED
+      const isCancel =
+        error?.code === 'DOCUMENT_PICKER_CANCELED' ||
+        error?.code === 'OPERATION_CANCELED' ||
+        /cancel/i.test(error?.message || '');
+      if (!isCancel) {
+        console.error('[DocumentVerification] pickPDF error:', error?.code, error?.message, error);
         dialog('Error', 'Failed to pick document');
       }
     }

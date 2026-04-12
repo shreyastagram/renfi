@@ -29,7 +29,7 @@ import TouchableOpacity from '../components/TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
-import { pick, types } from '@react-native-documents/picker';
+import { pick, types, keepLocalCopy } from '@react-native-documents/picker';
 import {
   GestureHandlerRootView,
   PinchGestureHandler,
@@ -1134,19 +1134,62 @@ const ServiceApprovalsScreen = ({ navigation }) => {
   };
 
   const pickPDF = async (serviceCategory, documentType) => {
+    // iOS modal-in-modal prevention: this function is called from a dialog's
+    // onPress handler. When the user taps "PDF File", the dialog starts
+    // dismissing (animating out, ~300ms). Meanwhile, the document picker
+    // (UIDocumentPickerViewController) tries to present its own modal — iOS
+    // rejects this because only one modal can be presented/dismissed at a time.
+    // Result: picker fails silently, dialog just closes, user sees nothing.
+    // Fix: wait for the dialog's dismiss animation to complete before opening
+    // the picker. 400ms = dialog fade-out (~300ms) + safety margin.
+    if (Platform.OS === 'ios') {
+      await new Promise(resolve => setTimeout(resolve, 400));
+    }
+
     try {
       const result = await pick({ type: [types.pdf] });
 
       if (result?.[0]) {
+        let fileUri = result[0].uri;
+        const fileName = result[0].name || 'document.pdf';
+
+        // iOS: Copy the picked file into the app's cache directory.
+        // iOS document picker returns a security-scoped URL that's only valid
+        // inside the picker callback window. Storing it in state and using it
+        // later (on submit) fails because the scope has expired, leading to a
+        // misleading "Network request failed" / "No internet" error at upload.
+        // keepLocalCopy gives us a sandbox-local URI safe to use anytime.
+        if (Platform.OS === 'ios') {
+          try {
+            const copies = await keepLocalCopy({
+              files: [{ uri: result[0].uri, fileName }],
+              destination: 'cachesDirectory',
+            });
+            if (copies?.[0]?.status === 'success' && copies[0].localUri) {
+              fileUri = copies[0].localUri;
+            } else {
+              console.warn('[RSAS] iOS keepLocalCopy failed, using original URI:', copies?.[0]);
+            }
+          } catch (copyErr) {
+            console.warn('[RSAS] iOS keepLocalCopy threw, using original URI:', copyErr);
+          }
+        }
+
         stageDocument(serviceCategory, documentType, {
-          uri: result[0].uri,
-          fileName: result[0].name || 'document.pdf',
+          uri: fileUri,
+          fileName,
           type: 'application/pdf',
           fileSize: result[0].size,
         });
       }
     } catch (error) {
-      if (error?.code !== 'DOCUMENT_PICKER_CANCELED') {
+      // Cancel detection — v12 uses OPERATION_CANCELED; older library used DOCUMENT_PICKER_CANCELED
+      const isCancel =
+        error?.code === 'DOCUMENT_PICKER_CANCELED' ||
+        error?.code === 'OPERATION_CANCELED' ||
+        /cancel/i.test(error?.message || '');
+      if (!isCancel) {
+        console.error('[RSAS] pickPDF error:', error?.code, error?.message, error);
         dialog('Error', 'Failed to pick PDF');
       }
     }
