@@ -118,6 +118,25 @@ const buildConfig = (providerId, accessToken, refreshToken) => ({
     priority: -1, // PRIORITY_MIN — small icon only, no popup
   },
 
+  // ── Android 11+ Background Location Rationale ──
+  // Text shown in the system dialog when requesting "Allow all the time".
+  // MUST NOT contain "[ChangeMe]" placeholder — Google Play rejects apps
+  // whose Background Location purpose text is unconfigured.
+  backgroundPermissionRationale: {
+    title: 'Allow Fixhomi to access this device\'s location even when closed or not in use?',
+    message:
+      'Fixhomi needs background location so customers can see your live arrival on the map while you are navigating to an accepted service request. Location is only shared during an active service and stops automatically when the service is completed or cancelled.',
+    positiveAction: 'Change to "Allow all the time"',
+    negativeAction: 'Cancel',
+  },
+
+  // ── iOS / Android authorization behavior ──
+  // Keep TransistorSoft in "WhenInUse" mode. We request the "Allow all the
+  // time" upgrade ourselves via react-native-permissions, immediately after
+  // showing our own in-app Prominent Disclosure dialog. This prevents the
+  // OS prompt from firing in parallel with the disclosure.
+  locationAuthorizationRequest: 'WhenInUse',
+
   // ── iOS ──
   pausesLocationUpdatesAutomatically: false,
   showsBackgroundLocationIndicator: true,

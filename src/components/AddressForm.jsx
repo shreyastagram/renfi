@@ -18,13 +18,12 @@ import {  View,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  PermissionsAndroid,
-  Linking
 } from 'react-native';
 import TouchableOpacity from './TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useDialog } from '../context/DialogContext';
+import { requestForegroundLocationPermission } from '../utils/permissions';
 import Geolocation from '@react-native-community/geolocation';
 import { addAddress, updateAddress } from '../services/addressService';
 import MapPickerModal from './MapPickerModal';
@@ -188,29 +187,15 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
     setGettingLocation(true);
     setErrors(prev => ({ ...prev, location: null }));
     
-    // Request permission on Android
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-        );
-        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-          setGettingLocation(false);
-          dialog(
-            'Permission Required',
-            'Location permission is needed. Please enable it in settings.',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Open Settings', onPress: () => Linking.openSettings() },
-            ]
-          );
-          return;
-        }
-      } catch (err) {
-        console.warn('Permission error:', err);
-        setGettingLocation(false);
-        return;
-      }
+    // Request permission with in-app disclosure (Prominent Disclosure
+    // requirement — Google Play User Data policy).
+    const granted = await requestForegroundLocationPermission(dialog, {
+      title: 'Auto-Fill Your Address',
+      message: 'Fixhomi uses your location to detect your current address and auto-fill the street, city, and PIN code fields below. You can also enter the address manually.',
+    });
+    if (!granted) {
+      setGettingLocation(false);
+      return;
     }
     
     // Helper to apply location + auto-fill address

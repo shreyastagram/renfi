@@ -34,7 +34,11 @@ import TouchableOpacity from '../components/TouchableOpacity';
 import RazorpayCheckout from 'react-native-razorpay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
+import { check, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
+import {
+  requestForegroundLocationPermission,
+  requestAndroidNotificationPermission,
+} from '../utils/permissions';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { BlurView } from '@react-native-community/blur';
@@ -581,35 +585,23 @@ const UserHomeScreen = ({ navigation, route }) => {
 
   const requestLocationPermission = useCallback(async () => {
     try {
-      const permission = Platform.OS === 'ios'
-        ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
-        : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
+      const granted = await requestForegroundLocationPermission(dialog, {
+        title: 'Find Nearby Services',
+        message: 'Fixhomi uses your location to show nearby service providers, estimate arrival times, and auto-fill your service address. Your location is never used for advertising or profiling.',
+      });
 
-      const result = await request(permission);
-
-      if (result === RESULTS.GRANTED) {
+      if (granted) {
         setLocationPermission('granted');
-        // Refresh location from global context after permission granted
         refreshLocation();
-        return true;
-      } else if (result === RESULTS.BLOCKED) {
-        setLocationPermission('blocked');
-        dialog(
-          t('userHome.locationPermRequired'),
-          t('userHome.locationPermMsg'),
-          [
-            { text: t('common.cancel'), style: 'cancel' },
-            { text: t('common.openSettings'), onPress: () => openSettings() }
-          ]
-        );
-        return false;
+      } else {
+        setLocationPermission('denied');
       }
-      return false;
+      return granted;
     } catch (error) {
       console.log('Permission request error:', error);
       return false;
     }
-  }, [refreshLocation]);
+  }, [refreshLocation, dialog]);
 
   // Check notification permission (Android 13+ requires explicit permission)
   const checkNotificationPermission = useCallback(async () => {
@@ -646,57 +638,31 @@ const UserHomeScreen = ({ navigation, route }) => {
 
   const requestNotificationPermission = useCallback(async () => {
     try {
-      if (Platform.OS === 'android' && Platform.Version >= 33) {
-        // Verify the permission constant exists before using it
-        const permission = PERMISSIONS.ANDROID?.POST_NOTIFICATIONS;
-        if (!permission) {
-          console.log('POST_NOTIFICATIONS permission not available for request');
-          return true;
-        }
-        const result = await request(permission);
-        if (result === RESULTS.GRANTED) {
-          setNotificationPermission('granted');
-          return true;
-        } else if (result === RESULTS.BLOCKED) {
-          setNotificationPermission('blocked');
-          dialog(
-            t('userHome.notificationRequired'),
-            t('userHome.notificationRequiredMsg'),
-            [
-              { text: t('common.openSettings'), onPress: () => openSettings() }
-            ]
-          );
-          return false;
-        }
-        return false;
-      }
-      return true;
+      const granted = await requestAndroidNotificationPermission(dialog, {
+        title: 'Stay Updated on Your Services',
+        message: 'Fixhomi uses notifications to alert you when a provider accepts your request, arrives at your address, or updates the status of an active service. You can change this anytime in Settings.',
+      });
+      setNotificationPermission(granted ? 'granted' : 'denied');
+      return granted;
     } catch (error) {
       console.log('Notification permission request error:', error);
       return true;
     }
-  }, []);
+  }, [dialog]);
 
-  // Initial permission checks
-  // Note: Location is now handled by global LocationContext with 30-second refresh
+  // Initial permission checks — silent only.
+  // Launch-time prompts are shown on UserTypeScreen (first-run). If the user
+  // declined there, we do NOT re-prompt on every home-screen mount — they
+  // can tap the location / notification banner or use Settings. Location
+  // fetching is handled by LocationContext's reactive effect.
   useEffect(() => {
     const initializePermissions = async () => {
-      // Check notification permission first (required)
-      const notifGranted = await checkNotificationPermission();
-      if (!notifGranted) {
-        const requested = await requestNotificationPermission();
-        if (!requested && notificationPermission === 'blocked') {
-          // Notification is blocked - show persistent warning
-        }
-      }
-
-      // Check location permission (for UI state)
-      // Actual location fetching is handled by LocationContext
+      await checkNotificationPermission();
       await checkLocationPermission();
     };
 
     initializePermissions();
-  }, [checkLocationPermission, checkNotificationPermission, requestNotificationPermission]);
+  }, [checkLocationPermission, checkNotificationPermission]);
 
   // Handle location change - no longer needed as we use global context
   // Kept for compatibility but now just logs

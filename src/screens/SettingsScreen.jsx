@@ -35,7 +35,8 @@ import TouchableOpacity from '../components/TouchableOpacity';
 import { BlurView } from '@react-native-community/blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { check, request, checkNotifications, requestNotifications, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
+import { check, checkNotifications, requestNotifications, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
+import { requestAndroidNotificationPermission } from '../utils/permissions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
@@ -512,16 +513,19 @@ const SettingsScreen = ({ navigation }) => {
           );
           // Still update the app-level preference (falls through below)
         } else if (currentStatus === RESULTS.DENIED) {
-          // Request permission
-          let result;
+          // Request permission with in-app disclosure (Prominent Disclosure
+          // requirement — Google Play User Data policy).
           if (Platform.OS === 'ios') {
             const { status } = await requestNotifications(['alert', 'badge', 'sound']);
-            result = status;
+            if (status === RESULTS.GRANTED || status === RESULTS.LIMITED) {
+              setNotificationPermission(RESULTS.GRANTED);
+            }
           } else {
-            result = await request(PERMISSIONS.ANDROID.POST_NOTIFICATIONS);
-          }
-          if (result === RESULTS.GRANTED || result === RESULTS.LIMITED) {
-            setNotificationPermission(RESULTS.GRANTED);
+            const granted = await requestAndroidNotificationPermission(dialog, {
+              title: 'Stay Updated on Your Services',
+              message: 'Fixhomi uses notifications to alert you when a provider accepts your request, arrives at your address, or updates the status of an active service. You can change this anytime in Settings.',
+            });
+            if (granted) setNotificationPermission(RESULTS.GRANTED);
           }
           // Still update the app-level preference regardless
         } else if (currentStatus === RESULTS.GRANTED || currentStatus === RESULTS.LIMITED) {

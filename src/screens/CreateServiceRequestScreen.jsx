@@ -35,6 +35,7 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
+import { requestForegroundLocationPermission } from '../utils/permissions';
 import {
   createServiceRequest,
   getNearbyProviders,
@@ -162,8 +163,17 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
     setLocationError(null);
 
     try {
-      if (Platform.OS === 'ios') {
-        Geolocation.requestAuthorization('whenInUse');
+      // Show in-app disclosure before the OS prompt (Prominent Disclosure
+      // requirement — Google Play User Data policy).
+      const granted = await requestForegroundLocationPermission(dialog, {
+        title: 'Send Your Service Address',
+        message: 'Fixhomi uses your location to send your service address to the selected provider so they can reach you. You can also pick a saved address instead.',
+      });
+
+      if (!granted) {
+        setLocationLoading(false);
+        setLocationError(t('createRequest.locationPermFailed'));
+        return;
       }
 
       getCurrentPosition();

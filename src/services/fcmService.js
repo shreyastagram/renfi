@@ -87,16 +87,17 @@ export async function getFcmToken() {
       console.log('ℹ️ FCM messaging not available (development/simulator)');
       return null;
     }
-    
-    // Check if permission is granted first
+
+    // Silently check permission. Do NOT request here — notification prompts
+    // must be preceded by an in-app disclosure (Google Play User Data policy)
+    // and those are owned by UserTypeScreen / user-initiated flows. If
+    // permission isn't granted yet, skip FCM token registration; it will be
+    // attempted again after the user grants via a subsequent login.
     const permissionStatus = await hasPermission(messaging);
     if (permissionStatus !== AuthorizationStatus.AUTHORIZED &&
         permissionStatus !== AuthorizationStatus.PROVISIONAL) {
-      const granted = await requestNotificationPermission();
-      if (!granted) {
-        console.log('ℹ️ Notification permission not granted - FCM disabled');
-        return null;
-      }
+      console.log('ℹ️ Notification permission not granted — skipping FCM token (no cold prompt)');
+      return null;
     }
 
     const token = await getToken(messaging);

@@ -14,13 +14,14 @@ import {
   ActivityIndicator,
   Text,
   Platform,
-  PermissionsAndroid,
 } from 'react-native';
 import Mapbox from '@rnmapbox/maps';
 import Geolocation from '@react-native-community/geolocation';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 
 import { initializeMapbox } from '../../config/mapbox';
+import { useDialog } from '../../context/DialogContext';
+import { requestForegroundLocationPermission } from '../../utils/permissions';
 
 // Initialize Mapbox at module level — BEFORE any MapView renders.
 // In release builds, useEffect runs after first render, by which time
@@ -35,32 +36,9 @@ const DEFAULT_LOCATION = {
 
 const DEFAULT_ZOOM = 14;
 
-/**
- * Request location permission for Android
- */
-const requestLocationPermission = async () => {
-  if (Platform.OS === 'ios') {
-    Geolocation.requestAuthorization();
-    return true;
-  }
-
-  try {
-    const granted = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      {
-        title: 'Location Permission',
-        message: 'FixHomi needs access to your location to show nearby services.',
-        buttonNeutral: 'Ask Me Later',
-        buttonNegative: 'Cancel',
-        buttonPositive: 'OK',
-      }
-    );
-    return granted === PermissionsAndroid.RESULTS.GRANTED;
-  } catch (err) {
-    console.warn('Location permission error:', err);
-    return false;
-  }
-};
+// Note: foreground location permission is requested via
+// requestForegroundLocationPermission (Prominent Disclosure helper) inside
+// the component body where useDialog() is available.
 
 /**
  * Custom Marker Component
@@ -146,6 +124,7 @@ const LocationMap = forwardRef(({
   const [locationError, setLocationError] = useState(null);
   const watchIdRef = useRef(null);
   const hasFallbackInit = useRef(false);
+  const { dialog } = useDialog();
 
   // ── Sync from LocationContext (instant, no GPS call) ──
   useEffect(() => {
@@ -166,7 +145,12 @@ const LocationMap = forwardRef(({
     if (hasFallbackInit.current) return;
     hasFallbackInit.current = true;
 
-    const granted = await requestLocationPermission();
+    // Show in-app disclosure before the OS prompt (Prominent Disclosure
+    // requirement — Google Play User Data policy).
+    const granted = await requestForegroundLocationPermission(dialog, {
+      title: 'Show You on the Map',
+      message: 'Fixhomi uses your location to center the map on your position and display nearby service providers. Location is only used while this screen is open.',
+    });
     setHasPermission(granted);
     if (!granted) {
       setLocationError('Location permission denied');
@@ -199,7 +183,7 @@ const LocationMap = forwardRef(({
         { enableHighAccuracy: true, distanceFilter: 10, interval: 5000, fastestInterval: 2000 }
       );
     }
-  }, [externalLocation, onLocationChange, showUserLocation]);
+  }, [externalLocation, onLocationChange, showUserLocation, dialog]);
 
   useEffect(() => {
     initializeMapbox();

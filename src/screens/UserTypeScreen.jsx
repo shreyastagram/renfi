@@ -7,7 +7,7 @@
  * @version 1.1.0
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import {  View,
   Text,
   StyleSheet,
@@ -15,14 +15,23 @@ import {  View,
   Pressable,
   Platform
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { FixhomiLogo } from '../components';
 import { useApp } from '../context/AppContext';
+import { useDialog } from '../context/DialogContext';
+import { useLocation } from '../context/LocationContext';
 import { useLanguage } from '../context/LanguageContext';
 import useExitConfirmation from '../hooks/useExitConfirmation';
+import {
+  requestForegroundLocationPermission,
+  requestAndroidNotificationPermission,
+} from '../utils/permissions';
+
+const LAUNCH_PROMPTS_SHOWN_KEY = 'fixhomi_launch_prompts_shown';
 
 const COLORS = {
   primary: '#f67c16',
@@ -44,10 +53,64 @@ const COLORS = {
 const UserTypeScreen = ({ navigation }) => {
   const { selectUserType } = useApp();
   const { t, language, setLanguage, languages } = useLanguage();
+  const { dialog } = useDialog();
+  const { checkPermissionStatus } = useLocation();
   const [showLangPicker, setShowLangPicker] = React.useState(false);
 
   // Show "Exit App?" confirmation on Android back button press
   useExitConfirmation();
+
+  // One-time launch permission disclosures (notification + foreground
+  // location). Prominent Disclosure requirement — Google Play User Data
+  // policy. Copy addresses both User and Service Provider roles since role
+  // isn't chosen yet. Background location is NOT requested here — providers
+  // get that prompt contextually when they accept their first service.
+  useEffect(() => {
+    let cancelled = false;
+    const showLaunchPromptsIfFirstTime = async () => {
+      try {
+        const shown = await AsyncStorage.getItem(LAUNCH_PROMPTS_SHOWN_KEY);
+        if (shown === 'true') return;
+
+        // Small delay so the UserType screen is visibly rendered first
+        await new Promise(resolve => setTimeout(resolve, 600));
+        if (cancelled) return;
+
+        // Notifications — sequential, awaited
+        await requestAndroidNotificationPermission(dialog, {
+          title: 'Stay Updated on Your Services',
+          message:
+            'Fixhomi uses notifications to keep you informed:\n' +
+            '• As a User — when your service provider accepts and arrives for your service\n' +
+            '• As a Service Provider — when customers send you new service requests\n\n' +
+            'You can change this anytime in Settings.',
+        });
+        if (cancelled) return;
+
+        // Location — sequential, awaited
+        await requestForegroundLocationPermission(dialog, {
+          title: 'Location Access',
+          message:
+            'Fixhomi uses your location to:\n' +
+            '• As a User — find nearby service providers and auto-fill your service address\n' +
+            '• As a Service Provider — match you with nearby service requests and show your position on the map\n\n' +
+            'Service Providers also need background location during an active service so customers can see live arrival — we will ask for that separately when you accept your first request. Users do not need background location.\n\n' +
+            'Your location is never used for advertising or profiling.',
+        });
+
+        // Sync LocationContext's cached permission state so its reactive
+        // effect can start location updates if the user granted.
+        await checkPermissionStatus();
+
+        await AsyncStorage.setItem(LAUNCH_PROMPTS_SHOWN_KEY, 'true');
+      } catch (err) {
+        console.warn('[UserType] Launch prompts error:', err?.message);
+      }
+    };
+
+    showLaunchPromptsIfFirstTime();
+    return () => { cancelled = true; };
+  }, [dialog, checkPermissionStatus]);
 
   /**
    * Handle user type selection

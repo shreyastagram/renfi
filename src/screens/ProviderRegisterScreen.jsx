@@ -33,6 +33,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { registerProvider, getErrorMessage, AUTH_CODES, checkAvailability } from '../services/authService';
 import { validateProviderRegistrationForm } from '../utils/validation';
 import { useApp } from '../context/AppContext';
+import { useDialog } from '../context/DialogContext';
+import { requestForegroundLocationPermission } from '../utils/permissions';
 import {
   signInWithGoogleAsProvider,
   syncGoogleProviderToMongoDB,
@@ -58,6 +60,7 @@ import { useLanguage } from '../context/LanguageContext';
 const ProviderRegisterScreen = ({ navigation }) => {
   const { handleAuthSuccess } = useApp();
   const { t } = useLanguage();
+  const { dialog } = useDialog();
 
   // Form state - required and common optional fields
   const [formData, setFormData] = useState({
@@ -194,28 +197,14 @@ const ProviderRegisterScreen = ({ navigation }) => {
   }, []);
 
   /**
-   * Request location permission (Android)
+   * Request location permission with in-app disclosure (Prominent Disclosure
+   * requirement — Google Play User Data policy).
    */
   const requestLocationPermission = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          {
-            title: t('providerRegister.locationPermission'),
-            message: t('providerRegister.locationPermissionMsg'),
-            buttonNeutral: t('providerRegister.askMeLater'),
-            buttonNegative: t('common.cancel'),
-            buttonPositive: t('common.ok'),
-          }
-        );
-        return granted === PermissionsAndroid.RESULTS.GRANTED;
-      } catch (err) {
-        console.warn('Location permission error:', err);
-        return false;
-      }
-    }
-    return true; // iOS handles permission via Info.plist
+    return await requestForegroundLocationPermission(dialog, {
+      title: 'Set Your Service Area',
+      message: 'Fixhomi uses your location to register your service area so nearby customers can find and book your services. You can also enter your location manually.',
+    });
   };
 
   /**

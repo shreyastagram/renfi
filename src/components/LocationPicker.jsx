@@ -22,12 +22,12 @@ import {  View,
   KeyboardAvoidingView,
   ScrollView,
   Linking,
-  PermissionsAndroid
 } from 'react-native';
 import TouchableOpacity from './TouchableOpacity';
 import Geolocation from '@react-native-community/geolocation';
 import Icon from './Icon';
 import { useDialog } from '../context/DialogContext';
+import { requestForegroundLocationPermission } from '../utils/permissions';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import MapPickerModal from './MapPickerModal';
 import { useApp } from '../context/AppContext';
@@ -46,31 +46,9 @@ const BRAND = {
   white: '#FFFFFF',
 };
 
-/**
- * Request location permission (Android)
- */
-const requestLocationPermission = async () => {
-  if (Platform.OS === 'ios') {
-    return true; // iOS handles permissions through Info.plist
-  }
-  
-  try {
-    const granted = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      {
-        title: 'Location Permission Required',
-        message: 'FixHomi needs access to your location to find nearby service providers.',
-        buttonNeutral: 'Ask Me Later',
-        buttonNegative: 'Cancel',
-        buttonPositive: 'OK',
-      }
-    );
-    return granted === PermissionsAndroid.RESULTS.GRANTED;
-  } catch (err) {
-    console.warn('Location permission error:', err);
-    return false;
-  }
-};
+// Foreground location permission is requested via
+// requestForegroundLocationPermission (Prominent Disclosure helper) inside
+// the component body where useDialog() is available.
 
 /**
  * Show location settings prompt
@@ -438,18 +416,14 @@ const LocationPicker = ({
     // ── FALLBACK PATH: No context location — need fresh GPS ──
     setGettingLocation(true);
     
-    // Request permission first on Android
-    const hasPermission = await requestLocationPermission();
+    // Show in-app disclosure before the OS prompt (Prominent Disclosure
+    // requirement — Google Play User Data policy).
+    const hasPermission = await requestForegroundLocationPermission(dialog, {
+      title: 'Use Your Current Location',
+      message: 'Fixhomi uses your location to show nearby service providers and auto-fill your service address. You can also type the address manually or pick one on the map.',
+    });
     if (!hasPermission) {
       setGettingLocation(false);
-      dialog(
-        'Permission Required',
-        'Location permission is needed to get your current location. Please enable it in settings.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Open Settings', onPress: () => Linking.openSettings() },
-        ]
-      );
       return;
     }
     

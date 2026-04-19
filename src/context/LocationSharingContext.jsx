@@ -121,36 +121,57 @@ export const LocationSharingProvider = ({ children }) => {
   /**
    * Start background tracking with permission check.
    *
-   * Key design: TransistorSoft works with "When in Use" permission (via foreground
-   * service). "Allow all the time" is only needed for killed-state tracking.
-   * So we ALWAYS start TransistorSoft if we have any location permission,
-   * and only prompt for "Always" once as a bonus.
+   * Key design: TransistorSoft works with "When in Use" permission (via
+   * foreground service). "Allow all the time" is only needed for
+   * killed-state tracking.
    *
-   * Flow:
-   * 1. Always start TransistorSoft (works with foreground location permission)
-   * 2. If "Always" not granted and never asked → prompt once for killed-state support
-   * 3. If user declines "Always" → TransistorSoft still works in foreground+background
+   * Flow (updated for Prominent Disclosure compliance — Google Play User
+   * Data policy):
+   * 1. If "Always" is already granted → start tracking immediately.
+   * 2. Else, if never asked this install → show OUR in-app disclosure FIRST,
+   *    wait for the user's tap, then (if granted) let the OS prompt fire
+   *    via react-native-permissions. Only AFTER the user has responded
+   *    do we start TransistorSoft. This prevents the native OS prompt from
+   *    racing with our disclosure.
+   * 3. If user declines "Always" → still start TransistorSoft with foreground
+   *    permission (it works via the foreground service).
+   * 4. If already asked earlier → just start TransistorSoft without
+   *    re-prompting.
    */
   const startBackgroundWithPermission = useCallback(async (pid, reqId) => {
-    // Always start TransistorSoft — it works with "When in Use" via foreground service
-    startBackgroundTracking(pid, reqId);
-
-    // Check if "Allow all the time" is already granted (for killed-state support)
+    // Fast path: BG already granted → start tracking and return
     const alwaysGranted = await isBackgroundLocationGranted();
-    if (alwaysGranted) return; // All good — killed-state tracking works too
+    if (alwaysGranted) {
+      startBackgroundTracking(pid, reqId);
+      return;
+    }
 
-    // Prompt for "Always" permission once — bonus for killed-state, not a blocker
-    if (bgPermissionPromptedRef.current) return;
-
+    // Already asked this session or this install → start with FG-only
+    if (bgPermissionPromptedRef.current) {
+      startBackgroundTracking(pid, reqId);
+      return;
+    }
     try {
       const alreadyAsked = await AsyncStorage.getItem(BG_PERMISSION_ASKED_KEY);
-      if (alreadyAsked === 'true') return;
+      if (alreadyAsked === 'true') {
+        startBackgroundTracking(pid, reqId);
+        return;
+      }
     } catch {}
 
+    // First-time ask: show OUR disclosure → OS prompt → THEN start tracking.
+    // Ordering matters — TransistorSoft's start() can trigger its own OS
+    // prompt, which must never appear while our disclosure is still visible.
     bgPermissionPromptedRef.current = true;
     await AsyncStorage.setItem(BG_PERMISSION_ASKED_KEY, 'true').catch(() => {});
 
     const granted = await requestBackgroundLocationPermission(dialog);
+
+    // Start tracking regardless of outcome — TransistorSoft works with
+    // foreground permission via the foreground service. "Allow all the
+    // time" only adds killed-state coverage.
+    startBackgroundTracking(pid, reqId);
+
     if (granted) {
       setTimeout(() => showBatteryOptimizationDialog(dialog), 800);
     }

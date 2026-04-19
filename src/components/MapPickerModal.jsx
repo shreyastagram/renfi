@@ -27,6 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Mapbox from '@rnmapbox/maps';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import Geolocation from '@react-native-community/geolocation';
+import { check, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -174,31 +175,44 @@ const MapPickerModal = ({
         // Trigger initial geocode directly — also queries native map center as fallback
         setTimeout(() => handleRegionChange(validInitial.latitude, validInitial.longitude), 600);
       } else {
-        // No initial location — try GPS
-        Geolocation.getCurrentPosition(
-          (position) => {
-            const loc = {
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-            };
-            gpsLocationRef.current = loc;
-            setCenterLocation(loc);
-            centerRef.current = loc;
-            isProgrammaticMoveRef.current = true;
-            cameraRef.current?.setCamera({
-              centerCoordinate: [loc.longitude, loc.latitude],
-              zoomLevel: 16,
-              animationDuration: 800,
-            });
-          },
-          () => {
-            // GPS failed, use fallback
-            setCenterLocation(FALLBACK_LOCATION);
-            centerRef.current = FALLBACK_LOCATION;
-            setTimeout(() => handleRegionChange(FALLBACK_LOCATION.latitude, FALLBACK_LOCATION.longitude), 500);
-          },
-          { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
-        );
+        // No initial location — try GPS, but only if permission is already
+        // granted. Never trigger a cold OS prompt here — upstream screens
+        // own the prominent-disclosure flow (Google Play User Data policy).
+        const useFallback = () => {
+          setCenterLocation(FALLBACK_LOCATION);
+          centerRef.current = FALLBACK_LOCATION;
+          setTimeout(() => handleRegionChange(FALLBACK_LOCATION.latitude, FALLBACK_LOCATION.longitude), 500);
+        };
+
+        const permission = Platform.OS === 'ios'
+          ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
+          : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
+
+        check(permission).then((status) => {
+          if (status !== RESULTS.GRANTED && status !== RESULTS.LIMITED) {
+            useFallback();
+            return;
+          }
+          Geolocation.getCurrentPosition(
+            (position) => {
+              const loc = {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+              };
+              gpsLocationRef.current = loc;
+              setCenterLocation(loc);
+              centerRef.current = loc;
+              isProgrammaticMoveRef.current = true;
+              cameraRef.current?.setCamera({
+                centerCoordinate: [loc.longitude, loc.latitude],
+                zoomLevel: 16,
+                animationDuration: 800,
+              });
+            },
+            () => useFallback(),
+            { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+          );
+        }).catch(() => useFallback());
       }
 
       setSelectedAddress(null);
@@ -399,23 +413,30 @@ const MapPickerModal = ({
     // Prefer GPS location, then initialLocation, then fallback
     const loc = gpsLocationRef.current || getValidInitialLocation();
     if (!loc) {
-      // Try GPS again
-      Geolocation.getCurrentPosition(
-        (position) => {
-          const gpsLoc = { latitude: position.coords.latitude, longitude: position.coords.longitude };
-          gpsLocationRef.current = gpsLoc;
-          isProgrammaticMoveRef.current = true;
-          cameraRef.current?.setCamera({
-            centerCoordinate: [gpsLoc.longitude, gpsLoc.latitude],
-            zoomLevel: 16,
-            animationDuration: 1000,
-          });
-          lastGeocodedRef.current = null;
-          setTimeout(() => geocodeMapCenter(), 1200);
-        },
-        () => {},
-        { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
-      );
+      // Only fetch GPS if permission is already granted — never cold-trigger
+      // the OS prompt here (upstream screens own the disclosure).
+      const permission = Platform.OS === 'ios'
+        ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
+        : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
+      check(permission).then((status) => {
+        if (status !== RESULTS.GRANTED && status !== RESULTS.LIMITED) return;
+        Geolocation.getCurrentPosition(
+          (position) => {
+            const gpsLoc = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+            gpsLocationRef.current = gpsLoc;
+            isProgrammaticMoveRef.current = true;
+            cameraRef.current?.setCamera({
+              centerCoordinate: [gpsLoc.longitude, gpsLoc.latitude],
+              zoomLevel: 16,
+              animationDuration: 1000,
+            });
+            lastGeocodedRef.current = null;
+            setTimeout(() => geocodeMapCenter(), 1200);
+          },
+          () => {},
+          { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+        );
+      }).catch(() => {});
       return;
     }
     isProgrammaticMoveRef.current = true;

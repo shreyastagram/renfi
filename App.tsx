@@ -392,8 +392,11 @@ function AppContent() {
   }, [runVersionCheck]);
 
   return (
-    <LocationProvider>
-      <DialogProvider>
+    // DialogProvider MUST wrap LocationProvider so LocationContext's
+    // useDialog() resolves to the styled CustomDialog instead of falling
+    // back to the native Alert.alert.
+    <DialogProvider>
+      <LocationProvider>
       <View style={{ flex: 1 }}>
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <NavigationContainer
@@ -427,8 +430,8 @@ function AppContent() {
           onFinish={handleSplashFinish}
         />
       </View>
-      </DialogProvider>
-    </LocationProvider>
+      </LocationProvider>
+    </DialogProvider>
   );
 }
 

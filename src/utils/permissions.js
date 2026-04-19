@@ -7,7 +7,7 @@
  * permission, opens the app settings so they can re-enable it.
  */
 
-import { Platform, Linking } from 'react-native';
+import { Platform, Linking, PermissionsAndroid } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   check,
@@ -16,6 +16,144 @@ import {
   RESULTS,
   openSettings,
 } from 'react-native-permissions';
+
+// ─── Foreground Location (Prominent Disclosure helper) ────────────────
+// Google Play's User Data policy requires an in-app disclosure immediately
+// before any runtime permission prompt. Use this for every screen that
+// requests foreground location, with screen-specific `message` copy.
+
+const FOREGROUND_LOCATION_PERMISSION = Platform.select({
+  ios: PERMISSIONS.IOS.LOCATION_WHEN_IN_USE,
+  android: PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION,
+});
+
+/**
+ * Request foreground location with a mandatory in-app disclosure dialog
+ * that precedes the OS permission prompt. Complies with Google Play
+ * Prominent Disclosure & Consent requirement.
+ *
+ * @param {Function} dialog - useDialog() dialog function (required)
+ * @param {Object} opts
+ * @param {string} opts.message - purpose-specific disclosure shown before the OS prompt
+ * @param {string} [opts.title] - dialog title (default: 'Location Access')
+ * @param {string} [opts.continueText] - continue button label
+ * @param {string} [opts.cancelText] - cancel button label
+ * @returns {Promise<boolean>} true if granted
+ */
+export const requestForegroundLocationPermission = async (dialog, opts = {}) => {
+  const {
+    message = 'Fixhomi uses your location to provide core service features. Location is only used while the app is open.',
+    title = 'Location Access',
+    continueText = 'Continue',
+    cancelText = 'Not Now',
+  } = opts;
+
+  try {
+    const status = await check(FOREGROUND_LOCATION_PERMISSION);
+
+    if (status === RESULTS.GRANTED || status === RESULTS.LIMITED) return true;
+
+    if (status === RESULTS.BLOCKED) {
+      return new Promise((resolve) => {
+        dialog(
+          'Location Access Needed',
+          'Location permission was previously denied. Please enable it in Settings to use this feature.',
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Open Settings', onPress: () => { openSettings().catch(() => Linking.openSettings()); resolve(false); } },
+          ],
+        );
+      });
+    }
+
+    // DENIED or UNAVAILABLE → show in-app disclosure, then request
+    return new Promise((resolve) => {
+      dialog(
+        title,
+        message,
+        [
+          { text: cancelText, style: 'cancel', onPress: () => resolve(false) },
+          {
+            text: continueText,
+            onPress: async () => {
+              try {
+                // Give React a tick to unmount the Modal before the OS
+                // permission prompt appears — otherwise both can be on
+                // screen at the same time on slower Android devices.
+                await new Promise((r) => setTimeout(r, 60));
+                const result = await request(FOREGROUND_LOCATION_PERMISSION);
+                resolve(result === RESULTS.GRANTED || result === RESULTS.LIMITED);
+              } catch (err) {
+                console.warn('[Permissions] Foreground location request error:', err?.message);
+                resolve(false);
+              }
+            },
+          },
+        ],
+      );
+    });
+  } catch (err) {
+    console.warn('[Permissions] Foreground location check error:', err?.message);
+    return false;
+  }
+};
+
+/**
+ * Request POST_NOTIFICATIONS (Android 13+) with an in-app disclosure.
+ * Silent no-op on iOS and Android <13 (iOS permission is handled by FCM/APNs).
+ *
+ * @param {Function} dialog - useDialog() dialog function
+ * @param {Object} opts
+ * @param {string} [opts.message] - purpose-specific disclosure copy
+ * @returns {Promise<boolean>} true if granted (or not required)
+ */
+export const requestAndroidNotificationPermission = async (dialog, opts = {}) => {
+  if (Platform.OS !== 'android' || Number(Platform.Version) < 33) return true;
+
+  const {
+    title = 'Notification Access',
+    message = 'Fixhomi uses notifications to alert you about service request updates, provider arrivals, and important account activity. You can change this anytime in Settings.',
+    continueText = 'Continue',
+    cancelText = 'Not Now',
+  } = opts;
+
+  try {
+    const already = await PermissionsAndroid.check(
+      PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+    );
+    if (already) return true;
+
+    return new Promise((resolve) => {
+      dialog(
+        title,
+        message,
+        [
+          { text: cancelText, style: 'cancel', onPress: () => resolve(false) },
+          {
+            text: continueText,
+            onPress: async () => {
+              try {
+                // Give React a tick to unmount the Modal before the OS
+                // prompt appears — prevents overlap on slower Android devices.
+                await new Promise((r) => setTimeout(r, 60));
+                const result = await PermissionsAndroid.request(
+                  PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+                );
+                resolve(result === PermissionsAndroid.RESULTS.GRANTED);
+              } catch (err) {
+                console.warn('[Permissions] Notification request error:', err?.message);
+                resolve(false);
+              }
+            },
+          },
+        ],
+      );
+    });
+  } catch (err) {
+    console.warn('[Permissions] Notification check error:', err?.message);
+    return false;
+  }
+};
 
 // ─── Camera ───────────────────────────────────────────────────────────
 const CAMERA_PERMISSION = Platform.select({
@@ -141,9 +279,13 @@ const requestIOSBackgroundLocation = async (dialog) => {
   // Check current status
   const whenInUse = await check(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
   if (whenInUse !== RESULTS.GRANTED && whenInUse !== RESULTS.LIMITED) {
-    // Need basic location first
-    const result = await request(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
-    if (result !== RESULTS.GRANTED && result !== RESULTS.LIMITED) {
+    // Need foreground first — show in-app disclosure before the OS prompt
+    // (Prominent Disclosure requirement — Google Play User Data policy).
+    const foregroundGranted = await requestForegroundLocationPermission(dialog, {
+      title: 'Location Access',
+      message: 'Fixhomi needs your location to match you with nearby service requests and show your position on the provider map.\n\nThe next step will ask for background access so customers can see your live location during an active service.',
+    });
+    if (!foregroundGranted) {
       showLocationDeniedDialog(dialog);
       return false;
     }
@@ -172,6 +314,7 @@ const requestIOSBackgroundLocation = async (dialog) => {
         {
           text: 'Continue',
           onPress: async () => {
+            await new Promise((r) => setTimeout(r, 60));
             const result = await request(PERMISSIONS.IOS.LOCATION_ALWAYS);
             if (result === RESULTS.GRANTED) {
               resolve(true);
@@ -198,18 +341,25 @@ const requestAndroidBackgroundLocation = async (dialog) => {
     const fineLocation = await check(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
     if (fineLocation === RESULTS.GRANTED) return true;
 
-    const result = await request(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
-    if (result === RESULTS.GRANTED) return true;
+    const granted = await requestForegroundLocationPermission(dialog, {
+      title: 'Location Access',
+      message: 'Fixhomi needs your location to match you with nearby service requests and share your live location with customers during an active service.',
+    });
+    if (granted) return true;
 
     showLocationDeniedDialog(dialog);
     return false;
   }
 
-  // Ensure fine location is granted first
+  // Ensure fine location is granted first — show in-app disclosure before the
+  // OS prompt (Prominent Disclosure requirement — Google Play User Data policy).
   const fineStatus = await check(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
   if (fineStatus !== RESULTS.GRANTED) {
-    const result = await request(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
-    if (result !== RESULTS.GRANTED) {
+    const foregroundGranted = await requestForegroundLocationPermission(dialog, {
+      title: 'Location Access',
+      message: 'Fixhomi needs your location to match you with nearby service requests and show your position on the provider map.\n\nThe next step will ask for background access so customers can see your live location during an active service.',
+    });
+    if (!foregroundGranted) {
       showLocationDeniedDialog(dialog);
       return false;
     }
@@ -238,6 +388,7 @@ const requestAndroidBackgroundLocation = async (dialog) => {
         {
           text: 'Continue',
           onPress: async () => {
+            await new Promise((r) => setTimeout(r, 60));
             const result = await request(PERMISSIONS.ANDROID.ACCESS_BACKGROUND_LOCATION);
             if (result === RESULTS.GRANTED) {
               resolve(true);

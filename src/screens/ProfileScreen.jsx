@@ -59,8 +59,11 @@ import {
 import { getAadhaarStatus } from '../services/aadhaarService';
 import { getVerificationDashboard } from '../services/verificationService';
 import Geolocation from '@react-native-community/geolocation';
-import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
-import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
+import {
+  requestCameraPermission,
+  requestGalleryPermission,
+  requestForegroundLocationPermission,
+} from '../utils/permissions';
 import SavedAddresses from '../components/SavedAddresses';
 import GraphBackground from '../components/GraphBackground';
 import AddressAutocomplete from '../components/AddressAutocomplete';
@@ -385,22 +388,14 @@ const ProfileScreen = ({ navigation, route }) => {
   const handleDetectLocation = useCallback(async () => {
     setDetectingLocation(true);
     try {
-      // 1. Check & request location permission
-      const permission = Platform.OS === 'ios'
-        ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
-        : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
+      // 1. Request location permission with in-app disclosure (Prominent
+      //    Disclosure requirement — Google Play User Data policy).
+      const granted = await requestForegroundLocationPermission(dialog, {
+        title: 'Auto-Fill Your Profile Address',
+        message: 'Fixhomi uses your location to detect your current address and auto-fill your profile address, city, and PIN code. You can also enter these details manually.',
+      });
 
-      let permStatus = await check(permission);
-      if (permStatus === RESULTS.DENIED) {
-        permStatus = await request(permission);
-      }
-
-      if (permStatus !== RESULTS.GRANTED && permStatus !== RESULTS.LIMITED) {
-        dialog(
-          t('profile.locationPermRequired'),
-          t('profile.locationPermMsg'),
-          [{ text: t('common.ok') }]
-        );
+      if (!granted) {
         setDetectingLocation(false);
         return;
       }

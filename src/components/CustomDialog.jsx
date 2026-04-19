@@ -13,12 +13,15 @@ import {  View,
   Modal,
   Animated,
   Dimensions,
-  Platform
+  Platform,
+  ScrollView
 } from 'react-native';
 import TouchableOpacity from './TouchableOpacity';
 import { BlurView } from '@react-native-community/blur';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+// Cap message content so buttons always remain visible on small/landscape devices.
+const MAX_CONTENT_HEIGHT = Math.max(160, SCREEN_HEIGHT * 0.45);
 const IS_IOS = Platform.OS === 'ios';
 
 const BRAND = {
@@ -100,15 +103,20 @@ const CustomDialog = ({ visible, title, message, buttons = [], onDismiss }) => {
                 blurAmount={80}
                 reducedTransparencyFallbackColor="#F2F2F7"
               >
-                {/* Content */}
-                <View style={iosStyles.content}>
+                {/* Content — scrollable so buttons stay visible for long copy */}
+                <ScrollView
+                  style={{ maxHeight: MAX_CONTENT_HEIGHT }}
+                  contentContainerStyle={iosStyles.content}
+                  showsVerticalScrollIndicator={false}
+                  bounces={false}
+                >
                   {title ? <Text style={iosStyles.title}>{title}</Text> : null}
                   {message ? (
                     <Text style={[iosStyles.message, !title && { marginTop: 0 }]}>
                       {message}
                     </Text>
                   ) : null}
-                </View>
+                </ScrollView>
 
                 {/* Action buttons */}
                 <View style={iosStyles.actionsWrap}>
@@ -202,8 +210,14 @@ const CustomDialog = ({ visible, title, message, buttons = [], onDismiss }) => {
             { transform: [{ scale: scaleAnim }], opacity: opacityAnim },
           ]}
         >
-          {title ? <Text style={androidStyles.title}>{title}</Text> : null}
-          {message ? <Text style={androidStyles.message}>{message}</Text> : null}
+          <ScrollView
+            style={{ maxHeight: MAX_CONTENT_HEIGHT }}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            {title ? <Text style={androidStyles.title}>{title}</Text> : null}
+            {message ? <Text style={androidStyles.message}>{message}</Text> : null}
+          </ScrollView>
 
           <View style={[
             androidStyles.buttonRow,
