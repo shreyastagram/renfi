@@ -161,6 +161,9 @@ export const registerUser = async (userData) => {
       phone: userData.phone?.trim() ? normalizePhoneForApi(userData.phone) : undefined,
       location: userData.location || undefined,
       referralCode: userData.referralCode || undefined,
+      // Backend enforces T&C — backend rejects 400 if these are not true.
+      termsAccepted: userData.termsAccepted === true,
+      privacyAccepted: userData.privacyAccepted === true,
     });
     
     console.log('✅ [AuthService] Registration successful');
@@ -209,6 +212,9 @@ export const registerProvider = async (providerData) => {
       requestBody.longitude = providerData.longitude;
     }
     if (providerData.referralCode) requestBody.referralCode = providerData.referralCode;
+    // Backend enforces T&C — backend rejects 400 if these are not true.
+    requestBody.termsAccepted = providerData.termsAccepted === true;
+    requestBody.privacyAccepted = providerData.privacyAccepted === true;
 
     const response = await apiClient.post(ENDPOINTS.AUTH.PROVIDER_REGISTER, requestBody);
     
@@ -221,17 +227,7 @@ export const registerProvider = async (providerData) => {
   } catch (error) {
     const parsedError = parseApiError(error);
     console.error('❌ [AuthService] Provider registration failed:', parsedError);
-    
-    // Handle MONGODB_SYNC_FAILED - provider created in Java Auth
-    if (error.response?.data?.code === 'MONGODB_SYNC_FAILED' && error.response?.data?.accessToken) {
-      console.warn('⚠️ [AuthService] MongoDB sync failed but auth succeeded - proceeding with tokens');
-      return {
-        success: true,
-        data: error.response.data,
-        warning: 'Profile sync pending. Some features may be limited.',
-      };
-    }
-    
+
     return {
       success: false,
       error: parsedError,

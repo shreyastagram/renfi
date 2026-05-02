@@ -133,7 +133,7 @@ export const dismissUpdate = async (version) => {
 export const openStorePage = async (storeUrl) => {
   try {
     const url = storeUrl || (Platform.OS === 'ios'
-      ? 'https://apps.apple.com/app/fixhomi'
+      ? 'https://apps.apple.com/app/fixhomi/id6760935950'
       : 'https://play.google.com/store/apps/details?id=com.renfi');
 
     const canOpen = await Linking.canOpenURL(url);

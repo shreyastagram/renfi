@@ -532,9 +532,14 @@ export const DrawerMenu = ({
                 setTimeout(() => {
                   const { checkForAppUpdate } = require('../services/appUpdateService');
                   checkForAppUpdate?.().then(result => {
-                    if (result?.updateAvailable) {
+                    // checkForAppUpdate returns null when up-to-date, or an
+                    // object with `latestVersion` when an update is available.
+                    if (result && result.latestVersion) {
                       dialog('Update Available', `Version ${result.latestVersion} is available.`, [
-                        { text: 'Update', onPress: () => Linking.openURL(result.storeUrl || 'https://play.google.com/store/apps/details?id=com.fixhomi.app') },
+                        { text: 'Update', onPress: () => {
+                          const { openStorePage } = require('../services/appUpdateService');
+                          openStorePage(result.storeUrl);
+                        } },
                         { text: 'Later', style: 'cancel' },
                       ]);
                     } else {

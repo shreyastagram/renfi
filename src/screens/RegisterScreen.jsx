@@ -42,6 +42,7 @@ import {
   getAppleAuthErrorMessage,
 } from '../services/appleAuthService';
 import AppleEmailCollectionModal from '../components/AppleEmailCollectionModal';
+import RegisterChoice from '../components/RegisterChoice';
 
 /**
  * RegisterScreen Component
@@ -72,6 +73,7 @@ const RegisterScreen = ({ navigation }) => {
   }, []);
 
   // UI state
+  const [mode, setMode] = useState('choice'); // 'choice' | 'form'
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
@@ -272,13 +274,15 @@ const RegisterScreen = ({ navigation }) => {
       // Start loading
       setLoading(true);
 
-      // Call register API
+      // Call register API — backend enforces T&C, send the flags it captured
       const result = await registerUser({
         email: formData.email,
         password: formData.password,
         fullName: formData.fullName,
         phone: formData.phone || undefined,
         referralCode: formData.referralCode?.trim() || undefined,
+        termsAccepted: termsAccepted === true,
+        privacyAccepted: termsAccepted === true,
       });
 
       if (result.success) {
@@ -385,9 +389,14 @@ const RegisterScreen = ({ navigation }) => {
   };
 
   /**
-   * Navigate back to user type selection
+   * Form-mode back button — returns to choice mode rather than navigating away.
+   * From choice mode the user can still go back via the system gesture.
    */
   const handleBack = () => {
+    if (mode === 'form') {
+      setMode('choice');
+      return;
+    }
     navigation.goBack();
   };
 
@@ -424,6 +433,8 @@ const RegisterScreen = ({ navigation }) => {
             googleId: user.googleId,
             profilePicture: user.profilePicture,
             referralCode: pendingRefCode,
+            termsAccepted: termsAccepted === true,
+            privacyAccepted: termsAccepted === true,
           }, accessToken);
 
           // Retry once on failure — backend may still be warming up
@@ -437,6 +448,8 @@ const RegisterScreen = ({ navigation }) => {
               googleId: user.googleId,
               profilePicture: user.profilePicture,
               referralCode: pendingRefCode,
+              termsAccepted: termsAccepted === true,
+              privacyAccepted: termsAccepted === true,
             }, accessToken);
           }
 
@@ -549,6 +562,8 @@ const RegisterScreen = ({ navigation }) => {
         fullName: user.fullName || user.name,
         profilePicture: user.profilePicture,
         referralCode: pendingRefCode,
+        termsAccepted: termsAccepted === true,
+        privacyAccepted: termsAccepted === true,
       };
 
       let syncResult = await syncAppleUserToMongoDB(syncPayload, accessToken);
@@ -699,6 +714,26 @@ const RegisterScreen = ({ navigation }) => {
     }
   };
 
+  // Step 1 — choice screen. Captures referral + T&C, then routes to manual or OAuth.
+  if (mode === 'choice') {
+    return (
+      <RegisterChoice
+        referralCode={formData.referralCode}
+        onReferralCodeChange={(v) => updateField('referralCode', v)}
+        termsAccepted={termsAccepted}
+        onTermsToggle={setTermsAccepted}
+        onPickManual={() => setMode('form')}
+        onPickGoogle={handleGoogleSignIn}
+        onPickApple={handleAppleSignIn}
+        googleLoading={googleLoading}
+        appleLoading={appleLoading}
+        onSwitchToLogin={() => navigation?.goBack?.()}
+        userType="user"
+      />
+    );
+  }
+
+  // Step 2 — manual form (only fields, since referral + T&C were captured in step 1).
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -780,39 +815,10 @@ const RegisterScreen = ({ navigation }) => {
               error={errors.phone}
             />
 
-            {/* Referral Code (optional) */}
-            <Input
-              label="Referral Code (optional)"
-              placeholder="e.g. FXSHR8K2M4"
-              value={formData.referralCode}
-              onChangeText={(value) => updateField('referralCode', value.toUpperCase())}
-              autoCapitalize="characters"
-              maxLength={12}
-            />
-
-            {/* Terms & Privacy Acceptance */}
-            <TouchableOpacity
-              style={styles.termsRow}
-              onPress={() => setTermsAccepted(!termsAccepted)}
-              activeOpacity={0.7}
-              accessibilityLabel={termsAccepted ? 'Terms and conditions accepted. Tap to uncheck' : 'Accept terms and conditions'}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: termsAccepted }}
-            >
-              <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
-                {termsAccepted && <Text style={styles.checkmark}>{'\u2713'}</Text>}
-              </View>
-              <Text style={styles.termsText}>
-                {'I agree to the '}
-                <Text style={styles.termsLink} onPress={() => Linking.openURL('https://fixhomi.com/terms')}>
-                  Terms &amp; Conditions
-                </Text>
-                {' and '}
-                <Text style={styles.termsLink} onPress={() => Linking.openURL('https://fixhomi.com/privacy')}>
-                  Privacy Policy
-                </Text>
-              </Text>
-            </TouchableOpacity>
+            {/* Referral code, T&C checkbox, divider, and social buttons \u2014 all
+             * captured in the RegisterChoice step. The form mode only collects
+             * email/password/name/phone, so they're intentionally hidden here.
+             */}
 
             <Button
               title={loading ? t('auth.creatingAccount') : t('auth.createAccount')}
@@ -822,70 +828,9 @@ const RegisterScreen = ({ navigation }) => {
               style={styles.submitButton}
             />
 
-            {/* Social Login Divider */}
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>{t('auth.orRegisterWith')}</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            {/* Google Sign-In Button */}
-            <TouchableOpacity
-              style={[
-                styles.googleButton,
-                (loading || googleLoading || appleLoading) && styles.googleButtonDisabled
-              ]}
-              onPress={handleGoogleSignIn}
-              disabled={loading || googleLoading || appleLoading}
-              activeOpacity={0.7}
-              accessibilityLabel="Sign up with Google"
-              accessibilityRole="button"
-            >
-              {googleLoading ? (
-                <Text style={styles.googleButtonText}>{t('auth.signingUpGoogle')}</Text>
-              ) : (
-                <>
-                  <View style={styles.googleIconContainer}>
-                    <Text style={styles.googleIcon}>G</Text>
-                  </View>
-                  <Text style={styles.googleButtonText}>{t('auth.continueWithGoogle')}</Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            {/* Apple Sign-In Button (iOS only) */}
-            {Platform.OS === 'ios' && (
-              <TouchableOpacity
-                style={[
-                  styles.appleButton,
-                  (loading || googleLoading || appleLoading) && styles.appleButtonDisabled
-                ]}
-                onPress={handleAppleSignIn}
-                disabled={loading || googleLoading || appleLoading}
-                activeOpacity={0.7}
-                accessibilityLabel="Sign up with Apple"
-                accessibilityRole="button"
-              >
-                {appleLoading ? (
-                  <Text style={styles.appleButtonText}>{t('auth.signingUpApple') || 'Signing up...'}</Text>
-                ) : (
-                  <>
-                    <Text style={styles.appleIcon}>{'\uF8FF'}</Text>
-                    <Text style={styles.appleButtonText}>{t('auth.continueWithApple') || 'Continue with Apple'}</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            )}
+            {/* Google + Apple buttons removed — they live on the RegisterChoice
+             * step now. Manual-fill mode only collects email/password/name/phone. */}
           </View>
-
-          {/* Footer note */}
-          {!termsAccepted && (
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>
-                Please accept the Terms &amp; Conditions above to continue
-              </Text>
-            </View>
-          )}
         </ScrollView>
       </KeyboardAvoidingView>
 

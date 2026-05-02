@@ -273,9 +273,12 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
   }
 
   // ─── Android: existing bottom-sheet design ──
+  // behavior="padding" (not "height") — height re-measures layout on every
+  // keyboard event, which combined with slide-in + autoFocus caused the modal
+  // to blink on non-Samsung ROMs. Padding just shifts content up smoothly.
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior="height">
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={styles.modalOverlay}>
             <View style={[styles.modalContent, { paddingBottom: Math.max(otpInsets.bottom, 16) + 24 }]}>

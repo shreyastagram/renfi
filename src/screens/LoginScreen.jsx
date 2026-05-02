@@ -12,16 +12,18 @@ import React, { useState, useCallback } from 'react';
 import {  View,
   Text,
   StyleSheet,
-  ScrollView,
   KeyboardAvoidingView,
   Platform,
   Image,
-  Modal
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { Button, Input, Alert, FixhomiLogo } from '../components';
+import GoogleLogo from '../components/GoogleLogo';
+import LinearGradient from 'react-native-linear-gradient';
 import { loginWithEmail, getErrorMessage, AUTH_CODES } from '../services/authService';
 import {
   signInWithGoogleAsUser,
@@ -51,6 +53,14 @@ import { useLanguage } from '../context/LanguageContext';
 const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType = 'user' }) => {
   const { handleAuthSuccess } = useApp();
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
+
+  // Theme colors per flow — orange for the user side, blue for the provider side.
+  // Used by the OTP pill, Register CTA, and Forgot-password link so each flow
+  // reads visually distinct (matches the cards on UserTypeScreen).
+  const isProvider = userType === 'provider';
+  const themeColor = isProvider ? '#2b76bc' : '#f67c16';
+  const themeColorTint = isProvider ? '#EFF6FF' : '#FFF7ED';
 
   // Form state
   const [formData, setFormData] = useState({
@@ -464,21 +474,19 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
     }
   };
 
+  const anyLoading = loading || googleLoading || appleLoading;
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header */}
+        <View style={[styles.content, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
+          {/* Header — compact */}
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <FixhomiLogo size={52} />
+              <FixhomiLogo size={44} />
             </View>
             <Text style={styles.brandName}>FixHomi</Text>
             <Text style={styles.title}>{t('auth.welcomeBack')}</Text>
@@ -527,11 +535,11 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
               required
             />
 
-            {/* Forgot Password */}
+            {/* Forgot Password — between password and sign-in */}
             <TouchableOpacity
               style={styles.forgotPassword}
               onPress={() => navigation?.navigate?.('ForgotPassword')}
-              disabled={loading || googleLoading || appleLoading}
+              disabled={anyLoading}
               accessibilityLabel="Forgot password"
               accessibilityRole="link"
             >
@@ -542,83 +550,106 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
               title={loading ? t('auth.signingIn') : t('auth.signIn')}
               onPress={handleLogin}
               loading={loading}
-              disabled={loading || googleLoading || appleLoading}
+              disabled={anyLoading}
               style={styles.submitButton}
             />
 
-            {/* Social Login Divider */}
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>{t('auth.orContinueWith')}</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            {/* Google Sign-In Button */}
-            <TouchableOpacity
-              style={[
-                styles.googleButton,
-                (loading || googleLoading || appleLoading) && styles.googleButtonDisabled
-              ]}
-              onPress={handleGoogleSignIn}
-              disabled={loading || googleLoading || appleLoading}
-              activeOpacity={0.7}
-              accessibilityLabel="Continue with Google"
-              accessibilityRole="button"
-            >
-              {googleLoading ? (
-                <Text style={styles.googleButtonText}>{t('auth.signingInGoogle')}</Text>
-              ) : (
-                <>
-                  <View style={styles.googleIconContainer}>
-                    <Text style={styles.googleIcon}>G</Text>
+            {/* Row 1: Google (gradient border, logo only) + OTP (theme border, text only) */}
+            <View style={styles.socialRow}>
+              {/* Google — white inside, Google rainbow gradient border, subtle top glare */}
+              <TouchableOpacity
+                style={[styles.googleWrap, anyLoading && styles.disabled]}
+                onPress={handleGoogleSignIn}
+                disabled={anyLoading}
+                activeOpacity={0.7}
+                accessibilityLabel="Continue with Google"
+                accessibilityRole="button"
+              >
+                <LinearGradient
+                  colors={['#EA4335', '#FBBC05', '#34A853', '#4285F4']}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={styles.googleGradientBorder}
+                >
+                  <View style={styles.googleWhiteInner}>
+                    {/* Subtle glare — soft white highlight at the top */}
+                    <LinearGradient
+                      colors={['rgba(255,255,255,0.55)', 'rgba(255,255,255,0)']}
+                      start={{ x: 0.5, y: 0 }}
+                      end={{ x: 0.5, y: 1 }}
+                      style={styles.googleGlare}
+                      pointerEvents="none"
+                    />
+                    {googleLoading ? (
+                      <ActivityIndicator size="small" color="#4285F4" />
+                    ) : (
+                      <GoogleLogo size={26} />
+                    )}
                   </View>
-                  <Text style={styles.googleButtonText}>{t('auth.continueWithGoogle')}</Text>
-                </>
-              )}
-            </TouchableOpacity>
+                </LinearGradient>
+              </TouchableOpacity>
 
-            {/* Apple Sign-In Button (iOS only) */}
-            {Platform.OS === 'ios' && (
+              {/* OTP — white bg, theme-color border + text/icon, no tint */}
               <TouchableOpacity
                 style={[
-                  styles.appleButton,
-                  (loading || googleLoading || appleLoading) && styles.appleButtonDisabled
+                  styles.halfPill,
+                  { borderColor: themeColor },
+                  anyLoading && styles.disabled,
                 ]}
+                onPress={onSwitchToOtp}
+                disabled={anyLoading}
+                activeOpacity={0.7}
+                accessibilityLabel="OTP Login"
+                accessibilityRole="button"
+              >
+                <MaterialIcons name="sms" size={18} color="#1E293B" />
+                <Text style={[styles.otpPillText, { color: '#1E293B' }]} numberOfLines={1}>
+                  {t('auth.otpLogin') || 'OTP Login'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Row 2: Apple full-width — iOS only (Apple App Store guideline 4.8) */}
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity
+                style={[styles.applePill, anyLoading && styles.disabled]}
                 onPress={handleAppleSignIn}
-                disabled={loading || googleLoading || appleLoading}
+                disabled={anyLoading}
                 activeOpacity={0.7}
                 accessibilityLabel="Continue with Apple"
                 accessibilityRole="button"
               >
                 {appleLoading ? (
-                  <Text style={styles.appleButtonText}>{t('auth.signingInApple') || 'Signing in...'}</Text>
+                  <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
-                    <Text style={styles.appleIcon}>{'\uF8FF'}</Text>
-                    <Text style={styles.appleButtonText}>{t('auth.continueWithApple') || 'Continue with Apple'}</Text>
+                    <Text style={styles.appleGlyph}>{'\uF8FF'}</Text>
+                    <Text style={styles.applePillText}>{t('auth.continueWithApple')}</Text>
                   </>
                 )}
               </TouchableOpacity>
             )}
-
-            {/* OTP Login Option */}
-            <Button
-              title={t('auth.signInWithOtp')}
-              onPress={onSwitchToOtp}
-              variant="outline"
-              disabled={loading || googleLoading || appleLoading}
-              style={styles.otpButton}
-            />
           </View>
 
-          {/* Register Link */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>{t('auth.noAccount')}</Text>
-            <TouchableOpacity onPress={onSwitchToRegister} disabled={loading} accessibilityLabel="Register for a new account" accessibilityRole="link">
-              <Text style={styles.linkText}>{t('auth.register')}</Text>
+          {/* Visual break separating sign-in section from the Register CTA */}
+          <View style={styles.breakLine} />
+
+          {/* Register CTA — sits right below the break, no big gap */}
+          <View style={styles.registerCtaWrap}>
+            <Text style={styles.registerHint}>{t('auth.noAccount')}</Text>
+            <TouchableOpacity
+              onPress={onSwitchToRegister}
+              disabled={loading}
+              activeOpacity={0.85}
+              style={[styles.registerCtaBtn, { borderColor: themeColor, backgroundColor: themeColorTint }]}
+              accessibilityLabel="Create a new account"
+              accessibilityRole="button"
+            >
+              <Text style={[styles.registerCtaText, { color: themeColor }]}>{t('auth.register')}</Text>
+              <MaterialIcons name="arrow-forward" size={18} color={themeColor} />
             </TouchableOpacity>
           </View>
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
 
       {/* Cross-Role Conflict Dialog */}
@@ -673,68 +704,88 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
 };
 
 const styles = StyleSheet.create({
-  // ── Layout ──
+  // ── Layout (full-height flex, no scroll) ──
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   keyboardView: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24 },
+  content: { flex: 1, paddingHorizontal: 24, paddingTop: 8 },
+  flexSpacer: { flex: 1, minHeight: 12 },
+  breakLine: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 14 },
 
-  // ── Header ──
-  header: { marginBottom: 28, alignItems: 'center' },
+  // ── Header (compact) ──
+  header: { marginBottom: 20, alignItems: 'center' },
   logoContainer: {
-    width: 64, height: 64, borderRadius: 16, backgroundColor: '#FFFFFF',
+    width: 56, height: 56, borderRadius: 14, backgroundColor: '#FFFFFF',
     justifyContent: 'center', alignItems: 'center', overflow: 'hidden',
     ...Platform.select({
       ios: { shadowColor: '#f67c16', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
       android: { elevation: 5 },
     }),
   },
-  brandName: { fontSize: 18, fontWeight: '800', color: '#f67c16', marginTop: 10, marginBottom: 14, letterSpacing: 0.3 },
-  title: { fontSize: 24, fontWeight: '800', color: '#1E293B', marginBottom: 6 },
-  subtitle: { fontSize: 14, color: '#64748B', lineHeight: 21, textAlign: 'center', paddingHorizontal: 8 },
+  brandName: { fontSize: 16, fontWeight: '800', color: '#f67c16', marginTop: 8, marginBottom: 10, letterSpacing: 0.3 },
+  title: { fontSize: 22, fontWeight: '800', color: '#1E293B', marginBottom: 4 },
+  subtitle: { fontSize: 13, color: '#64748B', lineHeight: 19, textAlign: 'center', paddingHorizontal: 8 },
 
   // ── Alert ──
-  alert: { marginBottom: 16 },
+  alert: { marginBottom: 12 },
 
   // ── Form ──
-  form: { gap: 16 },
-  forgotPassword: { alignSelf: 'flex-end', marginTop: -8 },
-  forgotPasswordText: { fontSize: 14, color: '#2b76bc', fontWeight: '600' },
-  submitButton: { marginTop: 8 },
+  form: { gap: 14 },
+  forgotPassword: { alignSelf: 'flex-end', marginTop: -6 },
+  forgotPasswordText: { fontSize: 13, color: '#1E293B', fontWeight: '600' },
+  submitButton: { marginTop: 6 },
 
-  // ── Divider ──
-  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 16 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#E2E8F0' },
-  dividerText: { marginHorizontal: 14, color: '#94A3B8', fontSize: 13, fontWeight: '500' },
+  // ── Social row: Google + OTP, half width each ──
+  socialRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14,
+  },
+  // OTP pill — white bg, themed border (border color set inline)
+  halfPill: {
+    flex: 1, height: 52, borderRadius: 14,
+    backgroundColor: '#FFFFFF', borderWidth: 1.5,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingHorizontal: 10,
+  },
+  otpPillText: { fontSize: 14, fontWeight: '700' }, // color set inline per theme
 
-  // ── Google Button ──
-  googleButton: {
+  // Google pill — gradient border + white inside + subtle top glare, logo only
+  googleWrap: { flex: 1, height: 52 },
+  googleGradientBorder: {
+    flex: 1, borderRadius: 14, padding: 1.5,
+  },
+  googleWhiteInner: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12.5,
+    alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  googleGlare: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    height: '55%',
+  },
+
+  // ── Apple full-width pill (iOS only) ──
+  applePill: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    height: 52, borderRadius: 14,
+    backgroundColor: '#000000', marginTop: 12,
+  },
+  applePillText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  appleGlyph: { fontSize: 22, color: '#FFFFFF', marginTop: -2 },
+
+  disabled: { opacity: 0.5 },
+
+  // ── Register CTA (visible without scrolling, prominent) ──
+  registerCtaWrap: { alignItems: 'center', paddingTop: 0 },
+  registerHint: { fontSize: 13, color: '#64748B', marginBottom: 8 },
+  registerCtaBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0',
-    borderRadius: 14, paddingVertical: 14, paddingHorizontal: 20, marginBottom: 10,
+    width: '100%', paddingVertical: 14, borderRadius: 14,
+    backgroundColor: '#FFF7ED', borderWidth: 1.5, borderColor: '#f67c16',
+    gap: 6,
   },
-  googleButtonDisabled: { opacity: 0.5 },
-  googleIconContainer: {
-    width: 22, height: 22, borderRadius: 11,
-    backgroundColor: '#4285F4', alignItems: 'center', justifyContent: 'center', marginRight: 10,
-  },
-  googleIcon: { fontSize: 13, fontWeight: 'bold', color: '#FFF' },
-  googleButtonText: { fontSize: 15, fontWeight: '600', color: '#1E293B' },
-
-  // ── Apple Button ──
-  appleButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#000000', borderRadius: 14,
-    paddingVertical: 14, paddingHorizontal: 24, marginBottom: 12,
-  },
-  appleButtonDisabled: { opacity: 0.5 },
-  appleIcon: { fontSize: 18, color: '#FFF', marginRight: 10 },
-  appleButtonText: { fontSize: 15, fontWeight: '600', color: '#FFF' },
-
-  // ── OTP & Footer ──
-  otpButton: { marginBottom: 8 },
-  footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 28, gap: 4 },
-  footerText: { fontSize: 14, color: '#64748B' },
-  linkText: { fontSize: 14, color: '#2b76bc', fontWeight: '600' },
+  registerCtaText: { fontSize: 15, fontWeight: '700', color: '#f67c16' },
 
   // ── Modal ──
   modalOverlay: {

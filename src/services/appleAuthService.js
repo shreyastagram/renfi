@@ -330,6 +330,9 @@ export const syncAppleUserToMongoDB = async (userData, accessToken = null) => {
         profilePicture: userData.profilePicture,
         authProvider: 'apple',
         referralCode: userData.referralCode || undefined,
+        // Backend enforces T&C for new-user creation. Existing users skip the check.
+        termsAccepted: userData.termsAccepted === true,
+        privacyAccepted: userData.privacyAccepted === true,
       },
       config
     );
@@ -367,6 +370,9 @@ export const syncAppleProviderToMongoDB = async (providerData, accessToken = nul
         profilePicture: providerData.profilePicture,
         authProvider: 'apple',
         referralCode: providerData.referralCode || undefined,
+        // Backend enforces T&C for new-provider creation. Existing providers skip the check.
+        termsAccepted: providerData.termsAccepted === true,
+        privacyAccepted: providerData.privacyAccepted === true,
       },
       config
     );

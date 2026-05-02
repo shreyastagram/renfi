@@ -1077,7 +1077,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
         }
         renderItem={renderRequestItem}
         extraData={`${resendingOtpId}-${Object.keys(ratingStatuses).length}`}
-        ListEmptyComponent={<EmptyState filter={activeFilter} onBookService={() => navigation.navigate('Home')} />}
+        ListEmptyComponent={<EmptyState filter={activeFilter} onBookService={() => navigation.navigate('HomeTab')} />}
         ListFooterComponent={loadingMore ? <View style={styles.footerLoader}><ActivityIndicator size="small" color={C.primary} /><Text style={styles.footerText}>Loading more...</Text></View> : null}
         onEndReached={loadMore}
         onEndReachedThreshold={0.3}

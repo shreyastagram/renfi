@@ -1260,8 +1260,8 @@ const SettingsScreen = ({ navigation }) => {
                     text: 'Rate Now',
                     onPress: () => {
                       const storeUrl = Platform.OS === 'ios'
-                        ? 'https://apps.apple.com/app/fixhomi'
-                        : 'https://play.google.com/store/apps/details?id=com.fixhomi';
+                        ? 'https://apps.apple.com/app/fixhomi/id6760935950'
+                        : 'https://play.google.com/store/apps/details?id=com.renfi';
                       Linking.openURL(storeUrl).catch(() => {
                         dialog('Error', 'Could not open the app store.');
                       });
@@ -1557,8 +1557,12 @@ const SettingsScreen = ({ navigation }) => {
           </KeyboardAvoidingView>
         </View>
         ) : (
-          /* ── Android: Existing card design ── */
-          <KeyboardAvoidingView style={{ flex: 1 }} behavior="height">
+          /* ── Android: Existing card design ──
+           * behavior="padding" (not "height"). "height" re-measures the layout
+           * on every keyboard event which caused the modal to shake on non-
+           * Samsung ROMs. Padding just shifts the content up smoothly.
+           */
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
               <View style={styles.modalOverlay}>
                 <View style={styles.modalContent}>

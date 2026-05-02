@@ -456,6 +456,9 @@ export const syncGoogleUserToMongoDB = async (userData, accessToken = null) => {
       profilePicture: userData.profilePicture,
       authProvider: 'google',
       referralCode: userData.referralCode || undefined,
+      // Backend enforces T&C for new-user creation. Existing users skip the check.
+      termsAccepted: userData.termsAccepted === true,
+      privacyAccepted: userData.privacyAccepted === true,
     }, config);
 
     console.log('✅ [GoogleAuth] User profile synced to MongoDB');
@@ -528,6 +531,9 @@ export const syncGoogleProviderToMongoDB = async (providerData, accessToken = nu
       profilePicture: providerData.profilePicture,
       authProvider: 'google',
       referralCode: providerData.referralCode || undefined,
+      // Backend enforces T&C for new-provider creation. Existing providers skip the check.
+      termsAccepted: providerData.termsAccepted === true,
+      privacyAccepted: providerData.privacyAccepted === true,
     }, config);
 
     console.log('✅ [GoogleAuth] Provider profile synced to MongoDB');

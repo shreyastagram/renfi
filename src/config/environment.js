@@ -25,7 +25,7 @@
 /**
  * Toggle for Node.js Backend (fixhomi-backend)
  *
- * true  = Use production backend (api.fixhomi.com via Cloudflare)
+ * true  = Use production backend (Render)
  * false = Use local development server
  */
 export const USE_PRODUCTION_NODE_API = true;
@@ -33,7 +33,7 @@ export const USE_PRODUCTION_NODE_API = true;
 /**
  * Toggle for Java Auth Service (jarbac)
  *
- * true  = Use production auth (auth.fixhomi.com via Cloudflare)
+ * true  = Use production auth (Render)
  * false = Use local Java Auth server
  */
 export const USE_PRODUCTION_JAVA_AUTH = true;
@@ -43,11 +43,11 @@ export const USE_PRODUCTION_JAVA_AUTH = true;
 // ============================================
 
 export const PRODUCTION_CONFIG = {
-  // Node.js Backend (Cloudflare → Render)
-  NODE_API_URL: 'https://api.fixhomi.com',
+  // Node.js Backend (Render)
+  NODE_API_URL: 'https://noefix.onrender.com',
 
-  // Java Auth Service (Cloudflare → Render)
-  JAVA_AUTH_URL: 'https://auth.fixhomi.com',
+  // Java Auth Service (Render)
+  JAVA_AUTH_URL: 'https://jauth.onrender.com',
   
   // Razorpay key — set via RAZORPAY_KEY_ID env var at build time
   // NEVER commit live or test keys here

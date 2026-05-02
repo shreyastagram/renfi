@@ -16,6 +16,7 @@ import axios from 'axios';
 import { API_CONFIG } from '../config/api';
 import { getTokens, storeTokens, clearTokens, isTokenExpired } from '../utils/storage';
 import { syncTokensToBackgroundService } from './backgroundLocationService';
+import { reportForcedLogout } from '../utils/storageTelemetry';
 
 // Track if we're currently refreshing tokens to avoid infinite loops
 let isRefreshing = false;
@@ -95,6 +96,7 @@ const proactiveTokenRefresh = async () => {
       const tokens = await getTokens();
       if (!tokens?.refreshToken) {
         console.log('❌ [API] No refresh token available');
+        reportForcedLogout({ trigger: 'refresh_no_token' });
         await clearTokens();
         if (global.onAuthExpired) {
           global.onAuthExpired();
@@ -149,6 +151,7 @@ const proactiveTokenRefresh = async () => {
       
       // Definitive auth failure (400/401 = invalid refresh token)
       console.error('❌ [API] Proactive token refresh failed (auth rejected):', error.message);
+      reportForcedLogout({ trigger: 'refresh_definitive_auth_fail', error });
       await clearTokens();
       if (global.onAuthExpired) {
         global.onAuthExpired();
@@ -309,6 +312,7 @@ const handleResponseError = async (error, client) => {
     const errorCode = error.response?.data?.code;
     if (errorCode === 'ACCOUNT_DELETED') {
       console.warn('🚫 [API] Account deleted — forcing logout');
+      reportForcedLogout({ trigger: 'response_401_account_deleted', error, httpStatus: 401 });
       await clearTokens();
       if (global.onAuthExpired) {
         global.onAuthExpired();
@@ -404,6 +408,7 @@ const handleResponseError = async (error, client) => {
           
           // Only clear tokens on definitive auth failures, not network errors
           if (!isTransientNetworkError(refreshError)) {
+            reportForcedLogout({ trigger: 'response_401_refresh_failed', error: refreshError });
             await clearTokens();
             if (global.onAuthExpired) {
               global.onAuthExpired();
