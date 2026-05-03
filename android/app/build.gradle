@@ -97,7 +97,7 @@ android {
         applicationId "com.renfi"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 16
+        versionCode 20
         versionName "1.0.2"
     }
     signingConfigs {
@@ -140,3 +140,4 @@ dependencies {
         implementation jscFlavor
     }
 }
+

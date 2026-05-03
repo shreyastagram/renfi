@@ -1029,7 +1029,12 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
       return;
     }
     try {
-      const res = await initiateCall({ calleeId: String(calleeId), calleeName, calleeType });
+      const res = await initiateCall({
+        calleeId: String(calleeId),
+        calleeName,
+        calleeType,
+        callerName: user?.fullName || profile?.fullName || profile?.name || user?.name,
+      });
       navigation.navigate('InCall', {
         callId: res.callId,
         roomName: res.roomName,

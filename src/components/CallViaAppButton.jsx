@@ -68,14 +68,15 @@ export default function CallViaAppButton({
 
   if (compact) {
     const translate = sheen.interpolate({ inputRange: [0, 1], outputRange: [-46, 46] });
+    const hasLabel = !!label;
     return (
       <TouchableOpacity
         onPress={onPress}
         activeOpacity={0.85}
         disabled={disabled}
-        style={[compactStyles.group, style]}
+        style={[hasLabel ? compactStyles.group : compactStyles.iconOnlyGroup, style]}
       >
-        <View style={compactStyles.iconWrap}>
+        <View style={hasLabel ? compactStyles.iconWrap : compactStyles.iconWrapInline}>
           <LinearGradient
             colors={GRADIENT_COLORS}
             start={{ x: 0, y: 0 }}
@@ -96,9 +97,9 @@ export default function CallViaAppButton({
               style={StyleSheet.absoluteFill}
             />
           </Animated.View>
-          <MaterialIcon name="phone" size={20} color="#FFFFFF" />
+          <MaterialIcon name="phone" size={hasLabel ? 20 : 18} color="#FFFFFF" />
         </View>
-        <Text style={compactStyles.label}>{label}</Text>
+        {hasLabel && <Text style={compactStyles.label}>{label}</Text>}
       </TouchableOpacity>
     );
   }
@@ -204,10 +205,26 @@ const styles = StyleSheet.create({
 
 const compactStyles = StyleSheet.create({
   group: { alignItems: 'center', gap: 6, minWidth: 64 },
+  iconOnlyGroup: { alignItems: 'center', justifyContent: 'center' },
   iconWrap: {
     width: 46,
     height: 46,
     borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    shadowColor: '#4F46E5',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  // Inline variant — matches sibling action buttons in ProviderCard
+  // (callButton/skipButton are 46×42, borderRadius 12).
+  iconWrapInline: {
+    width: 46,
+    height: 42,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',

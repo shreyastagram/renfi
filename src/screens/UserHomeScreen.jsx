@@ -61,6 +61,8 @@ import {
   retryProviderSearch,
 } from '../services/traditionalServiceService';
 import { formatDistance, formatDistanceFromMeters, useDistanceUnit } from '../utils/formatDistance';
+import CallViaAppButton from '../components/CallViaAppButton';
+import { initiateCall } from '../services/callService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -157,7 +159,7 @@ const ServiceCard = React.memo(({ service, onPress }) => {
   );
 });
 
-const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, contacted, calling, skipping }) => {
+const ProviderCard = ({ provider, onCall, onAppCall, onBook, onSkip, onPress, booking, contacted, calling, skipping }) => {
   const { t } = useLanguage();
   const useKm = useDistanceUnit();
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -237,6 +239,17 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
       </TouchableOpacity>
     </View>
     <View style={styles.providerActions}>
+      {/* In-app Call (demo branch) */}
+      {onAppCall && provider._id && (
+        <CallViaAppButton
+          compact
+          label=""
+          onPress={(e) => {
+            e?.stopPropagation?.();
+            onAppCall(provider);
+          }}
+        />
+      )}
       <TouchableOpacity
         style={[styles.callButton, calling && styles.callButtonCalling]}
         onPress={(e) => {
@@ -1030,6 +1043,39 @@ const UserHomeScreen = ({ navigation, route }) => {
    * Direct phone call to provider - opens native dialer
    * Checks multiple phone fields to handle data inconsistencies
    */
+  /**
+   * Initiate in-app call to provider via iacax (demo branch).
+   * Marks the provider as contacted (same UX as legacy dialer call).
+   */
+  const handleAppCallProvider = async (provider) => {
+    const calleeId = provider?._id;
+    if (!calleeId) {
+      dialog(t('common.error'), t('detail.unableToCall'));
+      return;
+    }
+    setContactedProviderIds(prev => new Set(prev).add(provider._id));
+    try {
+      const res = await initiateCall({
+        calleeId: String(calleeId),
+        calleeName: provider.name,
+        calleeType: 'provider',
+        callerName: user?.fullName || profile?.fullName || profile?.name || user?.name,
+      });
+      navigation.navigate('InCall', {
+        callId: res.callId,
+        roomName: res.roomName,
+        token: res.token,
+        livekitUrl: res.livekitUrl,
+        mode: 'outgoing',
+        otherPartyId: String(calleeId),
+        otherPartyName: provider.name,
+      });
+    } catch (err) {
+      const parsed = err?.parsed || { message: t('detail.unableToCall') };
+      dialog(t('common.error'), parsed.message);
+    }
+  };
+
   const handleCallProvider = (provider) => {
     // Robust phone resolution: check all possible phone fields
     const phone = provider?.phone || provider?.verifiedPhone || provider?.mobileNumber || '';
@@ -1379,6 +1425,7 @@ const UserHomeScreen = ({ navigation, route }) => {
                   <ProviderCard
                     provider={item}
                     onCall={handleCallProvider}
+                    onAppCall={handleAppCallProvider}
                     onBook={handleBookProvider}
                     onSkip={handleSkipProvider}
                     onPress={() => handleViewProviderDetails(item)}

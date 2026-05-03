@@ -82,6 +82,21 @@ export function displayIncomingCall({ callId, callerName }) {
 }
 
 /**
+ * Transition a CallKeep call from RINGING to ACTIVE. Without this, Android's
+ * Telecom service keeps the microphone muted even after the user accepts —
+ * LiveKit connects but no audio flows. Call this from the answerCall
+ * listener after the iacax /accept succeeds.
+ */
+export function setCallActive(callId) {
+  if (Platform.OS !== 'android') return;
+  try {
+    RNCallKeep.setCurrentCallActive(callId);
+  } catch (err) {
+    console.warn('[CallKeep] setCurrentCallActive failed:', err?.message);
+  }
+}
+
+/**
  * End a CallKeep call programmatically. Call this when:
  *   - The user explicitly hangs up via the in-app InCallScreen
  *   - Iacax tells us the call ended (e.g. callee rejected)

@@ -60,6 +60,8 @@ import {
 } from '../services/traditionalServiceService';
 import { addEventListener as addSocketListener, startRequestLocationTracking, stopRequestLocationTracking } from '../services/socketService';
 import { setupForegroundMessageListener } from '../services/fcmService';
+import CallViaAppButton from '../components/CallViaAppButton';
+import { initiateCall } from '../services/callService';
 import { STATIC_NUMBER_SERVICES, getProviderEmergencyRequests } from '../services/emergencyServicesService';
 import { authFetch } from '../utils/authFetch';
 import { NODE_BASE_URL } from '../config/api';
@@ -328,7 +330,7 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
 };
 
 /* ── Request Card ──────────────────────────────────────────────────── */
-const RequestCard = React.memo(({ request, onPress, onCall, onDirections, onComplete, onCancel, onAccept, onReject, isAccepting, isRejecting }) => {
+const RequestCard = React.memo(({ request, onPress, onCall, onAppCall, onDirections, onComplete, onCancel, onAccept, onReject, isAccepting, isRejecting }) => {
   const { t } = useLanguage();
   const status = STATUS_CONFIG[request.status] || STATUS_CONFIG.pending;
   const serviceDate = new Date(request.serviceDate || request.createdAt);
@@ -418,6 +420,13 @@ const RequestCard = React.memo(({ request, onPress, onCall, onDirections, onComp
               </View>
               {(isActive || isPending) && (
                 <View style={styles.quickActions}>
+                  {onAppCall && (
+                    <CallViaAppButton
+                      compact
+                      label=""
+                      onPress={() => onAppCall(request)}
+                    />
+                  )}
                   <TouchableOpacity style={styles.btnCall} onPress={() => onCall(request)}><Icon name="phone" size={15} color={C.white} /></TouchableOpacity>
                   {isActive && hasLocation && isLocationTrackable && (
                     <TouchableOpacity style={styles.btnDir} onPress={() => onDirections(request)}><Icon name="directions" size={15} color={C.white} /></TouchableOpacity>
@@ -865,6 +874,36 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
     ]);
   };
 
+  // In-app call to customer via iacax (demo branch).
+  const handleAppCall = async (req) => {
+    const calleeId = req?.userDetails?._id || req?.userId;
+    const calleeName = req?.userDetails?.name || req?.userName || t('providerHistory.customer');
+    if (!calleeId) {
+      dialog(t('common.error'), t('detail.unableToCall'));
+      return;
+    }
+    try {
+      const res = await initiateCall({
+        calleeId: String(calleeId),
+        calleeName,
+        calleeType: 'user',
+        callerName: user?.fullName || profile?.fullName || profile?.name || user?.name,
+      });
+      navigation.navigate('InCall', {
+        callId: res.callId,
+        roomName: res.roomName,
+        token: res.token,
+        livekitUrl: res.livekitUrl,
+        mode: 'outgoing',
+        otherPartyId: String(calleeId),
+        otherPartyName: calleeName,
+      });
+    } catch (err) {
+      const parsed = err?.parsed || { message: t('detail.unableToCall') };
+      dialog(t('common.error'), parsed.message);
+    }
+  };
+
   // ── Directions ──
   const handleDirections = (job) => {
     let lat, lng;
@@ -965,6 +1004,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
       request={item}
       onPress={handleViewDetails}
       onCall={handleCall}
+      onAppCall={handleAppCall}
       onDirections={handleDirections}
       onComplete={handleComplete}
       onCancel={handleCancel}
@@ -973,7 +1013,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
       isAccepting={acceptingId === item._id}
       isRejecting={rejectingId === item._id}
     />
-  ), [handleViewDetails, handleCall, handleDirections, handleComplete, handleCancel, handleAccept, handleReject, acceptingId, rejectingId]);
+  ), [handleViewDetails, handleCall, handleAppCall, handleDirections, handleComplete, handleCancel, handleAccept, handleReject, acceptingId, rejectingId]);
 
   if (loading) return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

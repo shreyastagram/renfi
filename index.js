@@ -55,11 +55,7 @@ registerGlobals();
 import App from './App';
 import { name as appName } from './app.json';
 import { setupBackgroundMessageHandler } from './src/services/fcmService';
-import {
-  setupCallKeep,
-  displayIncomingCall,
-  setPendingIncomingCall,
-} from './src/services/callKeepService';
+import { setPendingIncomingCall } from './src/services/callKeepService';
 import BackgroundGeolocation from 'react-native-background-geolocation';
 
 // Register FCM background message handler BEFORE AppRegistry
@@ -73,9 +69,14 @@ setupBackgroundMessageHandler(async (remoteMessage) => {
   const data = remoteMessage?.data || {};
   if (data.type !== 'INCOMING_CALL') return;
   if (!data.callId) return;
+  // WhatsApp-style: stash the call payload so when the user taps the
+  // FCM heads-up notification (which Android shows from the message's
+  // notification block in noefix), App.tsx's onNotificationOpenedApp
+  // handler can read it and navigate to the in-app IncomingCallScreen.
+  // The native CallKeep ring is intentionally NOT shown here — that
+  // looked like a real phone call ("from 123") and registered an
+  // unwanted "in call" status with Android's Telecom service.
   try {
-    await setupCallKeep();
-    displayIncomingCall({ callId: data.callId, callerName: data.callerName });
     await setPendingIncomingCall({
       callId: data.callId,
       roomName: data.roomName,

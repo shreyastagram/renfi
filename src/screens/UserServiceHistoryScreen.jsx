@@ -58,6 +58,8 @@ import {
 } from '../services/traditionalServiceService';
 import { subscribeToRequest, unsubscribeFromRequest, addEventListener as addSocketListener } from '../services/socketService';
 import { setupForegroundMessageListener } from '../services/fcmService';
+import CallViaAppButton from '../components/CallViaAppButton';
+import { initiateCall } from '../services/callService';
 import { NODE_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
 import { getUserEmergencyRequests } from '../services/emergencyServicesService';
@@ -157,7 +159,7 @@ const StatPill = React.memo(({ value, label, color, bgColor }) => (
 ));
 
 /* -- Request Card -------------------------------------------------------- */
-const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, onTrackProvider, onRate, onFindProviders, ratingStatus, onResendOtp, resendingOtpId }) => {
+const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, onAppCallProvider, onTrackProvider, onRate, onFindProviders, ratingStatus, onResendOtp, resendingOtpId }) => {
   const { dialog } = useDialog();
   const { t } = useLanguage();
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -370,6 +372,13 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
                 </View>
                 {(isActive || isPending) && (
                   <View style={styles.quickActions}>
+                    {onAppCallProvider && (
+                      <CallViaAppButton
+                        compact
+                        label=""
+                        onPress={() => onAppCallProvider(request)}
+                      />
+                    )}
                     <TouchableOpacity style={styles.btnCall} onPress={() => onCallProvider(request)} activeOpacity={0.7}>
                       <Icon name="phone" size={15} color={C.white} />
                     </TouchableOpacity>
@@ -794,6 +803,36 @@ const UserServiceHistoryScreen = ({ navigation }) => {
     ]);
   };
 
+  // In-app call to provider via iacax (demo branch).
+  const handleAppCallProvider = async (request) => {
+    const calleeId = request?.providerDetails?._id || request?.providerId || request?.assignedProviderId;
+    const calleeName = request?.providerDetails?.name || request?.providerName || t('eventServices.provider');
+    if (!calleeId) {
+      dialog(t('common.error'), t('detail.unableToCall'));
+      return;
+    }
+    try {
+      const res = await initiateCall({
+        calleeId: String(calleeId),
+        calleeName,
+        calleeType: 'provider',
+        callerName: user?.fullName || profile?.fullName || profile?.name || user?.name,
+      });
+      navigation.navigate('InCall', {
+        callId: res.callId,
+        roomName: res.roomName,
+        token: res.token,
+        livekitUrl: res.livekitUrl,
+        mode: 'outgoing',
+        otherPartyId: String(calleeId),
+        otherPartyName: calleeName,
+      });
+    } catch (err) {
+      const parsed = err?.parsed || { message: t('detail.unableToCall') };
+      dialog(t('common.error'), parsed.message);
+    }
+  };
+
   const handleTrackProvider = (request) => {
     let serviceCoords = null;
     if (request.location?.coordinates && Array.isArray(request.location.coordinates)) {
@@ -943,6 +982,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
       onPress={handleViewDetails}
       onCancel={handleCancel}
       onCallProvider={handleCallProvider}
+      onAppCallProvider={handleAppCallProvider}
       onTrackProvider={handleTrackProvider}
       onRate={handleOpenRating}
       onFindProviders={handleFindProviders}
@@ -950,7 +990,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
       onResendOtp={handleResendOtp}
       resendingOtpId={resendingOtpId}
     />
-  ), [handleViewDetails, handleCancel, handleCallProvider, handleTrackProvider, handleOpenRating, handleFindProviders, ratingStatuses, handleResendOtp, resendingOtpId]);
+  ), [handleViewDetails, handleCancel, handleCallProvider, handleAppCallProvider, handleTrackProvider, handleOpenRating, handleFindProviders, ratingStatuses, handleResendOtp, resendingOtpId]);
 
   if (loading) return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

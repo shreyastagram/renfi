@@ -46,6 +46,8 @@ import {
 import SavedAddresses from '../components/SavedAddresses';
 import { getSavedAddresses, getDefaultAddress } from '../services/addressService';
 import { formatDistance, formatDistanceFromMeters, useDistanceUnit } from '../utils/formatDistance';
+import CallViaAppButton from '../components/CallViaAppButton';
+import { initiateCall } from '../services/callService';
 
 // Service type icons (using emoji for simplicity, replace with actual icons)
 const SERVICE_ICONS = {
@@ -485,6 +487,41 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
   };
 
   /**
+   * Initiate in-app call to provider via iacax (demo branch).
+   * Marks the provider as contacted so the Book button is enabled.
+   */
+  const handleAppCallProvider = async (provider) => {
+    const calleeId = provider?._id;
+    if (!calleeId) {
+      dialog(t('common.error'), t('detail.unableToCall'));
+      return;
+    }
+    if (provider?._id) {
+      setContactedProviderIds(prev => new Set(prev).add(provider._id));
+    }
+    try {
+      const res = await initiateCall({
+        calleeId: String(calleeId),
+        calleeName: provider.name,
+        calleeType: 'provider',
+        callerName: user?.fullName || profile?.fullName || profile?.name || user?.name,
+      });
+      navigation.navigate('InCall', {
+        callId: res.callId,
+        roomName: res.roomName,
+        token: res.token,
+        livekitUrl: res.livekitUrl,
+        mode: 'outgoing',
+        otherPartyId: String(calleeId),
+        otherPartyName: provider.name,
+      });
+    } catch (err) {
+      const parsed = err?.parsed || { message: t('detail.unableToCall') };
+      dialog(t('common.error'), parsed.message);
+    }
+  };
+
+  /**
    * Handle booking the provider (send request to provider)
    */
   const handleBookProvider = async (provider) => {
@@ -655,7 +692,11 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
 
         {/* Action Buttons */}
         <View style={styles.providerActions}>
-          {/* Call Button */}
+          {/* In-app Call Button (demo branch) */}
+          {provider._id && (
+            <CallViaAppButton compact onPress={() => handleAppCallProvider(provider)} label="App call" />
+          )}
+          {/* Call Button (legacy dialer fallback) */}
           {(provider.phone || provider.verifiedPhone) && (
             <TouchableOpacity
               style={styles.callButton}

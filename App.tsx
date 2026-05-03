@@ -43,6 +43,7 @@ import {
   setPendingIncomingCall,
   displayIncomingCall,
   endCallNative,
+  setCallActive,
 } from './src/services/callKeepService';
 import { acceptCall as acceptIacaxCall, rejectCall as rejectIacaxCall } from './src/services/callService';
 
@@ -420,7 +421,11 @@ function AppContent() {
     const unsubscribeForeground = setupForegroundMessageListener((remoteMessage: any) => {
       const data = remoteMessage?.data || {};
       if (data.type !== 'INCOMING_CALL' || !data.callId) return;
-      displayIncomingCall({ callId: data.callId, callerName: data.callerName });
+      // WhatsApp-style: route directly to the in-app IncomingCallScreen.
+      // No native CallKeep ring (looks like a real phone call, registers
+      // an "in call" status with Android Telecom even before answer).
+      // The IncomingCallScreen owns its own accept/reject buttons and
+      // calls iacax /accept | /reject directly.
       setPendingIncomingCall({
         callId: data.callId,
         roomName: data.roomName,
@@ -448,6 +453,10 @@ function AppContent() {
         const pending = await consumePendingIncomingCall();
         try {
           const res = await acceptIacaxCall(callUUID);
+          // CRITICAL: transition the native call from RINGING to ACTIVE
+          // so Android's Telecom service unmutes the microphone. Without
+          // this, LiveKit connects but no audio flows in either direction.
+          setCallActive(callUUID);
           navigate('InCall', {
             callId: res.callId,
             roomName: res.roomName,
