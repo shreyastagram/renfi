@@ -138,3 +138,38 @@
 # ── Suppress warnings for optional dependencies ──
 -dontwarn javax.annotation.**
 -dontwarn org.codehaus.mojo.**
+
+# ============================================
+# In-app calling (demo branch only — LiveKit + WebRTC + CallKeep)
+# ============================================
+# All three of these are JNI-heavy: registerGlobals() on the LiveKit RN
+# side reaches into org.webrtc via reflection at module load, so any
+# class R8 strips here surfaces as a crash on the very first JS module
+# resolve — i.e. the app dies before App.tsx even mounts. Keep the
+# packages whole, including native methods, and silence the optional
+# transitive-API warnings so the build stays clean.
+
+# WebRTC core (forked by LiveKit) — heavy JNI, must keep wholesale.
+-keep class org.webrtc.** { *; }
+-keep interface org.webrtc.** { *; }
+-keepclasseswithmembers class org.webrtc.** {
+    native <methods>;
+}
+-dontwarn org.webrtc.**
+
+# React Native WebRTC bridge module (com.oney.WebRTCModule).
+-keep class com.oney.WebRTCModule.** { *; }
+-dontwarn com.oney.WebRTCModule.**
+
+# LiveKit React Native bridge — registerGlobals + AudioSession entry points.
+-keep class com.livekit.reactnative.** { *; }
+-keep interface com.livekit.reactnative.** { *; }
+-dontwarn com.livekit.reactnative.**
+
+# CallKeep — VoiceConnectionService is wired in via Telecom reflection.
+-keep class io.wazo.callkeep.** { *; }
+-dontwarn io.wazo.callkeep.**
+
+# LiveKit upstream protocol classes (referenced via reflection in some paths).
+-keep class livekit.** { *; }
+-dontwarn livekit.**
