@@ -62,6 +62,7 @@ import { getProviderProfile } from '../services/profileService';
 // In-app calling (demo branch only) — kept on its own line so the
 // import is trivially removable when the demo is retired.
 import { initiateCall } from '../services/callService';
+import CallViaAppButton from '../components/CallViaAppButton';
 import {
   addEventListener as addSocketListener,
   subscribeToRequest,
@@ -492,15 +493,7 @@ const ProviderCard = ({ provider, onCall, onAppCall, onGetLocation, showActions 
       </View>
       {showActions && (
         <View style={{ gap: 10 }}>
-          {onAppCall && (
-            <TouchableOpacity style={s.appCallBtn} onPress={onAppCall} activeOpacity={0.85}>
-              <View style={s.appCallIconWrap}>
-                <Icon name="call" size={15} color="#FFFFFF" />
-              </View>
-              <Text style={s.appCallBtnText}>Call via app</Text>
-              <View style={s.appCallBadge}><Text style={s.appCallBadgeText}>HD</Text></View>
-            </TouchableOpacity>
-          )}
+          {onAppCall && <CallViaAppButton onPress={onAppCall} />}
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <TouchableOpacity style={s.callBtn} onPress={onCall}>
               <Icon name="phone" size={16} color="#FFFFFF" />
@@ -1484,12 +1477,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                     <Text style={s.compactActionLabel}>{t('detail.directions')}</Text>
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity style={s.compactActionBtn} onPress={handleAppCall} activeOpacity={0.7}>
-                  <View style={[s.compactActionIcon, s.compactActionIconAppCall]}>
-                    <Icon name="call" size={18} color="#FFFFFF" />
-                  </View>
-                  <Text style={s.compactActionLabel}>App call</Text>
-                </TouchableOpacity>
+                <CallViaAppButton compact onPress={handleAppCall} label="App call" />
                 <TouchableOpacity style={s.compactActionBtn} onPress={handleCall} activeOpacity={0.7}>
                   <View style={[s.compactActionIcon, { backgroundColor: '#ECFDF5' }]}>
                     <Icon name="phone" size={18} color={BRAND.success} />
@@ -1835,13 +1823,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             })()}
             {['pending', 'awaiting_confirmation', 'accepted', 'in-progress'].includes(request.status) && (
               <View style={{ gap: 10 }}>
-                <TouchableOpacity style={s.appCallBtn} onPress={handleAppCall} activeOpacity={0.85}>
-                  <View style={s.appCallIconWrap}>
-                    <Icon name="call" size={15} color="#FFFFFF" />
-                  </View>
-                  <Text style={s.appCallBtnText}>Call via app</Text>
-                  <View style={s.appCallBadge}><Text style={s.appCallBadgeText}>HD</Text></View>
-                </TouchableOpacity>
+                <CallViaAppButton onPress={handleAppCall} />
                 <TouchableOpacity style={s.callCustomerBtn} onPress={handleCall}>
                   <Icon name="phone" size={15} color="#FFFFFF" /><Text style={s.callCustomerBtnText}>{t('detail.callCustomer')}</Text>
                 </TouchableOpacity>
@@ -2106,44 +2088,6 @@ const s = StyleSheet.create({
   verifiedBadge: { position: 'absolute', bottom: -1, right: -2, width: 18, height: 18, borderRadius: 9, backgroundColor: BRAND.success, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#FFFFFF' },
   callBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: BRAND.success, borderRadius: 14, paddingVertical: 11 },
   callBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
-  // "Call via app" — primary featured button (demo branch). Dark navy
-  // fill mirrors the in-call screen's gradient so the visual language
-  // reads as "premium in-app call" rather than another phone-dialer
-  // variant. The HD badge is a tiny accent, not noise.
-  appCallBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: BRAND.dark,
-    borderRadius: 14,
-    paddingVertical: 13,
-    paddingHorizontal: 16,
-    shadowColor: BRAND.dark,
-    shadowOpacity: 0.18,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  appCallIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.14)',
-  },
-  appCallBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 14, letterSpacing: 0.2 },
-  appCallBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.22)',
-    marginLeft: 4,
-  },
-  appCallBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700', letterSpacing: 0.6 },
   trackBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: BRAND.primary, borderRadius: 14, paddingVertical: 11 },
   trackBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
 
@@ -2183,14 +2127,6 @@ const s = StyleSheet.create({
   compactActionRow: { flexDirection: 'row', justifyContent: 'center', gap: 20 },
   compactActionBtn: { alignItems: 'center', gap: 6, minWidth: 64 },
   compactActionIcon: { width: 46, height: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  compactActionIconAppCall: {
-    backgroundColor: BRAND.dark,
-    shadowColor: BRAND.dark,
-    shadowOpacity: 0.22,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-    elevation: 3,
-  },
   compactActionLabel: { fontSize: 11, fontWeight: '600', color: BRAND.text },
 
   // Provider OTP
