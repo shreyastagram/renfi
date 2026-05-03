@@ -29,9 +29,22 @@ import MaintenanceModal from './src/components/MaintenanceModal';
 import { checkForAppUpdate } from './src/services/appUpdateService';
 import {
   setupNotificationOpenedHandler,
+  setupForegroundMessageListener,
   getAppInitialNotification
 } from './src/services/fcmService';
 import { configureGoogleSignIn } from './src/services/googleAuthService';
+// In-app calling (demo branch) — CallKeep wiring kept on its own line so
+// the existing FCM/Google imports stay untouched. Removable as a unit
+// when the demo branch is retired.
+import {
+  setupCallKeep,
+  registerCallKeepListeners,
+  consumePendingIncomingCall,
+  setPendingIncomingCall,
+  displayIncomingCall,
+  endCallNative,
+} from './src/services/callKeepService';
+import { acceptCall as acceptIacaxCall, rejectCall as rejectIacaxCall } from './src/services/callService';
 
 // Suppress Mapbox view-tag unhandled promise rejections (Fabric race condition)
 const originalHandler = (global as any).ErrorUtils?.getGlobalHandler?.();
@@ -282,6 +295,22 @@ const handleNotificationData = (remoteMessage: any) => {
       console.log('📩 [FCM] App update notification received');
       break;
 
+    case 'INCOMING_CALL':
+      // Foreground arrival of an in-app call. Background-state arrivals
+      // are already handled by index.js's FCM handler (which displays
+      // the native CallKeep ring); this branch covers the case where
+      // the app is open when the push lands and presents our own
+      // in-app incoming-call UI.
+      if (data.callId) {
+        navigate('IncomingCall', {
+          callId: data.callId,
+          roomName: data.roomName,
+          callerId: data.callerId,
+          callerName: data.callerName,
+        });
+      }
+      break;
+
     default:
       console.log('📩 [FCM] Unknown notification type:', type);
       // If we have a requestId, navigate to details anyway
@@ -383,11 +412,75 @@ function AppContent() {
 
     checkInitialNotification();
 
+    // In-app calling (demo branch): foreground arrivals of an
+    // INCOMING_CALL push need to surface the ring UI immediately —
+    // this is the WhatsApp / Signal pattern, NOT the default FCM
+    // banner-then-tap. Other notification types still go through the
+    // existing tap-driven flow via setupNotificationOpenedHandler.
+    const unsubscribeForeground = setupForegroundMessageListener((remoteMessage: any) => {
+      const data = remoteMessage?.data || {};
+      if (data.type !== 'INCOMING_CALL' || !data.callId) return;
+      displayIncomingCall({ callId: data.callId, callerName: data.callerName });
+      setPendingIncomingCall({
+        callId: data.callId,
+        roomName: data.roomName,
+        callerId: data.callerId,
+        callerName: data.callerName,
+        calleeType: data.calleeType,
+      });
+      navigate('IncomingCall', {
+        callId: data.callId,
+        roomName: data.roomName,
+        callerId: data.callerId,
+        callerName: data.callerName,
+      });
+    });
+
+    // In-app calling (demo branch): boot CallKeep and bridge native
+    // ring-UI events into our navigation. answerCall fires when the
+    // user taps Accept on the lockscreen ring (background path); we
+    // call /accept on iacax and route to InCall. endCall covers both
+    // explicit Reject taps and the OS auto-end when the user leaves
+    // the lockscreen UI without answering.
+    setupCallKeep();
+    const unsubscribeCallKeep = registerCallKeepListeners({
+      onAnswer: async (callUUID: string) => {
+        const pending = await consumePendingIncomingCall();
+        try {
+          const res = await acceptIacaxCall(callUUID);
+          navigate('InCall', {
+            callId: res.callId,
+            roomName: res.roomName,
+            token: res.token,
+            livekitUrl: res.livekitUrl,
+            mode: 'incoming',
+            otherPartyId: pending?.callerId,
+            otherPartyName: pending?.callerName || 'Incoming call',
+          });
+        } catch (err: any) {
+          console.warn('[CallKeep] accept failed:', err?.parsed?.code || err?.message);
+          endCallNative(callUUID);
+        }
+      },
+      onEnd: async (callUUID: string) => {
+        await consumePendingIncomingCall();
+        try {
+          await rejectIacaxCall(callUUID, 'declined');
+        } catch (err: any) {
+          // The call may already be terminated server-side (timeout,
+          // caller cancelled). Best-effort.
+          console.log('[CallKeep] reject noop:', err?.parsed?.code || err?.message);
+        }
+      },
+    });
+
     return () => {
       subscription.remove();
       if (unsubscribe) {
         unsubscribe();
       }
+      unsubscribeForeground?.();
+      unsubscribeCallKeep?.();
     };
   }, [runVersionCheck]);
 

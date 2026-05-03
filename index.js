@@ -46,15 +46,47 @@ const patchRejectionTracking = () => {
 };
 patchRejectionTracking();
 
+// LiveKit RN polyfills WebRTC globals — must run before any livekit-client
+// import resolves. Safe to call on every platform; iOS is a no-op for the
+// demo (we don't ship iOS) but the call itself is harmless.
+import { registerGlobals } from '@livekit/react-native';
+registerGlobals();
+
 import App from './App';
 import { name as appName } from './app.json';
 import { setupBackgroundMessageHandler } from './src/services/fcmService';
+import {
+  setupCallKeep,
+  displayIncomingCall,
+  setPendingIncomingCall,
+} from './src/services/callKeepService';
 import BackgroundGeolocation from 'react-native-background-geolocation';
 
 // Register FCM background message handler BEFORE AppRegistry
 // This MUST be called at the top level (not inside a component)
 // so that background/quit-state push notifications are received.
-setupBackgroundMessageHandler();
+//
+// INCOMING_CALL pushes need to wake CallKeep so the lockscreen ring
+// shows even if the app is killed. CallKeep setup is idempotent — safe
+// to call from both here and App.tsx's foreground init.
+setupBackgroundMessageHandler(async (remoteMessage) => {
+  const data = remoteMessage?.data || {};
+  if (data.type !== 'INCOMING_CALL') return;
+  if (!data.callId) return;
+  try {
+    await setupCallKeep();
+    displayIncomingCall({ callId: data.callId, callerName: data.callerName });
+    await setPendingIncomingCall({
+      callId: data.callId,
+      roomName: data.roomName,
+      callerId: data.callerId,
+      callerName: data.callerName,
+      calleeType: data.calleeType,
+    });
+  } catch (err) {
+    console.warn('[FCM bg] INCOMING_CALL handling failed:', err?.message);
+  }
+});
 
 // Register TransistorSoft headless task for Android killed-state tracking.
 // When the app is killed, Android runs this task in a bare JS context —

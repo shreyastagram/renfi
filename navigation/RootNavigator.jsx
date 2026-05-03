@@ -55,6 +55,8 @@ import {
   ReferralScreen,
   PSAContactsScreen,
   PSATriggerScreen,
+  IncomingCallScreen,
+  InCallScreen,
 } from '../src/screens';
 
 const Stack = createNativeStackNavigator();
@@ -521,6 +523,16 @@ const UserMainNavigator = () => {
         component={PSATriggerScreen}
         options={{ animation: 'slide_from_bottom' }}
       />
+      <Stack.Screen
+        name="IncomingCall"
+        component={IncomingCallScreen}
+        options={{ animation: 'slide_from_bottom', gestureEnabled: false }}
+      />
+      <Stack.Screen
+        name="InCall"
+        component={InCallScreen}
+        options={{ animation: 'slide_from_bottom', gestureEnabled: false }}
+      />
     </Stack.Navigator>
   );
 };
@@ -628,6 +640,16 @@ const ProviderMainNavigator = () => {
         name="PSATrigger"
         component={PSATriggerScreen}
         options={{ animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="IncomingCall"
+        component={IncomingCallScreen}
+        options={{ animation: 'slide_from_bottom', gestureEnabled: false }}
+      />
+      <Stack.Screen
+        name="InCall"
+        component={InCallScreen}
+        options={{ animation: 'slide_from_bottom', gestureEnabled: false }}
       />
     </Stack.Navigator>
   );

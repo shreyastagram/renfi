@@ -82,3 +82,7 @@ export { default as ReferralScreen } from './ReferralScreen';
 // Personal Safety Alerts (PSA)
 export { default as PSAContactsScreen } from './PSAContactsScreen';
 export { default as PSATriggerScreen } from './PSATriggerScreen';
+
+// In-app calling (demo branch only — LiveKit + CallKeep)
+export { default as IncomingCallScreen } from './IncomingCallScreen';
+export { default as InCallScreen } from './InCallScreen';
