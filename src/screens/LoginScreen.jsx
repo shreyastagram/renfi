@@ -449,11 +449,11 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
         if (error.isCancelled) return;
 
         if (error.code === APPLE_AUTH_CODES.NOT_REGISTERED) {
-          showAlert(t('auth.appleNotRegistered') || 'No account found. Please register first.', 'warning');
+          showAlert(t('auth.appleNotRegistered'), 'warning');
           return;
         }
         if (error.code === APPLE_AUTH_CODES.EMAIL_REQUIRED) {
-          showAlert(t('auth.appleNotRegistered') || 'No account found. Please register first.', 'warning');
+          showAlert(t('auth.appleNotRegistered'), 'warning');
           return;
         }
         if (error.code === APPLE_AUTH_CODES.ROLE_CONFLICT) {
@@ -468,7 +468,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
         showAlert(errorMessage, 'error');
       }
     } catch (error) {
-      showAlert(t('auth.appleSignInFailed') || 'Apple Sign-In failed. Please try again.', 'error');
+      showAlert(t('auth.appleSignInFailed'), 'error');
     } finally {
       setAppleLoading(false);
     }
