@@ -204,6 +204,7 @@ export default {
     emailAlreadyRegistered: 'हा ईमेल आधीच नोंदणीकृत आहे',
     phoneAlreadyRegistered: 'हा नंबर आधीच नोंदणीकृत आहे',
     registrationFailed: 'नोंदणी अयशस्वी. कृपया पुन्हा प्रयत्न करा.',
+    termsRequired: 'साइन अप करण्यापूर्वी कृपया अटी, शर्ती आणि गोपनीयता धोरण स्वीकारा.',
     googleRoleConflict: 'हा ईमेल आधीच %{role} म्हणून नोंदणीकृत आहे. प्रत्येक ईमेल फक्त एका खाते प्रकारासाठी वापरता येतो.',
     googleProfileSetup: 'तुमचे खाते तयार आहे! प्रोफाइल सेटअप लवकरच पूर्ण होईल.',
     googleRegistrationSuccess: 'नोंदणी यशस्वी!',

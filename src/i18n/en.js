@@ -204,6 +204,7 @@ export default {
     emailAlreadyRegistered: 'This email is already registered',
     phoneAlreadyRegistered: 'This number is already registered',
     registrationFailed: 'Registration failed. Please try again.',
+    termsRequired: 'Please accept the Terms & Conditions and Privacy Policy before signing up.',
     googleRoleConflict: 'This email is already registered as a %{role}. Each email can only be used for one account type.',
     googleProfileSetup: 'Your account is ready! Profile setup will complete shortly.',
     googleRegistrationSuccess: 'Registration successful!',

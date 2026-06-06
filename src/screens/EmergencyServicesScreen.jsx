@@ -726,6 +726,25 @@ const EmergencyServicesScreen = ({ navigation }) => {
   // Cleanup timer on unmount
   useEffect(() => () => stopLoadingTimer(), []);
 
+  // Track latest createdRequest/step in refs so the unmount cleanup below
+  // sees the current values without re-binding the effect on every change.
+  const createdRequestRef = useRef(null);
+  const stepRef = useRef('select');
+  useEffect(() => { createdRequestRef.current = createdRequest; }, [createdRequest]);
+  useEffect(() => { stepRef.current = step; }, [step]);
+
+  // If the screen is unmounted (back gesture, navigation, app close) while a
+  // request was created but the user never reached the providers step, cancel
+  // the orphan. Without this, a request stays in 'pending' and blocks the
+  // user from creating a new one. Backend stale-pending sweeper is the
+  // ultimate fallback if this fire-and-forget call doesn't land.
+  useEffect(() => () => {
+    const dangling = createdRequestRef.current;
+    if (dangling?._id && stepRef.current !== 'providers') {
+      cancelEmergencyRequest(dangling._id, 'user_left_screen', 'system').catch(() => {});
+    }
+  }, []);
+
   /** Wrap a promise with a timeout */
   const withTimeout = (promise, ms, label) =>
     Promise.race([
@@ -799,12 +818,34 @@ const EmergencyServicesScreen = ({ navigation }) => {
         setProviders(providersResult.providers);
         setStep('providers');
       } else {
+        // No providers — backend auto-cancels the orphan, but cancel
+        // defensively in case of older server or partial response.
+        // Then drop local reference so retry starts fresh.
+        if (!providersResult.requestCancelled) {
+          cancelEmergencyRequest(
+            createResult.data._id,
+            'no_providers_available',
+            'system',
+          ).catch(() => {});
+        }
+        setCreatedRequest(null);
         dialog(t('emergencyServices.noProviders'), providersResult.error || t('emergencyServices.noProvidersMsg'));
       }
     } catch (error) {
       stopLoadingTimer();
       setIsLoading(false);
       setLoadingTimedOut(false);
+
+      // If the request got created before the failure, cancel it so it
+      // doesn't sit as a pending orphan blocking future attempts.
+      // (Backend's stale-pending sweeper is the long-tail safety net for
+      // the case where this cancel call also fails.)
+      const orphanedId = createdRequest?._id;
+      if (orphanedId) {
+        cancelEmergencyRequest(orphanedId, 'request_failed', 'system').catch(() => {});
+        setCreatedRequest(null);
+      }
+
       dialog(
         t('emergencyServices.requestFailed'),
         error.message?.includes('timed out')
@@ -840,6 +881,16 @@ const EmergencyServicesScreen = ({ navigation }) => {
         setProviders(providersResult.providers);
         setStep('providers');
       } else {
+        // Backend auto-cancels the orphan when no providers; mirror that
+        // locally and clear the reference so the next attempt starts clean.
+        if (!providersResult.requestCancelled && createdRequest?._id) {
+          cancelEmergencyRequest(
+            createdRequest._id,
+            'no_providers_available',
+            'system',
+          ).catch(() => {});
+        }
+        setCreatedRequest(null);
         dialog(t('emergencyServices.noProviders'), providersResult.error || t('emergencyServices.noProvidersMsg'));
       }
     } catch (error) {

@@ -549,7 +549,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
    */
   const handleGoogleSignIn = async () => {
     if (!termsAccepted) {
-      showAlert('Please accept the Terms & Conditions and Privacy Policy before signing up.', 'warning');
+      showAlert(t('auth.termsRequired'), 'warning');
       return;
     }
     try {
@@ -776,7 +776,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
    */
   const handleAppleSignIn = async () => {
     if (!termsAccepted) {
-      showAlert('Please accept the Terms & Conditions and Privacy Policy before signing up.', 'warning');
+      showAlert(t('auth.termsRequired'), 'warning');
       return;
     }
     try {
@@ -832,7 +832,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
     setShowAppleEmailModal(false);
 
     if (!pendingAppleAuth) {
-      showAlert('Something went wrong. Please try Apple Sign-In again.', 'error');
+      showAlert(t('auth.appleSignInFailed'), 'error');
       return;
     }
 
@@ -859,7 +859,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
       }
     } catch (err) {
       console.error('[ProviderRegisterScreen] Apple email retry error:', err);
-      showAlert('Could not complete registration. Please try again.', 'error');
+      showAlert(t('auth.registrationFailed'), 'error');
     } finally {
       setAppleLoading(false);
       setPendingAppleAuth(null);
