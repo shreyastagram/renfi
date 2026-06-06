@@ -629,6 +629,13 @@ const ProviderMainNavigator = () => {
         component={PSATriggerScreen}
         options={{ animation: 'slide_from_bottom' }}
       />
+      {/* Emergency helpline numbers — same screen Users use; opened in
+       * numbers-only mode from the Provider Home "Emergency Numbers" entry. */}
+      <Stack.Screen
+        name="EmergencyServices"
+        component={EmergencyServicesScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
     </Stack.Navigator>
   );
 };

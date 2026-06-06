@@ -605,7 +605,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}

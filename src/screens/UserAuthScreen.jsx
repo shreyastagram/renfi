@@ -7,23 +7,14 @@
  * @version 2.0.0
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useLanguage } from '../context/LanguageContext';
 import RegisterScreen from './RegisterScreen';
 import LoginScreen from './LoginScreen';
 import OTPLoginScreen from './OTPLoginScreen';
 import OTPVerifyScreen from './OTPVerifyScreen';
-
-/**
- * Auth modes
- */
-const AUTH_MODES = {
-  LOGIN: 'login',
-  REGISTER: 'register',
-  OTP_LOGIN: 'otp_login',
-  OTP_VERIFY: 'otp_verify',
-};
+import usePersistedAuthFlow, { AUTH_MODES } from '../hooks/usePersistedAuthFlow';
 
 /**
  * UserAuthScreen Component
@@ -33,8 +24,9 @@ const AUTH_MODES = {
  */
 const UserAuthScreen = ({ navigation }) => {
   const { t } = useLanguage();
-  const [authMode, setAuthMode] = useState(AUTH_MODES.LOGIN);
-  const [otpData, setOtpData] = useState(null);
+  // OTP step persists across an OS process kill (Issue 2) so a user who leaves
+  // to read the SMS OTP returns to the OTP box instead of starting over.
+  const { authMode, setAuthMode, otpData, setOtpData } = usePersistedAuthFlow('user');
 
   /**
    * Switch to login mode

@@ -131,6 +131,18 @@ const OFFLINE_HELPLINE_NUMBERS = {
  * @param {string} type - Optional: filter by type (fire_brigade, police, hospital, etc.)
  * @returns {Promise<Object>}
  */
+/**
+ * Synchronous offline accessor — returns the bundled helpline numbers for a
+ * category INSTANTLY (no network). Used to render the numbers sheet immediately
+ * while the API refresh happens in the background, avoiding the visible delay.
+ * @param {string} type
+ * @returns {Array} numbers (possibly empty)
+ */
+export const getOfflineEmergencyNumbers = (type) => {
+  if (type && OFFLINE_HELPLINE_NUMBERS[type]) return OFFLINE_HELPLINE_NUMBERS[type];
+  return [];
+};
+
 export const getStaticEmergencyNumbers = async (type = null) => {
   try {
     let url = `${API_BASE}/static-numbers`;

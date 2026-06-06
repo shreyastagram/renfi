@@ -224,6 +224,29 @@ export const createServiceRequest = async ({
  * @param {number} [limit=20] - Maximum providers to return
  * @returns {Promise<Object>} Nearby providers list
  */
+/**
+ * Get the set of traditional service categories that currently have at least
+ * one bookable provider. Returns category keys only (no counts). Used to render
+ * "Coming Soon" cards. Fails OPEN: on any error returns null so the caller shows
+ * all categories as active (never blanks the home grid).
+ * @returns {Promise<string[] | null>}
+ */
+export const getAvailableCategories = async () => {
+  try {
+    const url = `${NODE_BASE_URL}/api/traditional-services/available-categories`;
+    const response = await authFetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success || !Array.isArray(data.categories)) return null;
+    return data.categories;
+  } catch (error) {
+    console.warn('[TraditionalService] getAvailableCategories failed (fail-open):', error?.message);
+    return null;
+  }
+};
+
 export const getNearbyProviders = async (requestId, limit = 20) => {
   try {
     if (!requestId) {

@@ -59,6 +59,7 @@ import {
   getRequestDetails,
   skipProvider,
   retryProviderSearch,
+  getAvailableCategories,
 } from '../services/traditionalServiceService';
 import { formatDistance, formatDistanceFromMeters, useDistanceUnit } from '../utils/formatDistance';
 
@@ -128,13 +129,16 @@ const SERVICE_COLORS = {
   ac_repair: '#06B6D4',
 };
 
-const ServiceCard = React.memo(({ service, onPress }) => {
+const ServiceCard = React.memo(({ service, onPress, comingSoon = false }) => {
   const { t } = useLanguage();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const accent = SERVICE_COLORS[service.id] || BRAND.secondary;
 
-  const onPressIn = () => Animated.spring(scaleAnim, { toValue: 0.92, useNativeDriver: true, speed: 50, bounciness: 4 }).start();
-  const onPressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 16, bounciness: 8 }).start();
+  // No press-shrink animation for coming-soon cards (they only open a dialog).
+  const onPressIn = () => { if (!comingSoon) Animated.spring(scaleAnim, { toValue: 0.92, useNativeDriver: true, speed: 50, bounciness: 4 }).start(); };
+  const onPressOut = () => { if (!comingSoon) Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 16, bounciness: 8 }).start(); };
+
+  const label = SERVICE_ID_TO_KEY[service.id] ? t(SERVICE_ID_TO_KEY[service.id]) : service.name;
 
   return (
     <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
@@ -143,15 +147,21 @@ const ServiceCard = React.memo(({ service, onPress }) => {
         onPress={() => onPress(service)}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
-        activeOpacity={1}
-        accessibilityLabel={`${SERVICE_ID_TO_KEY[service.id] ? t(SERVICE_ID_TO_KEY[service.id]) : service.name} service`}
+        activeOpacity={comingSoon ? 0.9 : 1}
+        accessibilityLabel={comingSoon ? `${label} — ${t('userHome.comingSoonTitle') || 'Coming Soon'}` : `${label} service`}
         accessibilityRole="button"
+        accessibilityState={{ disabled: comingSoon }}
       >
         {/* Service icon — custom SVG illustration or vector fallback */}
-        <View style={styles.serviceIconWrap}>
+        <View style={[styles.serviceIconWrap, comingSoon && { opacity: 0.35 }]}>
           <ServiceIcon serviceType={service.id} size={58} useSvg={true} color={accent} />
         </View>
-        <Text style={styles.serviceName}>{SERVICE_ID_TO_KEY[service.id] ? t(SERVICE_ID_TO_KEY[service.id]) : service.name}</Text>
+        <Text style={[styles.serviceName, comingSoon && { opacity: 0.45 }]}>{label}</Text>
+        {comingSoon && (
+          <View style={styles.comingSoonBadge}>
+            <Text style={styles.comingSoonBadgeText}>{t('userHome.comingSoon') || 'Coming Soon'}</Text>
+          </View>
+        )}
       </TouchableOpacity>
     </Animated.View>
   );
@@ -303,6 +313,28 @@ const UserHomeScreen = ({ navigation, route }) => {
       StatusBar.setBarStyle('dark-content');
       if (Platform.OS === 'android') StatusBar.setBackgroundColor('transparent');
     }, [])
+  );
+
+  // "Coming Soon" availability: which traditional categories currently have a
+  // bookable provider. null = unknown → FAIL-OPEN (show everything active).
+  const [availableCategories, setAvailableCategories] = useState(null);
+
+  // Refetch each time Home gains focus so a category that just gained/lost a
+  // provider flips within seconds — never shows stale "Coming Soon".
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      getAvailableCategories().then((cats) => {
+        if (active && cats !== null) setAvailableCategories(cats);
+      });
+      return () => { active = false; };
+    }, [])
+  );
+
+  // A category is "coming soon" only when we KNOW availability and it's absent.
+  const isCategoryComingSoon = useCallback(
+    (categoryId) => Array.isArray(availableCategories) && !availableCategories.includes(categoryId),
+    [availableCategories]
   );
 
   const useKm = useDistanceUnit();
@@ -718,6 +750,17 @@ const UserHomeScreen = ({ navigation, route }) => {
   }, [serviceLocation]);
 
   const handleServiceSelect = (service) => {
+    // "Coming Soon": no bookable provider for this category yet — don't start a
+    // request; show a friendly dialog and never expose provider counts.
+    if (isCategoryComingSoon(service.id)) {
+      dialog(
+        t('userHome.comingSoonTitle') || 'Coming Soon',
+        t('userHome.comingSoonMsg') || 'This service is coming soon to your city. Please check back shortly!',
+        [{ text: t('common.ok') || 'OK', style: 'default' }]
+      );
+      return;
+    }
+
     // Only block for verification if profile has fully loaded and user is genuinely unverified
     // Don't show verification popup while data is still loading — bad UX
     if (profileReady && !isVerified) {
@@ -1481,7 +1524,7 @@ const UserHomeScreen = ({ navigation, route }) => {
             <Text style={styles.servicesSectionTitle}>{t('userHome.traditionalServices')}</Text>
             <View style={styles.servicesGrid}>
               {SERVICE_CATEGORIES.map((service) => (
-                <ServiceCard key={service.id} service={service} onPress={handleServiceSelect} />
+                <ServiceCard key={service.id} service={service} onPress={handleServiceSelect} comingSoon={isCategoryComingSoon(service.id)} />
               ))}
             </View>
             <View style={styles.quickActions}>
@@ -2102,6 +2145,21 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   // Card — clean flat surface
+  comingSoonBadge: {
+    position: 'absolute',
+    top: 6,
+    alignSelf: 'center',
+    backgroundColor: '#0F172A',
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  comingSoonBadgeText: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
   serviceCard: {
     overflow: 'hidden',
     width: Math.floor((SCREEN_WIDTH - 64) / 3),

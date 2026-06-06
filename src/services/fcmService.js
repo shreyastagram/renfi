@@ -26,8 +26,9 @@ import apiClient from './apiClient';
 
 const FCM_TOKEN_KEY = '@fixhomi_fcm_token';
 
-// Create the default notification channel on Android
-// Must match the channelId sent by the backend ('fixhomi_notifications')
+// Create the notification channels on Android. Must match the channelIds the
+// backend targets: 'fixhomi_notifications' (sound) and 'fixhomi_silent' (no
+// sound — used when the user turns "Notification Sound" off, in all app states).
 if (Platform.OS === 'android') {
   notifee.createChannel({
     id: 'fixhomi_notifications',
@@ -35,6 +36,14 @@ if (Platform.OS === 'android') {
     importance: AndroidImportance.HIGH,
     sound: 'default',
     vibration: true,
+  }).catch(() => {});
+
+  notifee.createChannel({
+    id: 'fixhomi_silent',
+    name: 'Fixhomi (Silent)',
+    importance: AndroidImportance.DEFAULT, // shows in tray, no heads-up, no sound
+    vibration: false,
+    // no `sound` → silent
   }).catch(() => {});
 }
 

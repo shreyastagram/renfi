@@ -19,8 +19,47 @@ let socket = null;
 let locationWatchId = null;
 let locationUpdateInterval = null;
 
+// ─── Shared "latest known location" cache ────────────────────────────────────
+// Single source of truth for the most recent GPS fix, fed by LocationContext
+// (and by this service's own watcher). Lets the periodic sender forward a fresh
+// coordinate WITHOUT spawning a redundant getCurrentPosition each tick — which
+// previously contended with LocationContext's watcher for the single Android
+// GPS provider and could starve it (root cause of "location unavailable").
+let latestKnownLocation = null;
+
+/**
+ * Push the freshest GPS fix into the shared cache. Called by LocationContext on
+ * every successful fix, and by this service's watcher.
+ */
+export const setLatestLocation = (coords) => {
+  if (coords && typeof coords.latitude === 'number' && typeof coords.longitude === 'number') {
+    latestKnownLocation = {
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      accuracy: coords.accuracy,
+      at: Date.now(),
+    };
+  }
+};
+
+/** Read the shared latest location (or null). */
+export const getLatestLocation = () => latestKnownLocation;
+
 // Listeners registry
 const listeners = new Map();
+
+// ─── Tracking-change subscription (replaces the banner's 2s polling) ─────────
+const trackingChangeListeners = new Set();
+const notifyTrackingChange = () => {
+  trackingChangeListeners.forEach((cb) => {
+    try { cb(activeTrackingRequests.size); } catch (e) { /* ignore */ }
+  });
+};
+/** Subscribe to active-tracking-count changes. Returns an unsubscribe fn. */
+export const subscribeTrackingChange = (cb) => {
+  trackingChangeListeners.add(cb);
+  return () => trackingChangeListeners.delete(cb);
+};
 
 // Track subscribed request rooms for re-join on reconnect
 const subscribedRooms = new Set();
@@ -266,9 +305,10 @@ export const startLocationTracking = (providerId) => {
   
   getInitialPosition();
 
-  // Watch position changes
+  // Watch position changes — feed the shared cache so other consumers reuse it
   locationWatchId = Geolocation.watchPosition(
     (position) => {
+      setLatestLocation(position.coords);
       sendLocationUpdate(providerId, position.coords);
     },
     (error) => {
@@ -277,20 +317,29 @@ export const startLocationTracking = (providerId) => {
     SOCKET_CONFIG.GEOLOCATION_OPTIONS
   );
 
-  // Also send updates at regular intervals with fallback
+  // Periodic sender — forward the freshest cached fix (fed by this watcher AND
+  // LocationContext). Only fall back to a direct GPS read when the cache is
+  // stale, avoiding a redundant getCurrentPosition every tick (which previously
+  // contended with LocationContext's watcher for the single GPS provider).
   locationUpdateInterval = setInterval(() => {
+    const cached = latestKnownLocation;
+    if (cached && Date.now() - cached.at < SOCKET_CONFIG.LOCATION_UPDATE_INTERVAL * 2) {
+      sendLocationUpdate(providerId, cached);
+      return;
+    }
     Geolocation.getCurrentPosition(
       (position) => {
+        setLatestLocation(position.coords);
         sendLocationUpdate(providerId, position.coords);
       },
-      (error) => {
+      () => {
         // Silently try low accuracy on interval errors
         Geolocation.getCurrentPosition(
           (position) => {
+            setLatestLocation(position.coords);
             sendLocationUpdate(providerId, position.coords);
           },
-          (fallbackError) => {
-            // Only log if both fail
+          () => {
             console.warn('⚠️ [Socket] Interval location unavailable');
           },
           SOCKET_CONFIG.GEOLOCATION_OPTIONS_LOW_ACCURACY
@@ -379,15 +428,18 @@ const haversineMeters = (lat1, lon1, lat2, lon2) => {
  * Skips broadcast if provider hasn't moved more than 5m (GPS noise filter).
  */
 const broadcastRequestLocation = (coords) => {
-  if (activeTrackingRequests.size === 0) return;
-
-  // Validate coordinates before broadcasting
+  // Validate coordinates before doing anything
   if (!Number.isFinite(coords.latitude) || !Number.isFinite(coords.longitude) ||
       coords.latitude < -90 || coords.latitude > 90 ||
       coords.longitude < -180 || coords.longitude > 180) {
     console.warn('⚠️ [Socket] Invalid coordinates, skipping broadcast');
     return;
   }
+
+  // Keep the shared cache fresh from the active-job watcher too.
+  setLatestLocation(coords);
+
+  if (activeTrackingRequests.size === 0) return;
 
   // Skip if provider hasn't moved meaningfully (filters GPS jitter when stationary)
   if (lastBroadcastCoords) {
@@ -541,6 +593,7 @@ export const startRequestLocationTracking = (requestId, providerId, onLocationUp
   });
 
   console.log(`📍 [Socket] Added request tracking: ${requestId} (${serviceCategory}) — total: ${activeTrackingRequests.size}`);
+  notifyTrackingChange();
 
   // Start the shared GPS watcher if not already running
   ensureGpsWatcherRunning();
@@ -558,6 +611,7 @@ export const stopRequestLocationTracking = (requestId) => {
     if (activeTrackingRequests.has(requestId)) {
       activeTrackingRequests.delete(requestId);
       console.log(`📍 [Socket] Stopped tracking request: ${requestId} — remaining: ${activeTrackingRequests.size}`);
+      notifyTrackingChange();
     }
     stopGpsWatcherIfIdle();
   } else {
@@ -566,6 +620,7 @@ export const stopRequestLocationTracking = (requestId) => {
       console.log(`📍 [Socket] Stopping all request tracking (${activeTrackingRequests.size} requests)`);
       activeTrackingRequests.clear();
       lastBroadcastCoords = null; // Reset distance filter
+      notifyTrackingChange();
     }
     if (requestLocationWatchId !== null) {
       Geolocation.clearWatch(requestLocationWatchId);

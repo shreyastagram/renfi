@@ -42,6 +42,7 @@ import {
   EMERGENCY_SERVICE_LABELS,
   EMERGENCY_SERVICE_ICONS,
   getStaticEmergencyNumbers,
+  getOfflineEmergencyNumbers,
   createEmergencyRequest,
   getNearbyEmergencyProviders,
   assignEmergencyProvider,
@@ -679,17 +680,23 @@ const EmergencyServicesScreen = ({ navigation }) => {
     setSelectedService(service);
 
     if (STATIC_NUMBER_SERVICES.includes(service.id) || GOVERNMENT_HELPLINE_SERVICES.includes(service.id)) {
-      // Static service - fetch numbers without showing full-screen loading
-      const result = await getStaticEmergencyNumbers(service.id);
-
-      if (result.success) {
-        // Handle both array format and object format
-        const numbers = Array.isArray(result.data)
-          ? result.data
-          : result.data?.numbers || [];
-        setStaticNumbers(numbers);
+      // Show the bundled (offline) numbers INSTANTLY so the sheet opens with no
+      // delay/flash, then refresh from the API in the background and swap in any
+      // updated list. This removes the "wait → sheet appears" jank.
+      const offline = getOfflineEmergencyNumbers(service.id);
+      if (offline.length > 0) {
+        setStaticNumbers(offline);
         setStep('static');
-      } else {
+      }
+
+      const result = await getStaticEmergencyNumbers(service.id);
+      if (result.success) {
+        const numbers = Array.isArray(result.data) ? result.data : result.data?.numbers || [];
+        if (numbers.length > 0) {
+          setStaticNumbers(numbers);
+          if (offline.length === 0) setStep('static');
+        }
+      } else if (offline.length === 0) {
         dialog(t('common.error'), result.error || t('emergencyServices.requestFailed'));
       }
     } else {

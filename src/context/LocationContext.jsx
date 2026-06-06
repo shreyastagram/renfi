@@ -18,6 +18,7 @@ import { useDialog } from './DialogContext';
 import DeviceInfo from 'react-native-device-info';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import { requestNotificationPermission } from '../services/fcmService';
+import { setLatestLocation } from '../services/socketService';
 
 // Mapbox Access Token (from .env via centralized config)
 import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
@@ -140,6 +141,43 @@ export const LocationProvider = ({ children }) => {
   const locationIntervalRef = useRef(null);
   const appStateRef = useRef(AppState.currentState);
   const lastFetchTimeRef = useRef(0);
+  // Mirror of currentLocation so fetchLocation can read it WITHOUT depending on
+  // the state value (keeps fetchLocation/refreshLocation identities stable and
+  // stops the context value from churning on every fix → fixes top-section flicker).
+  const currentLocationRef = useRef(null);
+
+  // Minimum movement (meters) before we publish a new coordinate. A stationary
+  // provider stops emitting new object references every 30s, which is the main
+  // driver of the dashboard top-section re-render flicker.
+  const MIN_LOCATION_DELTA_M = 25;
+
+  /**
+   * Apply a GPS fix: update state ONLY when the position meaningfully changed
+   * (moved > MIN_LOCATION_DELTA_M, or accuracy improved, or first fix). Always
+   * keeps the shared socket cache fresh. Returns the location actually in effect.
+   */
+  const applyLocation = useCallback((coords) => {
+    const { latitude, longitude, accuracy } = coords;
+    // Always feed the shared cache (single GPS source for socketService).
+    try { setLatestLocation({ latitude, longitude, accuracy }); } catch (e) { /* ignore */ }
+
+    const prev = currentLocationRef.current;
+    let changed = !prev;
+    if (prev) {
+      const dLat = (latitude - prev.latitude) * 111320;
+      const dLng = (longitude - prev.longitude) * 111320 * Math.cos((latitude * Math.PI) / 180);
+      const movedMeters = Math.sqrt(dLat * dLat + dLng * dLng);
+      const accuracyImproved =
+        typeof accuracy === 'number' && typeof prev.accuracy === 'number' && accuracy < prev.accuracy * 0.7;
+      changed = movedMeters > MIN_LOCATION_DELTA_M || accuracyImproved;
+    }
+
+    if (!changed) return prev;
+    const next = { latitude, longitude, accuracy };
+    currentLocationRef.current = next;
+    setCurrentLocation(next);
+    return next;
+  }, []);
   
   /**
    * Detect if running on emulator using react-native-device-info
@@ -350,12 +388,13 @@ export const LocationProvider = ({ children }) => {
    * Stage 2: Get accurate location in background
    * This is how Uber/Ola achieve instant location display
    */
-  const fetchLocation = useCallback(async (forceRefresh = false) => {
+  const fetchLocation = useCallback(async (forceRefresh = false, { silent = false } = {}) => {
     // Throttle: Don't fetch if last fetch was less than 3 seconds ago
     const now = Date.now();
-    if (!forceRefresh && now - lastFetchTimeRef.current < 3000 && currentLocation) {
+    const existing = currentLocationRef.current;
+    if (!forceRefresh && now - lastFetchTimeRef.current < 3000 && existing) {
       console.log('📍 [LocationContext] Using recently cached location');
-      return currentLocation;
+      return existing;
     }
     
     // Check permission first — silently check, only request if needed
@@ -364,12 +403,16 @@ export const LocationProvider = ({ children }) => {
       const granted = await requestPermission();
       if (!granted) {
         setLocationLoading(false);
-        setLocationError('Location permission not granted');
+        if (!existing) setLocationError('Location permission not granted');
         return null;
       }
     }
     
-    setLocationLoading(true);
+    // Only show the loading state for the FIRST acquisition or an explicit
+    // (non-silent) refresh. Silent background refreshes (30s interval / app
+    // foreground) must NOT toggle loading — otherwise every consumer re-renders
+    // twice per tick, which is the dashboard top-section flicker.
+    if (!silent || !existing) setLocationLoading(true);
     setLocationError(null);
     lastFetchTimeRef.current = now;
     
@@ -383,8 +426,7 @@ export const LocationProvider = ({ children }) => {
           const { latitude, longitude, accuracy } = position.coords;
           console.log(`⚡ [LocationContext] FAST cached location: ${latitude.toFixed(6)}, ${longitude.toFixed(6)} (±${accuracy?.toFixed(0) || '?'}m)`);
           
-          const newLocation = { latitude, longitude, accuracy };
-          setCurrentLocation(newLocation);
+          const newLocation = applyLocation({ latitude, longitude, accuracy });
           setLocationServicesEnabled(true); // GPS is working
           gpsAlertShownRef.current = false; // GPS confirmed working — allow future alerts if it goes off
           setLocationLoading(false);
@@ -408,7 +450,7 @@ export const LocationProvider = ({ children }) => {
                 const better = betterPosition.coords;
                 if (better.accuracy < accuracy) {
                   console.log(`✅ [LocationContext] Improved: ${better.latitude.toFixed(6)}, ${better.longitude.toFixed(6)} (±${better.accuracy?.toFixed(0)}m)`);
-                  setCurrentLocation({ latitude: better.latitude, longitude: better.longitude, accuracy: better.accuracy });
+                  applyLocation({ latitude: better.latitude, longitude: better.longitude, accuracy: better.accuracy });
                   reverseGeocode(better.latitude, better.longitude).then(addr => {
                     if (addr) setLocationAddress(addr);
                   });
@@ -439,8 +481,7 @@ export const LocationProvider = ({ children }) => {
               const { latitude, longitude, accuracy } = position.coords;
               console.log(`📍 [LocationContext] Fresh location: ${latitude.toFixed(6)}, ${longitude.toFixed(6)} (±${accuracy?.toFixed(0) || '?'}m)`);
               
-              const newLocation = { latitude, longitude, accuracy };
-              setCurrentLocation(newLocation);
+              const newLocation = applyLocation({ latitude, longitude, accuracy });
               setLocationServicesEnabled(true); // GPS is working
               gpsAlertShownRef.current = false; // GPS confirmed working
               setLocationLoading(false);
@@ -464,10 +505,13 @@ export const LocationProvider = ({ children }) => {
                 if (watchError.code === 2) {
                   showGpsOffAlert();
                 } else {
-                  setLocationError(watchError.message || 'Failed to get location');
                   setLocationLoading(false);
+                  // Don't surface an error (or wipe the screen) if we already
+                  // have a usable location — a transient watch error shouldn't
+                  // make the UI claim "location unavailable".
+                  if (!currentLocationRef.current) setLocationError(watchError.message || 'Failed to get location');
                 }
-                resolve(null);
+                resolve(currentLocationRef.current || null);
               }
             },
             { enableHighAccuracy: true, timeout: LOCATION_TIMEOUT, maximumAge: 0, distanceFilter: 0 }
@@ -479,8 +523,12 @@ export const LocationProvider = ({ children }) => {
               resolved = true;
               Geolocation.clearWatch(watchId);
               setLocationLoading(false);
-              setLocationError('Location timeout. Please check if location services are enabled.');
-              resolve(null);
+              if (currentLocationRef.current) {
+                resolve(currentLocationRef.current);
+              } else {
+                setLocationError('Location timeout. Please check if location services are enabled.');
+                resolve(null);
+              }
             }
           }, LOCATION_TIMEOUT + 2000);
         },
@@ -496,9 +544,9 @@ export const LocationProvider = ({ children }) => {
         if (!resolved) {
           resolved = true;
           setLocationLoading(false);
-          if (currentLocation) {
+          if (currentLocationRef.current) {
             console.log('📍 [LocationContext] Using previous location as fallback');
-            resolve(currentLocation);
+            resolve(currentLocationRef.current);
           } else {
             setLocationError('Location timeout');
             resolve(null);
@@ -506,7 +554,7 @@ export const LocationProvider = ({ children }) => {
         }
       }, LOCATION_TIMEOUT + 3000);
     });
-  }, [locationPermission, currentLocation, requestPermission]);
+  }, [locationPermission, requestPermission, applyLocation]);
   
   /**
    * Start periodic location updates
@@ -517,11 +565,11 @@ export const LocationProvider = ({ children }) => {
       clearInterval(locationIntervalRef.current);
     }
     
-    // Update location every 30 seconds
+    // Update location every 30 seconds (SILENT — no loading toggle, no flicker)
     locationIntervalRef.current = setInterval(() => {
       // Only update if app is in foreground
       if (appStateRef.current === 'active') {
-        fetchLocation(true);
+        fetchLocation(true, { silent: true });
       }
     }, LOCATION_UPDATE_INTERVAL);
     
@@ -550,7 +598,8 @@ export const LocationProvider = ({ children }) => {
         // successfully returns a position (in fetchLocation success callbacks).
         // This prevents false "enable location" alerts on every foreground.
         console.log('📱 [LocationContext] App foregrounded - refreshing location');
-        fetchLocation(true);
+        // Silent: we already have a location; don't flash the loading state.
+        fetchLocation(true, { silent: true });
       }
       appStateRef.current = nextAppState;
     });
@@ -653,6 +702,21 @@ export const LocationProvider = ({ children }) => {
     locationAddress?.city ||
     (currentLocation ? 'Location detected ✓' : 'Getting location...');
 
+  /**
+   * Explicit, UI-ready location status so screens never have to infer
+   * "disabled" from a merely-missing coordinate. Precedence:
+   *   available  → we have a coordinate (regardless of any background refresh)
+   *   acquiring  → still trying for the first fix (or actively loading), not an error
+   *   disabled   → device location services are OFF
+   *   denied     → permission denied/blocked
+   *   acquiring  → default fallback
+   */
+  const locationStatus =
+    currentLocation ? 'available'
+      : (locationServicesEnabled === false ? 'disabled'
+        : (locationPermission === 'denied' || locationPermission === 'blocked') ? 'denied'
+          : 'acquiring');
+
   const value = useMemo(() => ({
     currentLocation,
     locationAddress,
@@ -660,6 +724,7 @@ export const LocationProvider = ({ children }) => {
     locationError,
     locationPermission,
     locationServicesEnabled,
+    locationStatus,
     isEmulator,
     refreshLocation,
     requestPermission,
@@ -674,6 +739,7 @@ export const LocationProvider = ({ children }) => {
     locationError,
     locationPermission,
     locationServicesEnabled,
+    locationStatus,
     isEmulator,
     refreshLocation,
     requestPermission,

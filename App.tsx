@@ -68,6 +68,15 @@ export const navigate = (name: string, params?: object) => {
   }
 };
 
+// ── Navigation state persistence (Issue 2) ──────────────────────────────────
+// Samsung/Realme/Vivo/Oppo aggressively kill backgrounded processes; Android
+// then relaunches the app as a COLD START. Persisting the navigation tree lets
+// us restore exactly where the user was (booking, forms, onboarding) instead of
+// dumping them at the default screen. TTL guards against restoring a stale
+// location when the app is reopened much later.
+const NAV_STATE_KEY = '@fixhomi_nav_state_v1';
+const NAV_STATE_TTL_MS = 3 * 60 * 60 * 1000; // 3 hours
+
 /**
  * Mask email for display (e.g., "te***@example.com")
  */
@@ -305,6 +314,47 @@ function AppContent() {
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
   const { markInitialLoadComplete, user, userType, isAuthenticated } = useApp();
 
+  // Navigation state persistence (Issue 2) — restore after a process kill.
+  const [isNavReady, setIsNavReady] = useState(false);
+  const [initialNavState, setInitialNavState] = useState<any>(undefined);
+  const navPersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Restore persisted navigation state on launch (unless opened via a deep link,
+  // which must take precedence). Always flips isNavReady so the app still boots
+  // if anything goes wrong.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const initialUrl = await Linking.getInitialURL();
+        if (initialUrl == null) {
+          const raw = await AsyncStorage.getItem(NAV_STATE_KEY);
+          if (raw) {
+            const saved = JSON.parse(raw);
+            if (saved?.state && saved?.savedAt && Date.now() - saved.savedAt < NAV_STATE_TTL_MS) {
+              if (!cancelled) setInitialNavState(saved.state);
+            } else {
+              AsyncStorage.removeItem(NAV_STATE_KEY).catch(() => {});
+            }
+          }
+        }
+      } catch (e) {
+        // Corrupt/unavailable state — boot fresh.
+      } finally {
+        if (!cancelled) setIsNavReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Persist navigation state (debounced) so a background kill can be recovered.
+  const persistNavState = useCallback((state: any) => {
+    if (navPersistTimerRef.current) clearTimeout(navPersistTimerRef.current);
+    navPersistTimerRef.current = setTimeout(() => {
+      AsyncStorage.setItem(NAV_STATE_KEY, JSON.stringify({ state, savedAt: Date.now() })).catch(() => {});
+    }, 800);
+  }, []);
+
   // Set Crashlytics user context when auth state changes
   // Only send non-PII identifiers — no email, no name
   useEffect(() => {
@@ -396,17 +446,22 @@ function AppContent() {
       <DialogProvider>
       <View style={{ flex: 1 }}>
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-        <NavigationContainer
-          ref={navigationRef}
-          linking={linking}
-          onStateChange={(state) => {
-            console.log('📍 [Navigation] State changed:', state?.routes?.[state?.index ?? 0]?.name);
-          }}
-        >
-          <RootNavigator />
-          {/* Global notification banner — overlays all screens */}
-          <GlobalBanner />
-        </NavigationContainer>
+        {isNavReady && (
+          <NavigationContainer
+            ref={navigationRef}
+            linking={linking}
+            initialState={initialNavState}
+            onStateChange={(state) => {
+              console.log('📍 [Navigation] State changed:', state?.routes?.[state?.index ?? 0]?.name);
+              // Persist for recovery after an OEM background process kill (Issue 2).
+              persistNavState(state);
+            }}
+          >
+            <RootNavigator />
+            {/* Global notification banner — overlays all screens */}
+            <GlobalBanner />
+          </NavigationContainer>
+        )}
 
         {/* Maintenance Modal — blocks app when maintenance is active */}
         <MaintenanceModal

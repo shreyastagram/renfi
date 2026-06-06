@@ -555,7 +555,7 @@ const ProviderHomeScreen = ({ navigation }) => {
   const { user, profile, logout, updateProviderAvailability, isProfileLoading, refreshProfile, userType, setPremiumStatus } = useApp();
   const { dialog } = useDialog();
   const { t } = useLanguage();
-  const { currentLocation: providerLocation, locationAddress, displayAddress } = useLocation();
+  const { currentLocation: providerLocation, locationAddress, displayAddress, locationStatus } = useLocation();
 
   // Show "Exit App?" on Android back press from home screen
   useExitConfirmation();
@@ -1080,11 +1080,23 @@ const ProviderHomeScreen = ({ navigation }) => {
                       </View>
                     ) : (
                       <View style={styles.miniMapPlaceholder}>
-                        <MaterialIcon name="location-off" size={20} color={BRAND.muted} />
+                        <MaterialIcon
+                          name={locationStatus === 'acquiring' ? 'my-location' : 'location-off'}
+                          size={20}
+                          color={BRAND.muted}
+                        />
                       </View>
                     )}
                     <Text style={styles.miniLocationLabel} numberOfLines={1}>
-                      {displayAddress || 'My Location'}
+                      {providerLocation?.latitude
+                        ? (displayAddress || 'My Location')
+                        : locationStatus === 'acquiring'
+                          ? 'Getting your location…'
+                          : locationStatus === 'disabled'
+                            ? 'Location is off'
+                            : locationStatus === 'denied'
+                              ? 'Enable location'
+                              : (displayAddress || 'My Location')}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1315,6 +1327,22 @@ const ProviderHomeScreen = ({ navigation }) => {
               </Text>
             </View>
           </View>
+
+          {/* Emergency Numbers — reuses the same helpline screen Users see */}
+          <TouchableOpacity
+            style={styles.emergencyNumbersCard}
+            onPress={() => navigation.navigate('EmergencyServices', { mode: 'helplines' })}
+            activeOpacity={0.85}
+          >
+            <View style={styles.emergencyNumbersIconCircle}>
+              <MaterialIcon name="phone-in-talk" size={22} color="#DC2626" />
+            </View>
+            <View style={styles.emergencyNumbersTextWrap}>
+              <Text style={styles.emergencyNumbersTitle}>{t('providerHome.emergencyNumbers') || 'Emergency Numbers'}</Text>
+              <Text style={styles.emergencyNumbersSub}>{t('providerHome.emergencyNumbersSub') || 'Police, Ambulance, Fire & more helplines'}</Text>
+            </View>
+            <MaterialIcon name="chevron-right" size={22} color="#94A3B8" />
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -1420,9 +1448,21 @@ const ProviderHomeScreen = ({ navigation }) => {
                 </>
               ) : (
                 <View style={styles.locationModalNoData}>
-                  <MaterialIcon name="location-off" size={36} color="#94A3B8" />
-                  <Text style={styles.locationModalNoText}>Location unavailable</Text>
-                  <Text style={styles.locationModalNoSub}>Enable location services</Text>
+                  <MaterialIcon
+                    name={locationStatus === 'acquiring' ? 'my-location' : 'location-off'}
+                    size={36}
+                    color="#94A3B8"
+                  />
+                  <Text style={styles.locationModalNoText}>
+                    {locationStatus === 'acquiring' ? 'Getting your location…' : 'Location unavailable'}
+                  </Text>
+                  <Text style={styles.locationModalNoSub}>
+                    {locationStatus === 'acquiring'
+                      ? 'Hang tight while we find you'
+                      : locationStatus === 'denied'
+                        ? 'Grant location permission in Settings'
+                        : 'Enable location services'}
+                  </Text>
                 </View>
               )}
             </View>
@@ -1938,6 +1978,33 @@ const styles = StyleSheet.create({
   },
 
   // ===== Tips Card =====
+  emergencyNumbersCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    gap: 12,
+    ...Platform.select({
+      ios: { shadowColor: '#9A3412', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.06, shadowRadius: 10 },
+      android: { elevation: 2 },
+    }),
+  },
+  emergencyNumbersIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emergencyNumbersTextWrap: { flex: 1 },
+  emergencyNumbersTitle: { fontSize: 15, fontWeight: '700', color: '#1E293B' },
+  emergencyNumbersSub: { fontSize: 12, color: '#64748B', marginTop: 2 },
   tipsCard: {
     flexDirection: 'row',
     backgroundColor: BRAND.primary,

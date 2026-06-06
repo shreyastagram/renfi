@@ -14,7 +14,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, Animated, AppState, Platform } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
-import { getActiveTrackingRequests } from '../services/socketService';
+import { getActiveTrackingRequests, subscribeTrackingChange } from '../services/socketService';
 
 const BRAND_ORANGE = '#f67c16';
 const TOAST_DURATION = 3000;
@@ -69,12 +69,13 @@ const LocationTrackingBanner = () => {
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const appStateRef = useRef(AppState.currentState);
 
-  // Poll active tracking requests from socket service (foreground tracking state)
+  // Subscribe to tracking-count changes (event-driven; no polling timer).
+  // Count only changes when a request starts/stops sharing, so the row never
+  // reflows spuriously.
   useEffect(() => {
-    const check = () => setTrackingCount(getActiveTrackingRequests().length);
-    check();
-    const interval = setInterval(check, 2000);
-    return () => clearInterval(interval);
+    setTrackingCount(getActiveTrackingRequests().length);
+    const unsubscribe = subscribeTrackingChange((count) => setTrackingCount(count));
+    return unsubscribe;
   }, []);
 
   // Show toast helper
