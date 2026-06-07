@@ -623,8 +623,12 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
 
 const EmergencyServicesScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { user, profile } = useApp();
+  const { user, profile, userType } = useApp();
   const { dialog } = useDialog();
+
+  // Providers may only view call-only emergency numbers; they cannot book
+  // location-based services (snake catcher, ambulance, mortuary van).
+  const isProvider = userType === 'provider';
   const { currentLocation, displayAddress, locationLoading, refreshLocation } = useLocation();
   const { t } = useLanguage();
 
@@ -1155,31 +1159,35 @@ const EmergencyServicesScreen = ({ navigation }) => {
       contentContainerStyle={[styles.contentContainer, { paddingBottom: 40 + insets.bottom }]}
       showsVerticalScrollIndicator={false}
     >
-      {/* Location-based Services */}
-      <View style={styles.sectionHeader}>
-        <View style={styles.sectionAccentBar} />
-        <View style={styles.sectionIconContainer}>
-          <MaterialIcon name="location-on" size={20} color={COLORS.primary} />
-        </View>
-        <Text style={styles.sectionTitle}>{t('emergencyServices.locationBasedServices')}</Text>
-      </View>
-      <Text style={styles.sectionSubtitle}>
-        {t('emergencyServices.findNearbyProviders')}
-      </Text>
+      {/* Location-based Services — bookable; hidden for providers (view-only) */}
+      {!isProvider && (
+        <>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionAccentBar} />
+            <View style={styles.sectionIconContainer}>
+              <MaterialIcon name="location-on" size={20} color={COLORS.primary} />
+            </View>
+            <Text style={styles.sectionTitle}>{t('emergencyServices.locationBasedServices')}</Text>
+          </View>
+          <Text style={styles.sectionSubtitle}>
+            {t('emergencyServices.findNearbyProviders')}
+          </Text>
 
-      <View style={styles.servicesGrid}>
-        {locationBasedServices.map(service => (
-          <ServiceCard
-            key={service.id}
-            service={service}
-            onPress={handleServiceSelect}
-            isStatic={false}
-          />
-        ))}
-      </View>
+          <View style={styles.servicesGrid}>
+            {locationBasedServices.map(service => (
+              <ServiceCard
+                key={service.id}
+                service={service}
+                onPress={handleServiceSelect}
+                isStatic={false}
+              />
+            ))}
+          </View>
+        </>
+      )}
 
       {/* Static Number Services */}
-      <View style={[styles.sectionHeader, { marginTop: 28 }]}>
+      <View style={[styles.sectionHeader, !isProvider && { marginTop: 28 }]}>
         <View style={[styles.sectionAccentBar, { backgroundColor: COLORS.danger }]} />
         <View style={[styles.sectionIconContainer, { backgroundColor: COLORS.dangerLight }]}>
           <MaterialIcon name="phone" size={20} color={COLORS.danger} />
@@ -1555,7 +1563,9 @@ const EmergencyServicesScreen = ({ navigation }) => {
             <ScreenShimmer type="cardList" showStats={false} />
           )}
         </View>
-      ) : step === 'select' ? (
+      ) : step === 'select' || step === 'static' ? (
+        // Keep the selection list mounted while the (transparent) static-numbers
+        // modal is open so the user's scroll position is preserved on close.
         renderServiceSelection()
       ) : step === 'providers' ? (
         renderProvidersList()
