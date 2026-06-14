@@ -5,10 +5,49 @@
 > this file and continue. Do not delete a task until fully verified + done.
 >
 > **Repos:** renfi (RN app) · noefix (Node/Mongo) · jauth (Java/Neon) · temp_admin (React admin).
-> **Created:** 2026-06-14.
+> **Created:** 2026-06-14. **Last session:** 2026-06-15.
 
 ## Status legend
 `TODO` · `IN-PROGRESS` · `BLOCKED` · `DONE (verified)`
+
+---
+
+# ▶ RESUME HERE (read this first, then start)
+**To resume: just say "continue from TASKS_TRACKER.md".** This block is the entry point.
+
+**Where we are:** Tasks 1–8 done (notifications + verification filters/routing shipped in code,
+build-verified). Owner-complaint status is in **"SESSION CLOSE 2026-06-15"** (search that
+heading) — 7 done, 3 partial, 13 remaining, **TODO list below**.
+
+**Do FIRST tomorrow (in order):**
+1. **U#12 — Fixhomians filter bug** (All/Active/Disabled not filtering; e.g. disabled "Yogesh
+   Meshram (SP)" doesn't show under Disabled). `temp_admin` (ManageFixhomians.jsx) + check the
+   noefix `listFixhomians` status filter. Small, high value.
+2. **U#13 — Copy from Fixhomians list** without opening profile (name/phone/email/ID). `temp_admin`.
+3. **BUZZER — distinct new-request sound** (NOT done — only sound was *enabled*; no custom
+   buzzer file added). Needs an actual sound asset + Android notification channel wired to it.
+   See TODO item "BUZZER" below for the full scope.
+Then continue down the **"REMAINING — work tomorrow"** list in SESSION CLOSE.
+
+**Repo paths (Windows):**
+`renfi C:\Projects\DOCS\fo\renfi` · `noefix C:\Projects\DOCS\fo\noefix` ·
+`jauth C:\Projects\DOCS\fo\jauth` · `temp_admin C:\Projects\DOCS\fo\temp_admin`
+
+**How to validate (no node_modules in renfi/noefix → can't run those; temp_admin HAS them):**
+- backend JS: `node --check <file>` · admin: `cd temp_admin && npx vite build` (and `npx eslint <files>`).
+- eslint baseline = 3 pre-existing `set-state-in-effect` (safe; don't "fix" codebase-wide).
+
+**Conventions:** work ONE task at a time; verify before marking done; commit messages end with
+`Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`. Don't change JWT_SECRET.
+Don't repoint prod DBs. iOS must stay unaffected; no missing i18n keys (en/hi/mr).
+
+**Uncommitted at close (2026-06-15):** 4 commits prepared, NOT made — see "Commit messages
+prepared". Files dirty: noefix (appControlController, appControlRoutes, pushNotification,
+models/notificationBroadcast, documentVerificationController) · temp_admin (api.js, AppControl.jsx,
+Dashboard.jsx, ProviderDetail.jsx) · renfi (this tracker only). Decide: commit first, or keep editing.
+
+**Open decisions:** (a) optional index `documentVerification.services.status`; (b) push-wake
+location feature (cost ~zero; see SESSION CLOSE "Proposed").
 
 ---
 
@@ -254,6 +293,178 @@ backend gate parity + emergency reverse-mapping + route order (no `/:id` swallow
 - Left benign (no change): emergency/event `profileReady` is actually stricter than UserHome
   (gates on `user.isPhoneVerified` immediately) — safe; useMemo dep note — safe.
 
+---
+
+# ═══════════════════════════════════════════════════════════════════════
+# SESSION 2026-06-15 — Notification feature (full build) + Verification filters/routing
+# ═══════════════════════════════════════════════════════════════════════
+> Follow-up session. Tasks 1–6 already done/committed (above). Below = today's work.
+> Repos touched today: **noefix** + **temp_admin** only (no renfi code; this tracker is
+> the only renfi file changed). **Not yet committed** at time of writing (user reviewing).
+
+## Task 7 — Notification feature: make it full-fledged (history, retry, metadata, emoji)
+**Status:** DONE (backend `node --check` + temp_admin `vite build` both pass)
+
+**Goal (user):** App Control push must be **optimized / not DB-heavy**, have a **retry
+mechanism** (same record updated, not duplicated), save **all metadata + the logged-in
+admin who sent it**, show a **"notification sent history"** on the same page (new DB model),
+reduce char limits to **standard**, and **skip images for now**.
+
+**Findings / files:**
+- **`noefix/models/notificationBroadcast.js` (NEW)** — one document per broadcast (written
+  AFTER send+retry, so it holds FINAL numbers): `title, body, audience,
+  sentBy{adminId,email,role}, targeted/sent/failed/retried/invalidCleaned,
+  breakdown{users,providers}, status('completed'|'partial'|'failed'|'no_recipients'),
+  createdAt`. Index `{createdAt:-1}`.
+- **`noefix/utils/pushNotification.js`** — `sendMulticastNotification` now classifies each
+  failure: **PERMANENT** (`invalid-registration-token` / `registration-token-not-registered`
+  / `invalid-argument`) → `invalidTokens` (dead, cleaned up); everything else (server
+  unavailable / internal / quota) → `retryableTokens` (transient, worth a retry).
+- **`noefix/controllers/appControlController.js`** — char limits **50 / 150** counted by
+  **code points** (so an emoji = 1 char); `sendInBatches` (500-token FCM batches); **one**
+  retry pass for transient failures only (2s delay); `failed = targeted − sent`; dead tokens
+  nulled out non-blocking; `sentBy` captured from `req.admin` (JWT, no extra query); saves the
+  NotificationBroadcast record (incl. the `no_recipients` case); **`getNotificationHistory`**
+  (paginated ≤50, newest-first, `.lean()`).
+- **`noefix/routes/appControlRoutes.js`** — added **`GET /history`** (`requireAdmin`).
+- **`temp_admin/src/pages/AppControl.jsx`** — **Compose / History tabs**; history panel
+  (sender email, audience, delivered/failed/targeted, retried, status badge, timestamp) +
+  pagination; send banner now surfaces **retried** and **dead-token-removed** counts (so a
+  "failed" dead token reads as *removed*, not a silent failure); **emoji quick-insert bar**
+  (12 common emojis) under Title & Message; **code-point counting** matches the backend.
+
+**Emoji note:** emoji already transmit through FCM unchanged (UTF-8). The only real work was
+counting (emoji = 1, not 2 UTF-16 units, on BOTH sides) + convenience inserts. Images skipped
+per user instruction.
+
+**Optimization:** `.select('fcmToken').lean()` token queries (respects soft-delete + push
+opt-out in the query); 500-batch sends; retry transient-only (never re-hits dead tokens);
+**1 insert** per broadcast; indexed + paginated history; sender from JWT.
+**Honest caveat:** `collectTokens` loads all eligible tokens into memory for one broadcast —
+correct/simplest at current scale; move to a cursor/stream only if the base hits ~100k+.
+
+**Verification:** backend `node --check` (4 files) ✅; temp_admin `vite build` ✅.
+
+---
+
+## Task 8 — Admin Verification: advanced filters + user-friendly back/forward routing
+**Status:** DONE (`node --check` + `vite build` pass; eslint zero-delta vs baseline)
+
+**Goal (user):** Advanced filters in the admin **Verification** section (e.g. electrician +
+verified + premium). AND fix routing so going list → provider profile → back restores the
+**exact step** (filters/tab/page) and is forward/back-able — **like the Fixhomians tab**.
+
+**Findings / files:**
+- **`noefix/controllers/documentVerificationController.js`**
+  - `getPendingVerifications`: new optional filters — `category` (combined into the **same**
+    `$elemMatch` as status, so "Pending + Electrician" = a pending electrician submission),
+    `premium`/`verified`(=`isFullyVerified`)/`aadhaar`/`online` (tri-state true/false/unset),
+    `city` + `search` (name/email/phone) as **regex-escaped** case-insensitive matches.
+    Response now also returns `city, isPremium, isFullyVerified, isOnline, aadhaarVerified`.
+  - `getProviderDocuments`: returns the **true** `aadhaarVerified`
+    (`aadhaarVerification.isVerified`, set by the DigiLocker flow — confirmed in
+    `aadhaarController.js`) plus `isPremium/isFullyVerified/isOnline`. **Bug fix:** the detail
+    page was mislabeling the generic `verification.isVerified` as "Aadhaar Verified".
+- **`temp_admin/src/api.js`** — `getPendingVerifications(status,page,limit,filters)` builds the
+  querystring from a filters object (omits empties).
+- **`temp_admin/src/pages/Dashboard.jsx`** — collapsible **Filters** panel (category dropdown
+  from `/verification/categories`, city, premium, verified, aadhaar, online), debounced
+  search + city (400ms), active-filter count badge, clear-all. Stat counts AND cards reflect
+  filters; per-card badges (premium/verified/aadhaar/online/city). **All list state
+  (status/page/filters) lives in the URL** (`{replace:true}`) → browser back/forward restores
+  the exact filtered view. Effect deps tuned: tab/page change → list refetch only; filter
+  change → list + counts. Input boxes synced via render-time pattern (no extra effect).
+- **`temp_admin/src/pages/ProviderDetail.jsx`** — robust `goBack`: uses `navigate(-1)` when
+  in-app history exists (`location.key !== 'default'`), else reconstructs `/dashboard` from a
+  `return` URL carried into the detail (survives refresh / direct-open). Shows correct
+  Aadhaar + fully-verified + premium.
+  - **Cross-link added:** a "Full profile" button (external-link icon) beside the provider
+    name in the verification detail → opens `/fixhomians/:id?type=provider` in a **new tab**
+    (full profile: overview, services, transactions, documents, auth DB, live status). Real
+    `<a target="_blank">`, same ID space as the Fixhomians list (verified — both show `211`).
+
+**Lint:** **net-zero new errors.** Baseline already had 3 `react-hooks/set-state-in-effect`
+on the standard `useEffect(()=>fetchX(),[fetchX])` fetch pattern (codebase-wide, e.g.
+ManageFixhomians) — left as-is (safe, style-only, not a build error). The one I'd have added
+(input-sync effect) was rewritten to React's render-time "adjust state on change" pattern.
+
+**DB note:** the verification base query (`$elemMatch` on `documentVerification.services.status`)
+and the city/search regex are **not** index-backed — acceptable at admin scale and it was
+already this way. Optional one-line upgrade if provider volume grows large:
+`providerSchema.index({ "documentVerification.services.status": 1 })` (NOT added — index
+changes on prod M10 are a deliberate ops decision; user's call).
+
+**Verification:** backend `node --check` ✅; temp_admin `vite build` ✅; eslint baseline parity.
+
+---
+
+## Commit messages prepared (2026-06-15) — awaiting user commit
+- **noefix (notifications):** `feat(app-control): broadcast history, retry, sender metadata, emoji-safe limits`
+- **temp_admin (notifications):** `feat(app-control): Compose/History tabs, emoji support, surfaced retry/cleanup`
+- **noefix (filters):** `feat(verification): advanced admin filters + correct Aadhaar status`
+- **temp_admin (filters):** `feat(verification): filter bar + URL-persisted, back/forward-safe routing`
+  (each ends with `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`)
+
+---
+
+# ═══════════════════════════════════════════════════════════════════════
+# SESSION CLOSE 2026-06-15 — Owner complaint status (what to check / what's left)
+# ═══════════════════════════════════════════════════════════════════════
+> Buckets: **APP** = needs new app build · **ADMIN** = web panel (admin deploy).
+> Owner gave two lists: "Owner complaints #1–9" and "Updates & Improvements #1–13".
+
+## ✅ DONE — to verify in the build
+- **#2 Coming Soon** (Influencer/Photographer/Solar/Salon; Traditional shows them last). APP
+- **#4 App auto-exit** (cold-start crash fixed). APP
+- **#7 Push notifications** to Users/Providers/Both from panel. ADMIN
+- **#3 Verification → back returns to same position** (tab/page/filters preserved; +"Full
+  profile" new-tab link to Fixhomians). ADMIN
+- **U#2 Call & Send Request** equal 50/50 width. APP
+- **U#4 Auto-logout** (refresh window 7→60d + transient-login fix). APP
+- **U#5 App killed on external apps** (state restored on return). APP
+
+## ⚠️ PARTIAL
+- **#1 Account creation** — email-verify no longer blocks booking (phone-OTP only);
+  **password removal from signup NOT done.** APP/jauth
+- **U#3 Real-time online status** — online is now **visible/filterable** in admin, but it's a
+  snapshot at load, **not live-updating.**
+- **U#8 Personalized notifications** — **broadcast** done; **individual SP/SU targeting** not built.
+
+## ❌ REMAINING — work tomorrow (priority order suggestion)
+1. **U#12 Fixhomians filter bug** (All/Active/Disabled not filtering; e.g. disabled "Yogesh
+   Meshram" not shown). ADMIN — small, high-value.
+2. **U#13 Copy from Fixhomians list** (copy name/phone/email/ID without opening profile). ADMIN.
+3. **BUZZER — #8 / U#1 distinct new-request sound** (CORRECTED: NOT done). We only set
+   `defaultSound: true` on the `fixhomi_notifications` channel — that plays the **default**
+   system sound, not a distinct buzzer. TODO: add a custom buzzer audio asset (Android
+   `res/raw/<buzzer>.mp3|wav`), create/point a notification channel at it (`sound` =
+   that resource; iOS: bundle the file + set `apns.payload.aps.sound`), and send new-request
+   pushes on that channel. APP (renfi + noefix push payload). Verify on a real device.
+4. **#5 Refer T&C** update. APP/content.
+5. **#6 Insurance T&C** — add "free-trial not covered, paid only." APP/content.
+6. **U#6 Request tracking** — which SU → which SP even before accept. noefix + ADMIN.
+7. **U#8 Personalized notifications** — individual targeting (finish the partial). noefix + ADMIN.
+8. **U#3 Real-time online** — live status (socket/poll) in admin (finish the partial). ADMIN.
+9. **#1 Password removal** from signup (finish the partial). jauth + APP.
+10. **U#9 User guides** (SU/SP tutorial links). APP/content.
+11. **U#10 API management** section in admin. ADMIN.
+12. **U#11 WhatsApp welcome messages** on signup. noefix + WhatsApp API.
+13. **U#7 Lead-tracking** (call-only vs in-app requests) — design + build. noefix + ADMIN.
+
+## 💡 Proposed (owner asked to evaluate) — NOT built
+- **Push-wake for stale location:** silent data-push + cron for **online+stale** providers
+  (every 15–30 min) to refresh location. Cost ≈ **zero** at 1,200 users (FCM free; writes
+  trivial on M10; Render/Neon unaffected). Caveat: won't reach **force-stopped/OEM-killed**
+  apps (same as dead tokens) — real cure = background-geo foreground service + battery
+  whitelist. Needs new headless location handler in app. **Decision pending.**
+
+## ➕ Bonus shipped (not requested)
+Notification history + retry + sender log · advanced verification filters (category/premium/
+verified/aadhaar/online/city/search) · dead FCM-token auto-cleanup · Aadhaar field
+correctness fix in admin · emoji support in admin notifications.
+
+---
+
 ## Change log
 - 2026-06-14 — Created tracker with Tasks 1–6. Starting Task 1.
 - 2026-06-14 — Tasks 1,2,3,5 DONE + agent-reviewed + graceful fixes. Ready to commit.
@@ -267,3 +478,23 @@ backend gate parity + emergency reverse-mapping + route order (no `/:id` swallow
   a function" (emergencyServicesRoutes.js:41). Fix: added it to the module.exports list.
   (Event controller was already correct — const + listed.) Lesson: when a file curates
   module.exports, new fns MUST be added there; node --check/grep don't catch this.
+- 2026-06-15 — **Task 7 DONE** (Notification feature full build): NotificationBroadcast history
+  model, transient-only retry, sender metadata, `GET /history`, Compose/History tabs, char
+  limits 50/150 (code-point), retry/cleanup surfaced in banner, emoji quick-insert + counting.
+  Images skipped per user. noefix `node --check` + temp_admin `vite build` ✅.
+- 2026-06-15 — **Task 8 DONE** (Verification advanced filters + routing): backend filters
+  (category/premium/verified/aadhaar/online/city/search), filter-aware counts, URL-persisted
+  list state for exact back/forward, robust ProviderDetail back, Aadhaar field correctness fix.
+  `node --check` + `vite build` ✅; eslint zero-delta.
+- 2026-06-15 — Lint stance: pre-existing `set-state-in-effect` fetch pattern left as-is
+  (codebase-wide, safe); my one addition rewritten to render-time pattern → net-zero new errors.
+- 2026-06-15 — OPEN (user's call): optional index `documentVerification.services.status`;
+  4 commits prepared but NOT yet made (noefix + temp_admin × notifications + filters).
+- 2026-06-15 — Added "Full profile" new-tab cross-link from verification detail →
+  `/fixhomians/:id?type=provider` (temp_admin ProviderDetail.jsx). `vite build` ✅.
+- 2026-06-15 — **Session closed.** Owner-complaint status mapped (see "SESSION CLOSE" above):
+  7 done, 3 partial, 13 remaining (prioritized for tomorrow), 5 bonus. Push-wake location
+  idea evaluated (cost ~zero; decision pending). Commits still pending user.
+- 2026-06-15 — **CORRECTION:** notification "buzzer" (#8/U#1) moved DONE → REMAINING. We only
+  enabled the **default** system sound (`defaultSound:true`); no distinct buzzer asset/channel
+  was added. Now item #3 in REMAINING. Added a "RESUME HERE" entry-point block at top of file.
