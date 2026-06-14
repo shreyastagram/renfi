@@ -170,6 +170,42 @@ export const getTokens = async () => {
 };
 
 /**
+ * Read-only boot probe: does each store currently hold a usable token pair?
+ *
+ * Used ONLY for boot storage-state telemetry. It NEVER writes, clears, retries,
+ * re-primes, or fires telemetry itself — purely observational, fully try/caught,
+ * so it can never corrupt or clear a session. Safe to call on every cold start.
+ *
+ * @returns {Promise<{ keychainHadTokens: boolean, fallbackHadTokens: boolean }>}
+ */
+export const probeStorageState = async () => {
+  let keychainHadTokens = false;
+  let fallbackHadTokens = false;
+
+  try {
+    const credentials = await Keychain.getGenericPassword({ service: KEYCHAIN_SERVICE });
+    if (credentials && credentials.password) {
+      const parsed = JSON.parse(credentials.password);
+      keychainHadTokens = !!(parsed?.accessToken && parsed?.refreshToken);
+    }
+  } catch (e) {
+    // Keychain unreadable (the exact failure we're measuring) — leave false.
+  }
+
+  try {
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.TOKENS_FALLBACK);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      fallbackHadTokens = !!(parsed?.accessToken && parsed?.refreshToken);
+    }
+  } catch (e) {
+    // Corrupt/unavailable fallback — leave false.
+  }
+
+  return { keychainHadTokens, fallbackHadTokens };
+};
+
+/**
  * Check if the access token is expired or about to expire.
  *
  * Optimistic semantics: when we cannot read the expiry (keystore hiccup, no
@@ -199,20 +235,6 @@ export const isTokenExpired = async (bufferMs = 5 * 60 * 1000) => {
     // Optimistic: don't tear down the session over a read error.
     console.warn('⚠️ [Storage] Expiry check errored, treating token as valid:', error?.message);
     return false;
-  }
-};
-
-/**
- * Get token expiry time
- * @returns {number|null} Expiry timestamp or null
- */
-export const getTokenExpiry = async () => {
-  try {
-    const tokens = await getTokens();
-    return tokens?.expiryTime || null;
-  } catch (error) {
-    console.error('❌ [Storage] Failed to get token expiry:', error);
-    return null;
   }
 };
 
@@ -328,9 +350,9 @@ export const clearAllData = async () => {
 export default {
   storeTokens,
   getTokens,
+  probeStorageState,
   clearTokens,
   isTokenExpired,
-  getTokenExpiry,
   storeUserData,
   getUserData,
   storeUserType,

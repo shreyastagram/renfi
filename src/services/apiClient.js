@@ -14,9 +14,9 @@
 
 import axios from 'axios';
 import { API_CONFIG } from '../config/api';
-import { getTokens, storeTokens, clearTokens, isTokenExpired } from '../utils/storage';
+import { getTokens, storeTokens, clearTokens, isTokenExpired, probeStorageState } from '../utils/storage';
 import { syncTokensToBackgroundService } from './backgroundLocationService';
-import { reportForcedLogout } from '../utils/storageTelemetry';
+import { reportForcedLogout, reportStorageState, logBreadcrumb } from '../utils/storageTelemetry';
 
 // Track if we're currently refreshing tokens to avoid infinite loops
 let isRefreshing = false;
@@ -151,7 +151,12 @@ const proactiveTokenRefresh = async () => {
       
       // Definitive auth failure (400/401 = invalid refresh token)
       console.error('❌ [API] Proactive token refresh failed (auth rejected):', error.message);
-      reportForcedLogout({ trigger: 'refresh_definitive_auth_fail', error });
+      reportForcedLogout({
+        trigger: 'refresh_definitive_auth_fail',
+        error,
+        token: tokens?.accessToken || null,
+        authBaseUrl: API_CONFIG.JAVA_AUTH_URL,
+      });
       await clearTokens();
       if (global.onAuthExpired) {
         global.onAuthExpired();
@@ -312,7 +317,16 @@ const handleResponseError = async (error, client) => {
     const errorCode = error.response?.data?.code;
     if (errorCode === 'ACCOUNT_DELETED') {
       console.warn('🚫 [API] Account deleted — forcing logout');
-      reportForcedLogout({ trigger: 'response_401_account_deleted', error, httpStatus: 401 });
+      // Capture WHICH token/account/endpoint triggered this (Cohort B diagnostics).
+      const acctToken = originalRequest?.headers?.Authorization?.replace?.('Bearer ', '') || null;
+      reportForcedLogout({
+        trigger: 'response_401_account_deleted',
+        error,
+        httpStatus: 401,
+        token: acctToken,
+        requestUrl: originalRequest?.url || null,
+        authBaseUrl: originalRequest?.baseURL || null,
+      });
       await clearTokens();
       if (global.onAuthExpired) {
         global.onAuthExpired();
@@ -408,7 +422,13 @@ const handleResponseError = async (error, client) => {
           
           // Only clear tokens on definitive auth failures, not network errors
           if (!isTransientNetworkError(refreshError)) {
-            reportForcedLogout({ trigger: 'response_401_refresh_failed', error: refreshError });
+            reportForcedLogout({
+              trigger: 'response_401_refresh_failed',
+              error: refreshError,
+              token: originalRequest?.headers?.Authorization?.replace?.('Bearer ', '') || null,
+              requestUrl: originalRequest?.url || null,
+              authBaseUrl: originalRequest?.baseURL || null,
+            });
             await clearTokens();
             if (global.onAuthExpired) {
               global.onAuthExpired();
@@ -594,11 +614,27 @@ export const warmUpNetworkStack = async () => {
  */
 export const validateAndRefreshTokens = async () => {
   console.log('🔄 [API] Validating tokens on startup...');
-  
+
+  // Boot storage-state telemetry (read-only) — the denominator for "of N cold
+  // starts, how many had working Keychain vs. needed the fallback". Fail-soft.
+  try {
+    const { keychainHadTokens, fallbackHadTokens } = await probeStorageState();
+    reportStorageState({
+      keychainHadTokens,
+      fallbackHadTokens,
+      recoveredFromFallback: !keychainHadTokens && fallbackHadTokens,
+    });
+  } catch (e) {
+    // Never let telemetry affect startup.
+  }
+
   const tokens = await getTokens();
-  
+
   if (!tokens?.refreshToken) {
+    // Genuine logged-out state (no session). NOT a forced logout — do not clear
+    // (nothing to clear) and do not report a logout; just leave a breadcrumb.
     console.log('❌ [API] No refresh token found');
+    logBreadcrumb('STARTUP_NO_REFRESH_TOKEN', {});
     return { valid: false, accessToken: null };
   }
   
@@ -645,30 +681,77 @@ export const validateAndRefreshTokens = async () => {
     return { valid: true, accessToken: tokens.accessToken };
   }
   
-  // Token is expired or expiring, try to refresh
-  console.log('🔄 [API] Access token expired, refreshing...');
-  
-  try {
-    const response = await axios.post(
-      `${API_CONFIG.JAVA_AUTH_URL}/api/auth/refresh`,
-      { refreshToken: tokens.refreshToken },
-      { headers: API_CONFIG.HEADERS }
-    );
-    
-    const { accessToken, refreshToken: newRefreshToken, expiresIn } = response.data;
-    await storeTokens(accessToken, newRefreshToken, expiresIn || 86400);
-    
-    console.log('✅ [API] Token refresh successful on startup');
-    syncTokensToBackgroundService(accessToken, newRefreshToken);
-    return { valid: true, accessToken };
-  } catch (error) {
-    console.error('❌ [API] Token refresh failed on startup:', error.message);
-    
-    // Clear invalid tokens
+  // Token is expired or expiring, try to refresh.
+  //
+  // CRITICAL (see AUTH_STARTUP_LOGOUT_FIX.md): this path must behave like the
+  // request interceptor / 401 handler — a TRANSIENT failure (network, timeout,
+  // Render cold start, 5xx) must NOT clear tokens or log the user out. We only
+  // clear on a DEFINITIVE auth failure, which for our jauth backend is HTTP 401
+  // (it returns 401 for invalid/expired/revoked refresh tokens — no other code).
+  //
+  // Refresh tokens are SINGLE-USE (jauth rotates on every refresh), so we retry
+  // at most once and only on a transient failure — never a backoff storm, which
+  // would risk burning a refresh token that the server may have already rotated.
+  console.log('🔄 [API] Access token expired, refreshing on startup...');
+
+  let lastError;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const response = await axios.post(
+        `${API_CONFIG.JAVA_AUTH_URL}/api/auth/refresh`,
+        { refreshToken: tokens.refreshToken },
+        { headers: API_CONFIG.HEADERS, timeout: 35000 } // 35s for Render cold starts
+      );
+
+      const { accessToken, refreshToken: newRefreshToken, expiresIn } = response.data;
+      await storeTokens(accessToken, newRefreshToken, expiresIn || 86400);
+
+      console.log('✅ [API] Token refresh successful on startup');
+      // Cohort A signal: a refresh that needed a retry to succeed = a session the
+      // OLD code would have wrongly logged out. Proves the fix is working.
+      if (attempt > 1) logBreadcrumb('STARTUP_REFRESH_RECOVERED_AFTER_RETRY', { attempt: String(attempt) });
+      syncTokensToBackgroundService(accessToken, newRefreshToken);
+      return { valid: true, accessToken };
+    } catch (err) {
+      lastError = err;
+      if (attempt === 1 && isTransientNetworkError(err)) {
+        console.warn('⚠️ [API] Startup refresh attempt 1 failed (transient), retrying in 3s...');
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        continue;
+      }
+      break;
+    }
+  }
+
+  const error = lastError;
+  const status = error?.response?.status;
+
+  // Definitive logout ONLY on an explicit HTTP 401 from /refresh. Our jauth
+  // backend returns 401 for every refresh-token rejection (invalid / expired /
+  // revoked / deactivated) and emits no other machine code — so 401 is the one
+  // reliable "this session is really dead" signal (see AUTH_STARTUP_LOGOUT_FIX.md).
+  if (status === 401) {
+    console.error('❌ [API] Startup refresh rejected (401, definitive auth failure). Logging out.');
+    reportForcedLogout({
+      trigger: 'startup_refresh_definitive_auth_fail',
+      error,
+      httpStatus: 401,
+      token: tokens?.accessToken || null,
+      authBaseUrl: API_CONFIG.JAVA_AUTH_URL,
+    });
     await clearTokens();
-    
     return { valid: false, accessToken: null };
   }
+
+  // EVERYTHING else (no response, timeout, Render cold start, 5xx, 500, or any
+  // unexpected/ambiguous status) is treated as transient: KEEP the tokens and
+  // restore the session. The request interceptor refreshes lazily (transient-
+  // aware) on the first protected call, and a genuinely dead session will be
+  // cleared there on a real 401. A transient/ambiguous error must never force a
+  // logout — that is the exact bug this change fixes.
+  console.warn(`⚠️ [API] Startup refresh failed (status=${status ?? 'none'}, non-401), keeping session. Will refresh on next request.`);
+  logBreadcrumb('STARTUP_REFRESH_TRANSIENT_KEPT', { status: String(status ?? 'none'), code: error?.code || 'none' });
+  return { valid: true, accessToken: tokens.accessToken };
 };
 
 export default apiClient;

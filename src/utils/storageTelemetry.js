@@ -50,6 +50,63 @@ function sanitizeMessage(msg) {
   return stripped.length > 200 ? stripped.slice(0, 200) + '…' : stripped;
 }
 
+// ── JWT payload decode for telemetry (NEVER verifies signature; fail-soft) ──
+// Used only to attach diagnostics (which account/token/age/backend) to logout
+// events so Cohort A (valid token, transient) and Cohort B (token email not
+// registered) are distinguishable directly in Crashlytics.
+const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+function base64Decode(str) {
+  if (typeof globalThis !== 'undefined' && typeof globalThis.atob === 'function') {
+    return globalThis.atob(str);
+  }
+  let output = '';
+  const clean = String(str).replace(/=+$/, '');
+  let bc = 0, bs = 0;
+  for (let i = 0; i < clean.length; i++) {
+    const c = B64_CHARS.indexOf(clean.charAt(i));
+    if (c === -1) continue;
+    bs = bc % 4 ? bs * 64 + c : c;
+    if (bc++ % 4) output += String.fromCharCode(255 & (bs >> ((-2 * bc) & 6)));
+  }
+  return output;
+}
+
+// Mask an email for telemetry: "gajanandingale1980@gmail.com" -> "ga****@gmail.com"
+function maskEmail(email) {
+  if (!email || typeof email !== 'string' || !email.includes('@')) return null;
+  const [local, domain] = email.split('@');
+  const head = local.slice(0, 2);
+  return `${head}${'*'.repeat(Math.min(6, Math.max(1, local.length - 2)))}@${domain}`;
+}
+
+/**
+ * Decode a JWT's claims (no verification) and build a telemetry-safe context.
+ * Returns null on any failure. Email is masked; userId/iat/exp are non-sensitive
+ * and let us correlate a logout event to the exact account/token in the backend.
+ */
+function buildTokenContext(token) {
+  try {
+    if (!token || typeof token !== 'string') return null;
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const claims = JSON.parse(base64Decode(b64));
+    const nowSec = Math.floor(Date.now() / 1000);
+    const iat = typeof claims.iat === 'number' ? claims.iat : null;
+    const exp = typeof claims.exp === 'number' ? claims.exp : null;
+    return {
+      token_user_id: claims.userId != null ? String(claims.userId) : 'null',
+      token_email_masked: maskEmail(claims.sub) || 'null',
+      token_iat_iso: iat ? new Date(iat * 1000).toISOString() : 'null',
+      token_age_hours: iat ? String(Math.round(((nowSec - iat) / 3600) * 10) / 10) : 'null',
+      token_exp_iso: exp ? new Date(exp * 1000).toISOString() : 'null',
+      token_expired: exp != null ? String(nowSec >= exp) : 'null',
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 function getDeviceContext() {
   const ctx = {
     os: Platform.OS,
@@ -147,22 +204,36 @@ export function reportFallbackRescued({ op = 'read' } = {}) {
  *
  * @param {Object} params
  * @param {string} params.trigger    one of:
- *   - 'refresh_no_token'              : tried to refresh but getTokens() returned no refreshToken
- *   - 'refresh_definitive_auth_fail'  : Java Auth /refresh returned 400/401
- *   - 'response_401_account_deleted'  : server returned ACCOUNT_DELETED on a request
- *   - 'response_401_refresh_failed'   : 401 retry path failed definitively
- * @param {Error}  [params.error]     underlying error if any
+ *   - 'refresh_no_token'                    : tried to refresh but getTokens() returned no refreshToken
+ *   - 'refresh_definitive_auth_fail'        : Java Auth /refresh returned 400/401 (proactive interceptor path)
+ *   - 'response_401_account_deleted'        : server returned ACCOUNT_DELETED on a request
+ *   - 'response_401_refresh_failed'         : 401 retry path failed definitively
+ *   - 'startup_refresh_definitive_auth_fail': startup validateAndRefreshTokens got a definitive 401
+ *                                             (see AUTH_STARTUP_LOGOUT_FIX.md). NOTE: the startup
+ *                                             *transient* case is intentionally NOT a forced logout —
+ *                                             it logs the breadcrumb [STARTUP_REFRESH_TRANSIENT_KEPT].
+ * @param {Error}  [params.error]      underlying error if any
  * @param {number} [params.httpStatus] HTTP status from server if available
+ * @param {string} [params.token]      the offending access token — decoded (NOT verified)
+ *                                      to attach userId / masked email / age / expired so we
+ *                                      can tell Cohort A (valid token, transient) from Cohort B
+ *                                      (token email not registered) right in Crashlytics.
+ * @param {string} [params.requestUrl] the request path that triggered the logout
+ * @param {string} [params.authBaseUrl] which backend host returned it
  */
-export function reportForcedLogout({ trigger, error = null, httpStatus = null }) {
+export function reportForcedLogout({ trigger, error = null, httpStatus = null, token = null, requestUrl = null, authBaseUrl = null }) {
   safeCall(() => {
     const errorCode = error?.code || null;
     const errorName = error?.name || null;
     const errorStatus = error?.response?.status || httpStatus || null;
     const errorBody = error?.response?.data?.code || null;
+    // Decode the offending token (fail-soft) so the event says WHICH account/token.
+    const tok = buildTokenContext(token);
 
     crashlytics().log(
-      `[FORCED_LOGOUT] trigger=${trigger} status=${errorStatus} body_code=${errorBody} err_code=${errorCode}`
+      `[FORCED_LOGOUT] trigger=${trigger} status=${errorStatus} body_code=${errorBody} err_code=${errorCode}` +
+      (tok ? ` userId=${tok.token_user_id} email=${tok.token_email_masked} tokenAgeH=${tok.token_age_hours} tokenExpired=${tok.token_expired}` : '') +
+      (requestUrl ? ` url=${requestUrl}` : '')
     );
     const ctx = getDeviceContext();
     crashlytics().setAttributes({
@@ -172,6 +243,15 @@ export function reportForcedLogout({ trigger, error = null, httpStatus = null })
       last_logout_error_code: errorCode || 'null',
       last_logout_error_name: errorName || 'null',
       last_logout_at: new Date().toISOString(),
+      last_logout_request_url: requestUrl || 'null',
+      last_logout_auth_base_url: authBaseUrl || 'null',
+      // Token diagnostics — the key to telling Cohort A (valid token, transient)
+      // from Cohort B (token email not registered) directly in Crashlytics.
+      last_logout_token_user_id: tok?.token_user_id || 'unknown',
+      last_logout_token_email: tok?.token_email_masked || 'unknown',
+      last_logout_token_iat: tok?.token_iat_iso || 'unknown',
+      last_logout_token_age_hours: tok?.token_age_hours || 'unknown',
+      last_logout_token_expired: tok?.token_expired || 'unknown',
       device_brand: ctx.device_brand || 'unknown',
       device_model: ctx.device_model || 'unknown',
       os: ctx.os,
@@ -179,7 +259,8 @@ export function reportForcedLogout({ trigger, error = null, httpStatus = null })
     });
 
     const wrapped = new Error(
-      `Forced logout: trigger=${trigger} status=${errorStatus} bodyCode=${errorBody}`
+      `Forced logout: trigger=${trigger} status=${errorStatus} bodyCode=${errorBody}` +
+      (tok ? ` userId=${tok.token_user_id} email=${tok.token_email_masked} tokenExpired=${tok.token_expired}` : '')
     );
     wrapped.name = 'ForcedLogoutNonFatal';
     crashlytics().recordError(wrapped);

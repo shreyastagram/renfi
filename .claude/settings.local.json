@@ -6,7 +6,20 @@
       "Bash(bundle exec pod install --project-directory=ios)",
       "Bash(npm install i18n-js@4)",
       "Bash(grep -n \"router\\\\.\\\\\\(get\\\\|post\\\\|put\\\\|delete\\\\|patch\\\\\\)\" /Users/shreyashsureshborkar/AXXXSXX/AXXASXX_App/FIXORA/FIXORA_APP/noefi/fixhomi-backend/routes/*.js)",
-      "Bash(grep -n \"SECURITY\\\\|TODO\\\\|FIXME\\\\|BUG\\\\|HACK\" /Users/shreyashsureshborkar/AXXXSXX/AXXASXX_App/FIXORA/FIXORA_APP/noefi/fixhomi-backend/routes/*.js)"
+      "Bash(grep -n \"SECURITY\\\\|TODO\\\\|FIXME\\\\|BUG\\\\|HACK\" /Users/shreyashsureshborkar/AXXXSXX/AXXASXX_App/FIXORA/FIXORA_APP/noefi/fixhomi-backend/routes/*.js)",
+      "Bash(node --check src/i18n/en.js)",
+      "Bash(node --check src/i18n/hi.js)",
+      "Bash(node --check src/i18n/mr.js)",
+      "Bash(npx eslint *)",
+      "Bash(node_modules/.bin/eslint App.tsx src/hooks/usePersistedAuthFlow.js src/context/LocationContext.jsx src/services/socketService.js src/screens/EmergencyServicesScreen.jsx src/screens/UserHomeScreen.jsx src/screens/ProviderHomeScreen.jsx src/services/traditionalServiceService.js)",
+      "Bash(node_modules/.bin/eslint src/hooks/usePersistedAuthFlow.js)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(grep -iA30 \"refresh\")",
+      "Bash(grep -iA2 -B2 refresh)",
+      "Bash(awk '/refreshToken|refresh\\\\\\(/{flag=NR} END{}' \"C:/Projects/DOCS/fo/jauth/src/main/java/com/fixhomi/auth/controller/AuthController.java\")",
+      "Bash(node -e ' *)",
+      "Bash(git --no-pager diff --stat)",
+      "Bash(git --no-pager diff src/utils/storage.js src/utils/storageTelemetry.js)"
     ]
   }
 }

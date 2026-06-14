@@ -42,7 +42,11 @@ export const setLatestLocation = (coords) => {
   }
 };
 
-/** Read the shared latest location (or null). */
+/**
+ * Read the shared latest location (or null).
+ * NOTE: currently no callers — kept intentionally as the public read-side pair to
+ * setLatestLocation() for the shared GPS cache. Safe to delete if never consumed.
+ */
 export const getLatestLocation = () => latestKnownLocation;
 
 // Listeners registry
