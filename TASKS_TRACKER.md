@@ -184,7 +184,7 @@ Only the width distribution changes.
 ---
 
 ## Task 6 — App killed/restarted when opening external apps + OTP/flow loss
-**Status:** TODO
+**Status:** DONE (verified existing + one hardening added)
 
 **Goal:** App restarts when returning from external pages (Aadhaar, gallery, doc upload,
 browser) and loses in-progress state (OTP screen gone, Gmail verify, booking). Already
@@ -194,11 +194,30 @@ fixed once — re-verify coverage; determine if more is needed. Mainly Chinese O
 - [ ] Re-read nav-state persistence (App.tsx) + usePersistedAuthFlow (OTP) — coverage check
 - [ ] Android process-death / `android:configChanges` / launchMode / state save
 - [ ] External-app return (document picker, linking) state retention
-- [ ] Determine if anything additional is required
+- [x] Determine if anything additional is required
 
 **Findings / files:**
+- **Existing implementation is correct & well-architected (verified):**
+  - Native `MainActivity.kt:22` uses `super.onCreate(null)` — the react-native-screens pattern
+    that PREVENTS the fragment-restore crash after an OEM process kill (clean relaunch, no crash).
+    `launchMode=singleTask` + broad `configChanges` (won't recreate on rotation/keyboard/uiMode).
+  - JS restore: `App.tsx` nav-state persistence (AsyncStorage `@fixhomi_nav_state_v1`, 3h TTL,
+    deep-link precedence) + `usePersistedAuthFlow` (writes the OTP-verify step IMMEDIATELY, not
+    debounced → survives a kill). Architecture = native discards stale state, JS restores. Sound.
+- **Hardening ADDED (App.tsx):** flush the latest nav state on `AppState` `background`/`inactive`
+  (cancel the 800ms debounce + write `navigationRef.getRootState()` now). Closes the window where
+  an OEM kills the backgrounded process (opening gallery/doc-picker/browser/Aadhaar) before the
+  debounced write fired → relaunch now restores the exact screen. Best-effort, never throws.
+- **Known residual limitation (OS-level, documented, not fixable in app):** if the OS kills the
+  process *while an external picker/browser is open*, the picker RESULT (chosen file/image) can be
+  lost on return — the user is restored to the correct screen but must re-pick. This is Android
+  process-death during `onActivityResult`; mitigated (back on the right screen), not eliminable.
+- iOS unaffected (AppState flush is harmless on iOS; iOS already works per report).
 
-**Verification:**
+**Verification:** native config + JS persistence reviewed; `getRootState`/scope confirmed; OTP
+write confirmed immediate. Runtime confirm needs an Android build on a Chinese-OEM device.
+
+**Uncommitted:** App.tsx (this Task-6 hardening) — needs a follow-up commit (Tasks 1,2,3,5 already pushed).
 
 ---
 

@@ -410,6 +410,27 @@ function AppContent() {
     const subscription = AppState.addEventListener('change', (nextState: string) => {
       if (nextState === 'active') {
         runVersionCheck();
+      } else if (nextState === 'background' || nextState === 'inactive') {
+        // Task 6: FLUSH the latest navigation state immediately when we background
+        // (opening gallery / document picker / browser / Aadhaar link). Aggressive
+        // OEMs kill the backgrounded process before the debounced write fires, which
+        // would lose the user's place. Writing now makes the relaunch restore exactly
+        // where they were. Best-effort; never throws.
+        if (navPersistTimerRef.current) {
+          clearTimeout(navPersistTimerRef.current);
+          navPersistTimerRef.current = null;
+        }
+        try {
+          const navState = navigationRef.current?.getRootState();
+          if (navState) {
+            AsyncStorage.setItem(
+              NAV_STATE_KEY,
+              JSON.stringify({ state: navState, savedAt: Date.now() }),
+            ).catch(() => {});
+          }
+        } catch (e) {
+          // best-effort — ignore
+        }
       }
     });
 
