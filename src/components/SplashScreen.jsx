@@ -431,7 +431,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 9999,
+    // NOTE: do NOT add `zIndex` here. The splash is the last of 2 in-tree children
+    // of the App root View (NavigationContainer + SplashScreen). A `zIndex` child
+    // makes Android use ReactZIndexedViewGroup, and unmounting the splash on every
+    // launch desyncs the drawing-order array → native crash
+    // "getChildDrawingOrder() returned invalid index 2 (child count is 2)" →
+    // app blinks & closes on launch. Being the last child keeps it on top;
+    // a small elevation is just a belt-and-suspenders layering guarantee.
+    elevation: 12,
   },
   bgBase: {
     ...StyleSheet.absoluteFillObject,

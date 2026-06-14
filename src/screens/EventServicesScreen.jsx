@@ -167,7 +167,8 @@ const EVENT_SVG_ICONS = {
   influencer: InfluencerIcon,
 };
 
-const ServiceCard = ({ service, onPress }) => {
+const ServiceCard = ({ service, onPress, comingSoon = false }) => {
+  const { t } = useLanguage();
   const SvgIcon = EVENT_SVG_ICONS[service.id];
 
   return (
@@ -175,7 +176,7 @@ const ServiceCard = ({ service, onPress }) => {
       style={styles.serviceCard}
       onPress={() => onPress(service)}
     >
-      <View style={styles.serviceIconContainer}>
+      <View style={[styles.serviceIconContainer, comingSoon && { opacity: 0.35 }]}>
         {SvgIcon ? (
           <SvgIcon size={36} />
         ) : (
@@ -183,11 +184,17 @@ const ServiceCard = ({ service, onPress }) => {
         )}
       </View>
       <View style={styles.serviceInfo}>
-        <Text style={styles.serviceName}>{service.name}</Text>
-        <Text style={styles.serviceDescription}>{service.description}</Text>
+        <Text style={[styles.serviceName, comingSoon && { opacity: 0.45 }]}>{service.name}</Text>
+        <Text style={[styles.serviceDescription, comingSoon && { opacity: 0.45 }]}>{service.description}</Text>
       </View>
       <View style={styles.serviceChevronWrap}>
-        <MaterialIcon name="chevron-right" size={22} color={COLORS.muted} />
+        {comingSoon ? (
+          <View style={styles.comingSoonBadge}>
+            <Text style={styles.comingSoonBadgeText}>{t('userHome.comingSoon') || 'Coming Soon'}</Text>
+          </View>
+        ) : (
+          <MaterialIcon name="chevron-right" size={22} color={COLORS.muted} />
+        )}
       </View>
     </AnimatedPressable>
   );
@@ -651,7 +658,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
 
 const EventServicesScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { user, profile } = useApp();
+  const { user, profile, isAuthLoading, isProfileLoading } = useApp();
   const { dialog } = useDialog();
   const { t } = useLanguage();
 
@@ -679,6 +686,33 @@ const EventServicesScreen = ({ navigation }) => {
 
   // Track which providers the user has called (call-before-book enforcement)
   const [contactedProviderIds, setContactedProviderIds] = useState(new Set());
+
+  // Availability for "Coming Soon" — null = unknown (FAIL-OPEN: show all active).
+  const [availableEventCats, setAvailableEventCats] = useState(null);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await authFetch(`${NODE_BASE_URL}/api/event-services/available-categories`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        const data = await res.json();
+        if (active && res.ok && data?.success && Array.isArray(data.categories)) {
+          setAvailableEventCats(data.categories);
+        }
+      } catch (e) {
+        // Fail-open: leave null → everything shows as active.
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+  const isEventComingSoon = (id) =>
+    Array.isArray(availableEventCats) && !availableEventCats.includes(id);
+  // Available-first; "Coming Soon" services sink to the end (stable sort, 2 items).
+  const orderedEventServices = [...EVENT_SERVICES].sort(
+    (a, b) => (isEventComingSoon(a.id) ? 1 : 0) - (isEventComingSoon(b.id) ? 1 : 0)
+  );
 
   // Get user location from context
   const { selectedLocation } = useLocation();
@@ -736,6 +770,25 @@ const EventServicesScreen = ({ navigation }) => {
    * Handle service selection
    */
   const handleServiceSelect = (service) => {
+    // Booking requires PHONE verification (email is intentionally NOT required — Task 1).
+    const phoneVerified = profile?.isPhoneVerified ?? user?.isPhoneVerified ?? profile?.phoneVerified ?? user?.phoneVerified;
+    const profileReady = !isAuthLoading && !isProfileLoading;
+    if (profileReady && !phoneVerified) {
+      dialog(t('userHome.verificationRequired'), t('userHome.verificationRequiredMsg'), [
+        { text: t('common.later'), style: 'cancel' },
+        { text: t('userHome.verifyNow'), onPress: () => navigation.navigate('Profile') },
+      ]);
+      return;
+    }
+    // "Coming Soon": no provider available yet — show a friendly dialog, don't proceed.
+    if (isEventComingSoon(service.id)) {
+      dialog(
+        t('userHome.comingSoonTitle') || 'Coming Soon',
+        t('userHome.comingSoonMsg') || 'This service is coming soon to your city. Please check back shortly!',
+        [{ text: t('common.ok') || 'OK', style: 'default' }]
+      );
+      return;
+    }
     setSelectedService(service);
     setStep('providers');
     fetchProviders(service.id);
@@ -1036,11 +1089,12 @@ const EventServicesScreen = ({ navigation }) => {
         </Text>
       </View>
 
-      {EVENT_SERVICES.map(service => (
+      {orderedEventServices.map(service => (
         <ServiceCard
           key={service.id}
           service={service}
           onPress={handleServiceSelect}
+          comingSoon={isEventComingSoon(service.id)}
         />
       ))}
     </ScrollView>
@@ -1478,6 +1532,18 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.iconBg,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  comingSoonBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#0F172A',
+    borderRadius: 10,
+  },
+  comingSoonBadgeText: {
+    fontSize: 9,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
 
   // ─── Providers ───

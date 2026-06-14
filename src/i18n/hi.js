@@ -437,7 +437,7 @@ export default {
     notificationRequired: 'सूचनाएं आवश्यक',
     notificationRequiredMsg: 'आपके सेवा अनुरोधों के बारे में अपडेट प्राप्त करने के लिए सूचनाएं आवश्यक हैं। कृपया उन्हें सेटिंग्स में सक्षम करें।',
     verificationRequired: 'सत्यापन आवश्यक',
-    verificationRequiredMsg: 'सेवाएं बुक करने के लिए कृपया अपना फोन और ईमेल सत्यापित करें।',
+    verificationRequiredMsg: 'सेवाएं बुक करने के लिए कृपया अपना फोन नंबर सत्यापित करें।',
     comingSoon: 'जल्द आ रहा है',
     comingSoonTitle: 'जल्द आ रहा है',
     comingSoonMsg: 'यह सेवा जल्द ही आपके शहर में आ रही है। कृपया थोड़ी देर बाद फिर देखें!',

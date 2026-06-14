@@ -337,6 +337,16 @@ const UserHomeScreen = ({ navigation, route }) => {
     [availableCategories]
   );
 
+  // Ordered list: services WITH available providers first, "Coming Soon" ones last.
+  // Stable sort preserves the original order within each group. When availability is
+  // unknown (null → fail-open), nothing is "coming soon" so the original order stands.
+  const orderedServiceCategories = useMemo(
+    () => [...SERVICE_CATEGORIES].sort(
+      (a, b) => (isCategoryComingSoon(a.id) ? 1 : 0) - (isCategoryComingSoon(b.id) ? 1 : 0)
+    ),
+    [isCategoryComingSoon]
+  );
+
   const useKm = useDistanceUnit();
   // Max sheet height — 75% of screen, hard cap so it never overlaps header
   const safeMaxHeight = Math.min(SCREEN_HEIGHT * 0.75, SCREEN_HEIGHT - insets.top - 90);
@@ -583,7 +593,10 @@ const UserHomeScreen = ({ navigation, route }) => {
   const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
   // Only consider unverified if profile has actually loaded (not still loading)
   const profileReady = !isAuthLoading && !isProfileLoading && profile !== null;
-  const isVerified = displayData?.isPhoneVerified && displayData?.isEmailVerified;
+  // Booking requires PHONE verification only. Email verification is intentionally
+  // NOT required to book — email sends a link that can fail (e.g. full device storage),
+  // which must never block a phone-verified user from booking a service. (Task 1)
+  const isVerified = displayData?.isPhoneVerified;
 
   // Check and request location permission
   const checkLocationPermission = useCallback(async () => {
@@ -1523,7 +1536,7 @@ const UserHomeScreen = ({ navigation, route }) => {
 
             <Text style={styles.servicesSectionTitle}>{t('userHome.traditionalServices')}</Text>
             <View style={styles.servicesGrid}>
-              {SERVICE_CATEGORIES.map((service) => (
+              {orderedServiceCategories.map((service) => (
                 <ServiceCard key={service.id} service={service} onPress={handleServiceSelect} comingSoon={isCategoryComingSoon(service.id)} />
               ))}
             </View>
@@ -2466,7 +2479,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   callButton: {
-    width: 46,
+    // Equal width with "Send Request" (both flex:1) — Skip stays fixed at 46.
+    // Icon stays centered/unchanged; only the button width grows. (Task 5)
+    flex: 1,
     height: 42,
     backgroundColor: '#10B981',
     borderRadius: 12,

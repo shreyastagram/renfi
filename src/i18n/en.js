@@ -437,7 +437,7 @@ export default {
     notificationRequired: 'Notifications Required',
     notificationRequiredMsg: 'Notifications are required for you to receive updates about your service requests. Please enable them in settings.',
     verificationRequired: 'Verification Required',
-    verificationRequiredMsg: 'Please verify your phone and email to book services.',
+    verificationRequiredMsg: 'Please verify your phone number to book services.',
     comingSoon: 'Coming Soon',
     comingSoonTitle: 'Coming Soon',
     comingSoonMsg: 'This service is coming soon to your city. Please check back shortly!',

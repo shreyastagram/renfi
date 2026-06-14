@@ -143,6 +143,28 @@ export const getOfflineEmergencyNumbers = (type) => {
   return [];
 };
 
+/**
+ * Get the location-based emergency categories (snake_catcher / private_ambulance /
+ * mortuary_van) that currently have at least one eligible provider. Used to drive
+ * "Coming Soon" + ordering. Fails OPEN: returns null on error so the caller shows
+ * all categories as active (never blanks the emergency screen).
+ * @returns {Promise<string[] | null>}
+ */
+export const getAvailableEmergencyCategories = async () => {
+  try {
+    const response = await authFetch(`${API_BASE}/available-categories`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success || !Array.isArray(data.categories)) return null;
+    return data.categories;
+  } catch (error) {
+    console.warn('[EmergencyService] getAvailableEmergencyCategories failed (fail-open):', error?.message);
+    return null;
+  }
+};
+
 export const getStaticEmergencyNumbers = async (type = null) => {
   try {
     let url = `${API_BASE}/static-numbers`;

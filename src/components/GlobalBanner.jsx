@@ -354,7 +354,12 @@ const styles = StyleSheet.create({
     right: 0,
     paddingHorizontal: 16,
     paddingBottom: 18,
-    zIndex: 9999,
+    // NOTE: do NOT add `zIndex` here. This banner mounts/unmounts as the last of
+    // 2 children inside NavigationContainer (RootNavigator + GlobalBanner). A
+    // `zIndex` child flips the parent into Android's ReactZIndexedViewGroup, and
+    // adding/removing it desyncs the drawing-order array → native crash
+    // "getChildDrawingOrder() returned invalid index 2 (child count is 2)" →
+    // app blinks & closes on launch. Being the last child + elevation keeps it on top.
     overflow: 'hidden',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
