@@ -43,7 +43,6 @@ import {
   EMERGENCY_SERVICE_ICONS,
   getStaticEmergencyNumbers,
   getOfflineEmergencyNumbers,
-  getAvailableEmergencyCategories,
   createEmergencyRequest,
   getNearbyEmergencyProviders,
   assignEmergencyProvider,
@@ -149,8 +148,7 @@ const EMERGENCY_SVG_ICONS = {
   mortuary_van: MortuaryVanIcon,
 };
 
-const ServiceCard = ({ service, onPress, isStatic, comingSoon = false }) => {
-  const { t } = useLanguage();
+const ServiceCard = ({ service, onPress, isStatic }) => {
   const SvgIcon = EMERGENCY_SVG_ICONS[service.id];
 
   return (
@@ -158,7 +156,7 @@ const ServiceCard = ({ service, onPress, isStatic, comingSoon = false }) => {
       style={[styles.serviceCard, isStatic && styles.staticServiceCard]}
       onPress={() => onPress(service)}
     >
-      <View style={[styles.serviceIconContainer, isStatic && styles.staticIconContainer, comingSoon && { opacity: 0.35 }]}>
+      <View style={[styles.serviceIconContainer, isStatic && styles.staticIconContainer]}>
         {SvgIcon ? (
           <SvgIcon size={36} />
         ) : (
@@ -169,12 +167,8 @@ const ServiceCard = ({ service, onPress, isStatic, comingSoon = false }) => {
           />
         )}
       </View>
-      <Text style={[styles.serviceName, comingSoon && { opacity: 0.45 }]} numberOfLines={2}>{service.name}</Text>
-      {comingSoon ? (
-        <View style={styles.comingSoonBadge}>
-          <Text style={styles.comingSoonBadgeText}>{t('userHome.comingSoon') || 'Coming Soon'}</Text>
-        </View>
-      ) : isStatic && (
+      <Text style={styles.serviceName} numberOfLines={2}>{service.name}</Text>
+      {isStatic && (
         <View style={styles.staticBadge}>
           <MaterialIcon name="phone" size={11} color={COLORS.danger} />
           <Text style={styles.staticBadgeText}>Call</Text>
@@ -667,33 +661,12 @@ const EmergencyServicesScreen = ({ navigation }) => {
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
   const loadingTimerRef = useRef(null);
 
-  // Availability for "Coming Soon" — null = unknown (FAIL-OPEN: show all active).
-  const [availableEmergencyCats, setAvailableEmergencyCats] = useState(null);
-  useEffect(() => {
-    let active = true;
-    getAvailableEmergencyCategories().then((cats) => {
-      if (active && cats !== null) setAvailableEmergencyCats(cats);
-    });
-    return () => { active = false; };
-  }, []);
-  const isEmergencyComingSoon = useCallback(
-    (id) => Array.isArray(availableEmergencyCats) && !availableEmergencyCats.includes(id),
-    [availableEmergencyCats]
-  );
-
-  // Service categories
+  // Service categories — emergency services are always shown (no "Coming Soon"
+  // gate: snake/ambulance/mortuary are critical and must never be hidden).
   const locationBasedServices = LOCATION_BASED_SERVICES.map(id => ({
     id,
     name: EMERGENCY_SERVICE_LABELS[id],
   }));
-
-  // Available-first ordering; "Coming Soon" (no provider) services sink to the end.
-  const orderedLocationServices = useMemo(
-    () => [...locationBasedServices].sort(
-      (a, b) => (isEmergencyComingSoon(a.id) ? 1 : 0) - (isEmergencyComingSoon(b.id) ? 1 : 0)
-    ),
-    [isEmergencyComingSoon] // locationBasedServices is a stable derived constant
-  );
 
   const staticServices = STATIC_NUMBER_SERVICES.map(id => ({
     id,
@@ -740,16 +713,6 @@ const EmergencyServicesScreen = ({ navigation }) => {
           { text: t('common.later'), style: 'cancel' },
           { text: t('userHome.verifyNow'), onPress: () => navigation.navigate('Profile') },
         ]);
-        return;
-      }
-      // Location-based service. If no provider is available yet, it's "Coming Soon" —
-      // don't start a request; show a friendly dialog instead.
-      if (isEmergencyComingSoon(service.id)) {
-        dialog(
-          t('userHome.comingSoonTitle') || 'Coming Soon',
-          t('userHome.comingSoonMsg') || 'This service is coming soon to your city. Please check back shortly!',
-          [{ text: t('common.ok') || 'OK', style: 'default' }]
-        );
         return;
       }
       // Location-based service - show notes input
@@ -1222,13 +1185,12 @@ const EmergencyServicesScreen = ({ navigation }) => {
           </Text>
 
           <View style={styles.servicesGrid}>
-            {orderedLocationServices.map(service => (
+            {locationBasedServices.map(service => (
               <ServiceCard
                 key={service.id}
                 service={service}
                 onPress={handleServiceSelect}
                 isStatic={false}
-                comingSoon={isEmergencyComingSoon(service.id)}
               />
             ))}
           </View>
@@ -1809,19 +1771,6 @@ const styles = StyleSheet.create({
     color: COLORS.danger,
     marginLeft: 3,
     fontWeight: '600',
-  },
-  comingSoonBadge: {
-    marginTop: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    backgroundColor: '#0F172A',
-    borderRadius: 10,
-  },
-  comingSoonBadgeText: {
-    fontSize: 9,
-    color: '#FFFFFF',
-    fontWeight: '700',
-    letterSpacing: 0.2,
   },
 
   // ── Emergency Info Card ─────────────────────────────────

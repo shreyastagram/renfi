@@ -20,7 +20,10 @@
       "Bash(node -e ' *)",
       "Bash(git --no-pager diff --stat)",
       "Bash(git --no-pager diff src/utils/storage.js src/utils/storageTelemetry.js)",
-      "Bash(npx vite *)"
+      "Bash(npx vite *)",
+      "Bash(cd \"C:/Projects/DOCS/fo/noefix\")",
+      "Bash(node --check controllers/emergencyServicesController.js)",
+      "Bash(node --check routes/emergencyServicesRoutes.js)"
     ]
   }
 }
