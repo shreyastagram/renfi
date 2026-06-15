@@ -15,9 +15,10 @@
 # ▶ RESUME HERE (read this first, then start)
 **To resume: just say "continue from TASKS_TRACKER.md".** This block is the entry point.
 
-**Where we are:** Tasks 1–8 done (notifications + verification filters/routing shipped in code,
-build-verified). Owner-complaint status is in **"SESSION CLOSE 2026-06-15"** (search that
-heading) — 7 done, 3 partial, 13 remaining, **TODO list below**.
+**Where we are:** Tasks 1–9 done (notifications + verification filters/routing + per-platform
+app-version control, all build-verified). Owner-complaint status is in **"SESSION CLOSE
+2026-06-15"** (search that heading) — 7 done, 3 partial, 13 remaining, **TODO list below**.
+NOTE: Tasks 1–8 were committed (prod). **Task 9 is NEW & uncommitted** (noefix + temp_admin).
 
 **Do FIRST tomorrow (in order):**
 1. **U#12 — Fixhomians filter bug** (All/Active/Disabled not filtering; e.g. disabled "Yogesh
@@ -48,6 +49,23 @@ Dashboard.jsx, ProviderDetail.jsx) · renfi (this tracker only). Decide: commit 
 
 **Open decisions:** (a) optional index `documentVerification.services.status`; (b) push-wake
 location feature (cost ~zero; see SESSION CLOSE "Proposed").
+
+## 📦 RELEASE / DEPLOY STATE (2026-06-15) — read if version/update issues appear
+- **iOS:** shipped as **Version 1.0.5, Build 1** (forced bump from 1.0.4; build reset to 1).
+  Previous live = 1.0.4.
+- **Android:** (record versionName/versionCode when shipped — versionCode must be > previous).
+- **Task 9 (per-platform app version)** is being **deployed now** (noefix + temp_admin admin).
+  After deploy, in Admin → App Version set **both** blocks: Android `latest/min`, iOS `latest 1.0.5`
+  and iOS `min ≤ 1.0.5` (min = latest only if you want to FORCE everyone to 1.0.5).
+- **Until you save per-platform values, the check falls back to legacy 1.0.4** (no disruption).
+- **If issues tomorrow — likely causes & checks:**
+  - *iOS users wrongly force-updated* → iOS `min` is set above 1.0.5; set iOS min ≤ installed.
+  - *No update prompt when expected* → per-platform `latestVersion` not saved (still on fallback);
+    open Admin → App Version, confirm the iOS/Android blocks show your values, re-save.
+  - *Wrong store opens* → check `storeUrls.ios` / `storeUrls.android` in the config.
+  - *Backend not resolving platform* → app must send `?platform=ios|android` (it does via
+    `appUpdateService.js`); verify `checkAppVersion` in `noefix/controllers/adminController.js`.
+  - Maintenance mode still global (not per-platform) — by design.
 
 ---
 
@@ -398,12 +416,123 @@ changes on prod M10 are a deliberate ops decision; user's call).
 
 ---
 
+## Task 10 — Admin panel UI overhaul: sidebar nav + full-width responsive (frontend only)
+**Status:** DONE (`vite build` ✅; Layout lint REDUCED vs baseline). No backend changes.
+
+**Why (owner):** header-link nav looked cramped/center-only; iOS & Android version blocks looked
+identical (emoji-only difference); content wasted big-screen width. Wanted a Google-Console /
+ChatGPT-style **left sidebar** on desktop, same mobile drawer on phones, full-width responsive
+content across all tabs, production-grade internal-tool UX. No/minimal backend.
+
+**Findings / files (temp_admin):**
+- **`components/Layout.jsx`** — rewritten. Desktop (lg+): **collapsible sticky left sidebar**
+  (w-64) with logo + two labeled groups (**Operations** / **Management**). A **hamburger in the
+  topbar toggles the sidebar** (hide → content goes full-width); state **persisted** in
+  localStorage (`fixhomi_sidebar_collapsed`); logo moves into the topbar when collapsed.
+  **User badge + theme toggle + sign-out now live in the header** (right side), NOT the sidebar.
+  Removed the old header horizontal nav + "More" dropdown. Mobile (<lg): unchanged left
+  **drawer** via hamburger (drawer keeps user/theme/sign-out). Content `<main>` is **full-width**
+  (`px-4 sm:px-6 lg:px-8`, no `max-w-7xl` cap) → list/table pages auto-use the whole screen.
+  New `SidebarGroup` shared component. Lint: net REDUCED (3 jsx-uses-vars false-positives → 1;
+  dropped the route-change setState effect — drawer closes via per-link onNavigate).
+- **`pages/AppVersion.jsx`** — removed 🤖/🍎 **emojis**; Android = **emerald** tint, iOS =
+  **sky** tint (distinct card bg + heading color + dot) so they're not confused; container
+  widened `max-w-4xl → max-w-6xl`; `PlatformVersionBlock` takes tone classes.
+- **`pages/AppControl.jsx`** — widened `max-w-3xl → max-w-5xl`.
+
+**UX principle applied:** list/table pages go **full-width**; forms (AppVersion/AppControl) keep
+a comfortable max-width for readable line lengths (production best practice, not a regression).
+
+**Verification:** `vite build` ✅ (4.36s); eslint — Layout 1 (Icon false-positive, used in JSX),
+AppVersion 3 (pre-existing), AppControl 0. No backend touched.
+
+---
+
+## Task 11 — Admin Docs Guide (one-stop ops/infra docs for the owner) — frontend only
+**Status:** DONE (`vite build` ✅). No backend. **TBD placeholders await owner input.**
+
+**Why (owner):** wants a self-serve "everything in one place" doc — where each thing is hosted,
+pricing, dashboards, how it's wired — so he isn't dependent on the dev. NOTE: "API docs" here =
+**infrastructure/ops docs**, NOT REST endpoint docs (clarified by owner).
+
+**Files (temp_admin):**
+- `pages/AdminDocs.jsx` (NEW) — searchable, data-driven guide w/ in-page nav. 11 sections:
+  Overview · Hosting (Render) · Databases (Mongo/Neon) · Domain & Networking (Cloudflare/GoDaddy)
+  · Third-party Services · Billing & Pricing · App Stores · Common Tasks · Access & Secrets ·
+  Handover & Contacts · Glossary. Unknown account/billing values render as an amber
+  "To be filled" chip (sentinel `TBD`) — never guessed.
+- `App.jsx` route `/admin-docs`; `Layout.jsx` sidebar item "Docs Guide" (Management group).
+
+**Facts sourced (not assumed):** from `noefix/CLOUDFLARE_SETUP.md` — registrar=GoDaddy,
+Cloudflare acct Fixhomi.team@gmail.com, DNS map (api→noefix, auth→jauth, proxied), dev URLs,
+carrier-block reason; from code — services Firebase(fixhomi-f6382)/Cloudinary/Surepass/Razorpay/
+MSG91/Workspace; Android pkg com.renfi. Pricing from web research (Jun 2026): Render Starter
+$7/svc + bandwidth (Hobby cut 100→5GB/mo Apr-2026 → overage = the "$24"); Mongo M10 ~$57,
+**M5 deprecated → Atlas Flex $8–$30**; Neon Launch $5 min (~$20 typical).
+
+**⚠ Owner must fill (TBD chips):** login accounts for Render/Mongo/Neon/GoDaddy/Cloudinary/
+Surepass/Razorpay/MSG91/Workspace/Play/Apple; exact Render bill line items + card owner + next
+payment dates; GitHub repos; handover contacts.
+
+**Verification:** `vite build` ✅; lint = Icon jsx-uses-vars false-positives only.
+
+---
+
+## Docs Guide — open follow-ups (fill remaining TBD chips when known)
+- **Play App Signing status** — confirm in Play Console → Test and release → **App integrity**
+  (or top search "app signing"). ENABLED → keystore loss recoverable (Google holds key + upload-key
+  reset); legacy/OFF → loss is fatal. Record verdict in the doc's Signing section. (App is ~7 months
+  old → almost certainly ENABLED.)
+- **contact@fixhomi.com inbox host** — unknown; ask Vijay Chirde; fill Handover.
+- **Android keystore backup** — ✅ DONE & verified: FixhomiKeys.dmg (AES-256) + FixhomiKeys.zip
+  on Google Drive → Fixhomi → Keys & Secrets. Recovery steps documented.
+- **iOS signing** — optional: export distribution cert as .p12 (convenience). Account-recoverable
+  via Apple Developer (contact@fixhomi.com) — keep that Apple ID + 2FA safe.
+- **Marketing site fixhomi.com** — migrate from developer's personal Vercel account → fixhomi.team.
+- **GitHub repos** — create + hand over when work complete; then fill the Secrets section.
+
+---
+
 ## Commit messages prepared (2026-06-15) — awaiting user commit
 - **noefix (notifications):** `feat(app-control): broadcast history, retry, sender metadata, emoji-safe limits`
 - **temp_admin (notifications):** `feat(app-control): Compose/History tabs, emoji support, surfaced retry/cleanup`
 - **noefix (filters):** `feat(verification): advanced admin filters + correct Aadhaar status`
 - **temp_admin (filters):** `feat(verification): filter bar + URL-persisted, back/forward-safe routing`
   (each ends with `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`)
+
+---
+
+## Task 9 — Platform-specific App Version control (iOS vs Android)
+**Status:** DONE (`node --check` ×2 + `vite build` pass; eslint zero-delta). **App rebuild NOT
+needed** — app already sends `platform`; this is backend + admin only.
+
+**Why:** iOS and Android version numbers diverge (App Store may need 1.0.6 while Play is on
+1.0.5). The old config had ONE universal latest/min/critical → force-update + min-version
+gating couldn't be managed per platform. Owner needs to set them independently.
+
+**Findings / files:**
+- **`noefix/models/appVersion.js`** — added `android` and `ios` sub-blocks
+  (`{latestVersion, minVersion, isCritical}` each). Legacy top-level `latestVersion/minVersion/
+  isCritical` kept as **fallback** (back-compat).
+- **`noefix/controllers/adminController.js`**
+  - `checkAppVersion`: resolves the requesting platform's block; if a platform block has a
+    `latestVersion` it governs, else falls back to legacy fields (→ pre-platform behavior is
+    identical until you split them). Returns resolved latest/min/critical + `platform`.
+  - `updateAppVersion`: accepts `android`/`ios` objects (validates semver + min≤latest per
+    platform), writes them with `markModified`. Legacy/maintenance paths untouched.
+- **`temp_admin/src/pages/AppVersion.jsx`** — "Update Configuration" now has **two blocks
+  (🤖 Android, 🍎 iOS)** each with Latest/Min/Critical + inline force/optional preview;
+  "Current Live Config" shows both platforms; shared fields (title/message/notes/store URLs/
+  maintenance) unchanged. New `PlatformVersionBlock` component + `compareSemverStr` helper.
+- App side (`renfi/appUpdateService.js`): **no change** — already sends `platform` + consumes
+  the resolved `latestVersion/minVersion/storeUrl`.
+
+**Migration/safety:** existing prod doc (universal 1.0.4) keeps working via fallback. Admin
+form pre-fills BOTH platforms from the legacy value, so first save simply splits them. No app
+rebuild, no data migration needed.
+
+**Verification:** `node --check` (model + controller) ✅; `vite build` ✅; eslint baseline parity
+(3 pre-existing in AppVersion.jsx, unchanged).
 
 ---
 
@@ -492,6 +621,37 @@ correctness fix in admin · emoji support in admin notifications.
   4 commits prepared but NOT yet made (noefix + temp_admin × notifications + filters).
 - 2026-06-15 — Added "Full profile" new-tab cross-link from verification detail →
   `/fixhomians/:id?type=provider` (temp_admin ProviderDetail.jsx). `vite build` ✅.
+- 2026-06-15 — **Task 9 DONE** (platform-specific app version): iOS/Android each get their own
+  latest/min/critical; backend resolves per `platform` (legacy fallback = no disruption); admin
+  AppVersion page split into Android/iOS blocks. App needs NO rebuild. `node --check` + build ✅.
+  Uncommitted (noefix models/appVersion.js + controllers/adminController.js; temp_admin AppVersion.jsx).
+- 2026-06-15 — **iOS release:** Version **1.0.5, Build 1** shipped (forced bump from 1.0.4).
+  Per-platform version (Task 9) being deployed to prod (noefix + admin). See "RELEASE / DEPLOY
+  STATE" near top for post-deploy admin steps + debug checklist.
+- 2026-06-15 — **Task 10 DONE** (admin UI overhaul, frontend only): left sidebar nav (desktop)
+  + mobile drawer kept, full-width responsive content all tabs, AppVersion emojis removed +
+  Android(emerald)/iOS(sky) distinct shades + widened, AppControl widened. `vite build` ✅;
+  Layout lint reduced. Uncommitted (temp_admin: Layout.jsx, AppVersion.jsx, AppControl.jsx).
+- 2026-06-15 — **Task 10 REWORK** (UX fixes from owner screenshot): switched to GitHub-style
+  **single full-width top header** (hamburger far-left → logo → breadcrumb → user/theme/signout)
+  with the sidebar **below** it; sidebar now **slides** open/closed via `transition-[width]`
+  (w-64↔w-0, overflow-hidden + inner fixed width) instead of snapping; fixed **horizontal
+  overflow** (content `flex-1 min-w-0`); one breakpoint-aware hamburger (collapse on desktop,
+  drawer on mobile). Removed the disjoint sidebar-logo-box. `vite build` ✅.
+- 2026-06-15 — **Task 11 EXPANDED** (Admin Docs Guide): full third-party list w/ console + usage/
+  billing directions (web-researched, no charges listed): Firebase (FCM + App Distribution),
+  MSG91 (OTP, jauth+noefix), Brevo (auth email, jauth), Gmail SMTP (noefix email), Cloudinary,
+  Surepass (Aadhaar), Razorpay, Apple Sign-In, Google OAuth. Added Websites section (admin panel
+  = Netlify teadfi.netlify.app; marketing site host TBD). Email accounts (fixhomi.team@gmail.com,
+  contact@fixhomi.com) + GitHub repos + marketing-site host = open questions for owner. `vite build` ✅.
+- 2026-06-15 — **Android keystore SECURED**: backed up (FixhomiKeys.dmg + .zip, AES-256, on
+  fixhomi.team Drive → Keys & Secrets), verified, recovery documented in Docs Guide. Open
+  follow-ups (Play App Signing status, contact@ host, fixhomi.com Vercel→fixhomi.team migration,
+  GitHub repos, iOS .p12) logged under "Docs Guide — open follow-ups".
+- 2026-06-15 — Created **DEV_RECOVERY_AND_ONBOARDING.md** (renfi): how a new dev / repaired Mac
+  restores ALL gitignored secrets (release.keystore, local.properties, .env, google-services.json,
+  GoogleService-Info.plist) from the vault + builds/releases Android & iOS. Key insight: keystore
+  alone won't build — all gitignored config must be restored. Recommends backing up the full set.
 - 2026-06-15 — **Session closed.** Owner-complaint status mapped (see "SESSION CLOSE" above):
   7 done, 3 partial, 13 remaining (prioritized for tomorrow), 5 bonus. Push-wake location
   idea evaluated (cost ~zero; decision pending). Commits still pending user.
