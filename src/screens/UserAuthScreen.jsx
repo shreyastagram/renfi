@@ -7,13 +7,14 @@
  * @version 2.0.0
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useLanguage } from '../context/LanguageContext';
 import RegisterScreen from './RegisterScreen';
 import LoginScreen from './LoginScreen';
 import OTPLoginScreen from './OTPLoginScreen';
 import OTPVerifyScreen from './OTPVerifyScreen';
+import PhoneSignupScreen from './PhoneSignupScreen';
 import usePersistedAuthFlow, { AUTH_MODES } from '../hooks/usePersistedAuthFlow';
 
 /**
@@ -27,6 +28,9 @@ const UserAuthScreen = ({ navigation }) => {
   // OTP step persists across an OS process kill (Issue 2) so a user who leaves
   // to read the SMS OTP returns to the OTP box instead of starting over.
   const { authMode, setAuthMode, otpData, setOtpData } = usePersistedAuthFlow('user');
+  // Carry T&C + referral from RegisterChoice through PhoneSignupScreen into the
+  // OTP_VERIFY call (NoeFix's verifyPhoneSignupAndSync requires both flags).
+  const [phoneSignupExtras, setPhoneSignupExtras] = useState(null);
 
   /**
    * Switch to login mode
@@ -58,11 +62,33 @@ const UserAuthScreen = ({ navigation }) => {
   }, []);
 
   /**
-   * Handle back from OTP verify
+   * Handle back from OTP verify. Returns to the OTP entry step appropriate
+   * for the flow that started it — signup goes back to PhoneSignupScreen,
+   * login goes back to OTPLoginScreen.
    */
   const handleOtpVerifyBack = useCallback(() => {
-    setAuthMode(AUTH_MODES.OTP_LOGIN);
+    if (otpData?.context === 'signup') {
+      setAuthMode(AUTH_MODES.PHONE_SIGNUP);
+    } else {
+      setAuthMode(AUTH_MODES.OTP_LOGIN);
+    }
     setOtpData(null);
+  }, [otpData]);
+
+  /**
+   * Switch to phone-signup entry from RegisterScreen. Stashes T&C + referral
+   * for forwarding into verifyPhoneSignupAndSync at verify time.
+   */
+  const handleSwitchToPhoneSignup = useCallback((extras) => {
+    setPhoneSignupExtras(extras || {});
+    setAuthMode(AUTH_MODES.PHONE_SIGNUP);
+  }, []);
+
+  /**
+   * Back from PhoneSignupScreen returns to the register choice.
+   */
+  const handlePhoneSignupBack = useCallback(() => {
+    setAuthMode(AUTH_MODES.REGISTER);
   }, []);
 
   /**
@@ -72,9 +98,19 @@ const UserAuthScreen = ({ navigation }) => {
     switch (authMode) {
       case AUTH_MODES.REGISTER:
         return (
-          <RegisterScreen 
+          <RegisterScreen
             navigation={navigation}
             onSwitchToLogin={handleSwitchToLogin}
+            onSwitchToPhoneSignup={handleSwitchToPhoneSignup}
+          />
+        );
+
+      case AUTH_MODES.PHONE_SIGNUP:
+        return (
+          <PhoneSignupScreen
+            onOtpSent={handleOtpSent}
+            onBack={handlePhoneSignupBack}
+            signupExtras={phoneSignupExtras || {}}
           />
         );
         
@@ -97,6 +133,11 @@ const UserAuthScreen = ({ navigation }) => {
             maskedValue={otpData?.maskedValue}
             expiresInMinutes={otpData?.expiresInMinutes}
             userType="user"
+            // Signup-only extras — undefined for login flows so OTPVerifyScreen
+            // falls back to its existing phone/email login behaviour.
+            context={otpData?.context || 'login'}
+            fullName={otpData?.fullName}
+            signupExtras={otpData?.signupExtras}
             onBack={handleOtpVerifyBack}
           />
         );

@@ -49,7 +49,7 @@ import RegisterChoice from '../components/RegisterChoice';
  * 
  * @param {Object} props - Navigation props
  */
-const RegisterScreen = ({ navigation }) => {
+const RegisterScreen = ({ navigation, onSwitchToPhoneSignup }) => {
   const { handleAuthSuccess } = useApp();
   const { t } = useLanguage();
 
@@ -725,6 +725,16 @@ const RegisterScreen = ({ navigation }) => {
         onPickManual={() => setMode('form')}
         onPickGoogle={handleGoogleSignIn}
         onPickApple={handleAppleSignIn}
+        onPickPhone={
+          onSwitchToPhoneSignup
+            ? () =>
+                onSwitchToPhoneSignup({
+                  referralCode: formData.referralCode?.trim() || undefined,
+                  termsAccepted: true,
+                  privacyAccepted: true,
+                })
+            : undefined
+        }
         googleLoading={googleLoading}
         appleLoading={appleLoading}
         onSwitchToLogin={() => navigation?.goBack?.()}

@@ -25,6 +25,8 @@ export const AUTH_MODES = {
   REGISTER: 'register',
   OTP_LOGIN: 'otp_login',
   OTP_VERIFY: 'otp_verify',
+  // Phone-number SIGNUP entry step (name + phone form). USERS only.
+  PHONE_SIGNUP: 'phone_signup',
 };
 
 const keyFor = (userType) => `@fixhomi_auth_flow_${userType || 'user'}`;

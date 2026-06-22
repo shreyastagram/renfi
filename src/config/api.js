@@ -225,6 +225,14 @@ export const ENDPOINTS = {
     EMAIL_SEND_OTP: '/api/auth/login/email/send-otp',
     EMAIL_VERIFY: '/api/auth/login/email/verify',
   },
+
+  // Phone-number SIGNUP (USERS only — NoeFix orchestrates JAuth + Mongo upsert).
+  // Goes via apiClient (Node.js), NOT authClient — the verify response triggers
+  // the Mongo profile upsert so the new user has a business-data doc immediately.
+  OTP_SIGNUP: {
+    PHONE_SEND_OTP: '/api/auth/signup/phone/send-otp',
+    PHONE_VERIFY: '/api/auth/signup/phone/verify',
+  },
   
   // Account verification (direct to Java Auth, requires auth token)
   VERIFICATION: {

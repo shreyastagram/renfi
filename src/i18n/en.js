@@ -161,6 +161,16 @@ export default {
     fillManuallySub: 'Email and password',
     continueWithGoogleSub: 'Quick sign-up with your Google account',
     continueWithAppleSub: 'Quick sign-up with your Apple ID',
+    // ── Phone-only signup (USERS only) ──
+    // NOTE: fullName / fullNamePlaceholder / phoneAlreadyRegistered are reused from
+    // existing definitions further down in this file (kept single-source-of-truth).
+    continueWithPhone: 'Continue with phone number',
+    continueWithPhoneSub: "We'll send you a verification code",
+    phoneSignupTitle: 'Sign up with phone',
+    phoneSignupSubtitle: "Enter your name and mobile number — we'll send a verification code",
+    phoneSignupInfo: "We'll text a 6-digit code to verify it's your number. You can add an email later from your profile.",
+    fullNameRequired: 'Please enter your full name',
+    fullNameTooLong: 'Full name is too long',
     legalAcceptanceRequired: 'Please accept the Terms & Conditions and Privacy Policy in the app and try again.',
     alreadyHaveAccount: 'Already have an account?',
     passwordRequired: 'Password is required',

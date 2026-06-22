@@ -235,6 +235,77 @@ export const registerProvider = async (providerData) => {
   }
 };
 
+// ==================== PHONE SIGNUP (USERS ONLY) ====================
+
+/**
+ * Start a phone-only USER signup. Goes via Node.js → Java Auth (no Mongo write yet —
+ * the user row is created only on verify). Providers are out of scope; the JAuth
+ * service hard-codes role = USER and rejects any other role.
+ *
+ * @param {string} phoneNumber - Raw phone (any format; normalized by api wrapper).
+ * @param {string} fullName - Captured here, carried through the OTP window, written
+ *                            onto the user row at verify-time.
+ * @returns {Promise<{success:boolean, maskedPhone?:string, expiresInMinutes?:number, error?:Object}>}
+ */
+export const sendPhoneSignupOtp = async (phoneNumber, fullName) => {
+  try {
+    console.log('📱 [AuthService] Sending phone signup OTP');
+    const response = await apiClient.post(ENDPOINTS.OTP_SIGNUP.PHONE_SEND_OTP, {
+      phoneNumber: normalizePhoneForApi(phoneNumber),
+      fullName: (fullName || '').trim(),
+    });
+    return {
+      success: true,
+      data: response.data,
+      maskedPhone: response.data.maskedPhone,
+      expiresInMinutes: response.data.expiresInMinutes || 5,
+    };
+  } catch (error) {
+    const parsedError = parseApiError(error);
+    console.error('❌ [AuthService] Send phone signup OTP failed:', parsedError);
+    return { success: false, error: parsedError };
+  }
+};
+
+/**
+ * Verify a phone signup OTP. On success, the new USER row exists in JAuth
+ * (email = NULL) and the matching Mongo user doc is created/upserted by NoeFix
+ * via ensureProfileFromJavaAuth. Tokens are returned in the same envelope as the
+ * existing login flows so the caller can hand them straight to handleAuthSuccess.
+ *
+ * @param {string} phoneNumber
+ * @param {string} otp - 4–10 digit OTP code.
+ * @param {Object} [extras] - termsAccepted / privacyAccepted (required by NoeFix),
+ *                            and any optional location/address overrides forwarded
+ *                            into the Mongo doc.
+ * @returns {Promise<{success:boolean, data?:Object, error?:Object}>}
+ */
+export const verifyPhoneSignupOtp = async (phoneNumber, otp, extras = {}) => {
+  try {
+    console.log('🔐 [AuthService] Verifying phone signup OTP');
+    const response = await apiClient.post(ENDPOINTS.OTP_SIGNUP.PHONE_VERIFY, {
+      phoneNumber: normalizePhoneForApi(phoneNumber),
+      otp: (otp || '').trim(),
+      // NoeFix rejects 400 LEGAL_ACCEPTANCE_REQUIRED if these are not true.
+      termsAccepted: extras.termsAccepted === true,
+      privacyAccepted: extras.privacyAccepted === true,
+      termsVersion: extras.termsVersion,
+      privacyVersion: extras.privacyVersion,
+      location: extras.location,
+      address: extras.address,
+      city: extras.city,
+      pincode: extras.pincode,
+      emergencyContact: extras.emergencyContact,
+      referralCode: extras.referralCode,
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    const parsedError = parseApiError(error);
+    console.error('❌ [AuthService] Phone signup verification failed:', parsedError);
+    return { success: false, error: parsedError };
+  }
+};
+
 // ==================== LOGIN ====================
 
 /**
@@ -1027,6 +1098,10 @@ export default {
   verifyPhoneLoginOtp,
   sendEmailLoginOtp,
   verifyEmailLoginOtp,
+
+  // Phone SIGNUP (USERS only)
+  sendPhoneSignupOtp,
+  verifyPhoneSignupOtp,
   
   // Verification
   sendPhoneVerificationOtp,

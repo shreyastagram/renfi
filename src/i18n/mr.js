@@ -161,6 +161,15 @@ export default {
     fillManuallySub: 'ईमेल आणि पासवर्ड',
     continueWithGoogleSub: 'तुमच्या Google खात्याने जलद साइन-अप',
     continueWithAppleSub: 'तुमच्या Apple ID ने जलद साइन-अप',
+    // ── फोन-फक्त साइनअप (फक्त यूजर्स) ──
+    // टीप: fullName / fullNamePlaceholder / phoneAlreadyRegistered या फाइलमध्ये पुढील विद्यमान व्याख्यांमधून पुन्हा वापरले जातात.
+    continueWithPhone: 'फोन नंबरने सुरू ठेवा',
+    continueWithPhoneSub: 'आम्ही तुम्हाला सत्यापन कोड पाठवू',
+    phoneSignupTitle: 'फोनने साइन अप करा',
+    phoneSignupSubtitle: 'तुमचे नाव आणि मोबाइल नंबर टाका — आम्ही सत्यापन कोड पाठवू',
+    phoneSignupInfo: 'हा तुमचा नंबर आहे याची खात्री करण्यासाठी आम्ही 6-अंकी कोड पाठवू. तुम्ही नंतर तुमच्या प्रोफाइलमधून ईमेल जोडू शकता.',
+    fullNameRequired: 'कृपया तुमचे पूर्ण नाव टाका',
+    fullNameTooLong: 'पूर्ण नाव खूप मोठे आहे',
     legalAcceptanceRequired: 'कृपया अॅपमध्ये अटी व शर्ती आणि गोपनीयता धोरण स्वीकारा आणि पुन्हा प्रयत्न करा.',
     alreadyHaveAccount: 'आधीच खाते आहे का?',
     passwordRequired: 'पासवर्ड आवश्यक आहे',

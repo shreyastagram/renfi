@@ -24,6 +24,8 @@ import {
   verifyEmailLoginOtp,
   sendPhoneLoginOtp,
   sendEmailLoginOtp,
+  verifyPhoneSignupOtp,
+  sendPhoneSignupOtp,
   getErrorMessage,
   AUTH_CODES,
 } from '../services/authService';
@@ -41,6 +43,12 @@ const OTPVerifyScreen = ({
   maskedValue,
   expiresInMinutes = 5,
   userType = 'user',
+  // 'login' (default — existing OTP-login flow) or 'signup' (new phone-only
+  // signup flow). When 'signup' we verify against the NoeFix signup endpoint
+  // and resend via the signup send-otp endpoint (which needs fullName).
+  context = 'login',
+  fullName,
+  signupExtras,
   onBack,
 }) => {
   const { handleAuthSuccess } = useApp();
@@ -53,6 +61,9 @@ const OTPVerifyScreen = ({
   const _maskedValue = maskedValue || params.maskedValue;
   const _expiresInMinutes = expiresInMinutes || params.expiresInMinutes;
   const _userType = userType || params.userType;
+  const _context = context || params.context || 'login';
+  const _fullName = fullName || params.fullName;
+  const _signupExtras = signupExtras || params.signupExtras || {};
 
   // OTP input refs
   const inputRefs = useRef([]);
@@ -167,7 +178,12 @@ const OTPVerifyScreen = ({
       setLoading(true);
 
       let result;
-      if (_method === 'phone') {
+      if (_context === 'signup' && _method === 'phone') {
+        // Phone-only USER signup. Goes via NoeFix (apiClient) so the Mongo
+        // user doc is created alongside the JAuth user. Legal acceptance and
+        // optional overrides ride in `signupExtras`.
+        result = await verifyPhoneSignupOtp(_identifier, otpCode, _signupExtras);
+      } else if (_method === 'phone') {
         result = await verifyPhoneLoginOtp(_identifier, otpCode);
       } else {
         result = await verifyEmailLoginOtp(_identifier, otpCode);
@@ -177,10 +193,12 @@ const OTPVerifyScreen = ({
         // Clear OTP from state immediately after successful verification
         setOtp(Array(OTP_LENGTH).fill(''));
 
-        // Validate that the user's actual role matches the screen they're signing in from
-        const backendRole = result.data?.role;
+        // Validate that the user's actual role matches the screen they're signing in from.
+        // NoeFix signup-verify returns the user payload nested under `data`; JAuth login
+        // returns role at the top level. Read both.
+        const backendRole = result.data?.role || result.data?.data?.role;
         const expectedRole = _userType === 'provider' ? 'SERVICE_PROVIDER' : 'USER';
-        if (backendRole && backendRole !== expectedRole && backendRole !== 'ADMIN') {
+        if (backendRole && backendRole !== expectedRole && backendRole !== 'ADMIN' && backendRole !== 'user') {
           const correctScreen = backendRole === 'SERVICE_PROVIDER' ? 'provider' : 'user';
           showAlert(
             t('auth.roleMismatch', { role: correctScreen }),
@@ -190,6 +208,8 @@ const OTPVerifyScreen = ({
           return;
         }
         showAlert(t('auth.verifiedSuccess'), 'success');
+        // NoeFix signup returns the auth envelope flat (accessToken/refreshToken at top level
+        // alongside `data: {profile…}`), matching the existing register() shape. Pass through.
         const authData = { ...result.data, userType: _userType };
         const authProcessed = await handleAuthSuccess(authData);
         if (!authProcessed) {
@@ -240,7 +260,11 @@ const OTPVerifyScreen = ({
       setResendLoading(true);
 
       let result;
-      if (_method === 'phone') {
+      if (_context === 'signup' && _method === 'phone') {
+        // Resend during phone-signup needs the captured full name so JAuth can
+        // re-issue an OTP for the same prospective account.
+        result = await sendPhoneSignupOtp(_identifier, _fullName);
+      } else if (_method === 'phone') {
         result = await sendPhoneLoginOtp(_identifier);
       } else {
         result = await sendEmailLoginOtp(_identifier);

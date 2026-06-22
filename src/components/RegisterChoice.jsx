@@ -46,6 +46,10 @@ const RegisterChoice = ({
   onPickManual,
   onPickGoogle,
   onPickApple,
+  // Optional: when provided, render a "Continue with phone number" card.
+  // RegisterScreen (user) passes this; ProviderRegisterScreen does NOT, so the
+  // provider flow renders exactly the buttons it always has.
+  onPickPhone,
   googleLoading,
   appleLoading,
   onSwitchToLogin,
@@ -198,6 +202,31 @@ const RegisterChoice = ({
               </LinearGradient>
             </TouchableOpacity>
 
+            {/* Continue with phone number — USERS only (rendered when onPickPhone is passed) */}
+            {onPickPhone && (
+              <TouchableOpacity
+                style={[styles.optionCard, styles.phoneCard, !termsAccepted && styles.optionCardDisabled]}
+                onPress={guard(onPickPhone)}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={t('auth.continueWithPhone') || 'Continue with phone number'}
+                disabled={anyLoading}
+              >
+                <View style={[styles.optionIconCircle, styles.phoneIconCircle]}>
+                  <MaterialIcons name="phone-iphone" size={22} color="#2563EB" />
+                </View>
+                <View style={styles.optionTextWrap}>
+                  <Text style={styles.optionTitle}>
+                    {t('auth.continueWithPhone') || 'Continue with phone number'}
+                  </Text>
+                  <Text style={styles.optionSub}>
+                    {t('auth.continueWithPhoneSub') || "We'll send you a verification code"}
+                  </Text>
+                </View>
+                <MaterialIcons name="arrow-forward" size={20} color={termsAccepted ? '#2563EB' : '#CBD5E1'} />
+              </TouchableOpacity>
+            )}
+
             {/* Continue with Apple — iOS only, plain black (untouched) */}
             {Platform.OS === 'ios' && (
               <TouchableOpacity
@@ -339,6 +368,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   manualCard: { borderColor: '#f67c16', backgroundColor: '#FFFFFF' },
+  // Phone signup — blue accent to differentiate from manual (orange) and Google rainbow.
+  phoneCard: { borderColor: '#2563EB', backgroundColor: '#FFFFFF' },
   appleCard: { borderColor: '#000000', backgroundColor: '#000000' },
   optionCardDisabled: { opacity: 0.5 },
   appleCardDisabled: { opacity: 0.5 },
@@ -364,6 +395,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   manualIconCircle: { backgroundColor: '#FFFFFF' },
+  phoneIconCircle: { backgroundColor: '#EFF6FF' },
   googleIconCircleWhite: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0' },
   appleIconCircle: { backgroundColor: 'rgba(255,255,255,0.15)' },
   appleGlyph: { fontSize: 22, color: '#FFFFFF', marginTop: -2 },
