@@ -30,7 +30,7 @@ import {
   getErrorMessage,
   AUTH_CODES
 } from '../services/authService';
-import { updateJavaAuthProfile } from '../services/profileService';
+import { updateJavaAuthProfile, addUserEmail } from '../services/profileService';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -223,12 +223,42 @@ const VerificationScreen = ({
 
       setSavingValue(true);
 
-      // Update Java Auth first (this is where OTP is sent from)
-      // Phone: prepend +91 for Java Auth (stores raw 10-digit locally)
-      const javaAuthUpdate = isEmailVerification
-        ? { email: trimmedValue }
-        : { phoneNumber: '+91' + trimmedValue };
+      const userId = user?.mongoId || profile?.mongoId || profile?._id;
 
+      if (isEmailVerification) {
+        // Add/change email through NoeFix → Java Auth (source of truth: stores it
+        // UNVERIFIED and sends the verification link) → mirrors the value into Mongo.
+        // ONE call updates BOTH databases consistently.
+        const emailResult = await addUserEmail(userId, trimmedValue);
+
+        if (!emailResult.success) {
+          console.error('❌ [VerificationScreen] Failed to add email:', emailResult.error);
+          const errCode = emailResult.error?.code;
+          const errStatus = emailResult.error?.status;
+          if (errCode === 'EMAIL_ALREADY_EXISTS' || errStatus === 409) {
+            showAlert('This email is already in use on another account. Please use a different email.', 'error');
+          } else if (errCode === 'TOO_MANY_REQUESTS' || errStatus === 429) {
+            showAlert(emailResult.error?.message || 'Please wait a moment before trying again.', 'error');
+          } else {
+            showAlert(emailResult.error?.message || t('verificationScreen.failedUpdate', { type: verificationType }), 'error');
+          }
+          return;
+        }
+
+        // Email set + verification link already sent by the backend. Refresh so the
+        // new (unverified) email shows, then tell the user to check their inbox.
+        await refreshVerificationStatus();
+        if (userId) {
+          await refreshProfile(userType, userId, { force: true });
+        }
+        console.log('✅ [VerificationScreen] email saved + link sent:', trimmedValue);
+        showAlert(t('verificationScreen.emailSent'), 'success');
+        setIsEditing(false);
+        return;
+      }
+
+      // PHONE path (unchanged): Java Auth first, then Mongo sync.
+      const javaAuthUpdate = { phoneNumber: '+91' + trimmedValue };
       console.log(`📝 [VerificationScreen] Saving ${verificationType}:`, trimmedValue);
 
       const javaResult = await updateJavaAuthProfile(javaAuthUpdate);
@@ -237,10 +267,8 @@ const VerificationScreen = ({
         console.error('❌ [VerificationScreen] Failed to update Java Auth:', javaResult.error);
         const errCode = javaResult.error?.code;
         const errStatus = javaResult.error?.status;
-        if (errCode === 'PHONE_ALREADY_EXISTS' || (errStatus === 409 && !isEmailVerification)) {
+        if (errCode === 'PHONE_ALREADY_EXISTS' || errStatus === 409) {
           showAlert(t('profile.phoneConflictMsg') || 'This mobile number is already verified on another account. Please use a different number.', 'error');
-        } else if (errCode === 'EMAIL_ALREADY_EXISTS' || (errStatus === 409 && isEmailVerification)) {
-          showAlert('This email is already verified on another account. Please use a different email.', 'error');
         } else {
           showAlert(javaResult.error?.message || t('verificationScreen.failedUpdate', { type: verificationType }), 'error');
         }
@@ -249,22 +277,17 @@ const VerificationScreen = ({
 
       // Also sync to MongoDB via profile update
       if (updateProfileWithAutoSync) {
-        const mongoUpdate = isEmailVerification
-          ? { email: trimmedValue }
-          : { phone: trimmedValue };
-
-        await updateProfileWithAutoSync(mongoUpdate);
+        await updateProfileWithAutoSync({ phone: trimmedValue });
       }
 
       // Refresh verification status and profile to get updated user data
       await refreshVerificationStatus();
-      const userId = user?.mongoId || profile?.mongoId || profile?._id;
       if (userId) {
         await refreshProfile(userType, userId, { force: true });
       }
 
       console.log(`✅ [VerificationScreen] ${verificationType} saved:`, trimmedValue);
-      showAlert(isEmailVerification ? t('verificationScreen.emailUpdated') : t('verificationScreen.phoneUpdated'), 'success');
+      showAlert(t('verificationScreen.phoneUpdated'), 'success');
       setIsEditing(false);
     } catch (error) {
       console.error('❌ [VerificationScreen] Save error:', error);

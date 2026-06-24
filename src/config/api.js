@@ -274,6 +274,9 @@ export const ENDPOINTS = {
     PROVIDER: '/api/auth/provider/profile', // + /:providerId
     // Node.js - Update user profile (PUT)
     UPDATE_USER: '/api/user/profile', // + /:userId
+    // Node.js - Add/change user email after signup (POST). NoeFix sets it in Java
+    // Auth (source of truth, unverified + link sent) and mirrors the value to Mongo.
+    ADD_EMAIL: '/api/user/email', // + /:userId
     // Node.js - Update provider profile (PUT)
     UPDATE_PROVIDER: '/api/auth/provider/profile',
     // Node.js - Update provider online status (PATCH)

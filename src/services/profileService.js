@@ -163,6 +163,32 @@ export const updateJavaAuthProfile = async (updates) => {
 };
 
 /**
+ * Add or change the user's email after signup.
+ *
+ * Routes through NoeFix (NOT Java Auth directly): NoeFix sets the email in Java
+ * Auth (source of truth — stored UNVERIFIED, a verification link is emailed) and
+ * then mirrors the email VALUE into the Mongo profile, so both DBs stay in sync.
+ * The verified flag is never stored in Mongo for users — read it from Java Auth.
+ *
+ * @param {string} userId - MongoDB user _id (= Java Auth userId)
+ * @param {string} email - new email address
+ * @returns {Promise<Object>} { success, data } or { success:false, error }
+ */
+export const addUserEmail = async (userId, email) => {
+  try {
+    if (!userId) {
+      return { success: false, error: { message: 'User ID is required', code: 'MISSING_USER_ID' } };
+    }
+    console.log('📧 [ProfileService] Adding/changing email via NoeFix for user:', userId);
+    const response = await apiClient.post(`${ENDPOINTS.PROFILE.ADD_EMAIL}/${userId}`, { email });
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error('❌ [ProfileService] Add email failed:', error.message);
+    return { success: false, error: parseApiError(error) };
+  }
+};
+
+/**
  * Update user profile in MongoDB
  * Also syncs name and phone changes to Java Auth (PostgreSQL) for consistency
  *
