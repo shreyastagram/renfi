@@ -13,7 +13,9 @@ import {  View,
   KeyboardAvoidingView,
   Platform,
   TextInput,
-  AppState
+  AppState,
+  Keyboard,
+  ScrollView
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -67,6 +69,8 @@ const OTPVerifyScreen = ({
 
   // OTP input refs
   const inputRefs = useRef([]);
+  // Synchronous re-entry guard so a fast double-tap can't fire two verifies
+  const submittingRef = useRef(false);
 
   // Absolute expiry timestamp (survives app minimize)
   const expiryTimeRef = useRef(Date.now() + _expiresInMinutes * 60 * 1000);
@@ -81,6 +85,8 @@ const OTPVerifyScreen = ({
   const [alertHint, setAlertHint] = useState(null);
   const [secondsLeft, setSecondsLeft] = useState(_expiresInMinutes * 60);
   const [canResend, setCanResend] = useState(false);
+  // Which cell is focused — drives the active-cell highlight (no blinking caret)
+  const [focusedIndex, setFocusedIndex] = useState(null);
 
   // Calculate remaining time from absolute timestamp
   const recalculate = useCallback(() => {
@@ -111,6 +117,13 @@ const OTPVerifyScreen = ({
     return () => subscription.remove();
   }, [recalculate]);
 
+  // Autofocus the first cell on mount so the keyboard opens immediately
+  // (slight delay lets the navigation/mount transition settle first).
+  useEffect(() => {
+    const focusTimer = setTimeout(() => inputRefs.current[0]?.focus(), 350);
+    return () => clearTimeout(focusTimer);
+  }, []);
+
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -130,27 +143,40 @@ const OTPVerifyScreen = ({
 
   const handleOtpChange = (value, index) => {
     clearAlert();
-    const digit = value.replace(/[^0-9]/g, '');
+    const digits = value.replace(/[^0-9]/g, '');
 
-    if (digit.length <= 1) {
+    // Deletion fallback: on Android, Backspace onKeyPress is unreliable for
+    // number-pad inputs. When a filled cell is cleared, blank it and step focus
+    // back so deleting never strands the user on an empty cell.
+    if (value === '' && index > 0) {
       const newOtp = [...otp];
-      newOtp[index] = digit;
+      newOtp[index] = '';
       setOtp(newOtp);
-      if (digit && index < OTP_LENGTH - 1) {
-        inputRefs.current[index + 1]?.focus();
-      }
-    } else if (digit.length > 1) {
-      // Handle paste
-      const digits = digit.slice(0, OTP_LENGTH).split('');
+      inputRefs.current[index - 1]?.focus();
+      return;
+    }
+
+    // Multiple digits arriving at once = SMS autofill / paste → distribute across
+    // cells starting from this one. (selectTextOnFocus makes a single re-typed
+    // digit replace rather than append, so this branch is paste-only in practice.)
+    if (digits.length > 1) {
+      const incoming = digits.slice(0, OTP_LENGTH - index).split('');
       const newOtp = [...otp];
-      digits.forEach((d, i) => {
-        if (index + i < OTP_LENGTH) {
-          newOtp[index + i] = d;
-        }
+      incoming.forEach((d, i) => {
+        newOtp[index + i] = d;
       });
       setOtp(newOtp);
-      const lastIndex = Math.min(index + digits.length - 1, OTP_LENGTH - 1);
+      const lastIndex = Math.min(index + incoming.length - 1, OTP_LENGTH - 1);
       inputRefs.current[lastIndex]?.focus();
+      return;
+    }
+
+    // Single digit
+    const newOtp = [...otp];
+    newOtp[index] = digits;
+    setOtp(newOtp);
+    if (digits && index < OTP_LENGTH - 1) {
+      inputRefs.current[index + 1]?.focus();
     }
   };
 
@@ -161,6 +187,8 @@ const OTPVerifyScreen = ({
   };
 
   const handleVerify = async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     try {
       clearAlert();
       const otpCode = otp.join('');
@@ -190,15 +218,21 @@ const OTPVerifyScreen = ({
       }
 
       if (result.success) {
+        // Close the keyboard the moment verification lands so the success
+        // transition feels clean (no keyboard lingering over the next screen).
+        Keyboard.dismiss();
         // Clear OTP from state immediately after successful verification
         setOtp(Array(OTP_LENGTH).fill(''));
 
         // Validate that the user's actual role matches the screen they're signing in from.
         // NoeFix signup-verify returns the user payload nested under `data`; JAuth login
         // returns role at the top level. Read both.
-        const backendRole = result.data?.role || result.data?.data?.role;
+        // Normalize once: JAuth login returns role UPPERCASE ('USER'/'SERVICE_PROVIDER'),
+        // NoeFix signup returns it lowercase ('user'). Uppercasing both removes the need
+        // for a magic 'user' literal in the comparison below.
+        const backendRole = (result.data?.role || result.data?.data?.role || '').toString().toUpperCase();
         const expectedRole = _userType === 'provider' ? 'SERVICE_PROVIDER' : 'USER';
-        if (backendRole && backendRole !== expectedRole && backendRole !== 'ADMIN' && backendRole !== 'user') {
+        if (backendRole && backendRole !== expectedRole && backendRole !== 'ADMIN') {
           const correctScreen = backendRole === 'SERVICE_PROVIDER' ? 'provider' : 'user';
           showAlert(
             t('auth.roleMismatch', { role: correctScreen }),
@@ -250,6 +284,7 @@ const OTPVerifyScreen = ({
       console.error('[OTPVerifyScreen] Unexpected error:', error);
       showAlert(t('common.somethingWentWrong'), 'error');
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   };
@@ -309,6 +344,11 @@ const OTPVerifyScreen = ({
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         <View style={styles.content}>
           {/* Back Button */}
           <TouchableOpacity
@@ -370,18 +410,27 @@ const OTPVerifyScreen = ({
                 style={[
                   styles.otpInput,
                   digit && styles.otpInputFilled,
+                  focusedIndex === index && !isExpired && styles.otpInputFocused,
                   isExpired && styles.otpInputExpired,
                   loading && styles.otpInputDisabled,
                 ]}
                 value={digit}
                 onChangeText={(value) => handleOtpChange(value, index)}
                 onKeyPress={(event) => handleKeyPress(event, index)}
+                onFocus={() => setFocusedIndex(index)}
+                onBlur={() => setFocusedIndex((cur) => (cur === index ? null : cur))}
                 keyboardType="number-pad"
                 maxLength={index === 0 ? OTP_LENGTH : 1}
                 editable={!loading && !isExpired}
                 selectTextOnFocus
                 caretHidden={true}
                 selectionColor="transparent"
+                // SMS OTP autofill: iOS reads the code from the Messages app via
+                // textContentType; Android via autoComplete="sms-otp". Only on the
+                // first cell — the paste branch in handleOtpChange fans it across cells.
+                textContentType={index === 0 ? 'oneTimeCode' : 'none'}
+                autoComplete={index === 0 && Platform.OS === 'android' ? 'sms-otp' : undefined}
+                importantForAutofill={index === 0 ? 'yes' : 'no'}
               />
             ))}
           </View>
@@ -434,6 +483,7 @@ const OTPVerifyScreen = ({
             </Text>
           </View>
         </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -443,6 +493,7 @@ const styles = StyleSheet.create({
   // ── Layout ──
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   keyboardView: { flex: 1 },
+  scrollContent: { flexGrow: 1 },
   content: { flex: 1, padding: 24 },
 
   // ── Back Button ──
@@ -488,6 +539,7 @@ const styles = StyleSheet.create({
     fontSize: 22, fontWeight: '800', textAlign: 'center', color: '#1E293B', backgroundColor: '#FAFBFC',
   },
   otpInputFilled: { borderColor: '#f67c16', backgroundColor: 'rgba(246,124,22,0.04)' },
+  otpInputFocused: { borderColor: '#f67c16', borderWidth: 2, backgroundColor: '#FFFFFF' },
   otpInputExpired: { borderColor: '#FCA5A5', backgroundColor: '#FEF2F2', color: '#94A3B8' },
   otpInputDisabled: { backgroundColor: '#F8FAFC', color: '#94A3B8' },
 

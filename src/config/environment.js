@@ -39,16 +39,35 @@ export const USE_PRODUCTION_NODE_API = true;
 export const USE_PRODUCTION_JAVA_AUTH = true;
 
 // ============================================
+// ⚠️ TEMPORARY DEV / STAGING TESTING — DO NOT COMMIT AS true ⚠️
+// ============================================
+// When true, the app talks to the ISOLATED dev Render services
+// (jauth-dev / noefix-dev), which use a dev Postgres + dev Mongo — NOT prod.
+// Use ONLY for testing the phone-signup flow on a device.
+// MUST be set back to false before committing or releasing.
+export const USE_DEV_STAGING = false;
+
+const DEV_STAGING_CONFIG = {
+  NODE_API_URL: 'https://noefix-dev.onrender.com',
+  JAVA_AUTH_URL: 'https://jauth-dev.onrender.com',
+};
+
+const REAL_PROD_CONFIG = {
+  NODE_API_URL: 'https://api.fixhomi.com',
+  JAVA_AUTH_URL: 'https://auth.fixhomi.com',
+};
+
+// ============================================
 // PRODUCTION URLS
 // ============================================
 
 export const PRODUCTION_CONFIG = {
-  // Node.js Backend (Cloudflare → Render)
-  NODE_API_URL: 'https://api.fixhomi.com',
+  // Node.js Backend (Cloudflare → Render). Redirected to dev when USE_DEV_STAGING.
+  NODE_API_URL: USE_DEV_STAGING ? DEV_STAGING_CONFIG.NODE_API_URL : REAL_PROD_CONFIG.NODE_API_URL,
 
-  // Java Auth Service (Cloudflare → Render)
-  JAVA_AUTH_URL: 'https://auth.fixhomi.com',
-  
+  // Java Auth Service (Cloudflare → Render). Redirected to dev when USE_DEV_STAGING.
+  JAVA_AUTH_URL: USE_DEV_STAGING ? DEV_STAGING_CONFIG.JAVA_AUTH_URL : REAL_PROD_CONFIG.JAVA_AUTH_URL,
+
   // Razorpay key — set via RAZORPAY_KEY_ID env var at build time
   // NEVER commit live or test keys here
   RAZORPAY_KEY_ID: '',
@@ -106,3 +125,6 @@ export const getRazorpayKeyId = () => {
 console.log('🌍 [Environment] Current Mode:', getEnvironmentName());
 console.log('🔗 [Environment] Node API:', USE_PRODUCTION_NODE_API ? 'PRODUCTION' : 'LOCAL');
 console.log('🔗 [Environment] Java Auth:', USE_PRODUCTION_JAVA_AUTH ? 'PRODUCTION' : 'LOCAL');
+if (USE_DEV_STAGING) {
+  console.warn('🚧🚧🚧 [Environment] USE_DEV_STAGING=true → app is hitting DEV Render (jauth-dev/noefix-dev), NOT prod. Revert to false before release. 🚧🚧🚧');
+}

@@ -155,7 +155,7 @@ const PhoneSignupScreen = ({ onOtpSent, onBack, signupExtras = {} }) => {
               <TouchableOpacity
                 onPress={onBack}
                 style={styles.backButton}
-                accessibilityLabel="Go back"
+                accessibilityLabel={t('common.goBack')}
                 accessibilityRole="button"
                 activeOpacity={0.7}
               >
