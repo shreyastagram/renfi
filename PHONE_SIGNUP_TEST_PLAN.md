@@ -102,6 +102,69 @@ Using the phone-only account created in Section A:
 
 ---
 
+## J. Add / Change email (Phase 3) — USER only
+
+### J1. UI flow (device)
+- [ ] As a **phone-only** user (no email), open Profile → tap the email **"Verify"** → it opens the **add-email** screen (NOT a "No email found" error).
+- [ ] Also: Profile → Edit → tap the **"To add or change your phone or email"** note → opens the same screen.
+- [ ] Enter a valid email → submit → success ("check your inbox"); a real verification email arrives.
+- [ ] Open the link from the mail app → returns to the app → lands on **Home** (no crash/stranding — this was the `navigate('Home')` dead-end).
+- [ ] Profile now shows the email and, after the link, the **email-verified** pill.
+- [ ] **Change email:** repeat with a different address → old one replaced, `verified` reset to false, new link sent.
+- [ ] **No flicker** on returning to the app (foreground refresh is lightweight — no full-screen flash).
+- [ ] Switch language to **Hindi & Marathi** → the email label + all add-email messages are translated (no English).
+- [ ] **Providers:** confirm a provider's profile is unchanged (no new add-email behavior).
+
+### J2. Server-side error mapping (the "collapsed to 502" fix) — verify each returns the RIGHT code
+Run against `noefix-dev` with a logged-in user's token + their `userId` (= mongoId = Java userId):
+```bash
+BASE=https://noefix-dev.onrender.com
+TOKEN=PASTE_ACCESS_TOKEN
+UID=PASTE_USERID
+
+# happy path -> 200 EMAIL_SET
+curl -s -o /dev/null -w "%{http_code}\n" -X POST $BASE/api/user/email/$UID \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"email":"fresh-unused@example.com"}'
+
+# email already used by another user -> EXPECT 409 (was wrongly 502 before the fix)
+curl -s -X POST $BASE/api/user/email/$UID -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"email":"SOME_OTHER_EXISTING_USER_EMAIL"}'
+
+# same email resubmitted quickly (rate limit) -> EXPECT 429 (was 502)
+# (run the happy-path call twice in a row with the SAME email)
+
+# malformed email -> EXPECT 400
+curl -s -X POST $BASE/api/user/email/$UID -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"email":"notanemail"}'
+
+# missing token -> EXPECT 401 ; another user's :userId -> EXPECT 403
+```
+- [ ] 200 `EMAIL_SET` on success · **409 `EMAIL_ALREADY_EXISTS`** on duplicate · **429 `TOO_MANY_REQUESTS`** on rapid resend · 400 on malformed · 401 no-token · 403 wrong user. **None should return 502** except a genuine Java-Auth outage.
+- [ ] The 409 message is the clean *"This email is already in use…"* (NOT the raw `"User already exists with email: '…'"`).
+
+### J3. Dual-DB consistency — CHECK BOTH DBs (server/DB side)
+After a successful add-email for user `<UID>`:
+- [ ] **JAuth Postgres** (dev-phone-signup branch, Neon SQL editor):
+  ```sql
+  SELECT id, email, is_email_verified FROM users WHERE id = <UID>;
+  -- expect: email = the new address, is_email_verified = false (true AFTER the link is clicked)
+  ```
+- [ ] **Mongo** (dev `fixhomi` db):
+  ```js
+  db.users.findOne({ _id: "<UID>" }, { email: 1 })
+  // expect: email = the SAME new address (mirrored). NOTE: Mongo does NOT store the
+  // verified flag for users — that lives only in JAuth. This is by design.
+  ```
+- [ ] After clicking the verify link, re-run the Postgres query → `is_email_verified = true`. (Mongo email value unchanged.)
+- [ ] **Change-email:** after changing, BOTH DBs show the NEW email; Postgres `is_email_verified` back to false.
+- [ ] **Server logs (Render):** on a Mongo-mirror failure you should see `EMAIL_SET_SYNC_PENDING` returned (still 200) and the email present in Postgres — confirming Java Auth stays source-of-truth and login self-heal will reconcile Mongo.
+
+### J4. Persistence across app minimize / kill
+- [ ] Add email → leave app to open the link → (force-kill the app if it doesn't die on its own) → reopen → go to Profile → it shows **verified** (state read fresh from Java Auth, nothing lost).
+
+---
+
 ## Pre-RELEASE checklist (before the prod store build)
 
 - [ ] `environment.js` → **`USE_DEV_STAGING = false`** (back to real prod URLs). Confirm Metro no longer logs the dev warning.
@@ -125,3 +188,4 @@ Using the phone-only account created in Section A:
 | G i18n (en/hi/mr) | ☐ | ☐ | |
 | H Null-email usage | ☐ | ☐ | |
 | I Accessibility | ☐ | ☐ | |
+| J Add/Change email (UI + server codes + dual-DB) | ☐ | ☐ | |
