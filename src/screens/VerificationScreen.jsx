@@ -236,9 +236,9 @@ const VerificationScreen = ({
           const errCode = emailResult.error?.code;
           const errStatus = emailResult.error?.status;
           if (errCode === 'EMAIL_ALREADY_EXISTS' || errStatus === 409) {
-            showAlert('This email is already in use on another account. Please use a different email.', 'error');
+            showAlert(t('verificationScreen.emailInUse'), 'error');
           } else if (errCode === 'TOO_MANY_REQUESTS' || errStatus === 429) {
-            showAlert(emailResult.error?.message || 'Please wait a moment before trying again.', 'error');
+            showAlert(emailResult.error?.message || t('verificationScreen.emailWaitMoment'), 'error');
           } else {
             showAlert(emailResult.error?.message || t('verificationScreen.failedUpdate', { type: verificationType }), 'error');
           }
@@ -513,10 +513,13 @@ const VerificationScreen = ({
    * Handle go back to profile/home
    */
   const handleGoBack = () => {
-    if (navigation?.navigate) {
-      navigation.navigate('Home');
-    } else if (navigation?.goBack) {
+    // Prefer going back (we usually arrived from Profile). Fall back to the real
+    // home route — there is NO top-level 'Home' route for users; user home is
+    // HomeTab inside UserTabs (providers: ProviderTabs).
+    if (navigation?.canGoBack?.()) {
       navigation.goBack();
+    } else {
+      navigation.navigate(userType === 'provider' ? 'ProviderTabs' : 'UserTabs', { screen: 'HomeTab' });
     }
   };
 

@@ -28,7 +28,7 @@ import { useLanguage } from '../context/LanguageContext';
  * @param {Object} props - Screen props
  */
 const EmailVerifyHandlerScreen = ({ route, navigation }) => {
-  const { initializeAuth } = useApp();
+  const { initializeAuth, userType } = useApp();
   const { t } = useLanguage();
 
   // Get token from route params or deep link
@@ -96,13 +96,16 @@ const EmailVerifyHandlerScreen = ({ route, navigation }) => {
    * Navigate to home
    */
   const handleContinue = () => {
+    // No top-level 'Home' route for users — user home is HomeTab inside UserTabs
+    // (providers: ProviderTabs). Default to UserTabs (this flow is user-facing).
+    const homeNav = userType === 'provider' ? 'ProviderTabs' : 'UserTabs';
     if (navigation?.reset) {
       navigation.reset({
         index: 0,
-        routes: [{ name: 'Home' }],
+        routes: [{ name: homeNav }],
       });
     } else if (navigation?.navigate) {
-      navigation.navigate('Home');
+      navigation.navigate(homeNav);
     }
   };
 

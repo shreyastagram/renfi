@@ -641,14 +641,14 @@ const ProfileScreen = ({ navigation, route }) => {
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
       if (next !== 'active') return;
+      // Lightweight: just re-pull the verification flags from Java Auth (the
+      // source of truth) so a freshly-verified email shows on return. We do NOT
+      // force a full profile refresh here — that flashes the whole screen on
+      // every resume; the on-focus effect already handles the heavier refresh.
       refreshVerificationStatus?.();
-      const userId = user?.mongoId || profile?.mongoId;
-      if (userId && userType) {
-        refreshProfile?.(userType, userId, { force: true });
-      }
     });
     return () => sub.remove();
-  }, [user?.mongoId, profile?.mongoId, userType, refreshProfile, refreshVerificationStatus]);
+  }, [refreshVerificationStatus]);
 
   /**
    * Handle refresh - fetch full profile from both Java Auth and MongoDB
@@ -2034,7 +2034,7 @@ const ProfileScreen = ({ navigation, route }) => {
 
               <InfoRow
                 iconName="email"
-                label="Email"
+                label={t('profile.emailLabel')}
                 value={displayData?.email || t('profile.notSet')}
                 verified={displayData?.isEmailVerified}
                 onVerify={handleEmailVerify}
@@ -2150,7 +2150,7 @@ const ProfileScreen = ({ navigation, route }) => {
 
               <InfoRow
                 iconName="email"
-                label="Email"
+                label={t('profile.emailLabel')}
                 value={displayData?.email || t('profile.notSet')}
                 verified={displayData?.isEmailVerified}
                 onVerify={handleEmailVerify}
