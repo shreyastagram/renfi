@@ -25,7 +25,8 @@ import {  View,
   Dimensions,
   Linking,
   StatusBar,
-  InteractionManager
+  InteractionManager,
+  AppState
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -630,6 +631,25 @@ const ProfileScreen = ({ navigation, route }) => {
     }, [user?.mongoId, profile?.mongoId, userType, refreshProfile])
   );
 
+  // Refresh from the SERVER when the app returns to the foreground.
+  // Why: after adding an email the user leaves to open the verification link in
+  // their mail app; on some phones the app is killed while backgrounded. Because
+  // the email value is already persisted server-side and the verified flag is
+  // read from Java Auth (the source of truth), simply re-fetching on resume shows
+  // the now-verified state — nothing is kept in fragile in-memory state. This
+  // covers the warm-resume case; cold start is covered by the focus effect above.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next !== 'active') return;
+      refreshVerificationStatus?.();
+      const userId = user?.mongoId || profile?.mongoId;
+      if (userId && userType) {
+        refreshProfile?.(userType, userId, { force: true });
+      }
+    });
+    return () => sub.remove();
+  }, [user?.mongoId, profile?.mongoId, userType, refreshProfile, refreshVerificationStatus]);
+
   /**
    * Handle refresh - fetch full profile from both Java Auth and MongoDB
    */
@@ -933,7 +953,10 @@ const ProfileScreen = ({ navigation, route }) => {
    */
   const handleEmailVerify = async () => {
     if (!displayData?.email) {
-      dialog(t('common.error'), t('profile.emailNoEmail'));
+      // Phone-only user with no email yet — take them to the add-email screen
+      // instead of dead-ending on an error. (Only reachable for USERS; providers
+      // always have an email, so this branch never fires for them.)
+      navigation.navigate('Verification', { verificationType: 'email' });
       return;
     }
 
@@ -1610,12 +1633,25 @@ const ProfileScreen = ({ navigation, route }) => {
                 />
               )}
               
-              {/* Phone & Email - Read Only */}
-              <View style={styles.readOnlySection}>
-                <Text style={styles.readOnlyNote}>
-                  <Icon name="info" size={14} color="#6B7280" /> {t('profile.readOnlyNote')}
-                </Text>
-              </View>
+              {/* Phone & Email — not editable in this form; managed via the Verify flow.
+                  For users this is tappable and opens the add/change-email screen. */}
+              {!isProvider ? (
+                <TouchableOpacity
+                  style={styles.readOnlySection}
+                  activeOpacity={0.7}
+                  onPress={() => navigation.navigate('Verification', { verificationType: 'email' })}
+                >
+                  <Text style={styles.readOnlyNote}>
+                    <Icon name="info" size={14} color="#6B7280" /> {t('profile.manageContactNote')}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.readOnlySection}>
+                  <Text style={styles.readOnlyNote}>
+                    <Icon name="info" size={14} color="#6B7280" /> {t('profile.readOnlyNote')}
+                  </Text>
+                </View>
+              )}
 
               <TouchableOpacity 
                 style={styles.saveButton}
