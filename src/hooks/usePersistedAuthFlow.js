@@ -31,6 +31,25 @@ export const AUTH_MODES = {
 
 const keyFor = (userType) => `@fixhomi_auth_flow_${userType || 'user'}`;
 
+/**
+ * Clear the persisted in-progress OTP step. Call this on logout and on auth
+ * success so a completed/abandoned OTP step can never be restored into the next
+ * auth session (otherwise after a phone-OTP login + logout the user lands back
+ * on the OTP screen instead of the login screen while the OTP is still valid).
+ * Pass a userType to clear just that one, or omit to clear both.
+ */
+export async function clearPersistedAuthFlow(userType) {
+  try {
+    if (userType) {
+      await AsyncStorage.removeItem(keyFor(userType));
+    } else {
+      await AsyncStorage.multiRemove([keyFor('user'), keyFor('provider')]);
+    }
+  } catch (e) {
+    // best-effort — never block logout/login on this
+  }
+}
+
 // Don't restore an OTP step that has essentially no time left (forces a resend).
 const MIN_REMAINING_MINUTES = 0.25;
 

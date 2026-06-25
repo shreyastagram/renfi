@@ -834,7 +834,16 @@ export const AppProvider = ({ children }) => {
 
       // Clear all local data
       await clearAllData();
-      
+
+      // Clear the persisted in-progress OTP step so a phone-OTP login + logout
+      // does NOT reopen the OTP screen (instead of the login screen) on re-entry.
+      try {
+        const { clearPersistedAuthFlow } = require('../hooks/usePersistedAuthFlow');
+        await clearPersistedAuthFlow();
+      } catch (e) {
+        // best-effort
+      }
+
       // Reset state
       setUser(null);
       setUserTypeState(null);
