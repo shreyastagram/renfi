@@ -1392,6 +1392,7 @@ export default {
     earningsComingSoon: '',
     language: 'Language',
     selectLanguage: 'Choose your preferred language',
+    tapToCheckUpdates: 'Tap to check for updates',
   },
 
   // ─── Profile ──────────────────────────────────────────
@@ -2068,5 +2069,19 @@ export default {
     settings: 'Settings',
     profile: 'Profile',
     jobs: 'Jobs',
+  },
+
+  // ─── Experience (LinkedIn-style "Working since") ─────
+  experience: {
+    justStarted: 'Just started',
+    oneYear: '1 yr',
+    years: '%{n} yrs',
+    oneMonth: '1 mo',
+    months: '%{n} mos',
+    workingSince: 'Working since',
+    whenDidYouStart: 'When did you start this profession?',
+    experiencePreview: '≈ %{exp} experience',
+    selectStartMonth: 'Select month & year',
+    experienceOptional: 'Optional — helps customers see your professional experience',
   },
 };

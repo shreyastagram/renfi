@@ -505,6 +505,12 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
             selectTextOnFocus
             caretHidden={true}
             selectionColor="transparent"
+            // SMS OTP autofill: iOS via textContentType, Android via
+            // autoComplete="sms-otp". Only the first cell — handleOtpChange
+            // fans a pasted/autofilled multi-digit value across the cells.
+            textContentType={index === 0 ? 'oneTimeCode' : 'none'}
+            autoComplete={index === 0 && Platform.OS === 'android' ? 'sms-otp' : undefined}
+            importantForAutofill={index === 0 ? 'yes' : 'no'}
           />
         ))}
       </View>

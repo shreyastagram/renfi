@@ -33,7 +33,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { formatExperience, formatMonthYear, minExperienceStartDate } from '../utils/experience';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
@@ -306,7 +308,18 @@ const ProfileScreen = ({ navigation, route }) => {
     experience: '',
   });
   const originalFormData = useRef({});
-  
+
+  // Provider experience — LinkedIn-style "Working since" month+year (optional)
+  const [experienceStartDate, setExperienceStartDate] = useState(null); // Date | null
+  const [showExperiencePicker, setShowExperiencePicker] = useState(false);
+  const originalExperienceStartDate = useRef(null); // ISO string | null
+
+  const handleExperienceDateChange = useCallback((event, selectedDate) => {
+    if (Platform.OS === 'android') setShowExperiencePicker(false);
+    if (event?.type === 'dismissed') return;
+    if (selectedDate) setExperienceStartDate(selectedDate);
+  }, []);
+
   // Provider service categories are now managed via Document Verification screen
 
   // Verification state
@@ -561,7 +574,13 @@ const ProfileScreen = ({ navigation, route }) => {
     setFormData(initial);
     originalFormData.current = initial;
     setOriginalPhone(phoneValue);
-  }, [displayData?.fullName, displayData?.phone, displayData?.phoneNumber, displayData?.address, displayData?.city, displayData?.pincode, displayData?.experience]);
+
+    // "Working since" date — prefill from the provider's existing experienceStartDate
+    const rawExpStart = displayData?.experienceStartDate || null;
+    const parsedExpStart = rawExpStart ? new Date(rawExpStart) : null;
+    setExperienceStartDate(parsedExpStart && !isNaN(parsedExpStart.getTime()) ? parsedExpStart : null);
+    originalExperienceStartDate.current = rawExpStart;
+  }, [displayData?.fullName, displayData?.phone, displayData?.phoneNumber, displayData?.address, displayData?.city, displayData?.pincode, displayData?.experience, displayData?.experienceStartDate]);
 
   // Fetch Aadhaar verification status and premium status for providers
   // Uses context cache — only fetches if stale or on first load
@@ -748,7 +767,16 @@ const ProfileScreen = ({ navigation, route }) => {
         }
       }
 
-      if (Object.keys(changedFields).length === 0) {
+      // "Working since" date lives in separate state — detect its change by ISO string
+      const newExpIso = experienceStartDate ? experienceStartDate.toISOString() : null;
+      const origExpIso = originalExperienceStartDate.current
+        ? (isNaN(new Date(originalExperienceStartDate.current).getTime())
+            ? null
+            : new Date(originalExperienceStartDate.current).toISOString())
+        : null;
+      const experienceStartChanged = isProvider && newExpIso !== origExpIso;
+
+      if (Object.keys(changedFields).length === 0 && !experienceStartChanged) {
         dialog(t('profile.noChanges'), t('profile.noChangesMsg'));
         setSaving(false);
         return;
@@ -764,6 +792,8 @@ const ProfileScreen = ({ navigation, route }) => {
         if (changedFields.city !== undefined) providerUpdates.city = changedFields.city;
         if (changedFields.pincode !== undefined) providerUpdates.pincode = changedFields.pincode;
         if (changedFields.experience !== undefined) providerUpdates.experience = parseInt(changedFields.experience, 10) || undefined;
+        // Send the "Working since" date (null clears it). Date wins over legacy experience.
+        if (experienceStartChanged) providerUpdates.experienceStartDate = newExpIso;
         result = await updateProviderProfile(userId, providerUpdates);
       } else {
         // For users, send only changed fields
@@ -1617,20 +1647,63 @@ const ProfileScreen = ({ navigation, route }) => {
                 </View>
               )}
 
-              {/* Experience - Provider Only */}
+              {/* Experience - Provider Only — LinkedIn-style "Working since" picker */}
               {isProvider && (
-                <EditableField
-                  label={t('profile.experienceLabel')}
-                  value={formData.experience}
-                  onChangeText={(text) => {
-                    // Allow only digits (numeric input)
-                    const numericOnly = text.replace(/[^0-9]/g, '');
-                    setFormData(prev => ({ ...prev, experience: numericOnly }));
-                  }}
-                  placeholder={t('profile.experiencePlaceholder')}
-                  keyboardType="numeric"
-                  maxLength={2}
-                />
+                <View style={styles.fieldContainer}>
+                  <View style={styles.fieldLabelRow}>
+                    <Text style={styles.fieldLabel}>{t('experience.workingSince')}</Text>
+                  </View>
+                  <View style={styles.expPickerRow}>
+                    <TouchableOpacity
+                      style={styles.expPickerField}
+                      onPress={() => setShowExperiencePicker(true)}
+                      activeOpacity={0.7}
+                    >
+                      <MaterialIcon name="work-history" size={18} color="#64748B" />
+                      <Text
+                        style={[
+                          styles.expPickerText,
+                          !experienceStartDate && styles.expPickerPlaceholder,
+                        ]}
+                      >
+                        {experienceStartDate
+                          ? formatMonthYear(experienceStartDate)
+                          : (displayData?.experience && Number(displayData.experience) > 0
+                              ? formatExperience(null, displayData.experience, t)
+                              : t('experience.selectStartMonth'))}
+                      </Text>
+                    </TouchableOpacity>
+                    {experienceStartDate && (
+                      <TouchableOpacity
+                        style={styles.expClearBtn}
+                        onPress={() => setExperienceStartDate(null)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        activeOpacity={0.7}
+                      >
+                        <MaterialIcon name="close" size={18} color="#94A3B8" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  {experienceStartDate ? (
+                    <Text style={styles.expPreview}>
+                      {t('experience.experiencePreview', {
+                        exp: formatExperience(experienceStartDate, null, t),
+                      })}
+                    </Text>
+                  ) : (
+                    <Text style={styles.expHint}>{t('experience.experienceOptional')}</Text>
+                  )}
+                  {showExperiencePicker && (
+                    <DateTimePicker
+                      value={experienceStartDate || new Date()}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
+                      onChange={handleExperienceDateChange}
+                      minimumDate={minExperienceStartDate()}
+                      maximumDate={new Date()}
+                    />
+                  )}
+                </View>
               )}
               
               {/* Phone & Email — not editable in this form; managed via the Verify flow.
@@ -1784,16 +1857,21 @@ const ProfileScreen = ({ navigation, route }) => {
                     iconColor="#F59E0B"
                     iconBg="#FFFBEB"
                   />
-                  <InfoRow
-                    iconName="briefcase"
-                    label={t('profile.experienceInfo')}
-                    value={displayData?.experience && Number(displayData.experience) > 0
-                      ? `${displayData.experience} ${Number(displayData.experience) === 1 ? 'year' : 'years'}`
-                      : t('profile.notSet')}
-                    iconColor="#0891B2"
-                    iconBg="#ECFEFF"
-                    materialIcon="work-history"
-                  />
+                  {(() => {
+                    // LinkedIn-style: date wins, else legacy number, else hide the row cleanly
+                    const expText = formatExperience(displayData?.experienceStartDate, displayData?.experience, t);
+                    if (!expText) return null;
+                    return (
+                      <InfoRow
+                        iconName="briefcase"
+                        label={t('profile.experienceInfo')}
+                        value={expText}
+                        iconColor="#0891B2"
+                        iconBg="#ECFEFF"
+                        materialIcon="work-history"
+                      />
+                    );
+                  })()}
                   
                   {/* Portfolio Section - Only for Photographer/Influencer */}
                   {(displayData?.verifiedServiceCategories?.includes('photographer') || 
@@ -1979,6 +2057,12 @@ const ProfileScreen = ({ navigation, route }) => {
                             keyboardType="number-pad"
                             maxLength={index === 0 ? 6 : 1}
                             selectTextOnFocus
+                            // SMS OTP autofill: iOS via textContentType, Android
+                            // via autoComplete="sms-otp". First cell only —
+                            // handleProfileOtpChange fans the pasted code across cells.
+                            textContentType={index === 0 ? 'oneTimeCode' : 'none'}
+                            autoComplete={index === 0 && Platform.OS === 'android' ? 'sms-otp' : undefined}
+                            importantForAutofill={index === 0 ? 'yes' : 'no'}
                           />
                         </Animated.View>
                       );
@@ -2094,6 +2178,11 @@ const ProfileScreen = ({ navigation, route }) => {
                             onBlur={() => setOtpFocusedIndex(-1)}
                             keyboardType="number-pad"
                             maxLength={index === 0 ? 6 : 1}
+                            // SMS OTP autofill: iOS via textContentType, Android
+                            // via autoComplete="sms-otp". First cell only —
+                            // the paste handler fans the code across the boxes.
+                            textContentType={index === 0 ? 'oneTimeCode' : 'none'}
+                            autoComplete={index === 0 && Platform.OS === 'android' ? 'sms-otp' : undefined}
                             selectTextOnFocus
                           />
                         </Animated.View>
@@ -3168,6 +3257,21 @@ const styles = StyleSheet.create({
   fieldContainer: {
     marginBottom: 20,
   },
+  // Experience "Working since" picker
+  expPickerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  expPickerField: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB',
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 13,
+  },
+  expPickerText: { fontSize: 15, color: '#111827', fontWeight: '500' },
+  expPickerPlaceholder: { color: '#9CA3AF', fontWeight: '400' },
+  expClearBtn: {
+    width: 40, height: 40, borderRadius: 12, backgroundColor: '#F3F4F6',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  expPreview: { fontSize: 13, color: '#0891B2', fontWeight: '600', marginTop: 8, marginLeft: 2 },
+  expHint: { fontSize: 11, color: '#9CA3AF', marginTop: 6, marginLeft: 2, lineHeight: 16 },
   fieldLabel: {
     fontSize: 13,
     fontWeight: '700',

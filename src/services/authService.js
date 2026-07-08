@@ -207,6 +207,8 @@ export const registerProvider = async (providerData) => {
     if (providerData.pincode?.trim()) requestBody.pincode = providerData.pincode.trim();
     if (providerData.serviceCategories?.length > 0) requestBody.serviceCategories = providerData.serviceCategories;
     if (providerData.experience?.trim()) requestBody.experience = providerData.experience.trim();
+    // LinkedIn-style "Working since" date — backend accepts an ISO string (optional)
+    if (providerData.experienceStartDate) requestBody.experienceStartDate = providerData.experienceStartDate;
     if (providerData.latitude !== undefined && providerData.longitude !== undefined) {
       requestBody.latitude = providerData.latitude;
       requestBody.longitude = providerData.longitude;

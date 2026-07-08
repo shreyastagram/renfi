@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../components';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
+import { formatExperience } from '../utils/experience';
 
 // Brand colors
 const BRAND = {
@@ -202,13 +203,16 @@ const HomeScreen = ({ navigation }) => {
               </View>
             )}
 
-            {/* Experience */}
-            {displayData.experience && (
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>{t('home.experience')}</Text>
-                <Text style={styles.infoValue}>{displayData.experience}</Text>
-              </View>
-            )}
+            {/* Experience — LinkedIn-style (date wins, else legacy number, else hidden) */}
+            {(() => {
+              const expText = formatExperience(displayData.experienceStartDate, displayData.experience, t);
+              return expText ? (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>{t('home.experience')}</Text>
+                  <Text style={styles.infoValue}>{expText}</Text>
+                </View>
+              ) : null;
+            })()}
 
             {/* Rating */}
             <View style={styles.infoRow}>

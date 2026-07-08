@@ -942,6 +942,12 @@ const VerificationScreen = ({
                             maxLength={index === 0 ? OTP_LENGTH : 1}
                             editable={!loading}
                             selectTextOnFocus
+                            // SMS OTP autofill: iOS via textContentType, Android
+                            // via autoComplete="sms-otp". First cell only —
+                            // handleOtpChange fans the pasted code across cells.
+                            textContentType={index === 0 ? 'oneTimeCode' : 'none'}
+                            autoComplete={index === 0 && Platform.OS === 'android' ? 'sms-otp' : undefined}
+                            importantForAutofill={index === 0 ? 'yes' : 'no'}
                           />
                           {isFocused && !digit && (
                             <Animated.View style={s.otpCursor} />

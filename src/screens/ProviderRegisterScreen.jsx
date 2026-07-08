@@ -28,7 +28,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Geolocation from '@react-native-community/geolocation';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Button, Input, PhoneInput, Alert, FixhomiLogo } from '../components';
+import { formatExperience, formatMonthYear, minExperienceStartDate } from '../utils/experience';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { registerProvider, getErrorMessage, AUTH_CODES, checkAvailability } from '../services/authService';
 import { validateProviderRegistrationForm } from '../utils/validation';
@@ -151,6 +153,16 @@ const ProviderRegisterScreen = ({ navigation }) => {
   const [location, setLocation] = useState(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState(null);
+
+  // Provider experience — LinkedIn-style "Working since" month+year (optional)
+  const [experienceStartDate, setExperienceStartDate] = useState(null);
+  const [showExperiencePicker, setShowExperiencePicker] = useState(false);
+
+  const handleExperienceDateChange = useCallback((event, selectedDate) => {
+    if (Platform.OS === 'android') setShowExperiencePicker(false);
+    if (event?.type === 'dismissed') return;
+    if (selectedDate) setExperienceStartDate(selectedDate);
+  }, []);
 
   /**
    * Navigate to the correct login screen based on existing account type
@@ -415,6 +427,8 @@ const ProviderRegisterScreen = ({ navigation }) => {
         pincode: formData.pincode || undefined,
         phone: formData.phone || undefined,
         referralCode: formData.referralCode?.trim() || undefined,
+        // LinkedIn-style "Working since" date (optional) — ISO string or omitted
+        experienceStartDate: experienceStartDate ? experienceStartDate.toISOString() : undefined,
         // Include GPS coordinates if available
         latitude: location?.latitude,
         longitude: location?.longitude,
@@ -1002,6 +1016,60 @@ const ProviderRegisterScreen = ({ navigation }) => {
               </View>
             </View>
 
+            {/* Working since — provider experience (optional, LinkedIn-style) */}
+            <View style={styles.experienceBox}>
+              <Text style={styles.experienceLabel}>{t('experience.workingSince')}</Text>
+              <View style={styles.experiencePickerRow}>
+                <TouchableOpacity
+                  style={styles.experiencePickerField}
+                  onPress={() => setShowExperiencePicker(true)}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons name="work-history" size={18} color="#64748B" />
+                  <Text
+                    style={[
+                      styles.experiencePickerText,
+                      !experienceStartDate && styles.experiencePickerPlaceholder,
+                    ]}
+                  >
+                    {experienceStartDate
+                      ? formatMonthYear(experienceStartDate)
+                      : t('experience.selectStartMonth')}
+                  </Text>
+                </TouchableOpacity>
+                {experienceStartDate && (
+                  <TouchableOpacity
+                    style={styles.experienceClearBtn}
+                    onPress={() => setExperienceStartDate(null)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialIcons name="close" size={18} color="#94A3B8" />
+                  </TouchableOpacity>
+                )}
+              </View>
+              {experienceStartDate ? (
+                <Text style={styles.experiencePreview}>
+                  {t('experience.experiencePreview', {
+                    exp: formatExperience(experienceStartDate, null, t),
+                  })}
+                </Text>
+              ) : (
+                <Text style={styles.experienceHint}>{t('experience.experienceOptional')}</Text>
+              )}
+            </View>
+
+            {showExperiencePicker && (
+              <DateTimePicker
+                value={experienceStartDate || new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
+                onChange={handleExperienceDateChange}
+                minimumDate={minExperienceStartDate()}
+                maximumDate={new Date()}
+              />
+            )}
+
             <View style={styles.infoBox}>
               <View style={styles.infoRow}>
                 <MaterialIcons name="info-outline" size={16} color="#64748B" />
@@ -1239,6 +1307,24 @@ const styles = StyleSheet.create({
   form: { flex: 1 },
   row: { flexDirection: 'row', gap: 12 },
   halfInput: { flex: 1 },
+
+  // ── Experience (Working since) ──
+  experienceBox: { marginTop: 4, marginBottom: 14 },
+  experienceLabel: { fontSize: 14, fontWeight: '600', color: '#334155', marginBottom: 8 },
+  experiencePickerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  experiencePickerField: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0',
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14,
+  },
+  experiencePickerText: { fontSize: 15, color: '#1E293B', fontWeight: '500' },
+  experiencePickerPlaceholder: { color: '#94A3B8', fontWeight: '400' },
+  experienceClearBtn: {
+    width: 40, height: 40, borderRadius: 12, backgroundColor: '#F1F5F9',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  experiencePreview: { fontSize: 13, color: '#0891B2', fontWeight: '600', marginTop: 8, marginLeft: 2 },
+  experienceHint: { fontSize: 11, color: '#94A3B8', marginTop: 6, marginLeft: 2, lineHeight: 16 },
 
   // ── Info Box ──
   infoBox: {

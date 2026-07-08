@@ -1332,6 +1332,7 @@ export default {
     earningsComingSoon: 'कमाई सुविधा जल्द उपलब्ध होगी!',
     language: 'भाषा',
     selectLanguage: 'अपनी पसंदीदा भाषा चुनें',
+    tapToCheckUpdates: 'अपडेट जांचने के लिए टैप करें',
   },
 
   // ─── Profile ──────────────────────────────────────────
@@ -1996,5 +1997,19 @@ export default {
     settings: 'सेटिंग्स',
     profile: 'प्रोफ़ाइल',
     jobs: 'कार्य',
+  },
+
+  // ─── Experience (LinkedIn-style "Working since") ─────
+  experience: {
+    justStarted: 'अभी शुरू किया',
+    oneYear: '1 वर्ष',
+    years: '%{n} वर्ष',
+    oneMonth: '1 माह',
+    months: '%{n} माह',
+    workingSince: 'कब से कार्यरत',
+    whenDidYouStart: 'आपने यह पेशा कब शुरू किया?',
+    experiencePreview: '≈ %{exp} का अनुभव',
+    selectStartMonth: 'महीना और वर्ष चुनें',
+    experienceOptional: 'वैकल्पिक — ग्राहकों को आपका पेशेवर अनुभव दिखाने में मदद करता है',
   },
 };

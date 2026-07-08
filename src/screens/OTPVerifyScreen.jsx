@@ -434,10 +434,11 @@ const OTPVerifyScreen = ({
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>{t('auth.enterOtp')}</Text>
-            <Text style={styles.subtitle}>
-              {t('auth.otpSentSubtitle')}{'\n'}
-              <Text style={styles.maskedValue}>{_maskedValue}</Text>
-            </Text>
+            {/* Masked identifier on its own flowed line (not a forced `\n`) so a
+                long masked number + long translated label wraps cleanly and can
+                never collide with the OTP boxes below. */}
+            <Text style={styles.subtitle}>{t('auth.otpSentSubtitle')}</Text>
+            <Text style={styles.maskedValue}>{_maskedValue}</Text>
           </View>
 
           {/* Timer */}
@@ -582,8 +583,8 @@ const styles = StyleSheet.create({
   // ── Header ──
   header: { marginBottom: 24 },
   title: { fontSize: 24, fontWeight: '800', color: '#1E293B', marginBottom: 8 },
-  subtitle: { fontSize: 14, color: '#64748B', lineHeight: 22 },
-  maskedValue: { fontWeight: '700', color: '#1E293B' },
+  subtitle: { fontSize: 14, color: '#64748B', lineHeight: 22, flexWrap: 'wrap' },
+  maskedValue: { fontSize: 15, fontWeight: '700', color: '#1E293B', lineHeight: 22, marginTop: 4, flexWrap: 'wrap' },
 
   // ── Timer ──
   timerContainer: { alignItems: 'center', marginBottom: 24 },

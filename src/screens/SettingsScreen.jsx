@@ -1355,7 +1355,7 @@ const SettingsScreen = ({ navigation }) => {
           />
 
           <ActionRow
-            iconName="close"
+            iconName="delete"
             title={isRequestingOtp ? 'Sending OTP' : t('settings.deleteAccount')}
             danger
             onPress={handleDeleteAccount}
@@ -1478,7 +1478,9 @@ const SettingsScreen = ({ navigation }) => {
                           onChangeText={setDeleteOtp}
                           autoFocus
                           editable={!isDeletingAccount}
-                          autoComplete="one-time-code"
+                          // SMS OTP autofill (deletion code sent to maskedPhone):
+                          // Android via autoComplete="sms-otp", iOS via textContentType.
+                          autoComplete="sms-otp"
                           textContentType="oneTimeCode"
                         />
 
@@ -1582,6 +1584,8 @@ const SettingsScreen = ({ navigation }) => {
                     onChangeText={setDeleteOtp}
                     autoFocus
                     editable={!isDeletingAccount}
+                    textContentType="oneTimeCode"
+                    autoComplete={Platform.OS === 'android' ? 'sms-otp' : 'one-time-code'}
                   />
 
                   <TextInput

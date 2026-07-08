@@ -462,6 +462,8 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
                   maxLength={6}
                   placeholder="000000"
                   placeholderTextColor={COLORS.textLight}
+                  textContentType="oneTimeCode"
+                  autoComplete={Platform.OS === 'android' ? 'sms-otp' : 'one-time-code'}
                 />
               </View>
               

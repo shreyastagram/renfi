@@ -29,6 +29,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDialog } from '../context/DialogContext';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { getProviderDetails } from '../services/traditionalServiceService';
+import { formatExperience } from '../utils/experience';
 import ImageViewerModal from './ImageViewerModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -352,12 +353,15 @@ const ProviderDetailsModal = ({
                     </Text>
                   </View>
 
-                  {provider.experience && (
-                    <View style={styles.experienceRow}>
-                      <MaterialIcon name="work" size={14} color="#6B7280" />
-                      <Text style={styles.experienceText}>{provider.experience} experience</Text>
-                    </View>
-                  )}
+                  {(() => {
+                    const expText = formatExperience(provider.experienceStartDate, provider.experience);
+                    return expText ? (
+                      <View style={styles.experienceRow}>
+                        <MaterialIcon name="work" size={14} color="#6B7280" />
+                        <Text style={styles.experienceText}>{expText} experience</Text>
+                      </View>
+                    ) : null;
+                  })()}
 
                   {provider.memberSince && (
                     <View style={styles.experienceRow}>

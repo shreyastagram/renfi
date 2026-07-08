@@ -29,6 +29,7 @@ import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import Icon from './Icon';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { getAppVersionLabel } from '../config/appVersion';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
@@ -553,7 +554,7 @@ export const DrawerMenu = ({
               <View style={styles.footerLogoWrap}>
                 <Image source={FIXHOMI_LOGO} style={styles.footerLogo} />
               </View>
-              <Text style={styles.footerVersion}>v1.0.2 — Tap to check for updates</Text>
+              <Text style={styles.footerVersion}>{`${getAppVersionLabel()} — ${t('drawer.tapToCheckUpdates')}`}</Text>
             </TouchableOpacity>
           </Animated.View>
         </Animated.View>

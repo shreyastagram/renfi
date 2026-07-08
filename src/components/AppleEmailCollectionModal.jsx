@@ -448,6 +448,11 @@ const AppleEmailCollectionModal = ({ visible, appleUserId, onVerified, onCancel 
                         maxLength={index === 0 ? OTP_LENGTH : 1}
                         editable={!loading}
                         selectTextOnFocus
+                        // This OTP arrives by EMAIL, not SMS. iOS reads mail
+                        // codes via textContentType="oneTimeCode"; deliberately
+                        // NO Android autoComplete="sms-otp" (there is no SMS).
+                        textContentType={index === 0 ? 'oneTimeCode' : 'none'}
+                        importantForAutofill={index === 0 ? 'yes' : 'no'}
                       />
                     ))}
                   </View>

@@ -53,6 +53,7 @@ import {
 import { addToFavorites } from '../services/favoritesService';
 import { CancellationReasonModal } from '../components';
 import { formatDistance, formatDistanceFromMeters, useDistanceUnit } from '../utils/formatDistance';
+import { formatExperience } from '../utils/experience';
 import ScreenShimmer from '../components/ShimmerLoader';
 import AmbulanceIcon from '../assets/serviceIcons/AmbulanceIcon';
 import SnakeCatcherIcon from '../assets/serviceIcons/SnakeCatcherIcon';
@@ -458,13 +459,16 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
                   </View>
                 )}
 
-                {/* Experience */}
-                {provider.experience && (
-                  <View style={detailStyles.infoRow}>
-                    <MaterialIcon name="work" size={14} color={COLORS.muted} />
-                    <Text style={detailStyles.infoText}>{provider.experience} {t('home.experience').toLowerCase()}</Text>
-                  </View>
-                )}
+                {/* Experience — LinkedIn-style (date wins, else legacy, else hidden) */}
+                {(() => {
+                  const expText = formatExperience(provider.experienceStartDate, provider.experience, t);
+                  return expText ? (
+                    <View style={detailStyles.infoRow}>
+                      <MaterialIcon name="work" size={14} color={COLORS.muted} />
+                      <Text style={detailStyles.infoText}>{expText}</Text>
+                    </View>
+                  ) : null;
+                })()}
 
                 {/* Member Since */}
                 {memberSince && (

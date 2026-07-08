@@ -38,6 +38,7 @@ import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLocation } from '../context/LocationContext';
 import { useLanguage } from '../context/LanguageContext';
+import { formatExperience } from '../utils/experience';
 import useBookingProfileGate from '../hooks/useBookingProfileGate';
 import { NODE_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
@@ -462,13 +463,16 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                   </View>
                 )}
 
-                {/* Experience */}
-                {provider.experience && (
-                  <View style={styles.infoRow}>
-                    <MaterialIcon name="work" size={14} color={COLORS.muted} />
-                    <Text style={styles.infoText}>{provider.experience} {t('home.experience').toLowerCase()}</Text>
-                  </View>
-                )}
+                {/* Experience — LinkedIn-style (date wins, else legacy, else hidden) */}
+                {(() => {
+                  const expText = formatExperience(provider.experienceStartDate, provider.experience, t);
+                  return expText ? (
+                    <View style={styles.infoRow}>
+                      <MaterialIcon name="work" size={14} color={COLORS.muted} />
+                      <Text style={styles.infoText}>{expText}</Text>
+                    </View>
+                  ) : null;
+                })()}
 
                 {/* Member Since */}
                 {memberSince && (

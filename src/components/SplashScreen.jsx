@@ -24,6 +24,7 @@ import {
   Easing,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getAppVersionLabel } from '../config/appVersion';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -374,7 +375,7 @@ const SplashScreen = ({ visible = true, onFinish }) => {
       {/* Footer */}
       <Animated.View style={[styles.footer, { opacity: footerOpacity, bottom: 50 + insets.bottom }]}>
         <Text style={styles.footerText}>Connecting you with trusted professionals</Text>
-        <Text style={styles.footerVersion}>v1.5</Text>
+        <Text style={styles.footerVersion}>{getAppVersionLabel()}</Text>
       </Animated.View>
     </Animated.View>
   );
