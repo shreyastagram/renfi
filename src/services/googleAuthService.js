@@ -255,6 +255,18 @@ export const signInWithGoogleAsProvider = async (mode = null) => {
   return signInWithGoogle(GOOGLE_AUTH_ROLES.SERVICE_PROVIDER, mode);
 };
 
+/**
+ * UNIFIED Google auth for USERS — no mode is sent, so the backend logs in
+ * existing accounts and auto-registers unknown ones. The response's
+ * `isNewUser` flag tells the caller whether to run new-user onboarding
+ * (MongoDB sync + Welcome popup).
+ *
+ * @returns {Promise<Object>} Auth response ({ data: { ..., isNewUser } })
+ */
+export const signInWithGoogleUnified = async () => {
+  return signInWithGoogle(GOOGLE_AUTH_ROLES.USER, null);
+};
+
 // ==================== TOKEN EXCHANGE ====================
 
 /**
@@ -658,6 +670,7 @@ export default {
   signInWithGoogle,
   signInWithGoogleAsUser,
   signInWithGoogleAsProvider,
+  signInWithGoogleUnified,
   
   // Sign Out
   signOutFromGoogle,

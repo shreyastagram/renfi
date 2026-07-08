@@ -38,6 +38,7 @@ import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLocation } from '../context/LocationContext';
 import { useLanguage } from '../context/LanguageContext';
+import useBookingProfileGate from '../hooks/useBookingProfileGate';
 import { NODE_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
 import { addToFavorites, checkIsFavorite } from '../services/favoritesService';
@@ -660,6 +661,9 @@ const EventServicesScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, profile, isAuthLoading, isProfileLoading } = useApp();
   const { dialog } = useDialog();
+  // Booking gate — name + verified phone required before any request is created
+  const { ensureBookingProfileComplete, handleProfileIncompleteError } =
+    useBookingProfileGate(navigation);
   const { t } = useLanguage();
 
   // User ID
@@ -891,6 +895,11 @@ const EventServicesScreen = ({ navigation }) => {
       return;
     }
 
+    // Booking gate — a name and a verified phone are required to book.
+    if (!ensureBookingProfileComplete()) {
+      return;
+    }
+
     setSendingRequest(true);
 
     try {
@@ -937,6 +946,11 @@ const EventServicesScreen = ({ navigation }) => {
         }
         if (createData.code === 'RATE_LIMITED' && createData.retryAfter) {
           dialog(t('userHome.rateLimited'), t('userHome.rateLimitedMsg', { seconds: createData.retryAfter }));
+          setSendingRequest(false);
+          return;
+        }
+        // Backend 403 PROFILE_INCOMPLETE — client check may have been stale
+        if (handleProfileIncompleteError(createData)) {
           setSendingRequest(false);
           return;
         }

@@ -44,6 +44,7 @@ import {
   SERVICE_TYPE_LABELS,
 } from '../services/traditionalServiceService';
 import SavedAddresses from '../components/SavedAddresses';
+import useBookingProfileGate from '../hooks/useBookingProfileGate';
 import { getSavedAddresses, getDefaultAddress } from '../services/addressService';
 import { formatDistance, formatDistanceFromMeters, useDistanceUnit } from '../utils/formatDistance';
 
@@ -68,8 +69,21 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
   const { user, profile } = useApp();
   const { dialog } = useDialog();
   const { t } = useLanguage();
+  // Booking gate — name + verified phone required before any request is created
+  const { ensureBookingProfileComplete, handleProfileIncompleteError } =
+    useBookingProfileGate(navigation);
   const useKm = useDistanceUnit();
   const existingRequest = route?.params?.existingRequest;
+
+  // Run the gate once when the screen opens (in addition to the submit-time
+  // check) so an incomplete profile is surfaced BEFORE the user fills the
+  // whole form and loses their work navigating away to fix it.
+  useEffect(() => {
+    if (!existingRequest) {
+      ensureBookingProfileComplete();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   
   // Form state
   const [selectedService, setSelectedService] = useState(null);
@@ -276,6 +290,11 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
       return;
     }
 
+    // Booking gate — a name and a verified phone are required to book.
+    if (!ensureBookingProfileComplete()) {
+      return;
+    }
+
     setIsCreating(true);
 
     try {
@@ -331,6 +350,8 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
       } else {
         if (result.code === 'RATE_LIMITED' && result.retryAfter) {
           dialog(t('createRequest.pleaseWait'), t('createRequest.tooManyRequests', { n: result.retryAfter }));
+        } else if (handleProfileIncompleteError(result)) {
+          // Backend 403 PROFILE_INCOMPLETE — dialog shown, nothing else to do
         } else {
           dialog(t('common.error'), result.error || t('createRequest.createFailed'));
         }

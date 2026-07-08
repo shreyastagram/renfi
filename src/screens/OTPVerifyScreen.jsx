@@ -28,6 +28,8 @@ import {
   sendEmailLoginOtp,
   verifyPhoneSignupOtp,
   sendPhoneSignupOtp,
+  sendUnifiedPhoneOtp,
+  verifyUnifiedPhoneOtp,
   getErrorMessage,
   AUTH_CODES,
 } from '../services/authService';
@@ -45,12 +47,17 @@ const OTPVerifyScreen = ({
   maskedValue,
   expiresInMinutes = 5,
   userType = 'user',
-  // 'login' (default — existing OTP-login flow) or 'signup' (new phone-only
-  // signup flow). When 'signup' we verify against the NoeFix signup endpoint
-  // and resend via the signup send-otp endpoint (which needs fullName).
+  // 'login' (default — existing OTP-login flow), 'signup' (legacy phone-only
+  // signup flow), or 'unified' (USER unified auth — NoeFix decides login vs
+  // signup; `flow` from send-otp must be echoed back at verify time).
   context = 'login',
+  // Unified flow only: 'login' | 'signup' as reported by the unified send-otp.
+  flow,
   fullName,
   signupExtras,
+  // Unified flow only: called with the auth result when isNewUser===true so
+  // the parent can show the Welcome popup BEFORE handleAuthSuccess.
+  onNewUserAuth,
   onBack,
 }) => {
   const { handleAuthSuccess } = useApp();
@@ -66,6 +73,9 @@ const OTPVerifyScreen = ({
   const _context = context || params.context || 'login';
   const _fullName = fullName || params.fullName;
   const _signupExtras = signupExtras || params.signupExtras || {};
+  // Unified flow — kept in a ref so a resend can pick up a changed flow
+  // (e.g. the account was created elsewhere between send and resend).
+  const unifiedFlowRef = useRef(flow || params.flow);
 
   // OTP input refs
   const inputRefs = useRef([]);
@@ -206,7 +216,15 @@ const OTPVerifyScreen = ({
       setLoading(true);
 
       let result;
-      if (_context === 'signup' && _method === 'phone') {
+      if (_context === 'unified' && _method === 'phone') {
+        // UNIFIED user phone auth — NoeFix logs in existing accounts and
+        // auto-registers unknown ones (per the `flow` from send-otp). Terms
+        // are accepted implicitly on the unified auth screen.
+        result = await verifyUnifiedPhoneOtp(_identifier, otpCode, unifiedFlowRef.current, {
+          termsAccepted: true,
+          privacyAccepted: true,
+        });
+      } else if (_context === 'signup' && _method === 'phone') {
         // Phone-only USER signup. Goes via NoeFix (apiClient) so the Mongo
         // user doc is created alongside the JAuth user. Legal acceptance and
         // optional overrides ride in `signupExtras`.
@@ -245,6 +263,16 @@ const OTPVerifyScreen = ({
         // NoeFix signup returns the auth envelope flat (accessToken/refreshToken at top level
         // alongside `data: {profile…}`), matching the existing register() shape. Pass through.
         const authData = { ...result.data, userType: _userType };
+
+        // UNIFIED flow, NEW user → hold the auth result in the parent and show
+        // the Welcome popup BEFORE handleAuthSuccess (name is optional there;
+        // phone accounts are created with an empty name, never a placeholder).
+        if (_context === 'unified' && result.data?.isNewUser && onNewUserAuth) {
+          onNewUserAuth({ ...authData, authMethod: 'phone' });
+          setLoading(false);
+          return;
+        }
+
         const authProcessed = await handleAuthSuccess(authData);
         if (!authProcessed) {
           showAlert(t('auth.sessionSaveWarning'), 'warning');
@@ -270,11 +298,41 @@ const OTPVerifyScreen = ({
           case AUTH_CODES.ACCOUNT_DISABLED:
             showAlert(t('auth.accountDisabled'), 'error');
             break;
+          case 'ROLE_CONFLICT':
+            // Unified flow — the number belongs to a provider account.
+            showAlert(
+              t('auth.providerAccountPhone') ||
+                'This number belongs to a Provider account. Please sign in from the Provider screen.',
+              'error',
+            );
+            break;
           case AUTH_CODES.USER_NOT_FOUND:
             showAlert(
               _method === 'phone' ? t('auth.noAccountPhone') : t('auth.noAccountEmail'),
               'error',
             );
+            break;
+          case 'PROFILE_SYNC_FAILED':
+          case 'MONGODB_SYNC_FAILED':
+            // The OTP WAS verified but account setup didn't finish (transient DB
+            // issue). The code is consumed — the user must request a fresh one;
+            // the retry self-heals server-side.
+            showAlert(
+              t('auth.syncFailedRetry') ||
+                'Your code was verified, but account setup could not finish. Please request a new code and try again.',
+              'warning',
+            );
+            setSecondsLeft(0);
+            break;
+          case 'PHONE_ALREADY_EXISTS':
+            // Rare unified race: send-otp chose signup but the account got
+            // created meanwhile. A fresh OTP re-routes to login automatically.
+            showAlert(
+              t('auth.phoneExistsResend') ||
+                'This number is already registered. Please request a new code to sign in.',
+              'warning',
+            );
+            setSecondsLeft(0);
             break;
           default:
             showAlert(getErrorMessage(error.code, t('auth.verificationFailed')), 'error');
@@ -295,7 +353,14 @@ const OTPVerifyScreen = ({
       setResendLoading(true);
 
       let result;
-      if (_context === 'signup' && _method === 'phone') {
+      if (_context === 'unified' && _method === 'phone') {
+        // Unified resend — re-hits the unified send endpoint; keep the flow in
+        // sync in case the backend reports a different one this time.
+        result = await sendUnifiedPhoneOtp(_identifier);
+        if (result.success && result.flow) {
+          unifiedFlowRef.current = result.flow;
+        }
+      } else if (_context === 'signup' && _method === 'phone') {
         // Resend during phone-signup needs the captured full name so JAuth can
         // re-issue an OTP for the same prospective account.
         result = await sendPhoneSignupOtp(_identifier, _fullName);

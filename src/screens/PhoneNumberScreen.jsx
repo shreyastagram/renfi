@@ -1,27 +1,19 @@
 /**
- * PhoneSignupScreen
+ * PhoneNumberScreen
  *
- * DEPRECATED (unified auth, v3): no longer rendered anywhere. The unified
- * USER flow uses PhoneNumberScreen (phone only, no name — the Welcome popup
- * optionally collects a name) with the /api/auth/phone/unified/* endpoints.
- * Kept temporarily for reference / rollback; safe to delete once the unified
- * flow ships.
+ * Phone-entry step of the UNIFIED user auth flow. Collects ONLY the phone
+ * number (no name — new accounts start with an empty name; the Welcome
+ * popup optionally collects one) and dispatches an OTP via the unified
+ * NoeFix endpoint, which decides login vs signup server-side.
  *
- * Step 2 of phone-only USER signup. Collects the user's full name + phone
- * number, then dispatches an OTP via NoeFix -> JAuth. T&C acceptance is
- * captured upstream in RegisterChoice (the only way to reach this screen
- * is via the "Continue with phone number" card, which is gated behind
- * the existing T&C checkbox), so this screen doesn't ask again.
- *
- * On success, bubbles { method:'phone', context:'signup', fullName,
- * signupExtras } up to UserAuthScreen, which switches to the shared
- * OTP_VERIFY mode. OTPVerifyScreen branches on context to call the
- * phone-signup verify endpoint instead of the phone-login one.
+ * On success, bubbles { method:'phone', context:'unified', flow, … } up to
+ * UserAuthScreen, which switches to the shared OTP_VERIFY mode.
+ * A 409 ROLE_CONFLICT (number belongs to a provider) shows a clear message.
  *
  * USERS ONLY: no provider entry point reaches this screen.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -33,18 +25,18 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import TouchableOpacity from '../components/TouchableOpacity';
-import { Button, Input, PhoneInput, Alert, FixhomiLogo } from '../components';
-import { sendPhoneSignupOtp, getErrorMessage, AUTH_CODES } from '../services/authService';
+import { Button, PhoneInput, Alert, FixhomiLogo } from '../components';
+import { sendUnifiedPhoneOtp, getErrorMessage, AUTH_CODES } from '../services/authService';
 import { validatePhone } from '../utils/validation';
 import { useLanguage } from '../context/LanguageContext';
 
-const PhoneSignupScreen = ({ onOtpSent, onBack, signupExtras = {} }) => {
+const PhoneNumberScreen = ({ onOtpSent, onBack }) => {
   const { t } = useLanguage();
 
-  const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [errors, setErrors] = useState({});
+  const [phoneError, setPhoneError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const submittingRef = useRef(false);
   const [alertMessage, setAlertMessage] = useState(null);
   const [alertType, setAlertType] = useState('error');
   const [alertHint, setAlertHint] = useState(null);
@@ -60,56 +52,36 @@ const PhoneSignupScreen = ({ onOtpSent, onBack, signupExtras = {} }) => {
     setAlertHint(null);
   }, []);
 
-  const validate = () => {
-    const next = {};
-    if (!fullName || fullName.trim().length < 2) {
-      next.fullName = t('auth.fullNameRequired') || 'Please enter your full name';
-    } else if (fullName.trim().length > 100) {
-      next.fullName = t('auth.fullNameTooLong') || 'Full name is too long';
-    }
-    const phoneCheck = validatePhone(phone);
-    if (!phoneCheck.isValid) {
-      next.phone = phoneCheck.error;
-    }
-    return { isValid: Object.keys(next).length === 0, errors: next };
-  };
-
   const handleSendOtp = async () => {
+    // Synchronous re-entry guard — a same-frame double-tap would otherwise
+    // send two OTP SMS before `loading` state re-renders.
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     try {
       clearAlert();
-      setErrors({});
+      setPhoneError(null);
 
-      const v = validate();
-      if (!v.isValid) {
-        setErrors(v.errors);
-        showAlert(t('auth.formErrors') || 'Please fix the highlighted fields', 'warning');
+      const phoneCheck = validatePhone(phone);
+      if (!phoneCheck.isValid) {
+        setPhoneError(phoneCheck.error);
         return;
       }
 
       setLoading(true);
-      const result = await sendPhoneSignupOtp(phone, fullName);
+      const result = await sendUnifiedPhoneOtp(phone);
 
       if (result.success) {
-        const maskedValue = result.maskedPhone;
-        // Bubble up to UserAuthScreen which switches to OTP_VERIFY (context='signup').
+        // Bubble up to UserAuthScreen which switches to OTP_VERIFY
+        // (context='unified'; `flow` must be echoed back at verify time).
         if (onOtpSent) {
           onOtpSent({
             method: 'phone',
-            context: 'signup',
+            context: 'unified',
+            flow: result.flow,
             identifier: phone,
-            fullName: fullName.trim(),
-            maskedValue,
+            maskedValue: result.maskedPhone,
             expiresInMinutes: result.expiresInMinutes,
             userType: 'user',
-            // Forwarded all the way through to verifyPhoneSignupOtp so NoeFix's
-            // LEGAL_ACCEPTANCE_REQUIRED gate is satisfied.
-            signupExtras: {
-              termsAccepted: true,
-              privacyAccepted: true,
-              referralCode: signupExtras.referralCode,
-              termsVersion: signupExtras.termsVersion,
-              privacyVersion: signupExtras.privacyVersion,
-            },
           });
         }
         return;
@@ -117,10 +89,10 @@ const PhoneSignupScreen = ({ onOtpSent, onBack, signupExtras = {} }) => {
 
       const { error } = result;
       switch (error?.code) {
-        case AUTH_CODES.PHONE_ALREADY_EXISTS:
+        case 'ROLE_CONFLICT':
           showAlert(
-            t('auth.phoneAlreadyRegistered') ||
-              'This mobile number is already registered. Please log in instead.',
+            t('auth.providerAccountPhone') ||
+              'This number belongs to a Provider account. Please sign in from the Provider screen.',
             'error',
           );
           break;
@@ -137,10 +109,11 @@ const PhoneSignupScreen = ({ onOtpSent, onBack, signupExtras = {} }) => {
           showAlert(error?.message || t('auth.sendOtpFailed') || 'Could not send OTP. Try again.', 'error');
       }
     } catch (err) {
-      console.error('[PhoneSignupScreen] Unexpected error:', err);
+      console.error('[PhoneNumberScreen] Unexpected error:', err);
       showAlert(t('auth.unexpectedError') || 'Something went wrong.', 'error');
     } finally {
       setLoading(false);
+      submittingRef.current = false;
     }
   };
 
@@ -173,11 +146,11 @@ const PhoneSignupScreen = ({ onOtpSent, onBack, signupExtras = {} }) => {
             </View>
             <Text style={styles.brandName}>FixHomi</Text>
             <Text style={styles.title}>
-              {t('auth.phoneSignupTitle') || 'Sign up with phone'}
+              {t('auth.phoneEntryTitle') || 'Continue with phone'}
             </Text>
             <Text style={styles.subtitle}>
-              {t('auth.phoneSignupSubtitle') ||
-                "Enter your name and mobile number — we'll send a verification code"}
+              {t('auth.phoneEntrySubtitle') ||
+                "Enter your mobile number — we'll send a 6-digit verification code"}
             </Text>
           </View>
 
@@ -192,31 +165,15 @@ const PhoneSignupScreen = ({ onOtpSent, onBack, signupExtras = {} }) => {
           )}
 
           <View style={styles.form}>
-            <Input
-              label={t('auth.fullName') || 'Full name'}
-              value={fullName}
-              onChangeText={(v) => {
-                setFullName(v);
-                if (errors.fullName) setErrors((prev) => ({ ...prev, fullName: null }));
-                if (alertMessage) clearAlert();
-              }}
-              placeholder={t('auth.fullNamePlaceholder') || 'Enter your full name'}
-              autoCapitalize="words"
-              autoComplete="name"
-              error={errors.fullName}
-              editable={!loading}
-              required
-            />
-
             <PhoneInput
               label={t('auth.phoneNumber') || 'Phone number'}
               value={phone}
               onChangeText={(v) => {
                 setPhone(v);
-                if (errors.phone) setErrors((prev) => ({ ...prev, phone: null }));
+                if (phoneError) setPhoneError(null);
                 if (alertMessage) clearAlert();
               }}
-              error={errors.phone}
+              error={phoneError}
               editable={!loading}
               required
             />
@@ -232,8 +189,8 @@ const PhoneSignupScreen = ({ onOtpSent, onBack, signupExtras = {} }) => {
 
           <View style={styles.info}>
             <Text style={styles.infoText}>
-              {t('auth.phoneSignupInfo') ||
-                "We'll text a 6-digit code to verify it's your number. You can add an email later from your profile."}
+              {t('auth.phoneEntryInfo') ||
+                "New to FixHomi? We'll create your account automatically after you verify the code."}
             </Text>
           </View>
         </ScrollView>
@@ -276,4 +233,4 @@ const styles = StyleSheet.create({
   infoText: { fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 20 },
 });
 
-export default PhoneSignupScreen;
+export default PhoneNumberScreen;

@@ -306,6 +306,74 @@ export const verifyPhoneSignupOtp = async (phoneNumber, otp, extras = {}) => {
   }
 };
 
+// ==================== UNIFIED PHONE AUTH (USERS ONLY) ====================
+
+/**
+ * Unified phone OTP — single entry point for both login and signup.
+ * NoeFix decides the flow server-side: existing accounts get a login OTP,
+ * unknown numbers get a signup OTP (auto-registration on verify).
+ *
+ * @param {string} phoneNumber - Raw phone (any format; normalized here).
+ * @returns {Promise<{success:boolean, flow?:'login'|'signup', maskedPhone?:string,
+ *                    expiresInMinutes?:number, error?:Object}>}
+ *          error.code === 'ROLE_CONFLICT' (with error.existingRole) when the
+ *          number belongs to a provider account.
+ */
+export const sendUnifiedPhoneOtp = async (phoneNumber) => {
+  try {
+    console.log('📱 [AuthService] Sending unified phone OTP');
+    const response = await apiClient.post(ENDPOINTS.OTP_UNIFIED.PHONE_SEND_OTP, {
+      phoneNumber: normalizePhoneForApi(phoneNumber),
+    });
+    return {
+      success: true,
+      data: response.data,
+      flow: response.data.flow,
+      maskedPhone: response.data.maskedPhone,
+      expiresInMinutes: response.data.expiresInMinutes || 5,
+    };
+  } catch (error) {
+    const parsedError = parseApiError(error);
+    // Surface the conflicting role (409 ROLE_CONFLICT) for the UI message.
+    parsedError.existingRole = error.response?.data?.existingRole;
+    console.error('❌ [AuthService] Send unified phone OTP failed:', parsedError);
+    return { success: false, error: parsedError };
+  }
+};
+
+/**
+ * Verify a unified phone OTP. Echoes back the `flow` returned by send-otp.
+ * On a signup flow the USER row + Mongo doc are created server-side; either
+ * way the response carries the same token/user envelope as the phone-signup
+ * verify, plus `isNewUser`, so it can be handed straight to handleAuthSuccess.
+ *
+ * @param {string} phoneNumber
+ * @param {string} otp
+ * @param {'login'|'signup'} flow - Flow reported by sendUnifiedPhoneOtp.
+ * @param {Object} [extras] - termsAccepted / privacyAccepted (required true for
+ *                            signup flows) and optional referralCode.
+ * @returns {Promise<{success:boolean, data?:Object, error?:Object}>}
+ */
+export const verifyUnifiedPhoneOtp = async (phoneNumber, otp, flow, extras = {}) => {
+  try {
+    console.log('🔐 [AuthService] Verifying unified phone OTP (flow:', flow, ')');
+    const response = await apiClient.post(ENDPOINTS.OTP_UNIFIED.PHONE_VERIFY, {
+      phoneNumber: normalizePhoneForApi(phoneNumber),
+      otp: (otp || '').trim(),
+      flow,
+      termsAccepted: extras.termsAccepted === true,
+      privacyAccepted: extras.privacyAccepted === true,
+      referralCode: extras.referralCode || undefined,
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    const parsedError = parseApiError(error);
+    parsedError.existingRole = error.response?.data?.existingRole;
+    console.error('❌ [AuthService] Unified phone verification failed:', parsedError);
+    return { success: false, error: parsedError };
+  }
+};
+
 // ==================== LOGIN ====================
 
 /**
@@ -1102,6 +1170,10 @@ export default {
   // Phone SIGNUP (USERS only)
   sendPhoneSignupOtp,
   verifyPhoneSignupOtp,
+
+  // UNIFIED phone auth (USERS only — login or signup, server-decided)
+  sendUnifiedPhoneOtp,
+  verifyUnifiedPhoneOtp,
   
   // Verification
   sendPhoneVerificationOtp,

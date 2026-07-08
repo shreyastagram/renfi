@@ -233,6 +233,20 @@ export const ENDPOINTS = {
     PHONE_SEND_OTP: '/api/auth/signup/phone/send-otp',
     PHONE_VERIFY: '/api/auth/signup/phone/verify',
   },
+
+  // UNIFIED phone auth (USERS only — NoeFix decides login vs signup server-side).
+  // send-otp returns { flow: 'login'|'signup' }; verify needs that flow echoed
+  // back plus T&C flags. Existing accounts log in, unknown numbers auto-register.
+  OTP_UNIFIED: {
+    PHONE_SEND_OTP: '/api/auth/phone/unified/send-otp',
+    PHONE_VERIFY: '/api/auth/phone/unified/verify',
+  },
+
+  // Referral system (via Node.js backend)
+  REFERRAL: {
+    // Apply a referral code to the logged-in account (Bearer auth, idempotent-safe)
+    APPLY_CODE: '/api/referral/apply-code',
+  },
   
   // Account verification (direct to Java Auth, requires auth token)
   VERIFICATION: {

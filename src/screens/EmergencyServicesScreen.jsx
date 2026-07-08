@@ -34,6 +34,7 @@ import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLocation } from '../context/LocationContext';
 import { useLanguage } from '../context/LanguageContext';
+import useBookingProfileGate from '../hooks/useBookingProfileGate';
 import {
   EMERGENCY_SERVICE_TYPES,
   LOCATION_BASED_SERVICES,
@@ -625,6 +626,9 @@ const EmergencyServicesScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, profile, userType, isAuthLoading, isProfileLoading } = useApp();
   const { dialog } = useDialog();
+  // Booking gate — name + verified phone required before any request is created
+  const { ensureBookingProfileComplete, handleProfileIncompleteError } =
+    useBookingProfileGate(navigation);
 
   // Providers may only view call-only emergency numbers; they cannot book
   // location-based services (snake catcher, ambulance, mortuary van).
@@ -786,6 +790,11 @@ const EmergencyServicesScreen = ({ navigation }) => {
       return;
     }
 
+    // Booking gate — a name and a verified phone are required to book.
+    if (!ensureBookingProfileComplete()) {
+      return;
+    }
+
     setIsLoading(true);
     setShowNotesInput(false);
     startLoadingTimer();
@@ -818,6 +827,8 @@ const EmergencyServicesScreen = ({ navigation }) => {
           );
         } else if (createResult.code === 'RATE_LIMITED' && createResult.retryAfter) {
           dialog(t('userHome.rateLimited'), t('userHome.rateLimitedMsg', { seconds: createResult.retryAfter }));
+        } else if (handleProfileIncompleteError(createResult)) {
+          // Backend 403 PROFILE_INCOMPLETE — dialog shown, nothing else to do
         } else {
           dialog(t('common.error'), createResult.error || t('emergencyServices.requestFailed'));
         }

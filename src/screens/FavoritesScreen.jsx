@@ -37,6 +37,7 @@ import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useLocation } from '../context/LocationContext';
+import useBookingProfileGate from '../hooks/useBookingProfileGate';
 import { getFavorites, removeFromFavorites } from '../services/favoritesService';
 import { ProviderDetailsModal } from '../components';
 import {
@@ -370,6 +371,9 @@ const FavoritesScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, profile } = useApp();
   const { dialog } = useDialog();
+  // Booking gate — name + verified phone required before any request is created
+  const { ensureBookingProfileComplete, handleProfileIncompleteError } =
+    useBookingProfileGate(navigation);
   const { t } = useLanguage();
   const { currentLocation } = useLocation();
 
@@ -627,6 +631,11 @@ const FavoritesScreen = ({ navigation }) => {
       return;
     }
 
+    // Booking gate — a name and a verified phone are required to book.
+    if (!ensureBookingProfileComplete()) {
+      return;
+    }
+
     setSendingRequest(true);
     const flow = getServiceFlow(serviceId);
 
@@ -663,6 +672,9 @@ const FavoritesScreen = ({ navigation }) => {
               [{ text: 'OK' }]
             );
             return;
+          }
+          if (handleProfileIncompleteError(createResult)) {
+            return; // Backend 403 PROFILE_INCOMPLETE — dialog shown
           }
           throw new Error(createResult.error || 'Failed to create request');
         }
@@ -723,6 +735,9 @@ const FavoritesScreen = ({ navigation }) => {
               [{ text: 'OK' }]
             );
             return;
+          }
+          if (handleProfileIncompleteError(createData)) {
+            return; // Backend 403 PROFILE_INCOMPLETE — dialog shown
           }
           throw new Error(
             createData.message ||
@@ -804,6 +819,9 @@ const FavoritesScreen = ({ navigation }) => {
               [{ text: 'OK' }]
             );
             return;
+          }
+          if (handleProfileIncompleteError(emergencyResult)) {
+            return; // Backend 403 PROFILE_INCOMPLETE — dialog shown
           }
           throw new Error(
             emergencyResult.error || 'Failed to create emergency request'

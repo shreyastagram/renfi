@@ -163,6 +163,17 @@ export const signInWithAppleAsProvider = async (mode = null) => {
   return signInWithApple(APPLE_AUTH_ROLES.SERVICE_PROVIDER, mode);
 };
 
+/**
+ * UNIFIED Apple auth for USERS (iOS only) — no mode is sent, so the backend
+ * logs in existing accounts and auto-registers unknown ones. `isNewUser` in
+ * the response tells the caller whether to run new-user onboarding.
+ * The EMAIL_REQUIRED collection flow still applies (Apple may hide the email);
+ * retry via completeAppleSignInWithVerifiedEmail with mode=null.
+ */
+export const signInWithAppleUnified = async () => {
+  return signInWithApple(APPLE_AUTH_ROLES.USER, null);
+};
+
 // ==================== TOKEN EXCHANGE ====================
 
 /**
@@ -480,6 +491,7 @@ export default {
   signInWithApple,
   signInWithAppleAsUser,
   signInWithAppleAsProvider,
+  signInWithAppleUnified,
   syncAppleUserToMongoDB,
   syncAppleProviderToMongoDB,
   getAppleAuthErrorMessage,

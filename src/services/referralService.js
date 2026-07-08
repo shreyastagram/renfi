@@ -39,6 +39,53 @@ export const validateReferralCode = async (code) => {
 };
 
 /**
+ * Apply a referral code to the logged-in account (Bearer auth).
+ *
+ * Used by the post-signup Welcome popup, which runs BEFORE handleAuthSuccess
+ * has stored tokens — so an explicit `accessTokenOverride` can be passed and
+ * we use plain fetch with an explicit Authorization header (authFetch would
+ * find no stored token yet).
+ *
+ * @param {string} code - Referral code (already uppercased by the input).
+ * @param {string} [accessTokenOverride] - Access token to use instead of storage.
+ * @returns {Promise<{success:boolean, code?:string, message?:string}>}
+ *          Failure codes: INVALID_CODE, SELF_REFERRAL, ALREADY_REFERRED,
+ *          DAILY_LIMIT — plus NETWORK_ERROR when the request itself failed.
+ */
+export const applyReferralCode = async (code, accessTokenOverride = null) => {
+  try {
+    const options = {
+      method: 'POST',
+      body: JSON.stringify({ code: (code || '').trim() }),
+    };
+    let res;
+    if (accessTokenOverride) {
+      res = await fetch(`${BASE}/apply-code`, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessTokenOverride}`,
+        },
+      });
+    } else {
+      res = await authFetch(`${BASE}/apply-code`, options);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success !== false) {
+      return { success: true, ...data };
+    }
+    return {
+      success: false,
+      code: data.code || (res.status === 429 ? 'DAILY_LIMIT' : 'UNKNOWN'),
+      message: data.message,
+    };
+  } catch (err) {
+    console.error('[ReferralService] applyReferralCode error:', err.message);
+    return { success: false, code: 'NETWORK_ERROR', message: err.message };
+  }
+};
+
+/**
  * Get user's stats: cycle points, rank, yearly points, referral count.
  */
 export const getMyStats = async () => {

@@ -50,6 +50,7 @@ import { useDialog } from '../context/DialogContext';
 import { useLocation } from '../context/LocationContext';
 import { useLanguage } from '../context/LanguageContext';
 import useExitConfirmation from '../hooks/useExitConfirmation';
+import useBookingProfileGate from '../hooks/useBookingProfileGate';
 import {
   createServiceRequest,
   getNearbyProviders,
@@ -352,6 +353,10 @@ const UserHomeScreen = ({ navigation, route }) => {
   const safeMaxHeight = Math.min(SCREEN_HEIGHT * 0.75, SCREEN_HEIGHT - insets.top - 90);
   const mapRef = useRef(null);
   const { user, profile, userType, logout, isProfileLoading, isAuthLoading } = useApp();
+
+  // Booking gate — name + verified phone required before any request is created
+  const { ensureBookingProfileComplete, handleProfileIncompleteError } =
+    useBookingProfileGate(navigation);
 
   // Use global location context (fetches once, updates every 30 sec)
   const {
@@ -837,6 +842,11 @@ const UserHomeScreen = ({ navigation, route }) => {
       return;
     }
 
+    // Booking gate — a name and a verified phone are required to book.
+    if (!ensureBookingProfileComplete()) {
+      return;
+    }
+
     // Determine location to use:
     // 1. If user explicitly selected "Other Location" (saved addr, search, map pin) → use those coordinates
     // 2. Otherwise → use current GPS location
@@ -916,6 +926,8 @@ const UserHomeScreen = ({ navigation, route }) => {
         );
       } else if (result.code === 'RATE_LIMITED' && result.retryAfter) {
         dialog(t('userHome.rateLimited'), t('userHome.rateLimitedMsg', { seconds: result.retryAfter }));
+      } else if (handleProfileIncompleteError(result)) {
+        // Backend 403 PROFILE_INCOMPLETE — dialog shown, nothing else to do
       } else {
         dialog(t('common.error'), result.error || t('userHome.createRequestFailed'));
       }

@@ -26,7 +26,13 @@ export const AUTH_MODES = {
   OTP_LOGIN: 'otp_login',
   OTP_VERIFY: 'otp_verify',
   // Phone-number SIGNUP entry step (name + phone form). USERS only.
+  // DEPRECATED for users (superseded by UNIFIED/PHONE_INPUT) — kept so any
+  // persisted state or old references stay valid.
   PHONE_SIGNUP: 'phone_signup',
+  // Unified USER auth entry (Google / Apple / Phone OTP — no login/register split).
+  UNIFIED: 'unified',
+  // Phone-number entry step of the unified flow (phone only, no name). USERS only.
+  PHONE_INPUT: 'phone_input',
 };
 
 const keyFor = (userType) => `@fixhomi_auth_flow_${userType || 'user'}`;
@@ -53,8 +59,14 @@ export async function clearPersistedAuthFlow(userType) {
 // Don't restore an OTP step that has essentially no time left (forces a resend).
 const MIN_REMAINING_MINUTES = 0.25;
 
-export default function usePersistedAuthFlow(userType) {
-  const [authMode, setAuthMode] = useState(AUTH_MODES.LOGIN);
+/**
+ * @param {'user'|'provider'} userType
+ * @param {string} [defaultMode] - Initial auth mode. Defaults to LOGIN so the
+ *        provider container keeps its historical behaviour untouched; the USER
+ *        container passes AUTH_MODES.UNIFIED for the unified auth screen.
+ */
+export default function usePersistedAuthFlow(userType, defaultMode = AUTH_MODES.LOGIN) {
+  const [authMode, setAuthMode] = useState(defaultMode);
   const [otpData, setOtpData] = useState(null);
   // Guard so the persist effect doesn't wipe storage before restore reads it.
   const [hydrated, setHydrated] = useState(false);
