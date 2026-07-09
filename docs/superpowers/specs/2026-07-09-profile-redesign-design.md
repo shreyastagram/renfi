@@ -47,9 +47,13 @@ Provider extra: `verifiedServiceCategories`, `serviceCategories` (pending), `exp
 - **Detail row** = small 36px light-grey icon tile + uppercase muted label + dark value + optional right slot (verified badge / verify button). Much lighter than today's 42px colored tiles.
 
 ### 3.2 Hero (both roles, flat)
-- Banner gradient (blue `#2b76bc` user / orange `#f67c16` provider) with subtle SVG art.
-- Type badge top-right — **icon + label properly inline-aligned** (fixes the "icon in the middle of the text" bug).
-- Avatar **top-left**, overlapping banner (−46px), with camera overlay (existing upload flow).
+- **Immersive header that bleeds into the status bar** (replaces the old white app-bar + gap that wasted the top third):
+  - A **vertical `LinearGradient`** fills from the very top of the screen (behind the status bar) down through the nav row and banner. Stops go **soft→rich**: a light brand tint at the top (~0–15%) so the OS clock/battery stay legible with **dark** status-bar icons, deepening to the rich brand color where the avatar overlaps. Provider = orange (`#FFF3EA → #FBDDC5 → #f6851f → #EA580C`), User = blue (`#E9F2FB → #CBE1F5 → #3a86cf → #1e5f9e`).
+  - Top padding = `useSafeAreaInsets().top` so the soft zone is exactly the device's status-bar height (short/tall Android status bars, punch-holes, iOS notch/Dynamic Island). `StatusBar` translucent + `dark-content`; Android `setBackgroundColor('transparent')` (already done in this screen).
+  - Nav row (back chip `rgba(255,255,255,0.55)` + dark "Profile" title) sits on the soft tint. The header **scrolls with content** (no sticky bar); dark status-bar icons remain readable over the white content beneath once scrolled.
+  - Flowing SVG art (existing `react-native-svg` banner art) overlays the rich lower band.
+- Type badge top-right of the rich band — **icon + label properly inline-aligned** (fixes the "icon in the middle of the text" bug).
+- Avatar **top-left**, overlapping the banner (−44px, negative margin), with camera overlay (existing upload flow).
 - **Edit pencil** button top-right of the hero (opens identity mini-editor). Replaces the top-bar button.
 - Name + PRO badge (provider premium) → headline (provider: top services / user: "Customer") → location line (`city`).
 - **Provider stat strip** (LinkedIn "connections" analogue): `Jobs done | Rating (n reviews) | Experience` using `stats.completedRequests`, `ratings.average`+`ratings.total`, computed experience. Cells hidden/"New" when zero.
@@ -110,6 +114,7 @@ Long-term maintainable, matches LinkedIn UX, smaller writes, only-changed-sectio
 ---
 
 ## 7. Implementation Notes
+- **No new dependencies.** Header gradient uses `react-native-linear-gradient` (already imported in `UserHomeScreen`/`LoginScreen`/etc.); banner art uses `react-native-svg` (already used in this screen). No web-only techniques — the mockup's `backdrop-filter` is replaced by a solid translucent color (`@react-native-community/blur` available if true blur is ever wanted). `aspectRatio`, `flexWrap`, negative margins, `overflow:'hidden'` rounding, and `Platform.select` shadows are all standard RN.
 - All strings via i18n (`en.js`, `hi.js`, `mr.js`) — add keys for new section titles / About empty-state / stat labels, reusing existing keys where present (`experience.workingSince`, `profile.*`).
 - Add new sub-components inside ProfileScreen: `ProfileSection`, `DetailRow`, `StatStrip`, `SectionEditorShell`, plus the four inline editors.
 - New styles appended to the existing `StyleSheet`; retire now-unused card styles (leave shared ones).
