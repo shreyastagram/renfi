@@ -165,3 +165,4 @@ login paths; referrer-side referral + iOS subscription still need backend/CAPI.
 | Date | Issue | Status | Notes |
 |---|---|---|---|
 | 2026-07-09 | Initial production audit — 15 findings | ✅ all fixed | see §7 |
+| 2026-07-10 | No events in Test Events from Firebase RELEASE build | 🔍 investigating | **Test Events only shows events from DEBUG builds** — release events land in the dataset Overview with up-to-hours delay. Static verification of the release artifacts passed (merged manifest has FacebookInitProvider + App ID + token; facebook-core 18.3.0 compiled; R8 kept the provider). Temporary `[MetaDebug]` logcat logging added (`0e15922`, strip-proof vs transform-remove-console). Verify chain on device: `adb logcat \| grep MetaDebug`. Remaining unknown: fbsdk-next legacy module under RN new-arch interop (`newArchEnabled=true`) — the on-device log proves it either way. REMOVE debug flag after verification. |
