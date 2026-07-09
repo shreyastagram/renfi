@@ -1484,6 +1484,24 @@ export default {
     edit: 'Edit',
     verification: 'Verification',
 
+    // Redesigned profile sections
+    about: 'About',
+    aboutEmptyPrompt: 'Add a short intro about your work — helps customers choose you.',
+    addAbout: 'Add about',
+    services: 'Services',
+    experienceSection: 'Experience',
+    contactLocation: 'Contact & Location',
+    statJobs: 'Jobs done',
+    statRating: 'Rating',
+    statExperience: 'Experience',
+    ratingReviews: '%{rating} rating · %{count} reviews',
+    jobsCompleted: '%{count} jobs completed',
+    memberSince: 'Member since %{date}',
+    newProvider: 'New',
+    saveSection: 'Save',
+    cancelEdit: 'Cancel',
+    bioPlaceholderProfile: 'Tell customers about your work, skills and experience…',
+
     // Dialogs
     locationPermRequired: 'Location Permission Required',
     locationPermMsg: 'Please enable location permission in your device settings to use this feature.',
