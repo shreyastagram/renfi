@@ -295,7 +295,9 @@ const ProfileScreen = ({ navigation, route }) => {
   // State
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  // Per-section edit state: null | 'identity' | 'contact' | 'experience' | 'about'
+  const [editingSection, setEditingSection] = useState(null);
+  const isEditing = editingSection !== null;
   const [saving, setSaving] = useState(false);
   
   // Edit form state
@@ -306,6 +308,7 @@ const ProfileScreen = ({ navigation, route }) => {
     city: '',
     pincode: '',
     experience: '',
+    bio: '',
   });
   const originalFormData = useRef({});
 
@@ -570,6 +573,7 @@ const ProfileScreen = ({ navigation, route }) => {
       city: displayData?.city || '',
       pincode: displayData?.pincode || '',
       experience: displayData?.experience != null && displayData.experience !== '' ? String(displayData.experience).trim() : '',
+      bio: displayData?.bio || '',
     };
     setFormData(initial);
     originalFormData.current = initial;
@@ -580,7 +584,7 @@ const ProfileScreen = ({ navigation, route }) => {
     const parsedExpStart = rawExpStart ? new Date(rawExpStart) : null;
     setExperienceStartDate(parsedExpStart && !isNaN(parsedExpStart.getTime()) ? parsedExpStart : null);
     originalExperienceStartDate.current = rawExpStart;
-  }, [displayData?.fullName, displayData?.phone, displayData?.phoneNumber, displayData?.address, displayData?.city, displayData?.pincode, displayData?.experience, displayData?.experienceStartDate]);
+  }, [displayData?.fullName, displayData?.phone, displayData?.phoneNumber, displayData?.address, displayData?.city, displayData?.pincode, displayData?.experience, displayData?.experienceStartDate, displayData?.bio]);
 
   // Fetch Aadhaar verification status and premium status for providers
   // Uses context cache — only fetches if stale or on first load
@@ -807,7 +811,7 @@ const ProfileScreen = ({ navigation, route }) => {
 
       if (result.success) {
         dialog(t('common.success'), t('profile.profileUpdated'));
-        setIsEditing(false);
+        setEditingSection(null);
         // Refresh profile data to reflect changes immediately
         await refreshProfile(userType, userId);
         await refreshVerificationStatus();
@@ -858,6 +862,65 @@ const ProfileScreen = ({ navigation, route }) => {
       setSaving(false);
     }
   };
+
+  /**
+   * Save a section's fields as a partial update (per-section editors).
+   * Takes SEMANTIC fields and maps them to the role-specific payload exactly
+   * like performSave (provider name key = 'name'; phone gets '+91'). Only the
+   * provided fields are sent, so the Java-Auth sync inside the update services
+   * only fires when name/phone actually change.
+   * Returns true on success so callers can keep local state on failure.
+   */
+  const saveProfileFields = useCallback(async (fields) => {
+    const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+    if (!userId) {
+      dialog(t('profile.couldntSave'), t('profile.couldntSaveMsg'));
+      return false;
+    }
+    setSaving(true);
+    try {
+      const payload = {};
+      if (fields.fullName !== undefined) payload[isProvider ? 'name' : 'fullName'] = fields.fullName;
+      if (fields.phone !== undefined) payload.phone = '+91' + fields.phone;
+      if (fields.address !== undefined) payload.address = fields.address;
+      if (fields.city !== undefined) payload.city = fields.city;
+      if (fields.pincode !== undefined) payload.pincode = fields.pincode;
+      if (fields.bio !== undefined) payload.bio = fields.bio;
+      if (fields.experienceStartDate !== undefined) payload.experienceStartDate = fields.experienceStartDate;
+
+      const updateFn = isProvider ? updateProviderProfile : updateUserProfile;
+      const result = await updateFn(userId, payload);
+      if (!result?.success) {
+        const errorCode = result?.error?.code || result?.error?.response?.data?.code;
+        if (errorCode === 'PHONE_ALREADY_EXISTS') {
+          dialog(t('profile.phoneConflict'), t('profile.phoneConflictMsg'), [
+            { text: t('common.ok'), onPress: () => setFormData(prev => ({ ...prev, phone: originalPhone })) },
+          ]);
+        } else if (errorCode === 'NAME_LOCKED') {
+          dialog(t('profile.nameLocked'), t('profile.nameLockedMsg'));
+        } else if (errorCode === 'PROFILE_CONFLICT') {
+          dialog(
+            t('profile.updateConflict'),
+            result?.error?.message || 'This information conflicts with another account. Please try different values.'
+          );
+        } else {
+          dialog(t('profile.couldntSave'), getErrorMessage(result?.error, t('profile.couldntSaveMsg')));
+        }
+        return false;
+      }
+      await refreshProfile(userType, userId);
+      if (fields.phone !== undefined || fields.fullName !== undefined) {
+        await refreshVerificationStatus?.();
+      }
+      setEditingSection(null);
+      return true;
+    } catch (error) {
+      dialog(t('profile.connectionIssue'), t('profile.connectionIssueMsg'));
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }, [user, profile, isProvider, userType, originalPhone, refreshProfile, refreshVerificationStatus, dialog, t]);
 
   /**
    * Handle phone verification
@@ -1195,14 +1258,14 @@ const ProfileScreen = ({ navigation, route }) => {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('profile.title')}</Text>
         {!isEditing ? (
-          <TouchableOpacity style={styles.editButton} onPress={() => setIsEditing(true)} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.editButton} onPress={() => setEditingSection('identity')} activeOpacity={0.8}>
             <MaterialIcon name="edit" size={16} color="#FFFFFF" />
             <Text style={styles.editButtonText}>{t('profile.edit') || 'Edit'}</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
             style={[styles.editButton, styles.editButtonCancel]}
-            onPress={() => setIsEditing(false)}
+            onPress={() => setEditingSection(null)}
             activeOpacity={0.8}
           >
             <MaterialIcon name="close" size={16} color="#FFFFFF" />
