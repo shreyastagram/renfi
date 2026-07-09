@@ -374,6 +374,15 @@ const UserHomeScreen = ({ navigation, route }) => {
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [step, setStep] = useState('select');
+
+  // Hide the floating tab bar while the booking flow is active — its bottom
+  // sheet has its own CTA (Create Request) that the pill would cover, and
+  // tab-switching mid-booking is undesirable anyway. Restored on 'select'.
+  useEffect(() => {
+    navigation.setOptions({
+      tabBarStyle: step !== 'select' ? { display: 'none' } : undefined,
+    });
+  }, [navigation, step]);
   const [selectedService, setSelectedService] = useState(null);
   const [selectedDateTime, setSelectedDateTime] = useState(null); // Combined date & time
   const scheduleTrackedRef = useRef(false); // analytics: one schedule_selected per booking flow

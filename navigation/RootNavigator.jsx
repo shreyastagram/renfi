@@ -226,6 +226,15 @@ const FloatingTabBar = ({ state, descriptors, navigation }) => {
     return null;
   }
 
+  // Standard React Navigation contract: a screen can hide the bar with
+  // navigation.setOptions({ tabBarStyle: { display: 'none' } }) — used by
+  // flows with their own bottom CTA (e.g. UserHome booking sheet, whose
+  // Create Request button the floating pill would otherwise cover).
+  const focusedOptions = descriptors[state.routes[state.index].key]?.options;
+  if (focusedOptions?.tabBarStyle?.display === 'none') {
+    return null;
+  }
+
   // Gesture nav (inset 0) → 16px float; home indicator / 3-button nav →
   // sit 6px above the system area.
   const bottomOffset = Math.max(insets.bottom + 6, 16);
