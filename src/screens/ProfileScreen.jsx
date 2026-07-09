@@ -54,7 +54,6 @@ import { updateUserProfile, updateProviderProfile } from '../services/profileSer
 import { SERVICE_CATEGORIES } from '../services/authService';
 import { NODE_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
-import { getTokens } from '../utils/storage';
 import { 
   sendPhoneVerificationOtp,
   verifyPhoneOtp,
@@ -127,21 +126,6 @@ const getErrorMessage = (error, fallback = 'An error occurred') => {
   }
   return fallback;
 };
-
-/**
- * Premium card shadow helper
- */
-const CARD_SHADOW = Platform.select({
-  ios: {
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-  },
-  android: {
-    elevation: 5,
-  },
-});
 
 /**
  * Info Row (Read-only)
@@ -269,6 +253,31 @@ const DetailRow = React.memo(({ iconName, materialIcon, label, value, right, mut
 ));
 
 /**
+ * Shared Save/Cancel row for the inline section editors.
+ * Module-scope + memoized so its element type is stable across renders —
+ * an in-body definition would remount the buttons on every keystroke.
+ */
+const SectionEditorActions = React.memo(({ onCancel, onSave, saving, provider, cancelLabel, saveLabel }) => (
+  <View style={styles.editorActions}>
+    <TouchableOpacity style={styles.editorCancel} onPress={onCancel} disabled={saving} activeOpacity={0.7}>
+      <Text style={styles.editorCancelText}>{cancelLabel}</Text>
+    </TouchableOpacity>
+    <TouchableOpacity
+      style={[styles.editorSave, provider && styles.editorSaveProvider]}
+      onPress={onSave}
+      disabled={saving}
+      activeOpacity={0.8}
+    >
+      {saving ? (
+        <ActivityIndicator size="small" color="#fff" />
+      ) : (
+        <Text style={styles.editorSaveText}>{saveLabel}</Text>
+      )}
+    </TouchableOpacity>
+  </View>
+));
+
+/**
  * Provider hero stat strip — jobs / rating(reviews) / experience
  */
 const StatStrip = React.memo(({ items }) => (
@@ -289,50 +298,67 @@ const StatStrip = React.memo(({ items }) => (
 ));
 
 /**
- * Profile Screen Skeleton Loader — Amazon-style shimmer wave
+ * Profile Screen Skeleton Loader — previews the flat redesign:
+ * gradient header bleeding under the status bar, overlapping avatar,
+ * then flat shimmer rows (no cards) so the loaded layout doesn't snap.
  */
-const ProfileSkeletonLoader = ({ insets, onBack }) => {
+const ProfileSkeletonLoader = ({ insets, onBack, provider }) => {
   const shimmerAnim = useShimmerAnimation();
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Icon name="arrow_back" size={22} color="#0F172A" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profile</Text>
-        <View style={{ width: 60 }} />
-      </View>
-      <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 30 }]} scrollEnabled={false}>
-        {/* Profile card skeleton */}
-        <View style={[styles.profileCard, { overflow: 'hidden' }]}>
-          <View style={{ height: 100, backgroundColor: '#E2E8F0' }} />
-          <View style={{ alignItems: 'center', marginTop: -40, paddingBottom: 20 }}>
-            <SharedShimmerBlock width={80} height={80} borderRadius={40} shimmerAnim={shimmerAnim} />
-            <SharedShimmerBlock width={140} height={18} borderRadius={8} shimmerAnim={shimmerAnim} style={{ marginTop: 12 }} />
-            <SharedShimmerBlock width={180} height={13} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginTop: 8 }} />
+      <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainerFlat, { paddingBottom: insets.bottom + 30 }]} scrollEnabled={false}>
+        <LinearGradient
+          colors={provider
+            ? ['#FFF3EA', '#FBDDC5', '#f6851f', '#EA580C']
+            : ['#E9F2FB', '#CBE1F5', '#3a86cf', '#1e5f9e']}
+          locations={[0, 0.15, 0.56, 1]}
+          style={styles.gHeader}
+        >
+          <View style={{ height: insets.top }} />
+          <View style={styles.gNav}>
+            <TouchableOpacity style={styles.gBackBtn} onPress={onBack}>
+              <Icon name="arrow_back" size={22} color="#0F172A" />
+            </TouchableOpacity>
+            <Text style={styles.gNavTitle}>Profile</Text>
+            <View style={styles.gNavSpacer} />
+          </View>
+          <View style={styles.gBand} />
+        </LinearGradient>
+
+        {/* Hero skeleton — avatar overlapping, name/headline lines */}
+        <View style={styles.heroBody}>
+          <View style={styles.heroTopRow}>
+            <View style={styles.heroAvatarWrap}>
+              <SharedShimmerBlock width={112} height={112} borderRadius={56} shimmerAnim={shimmerAnim} />
+            </View>
+            <View style={{ width: 70 }} />
+          </View>
+          <View style={styles.heroIdBlock}>
+            <SharedShimmerBlock width={160} height={20} borderRadius={8} shimmerAnim={shimmerAnim} />
+            <SharedShimmerBlock width={130} height={14} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginTop: 8 }} />
+            <SharedShimmerBlock width={100} height={12} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginTop: 8 }} />
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 16 }}>
+            <SharedShimmerBlock width={110} height={30} borderRadius={20} shimmerAnim={shimmerAnim} />
+            <SharedShimmerBlock width={110} height={30} borderRadius={20} shimmerAnim={shimmerAnim} />
           </View>
         </View>
 
-        {/* Info rows skeleton */}
-        <SharedShimmerBlock width={120} height={14} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginTop: 20, marginBottom: 12 }} />
-        {[1, 2, 3, 4].map(i => (
-          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8 }}>
-            <SharedShimmerBlock width={36} height={36} borderRadius={18} shimmerAnim={shimmerAnim} />
-            <View style={{ gap: 6, flex: 1 }}>
-              <SharedShimmerBlock width={80} height={12} borderRadius={5} shimmerAnim={shimmerAnim} />
-              <SharedShimmerBlock width={160} height={14} borderRadius={6} shimmerAnim={shimmerAnim} />
-            </View>
-          </View>
-        ))}
-
-        {/* Another section */}
-        <SharedShimmerBlock width={100} height={14} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginTop: 20, marginBottom: 12 }} />
-        {[1, 2].map(i => (
-          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8 }}>
-            <SharedShimmerBlock width={36} height={36} borderRadius={18} shimmerAnim={shimmerAnim} />
-            <View style={{ gap: 6, flex: 1 }}>
-              <SharedShimmerBlock width={90} height={12} borderRadius={5} shimmerAnim={shimmerAnim} />
-              <SharedShimmerBlock width={140} height={14} borderRadius={6} shimmerAnim={shimmerAnim} />
+        {/* Flat section skeletons */}
+        {[1, 2].map(section => (
+          <View key={section}>
+            <View style={styles.sectionBand} />
+            <View style={styles.profileSection}>
+              <SharedShimmerBlock width={110} height={16} borderRadius={7} shimmerAnim={shimmerAnim} style={{ marginBottom: 14 }} />
+              {[1, 2, 3].map(i => (
+                <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 12 }}>
+                  <SharedShimmerBlock width={36} height={36} borderRadius={11} shimmerAnim={shimmerAnim} />
+                  <View style={{ gap: 6, flex: 1 }}>
+                    <SharedShimmerBlock width={80} height={11} borderRadius={5} shimmerAnim={shimmerAnim} />
+                    <SharedShimmerBlock width={160} height={14} borderRadius={6} shimmerAnim={shimmerAnim} />
+                  </View>
+                </View>
+              ))}
             </View>
           </View>
         ))}
@@ -362,20 +388,18 @@ const ProfileScreen = ({ navigation, route }) => {
   const scrollToAddresses = route?.params?.scrollToAddresses;
 
   // State
-  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   // Per-section edit state: null | 'identity' | 'contact' | 'experience' | 'about'
   const [editingSection, setEditingSection] = useState(null);
   const [saving, setSaving] = useState(false);
-  
-  // Edit form state
+
+  // Edit form state (drafts for the inline section editors)
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '', // Added phone number to editable fields
     address: '',
     city: '',
     pincode: '',
-    experience: '',
     bio: '',
   });
   const originalFormData = useRef({});
@@ -640,7 +664,6 @@ const ProfileScreen = ({ navigation, route }) => {
       address: displayData?.address || '',
       city: displayData?.city || '',
       pincode: displayData?.pincode || '',
-      experience: displayData?.experience != null && displayData.experience !== '' ? String(displayData.experience).trim() : '',
       bio: displayData?.bio || '',
     };
     setFormData(initial);
@@ -652,7 +675,7 @@ const ProfileScreen = ({ navigation, route }) => {
     const parsedExpStart = rawExpStart ? new Date(rawExpStart) : null;
     setExperienceStartDate(parsedExpStart && !isNaN(parsedExpStart.getTime()) ? parsedExpStart : null);
     originalExperienceStartDate.current = rawExpStart;
-  }, [displayData?.fullName, displayData?.phone, displayData?.phoneNumber, displayData?.address, displayData?.city, displayData?.pincode, displayData?.experience, displayData?.experienceStartDate, displayData?.bio]);
+  }, [displayData?.fullName, displayData?.phone, displayData?.phoneNumber, displayData?.address, displayData?.city, displayData?.pincode, displayData?.experienceStartDate, displayData?.bio]);
 
   // Fetch Aadhaar verification status and premium status for providers
   // Uses context cache — only fetches if stale or on first load
@@ -800,12 +823,20 @@ const ProfileScreen = ({ navigation, route }) => {
             t('profile.updateConflict'),
             result?.error?.message || 'This information conflicts with another account. Please try different values.'
           );
+        } else if (result?.error?.isTransient) {
+          // Transient network error (e.g. Render cold start) — offer retry
+          dialog(t('profile.connectionIssue'), t('profile.connectionIssueMsg'), [
+            { text: t('common.cancel'), style: 'cancel' },
+            { text: t('common.retry') || 'Retry', onPress: () => saveProfileFields(fields) },
+          ]);
         } else {
           dialog(t('profile.couldntSave'), getErrorMessage(result?.error, t('profile.couldntSaveMsg')));
         }
         return false;
       }
-      await refreshProfile(userType, userId);
+      // Force refresh — AppContext's 30s SWR guard would otherwise skip the
+      // refetch and the just-saved values would never reach displayData.
+      await refreshProfile(userType, userId, { force: true });
       if (fields.phone !== undefined || fields.fullName !== undefined) {
         await refreshVerificationStatus?.();
       }
@@ -820,23 +851,59 @@ const ProfileScreen = ({ navigation, route }) => {
   }, [user, profile, isProvider, userType, originalPhone, refreshProfile, refreshVerificationStatus, dialog, t]);
 
   /**
+   * Revert all in-progress drafts back to the last-loaded values.
+   * Used when a section editor is closed WITHOUT saving (hero toggle,
+   * switching pencils, cancel buttons) so abandoned edits never leak
+   * into a later save's changed-fields diff.
+   */
+  const revertDrafts = useCallback(() => {
+    const orig = originalFormData.current || {};
+    setFormData(prev => ({
+      ...prev,
+      fullName: orig.fullName || '',
+      phone: orig.phone || '',
+      address: orig.address || '',
+      city: orig.city || '',
+      pincode: orig.pincode || '',
+      bio: orig.bio || '',
+    }));
+    const rawExp = originalExperienceStartDate.current;
+    const parsedExp = rawExp ? new Date(rawExp) : null;
+    setExperienceStartDate(parsedExp && !isNaN(parsedExp.getTime()) ? parsedExp : null);
+    setShowExperiencePicker(false);
+  }, []);
+
+  /** Open a section editor (or close with null) — always discarding other drafts first. */
+  const switchSection = useCallback((next) => {
+    revertDrafts();
+    setEditingSection(next);
+  }, [revertDrafts]);
+
+  /**
    * Per-section save handlers — validate only their own fields (same rules
    * as the legacy full-form save) and submit only what changed.
    */
   const handleIdentitySave = () => {
     const fullName = (formData.fullName || '').trim();
     const phone = (formData.phone || '').trim();
-    if (fullName && (fullName.length < 2 || fullName.length > 100)) {
-      dialog(t('profile.invalidName'), t('profile.invalidNameMsg'));
-      return;
-    }
-    if (phone && (!/^\d{10}$/.test(phone) || !/^[6-9]/.test(phone))) {
-      dialog(t('profile.invalidPhone'), t('profile.invalidPhoneMsg'));
-      return;
-    }
     const fields = {};
-    if (fullName !== (originalFormData.current.fullName || '')) fields.fullName = fullName;
-    if (phone !== originalPhone) fields.phone = phone;
+    // Validate any value actually being submitted — this also blocks a
+    // CLEARED name/phone ('' would previously slip past the `if (value &&…)`
+    // guard and save the literal '+91' as the phone).
+    if (fullName !== (originalFormData.current.fullName || '')) {
+      if (fullName.length < 2 || fullName.length > 100) {
+        dialog(t('profile.invalidName'), t('profile.invalidNameMsg'));
+        return;
+      }
+      fields.fullName = fullName;
+    }
+    if (phone !== originalPhone) {
+      if (!/^[6-9]\d{9}$/.test(phone)) {
+        dialog(t('profile.invalidPhone'), t('profile.invalidPhoneMsg'));
+        return;
+      }
+      fields.phone = phone;
+    }
     if (Object.keys(fields).length === 0) {
       setEditingSection(null);
       return;
@@ -893,27 +960,6 @@ const ProfileScreen = ({ navigation, route }) => {
     }
     saveProfileFields({ experienceStartDate: newExpIso });
   };
-
-  /** Shared Save/Cancel row for the inline section editors */
-  const SectionEditorActions = ({ onCancel, onSave }) => (
-    <View style={styles.editorActions}>
-      <TouchableOpacity style={styles.editorCancel} onPress={onCancel} disabled={saving} activeOpacity={0.7}>
-        <Text style={styles.editorCancelText}>{t('profile.cancelEdit')}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.editorSave, isProvider && styles.editorSaveProvider]}
-        onPress={onSave}
-        disabled={saving}
-        activeOpacity={0.8}
-      >
-        {saving ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : (
-          <Text style={styles.editorSaveText}>{t('profile.saveSection')}</Text>
-        )}
-      </TouchableOpacity>
-    </View>
-  );
 
   /**
    * Handle phone verification
@@ -1237,7 +1283,7 @@ const ProfileScreen = ({ navigation, route }) => {
 
   // Show skeleton until profile data is available
   if (!profile || (isProfileLoading && !displayData?.fullName && !displayData?.email)) {
-    return <ProfileSkeletonLoader insets={insets} onBack={() => navigation.goBack()} />;
+    return <ProfileSkeletonLoader insets={insets} onBack={() => navigation.goBack()} provider={isProvider} />;
   }
 
   // ─── Derived hero data (existing fields only) ───
@@ -1252,7 +1298,10 @@ const ProfileScreen = ({ navigation, route }) => {
   const reviewCount = displayData?.ratings?.total || 0;
   const ratingAvg = displayData?.ratings?.average || displayData?.rating || 0;
   const statItems = [
-    { value: String(completedJobs), label: t('profile.statJobs') },
+    // Jobs cell only when > 0 — the provider-profile endpoint doesn't return
+    // `stats` yet, so a permanent "0" would read as a bad provider. Lights up
+    // automatically once the backend includes stats in getProviderProfile.
+    ...(completedJobs > 0 ? [{ value: String(completedJobs), label: t('profile.statJobs') }] : []),
     ratingAvg > 0
       ? { value: Number(ratingAvg).toFixed(1), sub: reviewCount > 0 ? `(${reviewCount})` : undefined, label: t('profile.statRating'), star: true }
       : { value: t('profile.newProvider'), label: t('profile.statRating'), star: true },
@@ -1354,7 +1403,7 @@ const ProfileScreen = ({ navigation, route }) => {
               {/* Contextual edit — identity (name/phone) */}
               <TouchableOpacity
                 style={styles.heroEditBtn}
-                onPress={() => setEditingSection(editingSection === 'identity' ? null : 'identity')}
+                onPress={() => switchSection(editingSection === 'identity' ? null : 'identity')}
                 activeOpacity={0.8}
               >
                 <MaterialIcon name={editingSection === 'identity' ? 'close' : 'edit'} size={15} color="#0F172A" />
@@ -1419,15 +1468,12 @@ const ProfileScreen = ({ navigation, route }) => {
                   </View>
                 )}
                 <SectionEditorActions
-                  onCancel={() => {
-                    setFormData(prev => ({
-                      ...prev,
-                      fullName: originalFormData.current.fullName || '',
-                      phone: originalFormData.current.phone || '',
-                    }));
-                    setEditingSection(null);
-                  }}
+                  onCancel={() => switchSection(null)}
                   onSave={handleIdentitySave}
+                  saving={saving}
+                  provider={isProvider}
+                  cancelLabel={t('profile.cancelEdit')}
+                  saveLabel={t('profile.saveSection')}
                 />
               </View>
             )}
@@ -1617,117 +1663,6 @@ const ProfileScreen = ({ navigation, route }) => {
             }}
           />
 
-          {/* ─── User: Contact & Location (flat section, inline editor) ─── */}
-          {!isProvider && (
-            <>
-              <SectionBand />
-              <ProfileSection
-                title={t('profile.contactLocation')}
-                editable={editingSection !== 'contact'}
-                onEdit={() => setEditingSection('contact')}
-              >
-                {editingSection === 'contact' ? (
-                  <View>
-                    {/* Detect my location */}
-                    <View style={styles.locationSectionHeader}>
-                      <Text style={styles.locationSectionTitle}>{t('profile.locationDetails')}</Text>
-                      <TouchableOpacity
-                        style={[styles.detectLocationBtn, detectingLocation && styles.detectLocationBtnDisabled]}
-                        onPress={handleDetectLocation}
-                        disabled={detectingLocation}
-                        activeOpacity={0.7}
-                      >
-                        {detectingLocation ? (
-                          <ActivityIndicator size="small" color="#FFFFFF" />
-                        ) : (
-                          <MaterialIcon name="my-location" size={16} color="#FFFFFF" />
-                        )}
-                        <Text style={styles.detectLocationBtnText}>
-                          {detectingLocation ? t('profile.detectingLocation') : t('profile.detectMyLocation')}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    {/* Address — Mapbox Geocoding powered search */}
-                    <AddressAutocomplete
-                      value={formData.address}
-                      label={t('profile.addressLabel')}
-                      placeholder={t('profile.addressPlaceholder')}
-                      onSelectAddress={({ address, city, pincode }) => {
-                        setFormData(prev => ({
-                          ...prev,
-                          address: address || prev.address,
-                          city: city || prev.city,
-                          pincode: pincode || prev.pincode,
-                        }));
-                      }}
-                    />
-
-                    <View style={styles.rowFields}>
-                      <View style={[styles.halfField, styles.zIndexCity]}>
-                        <CityAutocomplete
-                          value={formData.city}
-                          label={t('profile.cityLabel')}
-                          placeholder={t('profile.cityPlaceholder')}
-                          onSelectCity={({ city, pincode }) => {
-                            setFormData(prev => ({
-                              ...prev,
-                              city: city || prev.city,
-                              pincode: pincode || prev.pincode,
-                            }));
-                          }}
-                        />
-                      </View>
-                      <View style={styles.halfField}>
-                        <Text style={styles.fieldLabel}>{t('profile.pincodeLabel')}</Text>
-                        <TextInput
-                          style={styles.fieldInput}
-                          value={formData.pincode}
-                          onChangeText={(text) => setFormData(prev => ({ ...prev, pincode: text }))}
-                          placeholder={t('profile.pincodePlaceholder')}
-                          placeholderTextColor="#9CA3AF"
-                          keyboardType="numeric"
-                          maxLength={6}
-                        />
-                      </View>
-                    </View>
-
-                    <SectionEditorActions
-                      onCancel={() => {
-                        setFormData(prev => ({
-                          ...prev,
-                          address: originalFormData.current.address || '',
-                          city: originalFormData.current.city || '',
-                          pincode: originalFormData.current.pincode || '',
-                        }));
-                        setEditingSection(null);
-                      }}
-                      onSave={handleContactSave}
-                    />
-                  </View>
-                ) : (
-                  <>
-                    <DetailRow first iconName="phone" label={t('profile.phoneLabel')} value={displayData?.phone || t('profile.notSet')} />
-                    <TouchableOpacity
-                      activeOpacity={0.7}
-                      onPress={() => navigation.navigate('Verification', { verificationType: 'email' })}
-                    >
-                      <DetailRow
-                        iconName="email"
-                        label={t('profile.emailLabel')}
-                        value={displayData?.email || t('profile.notSet')}
-                        right={<MaterialIcon name="chevron-right" size={20} color="#CBD5E1" />}
-                      />
-                    </TouchableOpacity>
-                    <DetailRow iconName="location" label={t('profile.addressInfo')} value={displayData?.address || t('profile.notSet')} />
-                    <DetailRow iconName="location" label={t('profile.cityInfo')} value={displayData?.city || t('profile.notSet')} />
-                    <DetailRow iconName="location" label={t('profile.pincodeInfo')} value={displayData?.pincode || t('profile.notSet')} />
-                  </>
-                )}
-              </ProfileSection>
-            </>
-          )}
-
           {/* ─── Provider: About / Services / Experience / Portfolio ─── */}
           {isProvider && (
             <>
@@ -1736,7 +1671,7 @@ const ProfileScreen = ({ navigation, route }) => {
               <ProfileSection
                 title={t('profile.about')}
                 editable={editingSection !== 'about'}
-                onEdit={() => setEditingSection('about')}
+                onEdit={() => switchSection('about')}
               >
                 {editingSection === 'about' ? (
                   <View>
@@ -1747,16 +1682,19 @@ const ProfileScreen = ({ navigation, route }) => {
                       placeholder={t('profile.bioPlaceholderProfile')}
                       placeholderTextColor="#9CA3AF"
                       multiline
-                      maxLength={1000}
+                      // 500 matches PortfolioEditScreen's bio editor — the same
+                      // field; a longer cap here would break that screen's input.
+                      maxLength={500}
                       textAlignVertical="top"
                     />
-                    <Text style={styles.charCount}>{(formData.bio || '').length}/1000</Text>
+                    <Text style={styles.charCount}>{(formData.bio || '').length}/500</Text>
                     <SectionEditorActions
-                      onCancel={() => {
-                        setFormData(prev => ({ ...prev, bio: originalFormData.current.bio || '' }));
-                        setEditingSection(null);
-                      }}
+                      onCancel={() => switchSection(null)}
                       onSave={handleAboutSave}
+                      saving={saving}
+                      provider={isProvider}
+                      cancelLabel={t('profile.cancelEdit')}
+                      saveLabel={t('profile.saveSection')}
                     />
                   </View>
                 ) : displayData?.bio ? (
@@ -1764,7 +1702,7 @@ const ProfileScreen = ({ navigation, route }) => {
                 ) : (
                   <TouchableOpacity
                     style={styles.aboutEmpty}
-                    onPress={() => setEditingSection('about')}
+                    onPress={() => switchSection('about')}
                     activeOpacity={0.7}
                   >
                     <View style={styles.aboutEmptyPlus}>
@@ -1842,7 +1780,7 @@ const ProfileScreen = ({ navigation, route }) => {
               <ProfileSection
                 title={t('profile.experienceSection')}
                 editable={editingSection !== 'experience'}
-                onEdit={() => setEditingSection('experience')}
+                onEdit={() => switchSection('experience')}
               >
                 {editingSection === 'experience' ? (
                   <View>
@@ -1912,14 +1850,12 @@ const ProfileScreen = ({ navigation, route }) => {
                       </>
                     )}
                     <SectionEditorActions
-                      onCancel={() => {
-                        const rawOrig = originalExperienceStartDate.current;
-                        const parsedOrig = rawOrig ? new Date(rawOrig) : null;
-                        setExperienceStartDate(parsedOrig && !isNaN(parsedOrig.getTime()) ? parsedOrig : null);
-                        setShowExperiencePicker(false);
-                        setEditingSection(null);
-                      }}
+                      onCancel={() => switchSection(null)}
                       onSave={handleExperienceSave}
+                      saving={saving}
+                      provider={isProvider}
+                      cancelLabel={t('profile.cancelEdit')}
+                      saveLabel={t('profile.saveSection')}
                     />
                   </View>
                 ) : (
@@ -1948,11 +1884,15 @@ const ProfileScreen = ({ navigation, route }) => {
                         </View>
                         <View style={styles.flex1}>
                           <Text style={styles.expTitle}>
-                            {t('profile.ratingReviews', { rating: Number(ratingAvg).toFixed(1), count: reviewCount })}
+                            {reviewCount > 0
+                              ? t('profile.ratingReviews', { rating: Number(ratingAvg).toFixed(1), count: reviewCount })
+                              : t('profile.ratingValue', { rating: Number(ratingAvg).toFixed(1) })}
                           </Text>
-                          <Text style={styles.expSub}>
-                            {t('profile.jobsCompleted', { count: completedJobs })}
-                          </Text>
+                          {completedJobs > 0 && (
+                            <Text style={styles.expSub}>
+                              {t('profile.jobsCompleted', { count: completedJobs })}
+                            </Text>
+                          )}
                         </View>
                       </View>
                     ) : (
@@ -2081,6 +2021,115 @@ const ProfileScreen = ({ navigation, route }) => {
               )}
             </>
           )}
+
+          {/* ─── Contact & Location — BOTH roles (providers edit their service
+               address/city/pincode here; phone & email rows are user-only since
+               providers manage those via the Verification section) ─── */}
+          <SectionBand />
+          <ProfileSection
+            title={t('profile.contactLocation')}
+            editable={editingSection !== 'contact'}
+            onEdit={() => switchSection('contact')}
+          >
+                {editingSection === 'contact' ? (
+                  <View>
+                    {/* Detect my location */}
+                    <View style={styles.locationSectionHeader}>
+                      <Text style={styles.locationSectionTitle}>{t('profile.locationDetails')}</Text>
+                      <TouchableOpacity
+                        style={[styles.detectLocationBtn, detectingLocation && styles.detectLocationBtnDisabled]}
+                        onPress={handleDetectLocation}
+                        disabled={detectingLocation}
+                        activeOpacity={0.7}
+                      >
+                        {detectingLocation ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <MaterialIcon name="my-location" size={16} color="#FFFFFF" />
+                        )}
+                        <Text style={styles.detectLocationBtnText}>
+                          {detectingLocation ? t('profile.detectingLocation') : t('profile.detectMyLocation')}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Address — Mapbox Geocoding powered search */}
+                    <AddressAutocomplete
+                      value={formData.address}
+                      label={t('profile.addressLabel')}
+                      placeholder={t('profile.addressPlaceholder')}
+                      onSelectAddress={({ address, city, pincode }) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          address: address || prev.address,
+                          city: city || prev.city,
+                          pincode: pincode || prev.pincode,
+                        }));
+                      }}
+                    />
+
+                    <View style={styles.rowFields}>
+                      <View style={[styles.halfField, styles.zIndexCity]}>
+                        <CityAutocomplete
+                          value={formData.city}
+                          label={t('profile.cityLabel')}
+                          placeholder={t('profile.cityPlaceholder')}
+                          onSelectCity={({ city, pincode }) => {
+                            setFormData(prev => ({
+                              ...prev,
+                              city: city || prev.city,
+                              pincode: pincode || prev.pincode,
+                            }));
+                          }}
+                        />
+                      </View>
+                      <View style={styles.halfField}>
+                        <Text style={styles.fieldLabel}>{t('profile.pincodeLabel')}</Text>
+                        <TextInput
+                          style={styles.fieldInput}
+                          value={formData.pincode}
+                          onChangeText={(text) => setFormData(prev => ({ ...prev, pincode: text }))}
+                          placeholder={t('profile.pincodePlaceholder')}
+                          placeholderTextColor="#9CA3AF"
+                          keyboardType="numeric"
+                          maxLength={6}
+                        />
+                      </View>
+                    </View>
+
+                    <SectionEditorActions
+                      onCancel={() => switchSection(null)}
+                      onSave={handleContactSave}
+                      saving={saving}
+                      provider={isProvider}
+                      cancelLabel={t('profile.cancelEdit')}
+                      saveLabel={t('profile.saveSection')}
+                    />
+                  </View>
+                ) : (
+                  <>
+                    {!isProvider && (
+                      <>
+                        <DetailRow first iconName="phone" label={t('profile.phoneLabel')} value={displayData?.phone || t('profile.notSet')} />
+                        <TouchableOpacity
+                          activeOpacity={0.7}
+                          onPress={() => navigation.navigate('Verification', { verificationType: 'email' })}
+                        >
+                          <DetailRow
+                            iconName="email"
+                            label={t('profile.emailLabel')}
+                            value={displayData?.email || t('profile.notSet')}
+                            right={<MaterialIcon name="chevron-right" size={20} color="#CBD5E1" />}
+                          />
+                        </TouchableOpacity>
+                      </>
+                    )}
+                    <DetailRow first={isProvider} iconName="location" label={t('profile.addressInfo')} value={displayData?.address || t('profile.notSet')} />
+                    <DetailRow iconName="location" label={t('profile.cityInfo')} value={displayData?.city || t('profile.notSet')} />
+                    <DetailRow iconName="location" label={t('profile.pincodeInfo')} value={displayData?.pincode || t('profile.notSet')} />
+                  </>
+                )}
+              </ProfileSection>
 
           {/* Verification Section — Users (below profile details) */}
           {!isProvider && (
@@ -2549,35 +2598,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F4F7FB',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    backgroundColor: 'rgba(255,255,255,0.88)',
-    zIndex: 10,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0F172A',
-    letterSpacing: -0.2,
-  },
   content: {
     flex: 1,
-  },
-  contentContainer: {
-    padding: 14,
-    paddingTop: 12,
   },
   contentContainerFlat: {
     padding: 0,
@@ -3007,21 +3029,6 @@ const styles = StyleSheet.create({
   },
 
   // Profile Card
-  profileCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    marginBottom: 16,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.12,
-        shadowRadius: 24,
-      },
-      android: { elevation: 10 },
-    }),
-  },
   avatarRing: {
     overflow: 'hidden',
     width: 112,
