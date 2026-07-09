@@ -661,7 +661,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
           {provider.totalJobs !== undefined && (
             <View style={styles.statItem}>
               <Text style={styles.statIcon}>✅</Text>
-              <Text style={styles.statText}>{provider.totalJobs} {t('detail.jobs')}</Text>
+              <Text style={styles.statText}>{provider.totalJobs} {t('providerHistory.jobs')}</Text>
             </View>
           )}
         </View>

@@ -1792,6 +1792,13 @@ export default {
 
   // ─── Verification Dashboard ───────────────────────────
   verificationDashboard: {
+    acceptTerms: 'अटी स्वीकारा',
+    acceptTermsDesc: 'नियम व अटी आणि गोपनीयता धोरण स्वीकारा',
+    acceptTermsTitle: 'नियम व गोपनीयता धोरण',
+    acceptTermsMsg: 'स्वीकारून, तुम्ही Fixhomi च्या नियम व अटी आणि गोपनीयता धोरणास सहमती देता. एकदा स्वीकारल्यानंतर, ते अ‍ॅपद्वारे रद्द करता येणार नाही — रद्द करण्यासाठी सपोर्टशी संपर्क साधा.',
+    readTerms: 'अटी वाचा',
+    acceptBtn: 'मी स्वीकारतो/स्वीकारते',
+    policiesAccepted: 'नियम व अटी आणि गोपनीयता धोरण यशस्वीरित्या स्वीकारले.',
     title: 'सत्यापन स्थिती',
     allComplete: 'सर्व पायऱ्या पूर्ण',
     progress: '%{total} पैकी %{completed} सत्यापित',

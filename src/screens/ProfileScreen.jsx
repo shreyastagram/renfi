@@ -1694,14 +1694,26 @@ const ProfileScreen = ({ navigation, route }) => {
                     <Text style={styles.expHint}>{t('experience.experienceOptional')}</Text>
                   )}
                   {showExperiencePicker && (
-                    <DateTimePicker
-                      value={experienceStartDate || new Date()}
-                      mode="date"
-                      display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
-                      onChange={handleExperienceDateChange}
-                      minimumDate={minExperienceStartDate()}
-                      maximumDate={new Date()}
-                    />
+                    <>
+                      <DateTimePicker
+                        value={experienceStartDate || new Date()}
+                        mode="date"
+                        display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
+                        onChange={handleExperienceDateChange}
+                        minimumDate={minExperienceStartDate()}
+                        maximumDate={new Date()}
+                      />
+                      {/* iOS spinner is inline and doesn't self-dismiss — give it a Done button. */}
+                      {Platform.OS === 'ios' && (
+                        <TouchableOpacity
+                          style={styles.expPickerDone}
+                          onPress={() => setShowExperiencePicker(false)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.expPickerDoneText}>{t('common.done') || 'Done'}</Text>
+                        </TouchableOpacity>
+                      )}
+                    </>
                   )}
                 </View>
               )}
@@ -3272,6 +3284,8 @@ const styles = StyleSheet.create({
   },
   expPreview: { fontSize: 13, color: '#0891B2', fontWeight: '600', marginTop: 8, marginLeft: 2 },
   expHint: { fontSize: 11, color: '#9CA3AF', marginTop: 6, marginLeft: 2, lineHeight: 16 },
+  expPickerDone: { alignSelf: 'flex-end', paddingVertical: 8, paddingHorizontal: 16, marginTop: 4 },
+  expPickerDoneText: { fontSize: 16, color: '#2563EB', fontWeight: '700' },
   fieldLabel: {
     fontSize: 13,
     fontWeight: '700',

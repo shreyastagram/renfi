@@ -1060,14 +1060,26 @@ const ProviderRegisterScreen = ({ navigation }) => {
             </View>
 
             {showExperiencePicker && (
-              <DateTimePicker
-                value={experienceStartDate || new Date()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
-                onChange={handleExperienceDateChange}
-                minimumDate={minExperienceStartDate()}
-                maximumDate={new Date()}
-              />
+              <>
+                <DateTimePicker
+                  value={experienceStartDate || new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
+                  onChange={handleExperienceDateChange}
+                  minimumDate={minExperienceStartDate()}
+                  maximumDate={new Date()}
+                />
+                {/* iOS spinner is inline and doesn't self-dismiss — give it a Done button. */}
+                {Platform.OS === 'ios' && (
+                  <TouchableOpacity
+                    style={styles.experiencePickerDone}
+                    onPress={() => setShowExperiencePicker(false)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.experiencePickerDoneText}>{t('common.done') || 'Done'}</Text>
+                  </TouchableOpacity>
+                )}
+              </>
             )}
 
             <View style={styles.infoBox}>
@@ -1324,6 +1336,8 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   experiencePreview: { fontSize: 13, color: '#0891B2', fontWeight: '600', marginTop: 8, marginLeft: 2 },
+  experiencePickerDone: { alignSelf: 'flex-end', paddingVertical: 8, paddingHorizontal: 16, marginTop: 4 },
+  experiencePickerDoneText: { fontSize: 16, color: '#2563EB', fontWeight: '700' },
   experienceHint: { fontSize: 11, color: '#94A3B8', marginTop: 6, marginLeft: 2, lineHeight: 16 },
 
   // ── Info Box ──
