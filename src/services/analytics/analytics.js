@@ -20,6 +20,20 @@
 
 import { STANDARD_MAP } from './events';
 
+/**
+ * TEMPORARY release-visible debug logging — REMOVE after Meta Events Manager
+ * verification. babel's transform-remove-console strips direct `console.*`
+ * calls in production bundles; going through `global.console` survives the
+ * strip so these lines reach `adb logcat` (ReactNativeJS tag) in RELEASE
+ * builds too. Filter with:  adb logcat | grep MetaDebug
+ */
+const DEBUG_ANALYTICS = true;
+const dbg = (...args) => {
+  if (!DEBUG_ANALYTICS && !__DEV__) return;
+  const c = global.console;
+  if (c && c.log) c.log('[MetaDebug]', ...args);
+};
+
 // Lazy, crash-proof SDK access. Resolved once.
 let _sdk = null; // { logger, settings } | false (unavailable)
 const getSdk = () => {
@@ -31,12 +45,17 @@ const getSdk = () => {
     // half-working handle.
     const { NativeModules } = require('react-native');
     const { AppEventsLogger, Settings } = require('react-native-fbsdk-next');
-    if (!AppEventsLogger || !NativeModules.FBAppEventsLogger) {
+    const nativePresent = !!NativeModules.FBAppEventsLogger;
+    const constantsPresent = !!(AppEventsLogger && AppEventsLogger.AppEvents);
+    dbg('getSdk: jsWrapper=', !!AppEventsLogger, 'nativeModule=', nativePresent, 'constants=', constantsPresent);
+    if (!AppEventsLogger || !nativePresent) {
+      dbg('getSdk: SDK UNAVAILABLE — all analytics calls will no-op');
       _sdk = false;
     } else {
       _sdk = { logger: AppEventsLogger, settings: Settings };
     }
   } catch (e) {
+    dbg('getSdk: require FAILED:', e?.message);
     _sdk = false;
   }
   return _sdk;
@@ -65,26 +84,23 @@ const sanitizeParams = (params) => {
   return count > 0 ? out : undefined;
 };
 
-const devLog = (...args) => {
-  if (__DEV__) console.log('📊 [Analytics]', ...args);
-};
-
 const Analytics = {
   /**
    * Initialize the SDK from JS (native side auto-inits via manifest/AppDelegate;
    * this is a belt-and-braces call, safe to invoke multiple times).
    */
   init() {
+    dbg('init() called');
     const sdk = getSdk();
     if (!sdk) {
-      devLog('SDK unavailable — analytics disabled (no-op mode)');
+      dbg('init: SDK unavailable — analytics disabled (no-op mode)');
       return;
     }
     try {
       sdk.settings?.initializeSDK?.();
-      devLog('Meta SDK initialized');
+      dbg('init: Settings.initializeSDK() OK');
     } catch (e) {
-      devLog('init failed (non-fatal):', e?.message);
+      dbg('init: initializeSDK FAILED (non-fatal):', e?.message);
     }
   },
 
@@ -99,13 +115,14 @@ const Analytics = {
     if (!eventName || typeof eventName !== 'string') return;
     const name = eventName.slice(0, 40); // Meta limit: 40-char event names
     const safeParams = sanitizeParams(params);
-    devLog(name, safeParams || '');
 
     const sdk = getSdk();
+    dbg('track:', name, safeParams ? JSON.stringify(safeParams) : '(no params)', sdk ? '' : '→ DROPPED (no SDK)');
     if (!sdk) return;
     try {
       if (safeParams) sdk.logger.logEvent(name, safeParams);
       else sdk.logger.logEvent(name);
+      dbg('track: logEvent dispatched →', name);
 
       // Dual-log the Meta standard event (powers ad optimization)
       const standardKey = STANDARD_MAP[eventName];
@@ -113,9 +130,10 @@ const Analytics = {
       if (standardName) {
         if (safeParams) sdk.logger.logEvent(standardName, safeParams);
         else sdk.logger.logEvent(standardName);
+        dbg('track: standard dual-log →', standardName);
       }
     } catch (e) {
-      devLog('track failed (non-fatal):', e?.message);
+      dbg('track FAILED:', name, e?.message);
     }
   },
 
@@ -128,13 +146,14 @@ const Analytics = {
   trackPurchase(amount, currency, params) {
     const value = Number(amount);
     if (!isFinite(value) || value <= 0 || !currency) return;
-    devLog('Purchase', value, currency, params || '');
     const sdk = getSdk();
+    dbg('trackPurchase:', value, currency, sdk ? '' : '→ DROPPED (no SDK)');
     if (!sdk) return;
     try {
       sdk.logger.logPurchase(value, String(currency), sanitizeParams(params));
+      dbg('trackPurchase: dispatched');
     } catch (e) {
-      devLog('trackPurchase failed (non-fatal):', e?.message);
+      dbg('trackPurchase FAILED:', e?.message);
     }
   },
 
@@ -145,7 +164,7 @@ const Analytics = {
     try {
       sdk.logger.setUserID(String(userId));
     } catch (e) {
-      devLog('setUser failed (non-fatal):', e?.message);
+      dbg('setUser FAILED:', e?.message);
     }
   },
 
@@ -156,7 +175,7 @@ const Analytics = {
     try {
       sdk.logger.setUserID(null);
     } catch (e) {
-      devLog('clearUser failed (non-fatal):', e?.message);
+      dbg('clearUser FAILED:', e?.message);
     }
   },
 
@@ -166,8 +185,9 @@ const Analytics = {
     if (!sdk) return;
     try {
       sdk.logger.flush();
+      dbg('flush: requested');
     } catch (e) {
-      devLog('flush failed (non-fatal):', e?.message);
+      dbg('flush FAILED:', e?.message);
     }
   },
 };
