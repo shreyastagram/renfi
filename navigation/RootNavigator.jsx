@@ -12,14 +12,12 @@
  * @version 8.0.0 - Added Emergency, Event, Favorites screens
  */
 
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Platform, Dimensions, Pressable, Image } from 'react-native';
+import React, { useMemo, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, Platform, Dimensions, Pressable, Image, Animated } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import Feather from 'react-native-vector-icons/Feather';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import { House, History, Wrench, Settings, CircleUserRound } from 'lucide-react-native';
 import { useApp } from '../src/context/AppContext';
 import { LocationSharingProvider } from '../src/context/LocationSharingContext';
 
@@ -122,49 +120,72 @@ export const linking = {
 };
 
 /**
- * Tab Icon Component - Unified styling for both User and Provider tabs
- * Uses proper icon families with consistent sizing
+ * Tab Icon Component — modern lucide icons with an animated soft pill
+ * highlight behind the active tab (Material 3 style). Accent color follows
+ * the role: blue for users, orange for providers.
  */
 const VERIFIED_BLUE = '#2b76bc';
 
-const TabIcon = React.memo(({ focused, iconFamily, iconName, focusedIconName, label, profilePicture }) => {
-  const activeColor = VERIFIED_BLUE;
-  const inactiveColor = BRAND.gray;
-  const color = focused ? activeColor : inactiveColor;
-  const currentIcon = focused && focusedIconName ? focusedIconName : iconName;
-  const iconSize = 24;
+// Lucide icon per tab key — crisp geometric line icons
+const TAB_ICONS = {
+  home: House,
+  history: History,
+  jobs: Wrench,
+  settings: Settings,
+  profile: CircleUserRound,
+};
 
-  const renderIcon = () => {
-    // Profile picture avatar for Profile tab
-    if (profilePicture) {
-      const uri = typeof profilePicture === 'string' ? profilePicture : profilePicture?.url;
-      if (uri) {
-        return (
-          <View style={[styles.tabAvatar, focused && styles.tabAvatarFocused]}>
-            <Image source={{ uri }} style={styles.tabAvatarImg} />
-          </View>
-        );
-      }
-    }
-    switch (iconFamily) {
-      case 'MaterialCommunityIcons':
-        return <MaterialCommunityIcons name={currentIcon} size={iconSize} color={color} />;
-      case 'Ionicons':
-        return <Ionicons name={currentIcon} size={iconSize} color={color} />;
-      default:
-        return <MaterialCommunityIcons name={currentIcon} size={iconSize} color={color} />;
-    }
-  };
+// Soft pill tints per accent (12–14% of the accent color)
+const ACCENT_SOFT = {
+  [VERIFIED_BLUE]: 'rgba(43, 118, 188, 0.13)',
+  [BRAND.orange]: 'rgba(246, 124, 22, 0.14)',
+};
+
+const TabIcon = React.memo(({ focused, icon, label, accent = VERIFIED_BLUE, profilePicture }) => {
+  const anim = useRef(new Animated.Value(focused ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.spring(anim, {
+      toValue: focused ? 1 : 0,
+      useNativeDriver: true,
+      friction: 7,
+      tension: 220,
+    }).start();
+  }, [focused, anim]);
+
+  const color = focused ? accent : BRAND.gray;
+  const IconCmp = TAB_ICONS[icon] || House;
+
+  // Profile tab shows the avatar when a picture exists
+  const avatarUri = profilePicture
+    ? (typeof profilePicture === 'string' ? profilePicture : profilePicture?.url)
+    : null;
 
   return (
     <View style={styles.tabIconWrapper}>
-      {renderIcon()}
+      <View style={styles.tabPillSlot}>
+        {/* Animated highlight pill — fades/springs in behind the active icon */}
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.tabPill,
+            {
+              backgroundColor: ACCENT_SOFT[accent] || ACCENT_SOFT[VERIFIED_BLUE],
+              opacity: anim,
+              transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }) }],
+            },
+          ]}
+        />
+        {avatarUri ? (
+          <View style={[styles.tabAvatar, focused && { borderColor: accent, borderWidth: 2 }]}>
+            <Image source={{ uri: avatarUri }} style={styles.tabAvatarImg} />
+          </View>
+        ) : (
+          <IconCmp size={22} color={color} strokeWidth={focused ? 2.4 : 1.9} />
+        )}
+      </View>
       <Text
-        style={[
-          styles.tabLabelText,
-          { color },
-          focused && styles.tabLabelActive,
-        ]}
+        style={[styles.tabLabelText, { color }, focused && styles.tabLabelActive]}
         numberOfLines={1}
         ellipsizeMode="clip"
       >
@@ -197,22 +218,25 @@ const getTabBarStyle = (insets) => {
   }
 
   return {
-    height: 56 + bottomPadding,
+    height: 62 + bottomPadding,
     paddingTop: 8,
     paddingBottom: bottomPadding,
     paddingHorizontal: 8,
     backgroundColor: BRAND.white,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: BRAND.border,
+    // Elevated-sheet look: rounded top corners + soft upward shadow
+    // instead of the flat hairline border
+    borderTopWidth: 0,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: -6 },
+        shadowOpacity: 0.1,
+        shadowRadius: 16,
       },
       android: {
-        elevation: 12,
+        elevation: 16,
       },
     }),
   };
@@ -247,13 +271,7 @@ const UserTabNavigator = () => {
         component={UserHomeScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon
-              focused={focused}
-              iconFamily="MaterialCommunityIcons"
-              iconName="home-variant-outline"
-              focusedIconName="home-variant"
-              label="Home"
-            />
+            <TabIcon focused={focused} icon="home" label="Home" accent={VERIFIED_BLUE} />
           ),
         }}
       />
@@ -262,13 +280,7 @@ const UserTabNavigator = () => {
         component={UserServiceHistoryScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon
-              focused={focused}
-              iconFamily="MaterialCommunityIcons"
-              iconName="clipboard-text-clock-outline"
-              focusedIconName="clipboard-text-clock"
-              label="History"
-            />
+            <TabIcon focused={focused} icon="history" label="History" accent={VERIFIED_BLUE} />
           ),
         }}
       />
@@ -277,13 +289,7 @@ const UserTabNavigator = () => {
         component={SettingsScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon
-              focused={focused}
-              iconFamily="Ionicons"
-              iconName="settings-outline"
-              focusedIconName="settings"
-              label="Settings"
-            />
+            <TabIcon focused={focused} icon="settings" label="Settings" accent={VERIFIED_BLUE} />
           ),
         }}
       />
@@ -294,10 +300,9 @@ const UserTabNavigator = () => {
           tabBarIcon: ({ focused }) => (
             <TabIcon
               focused={focused}
-              iconFamily="MaterialCommunityIcons"
-              iconName="account-circle-outline"
-              focusedIconName="account-circle"
+              icon="profile"
               label="Profile"
+              accent={VERIFIED_BLUE}
               profilePicture={profilePicture}
             />
           ),
@@ -337,13 +342,7 @@ const ProviderTabNavigator = () => {
         component={ProviderHomeScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon
-              focused={focused}
-              iconFamily="MaterialCommunityIcons"
-              iconName="home-variant-outline"
-              focusedIconName="home-variant"
-              label="Home"
-            />
+            <TabIcon focused={focused} icon="home" label="Home" accent={BRAND.orange} />
           ),
         }}
       />
@@ -352,13 +351,7 @@ const ProviderTabNavigator = () => {
         component={ProviderServiceHistoryScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon
-              focused={focused}
-              iconFamily="MaterialCommunityIcons"
-              iconName="hammer-wrench"
-              focusedIconName="hammer-wrench"
-              label="Jobs"
-            />
+            <TabIcon focused={focused} icon="jobs" label="Jobs" accent={BRAND.orange} />
           ),
         }}
       />
@@ -367,13 +360,7 @@ const ProviderTabNavigator = () => {
         component={SettingsScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon
-              focused={focused}
-              iconFamily="Ionicons"
-              iconName="settings-outline"
-              focusedIconName="settings"
-              label="Settings"
-            />
+            <TabIcon focused={focused} icon="settings" label="Settings" accent={BRAND.orange} />
           ),
         }}
       />
@@ -384,10 +371,9 @@ const ProviderTabNavigator = () => {
           tabBarIcon: ({ focused }) => (
             <TabIcon
               focused={focused}
-              iconFamily="MaterialCommunityIcons"
-              iconName="account-circle-outline"
-              focusedIconName="account-circle"
+              icon="profile"
               label="Profile"
+              accent={BRAND.orange}
               profilePicture={profilePicture}
             />
           ),
@@ -697,39 +683,47 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   
-  // Tab Bar Styles - Production Grade
+  // Tab Bar Styles — modern elevated bar with pill highlight
   tabIconWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
     width: (SCREEN_WIDTH - 16) / 4,
     paddingTop: 2,
   },
+  // Fixed slot the icon sits in; the animated pill fills it behind the icon
+  tabPillSlot: {
+    width: 52,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabPill: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 15,
+  },
   tabLabelText: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginTop: 4,
+    fontSize: 10.5,
+    fontWeight: '600',
+    marginTop: 3,
     letterSpacing: 0.2,
     textAlign: 'center',
   },
   tabLabelActive: {
-    fontWeight: '600',
+    fontWeight: '700',
   },
   tabAvatar: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 25,
+    height: 25,
+    borderRadius: 12.5,
     borderWidth: 1.5,
     borderColor: BRAND.gray,
     overflow: 'hidden',
   },
-  tabAvatarFocused: {
-    borderColor: VERIFIED_BLUE,
-    borderWidth: 2,
-  },
   tabAvatarImg: {
     width: '100%',
     height: '100%',
-    borderRadius: 13,
+    borderRadius: 12.5,
   },
 });
 
