@@ -133,6 +133,8 @@
 	<string>Fixhomi</string>
 	<key>FacebookAutoLogAppEventsEnabled</key>
 	<true/>
+	<key>FacebookAdvertiserIDCollectionEnabled</key>
+	<false/>
 	<key>SKAdNetworkItems</key>
 	<array>
 		<dict>

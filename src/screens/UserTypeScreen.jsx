@@ -13,8 +13,11 @@ import {  View,
   StyleSheet,
   Modal,
   Pressable,
-  Platform
+  Platform,
+  Image,
+  useWindowDimensions
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -45,6 +48,10 @@ const UserTypeScreen = ({ navigation }) => {
   const { selectUserType } = useApp();
   const { t, language, setLanguage, languages } = useLanguage();
   const [showLangPicker, setShowLangPicker] = React.useState(false);
+  const { height: windowHeight } = useWindowDimensions();
+
+  // Cap hero height so logo + cards + footer still fit on short screens
+  const heroHeight = Math.min(Math.round(windowHeight * 0.28), 258);
 
   // Show "Exit App?" confirmation on Android back button press
   useExitConfirmation();
@@ -66,6 +73,17 @@ const UserTypeScreen = ({ navigation }) => {
   const currentLang = languages.find(l => l.code === language);
 
   return (
+    <LinearGradient
+      colors={['#FFF1E5', '#FFFFFF', '#E9F1FA']}
+      locations={[0, 0.52, 1]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradient}
+    >
+      {/* Soft brand-color glows — plain Views, cheap on low-end devices */}
+      <View pointerEvents="none" style={styles.glowPrimary} />
+      <View pointerEvents="none" style={styles.glowSecondary} />
+
     <SafeAreaView style={styles.container}>
       {/* Language Selector - Top Right */}
       <TouchableOpacity
@@ -90,6 +108,14 @@ const UserTypeScreen = ({ navigation }) => {
             {t('userType.chooseHow')}
           </Text>
         </View>
+
+        {/* Hero Illustration */}
+        <Image
+          source={require('../assets/hero_home_services.png')}
+          style={[styles.heroImage, { height: heroHeight, width: Math.round(heroHeight * 1.25) }]}
+          resizeMode="contain"
+          accessible={false}
+        />
 
         {/* Selection Cards */}
         <View style={styles.cardsContainer}>
@@ -179,16 +205,30 @@ const UserTypeScreen = ({ navigation }) => {
         </Pressable>
       </Modal>
     </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   // ── Layout ──
-  container: { flex: 1, backgroundColor: COLORS.background },
+  gradient: { flex: 1 },
+  container: { flex: 1, backgroundColor: 'transparent' },
   content: { flex: 1, paddingHorizontal: 24, justifyContent: 'center' },
 
+  // ── Background glows (user orange + provider blue mixing) ──
+  glowPrimary: {
+    position: 'absolute', top: -70, right: -70,
+    width: 240, height: 240, borderRadius: 120,
+    backgroundColor: 'rgba(246,124,22,0.07)',
+  },
+  glowSecondary: {
+    position: 'absolute', bottom: -80, left: -80,
+    width: 260, height: 260, borderRadius: 130,
+    backgroundColor: 'rgba(43,118,188,0.07)',
+  },
+
   // ── Header ──
-  header: { alignItems: 'center', marginBottom: 44 },
+  header: { alignItems: 'center', marginBottom: 12 },
   logoContainer: {
     width: 80, height: 80, borderRadius: 22, backgroundColor: COLORS.white,
     justifyContent: 'center', alignItems: 'center', marginBottom: 14,
@@ -201,6 +241,13 @@ const styles = StyleSheet.create({
   logo: { fontSize: 24, fontWeight: '800', color: COLORS.primary, marginBottom: 6, letterSpacing: 0.3 },
   title: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 6 },
   subtitle: { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 21, paddingHorizontal: 12 },
+
+  // ── Hero Illustration ──
+  // Edges are alpha-feathered in the asset itself so it melts into the gradient
+  heroImage: {
+    alignSelf: 'center',
+    marginBottom: 10,
+  },
 
   // ── Cards ──
   cardsContainer: { gap: 14 },
@@ -231,7 +278,7 @@ const styles = StyleSheet.create({
   chevronSecondary: { backgroundColor: 'rgba(43,118,188,0.06)' },
 
   // ── Footer ──
-  footer: { marginTop: 44, alignItems: 'center' },
+  footer: { marginTop: 24, alignItems: 'center' },
   footerText: { fontSize: 13, color: COLORS.muted, textAlign: 'center', lineHeight: 19 },
 
   // ── Language Button ──

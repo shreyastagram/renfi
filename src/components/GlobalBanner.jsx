@@ -239,7 +239,10 @@ const GlobalBanner = () => {
 
     const removeStatus = addEventListener('request:status', (data) => {
       const statusMap = { accepted: 'accepted', completed: 'completed', cancelled: 'cancelled', rejected: 'rejected' };
-      const bannerType = statusMap[data.status] || 'new_request';
+      // Unmapped statuses (in-progress/arrived/…) use 'status_update' so
+      // trackStatusEvent never mistakes them for a new job request; the banner
+      // renders identically (BANNER_CONFIG falls back to new_request styling).
+      const bannerType = statusMap[data.status] || 'status_update';
       showBannerDeduped({ ...data, title: `📊 Request ${(data.status || 'updated').charAt(0).toUpperCase() + (data.status || 'updated').slice(1)}`, body: `Your request status has been updated to ${data.status || 'unknown'}.`, bannerType });
     });
 

@@ -770,6 +770,11 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
             result = await acceptRequestAsProvider(job._id, providerId, job.userDetails?.email || '');
           }
           if (result.success) {
+            // Analytics: emergency/event accepts bypass the instrumented
+            // traditional-service function — log them here.
+            if (job.isEmergencyService || job.isEventService) {
+              Analytics.track(EV.JOB_REQUEST_ACCEPTED, { role: 'provider', request_id: String(job._id) });
+            }
             // Start location tracking only for emergency (immediate) or services within 45 min
             const category = job.isEmergencyService ? 'emergency' : job.isEventService ? 'event' : 'traditional';
             const serviceTime = job.scheduledDateTime || job.eventDate || job.serviceDate;
@@ -825,15 +830,16 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
         setRejectingId(job._id);
         try {
           let result;
+          // ok && not explicitly failed — an HTTP 200 with {success:false} is a failure
           if (job.isEmergencyService) {
             const r = await authFetch(`${NODE_BASE_URL}/api/emergency-services/${job._id}/provider-reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ providerId }) });
-            result = await r.json(); result.success = result.success || r.ok;
+            result = await r.json(); result.success = result.success === true || (r.ok && result.success !== false);
           } else if (job.isEventService) {
             const r = await authFetch(`${NODE_BASE_URL}/api/event-services/${job._id}/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ providerId }) });
-            result = await r.json(); result.success = result.success || r.ok;
+            result = await r.json(); result.success = result.success === true || (r.ok && result.success !== false);
           } else {
             const r = await authFetch(`${NODE_BASE_URL}/api/traditional-services/${job._id}/provider-reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ providerId }) });
-            result = await r.json(); result.success = result.success || r.ok;
+            result = await r.json(); result.success = result.success === true || (r.ok && result.success !== false);
           }
           if (result.success) {
             Analytics.track(EV.JOB_REQUEST_REJECTED, { role: 'provider', request_id: String(job._id) });
@@ -918,7 +924,19 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
       } else {
         result = await verifyCompletionOtp(job._id, otp);
       }
-      if (result.success) { stopRequestLocationTracking(job._id); setOtpModalVisible(false); setSelectedJob(null); dialog(t('providerHistory.serviceCompleted'), t('providerHistory.serviceCompletedMsg')); fetchJobs(false); }
+      if (result.success) {
+        // Analytics: emergency/event completions bypass the instrumented
+        // traditional-service function; also flag repeat customers.
+        if (job.isEmergencyService || job.isEventService) {
+          Analytics.track(EV.SERVICE_COMPLETED, { role: 'provider', request_id: String(job._id) });
+        }
+        if (job.userDetails?.isRepeatCustomer === true) {
+          onceEver(`repeat_served:${job._id}`).then((first) => {
+            if (first) Analytics.track(EV.REPEAT_CUSTOMER_SERVED, { role: 'provider', request_id: String(job._id) });
+          });
+        }
+        stopRequestLocationTracking(job._id); setOtpModalVisible(false); setSelectedJob(null); dialog(t('providerHistory.serviceCompleted'), t('providerHistory.serviceCompletedMsg')); fetchJobs(false);
+      }
       else if (result.code === 'OTP_EXPIRED') setOtpError(t('providerHistory.otpExpiredError'));
       else setOtpError(result.error || result.message || t('providerHistory.invalidOtp'));
     } catch (e) { setOtpError(e.message || 'Failed to verify OTP.'); }

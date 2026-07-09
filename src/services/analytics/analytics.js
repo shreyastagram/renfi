@@ -25,10 +25,13 @@ let _sdk = null; // { logger, settings } | false (unavailable)
 const getSdk = () => {
   if (_sdk !== null) return _sdk;
   try {
-    // Lazy require: keeps the app alive even if the native module is absent
+    // Lazy require: keeps the app alive even if the package is absent.
+    // The JS wrapper always exposes logEvent, so also probe the NATIVE module
+    // (missing when pods/gradle haven't linked it) to avoid caching a
+    // half-working handle.
+    const { NativeModules } = require('react-native');
     const { AppEventsLogger, Settings } = require('react-native-fbsdk-next');
-    // Native module missing (e.g. pods not installed yet) → logger methods absent
-    if (!AppEventsLogger || typeof AppEventsLogger.logEvent !== 'function') {
+    if (!AppEventsLogger || !NativeModules.FBAppEventsLogger) {
       _sdk = false;
     } else {
       _sdk = { logger: AppEventsLogger, settings: Settings };
@@ -47,11 +50,15 @@ const sanitizeParams = (params) => {
   for (const [key, raw] of Object.entries(params)) {
     if (count >= 25) break; // Meta hard limit: 25 parameters per event
     if (raw === null || raw === undefined) continue;
+    if (typeof raw === 'number' && !isFinite(raw)) continue; // drop NaN/Infinity
     const k = String(key).slice(0, 40);
     let v;
-    if (typeof raw === 'number' && isFinite(raw)) v = raw;
+    if (typeof raw === 'number') v = raw;
     else if (typeof raw === 'boolean') v = raw ? 'true' : 'false';
-    else v = String(raw).slice(0, 100);
+    else if (typeof raw === 'object') {
+      // Avoid '[object Object]' garbage — serialize, or drop if unserializable
+      try { v = JSON.stringify(raw).slice(0, 100); } catch (e) { continue; }
+    } else v = String(raw).slice(0, 100);
     out[k] = v;
     count++;
   }

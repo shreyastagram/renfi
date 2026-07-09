@@ -388,10 +388,11 @@ export const syncAppleProviderToMongoDB = async (providerData, accessToken = nul
       config
     );
 
-    // Analytics: provider registered with a referral code (referred side)
+    // Analytics: provider registered with a referral code (referred side).
+    // Keyed per account; backend applies the code fire-and-forget (see docs).
     if (providerData.referralCode) {
       const { Analytics, EV, onceEver } = require('./analytics');
-      onceEver(`referral_applied:${String(providerData.referralCode).trim()}`).then((first) => {
+      onceEver(`referral_applied:${providerData.email || providerData.referralCode}`).then((first) => {
         if (first) Analytics.track(EV.REFERRAL_SUCCESS, { side: 'referred', role: 'provider' });
       });
     }

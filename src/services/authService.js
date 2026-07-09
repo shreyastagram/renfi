@@ -225,8 +225,14 @@ export const registerProvider = async (providerData) => {
 
     // Analytics: provider registered WITH a referral code → the referral
     // converted on the referred side (referrer-side needs backend/CAPI).
-    if (providerData.referralCode) {
-      onceEver(`referral_applied:${String(providerData.referralCode).trim()}`).then((first) => {
+    // Gated on REGISTRATION_SUCCESS — the already-exists auto-login path never
+    // processes the code. Keyed per account so two accounts on one device
+    // using the same code both count. Known limit: the backend applies the
+    // code fire-and-forget, so an invalid/self code can still over-count
+    // (documented in docs/META_APP_EVENTS.md).
+    if (providerData.referralCode && response.data?.code === 'REGISTRATION_SUCCESS') {
+      const refKey = `referral_applied:${providerData.email || providerData.referralCode}`;
+      onceEver(refKey).then((first) => {
         if (first) Analytics.track(EV.REFERRAL_SUCCESS, { side: 'referred', role: 'provider' });
       });
     }

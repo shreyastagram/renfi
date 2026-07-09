@@ -31,6 +31,7 @@ import usePersistedAuthFlow, { AUTH_MODES } from '../hooks/usePersistedAuthFlow'
 import { applyReferralCode } from '../services/referralService';
 import { NODE_BASE_URL, JAVA_BASE_URL, ENDPOINTS } from '../config/api';
 import { useApp } from '../context/AppContext';
+import { Analytics, EV, onceEver } from '../services/analytics';
 
 /**
  * Update the new user's name in BOTH databases with an explicit token.
@@ -115,6 +116,24 @@ const UserAuthScreen = ({ navigation }) => {
     // while the welcome popup is open doesn't restore a consumed-OTP screen.
     setOtpData(null);
     setAuthMode(AUTH_MODES.UNIFIED);
+
+    // Analytics: the account already exists server-side at this point. Log the
+    // registration NOW (deduped by the same key handleAuthSuccess uses) so a
+    // user who kills the app on the Welcome popup is still counted — otherwise
+    // their next auth returns isNewUser=false and the conversion is lost.
+    const regId = authData?.userId || authData?.javaUserId || authData?.mongoId;
+    if (regId) {
+      onceEver(`registered:${regId}`).then((first) => {
+        if (first) {
+          Analytics.setUser(regId);
+          Analytics.track(EV.USER_REGISTERED, {
+            role: 'user',
+            method: authData?.authMethod || 'unknown',
+          });
+          Analytics.flush();
+        }
+      });
+    }
     let prefill = '';
     try {
       const code = await AsyncStorage.getItem('pendingReferralCode');

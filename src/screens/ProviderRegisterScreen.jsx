@@ -446,8 +446,14 @@ const ProviderRegisterScreen = ({ navigation }) => {
           showAlert(t('auth.accountFoundLoggedIn'), 'info');
         }
 
-        // Process successful auth
-        const authProcessed = await handleAuthSuccess(data);
+        // Process successful auth. The register endpoint response carries no
+        // isNewUser flag — derive it from the response code so a genuine
+        // registration logs user_registered (not login_success) in analytics.
+        const authProcessed = await handleAuthSuccess({
+          ...data,
+          isNewUser: data.code === AUTH_CODES.REGISTRATION_SUCCESS,
+          authMethod: 'email',
+        });
 
         if (!authProcessed) {
           showAlert(t('auth.registrationSessionFail'), 'warning');

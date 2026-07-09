@@ -376,6 +376,7 @@ const UserHomeScreen = ({ navigation, route }) => {
   const [step, setStep] = useState('select');
   const [selectedService, setSelectedService] = useState(null);
   const [selectedDateTime, setSelectedDateTime] = useState(null); // Combined date & time
+  const scheduleTrackedRef = useRef(false); // analytics: one schedule_selected per booking flow
   const [serviceLocation, setServiceLocation] = useState(null); // For "Book for Others"
   const [serviceDescription, setServiceDescription] = useState(''); // Optional description
   const [createdRequest, setCreatedRequest] = useState(null);
@@ -815,6 +816,10 @@ const UserHomeScreen = ({ navigation, route }) => {
               setSelectedService(service);
               setStep('date');
               animateSheetTo(safeMaxHeight);
+              // Analytics: same funnel entry as the normal path below
+              scheduleTrackedRef.current = false;
+              Analytics.track(EV.SERVICE_SELECTED, { role: 'user', service_type: service.id });
+              Analytics.track(EV.BOOKING_STARTED, { role: 'user', service_type: service.id, entry: 'home' });
             },
           },
         ]
@@ -827,15 +832,20 @@ const UserHomeScreen = ({ navigation, route }) => {
     animateSheetTo(safeMaxHeight);
 
     // Analytics: category chosen (all gates passed) — this also begins the
-    // inline booking flow on this screen.
+    // inline booking flow on this screen. Reset the per-flow schedule guard.
+    scheduleTrackedRef.current = false;
     Analytics.track(EV.SERVICE_SELECTED, { role: 'user', service_type: service.id });
     Analytics.track(EV.BOOKING_STARTED, { role: 'user', service_type: service.id, entry: 'home' });
   };
 
-  // Handle date/time selection from DateTimePicker
+  // Handle date/time selection from DateTimePicker.
+  // The picker calls this on EVERY tap (date, time slot, quick-select) — track
+  // schedule_selected once per booking flow, or it fires 2-N times per booking
+  // and inflates the Meta standard `Schedule` optimization signal.
   const handleDateTimeChange = useCallback((dateTime) => {
     setSelectedDateTime(dateTime);
-    if (dateTime?.date) {
+    if (dateTime?.date && !scheduleTrackedRef.current) {
+      scheduleTrackedRef.current = true;
       Analytics.track(EV.SCHEDULE_SELECTED, {
         role: 'user',
         is_instant: dateTime.isInstant ? 'true' : 'false',

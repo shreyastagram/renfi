@@ -779,10 +779,12 @@ export const AppProvider = ({ children }) => {
       console.log('✅ [AppContext] Auth state updated successfully');
 
       // ── Analytics: registration vs login (all auth methods converge here;
-      // isNewUser is set by every interactive auth call site) ──
-      Analytics.setUser(unifiedId || authData.userId || authData.email);
+      // isNewUser is set by every interactive auth call site). unifiedId is
+      // guaranteed non-empty at this point (hard-return above) — never send
+      // email/PII as the Meta user ID.
+      Analytics.setUser(unifiedId);
       if (authData.isNewUser === true) {
-        const regKey = `registered:${unifiedId || authData.email}`;
+        const regKey = `registered:${unifiedId}`;
         onceEver(regKey).then((first) => {
           if (first) {
             Analytics.track(EV.USER_REGISTERED, {

@@ -124,10 +124,44 @@ Rules:
 5. Until console config is complete, events are sent but may be rejected/未attributed
    server-side — the app is safe either way (silent no-op design).
 
-## 7. Issues Log
+## 7. Production-readiness audit (2026-07-09)
+
+Four-agent audit (auth flows, call sites, native config, core module) + fixes applied same day:
+
+| Severity | Finding | Fix |
+|---|---|---|
+| Critical | `DocumentVerificationScreen` used `Analytics` without importing it → runtime crash on document submit | import added; systematic import check across all 18 instrumented files |
+| High | Email/password provider registration logged `login_success` (response carries no `isNewUser`) | derive `isNewUser` from `REGISTRATION_SUCCESS` code + `authMethod:'email'` |
+| Medium | Registration lost if app killed on Welcome popup | `user_registered` now fires (deduped) when the popup opens — account already exists server-side |
+| Medium | `schedule_selected` fired on EVERY picker tap (inflated Meta `Schedule` signal) | once-per-booking-flow ref guard (both booking paths) |
+| Medium | "Continue Anyway" (GPS-off) booking path skipped `service_selected`/`booking_started` | tracks added to that path |
+| Medium | Reject success coerced `success \|\| response.ok` → event (and success UI) on HTTP-200 failure | `success === true \|\| (ok && success !== false)` in all 6 branches |
+| Medium | Emergency/event accepts + completions logged nothing (inline fetches bypass instrumented service) | tracked at UI success points for non-traditional branches |
+| Medium | Provider `referral_success` fired on already-exists auto-login; deduped by code not account | gated on `REGISTRATION_SUCCESS`; keyed per account email |
+| Medium | iOS advertiser-ID collection defaulted ON with no ATT prompt (App Review posture) | `FacebookAdvertiserIDCollectionEnabled=false` (Info.plist + Android meta-data) |
+| Low | Detail-screen Directions button didn't log `navigation_started` | added (deduped per job) |
+| Low | Socket `request:status` unmapped statuses defaulted to `new_request` type → could log `job_request_received` | default changed to `status_update` (banner UI unchanged) |
+| Low | Whole-submit retry re-logged already-uploaded doc categories | `oncePerSession` per category |
+| Low | Dead email fallback in `Analytics.setUser` (PII hygiene) | removed — only opaque unified ID is sent |
+| Low | Param sanitizer produced `'[object Object]'` / `'NaN'` | objects JSON-stringified, non-finite numbers dropped |
+| Low | SDK-absent detection probed the JS wrapper (always present) | probes `NativeModules.FBAppEventsLogger` |
+
+**Verified clean by audit:** fbsdk-next API usage (logEvent/logPurchase/setUserID/AppEvents
+constants — checked against actual 13.4.3 source), dedupe race-safety, offline persistence
+(native SDK queues + flushes), zero SDK imports outside the module, zero raw event strings,
+`__DEV__`-gated logging, no secrets beyond App ID + client token, AppDelegate ordering,
+privacy manifests (FBSDK ships its own), APP_OPENED once per cold start.
+
+**Deferred (documented, not bugs):** pin `facebookSdkVersion` in `android/build.gradle` ext
+(currently floats on `18.+`); declare AD_ID / advertising data in **Play Console Data Safety**;
+run one minified **release** build per platform and confirm events in Events Manager (the FB
+SDK has never been exercised in a release build); `method` param is `'unknown'` on a few legacy
+login paths; referrer-side referral + iOS subscription still need backend/CAPI.
+
+## 8. Issues Log
 
 > Add future bugs/observations here as dated entries.
 
 | Date | Issue | Status | Notes |
 |---|---|---|---|
-| — | — | — | — |
+| 2026-07-09 | Initial production audit — 15 findings | ✅ all fixed | see §7 |

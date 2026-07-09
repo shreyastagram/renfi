@@ -1059,6 +1059,12 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             }
             clearTimeout(timeoutId);
             if (result.success) {
+              // Analytics: emergency/event accepts bypass the instrumented
+              // traditional-service function — log them here (traditional path
+              // already logs inside acceptRequestAsProvider).
+              if (isEmergencyReq || isEventReq) {
+                Analytics.track(EV.JOB_REQUEST_ACCEPTED, { role: 'provider', request_id: String(request._id) });
+              }
               // Start location tracking immediately on acceptance
               const cat = isEmergencyReq ? 'emergency' : isEventReq ? 'event' : 'traditional';
               startRequestLocationTracking(request._id, providerId, (loc) => {
@@ -1119,18 +1125,19 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           setRejecting(true);
           try {
             let result;
+            // ok && not explicitly failed — an HTTP 200 with {success:false} is a failure
             if (isEmergencyReq) {
               const response = await authFetch(`${NODE_BASE_URL}/api/emergency-services/${request._id}/provider-reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ providerId }) });
               result = await response.json();
-              result.success = result.success || response.ok;
+              result.success = result.success === true || (response.ok && result.success !== false);
             } else if (isEventReq) {
               const response = await authFetch(`${NODE_BASE_URL}/api/event-services/${request._id}/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ providerId }) });
               result = await response.json();
-              result.success = result.success || result.statusCode === 200 || response.ok;
+              result.success = result.success === true || (response.ok && result.success !== false);
             } else {
               const response = await authFetch(`${NODE_BASE_URL}/api/traditional-services/${request._id}/provider-reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ providerId }) });
               result = await response.json();
-              result.success = result.success || response.ok;
+              result.success = result.success === true || (response.ok && result.success !== false);
             }
             if (result.success) {
               Analytics.track(EV.JOB_REQUEST_REJECTED, { role: 'provider', request_id: String(request._id) });
@@ -1216,7 +1223,12 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         result = await verifyCompletionOtp(request._id, enteredOtp);
       }
       if (result.success) {
-        // Analytics: repeat customer served — backend-computed flag on the request
+        // Analytics: emergency/event completions bypass the instrumented
+        // traditional-service function — log them here.
+        if (isEmergencyServiceRequest || isEventServiceRequest) {
+          Analytics.track(EV.SERVICE_COMPLETED, { role: 'provider', request_id: String(request._id) });
+        }
+        // Repeat customer served — backend-computed flag on the request
         if (request?.userDetails?.isRepeatCustomer === true) {
           onceEver(`repeat_served:${request._id}`).then((first) => {
             if (first) Analytics.track(EV.REPEAT_CUSTOMER_SERVED, { role: 'provider', request_id: String(request._id) });
@@ -1423,6 +1435,10 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               lat = request.eventLocation.latitude; lng = request.eventLocation.longitude;
             }
             if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+              // Analytics: provider navigation to the customer — once per job
+              onceEver(`nav_started:${request._id}`).then((first) => {
+                if (first) Analytics.track(EV.NAVIGATION_STARTED, { role: 'provider', request_id: String(request._id) });
+              });
               const label = encodeURIComponent(request.serviceAddress || request.location?.address || 'Service Location');
               const url = Platform.select({ ios: `maps:0,0?q=${lat},${lng}(${label})`, android: `google.navigation:q=${lat},${lng}` });
               Linking.openURL(url).catch(() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`));

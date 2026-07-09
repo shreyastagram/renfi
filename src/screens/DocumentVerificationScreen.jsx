@@ -29,6 +29,7 @@ import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
 import { pick, types, keepLocalCopy } from '@react-native-documents/picker';
 import { useApp } from '../context/AppContext';
+import { Analytics, EV, oncePerSession } from '../services/analytics';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { Icon } from '../components';
@@ -657,12 +658,16 @@ const DocumentVerificationScreen = ({ navigation }) => {
           throw new Error(result.error || 'Submission failed');
         }
 
-        // Analytics: this category's documents were accepted by the backend
-        Analytics.track(EV.DOCUMENT_UPLOADED, {
-          role: 'provider',
-          service_category: serviceCategory,
-          document_count: docsArray.length,
-        });
+        // Analytics: this category's documents were accepted by the backend.
+        // oncePerSession: a whole-submit Retry after a later category fails
+        // re-posts already-succeeded categories — don't double-count them.
+        if (oncePerSession(`doc_uploaded:${serviceCategory}`)) {
+          Analytics.track(EV.DOCUMENT_UPLOADED, {
+            role: 'provider',
+            service_category: serviceCategory,
+            document_count: docsArray.length,
+          });
+        }
       }
 
       dialog(

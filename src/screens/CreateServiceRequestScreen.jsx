@@ -15,7 +15,7 @@
  * 9. User can book provider (sends request to provider)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {  View,
   Text,
   StyleSheet,
@@ -110,6 +110,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
   
   // Date picker state
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const scheduleTrackedRef = useRef(false); // analytics: one schedule_selected per screen visit
   
   // Saved address selection state
   const [showAddressModal, setShowAddressModal] = useState(false);
@@ -607,7 +608,11 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
       onPress={() => {
         setServiceDate(date.value);
         setShowDatePicker(false);
-        Analytics.track(EV.SCHEDULE_SELECTED, { role: 'user', entry: 'create_screen' });
+        // Track once per visit — re-picking a different date is the same selection act
+        if (!scheduleTrackedRef.current) {
+          scheduleTrackedRef.current = true;
+          Analytics.track(EV.SCHEDULE_SELECTED, { role: 'user', entry: 'create_screen' });
+        }
       }}
     >
       <Text
