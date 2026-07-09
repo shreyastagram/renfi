@@ -22,6 +22,7 @@ import { Platform } from 'react-native';
 import { NODE_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
 import { getRazorpayKeyId, getEnvironmentName } from '../config/environment';
+import { Analytics, EV } from './analytics';
 import { getTokens } from '../utils/storage';
 
 // Platform-gated import: react-native-razorpay has Android-only native code.
@@ -499,6 +500,22 @@ export const subscribeToplan = async (planId, onStatusUpdate = () => {}) => {
     }
     
     // Success!
+    // Analytics: payment verified server-side (Android/Razorpay only — the iOS
+    // web-payment flow never reaches this code; see docs/META_APP_EVENTS.md).
+    // Razorpay amounts are in paise → convert to rupees for value optimization.
+    {
+      const amountRupees = Number(orderResult.order?.amount || 0) / 100;
+      const currency = orderResult.order?.currency || 'INR';
+      Analytics.track(EV.SUBSCRIPTION_COMPLETED, {
+        role: 'provider',
+        plan_id: String(planId),
+        amount: amountRupees,
+        currency,
+      });
+      Analytics.trackPurchase(amountRupees, currency, { plan_id: String(planId) });
+      Analytics.flush(); // highest-value conversion — push immediately
+    }
+
     return {
       success: true,
       subscription: verifyResult.subscription,

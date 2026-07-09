@@ -23,6 +23,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
+import { Analytics, EV } from '../services/analytics';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
@@ -126,9 +127,14 @@ const ReferralScreen = ({ navigation }) => {
   const handleShare = async () => {
     if (!referralCode) return;
     try {
-      await Share.share({
+      const result = await Share.share({
         message: `Join Fixhomi - India's home services app!\n\nUse my referral code ${referralCode} to get 50 bonus points when you sign up!\n\nDownload now: https://fixhomi.com/ref/${referralCode}`,
       });
+      // iOS reports dismissal; Android always resolves as sharedAction.
+      // Only log when the share sheet wasn't explicitly dismissed.
+      if (result?.action !== Share.dismissedAction) {
+        Analytics.track(EV.REFERRAL_SHARED, { role: userType || 'user' });
+      }
     } catch {}
   };
 

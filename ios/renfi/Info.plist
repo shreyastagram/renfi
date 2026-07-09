@@ -125,5 +125,24 @@
 	<string>eyJhbGciOiJFZERTQSIsImtpZCI6ImVkMjU1MTktbWFpbi12MSJ9.eyJvcyI6ImlvcyIsImFwcF9pZCI6ImNvbS5maXhob21pLmFwcCIsIm9yZGVyX251bWJlciI6MTU4ODAsInJlbmV3YWxfdXJsIjoiaHR0cHM6Ly9zaG9wLnRyYW5zaXN0b3Jzb2Z0LmNvbS9jYXJ0LzE2NTA3ODYxNTA1OjE_bm90ZT0xMDU2MSIsImN1c3RvbWVyX2lkIjo5NjA0LCJwcm9kdWN0IjoicmVhY3QtbmF0aXZlLWJhY2tncm91bmQtZ2VvbG9jYXRpb24iLCJrZXlfdmVyc2lvbiI6MSwiYWxsb3dlZF9zdWZmaXhlcyI6WyIuZGV2IiwiLmRldmVsb3BtZW50IiwiLnN0YWdpbmciLCIuc3RhZ2UiLCIucWEiLCIudWF0IiwiLnRlc3QiLCIuZGVidWciXSwibWF4X2J1aWxkX3N0YW1wIjoyMDI3MDUwMSwiZ3JhY2VfYnVpbGRzIjowLCJlbnRpdGxlbWVudHMiOlsiY29yZSJdLCJpYXQiOjE3NzUwNzEzODJ9.iAsRKI-YNTsQcdZNC4Icr4kCYt0JERPpVTePINJFf4Fdgvf6BScajO5gg8SA3e3sp8U4NLvYoMvUzwIE1l68Bg</string>
 	<key>MBXAccessToken</key>
 	<string>pk.eyJ1IjoiZml4aG9taSIsImEiOiJjbWY2Zjg1MTUwMnhmMm1zNnQxaTdkcmtnIn0.AtF-wG4vaenzSf0Ff9aYBg</string>
+	<key>FacebookAppID</key>
+	<string>1313159510169603</string>
+	<key>FacebookClientToken</key>
+	<string>f4006a48dbb2a05589073394e01a74f0</string>
+	<key>FacebookDisplayName</key>
+	<string>Fixhomi</string>
+	<key>FacebookAutoLogAppEventsEnabled</key>
+	<true/>
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>v9wttpbfk9.skadnetwork</string>
+		</dict>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>n38lu8286q.skadnetwork</string>
+		</dict>
+	</array>
 </dict>
 </plist>

@@ -33,6 +33,7 @@ import Geolocation from '@react-native-community/geolocation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useApp } from '../context/AppContext';
+import { Analytics, EV } from '../services/analytics';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import {
@@ -81,6 +82,8 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
   useEffect(() => {
     if (!existingRequest) {
       ensureBookingProfileComplete();
+      // Analytics: booking flow entered via the dedicated create screen
+      Analytics.track(EV.BOOKING_STARTED, { role: 'user', entry: 'create_screen' });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -160,6 +163,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
     });
     setUsingCurrentLocation(false);
     setShowAddressModal(false);
+    Analytics.track(EV.LOCATION_SELECTED, { role: 'user', source: 'saved_address' });
   };
   
   /**
@@ -603,6 +607,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
       onPress={() => {
         setServiceDate(date.value);
         setShowDatePicker(false);
+        Analytics.track(EV.SCHEDULE_SELECTED, { role: 'user', entry: 'create_screen' });
       }}
     >
       <Text

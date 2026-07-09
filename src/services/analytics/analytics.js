@@ -1,0 +1,168 @@
+/**
+ * Meta App Events — Core Analytics Service
+ *
+ * The ONLY file that talks to the Meta SDK. Screens/services import
+ * `Analytics` + `EV` from 'src/services/analytics' and never touch the SDK.
+ *
+ * Guarantees:
+ * - Never crashes the app: SDK is lazily required; every call is try/caught
+ *   and silently no-ops if the native module is absent or unconfigured.
+ * - Meta constraints enforced: event names ≤40 chars; ≤25 params per event;
+ *   param values coerced to string/number; nullish params dropped.
+ * - Standard-event dual logging (STANDARD_MAP) for ad-delivery optimization.
+ * - __DEV__ echo so events are visible in Metro logs during development.
+ *
+ * Offline/retry: the Meta SDK persists events locally and flushes in batches
+ * automatically (default flush behavior) — no custom retry queue is needed.
+ *
+ * Docs: docs/META_APP_EVENTS.md
+ */
+
+import { STANDARD_MAP } from './events';
+
+// Lazy, crash-proof SDK access. Resolved once.
+let _sdk = null; // { logger, settings } | false (unavailable)
+const getSdk = () => {
+  if (_sdk !== null) return _sdk;
+  try {
+    // Lazy require: keeps the app alive even if the native module is absent
+    const { AppEventsLogger, Settings } = require('react-native-fbsdk-next');
+    // Native module missing (e.g. pods not installed yet) → logger methods absent
+    if (!AppEventsLogger || typeof AppEventsLogger.logEvent !== 'function') {
+      _sdk = false;
+    } else {
+      _sdk = { logger: AppEventsLogger, settings: Settings };
+    }
+  } catch (e) {
+    _sdk = false;
+  }
+  return _sdk;
+};
+
+/** Coerce params to Meta-safe shape: string/number values, ≤25 keys. */
+const sanitizeParams = (params) => {
+  if (!params || typeof params !== 'object') return undefined;
+  const out = {};
+  let count = 0;
+  for (const [key, raw] of Object.entries(params)) {
+    if (count >= 25) break; // Meta hard limit: 25 parameters per event
+    if (raw === null || raw === undefined) continue;
+    const k = String(key).slice(0, 40);
+    let v;
+    if (typeof raw === 'number' && isFinite(raw)) v = raw;
+    else if (typeof raw === 'boolean') v = raw ? 'true' : 'false';
+    else v = String(raw).slice(0, 100);
+    out[k] = v;
+    count++;
+  }
+  return count > 0 ? out : undefined;
+};
+
+const devLog = (...args) => {
+  if (__DEV__) console.log('📊 [Analytics]', ...args);
+};
+
+const Analytics = {
+  /**
+   * Initialize the SDK from JS (native side auto-inits via manifest/AppDelegate;
+   * this is a belt-and-braces call, safe to invoke multiple times).
+   */
+  init() {
+    const sdk = getSdk();
+    if (!sdk) {
+      devLog('SDK unavailable — analytics disabled (no-op mode)');
+      return;
+    }
+    try {
+      sdk.settings?.initializeSDK?.();
+      devLog('Meta SDK initialized');
+    } catch (e) {
+      devLog('init failed (non-fatal):', e?.message);
+    }
+  },
+
+  /**
+   * Log an event from the EV catalog. Fire ONLY after the action succeeded.
+   * Also dual-logs the mapped Meta standard event when one exists.
+   *
+   * @param {string} eventName - value from EV (never a raw string literal)
+   * @param {Object} [params] - flat key/value params (string|number|boolean)
+   */
+  track(eventName, params) {
+    if (!eventName || typeof eventName !== 'string') return;
+    const name = eventName.slice(0, 40); // Meta limit: 40-char event names
+    const safeParams = sanitizeParams(params);
+    devLog(name, safeParams || '');
+
+    const sdk = getSdk();
+    if (!sdk) return;
+    try {
+      if (safeParams) sdk.logger.logEvent(name, safeParams);
+      else sdk.logger.logEvent(name);
+
+      // Dual-log the Meta standard event (powers ad optimization)
+      const standardKey = STANDARD_MAP[eventName];
+      const standardName = standardKey && sdk.logger.AppEvents?.[standardKey];
+      if (standardName) {
+        if (safeParams) sdk.logger.logEvent(standardName, safeParams);
+        else sdk.logger.logEvent(standardName);
+      }
+    } catch (e) {
+      devLog('track failed (non-fatal):', e?.message);
+    }
+  },
+
+  /**
+   * Log a monetary purchase (Meta value optimization).
+   * @param {number} amount - e.g. 499.00
+   * @param {string} currency - ISO 4217, e.g. 'INR'
+   * @param {Object} [params]
+   */
+  trackPurchase(amount, currency, params) {
+    const value = Number(amount);
+    if (!isFinite(value) || value <= 0 || !currency) return;
+    devLog('Purchase', value, currency, params || '');
+    const sdk = getSdk();
+    if (!sdk) return;
+    try {
+      sdk.logger.logPurchase(value, String(currency), sanitizeParams(params));
+    } catch (e) {
+      devLog('trackPurchase failed (non-fatal):', e?.message);
+    }
+  },
+
+  /** Associate events with the app user (improves attribution). */
+  setUser(userId) {
+    const sdk = getSdk();
+    if (!sdk || !userId) return;
+    try {
+      sdk.logger.setUserID(String(userId));
+    } catch (e) {
+      devLog('setUser failed (non-fatal):', e?.message);
+    }
+  },
+
+  /** Clear the user association on logout. */
+  clearUser() {
+    const sdk = getSdk();
+    if (!sdk) return;
+    try {
+      sdk.logger.setUserID(null);
+    } catch (e) {
+      devLog('clearUser failed (non-fatal):', e?.message);
+    }
+  },
+
+  /** Force-flush queued events (e.g. right after a critical conversion). */
+  flush() {
+    const sdk = getSdk();
+    if (!sdk) return;
+    try {
+      sdk.logger.flush();
+    } catch (e) {
+      devLog('flush failed (non-fatal):', e?.message);
+    }
+  },
+};
+
+export default Analytics;

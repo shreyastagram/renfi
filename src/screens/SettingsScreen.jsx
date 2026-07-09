@@ -38,6 +38,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { check, request, checkNotifications, requestNotifications, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
+import { Analytics, EV } from '../services/analytics';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { startLocationTracking, stopLocationTracking } from '../services/socketService';
@@ -1292,15 +1293,24 @@ const SettingsScreen = ({ navigation }) => {
                 [
                   {
                     text: 'WhatsApp',
-                    onPress: () => Linking.openURL('https://wa.me/918446385312'),
+                    onPress: () => {
+                      Analytics.track(userType === 'provider' ? EV.SUPPORT_CONTACTED : EV.CUSTOMER_SUPPORT_CONTACTED, { role: userType, channel: 'whatsapp' });
+                      Linking.openURL('https://wa.me/918446385312');
+                    },
                   },
                   {
                     text: 'Email',
-                    onPress: () => Linking.openURL('mailto:contact@fixhomi.com').catch(() => dialog('Email Us', 'contact@fixhomi.com')),
+                    onPress: () => {
+                      Analytics.track(userType === 'provider' ? EV.SUPPORT_CONTACTED : EV.CUSTOMER_SUPPORT_CONTACTED, { role: userType, channel: 'email' });
+                      Linking.openURL('mailto:contact@fixhomi.com').catch(() => dialog('Email Us', 'contact@fixhomi.com'));
+                    },
                   },
                   {
                     text: 'Visit Support Page',
-                    onPress: () => Linking.openURL('https://fixhomi.com/support'),
+                    onPress: () => {
+                      Analytics.track(userType === 'provider' ? EV.SUPPORT_CONTACTED : EV.CUSTOMER_SUPPORT_CONTACTED, { role: userType, channel: 'web' });
+                      Linking.openURL('https://fixhomi.com/support');
+                    },
                   },
                   {
                     text: 'Cancel',

@@ -16,6 +16,7 @@
 
 import { NODE_BASE_URL, API_ENDPOINTS } from '../config/api';
 import { authFetch } from '../utils/authFetch';
+import { Analytics, EV } from './analytics';
 
 // Allowed service types (matches backend enum)
 export const SERVICE_TYPES = {
@@ -809,6 +810,13 @@ export const acceptRequestAsProvider = async (requestId, providerId, userEmail =
       status: data.data?.status,
     });
 
+    // Analytics: fires only after the backend confirmed the acceptance.
+    // Single point covers both accept UIs (detail screen + history screen).
+    Analytics.track(EV.JOB_REQUEST_ACCEPTED, {
+      role: 'provider',
+      request_id: String(data.data?.requestId || ''),
+    });
+
     return {
       success: true,
       data: data.data,
@@ -946,6 +954,13 @@ export const verifyCompletionOtp = async (requestId, otp) => {
 
     console.log('[TraditionalService] OTP verified successfully, service completed');
 
+    // Analytics: provider-side completion — backend verified the customer's OTP.
+    // Single point covers both completion UIs.
+    Analytics.track(EV.SERVICE_COMPLETED, {
+      role: 'provider',
+      request_id: String(requestId),
+    });
+
     return {
       success: true,
       data: data.data,
@@ -1063,6 +1078,14 @@ export const submitRating = async (requestId, userId, rating, review = '', provi
     }
 
     console.log('[Rating] Success:', data);
+
+    // Analytics: rating persisted (ALREADY_RATED path above returns earlier,
+    // so re-submits never double-log). Covers both rating UIs.
+    Analytics.track(EV.CUSTOMER_REVIEWED, {
+      role: 'user',
+      request_id: String(requestId),
+      rating: Math.round(rating),
+    });
 
     return {
       success: true,

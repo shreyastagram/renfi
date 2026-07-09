@@ -29,6 +29,7 @@ import { signOutFromGoogle } from '../services/googleAuthService';
 import { performFullSync, processSyncQueue, isSyncDue, updateProfileWithSync, SYNC_STATUS } from '../services/profileSyncService';
 import { checkAuthHealth, addAuthStateListener, getDeviceInfo, AUTH_HEALTH } from '../services/authInfraService';
 import { initializeSocket, disconnectSocket } from '../services/socketService';
+import { Analytics, EV, onceEver } from '../services/analytics';
 
 /**
  * App Context
@@ -299,6 +300,26 @@ export const AppProvider = ({ children }) => {
       }
 
       if (result.success) {
+        // Analytics: document_verified — detect newly-approved service categories.
+        // No push notification exists for approval, so this fires when the app
+        // next observes the change (documented limitation). Deduped per category.
+        // Baseline guard: on the FIRST observation for this provider, existing
+        // verified categories are marked silently so historical approvals don't
+        // burst stale conversion events after the app update.
+        if (effectiveType === 'provider' && Array.isArray(result.data?.verifiedServiceCategories)) {
+          const uid = result.data._id || result.data.mongoId || '';
+          const categories = result.data.verifiedServiceCategories;
+          onceEver(`doc_verified_baseline:${uid}`).then((isFirstObservation) => {
+            categories.forEach((category) => {
+              onceEver(`doc_verified:${uid}:${category}`).then((first) => {
+                if (first && !isFirstObservation) {
+                  Analytics.track(EV.DOCUMENT_VERIFIED, { role: 'provider', service_category: category });
+                }
+              });
+            });
+          });
+        }
+
         // Preserve verification fields — they come from Java Auth and must not be lost
         // Preserve availability if a toggle update is in flight — prevents stale DB data from
         // overwriting the optimistic value the user just set
@@ -462,6 +483,13 @@ export const AppProvider = ({ children }) => {
         setAvailabilityOptimistic(isAvailable);
 
         console.log('✅ [AppContext] Availability updated successfully');
+
+        // Analytics: fires only after the API confirmed the toggle
+        Analytics.track(
+          isAvailable ? EV.ONLINE_STATUS_ENABLED : EV.ONLINE_STATUS_DISABLED,
+          { role: 'provider' }
+        );
+
         return {
           success: true,
           visibilityWarnings: result.data?.visibilityWarnings,
@@ -749,6 +777,34 @@ export const AppProvider = ({ children }) => {
       }
       
       console.log('✅ [AppContext] Auth state updated successfully');
+
+      // ── Analytics: registration vs login (all auth methods converge here;
+      // isNewUser is set by every interactive auth call site) ──
+      Analytics.setUser(unifiedId || authData.userId || authData.email);
+      if (authData.isNewUser === true) {
+        const regKey = `registered:${unifiedId || authData.email}`;
+        onceEver(regKey).then((first) => {
+          if (first) {
+            Analytics.track(EV.USER_REGISTERED, {
+              role: type,
+              method: authData.authMethod || 'unknown',
+            });
+            // Provider registration IS the profile submission (single-submit
+            // form with services/experience/location) — no separate
+            // "complete profile" state exists in the app.
+            if (type === 'provider') {
+              Analytics.track(EV.PROFILE_COMPLETED, { role: 'provider' });
+            }
+            Analytics.flush(); // conversion event — push immediately
+          }
+        });
+      } else {
+        Analytics.track(EV.LOGIN_SUCCESS, {
+          role: type,
+          method: authData.authMethod || 'unknown',
+        });
+      }
+
       return true;
     } catch (error) {
       console.error('❌ [AppContext] Failed to process auth success:', error);
@@ -779,6 +835,9 @@ export const AppProvider = ({ children }) => {
     logoutInProgressRef.current = true;
     try {
       console.log('🚪 [AppContext] Logging out...');
+
+      // Analytics: detach user association from future events
+      Analytics.clearUser();
 
       // Disconnect socket before clearing auth
       disconnectSocket();

@@ -14,7 +14,21 @@ PODS:
   - CocoaLumberjack (3.8.5):
     - CocoaLumberjack/Core (= 3.8.5)
   - CocoaLumberjack/Core (3.8.5)
+  - FBAEMKit (18.1.0):
+    - FBSDKCoreKit_Basics (= 18.1.0)
   - FBLazyVector (0.84.1)
+  - FBSDKCoreKit (18.1.0):
+    - FBAEMKit (= 18.1.0)
+    - FBSDKCoreKit_Basics (= 18.1.0)
+  - FBSDKCoreKit_Basics (18.1.0)
+  - FBSDKGamingServicesKit (18.1.0):
+    - FBSDKCoreKit (= 18.1.0)
+    - FBSDKCoreKit_Basics (= 18.1.0)
+    - FBSDKShareKit (= 18.1.0)
+  - FBSDKLoginKit (18.1.0):
+    - FBSDKCoreKit (= 18.1.0)
+  - FBSDKShareKit (18.1.0):
+    - FBSDKCoreKit (= 18.1.0)
   - Firebase/CoreOnly (12.8.0):
     - FirebaseCore (~> 12.8.0)
   - Firebase/Crashlytics (12.8.0):
@@ -1612,6 +1626,21 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - react-native-fbsdk-next (13.4.3):
+    - React-Core
+    - react-native-fbsdk-next/Core (= 13.4.3)
+    - react-native-fbsdk-next/Login (= 13.4.3)
+    - react-native-fbsdk-next/Share (= 13.4.3)
+  - react-native-fbsdk-next/Core (13.4.3):
+    - FBSDKCoreKit (~> 18.0)
+    - React-Core
+  - react-native-fbsdk-next/Login (13.4.3):
+    - FBSDKLoginKit (~> 18.0)
+    - React-Core
+  - react-native-fbsdk-next/Share (13.4.3):
+    - FBSDKGamingServicesKit (~> 18.0)
+    - FBSDKShareKit (~> 18.0)
+    - React-Core
   - react-native-geolocation (3.4.0):
     - hermes-engine
     - RCTRequired
@@ -2611,6 +2640,7 @@ DEPENDENCIES:
   - "react-native-blur (from `../node_modules/@react-native-community/blur`)"
   - react-native-config (from `../node_modules/react-native-config`)
   - "react-native-document-picker (from `../node_modules/@react-native-documents/picker`)"
+  - react-native-fbsdk-next (from `../node_modules/react-native-fbsdk-next`)
   - "react-native-geolocation (from `../node_modules/@react-native-community/geolocation`)"
   - react-native-image-picker (from `../node_modules/react-native-image-picker`)
   - react-native-razorpay (from `../node_modules/react-native-razorpay`)
@@ -2676,6 +2706,12 @@ SPEC REPOS:
     - AppAuth
     - AppCheckCore
     - CocoaLumberjack
+    - FBAEMKit
+    - FBSDKCoreKit
+    - FBSDKCoreKit_Basics
+    - FBSDKGamingServicesKit
+    - FBSDKLoginKit
+    - FBSDKShareKit
     - Firebase
     - FirebaseCore
     - FirebaseCoreExtension
@@ -2793,6 +2829,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-config"
   react-native-document-picker:
     :path: "../node_modules/@react-native-documents/picker"
+  react-native-fbsdk-next:
+    :path: "../node_modules/react-native-fbsdk-next"
   react-native-geolocation:
     :path: "../node_modules/@react-native-community/geolocation"
   react-native-image-picker:
@@ -2917,7 +2955,13 @@ SPEC CHECKSUMS:
   AppCheckCore: cc8fd0a3a230ddd401f326489c99990b013f0c4f
   BVLinearGradient: 880f91a7854faff2df62518f0281afb1c60d49a3
   CocoaLumberjack: 6a459bc897d6d80bd1b8c78482ec7ad05dffc3f0
+  FBAEMKit: 64088ff0380f50e4a56e2ee07d984f7f1aef7595
   FBLazyVector: e97c19a5a442429d1988f182a1940fb08df514da
+  FBSDKCoreKit: 8390ea3a8fac186f444275f31d7512e760b47cba
+  FBSDKCoreKit_Basics: 3a0005c78b355388bf2df5c6dbe6381b77ea4be3
+  FBSDKGamingServicesKit: 5bdf3a2c3079cd08ec64444a027fd25573b4e624
+  FBSDKLoginKit: d8e2711a3a03b0026703735c8d28a2b5a0e1f4fd
+  FBSDKShareKit: e0893ca96a6e33f61385914a06ce2bd064a5dbdc
   Firebase: 9a58fdbc9d8655ed7b79a19cf9690bb007d3d46d
   FirebaseCore: 0dbad74bda10b8fb9ca34ad8f375fb9dd3ebef7c
   FirebaseCoreExtension: 6605938d51f765d8b18bfcafd2085276a252bee2
@@ -2983,6 +3027,7 @@ SPEC CHECKSUMS:
   react-native-blur: 4173cfa2b37358b2e767ca690a8afa2cb74b0aae
   react-native-config: 0ac243e38516dbb8908a09eb87d76620a3083886
   react-native-document-picker: d2e8687c62190231ee5e6e66560089a0630734f0
+  react-native-fbsdk-next: 4fa40d3b1df411ed9bc3cca899572b41f58a4dae
   react-native-geolocation: fe635c262940780d5cef40e03d4f1d8f72edde26
   react-native-image-picker: 7793e84ad7b802351cf687c18bb42ad30150b29b
   react-native-razorpay: 41a407f4367b5b0e1bba89a77f9cab1918860844

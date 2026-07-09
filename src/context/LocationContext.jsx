@@ -19,6 +19,7 @@ import DeviceInfo from 'react-native-device-info';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import { requestNotificationPermission } from '../services/fcmService';
 import { setLatestLocation } from '../services/socketService';
+import { Analytics, EV, oncePerSession } from '../services/analytics';
 
 // Mapbox Access Token (from .env via centralized config)
 import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
@@ -160,6 +161,12 @@ export const LocationProvider = ({ children }) => {
     const { latitude, longitude, accuracy } = coords;
     // Always feed the shared cache (single GPS source for socketService).
     try { setLatestLocation({ latitude, longitude, accuracy }); } catch (e) { /* ignore */ }
+
+    // Analytics: device location resolved — once per app session (GPS refreshes
+    // continuously; only the first successful fix is a meaningful "selection").
+    if (oncePerSession('location_gps')) {
+      Analytics.track(EV.LOCATION_SELECTED, { source: 'gps' });
+    }
 
     const prev = currentLocationRef.current;
     let changed = !prev;

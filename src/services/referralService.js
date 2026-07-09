@@ -9,6 +9,7 @@
 
 import { NODE_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
+import { Analytics, EV, onceEver } from './analytics';
 
 const BASE = `${NODE_BASE_URL}/api/referral`;
 
@@ -72,6 +73,13 @@ export const applyReferralCode = async (code, accessTokenOverride = null) => {
     }
     const data = await res.json().catch(() => ({}));
     if (res.ok && data.success !== false) {
+      // Analytics: referral applied on the REFERRED user's device.
+      // (Referrer-side conversion needs backend/Conversions API — see
+      // docs/META_APP_EVENTS.md limitations.) Backend rejects re-use
+      // (ALREADY_REFERRED), but dedupe defensively per code anyway.
+      onceEver(`referral_applied:${(code || '').trim()}`).then((first) => {
+        if (first) Analytics.track(EV.REFERRAL_SUCCESS, { side: 'referred' });
+      });
       return { success: true, ...data };
     }
     return {

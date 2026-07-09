@@ -1,4 +1,7 @@
 <resources>
     <string name="app_name">Fixhomi</string>
     <string name="mapbox_access_token" translatable="false">pk.eyJ1IjoiZml4aG9taSIsImEiOiJjbWY2Zjg1MTUwMnhmMm1zNnQxaTdkcmtnIn0.AtF-wG4vaenzSf0Ff9aYBg</string>
+    <!-- Meta App Events (client token is designed to be embedded in apps — not a secret) -->
+    <string name="facebook_app_id" translatable="false">1313159510169603</string>
+    <string name="facebook_client_token" translatable="false">f4006a48dbb2a05589073394e01a74f0</string>
 </resources>

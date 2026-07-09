@@ -32,6 +32,7 @@ import TouchableOpacity from '../components/TouchableOpacity';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
+import { Analytics, EV, onceEver } from '../services/analytics';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { Icon, ServiceIcon, StatusIcon, RatingModal, CancellationReasonModal } from '../components';
@@ -990,7 +991,12 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
       t('detail.callDialogMsg', { name: contactName, phone }),
       [
         { text: t('common.cancel'), style: 'cancel' },
-        { text: t('common.callNow'), onPress: () => { Linking.openURL(url).catch(() => { dialog(t('common.error'), t('detail.unableToCall')); }); } },
+        { text: t('common.callNow'), onPress: () => {
+          if (callerIsProvider) {
+            Analytics.track(EV.CUSTOMER_CALLED, { role: 'provider', request_id: String(request?._id || '') });
+          }
+          Linking.openURL(url).catch(() => { dialog(t('common.error'), t('detail.unableToCall')); });
+        } },
       ]
     );
   }, [isProvider, request]);
@@ -1127,6 +1133,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               result.success = result.success || response.ok;
             }
             if (result.success) {
+              Analytics.track(EV.JOB_REQUEST_REJECTED, { role: 'provider', request_id: String(request._id) });
               dialog(t('detail.requestRejected'), t('detail.requestRejectedMsg'), [{ text: t('common.ok'), onPress: () => navigation.goBack() }]);
             } else {
               const errMsg = (result.error || result.message || '').toLowerCase();
@@ -1209,6 +1216,12 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         result = await verifyCompletionOtp(request._id, enteredOtp);
       }
       if (result.success) {
+        // Analytics: repeat customer served — backend-computed flag on the request
+        if (request?.userDetails?.isRepeatCustomer === true) {
+          onceEver(`repeat_served:${request._id}`).then((first) => {
+            if (first) Analytics.track(EV.REPEAT_CUSTOMER_SERVED, { role: 'provider', request_id: String(request._id) });
+          });
+        }
         dialog(t('detail.serviceCompletedTitle'), t('detail.serviceCompletedDialog'), [{ text: t('common.ok'), onPress: () => { setEnteredOtp(''); handleRefresh(); } }]);
       } else if (result.code === 'OTP_EXPIRED') {
         dialog(t('detail.otpExpiredTitle'), t('detail.otpExpiredDialog'), [{ text: t('common.ok'), onPress: () => setEnteredOtp('') }]);

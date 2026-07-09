@@ -3,6 +3,7 @@ import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
 import FirebaseCore
+import FBSDKCoreKit
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -17,6 +18,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   ) -> Bool {
     // Initialize Firebase BEFORE React Native loads JS bundle
     FirebaseApp.configure()
+
+    // Meta SDK — required for App Events (auto app-launch logging + attribution)
+    ApplicationDelegate.shared.application(
+      application,
+      didFinishLaunchingWithOptions: launchOptions
+    )
 
     let delegate = ReactNativeDelegate()
     let factory = RCTReactNativeFactory(delegate: delegate)

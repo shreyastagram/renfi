@@ -43,6 +43,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
+import { Analytics, EV, onceEver } from '../services/analytics';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
@@ -835,6 +836,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
             result = await r.json(); result.success = result.success || r.ok;
           }
           if (result.success) {
+            Analytics.track(EV.JOB_REQUEST_REJECTED, { role: 'provider', request_id: String(job._id) });
             dialog(t('providerHistory.rejectedTitle'), t('providerHistory.rejectedMsg'));
             setAllRequests(prev => prev.filter(j => j._id !== job._id));
             setTimeout(() => fetchJobs(false), 1500);
@@ -861,7 +863,10 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
     if (!phone) { dialog(t('common.error'), t('providerHistory.phoneNotAvailable')); return; }
     dialog(t('providerHistory.callCustomer'), t('providerHistory.callCustomerMsg', { name: req.userDetails?.name || t('providerHistory.customer'), phone }), [
       { text: t('common.cancel'), style: 'cancel' },
-      { text: t('common.callNow'), onPress: () => Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => dialog(t('common.error'), t('providerHistory.cannotMakeCalls'))) },
+      { text: t('common.callNow'), onPress: () => {
+        Analytics.track(EV.CUSTOMER_CALLED, { role: 'provider', request_id: String(req._id) });
+        Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => dialog(t('common.error'), t('providerHistory.cannotMakeCalls')));
+      } },
     ]);
   };
 
@@ -880,6 +885,10 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
       lat = job.eventLocation.latitude; lng = job.eventLocation.longitude;
     }
     if (!lat || !lng || isNaN(lat) || isNaN(lng)) { dialog(t('providerHistory.locationError'), t('providerHistory.locationErrorMsg')); return; }
+    // Analytics: navigation to the customer started — once per job
+    onceEver(`nav_started:${job._id}`).then((first) => {
+      if (first) Analytics.track(EV.NAVIGATION_STARTED, { role: 'provider', request_id: String(job._id) });
+    });
     const url = Platform.select({ ios: `maps:?daddr=${lat},${lng}`, android: `google.navigation:q=${lat},${lng}` });
     Linking.openURL(url).catch(() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`));
   };

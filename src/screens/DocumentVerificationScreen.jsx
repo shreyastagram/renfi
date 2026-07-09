@@ -652,12 +652,19 @@ const DocumentVerificationScreen = ({ navigation }) => {
         );
         
         const result = await response.json();
-        
+
         if (!result.success) {
           throw new Error(result.error || 'Submission failed');
         }
+
+        // Analytics: this category's documents were accepted by the backend
+        Analytics.track(EV.DOCUMENT_UPLOADED, {
+          role: 'provider',
+          service_category: serviceCategory,
+          document_count: docsArray.length,
+        });
       }
-      
+
       dialog(
         'Documents Submitted',
         'Your documents have been submitted for verification.\n\n' +

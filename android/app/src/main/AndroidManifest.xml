@@ -48,6 +48,13 @@
     android:theme="@style/AppTheme"
     android:supportsRtl="true"
     android:networkSecurityConfig="@xml/network_security_config">
+    <!-- Meta App Events -->
+    <meta-data
+        android:name="com.facebook.sdk.ApplicationId"
+        android:value="@string/facebook_app_id" />
+    <meta-data
+        android:name="com.facebook.sdk.ClientToken"
+        android:value="@string/facebook_client_token" />
     <meta-data
         android:name="com.transistorsoft.locationmanager.license"
         android:value="eyJhbGciOiJFZERTQSIsImtpZCI6ImVkMjU1MTktbWFpbi12MSJ9.eyJvcyI6ImFuZHJvaWQiLCJhcHBfaWQiOiJjb20ucmVuZmkiLCJvcmRlcl9udW1iZXIiOjE1ODgwLCJyZW5ld2FsX3VybCI6Imh0dHBzOi8vc2hvcC50cmFuc2lzdG9yc29mdC5jb20vY2FydC8xNjUwNzg2MTUwNToxP25vdGU9MTA1NjEiLCJjdXN0b21lcl9pZCI6OTYwNCwicHJvZHVjdCI6InJlYWN0LW5hdGl2ZS1iYWNrZ3JvdW5kLWdlb2xvY2F0aW9uIiwia2V5X3ZlcnNpb24iOjEsImFsbG93ZWRfc3VmZml4ZXMiOlsiLmRldiIsIi5kZXZlbG9wbWVudCIsIi5zdGFnaW5nIiwiLnN0YWdlIiwiLnFhIiwiLnVhdCIsIi50ZXN0IiwiLmRlYnVnIl0sIm1heF9idWlsZF9zdGFtcCI6MjAyNzA1MDEsImdyYWNlX2J1aWxkcyI6MCwiZW50aXRsZW1lbnRzIjpbImNvcmUiXSwiaWF0IjoxNzc1MDcxMzgyfQ.POVQUUDF4IlxI5wjfnGfZ0wothqTpbLRRnU6OK4mL0_o3X0Vrv9lT4lk2wpWKIysZdAc5kqMWHIUQojeJaptDw" />

@@ -32,6 +32,7 @@ import {
   getAppInitialNotification
 } from './src/services/fcmService';
 import { configureGoogleSignIn } from './src/services/googleAuthService';
+import { Analytics, EV } from './src/services/analytics';
 
 // Suppress Mapbox view-tag unhandled promise rejections (Fabric race condition)
 const originalHandler = (global as any).ErrorUtils?.getGlobalHandler?.();
@@ -512,6 +513,11 @@ export default function App() {
   useEffect(() => {
     // Configure Google Sign-In on app start
     configureGoogleSignIn();
+
+    // Meta App Events: init + one app_opened per cold start.
+    // (Meta's automatic fb_mobile_activate_app also logs via native auto-logging.)
+    Analytics.init();
+    Analytics.track(EV.APP_OPENED);
   }, []);
 
   return (

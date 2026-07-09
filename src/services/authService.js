@@ -13,6 +13,7 @@
 
 import apiClient, { authClient, parseApiError } from './apiClient';
 import { ENDPOINTS } from '../config/api';
+import { Analytics, EV, onceEver } from './analytics';
 
 /**
  * Allowed service categories for providers
@@ -219,9 +220,17 @@ export const registerProvider = async (providerData) => {
     requestBody.privacyAccepted = providerData.privacyAccepted === true;
 
     const response = await apiClient.post(ENDPOINTS.AUTH.PROVIDER_REGISTER, requestBody);
-    
+
     console.log('✅ [AuthService] Provider registration successful');
-    
+
+    // Analytics: provider registered WITH a referral code → the referral
+    // converted on the referred side (referrer-side needs backend/CAPI).
+    if (providerData.referralCode) {
+      onceEver(`referral_applied:${String(providerData.referralCode).trim()}`).then((first) => {
+        if (first) Analytics.track(EV.REFERRAL_SUCCESS, { side: 'referred', role: 'provider' });
+      });
+    }
+
     return {
       success: true,
       data: response.data,

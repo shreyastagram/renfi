@@ -28,6 +28,7 @@ import { useApp } from '../context/AppContext';
 import { setupForegroundMessageListener } from '../services/fcmService';
 import { addEventListener } from '../services/socketService';
 import { playNotificationSound } from '../utils/notificationSound';
+import { Analytics, EV, onceEver } from '../services/analytics';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -152,7 +153,34 @@ const GlobalBanner = () => {
     }
   }, [bannerAnim]);
 
+  /**
+   * Analytics: status-change conversions. Both FCM and socket delivery paths
+   * converge here, so this is the single observation point. onceEver-per-request
+   * guarantees the same status never double-logs (socket + FCM both arrive,
+   * and the same state can be re-observed on later launches).
+   */
+  const trackStatusEvent = useCallback((data) => {
+    const requestId = data.requestId || data.serviceRequestId || data._id;
+    if (!requestId) return;
+    const params = { request_id: String(requestId), service_type: data.serviceType };
+
+    if (data.bannerType === 'accepted' && !isProvider) {
+      onceEver(`ev_accepted:${requestId}`).then((first) => {
+        if (first) Analytics.track(EV.BOOKING_ACCEPTED, { ...params, role: 'user' });
+      });
+    } else if (data.bannerType === 'completed' && !isProvider) {
+      onceEver(`ev_completed_user:${requestId}`).then((first) => {
+        if (first) Analytics.track(EV.SERVICE_COMPLETED, { ...params, role: 'user' });
+      });
+    } else if (data.bannerType === 'new_request' && isProvider) {
+      onceEver(`ev_job_received:${requestId}`).then((first) => {
+        if (first) Analytics.track(EV.JOB_REQUEST_RECEIVED, { ...params, role: 'provider' });
+      });
+    }
+  }, [isProvider]);
+
   const showBannerDeduped = useCallback((data) => {
+    trackStatusEvent(data);
     const dedupKey = `${data.requestId || data.serviceRequestId || ''}_${data.bannerType}`;
     const now = Date.now();
     if (dedupKey && dedupKey === lastBannerRef.current.key && now - lastBannerRef.current.ts < 3000) {
@@ -160,7 +188,7 @@ const GlobalBanner = () => {
     }
     lastBannerRef.current = { key: dedupKey, ts: now };
     showBanner(data);
-  }, [showBanner]);
+  }, [showBanner, trackStatusEvent]);
 
   // FCM Foreground Listener
   useEffect(() => {

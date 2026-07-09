@@ -46,6 +46,7 @@ import SvgArt from '../components/SvgArt';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 import { useApp } from '../context/AppContext';
+import { Analytics, EV } from '../services/analytics';
 import { useDialog } from '../context/DialogContext';
 import { useLocation } from '../context/LocationContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -824,16 +825,30 @@ const UserHomeScreen = ({ navigation, route }) => {
     setSelectedService(service);
     setStep('date');
     animateSheetTo(safeMaxHeight);
+
+    // Analytics: category chosen (all gates passed) — this also begins the
+    // inline booking flow on this screen.
+    Analytics.track(EV.SERVICE_SELECTED, { role: 'user', service_type: service.id });
+    Analytics.track(EV.BOOKING_STARTED, { role: 'user', service_type: service.id, entry: 'home' });
   };
 
   // Handle date/time selection from DateTimePicker
   const handleDateTimeChange = useCallback((dateTime) => {
     setSelectedDateTime(dateTime);
+    if (dateTime?.date) {
+      Analytics.track(EV.SCHEDULE_SELECTED, {
+        role: 'user',
+        is_instant: dateTime.isInstant ? 'true' : 'false',
+      });
+    }
   }, []);
 
   // Handle location selection from LocationPicker
   const handleServiceLocationChange = useCallback((location) => {
     setServiceLocation(location);
+    if (location) {
+      Analytics.track(EV.LOCATION_SELECTED, { role: 'user', source: 'booking_picker' });
+    }
   }, []);
 
   const handleCreateRequest = async () => {
