@@ -999,6 +999,102 @@ const ProfileScreen = ({ navigation, route }) => {
   }, [user, profile, isProvider, userType, originalPhone, refreshProfile, refreshVerificationStatus, dialog, t]);
 
   /**
+   * Per-section save handlers — validate only their own fields (same rules
+   * as the legacy full-form save) and submit only what changed.
+   */
+  const handleIdentitySave = () => {
+    const fullName = (formData.fullName || '').trim();
+    const phone = (formData.phone || '').trim();
+    if (fullName && (fullName.length < 2 || fullName.length > 100)) {
+      dialog(t('profile.invalidName'), t('profile.invalidNameMsg'));
+      return;
+    }
+    if (phone && (!/^\d{10}$/.test(phone) || !/^[6-9]/.test(phone))) {
+      dialog(t('profile.invalidPhone'), t('profile.invalidPhoneMsg'));
+      return;
+    }
+    const fields = {};
+    if (fullName !== (originalFormData.current.fullName || '')) fields.fullName = fullName;
+    if (phone !== originalPhone) fields.phone = phone;
+    if (Object.keys(fields).length === 0) {
+      setEditingSection(null);
+      return;
+    }
+    // Changing a verified phone resets verification — confirm first (providers)
+    if (isProvider && fields.phone !== undefined && originalPhone.length > 0) {
+      dialog(t('profile.phoneChangeTitle'), t('profile.phoneChangeMsg'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.continue'), style: 'destructive', onPress: () => saveProfileFields(fields) },
+      ]);
+      return;
+    }
+    saveProfileFields(fields);
+  };
+
+  const handleContactSave = () => {
+    const address = (formData.address || '').trim();
+    const city = (formData.city || '').trim();
+    const pincode = (formData.pincode || '').trim();
+    if (pincode && !/^\d{6}$/.test(pincode)) {
+      dialog(t('profile.invalidPincode'), t('profile.invalidPincodeMsg'));
+      return;
+    }
+    const fields = {};
+    if (address !== (originalFormData.current.address || '')) fields.address = address;
+    if (city !== (originalFormData.current.city || '')) fields.city = city;
+    if (pincode !== (originalFormData.current.pincode || '')) fields.pincode = pincode;
+    if (Object.keys(fields).length === 0) {
+      setEditingSection(null);
+      return;
+    }
+    saveProfileFields(fields);
+  };
+
+  const handleAboutSave = () => {
+    const bio = (formData.bio || '').trim();
+    if (bio === (originalFormData.current.bio || '')) {
+      setEditingSection(null);
+      return;
+    }
+    saveProfileFields({ bio });
+  };
+
+  const handleExperienceSave = () => {
+    const newExpIso = experienceStartDate ? experienceStartDate.toISOString() : null;
+    const origExpIso = originalExperienceStartDate.current
+      ? (isNaN(new Date(originalExperienceStartDate.current).getTime())
+          ? null
+          : new Date(originalExperienceStartDate.current).toISOString())
+      : null;
+    if (newExpIso === origExpIso) {
+      setEditingSection(null);
+      return;
+    }
+    saveProfileFields({ experienceStartDate: newExpIso });
+  };
+
+  /** Shared Save/Cancel row for the inline section editors */
+  const SectionEditorActions = ({ onCancel, onSave }) => (
+    <View style={styles.editorActions}>
+      <TouchableOpacity style={styles.editorCancel} onPress={onCancel} disabled={saving} activeOpacity={0.7}>
+        <Text style={styles.editorCancelText}>{t('profile.cancelEdit')}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.editorSave, isProvider && styles.editorSaveProvider]}
+        onPress={onSave}
+        disabled={saving}
+        activeOpacity={0.8}
+      >
+        {saving ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <Text style={styles.editorSaveText}>{t('profile.saveSection')}</Text>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+
+  /**
    * Handle phone verification
    */
   const handlePhoneVerify = async () => {
@@ -1476,6 +1572,45 @@ const ProfileScreen = ({ navigation, route }) => {
               )}
             </View>
 
+            {/* Inline identity editor — name & phone */}
+            {editingSection === 'identity' && (
+              <View style={styles.inlineEditor}>
+                <EditableField
+                  label={t('profile.fullNameLabel')}
+                  value={formData.fullName}
+                  onChangeText={(text) => setFormData(prev => ({ ...prev, fullName: text }))}
+                  placeholder={t('profile.fullNamePlaceholder')}
+                  locked={isProvider && isNameLocked}
+                  lockedLabel={t('profile.locked')}
+                  lockMessage={isNameLocked ? `Verified as "${aadhaarName || formData.fullName}" via Aadhaar` : undefined}
+                />
+                <PhoneInput
+                  label={t('profile.phoneLabel')}
+                  value={formData.phone}
+                  onChangeText={(text) => setFormData(prev => ({ ...prev, phone: text }))}
+                />
+                {isProvider && formData.phone !== originalPhone && originalPhone.length > 0 && (
+                  <View style={styles.phoneChangeWarning}>
+                    <MaterialIcon name="warning" size={16} color="#F59E0B" />
+                    <Text style={styles.phoneChangeWarningText}>
+                      {t('profile.phoneChangeWarning')}
+                    </Text>
+                  </View>
+                )}
+                <SectionEditorActions
+                  onCancel={() => {
+                    setFormData(prev => ({
+                      ...prev,
+                      fullName: originalFormData.current.fullName || '',
+                      phone: originalFormData.current.phone || '',
+                    }));
+                    setEditingSection(null);
+                  }}
+                  onSave={handleIdentitySave}
+                />
+              </View>
+            )}
+
             {/* Provider stat strip — jobs / rating / experience (existing data) */}
             {isProvider && <StatStrip items={statItems} />}
 
@@ -1535,8 +1670,6 @@ const ProfileScreen = ({ navigation, route }) => {
             )}
           </View>
 
-          {/* Legacy padded wrapper — removed as sections migrate to flat layout */}
-          <View style={styles.legacyPad}>
 
           {/* Image Picker Modal — Bottom sheet */}
           <Modal
@@ -1663,523 +1796,473 @@ const ProfileScreen = ({ navigation, route }) => {
             }}
           />
 
-          {/* Edit Mode - Personal Information */}
-          {isEditing ? (
-            <View style={styles.section}>
-              <SectionHeader title={t('profile.editProfile')} />
-
-              <EditableField
-                label={t('profile.fullNameLabel')}
-                value={formData.fullName}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, fullName: text }))}
-                placeholder={t('profile.fullNamePlaceholder')}
-                locked={isProvider && isNameLocked}
-                lockedLabel={t('profile.locked')}
-                lockMessage={isNameLocked ? `Verified as "${aadhaarName || formData.fullName}" via Aadhaar` : undefined}
-              />
-
-              <PhoneInput
-                label={t('profile.phoneLabel')}
-                value={formData.phone}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, phone: text }))}
-              />
-              
-              {/* Phone change warning */}
-              {isProvider && formData.phone !== originalPhone && originalPhone.length > 0 && (
-                <View style={styles.phoneChangeWarning}>
-                  <MaterialIcon name="warning" size={16} color="#F59E0B" />
-                  <Text style={styles.phoneChangeWarningText}>
-                    {t('profile.phoneChangeWarning')}
-                  </Text>
-                </View>
-              )}
-
-              {/* === Location Section Header with Detect Button === */}
-              <View style={styles.locationSectionHeader}>
-                <Text style={styles.locationSectionTitle}>{t('profile.locationDetails')}</Text>
-                <TouchableOpacity
-                  style={[styles.detectLocationBtn, detectingLocation && styles.detectLocationBtnDisabled]}
-                  onPress={handleDetectLocation}
-                  disabled={detectingLocation}
-                  activeOpacity={0.7}
-                >
-                  {detectingLocation ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <MaterialIcon name="my-location" size={16} color="#FFFFFF" />
-                  )}
-                  <Text style={styles.detectLocationBtnText}>
-                    {detectingLocation ? t('profile.detectingLocation') : t('profile.detectMyLocation')}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Address — Mapbox Geocoding powered search */}
-              <AddressAutocomplete
-                value={formData.address}
-                label={t('profile.addressLabel')}
-                placeholder={t('profile.addressPlaceholder')}
-                onSelectAddress={({ address, city, pincode }) => {
-                  setFormData(prev => ({
-                    ...prev,
-                    address: address || prev.address,
-                    city: city || prev.city,
-                    pincode: pincode || prev.pincode,
-                  }));
-                }}
-              />
-              
-              <View style={styles.rowFields}>
-                <View style={[styles.halfField, { zIndex: 998 }]}>
-                  {/* City — Mapbox city search */}
-                  <CityAutocomplete
-                    value={formData.city}
-                    label={t('profile.cityLabel')}
-                    placeholder={t('profile.cityPlaceholder')}
-                    onSelectCity={({ city, pincode }) => {
-                      setFormData(prev => ({
-                        ...prev,
-                        city: city || prev.city,
-                        pincode: pincode || prev.pincode,
-                      }));
-                    }}
-                  />
-                </View>
-                <View style={styles.halfField}>
-                  {/* Manual label + input to match CityAutocomplete layout exactly */}
-                  <Text style={styles.fieldLabel}>{t('profile.pincodeLabel')}</Text>
-                  <TextInput
-                    style={styles.fieldInput}
-                    value={formData.pincode}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, pincode: text }))}
-                    placeholder={t('profile.pincodePlaceholder')}
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="numeric"
-                    maxLength={6}
-                  />
-                </View>
-              </View>
-              
-              {/* Service Categories - Provider Only (Read-only, managed via Document Verification) */}
-              {isProvider && (
-                <View style={styles.categoriesSection}>
-                  <View style={styles.categoriesSectionHeader}>
-                    <Text style={styles.fieldLabel}>{t('profile.verifiedCategories')}</Text>
-                    <View style={styles.verifiedBadgeSmall}>
-                      <Icon name="check_circle" size={14} color="#2b76bc" />
+          {/* ─── User: Contact & Location (flat section, inline editor) ─── */}
+          {!isProvider && (
+            <>
+              <SectionBand />
+              <ProfileSection
+                title={t('profile.contactLocation')}
+                editable={editingSection !== 'contact'}
+                onEdit={() => setEditingSection('contact')}
+              >
+                {editingSection === 'contact' ? (
+                  <View>
+                    {/* Detect my location */}
+                    <View style={styles.locationSectionHeader}>
+                      <Text style={styles.locationSectionTitle}>{t('profile.locationDetails')}</Text>
+                      <TouchableOpacity
+                        style={[styles.detectLocationBtn, detectingLocation && styles.detectLocationBtnDisabled]}
+                        onPress={handleDetectLocation}
+                        disabled={detectingLocation}
+                        activeOpacity={0.7}
+                      >
+                        {detectingLocation ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <MaterialIcon name="my-location" size={16} color="#FFFFFF" />
+                        )}
+                        <Text style={styles.detectLocationBtnText}>
+                          {detectingLocation ? t('profile.detectingLocation') : t('profile.detectMyLocation')}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
+
+                    {/* Address — Mapbox Geocoding powered search */}
+                    <AddressAutocomplete
+                      value={formData.address}
+                      label={t('profile.addressLabel')}
+                      placeholder={t('profile.addressPlaceholder')}
+                      onSelectAddress={({ address, city, pincode }) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          address: address || prev.address,
+                          city: city || prev.city,
+                          pincode: pincode || prev.pincode,
+                        }));
+                      }}
+                    />
+
+                    <View style={styles.rowFields}>
+                      <View style={[styles.halfField, styles.zIndexCity]}>
+                        <CityAutocomplete
+                          value={formData.city}
+                          label={t('profile.cityLabel')}
+                          placeholder={t('profile.cityPlaceholder')}
+                          onSelectCity={({ city, pincode }) => {
+                            setFormData(prev => ({
+                              ...prev,
+                              city: city || prev.city,
+                              pincode: pincode || prev.pincode,
+                            }));
+                          }}
+                        />
+                      </View>
+                      <View style={styles.halfField}>
+                        <Text style={styles.fieldLabel}>{t('profile.pincodeLabel')}</Text>
+                        <TextInput
+                          style={styles.fieldInput}
+                          value={formData.pincode}
+                          onChangeText={(text) => setFormData(prev => ({ ...prev, pincode: text }))}
+                          placeholder={t('profile.pincodePlaceholder')}
+                          placeholderTextColor="#9CA3AF"
+                          keyboardType="numeric"
+                          maxLength={6}
+                        />
+                      </View>
+                    </View>
+
+                    <SectionEditorActions
+                      onCancel={() => {
+                        setFormData(prev => ({
+                          ...prev,
+                          address: originalFormData.current.address || '',
+                          city: originalFormData.current.city || '',
+                          pincode: originalFormData.current.pincode || '',
+                        }));
+                        setEditingSection(null);
+                      }}
+                      onSave={handleContactSave}
+                    />
                   </View>
-                  <Text style={styles.categoriesHint}>
-                    {t('profile.categoriesHint')}
-                  </Text>
-                  
-                  {(displayData?.verifiedServiceCategories?.length > 0) ? (
-                    <View style={styles.categoriesGrid}>
-                      {(displayData?.verifiedServiceCategories || []).map((catId) => {
-                        return (
-                          <View
-                            key={catId}
-                            style={[styles.categoryChip, styles.categoryChipVerified]}
-                          >
-                            <Icon name="verified" size={14} color="#2b76bc" />
-                            <Text style={[styles.categoryChipText, styles.categoryChipTextVerified]}>
+                ) : (
+                  <>
+                    <DetailRow first iconName="phone" label={t('profile.phoneLabel')} value={displayData?.phone || t('profile.notSet')} />
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => navigation.navigate('Verification', { verificationType: 'email' })}
+                    >
+                      <DetailRow
+                        iconName="email"
+                        label={t('profile.emailLabel')}
+                        value={displayData?.email || t('profile.notSet')}
+                        right={<MaterialIcon name="chevron-right" size={20} color="#CBD5E1" />}
+                      />
+                    </TouchableOpacity>
+                    <DetailRow iconName="location" label={t('profile.addressInfo')} value={displayData?.address || t('profile.notSet')} />
+                    <DetailRow iconName="location" label={t('profile.cityInfo')} value={displayData?.city || t('profile.notSet')} />
+                    <DetailRow iconName="location" label={t('profile.pincodeInfo')} value={displayData?.pincode || t('profile.notSet')} />
+                  </>
+                )}
+              </ProfileSection>
+            </>
+          )}
+
+          {/* ─── Provider: About / Services / Experience / Portfolio ─── */}
+          {isProvider && (
+            <>
+              <SectionBand />
+              {/* About — provider bio (existing schema field; empty for older accounts) */}
+              <ProfileSection
+                title={t('profile.about')}
+                editable={editingSection !== 'about'}
+                onEdit={() => setEditingSection('about')}
+              >
+                {editingSection === 'about' ? (
+                  <View>
+                    <TextInput
+                      style={styles.aboutInput}
+                      value={formData.bio}
+                      onChangeText={(text) => setFormData(prev => ({ ...prev, bio: text }))}
+                      placeholder={t('profile.bioPlaceholderProfile')}
+                      placeholderTextColor="#9CA3AF"
+                      multiline
+                      maxLength={1000}
+                      textAlignVertical="top"
+                    />
+                    <Text style={styles.charCount}>{(formData.bio || '').length}/1000</Text>
+                    <SectionEditorActions
+                      onCancel={() => {
+                        setFormData(prev => ({ ...prev, bio: originalFormData.current.bio || '' }));
+                        setEditingSection(null);
+                      }}
+                      onSave={handleAboutSave}
+                    />
+                  </View>
+                ) : displayData?.bio ? (
+                  <Text style={styles.aboutText}>{displayData.bio}</Text>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.aboutEmpty}
+                    onPress={() => setEditingSection('about')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.aboutEmptyPlus}>
+                      <MaterialIcon name="add" size={18} color="#EA580C" />
+                    </View>
+                    <Text style={styles.aboutEmptyText}>{t('profile.aboutEmptyPrompt')}</Text>
+                  </TouchableOpacity>
+                )}
+              </ProfileSection>
+
+              <SectionBand />
+              {/* Services — verified + pending chips (managed via Document Verification) */}
+              <ProfileSection
+                title={t('profile.services')}
+                action={(displayData?.verifiedServiceCategories?.length > 0 || displayData?.serviceCategories?.length > 0)
+                  ? t('profile.addMoreServices')
+                  : t('profile.getVerified')}
+                actionIcon="add-circle-outline"
+                actionColor="#EA580C"
+                onAction={() => navigation.navigate('DocumentVerification')}
+              >
+                {(displayData?.verifiedServiceCategories?.length > 0) && (
+                  <>
+                    <View style={styles.servicesLabelRow}>
+                      <Icon name="verified" size={12} color="#2b76bc" />
+                      <Text style={styles.servicesLabelVerified}>{t('profile.verifiedLabel')}</Text>
+                    </View>
+                    <View style={styles.categoriesDisplayGrid}>
+                      {displayData.verifiedServiceCategories.map((catId) => (
+                        <View key={`verified-${catId}`} style={styles.categoryDisplayChipVerified}>
+                          <Icon name="check_circle" size={12} color="#2b76bc" />
+                          <Text style={styles.categoryDisplayTextVerified}>
+                            {formatServiceName(catId)}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </>
+                )}
+
+                {(displayData?.serviceCategories?.filter(cat =>
+                  !(displayData?.verifiedServiceCategories || []).includes(cat)
+                ).length > 0) && (
+                  <>
+                    <View style={[styles.servicesLabelRow, styles.servicesLabelRowSpaced]}>
+                      <Icon name="clock" size={12} color="#f67c16" />
+                      <Text style={styles.servicesLabelPending}>{t('profile.pendingApproval')}</Text>
+                    </View>
+                    <View style={styles.categoriesDisplayGrid}>
+                      {displayData.serviceCategories
+                        .filter(cat => !(displayData?.verifiedServiceCategories || []).includes(cat))
+                        .map((catId) => (
+                          <View key={`pending-${catId}`} style={styles.categoryDisplayChipPending}>
+                            <Icon name="clock" size={12} color="#f67c16" />
+                            <Text style={styles.categoryDisplayTextPending}>
                               {formatServiceName(catId)}
                             </Text>
                           </View>
-                        );
-                      })}
+                        ))}
                     </View>
-                  ) : (
-                    <View style={styles.noCategoriesWarning}>
-                      <Icon name="info" size={16} color="#f67c16" />
-                      <Text style={styles.noCategoriesText}>{t('profile.noVerifiedServices')}</Text>
-                    </View>
-                  )}
-                  
-                  <TouchableOpacity
-                    style={styles.documentVerificationLink}
-                    onPress={() => navigation.navigate('DocumentVerification')}
-                  >
-                    <Icon name="document" size={18} color="#2b76bc" />
-                    <Text style={styles.documentVerificationLinkText}>
-                      {(displayData?.verifiedServiceCategories?.length > 0)
-                        ? t('profile.addMoreServices')
-                        : t('profile.getVerified')}
-                    </Text>
-                    <Icon name="arrow-forward" size={16} color="#2b76bc" />
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {/* Experience - Provider Only — LinkedIn-style "Working since" picker */}
-              {isProvider && (
-                <View style={styles.fieldContainer}>
-                  <View style={styles.fieldLabelRow}>
-                    <Text style={styles.fieldLabel}>{t('experience.workingSince')}</Text>
-                  </View>
-                  <View style={styles.expPickerRow}>
-                    <TouchableOpacity
-                      style={styles.expPickerField}
-                      onPress={() => setShowExperiencePicker(true)}
-                      activeOpacity={0.7}
-                    >
-                      <MaterialIcon name="work-history" size={18} color="#64748B" />
-                      <Text
-                        style={[
-                          styles.expPickerText,
-                          !experienceStartDate && styles.expPickerPlaceholder,
-                        ]}
-                      >
-                        {experienceStartDate
-                          ? formatMonthYear(experienceStartDate)
-                          : (displayData?.experience && Number(displayData.experience) > 0
-                              ? formatExperience(null, displayData.experience, t)
-                              : t('experience.selectStartMonth'))}
-                      </Text>
-                    </TouchableOpacity>
-                    {experienceStartDate && (
-                      <TouchableOpacity
-                        style={styles.expClearBtn}
-                        onPress={() => setExperienceStartDate(null)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        activeOpacity={0.7}
-                      >
-                        <MaterialIcon name="close" size={18} color="#94A3B8" />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                  {experienceStartDate ? (
-                    <Text style={styles.expPreview}>
-                      {t('experience.experiencePreview', {
-                        exp: formatExperience(experienceStartDate, null, t),
-                      })}
-                    </Text>
-                  ) : (
-                    <Text style={styles.expHint}>{t('experience.experienceOptional')}</Text>
-                  )}
-                  {showExperiencePicker && (
-                    <>
-                      <DateTimePicker
-                        value={experienceStartDate || new Date()}
-                        mode="date"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
-                        onChange={handleExperienceDateChange}
-                        minimumDate={minExperienceStartDate()}
-                        maximumDate={new Date()}
-                      />
-                      {/* iOS spinner is inline and doesn't self-dismiss — give it a Done button. */}
-                      {Platform.OS === 'ios' && (
-                        <TouchableOpacity
-                          style={styles.expPickerDone}
-                          onPress={() => setShowExperiencePicker(false)}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={styles.expPickerDoneText}>{t('common.done') || 'Done'}</Text>
-                        </TouchableOpacity>
-                      )}
-                    </>
-                  )}
-                </View>
-              )}
-              
-              {/* Phone & Email — not editable in this form; managed via the Verify flow.
-                  For users this is tappable and opens the add/change-email screen. */}
-              {!isProvider ? (
-                <TouchableOpacity
-                  style={styles.readOnlySection}
-                  activeOpacity={0.7}
-                  onPress={() => navigation.navigate('Verification', { verificationType: 'email' })}
-                >
-                  <Text style={styles.readOnlyNote}>
-                    <Icon name="info" size={14} color="#6B7280" /> {t('profile.manageContactNote')}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={styles.readOnlySection}>
-                  <Text style={styles.readOnlyNote}>
-                    <Icon name="info" size={14} color="#6B7280" /> {t('profile.readOnlyNote')}
-                  </Text>
-                </View>
-              )}
-
-              <TouchableOpacity 
-                style={styles.saveButton}
-                onPress={handleSave}
-                disabled={saving}
-              >
-                {saving ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Icon name="check" size={20} color="#FFFFFF" />
-                    <Text style={styles.saveButtonText}>{t('profile.saveChanges')}</Text>
                   </>
                 )}
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.section}>
-              <SectionHeader title={t('profile.personalInfo')} />
 
-              <InfoRow
-                iconName="user"
-                label={t('profile.fullNameInfo')}
-                value={displayData?.fullName}
-              />
+                {(!displayData?.verifiedServiceCategories?.length &&
+                  !displayData?.serviceCategories?.length) && (
+                  <View style={styles.noCategoriesWarning}>
+                    <Icon name="info" size={16} color="#f67c16" />
+                    <Text style={styles.noCategoriesText}>{t('profile.noVerifiedServices')}</Text>
+                  </View>
+                )}
+              </ProfileSection>
 
-              <InfoRow
-                iconName="location"
-                label={t('profile.addressInfo')}
-                value={displayData?.address || t('profile.notSet')}
-              />
-
-              <InfoRow
-                iconName="location"
-                label={t('profile.cityInfo')}
-                value={displayData?.city || t('profile.notSet')}
-              />
-
-              <InfoRow
-                iconName="location"
-                label={t('profile.pincodeInfo')}
-                value={displayData?.pincode || t('profile.notSet')}
-              />
-              
-              {isProvider && (
-                <>
-                  {/* Service Categories */}
-                  <View style={styles.serviceCategoriesDisplay}>
-                    <View style={styles.infoRow}>
-                      <View style={[styles.infoIconContainer, { backgroundColor: '#EFF6FF' }]}>
-                        <MaterialIcon name="home-repair-service" size={20} color="#2b76bc" />
+              <SectionBand />
+              {/* Experience — Working Since visible WITHOUT entering edit mode */}
+              <ProfileSection
+                title={t('profile.experienceSection')}
+                editable={editingSection !== 'experience'}
+                onEdit={() => setEditingSection('experience')}
+              >
+                {editingSection === 'experience' ? (
+                  <View>
+                    <View style={styles.fieldLabelRow}>
+                      <Text style={styles.fieldLabel}>{t('experience.workingSince')}</Text>
+                    </View>
+                    <View style={styles.expPickerRow}>
+                      <TouchableOpacity
+                        style={styles.expPickerField}
+                        onPress={() => setShowExperiencePicker(true)}
+                        activeOpacity={0.7}
+                      >
+                        <MaterialIcon name="work-history" size={18} color="#64748B" />
+                        <Text
+                          style={[
+                            styles.expPickerText,
+                            !experienceStartDate && styles.expPickerPlaceholder,
+                          ]}
+                        >
+                          {experienceStartDate
+                            ? formatMonthYear(experienceStartDate)
+                            : (displayData?.experience && Number(displayData.experience) > 0
+                                ? formatExperience(null, displayData.experience, t)
+                                : t('experience.selectStartMonth'))}
+                        </Text>
+                      </TouchableOpacity>
+                      {experienceStartDate && (
+                        <TouchableOpacity
+                          style={styles.expClearBtn}
+                          onPress={() => setExperienceStartDate(null)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          activeOpacity={0.7}
+                        >
+                          <MaterialIcon name="close" size={18} color="#94A3B8" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    {experienceStartDate ? (
+                      <Text style={styles.expPreview}>
+                        {t('experience.experiencePreview', {
+                          exp: formatExperience(experienceStartDate, null, t),
+                        })}
+                      </Text>
+                    ) : (
+                      <Text style={styles.expHint}>{t('experience.experienceOptional')}</Text>
+                    )}
+                    {showExperiencePicker && (
+                      <>
+                        <DateTimePicker
+                          value={experienceStartDate || new Date()}
+                          mode="date"
+                          display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
+                          onChange={handleExperienceDateChange}
+                          minimumDate={minExperienceStartDate()}
+                          maximumDate={new Date()}
+                        />
+                        {/* iOS spinner is inline and doesn't self-dismiss — give it a Done button. */}
+                        {Platform.OS === 'ios' && (
+                          <TouchableOpacity
+                            style={styles.expPickerDone}
+                            onPress={() => setShowExperiencePicker(false)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={styles.expPickerDoneText}>{t('common.done') || 'Done'}</Text>
+                          </TouchableOpacity>
+                        )}
+                      </>
+                    )}
+                    <SectionEditorActions
+                      onCancel={() => {
+                        const rawOrig = originalExperienceStartDate.current;
+                        const parsedOrig = rawOrig ? new Date(rawOrig) : null;
+                        setExperienceStartDate(parsedOrig && !isNaN(parsedOrig.getTime()) ? parsedOrig : null);
+                        setShowExperiencePicker(false);
+                        setEditingSection(null);
+                      }}
+                      onSave={handleExperienceSave}
+                    />
+                  </View>
+                ) : (
+                  <>
+                    <View style={[styles.expRow, styles.expRowFirst]}>
+                      <View style={[styles.expIcon, styles.expIconWork]}>
+                        <MaterialIcon name="work-history" size={20} color="#0891B2" />
                       </View>
-                      <View style={styles.infoContent}>
-                        <Text style={styles.infoLabel}>{t('profile.yourServices')}</Text>
-                        
-                        {/* Verified Services */}
-                        {(displayData?.verifiedServiceCategories?.length > 0) && (
-                          <>
-                            <View style={styles.servicesLabelRow}>
-                              <Icon name="verified" size={12} color="#2b76bc" />
-                              <Text style={styles.servicesLabelVerified}>{t('profile.verifiedLabel')}</Text>
-                            </View>
-                            <View style={styles.categoriesDisplayGrid}>
-                              {displayData.verifiedServiceCategories.map((catId) => (
-                                <View key={`verified-${catId}`} style={styles.categoryDisplayChipVerified}>
-                                  <Icon name="check_circle" size={12} color="#2b76bc" />
-                                  <Text style={styles.categoryDisplayTextVerified}>
-                                    {formatServiceName(catId)}
-                                  </Text>
-                                </View>
-                              ))}
-                            </View>
-                          </>
-                        )}
-                        
-                        {/* Pending Services */}
-                        {(displayData?.serviceCategories?.filter(cat => 
-                          !(displayData?.verifiedServiceCategories || []).includes(cat)
-                        ).length > 0) && (
-                          <>
-                            <View style={[styles.servicesLabelRow, { marginTop: 8 }]}>
-                              <Icon name="clock" size={12} color="#f67c16" />
-                              <Text style={styles.servicesLabelPending}>{t('profile.pendingApproval')}</Text>
-                            </View>
-                            <View style={styles.categoriesDisplayGrid}>
-                              {displayData.serviceCategories
-                                .filter(cat => !(displayData?.verifiedServiceCategories || []).includes(cat))
-                                .map((catId) => (
-                                  <View key={`pending-${catId}`} style={styles.categoryDisplayChipPending}>
-                                    <Icon name="clock" size={12} color="#f67c16" />
-                                    <Text style={styles.categoryDisplayTextPending}>
-                                      {formatServiceName(catId)}
-                                    </Text>
-                                  </View>
-                                ))}
-                            </View>
-                          </>
-                        )}
-                        
-                        {/* No Services at all - show button */}
-                        {(!displayData?.verifiedServiceCategories?.length && 
-                          !displayData?.serviceCategories?.length) && (
-                          <TouchableOpacity
-                            style={styles.getVerifiedButton}
-                            onPress={() => navigation.navigate('DocumentVerification')}
-                          >
-                            <Icon name="document" size={16} color="#2b76bc" />
-                            <Text style={styles.getVerifiedButtonText}>{t('profile.getVerified')}</Text>
-                          </TouchableOpacity>
-                        )}
-                        
-                        {/* Add More Services Link */}
-                        {(displayData?.verifiedServiceCategories?.length > 0 || 
-                          displayData?.serviceCategories?.length > 0) && (
-                          <TouchableOpacity
-                            style={styles.addMoreServicesLink}
-                            onPress={() => navigation.navigate('DocumentVerification')}
-                          >
-                            <Icon name="add-circle" size={14} color="#2b76bc" />
-                            <Text style={styles.addMoreServicesText}>{t('profile.addMoreServices')}</Text>
-                          </TouchableOpacity>
+                      <View style={styles.flex1}>
+                        <Text style={styles.expTitle}>
+                          {displayData?.experienceStartDate
+                            ? `${t('experience.workingSince')} ${formatMonthYear(new Date(displayData.experienceStartDate))}`
+                            : (heroExpText || t('experience.selectStartMonth'))}
+                        </Text>
+                        {!!heroExpText && (
+                          <Text style={styles.expSub}>
+                            {t('experience.experiencePreview', { exp: heroExpText })}
+                          </Text>
                         )}
                       </View>
                     </View>
-                  </View>
-                  <InfoRow
-                    iconName="star"
-                    label={t('profile.ratingLabel')}
-                    value={displayData?.rating ? t('profile.ratingValue', { rating: displayData.rating.toFixed(1) }) : t('profile.noRatings')}
-                    iconColor="#F59E0B"
-                    iconBg="#FFFBEB"
-                  />
-                  {(() => {
-                    // LinkedIn-style: date wins, else legacy number, else hide the row cleanly
-                    const expText = formatExperience(displayData?.experienceStartDate, displayData?.experience, t);
-                    if (!expText) return null;
-                    return (
-                      <InfoRow
-                        iconName="briefcase"
-                        label={t('profile.experienceInfo')}
-                        value={expText}
-                        iconColor="#0891B2"
-                        iconBg="#ECFEFF"
-                        materialIcon="work-history"
-                      />
-                    );
-                  })()}
-                  
-                  {/* Portfolio Section - Only for Photographer/Influencer */}
-                  {(displayData?.verifiedServiceCategories?.includes('photographer') || 
-                    displayData?.verifiedServiceCategories?.includes('influencer')) && (
-                    <View style={styles.portfolioSection}>
-                      <View style={styles.portfolioHeader}>
-                        <View style={styles.portfolioIconContainer}>
-                          <MaterialIcon name="collections" size={20} color="#7C3AED" />
+                    {ratingAvg > 0 ? (
+                      <View style={styles.expRow}>
+                        <View style={[styles.expIcon, styles.expIconStar]}>
+                          <MaterialIcon name="star" size={20} color="#F59E0B" />
                         </View>
-                        <View style={styles.portfolioTitleContainer}>
-                          <Text style={styles.portfolioTitle}>{t('profile.portfolioTitle')}</Text>
-                          <Text style={styles.portfolioSubtitle}>
-                            {t('profile.portfolioSubtitle')}
+                        <View style={styles.flex1}>
+                          <Text style={styles.expTitle}>
+                            {t('profile.ratingReviews', { rating: Number(ratingAvg).toFixed(1), count: reviewCount })}
+                          </Text>
+                          <Text style={styles.expSub}>
+                            {t('profile.jobsCompleted', { count: completedJobs })}
                           </Text>
                         </View>
                       </View>
-                      
-                      <TouchableOpacity 
-                        style={styles.portfolioEditButton}
+                    ) : (
+                      <View style={styles.expRow}>
+                        <View style={[styles.expIcon, styles.expIconStar]}>
+                          <MaterialIcon name="star-outline" size={20} color="#F59E0B" />
+                        </View>
+                        <View style={styles.flex1}>
+                          <Text style={styles.expTitle}>{t('profile.noRatings')}</Text>
+                        </View>
+                      </View>
+                    )}
+                  </>
+                )}
+              </ProfileSection>
+
+              {/* Portfolio — Photographer / Influencer only */}
+              {(displayData?.verifiedServiceCategories?.includes('photographer') ||
+                displayData?.verifiedServiceCategories?.includes('influencer')) && (
+                <>
+                  <SectionBand />
+                  <ProfileSection
+                    title={t('profile.portfolioTitle')}
+                    action={t('profile.editLinks')}
+                    actionColor="#7C3AED"
+                    onAction={() => navigation.navigate('PortfolioEdit')}
+                  >
+                    {/* Links preview */}
+                    {(displayData?.portfolioLinks?.instagram ||
+                      displayData?.portfolioLinks?.youtube ||
+                      displayData?.portfolioLinks?.website ||
+                      displayData?.portfolioLinks?.facebook ||
+                      displayData?.portfolioLinks?.tiktok) ? (
+                      <View style={styles.portfolioLinksPreview}>
+                        {displayData.portfolioLinks.instagram && (
+                          <View style={styles.portfolioLinkBadge}>
+                            <MaterialIcon name="camera-alt" size={14} color="#DB2777" />
+                          </View>
+                        )}
+                        {displayData.portfolioLinks.youtube && (
+                          <View style={styles.portfolioLinkBadge}>
+                            <MaterialIcon name="play-circle-filled" size={14} color="#DC2626" />
+                          </View>
+                        )}
+                        {displayData.portfolioLinks.website && (
+                          <View style={styles.portfolioLinkBadge}>
+                            <MaterialIcon name="language" size={14} color="#0284C7" />
+                          </View>
+                        )}
+                        {displayData.portfolioLinks.facebook && (
+                          <View style={styles.portfolioLinkBadge}>
+                            <MaterialIcon name="facebook" size={14} color="#2563EB" />
+                          </View>
+                        )}
+                        {displayData.portfolioLinks.tiktok && (
+                          <View style={styles.portfolioLinkBadge}>
+                            <MaterialIcon name="music-note" size={14} color="#7C3AED" />
+                          </View>
+                        )}
+                      </View>
+                    ) : (
+                      <TouchableOpacity
                         onPress={() => navigation.navigate('PortfolioEdit')}
                         activeOpacity={0.7}
                       >
-                        <View style={styles.portfolioEditContent}>
-                          {/* Show current portfolio status */}
-                          {(displayData?.portfolioLinks?.instagram || 
-                            displayData?.portfolioLinks?.youtube ||
-                            displayData?.portfolioLinks?.website) ? (
-                            <View style={styles.portfolioLinksPreview}>
-                              {displayData.portfolioLinks.instagram && (
-                                <View style={styles.portfolioLinkBadge}>
-                                  <MaterialIcon name="camera-alt" size={14} color="#DB2777" />
-                                </View>
-                              )}
-                              {displayData.portfolioLinks.youtube && (
-                                <View style={styles.portfolioLinkBadge}>
-                                  <MaterialIcon name="play-circle-filled" size={14} color="#DC2626" />
-                                </View>
-                              )}
-                              {displayData.portfolioLinks.website && (
-                                <View style={styles.portfolioLinkBadge}>
-                                  <MaterialIcon name="language" size={14} color="#0284C7" />
-                                </View>
-                              )}
-                              {displayData.portfolioLinks.facebook && (
-                                <View style={styles.portfolioLinkBadge}>
-                                  <MaterialIcon name="facebook" size={14} color="#2563EB" />
-                                </View>
-                              )}
-                              {displayData.portfolioLinks.tiktok && (
-                                <View style={styles.portfolioLinkBadge}>
-                                  <MaterialIcon name="music-note" size={14} color="#7C3AED" />
-                                </View>
-                              )}
-                              <Text style={styles.portfolioEditText}>{t('profile.editLinks')}</Text>
+                        <Text style={styles.portfolioAddText}>{t('profile.addPortfolioLinks')}</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {/* Specializations */}
+                    {displayData?.specializations?.length > 0 && (
+                      <View style={styles.specializationsPreview}>
+                        <Text style={styles.specializationsLabel}>{t('profile.specializationsLabel')}</Text>
+                        <View style={styles.specializationsChips}>
+                          {displayData.specializations.slice(0, 3).map((spec, index) => (
+                            <View key={index} style={styles.specializationChip}>
+                              <Text style={styles.specializationChipText}>{spec}</Text>
                             </View>
-                          ) : (
-                            <Text style={styles.portfolioAddText}>{t('profile.addPortfolioLinks')}</Text>
+                          ))}
+                          {displayData.specializations.length > 3 && (
+                            <Text style={styles.moreSpecializations}>
+                              {t('profile.moreSpecializations', { n: displayData.specializations.length - 3 })}
+                            </Text>
                           )}
                         </View>
-                        <MaterialIcon name="chevron-right" size={20} color="#9CA3AF" />
-                      </TouchableOpacity>
-                      
-                      {/* Bio Preview */}
-                      {displayData?.bio && (
-                        <View style={styles.bioPreview}>
-                          <Text style={styles.bioPreviewLabel}>{t('profile.bioLabel')}</Text>
-                          <Text style={styles.bioPreviewText} numberOfLines={2}>
-                            {displayData.bio}
-                          </Text>
-                        </View>
-                      )}
-                      
-                      {/* Specializations Preview */}
-                      {displayData?.specializations?.length > 0 && (
-                        <View style={styles.specializationsPreview}>
-                          <Text style={styles.specializationsLabel}>{t('profile.specializationsLabel')}</Text>
-                          <View style={styles.specializationsChips}>
-                            {displayData.specializations.slice(0, 3).map((spec, index) => (
-                              <View key={index} style={styles.specializationChip}>
-                                <Text style={styles.specializationChipText}>{spec}</Text>
-                              </View>
-                            ))}
-                            {displayData.specializations.length > 3 && (
-                              <Text style={styles.moreSpecializations}>
-                                {t('profile.moreSpecializations', { n: displayData.specializations.length - 3 })}
-                              </Text>
-                            )}
-                          </View>
-                        </View>
-                      )}
+                      </View>
+                    )}
 
-                      {/* Portfolio Gallery Preview */}
-                      {displayData?.portfolioGallery?.length > 0 && (
-                        <View style={styles.galleryPreviewSection}>
-                          <Text style={styles.galleryPreviewLabel}>Gallery</Text>
-                          <View style={styles.galleryPreviewGrid}>
-                            {displayData.portfolioGallery.slice(0, 6).map((img, index) => {
-                              const rawUri = typeof img === 'string' ? img : img?.url || img?.uri;
-                              const uri = autoOrient(rawUri);
-                              if (!uri) return null;
-                              return (
-                                <TouchableOpacity
-                                  key={index}
-                                  style={styles.galleryPreviewItem}
-                                  onPress={() => { setGalleryViewerIndex(index); setGalleryViewerVisible(true); }}
-                                  activeOpacity={0.8}
-                                >
-                                  <Image source={{ uri }} style={styles.galleryPreviewImage} />
-                                  {index === 5 && displayData.portfolioGallery.length > 6 && (
-                                    <View style={styles.galleryPreviewOverlay}>
-                                      <Text style={styles.galleryPreviewOverlayText}>+{displayData.portfolioGallery.length - 6}</Text>
-                                    </View>
-                                  )}
-                                </TouchableOpacity>
-                              );
-                            })}
-                          </View>
+                    {/* Gallery preview */}
+                    {displayData?.portfolioGallery?.length > 0 && (
+                      <View style={styles.galleryPreviewSection}>
+                        <Text style={styles.galleryPreviewLabel}>Gallery</Text>
+                        <View style={styles.galleryPreviewGrid}>
+                          {displayData.portfolioGallery.slice(0, 6).map((img, index) => {
+                            const rawUri = typeof img === 'string' ? img : img?.url || img?.uri;
+                            const uri = autoOrient(rawUri);
+                            if (!uri) return null;
+                            return (
+                              <TouchableOpacity
+                                key={index}
+                                style={styles.galleryPreviewItem}
+                                onPress={() => { setGalleryViewerIndex(index); setGalleryViewerVisible(true); }}
+                                activeOpacity={0.8}
+                              >
+                                <Image source={{ uri }} style={styles.galleryPreviewImage} />
+                                {index === 5 && displayData.portfolioGallery.length > 6 && (
+                                  <View style={styles.galleryPreviewOverlay}>
+                                    <Text style={styles.galleryPreviewOverlayText}>+{displayData.portfolioGallery.length - 6}</Text>
+                                  </View>
+                                )}
+                              </TouchableOpacity>
+                            );
+                          })}
                         </View>
-                      )}
+                      </View>
+                    )}
 
-                      <ImageViewerModal
-                        visible={galleryViewerVisible}
-                        images={displayData?.portfolioGallery || []}
-                        initialIndex={galleryViewerIndex}
-                        onClose={() => setGalleryViewerVisible(false)}
-                      />
-                    </View>
-                  )}
+                    <ImageViewerModal
+                      visible={galleryViewerVisible}
+                      images={displayData?.portfolioGallery || []}
+                      initialIndex={galleryViewerIndex}
+                      onClose={() => setGalleryViewerVisible(false)}
+                    />
+                  </ProfileSection>
                 </>
               )}
-            </View>
+            </>
           )}
+
+          {/* Legacy padded wrapper — remaining sections migrate in later tasks */}
+          <View style={styles.legacyPad}>
 
           {/* Verification Section — Users (below profile details) */}
           {!isProvider && (
@@ -2984,6 +3067,139 @@ const styles = StyleSheet.create({
   detailValueMuted: {
     color: '#94A3B8',
     fontWeight: '500',
+  },
+
+  // ─── Inline section editors ───
+  inlineEditor: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  editorActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  editorCancel: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+  },
+  editorCancelText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  editorSave: {
+    flex: 1.4,
+    paddingVertical: 13,
+    borderRadius: 12,
+    backgroundColor: '#2b76bc',
+    alignItems: 'center',
+  },
+  editorSaveProvider: {
+    backgroundColor: '#f67c16',
+  },
+  editorSaveText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  zIndexCity: {
+    zIndex: 998,
+  },
+
+  // ─── About section ───
+  aboutText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#334155',
+    paddingBottom: 6,
+  },
+  aboutInput: {
+    minHeight: 96,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    color: '#0F172A',
+    backgroundColor: '#FAFBFC',
+    lineHeight: 20,
+  },
+  charCount: {
+    fontSize: 11,
+    color: '#94A3B8',
+    textAlign: 'right',
+    marginTop: 6,
+  },
+  aboutEmpty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#D6DEE8',
+    borderStyle: 'dashed',
+    borderRadius: 14,
+    marginBottom: 6,
+  },
+  aboutEmptyPlus: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#FFF7ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aboutEmptyText: {
+    flex: 1,
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#64748B',
+    lineHeight: 19,
+  },
+
+  // ─── Experience section rows ───
+  expRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#EDF1F6',
+  },
+  expRowFirst: {
+    borderTopWidth: 0,
+  },
+  expIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  expIconWork: {
+    backgroundColor: '#ECFEFF',
+  },
+  expIconStar: {
+    backgroundColor: '#FFFBEB',
+  },
+  expTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  expSub: {
+    fontSize: 12.5,
+    color: '#64748B',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  servicesLabelRowSpaced: {
+    marginTop: 8,
   },
 
   // Row fields for city/pincode
