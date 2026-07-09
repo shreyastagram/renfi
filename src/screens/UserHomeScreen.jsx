@@ -2248,7 +2248,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   servicesScrollContent: {
-    paddingBottom: 80,
+    paddingBottom: 160,
   },
 
   // ─── Providers Section ─────────────────────────────────────
@@ -2330,7 +2330,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   providersList: {
-    paddingBottom: 20,
+    paddingBottom: 120,
   },
 
   // ─── Provider Card ─────────────────────────────────────────

@@ -226,7 +226,7 @@ const HomeSkeletonLoader = ({ insets }) => {
   const shimmerAnim = useShimmerAnimation();
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]} scrollEnabled={false}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 96 }]} scrollEnabled={false}>
         {/* Hero Header skeleton */}
         <View style={[styles.heroHeader, { paddingTop: insets.top + 16 }]}>
           <SvgArt color="rgba(255,255,255,1)" height={110} />
@@ -973,7 +973,7 @@ const ProviderHomeScreen = ({ navigation }) => {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 96 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFFFFF" />}
         showsVerticalScrollIndicator={false}
       >

@@ -12,8 +12,8 @@
  * @version 8.0.0 - Added Emergency, Event, Favorites screens
  */
 
-import React, { useMemo, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Platform, Dimensions, Pressable, Image, Animated } from 'react-native';
+import React, { useMemo, useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, Platform, Pressable, Image, Animated, Keyboard } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -70,8 +70,6 @@ const BRAND = {
   text: '#1F2937',
 };
 
-// Screen dimensions
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 /**
  * Deep linking configuration
@@ -196,57 +194,91 @@ const TabIcon = React.memo(({ focused, icon, label, accent = VERIFIED_BLUE, prof
 });
 
 /**
- * Shared Tab Bar Styles - Production Grade
+ * Floating Pill Tab Bar — custom tabBar (React Navigation first-class API).
  *
- * iOS: insets.bottom is ~34 on Face ID devices, 0 on older.
- *      We use the full inset so the bar extends into the home indicator area
- *      but keep the tab content above it.
- * Android gesture nav: insets.bottom is 0 — small fixed padding.
- * Android 3-button nav: insets.bottom is ~48 — we need padding above the buttons.
+ * Why custom: bottom-tabs v7 gives tabBarIcon a fixed ~28px wrapper and
+ * absolutely centers the icon over it, so a taller icon+label block can never
+ * be vertically balanced through tabBarStyle alone. A custom bar also removes
+ * every docked surface behind the pill (no corner artifacts) and lets screen
+ * content scroll behind it, reinforcing the floating effect.
+ *
+ * Insets: bottom offset = safe-area bottom + breathing room, so the pill
+ * clears the iOS home indicator, Android gesture hint, and Android
+ * 3-button nav bars alike (Samsung/Redmi/Vivo/Oppo/Pixel).
  */
-const getTabBarStyle = (insets) => {
-  let bottomPadding;
+const FloatingTabBar = ({ state, descriptors, navigation }) => {
+  const insets = useSafeAreaInsets();
 
-  if (Platform.OS === 'ios') {
-    // iOS home indicator is ~34px but we only need enough to clear it
-    // Not the full inset — that creates too much white space
-    bottomPadding = insets.bottom > 0 ? Math.min(insets.bottom, 20) : 4;
-  } else {
-    // Android: insets.bottom > 0 means 3-button/2-button nav bar is present
-    // insets.bottom === 0 means gesture navigation (no bar)
-    bottomPadding = insets.bottom > 0 ? insets.bottom : 8;
+  // Hide while the keyboard is open (custom bars must handle this themselves)
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvt, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvt, () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  if (keyboardVisible) {
+    return null;
   }
 
-  return {
-    height: 62 + bottomPadding,
-    paddingTop: 8,
-    paddingBottom: bottomPadding,
-    paddingHorizontal: 8,
-    backgroundColor: BRAND.white,
-    // Elevated-sheet look: rounded top corners + soft upward shadow
-    // instead of the flat hairline border
-    borderTopWidth: 0,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: -6 },
-        shadowOpacity: 0.1,
-        shadowRadius: 16,
-      },
-      android: {
-        elevation: 16,
-      },
-    }),
-  };
+  // Gesture nav (inset 0) → 16px float; home indicator / 3-button nav →
+  // sit 6px above the system area.
+  const bottomOffset = Math.max(insets.bottom + 6, 16);
+
+  return (
+    <View pointerEvents="box-none" style={[styles.floatWrap, { bottom: bottomOffset }]}>
+      <View style={styles.floatPill}>
+        {state.routes.map((route, index) => {
+          const { options } = descriptors[route.key];
+          const focused = state.index === index;
+
+          const onPress = () => {
+            const event = navigation.emit({
+              type: 'tabPress',
+              target: route.key,
+              canPreventDefault: true,
+            });
+            if (!focused && !event.defaultPrevented) {
+              navigation.navigate(route.name);
+            }
+          };
+
+          const onLongPress = () => {
+            navigation.emit({ type: 'tabLongPress', target: route.key });
+          };
+
+          return (
+            <Pressable
+              key={route.key}
+              accessibilityRole="button"
+              accessibilityState={focused ? { selected: true } : {}}
+              accessibilityLabel={options.tabBarAccessibilityLabel}
+              testID={options.tabBarButtonTestID}
+              onPress={onPress}
+              onLongPress={onLongPress}
+              style={styles.floatItem}
+              android_ripple={null}
+            >
+              {options.tabBarIcon?.({ focused, color: BRAND.gray, size: 24 })}
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
 };
+
+const renderFloatingTabBar = (props) => <FloatingTabBar {...props} />;
 
 /**
  * User Tab Navigator - Clean Production Tab Bar
  */
 const UserTabNavigator = () => {
-  const insets = useSafeAreaInsets();
   const { user, profile } = useApp();
   const profilePicture = useMemo(() => profile?.profilePicture || user?.profilePicture, [profile?.profilePicture, user?.profilePicture]);
 
@@ -254,16 +286,11 @@ const UserTabNavigator = () => {
     <Tab.Navigator
       initialRouteName="HomeTab"
       backBehavior="initialRoute"
+      tabBar={renderFloatingTabBar}
       screenOptions={{
         headerShown: false,
-        tabBarShowLabel: false,
-        tabBarStyle: getTabBarStyle(insets),
-        tabBarHideOnKeyboard: true,
         freezeOnBlur: true,
         animation: 'none',
-        tabBarButton: (props) => (
-          <Pressable {...props} android_ripple={null} />
-        ),
       }}
     >
       <Tab.Screen
@@ -317,7 +344,6 @@ const UserTabNavigator = () => {
  * Provider-specific workflow with Jobs, History integration
  */
 const ProviderTabNavigator = () => {
-  const insets = useSafeAreaInsets();
   const { user, profile } = useApp();
   const profilePicture = useMemo(() => profile?.profilePicture || user?.profilePicture, [profile?.profilePicture, user?.profilePicture]);
 
@@ -325,16 +351,11 @@ const ProviderTabNavigator = () => {
     <Tab.Navigator
       initialRouteName="HomeTab"
       backBehavior="initialRoute"
+      tabBar={renderFloatingTabBar}
       screenOptions={{
         headerShown: false,
-        tabBarShowLabel: false,
-        tabBarStyle: getTabBarStyle(insets),
-        tabBarHideOnKeyboard: true,
         freezeOnBlur: true,
         animation: 'none',
-        tabBarButton: (props) => (
-          <Pressable {...props} android_ripple={null} />
-        ),
       }}
     >
       <Tab.Screen
@@ -683,12 +704,44 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   
-  // Tab Bar Styles — modern elevated bar with pill highlight
+  // Floating pill tab bar
+  floatWrap: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    alignItems: 'center',
+  },
+  floatPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: BRAND.white,
+    paddingHorizontal: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.16,
+        shadowRadius: 24,
+      },
+      android: {
+        elevation: 14,
+      },
+    }),
+  },
+  floatItem: {
+    flex: 1,
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Tab item content — icon pill + label, vertically centered as one block
   tabIconWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: (SCREEN_WIDTH - 16) / 4,
-    paddingTop: 2,
   },
   // Fixed slot the icon sits in; the animated pill fills it behind the icon
   tabPillSlot: {

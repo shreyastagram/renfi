@@ -1096,7 +1096,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
         renderItem={renderRequestItem}
         extraData={`${acceptingId}-${rejectingId}`}
         ListEmptyComponent={<EmptyState filter={activeFilter} />}
-        contentContainerStyle={[styles.listPad, { paddingBottom: insets.bottom + 40 }]}
+        contentContainerStyle={[styles.listPad, { paddingBottom: insets.bottom + 104 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} />}
         showsVerticalScrollIndicator={false}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}

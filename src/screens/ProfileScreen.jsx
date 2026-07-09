@@ -308,7 +308,7 @@ const ProfileSkeletonLoader = ({ insets, onBack, provider }) => {
   const shimmerAnim = useShimmerAnimation();
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainerFlat, { paddingBottom: insets.bottom + 30 }]} scrollEnabled={false}>
+      <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainerFlat, { paddingBottom: insets.bottom + 94 }]} scrollEnabled={false}>
         <LinearGradient
           colors={provider
             ? ['#FFF3EA', '#FBDDC5', '#f6851f', '#EA580C']
@@ -1339,7 +1339,7 @@ const ProfileScreen = ({ navigation, route }) => {
       >
         <ScrollView
           style={styles.content}
-          contentContainerStyle={[styles.contentContainerFlat, { paddingBottom: insets.bottom + 30 }]}
+          contentContainerStyle={[styles.contentContainerFlat, { paddingBottom: insets.bottom + 94 }]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#f67c16" />
           }

@@ -1081,7 +1081,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
         ListFooterComponent={loadingMore ? <View style={styles.footerLoader}><ActivityIndicator size="small" color={C.primary} /><Text style={styles.footerText}>Loading more...</Text></View> : null}
         onEndReached={loadMore}
         onEndReachedThreshold={0.3}
-        contentContainerStyle={[styles.listPad, { paddingBottom: insets.bottom + 40 }]}
+        contentContainerStyle={[styles.listPad, { paddingBottom: insets.bottom + 104 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} />}
         showsVerticalScrollIndicator={false}
       />

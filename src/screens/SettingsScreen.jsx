@@ -263,7 +263,7 @@ const SettingsSkeletonLoader = ({ insets, onBack }) => {
         <Text style={styles.headerTitle}>Settings</Text>
         <View style={{ width: 44 }} />
       </View>
-      <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 24 }]} scrollEnabled={false}>
+      <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 88 }]} scrollEnabled={false}>
         {/* Section header */}
         <ShimmerBlock width={100} height={13} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginBottom: 12, marginTop: 8 }} />
         {/* Toggle rows */}
@@ -1020,7 +1020,7 @@ const SettingsScreen = ({ navigation }) => {
 
       <ScrollView
         style={styles.content}
-        contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 24 }]}
+        contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 88 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Provider Availability Section */}
