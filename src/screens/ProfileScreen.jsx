@@ -29,6 +29,7 @@ import {  View,
   AppState
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
+import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -216,6 +217,81 @@ const EditableField = React.memo(({ label, value, onChangeText, placeholder, edi
     {locked && lockMessage && (
       <Text style={styles.fieldLockMessage}>{lockMessage}</Text>
     )}
+  </View>
+));
+
+/**
+ * Thin grey band separating flat sections (replaces card gaps)
+ */
+const SectionBand = React.memo(() => <View style={styles.sectionBand} />);
+
+/**
+ * Flat profile section — bold title + optional edit pencil or action link
+ */
+const ProfileSection = React.memo(({ title, action, onAction, actionColor, actionIcon, editable, onEdit, children }) => (
+  <View style={styles.profileSection}>
+    <View style={styles.sectionTitleRow}>
+      <Text style={styles.sectionTitleText}>{title}</Text>
+      {editable ? (
+        <TouchableOpacity
+          style={styles.sectionEditBtn}
+          onPress={onEdit}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.7}
+        >
+          <MaterialIcon name="edit" size={16} color="#64748B" />
+        </TouchableOpacity>
+      ) : action ? (
+        <TouchableOpacity
+          style={styles.sectionActionLink}
+          onPress={onAction}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.7}
+        >
+          {actionIcon ? <MaterialIcon name={actionIcon} size={15} color={actionColor || '#2b76bc'} /> : null}
+          <Text style={[styles.sectionActionText, actionColor ? { color: actionColor } : null]}>{action}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+    {children}
+  </View>
+));
+
+/**
+ * Light detail row — small icon tile + uppercase label + value + right slot
+ */
+const DetailRow = React.memo(({ iconName, materialIcon, label, value, right, muted, first }) => (
+  <View style={[styles.detailRow, first && styles.detailRowFirst]}>
+    <View style={styles.detailIcon}>
+      {materialIcon
+        ? <MaterialIcon name={materialIcon} size={18} color="#64748B" />
+        : <Icon name={iconName} size={18} color="#64748B" />}
+    </View>
+    <View style={styles.detailText}>
+      <Text style={styles.detailLabel} numberOfLines={1}>{label}</Text>
+      <Text style={[styles.detailValue, muted && styles.detailValueMuted]} numberOfLines={2}>{value}</Text>
+    </View>
+    {right}
+  </View>
+));
+
+/**
+ * Provider hero stat strip — jobs / rating(reviews) / experience
+ */
+const StatStrip = React.memo(({ items }) => (
+  <View style={styles.statStrip}>
+    {items.map((it, i) => (
+      <React.Fragment key={it.label + i}>
+        {i > 0 && <View style={styles.statDivider} />}
+        <View style={styles.statCell}>
+          <Text style={[styles.statValue, it.star && styles.statValueStar]} numberOfLines={1}>
+            {it.value}
+            {it.sub ? <Text style={styles.statSub}> {it.sub}</Text> : null}
+          </Text>
+          <Text style={styles.statLabel} numberOfLines={1}>{it.label}</Text>
+        </View>
+      </React.Fragment>
+    ))}
   </View>
 ));
 
@@ -1247,40 +1323,39 @@ const ProfileScreen = ({ navigation, route }) => {
     return <ProfileSkeletonLoader insets={insets} onBack={() => navigation.goBack()} />;
   }
 
+  // ─── Derived hero data (existing fields only) ───
+  const headline = isProvider
+    ? ((displayData?.verifiedServiceCategories?.length
+        ? displayData.verifiedServiceCategories
+        : displayData?.serviceCategories) || [])
+        .slice(0, 2).map(formatServiceName).join(' · ') || t('profile.serviceProvider')
+    : t('profile.user');
+  const heroExpText = formatExperience(displayData?.experienceStartDate, displayData?.experience, t);
+  const completedJobs = displayData?.stats?.completedRequests || 0;
+  const reviewCount = displayData?.ratings?.total || 0;
+  const ratingAvg = displayData?.ratings?.average || displayData?.rating || 0;
+  const statItems = [
+    { value: String(completedJobs), label: t('profile.statJobs') },
+    ratingAvg > 0
+      ? { value: Number(ratingAvg).toFixed(1), sub: reviewCount > 0 ? `(${reviewCount})` : undefined, label: t('profile.statRating'), star: true }
+      : { value: t('profile.newProvider'), label: t('profile.statRating'), star: true },
+    { value: heroExpText || t('profile.newProvider'), label: t('profile.statExperience') },
+  ];
+  const headerColors = isProvider
+    ? ['#FFF3EA', '#FBDDC5', '#f6851f', '#EA580C']
+    : ['#E9F2FB', '#CBE1F5', '#3a86cf', '#1e5f9e'];
+
   return (
     <View style={styles.container}>
       <GraphBackground />
 
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Icon name="arrow_back" size={22} color="#0F172A" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('profile.title')}</Text>
-        {!isEditing ? (
-          <TouchableOpacity style={styles.editButton} onPress={() => setEditingSection('identity')} activeOpacity={0.8}>
-            <MaterialIcon name="edit" size={16} color="#FFFFFF" />
-            <Text style={styles.editButtonText}>{t('profile.edit') || 'Edit'}</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={[styles.editButton, styles.editButtonCancel]}
-            onPress={() => setEditingSection(null)}
-            activeOpacity={0.8}
-          >
-            <MaterialIcon name="close" size={16} color="#FFFFFF" />
-            <Text style={styles.cancelButtonText}>{t('profile.discard')}</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={styles.flex1}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
           style={styles.content}
-          contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 30 }]}
+          contentContainerStyle={[styles.contentContainerFlat, { paddingBottom: insets.bottom + 30 }]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#f67c16" />
           }
@@ -1288,39 +1363,51 @@ const ProfileScreen = ({ navigation, route }) => {
           keyboardShouldPersistTaps="handled"
           nestedScrollEnabled
         >
-          {/* ─── Modern Profile Card ─── */}
-          <View style={styles.profileCard}>
-            {/* Gradient-style banner with avatar overlapping */}
-            <View style={[styles.profileCardHeader, isProvider ? styles.profileCardHeaderProvider : styles.profileCardHeaderUser]}>
+          {/* ─── Immersive gradient header — bleeds under the status bar ─── */}
+          <LinearGradient
+            colors={headerColors}
+            locations={[0, 0.15, 0.56, 1]}
+            style={styles.gHeader}
+          >
+            {/* Status-bar spacer — exact device inset (notch / punch-hole / Dynamic Island) */}
+            <View style={{ height: insets.top }} />
+            <View style={styles.gNav}>
+              <TouchableOpacity
+                style={styles.gBackBtn}
+                onPress={() => navigation.goBack()}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Icon name="arrow_back" size={22} color="#0F172A" />
+              </TouchableOpacity>
+              <Text style={styles.gNavTitle}>{t('profile.title')}</Text>
+              <View style={styles.gNavSpacer} />
+            </View>
+            <View style={styles.gBand}>
               <View style={StyleSheet.absoluteFill}>
-                <Svg width="100%" height="100%" viewBox="0 0 400 110" preserveAspectRatio="xMidYMid slice">
-                  {/* Organic flowing curves */}
-                  <Path d="M0 85 Q60 40 130 70 T260 50 T400 75" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" fill="none" />
-                  <Path d="M0 95 Q80 55 170 80 T340 60 T400 90" stroke="rgba(255,255,255,0.08)" strokeWidth="1" fill="none" />
-                  <Path d="M0 70 Q50 30 120 55 T250 35 T400 60" stroke="rgba(255,255,255,0.06)" strokeWidth="0.8" fill="none" />
-                  {/* Soft scattered circles */}
-                  <Circle cx="340" cy="20" r="45" fill="rgba(255,255,255,0.06)" />
-                  <Circle cx="370" cy="90" r="25" fill="rgba(255,255,255,0.05)" />
-                  <Circle cx="50" cy="15" r="30" fill="rgba(255,255,255,0.04)" />
-                  {/* Geometric accents */}
-                  <Circle cx="280" cy="45" r="3" fill="rgba(255,255,255,0.15)" />
-                  <Circle cx="100" cy="80" r="2.5" fill="rgba(255,255,255,0.12)" />
-                  <Circle cx="200" cy="25" r="2" fill="rgba(255,255,255,0.1)" />
+                <Svg width="100%" height="100%" viewBox="0 0 400 70" preserveAspectRatio="xMidYMid slice">
+                  <Path d="M0 55 Q60 25 130 45 T260 32 T400 48" stroke="rgba(255,255,255,0.16)" strokeWidth="1.5" fill="none" />
+                  <Path d="M0 64 Q80 36 170 54 T340 40 T400 60" stroke="rgba(255,255,255,0.10)" strokeWidth="1" fill="none" />
+                  <Circle cx="342" cy="12" r="40" fill="rgba(255,255,255,0.06)" />
+                  <Circle cx="60" cy="8" r="26" fill="rgba(255,255,255,0.05)" />
+                  <Circle cx="278" cy="42" r="3" fill="rgba(255,255,255,0.18)" />
                 </Svg>
               </View>
-              {/* Type badge floating on banner */}
-              <View style={styles.profileBannerBadge}>
-                <Icon name={isProvider ? 'provider' : 'user'} size={11} color="#FFFFFF" />
-                <Text style={styles.profileBannerBadgeText}>
+              {/* Type badge — icon + label inline-aligned */}
+              <View style={styles.gTypeBadge}>
+                <Icon name={isProvider ? 'provider' : 'user'} size={12} color="#FFFFFF" />
+                <Text style={styles.gTypeBadgeText}>
                   {isProvider ? t('profile.serviceProvider') : t('profile.user')}
                 </Text>
               </View>
             </View>
+          </LinearGradient>
 
-            {/* Avatar overlapping banner */}
-            <View style={styles.profileAvatarWrap}>
+          {/* ─── Hero body (flat white, LinkedIn-style) ─── */}
+          <View style={styles.heroBody}>
+            <View style={styles.heroTopRow}>
+              {/* Avatar overlapping the banner */}
               <TouchableOpacity
-                style={styles.avatarContainer}
+                style={styles.heroAvatarWrap}
                 onPress={() => setShowImagePickerModal(true)}
                 disabled={uploadingPicture}
               >
@@ -1346,42 +1433,54 @@ const ProfileScreen = ({ navigation, route }) => {
                   )}
                 </View>
               </TouchableOpacity>
+
+              {/* Contextual edit — identity (name/phone) */}
+              <TouchableOpacity
+                style={styles.heroEditBtn}
+                onPress={() => setEditingSection(editingSection === 'identity' ? null : 'identity')}
+                activeOpacity={0.8}
+              >
+                <MaterialIcon name={editingSection === 'identity' ? 'close' : 'edit'} size={15} color="#0F172A" />
+                <Text style={styles.heroEditText}>
+                  {editingSection === 'identity' ? t('profile.cancelEdit') : t('profile.edit')}
+                </Text>
+              </TouchableOpacity>
             </View>
 
-            {/* Body — centered info */}
-            <View style={styles.profileCardBody}>
-              {/* Name + Pro badge */}
-              <View style={styles.profileNameRow}>
-                <Text style={styles.profileName} numberOfLines={2} ellipsizeMode="tail">{displayData?.fullName || t('profile.userFallback')}</Text>
+            <View style={styles.heroIdBlock}>
+              <View style={styles.heroNameRow}>
+                <Text style={styles.heroName} numberOfLines={2} ellipsizeMode="tail">
+                  {displayData?.fullName || t('profile.userFallback')}
+                </Text>
                 {isProvider && !premiumLoaded && (
-                  <SharedShimmerBlock width={55} height={22} borderRadius={11} shimmerAnim={shimmerAnim} />
+                  <SharedShimmerBlock width={50} height={20} borderRadius={10} shimmerAnim={shimmerAnim} />
                 )}
                 {isProvider && premiumLoaded && isPremiumActive && (
                   <View style={styles.proBadge}>
-                    <MaterialIcon name="workspace-premium" size={14} color="#F59E0B" />
+                    <MaterialIcon name="workspace-premium" size={13} color="#F59E0B" />
                     <Text style={styles.proBadgeText}>{t('profile.proBadge')}</Text>
                   </View>
                 )}
               </View>
+              <Text
+                style={[styles.heroHeadline, isProvider ? styles.heroHeadlineProvider : styles.heroHeadlineUser]}
+                numberOfLines={1}
+              >
+                {headline}
+              </Text>
+              {!!displayData?.city && (
+                <View style={styles.heroLocRow}>
+                  <MaterialIcon name="location-on" size={14} color="#64748B" />
+                  <Text style={styles.heroLocText} numberOfLines={1}>{displayData.city}</Text>
+                </View>
+              )}
+            </View>
 
-              {/* Contact info row */}
-              <View style={styles.profileContactRow}>
-                {displayData?.email ? (
-                  <View style={styles.profileContactItem}>
-                    <MaterialIcon name="mail-outline" size={14} color="#94A3B8" />
-                    <Text style={styles.profileContactText} numberOfLines={1}>{displayData.email}</Text>
-                  </View>
-                ) : null}
-                {displayData?.phone ? (
-                  <View style={styles.profileContactItem}>
-                    <MaterialIcon name="phone" size={14} color="#94A3B8" />
-                    <Text style={styles.profileContactText} numberOfLines={1}>{displayData.phone}</Text>
-                  </View>
-                ) : null}
-              </View>
+            {/* Provider stat strip — jobs / rating / experience (existing data) */}
+            {isProvider && <StatStrip items={statItems} />}
 
-              {/* Verification pills */}
-              <View style={styles.verificationSummary}>
+            {/* Verification pills */}
+            <View style={styles.verificationSummary}>
                 <View style={[
                   styles.verificationItem,
                   displayData?.isPhoneVerified && styles.verificationItemVerified,
@@ -1426,16 +1525,18 @@ const ProfileScreen = ({ navigation, route }) => {
                 )}
               </View>
 
-              {!isVerified && (
-                <View style={styles.verifyWarning}>
-                  <Icon name="warning" size={15} color="#f67c16" />
-                  <Text style={styles.verifyWarningText} numberOfLines={2} ellipsizeMode="tail">
-                    {t('profile.verifyWarning')}
-                  </Text>
-                </View>
-              )}
-            </View>
+            {!isVerified && (
+              <View style={styles.verifyWarning}>
+                <Icon name="warning" size={15} color="#f67c16" />
+                <Text style={styles.verifyWarningText} numberOfLines={2} ellipsizeMode="tail">
+                  {t('profile.verifyWarning')}
+                </Text>
+              </View>
+            )}
           </View>
+
+          {/* Legacy padded wrapper — removed as sections migrate to flat layout */}
+          <View style={styles.legacyPad}>
 
           {/* Image Picker Modal — Bottom sheet */}
           <Modal
@@ -2511,7 +2612,7 @@ const ProfileScreen = ({ navigation, route }) => {
             <InfoRow
               iconName="calendar"
               label="Member Since"
-              value={displayData?.createdAt 
+              value={displayData?.createdAt
                 ? new Date(displayData.createdAt).toLocaleDateString('en-IN', {
                     month: 'long',
                     year: 'numeric',
@@ -2519,6 +2620,7 @@ const ProfileScreen = ({ navigation, route }) => {
                 : 'N/A'
               }
             />
+          </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -2615,6 +2717,273 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 14,
     paddingTop: 12,
+  },
+  contentContainerFlat: {
+    padding: 0,
+  },
+  flex1: {
+    flex: 1,
+  },
+  // Temporary wrapper for not-yet-migrated sections (removed in cleanup)
+  legacyPad: {
+    paddingHorizontal: 14,
+    paddingTop: 12,
+  },
+
+  // ─── Immersive gradient header ───
+  gHeader: {
+    width: '100%',
+  },
+  gNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingTop: 6,
+    paddingBottom: 2,
+  },
+  gBackBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gNavTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.2,
+  },
+  gNavSpacer: {
+    width: 40,
+  },
+  gBand: {
+    height: 56,
+    position: 'relative',
+    justifyContent: 'flex-end',
+  },
+  gTypeBadge: {
+    position: 'absolute',
+    right: 14,
+    bottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.24)',
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  gTypeBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.4,
+  },
+
+  // ─── Hero body (flat white) ───
+  heroBody: {
+    backgroundColor: '#FFFFFF',
+    paddingBottom: 8,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+  },
+  heroAvatarWrap: {
+    marginTop: -44,
+  },
+  heroEditBtn: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
+  heroEditText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  heroIdBlock: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  heroNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  heroName: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.5,
+    flexShrink: 1,
+  },
+  heroHeadline: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  heroHeadlineProvider: {
+    color: '#EA580C',
+  },
+  heroHeadlineUser: {
+    color: '#2b76bc',
+  },
+  heroLocRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 7,
+  },
+  heroLocText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+    flexShrink: 1,
+  },
+
+  // ─── Provider stat strip ───
+  statStrip: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginTop: 14,
+    marginBottom: 2,
+    borderWidth: 1,
+    borderColor: '#EDF1F6',
+    borderRadius: 16,
+    backgroundColor: '#FCFDFE',
+    overflow: 'hidden',
+  },
+  statCell: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 11,
+    paddingHorizontal: 4,
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: '#EDF1F6',
+  },
+  statValue: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  statValueStar: {
+    color: '#F59E0B',
+  },
+  statSub: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  statLabel: {
+    fontSize: 10.5,
+    color: '#94A3B8',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginTop: 3,
+  },
+
+  // ─── Flat section system ───
+  sectionBand: {
+    height: 9,
+    backgroundColor: '#F4F6FA',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: '#EDF1F6',
+  },
+  profileSection: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 12,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  sectionTitleText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  sectionEditBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionActionLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  sectionActionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#2b76bc',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#EDF1F6',
+  },
+  detailRowFirst: {
+    borderTopWidth: 0,
+  },
+  detailIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  detailLabel: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  detailValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0F172A',
+    lineHeight: 20,
+  },
+  detailValueMuted: {
+    color: '#94A3B8',
+    fontWeight: '500',
   },
 
   // Row fields for city/pincode
@@ -2985,10 +3354,11 @@ const styles = StyleSheet.create({
   verificationSummary: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 8,
-    marginTop: 4,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 8,
     flexWrap: 'wrap',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   verificationItem: {
     flexDirection: 'row',
@@ -3021,7 +3391,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF7ED',
     padding: 14,
     borderRadius: 14,
-    marginTop: 12,
+    marginTop: 4,
+    marginHorizontal: 16,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#FED7AA',
   },
