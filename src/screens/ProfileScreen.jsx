@@ -144,13 +144,6 @@ const CARD_SHADOW = Platform.select({
 });
 
 /**
- * Section Header
- */
-const SectionHeader = React.memo(({ title }) => (
-  <Text style={styles.sectionHeader}>{title}</Text>
-));
-
-/**
  * Info Row (Read-only)
  */
 const InfoRow = React.memo(({ label, value, iconName, verified, onVerify, isLoading, otpSent, verifiedLabel, verifyLabel, iconColor, iconBg, materialIcon }) => (
@@ -373,7 +366,6 @@ const ProfileScreen = ({ navigation, route }) => {
   const [refreshing, setRefreshing] = useState(false);
   // Per-section edit state: null | 'identity' | 'contact' | 'experience' | 'about'
   const [editingSection, setEditingSection] = useState(null);
-  const isEditing = editingSection !== null;
   const [saving, setSaving] = useState(false);
   
   // Edit form state
@@ -769,180 +761,9 @@ const ProfileScreen = ({ navigation, route }) => {
   };
 
   /**
-   * Handle save profile
-   */
-  const handleSave = async () => {
-    const userId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
-    
-    if (!userId) {
-      dialog(t('common.error'), t('common.somethingWentWrong'));
-      return;
-    }
-
-    // Trim whitespace from text fields
-    const trimmed = { ...formData };
-    for (const key of ['fullName', 'phone', 'address', 'city', 'pincode', 'bio']) {
-      if (typeof trimmed[key] === 'string') trimmed[key] = trimmed[key].trim();
-    }
-
-    // Input length validation
-    if (trimmed.fullName && (trimmed.fullName.length < 2 || trimmed.fullName.length > 100)) {
-      dialog(t('profile.invalidName'), t('profile.invalidNameMsg'));
-      return;
-    }
-    if (trimmed.phone && (!/^\d{10}$/.test(trimmed.phone) || !/^[6-9]/.test(trimmed.phone))) {
-      dialog(t('profile.invalidPhone'), t('profile.invalidPhoneMsg'));
-      return;
-    }
-    if (trimmed.pincode && !/^\d{6}$/.test(trimmed.pincode)) {
-      dialog(t('profile.invalidPincode'), t('profile.invalidPincodeMsg'));
-      return;
-    }
-
-    // Use trimmed data for save
-    Object.assign(formData, trimmed);
-
-    // Detect if phone number is being changed (for providers)
-    // Both values are now raw 10-digit numbers
-    const phoneChanged = isProvider &&
-      formData.phone !== originalPhone &&
-      originalPhone.length > 0;
-    
-    // Warn user if phone is being changed — verification will reset
-    if (phoneChanged) {
-      return new Promise((resolve) => {
-        dialog(
-          t('profile.phoneChangeTitle'),
-          t('profile.phoneChangeMsg'),
-          [
-            { text: t('common.cancel'), style: 'cancel', onPress: () => { setSaving(false); resolve(); } },
-            {
-              text: t('common.continue'),
-              style: 'destructive',
-              onPress: () => { performSave(userId); resolve(); }
-            },
-          ]
-        );
-      });
-    }
-
-    await performSave(userId);
-  };
-
-  /**
-   * Perform the actual profile save
-   */
-  const performSave = async (userId) => {
-    setSaving(true);
-    try {
-      let result;
-
-      // Compute only the fields that actually changed to avoid unnecessary
-      // Java Auth sync calls (which can fail independently of the main update)
-      const orig = originalFormData.current;
-      const changedFields = {};
-      for (const key of Object.keys(formData)) {
-        if (formData[key] !== orig[key]) {
-          changedFields[key] = formData[key];
-        }
-      }
-
-      // "Working since" date lives in separate state — detect its change by ISO string
-      const newExpIso = experienceStartDate ? experienceStartDate.toISOString() : null;
-      const origExpIso = originalExperienceStartDate.current
-        ? (isNaN(new Date(originalExperienceStartDate.current).getTime())
-            ? null
-            : new Date(originalExperienceStartDate.current).toISOString())
-        : null;
-      const experienceStartChanged = isProvider && newExpIso !== origExpIso;
-
-      if (Object.keys(changedFields).length === 0 && !experienceStartChanged) {
-        dialog(t('profile.noChanges'), t('profile.noChangesMsg'));
-        setSaving(false);
-        return;
-      }
-
-      if (isProvider) {
-        // For providers, update via provider profile endpoint
-        // Note: serviceCategories are managed via Document Verification, not editable here
-        const providerUpdates = {};
-        if (changedFields.fullName !== undefined) providerUpdates.name = changedFields.fullName;
-        if (changedFields.phone !== undefined) providerUpdates.phone = '+91' + changedFields.phone;
-        if (changedFields.address !== undefined) providerUpdates.address = changedFields.address;
-        if (changedFields.city !== undefined) providerUpdates.city = changedFields.city;
-        if (changedFields.pincode !== undefined) providerUpdates.pincode = changedFields.pincode;
-        if (changedFields.experience !== undefined) providerUpdates.experience = parseInt(changedFields.experience, 10) || undefined;
-        // Send the "Working since" date (null clears it). Date wins over legacy experience.
-        if (experienceStartChanged) providerUpdates.experienceStartDate = newExpIso;
-        result = await updateProviderProfile(userId, providerUpdates);
-      } else {
-        // For users, send only changed fields
-        // Prepend +91 for phone before sending to backend
-        const userUpdates = { ...changedFields };
-        if (userUpdates.phone !== undefined) {
-          userUpdates.phone = '+91' + userUpdates.phone;
-        }
-        result = await updateUserProfile(userId, userUpdates);
-      }
-
-      if (result.success) {
-        dialog(t('common.success'), t('profile.profileUpdated'));
-        setEditingSection(null);
-        // Refresh profile data to reflect changes immediately
-        await refreshProfile(userType, userId);
-        await refreshVerificationStatus();
-      } else {
-        // Handle specific error codes from backend
-        const errorCode = result.error?.code || result.error?.response?.data?.code;
-
-        if (errorCode === 'PHONE_ALREADY_EXISTS') {
-          dialog(
-            t('profile.phoneConflict'),
-            t('profile.phoneConflictMsg'),
-            [
-              { text: t('common.ok'), onPress: () => {
-                // Revert phone field to original value
-                setFormData(prev => ({ ...prev, phone: originalPhone }));
-              }}
-            ]
-          );
-        } else if (errorCode === 'PROFILE_CONFLICT') {
-          dialog(
-            t('profile.updateConflict'),
-            result.error?.message || 'This information conflicts with another account. Please try different values.',
-            [{ text: t('common.ok') }]
-          );
-        } else if (errorCode === 'NAME_LOCKED') {
-          dialog(
-            t('profile.nameLocked'),
-            t('profile.nameLockedMsg'),
-            [{ text: t('common.ok') }]
-          );
-        } else if (result.error?.isTransient) {
-          // Transient network error — offer retry
-          dialog(
-            t('profile.connectionIssue'),
-            t('profile.connectionIssueMsg'),
-            [
-              { text: t('common.cancel'), style: 'cancel' },
-              { text: t('common.retry') || 'Retry', onPress: () => performSave(userId) },
-            ]
-          );
-        } else {
-          dialog(t('profile.couldntSave'), getErrorMessage(result.error, t('profile.couldntSaveMsg')));
-        }
-      }
-    } catch (error) {
-      dialog(t('profile.couldntSave'), t('profile.couldntSaveMsg'));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  /**
    * Save a section's fields as a partial update (per-section editors).
    * Takes SEMANTIC fields and maps them to the role-specific payload exactly
-   * like performSave (provider name key = 'name'; phone gets '+91'). Only the
+   * like the legacy full-form save did (provider name key = 'name'; phone gets '+91'). Only the
    * provided fields are sent, so the Java-Auth sync inside the update services
    * only fires when name/phone actually change.
    * Returns true on success so callers can keep local state on failure.
@@ -2261,13 +2082,11 @@ const ProfileScreen = ({ navigation, route }) => {
             </>
           )}
 
-          {/* Legacy padded wrapper — remaining sections migrate in later tasks */}
-          <View style={styles.legacyPad}>
-
           {/* Verification Section — Users (below profile details) */}
           {!isProvider && (
-            <View style={styles.section}>
-              <SectionHeader title={t('profile.verification') || 'Verification'} />
+            <>
+            <SectionBand />
+            <ProfileSection title={t('profile.verification')}>
 
               <InfoRow
                 iconName="phone"
@@ -2383,13 +2202,15 @@ const ProfileScreen = ({ navigation, route }) => {
                 onVerify={handleEmailVerify}
                 isLoading={verifyingEmail}
               />
-            </View>
+            </ProfileSection>
+            </>
           )}
 
           {/* Verification Section — Providers (below profile details) */}
           {isProvider && (
-            <View style={styles.section}>
-              <SectionHeader title={t('profile.verification') || 'Verification'} />
+            <>
+            <SectionBand />
+            <ProfileSection title={t('profile.verification')}>
 
               <InfoRow
                 iconName="phone"
@@ -2549,13 +2370,15 @@ const ProfileScreen = ({ navigation, route }) => {
                   )}
                 </>
               )}
-            </View>
+            </ProfileSection>
+            </>
           )}
 
           {/* Saved Addresses Section */}
           {!isProvider && (
-            <View style={styles.section}>
-              <SectionHeader title={t('profile.savedAddresses') || 'Saved Addresses'} />
+            <>
+            <SectionBand />
+            <ProfileSection title={t('profile.savedAddresses')}>
               <TouchableOpacity
                 style={styles.addressesCard}
                 onPress={() => setShowAddressesModal(true)}
@@ -2572,19 +2395,21 @@ const ProfileScreen = ({ navigation, route }) => {
                 </View>
                 <MaterialIcon name="chevron-right" size={22} color="#94A3B8" />
               </TouchableOpacity>
-            </View>
+            </ProfileSection>
+            </>
           )}
 
           {/* Favorites Section */}
           {!isProvider && (
-            <View style={styles.section}>
-              <SectionHeader title={t('profile.myFavorites') || 'My Favorites'} />
+            <>
+            <SectionBand />
+            <ProfileSection title={t('profile.myFavorites')}>
               <TouchableOpacity
                 style={styles.addressesCard}
                 onPress={() => navigation.navigate('Favorites')}
                 activeOpacity={0.7}
               >
-                <View style={[styles.addressesIconContainer, { backgroundColor: '#FEF3C7' }]}>
+                <View style={[styles.addressesIconContainer, styles.favoritesIconBg]}>
                   <MaterialIcon name="favorite" size={24} color="#F59E0B" />
                 </View>
                 <View style={styles.addressesContent}>
@@ -2595,12 +2420,14 @@ const ProfileScreen = ({ navigation, route }) => {
                 </View>
                 <MaterialIcon name="chevron-right" size={22} color="#94A3B8" />
               </TouchableOpacity>
-            </View>
+            </ProfileSection>
+            </>
           )}
 
           {/* Premium Subscription Section - Providers Only */}
+          {isProvider && <SectionBand />}
           {isProvider && (
-            <View style={styles.premiumSection}>
+            <View style={styles.premiumFlat}>
               {!premiumLoaded ? (
                 /* Shimmer skeleton while premium status loads */
                 <View style={[styles.premiumCardLoading, { padding: 16, gap: 12 }]}>
@@ -2684,26 +2511,19 @@ const ProfileScreen = ({ navigation, route }) => {
             </View>
           )}
 
-          {/* Account Info */}
-          <View style={styles.section}>
-            <SectionHeader title={t('profile.accountSection') || 'Account'} />
-            <InfoRow
-              iconName="user"
-              label="User ID"
-              value={displayData?.javaUserId?.toString() || (displayData?.mongoId ? String(displayData.mongoId).slice(-8) : 'N/A')}
-            />
-            <InfoRow
-              iconName="calendar"
-              label="Member Since"
-              value={displayData?.createdAt
-                ? new Date(displayData.createdAt).toLocaleDateString('en-IN', {
-                    month: 'long',
-                    year: 'numeric',
+          {/* Footer — member since (no User ID by design) */}
+          <SectionBand />
+          <View style={styles.profileFooter}>
+            <Text style={styles.footerText}>
+              {displayData?.createdAt
+                ? t('profile.memberSince', {
+                    date: new Date(displayData.createdAt).toLocaleDateString('en-IN', {
+                      month: 'long',
+                      year: 'numeric',
+                    }),
                   })
-                : 'N/A'
-              }
-            />
-          </View>
+                : ''}
+            </Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -2752,48 +2572,6 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     letterSpacing: -0.2,
   },
-  editButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    backgroundColor: '#2b76bc',
-    borderRadius: 20,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#2b76bc',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.25,
-        shadowRadius: 6,
-      },
-      android: { elevation: 3 },
-    }),
-  },
-  editButtonCancel: {
-    backgroundColor: '#EF4444',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#EF4444',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.25,
-        shadowRadius: 6,
-      },
-      android: { elevation: 3 },
-    }),
-  },
-  editButtonText: {
-    fontSize: 13,
-    color: '#FFFFFF',
-    fontWeight: '600',
-    letterSpacing: 0.1,
-  },
-  cancelButtonText: {
-    fontSize: 13,
-    color: '#FFFFFF',
-    fontWeight: '600',
-    letterSpacing: 0.1,
-  },
   content: {
     flex: 1,
   },
@@ -2806,11 +2584,6 @@ const styles = StyleSheet.create({
   },
   flex1: {
     flex: 1,
-  },
-  // Temporary wrapper for not-yet-migrated sections (removed in cleanup)
-  legacyPad: {
-    paddingHorizontal: 14,
-    paddingTop: 12,
   },
 
   // ─── Immersive gradient header ───
@@ -3201,6 +2974,26 @@ const styles = StyleSheet.create({
   servicesLabelRowSpaced: {
     marginTop: 8,
   },
+  favoritesIconBg: {
+    backgroundColor: '#FEF3C7',
+  },
+  // Premium promo — flat white wrapper holding the dark rounded card
+  premiumFlat: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  profileFooter: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 22,
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: 12.5,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
 
   // Row fields for city/pincode
   rowFields: {
@@ -3211,18 +3004,6 @@ const styles = StyleSheet.create({
   },
   halfField: {
     flex: 1,
-  },
-  readOnlySection: {
-    backgroundColor: 'rgba(248,250,252,0.7)',
-    padding: 14,
-    borderRadius: 12,
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  readOnlyNote: {
-    fontSize: 13,
-    color: '#64748B',
-    textAlign: 'center',
   },
 
   // Profile Card
@@ -3240,57 +3021,6 @@ const styles = StyleSheet.create({
       },
       android: { elevation: 10 },
     }),
-  },
-  profileCardHeader: {
-    height: 110,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  profileCardHeaderUser: {
-    backgroundColor: '#2563EB',
-  },
-  profileCardHeaderProvider: {
-    backgroundColor: '#EA580C',
-  },
-  // Old decor circles removed — replaced by SVG art in JSX
-  _profileDecorLegacy: {
-  },
-  profileBannerBadge: {
-    position: 'absolute',
-    top: 14,
-    right: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  profileBannerBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
-  },
-  profileAvatarWrap: {
-    alignSelf: 'center',
-    marginTop: -54,
-    zIndex: 10,
-    ...Platform.select({
-      ios: {},
-      android: { elevation: 10 },
-    }),
-    marginBottom: 4,
-  },
-  profileCardBody: {
-    paddingTop: 4,
-    paddingHorizontal: 22,
-    paddingBottom: 22,
-    alignItems: 'center',
-  },
-  avatarContainer: {
-    position: 'relative',
   },
   avatarRing: {
     overflow: 'hidden',
@@ -3367,40 +3097,6 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '800',
   },
-  profileContactRow: {
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 6,
-    marginBottom: 16,
-  },
-  profileContactItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  profileContactText: {
-    fontSize: 13,
-    color: '#94A3B8',
-    letterSpacing: 0.1,
-    flexShrink: 1,
-  },
-  profileNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 0,
-    marginTop: 6,
-    maxWidth: '100%',
-  },
-  profileName: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -0.5,
-    textAlign: 'center',
-    flexShrink: 1,
-  },
   proBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -3429,31 +3125,6 @@ const styles = StyleSheet.create({
     color: '#D97706',
     marginLeft: 3,
     letterSpacing: 0.5,
-  },
-  // typeBadge styles kept for backward compat (used elsewhere)
-  typeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'center',
-    gap: 6,
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
-  },
-  typeBadgeProvider: {
-    backgroundColor: '#FFF7ED',
-    borderColor: '#FED7AA',
-  },
-  typeBadgeText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#2b76bc',
-  },
-  typeBadgeTextProvider: {
-    color: '#f67c16',
   },
 
   // Image Picker Modal
@@ -3643,34 +3314,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  // Section
-  section: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 14,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.10,
-        shadowRadius: 20,
-      },
-      android: {
-        elevation: 6,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: 'rgba(0,0,0,0.04)',
-      },
-    }),
-  },
-  sectionHeader: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#94A3B8',
-    marginBottom: 16,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
 
   // Info Row
   infoRow: {
@@ -4022,112 +3665,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
 
-  // Save Button
-  saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: '#f67c16',
-    height: 56,
-    borderRadius: 16,
-    marginTop: 24,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#f67c16',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
 
-  // Service Categories Styles
-  categoriesSection: {
-    marginTop: 20,
-    paddingTop: 20,
-    marginBottom: 24,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  },
-  categoriesSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  verifiedBadgeSmall: {
-    marginTop: -2,
-  },
-  categoriesHint: {
-    fontSize: 13,
-    color: '#94A3B8',
-    marginBottom: 12,
-  },
-  categoriesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  categoryChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 22,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  categoryChipVerified: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#93C5FD',
-  },
-  categoryChipTextVerified: {
-    color: '#2b76bc',
-    fontWeight: '600',
-  },
-  categoryChipSelected: {
-    backgroundColor: '#2b76bc',
-    borderColor: '#2b76bc',
-  },
-  categoryChipText: {
-    fontSize: 14,
-    color: '#4B5563',
-  },
-  categoryChipTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  documentVerificationLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 18,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#93C5FD',
-  },
-  documentVerificationLinkText: {
-    flex: 1,
-    flexShrink: 1,
-    fontSize: 14,
-    color: '#2b76bc',
-    fontWeight: '600',
-  },
   noCategoriesWarning: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -4142,34 +3680,11 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   },
 
-  // Service Categories Display (View Mode)
-  serviceCategoriesDisplay: {
-    marginBottom: 0,
-  },
-  labelWithBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  verifiedBadgeTiny: {
-    marginLeft: 2,
-  },
   categoriesDisplayGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
     marginTop: 6,
-  },
-  categoryDisplayChip: {
-    paddingVertical: 5,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    backgroundColor: '#EFF6FF',
-  },
-  categoryDisplayText: {
-    fontSize: 12,
-    color: '#2b76bc',
-    fontWeight: '500',
   },
   categoryDisplayChipVerified: {
     flexDirection: 'row',
@@ -4220,52 +3735,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
-  addMoreServicesLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 12,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  },
-  addMoreServicesText: {
-    fontSize: 13,
-    color: '#2b76bc',
-    fontWeight: '600',
-  },
-  pendingServicesInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#FFF7ED',
-    borderRadius: 10,
-    marginTop: 8,
-    alignSelf: 'flex-start',
-  },
-  pendingServicesText: {
-    fontSize: 12,
-    color: '#f67c16',
-    fontWeight: '500',
-  },
-  getVerifiedButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 10,
-    marginTop: 8,
-    alignSelf: 'flex-start',
-  },
-  getVerifiedButtonText: {
-    fontSize: 13,
-    color: '#2b76bc',
-    fontWeight: '600',
-  },
 
   // Saved Addresses Card
   addressesCard: {
@@ -4305,54 +3774,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  // Portfolio Section Styles
-  portfolioSection: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  },
-  portfolioHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  portfolioIconContainer: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: '#F3E8FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  portfolioTitleContainer: {
-    flex: 1,
-  },
-  portfolioTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
-    letterSpacing: -0.2,
-  },
-  portfolioSubtitle: {
-    fontSize: 12,
-    color: '#94A3B8',
-    marginTop: 2,
-  },
-  portfolioEditButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  portfolioEditContent: {
-    flex: 1,
-  },
   portfolioLinksPreview: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -4368,34 +3789,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  portfolioEditText: {
-    fontSize: 13,
-    color: '#7C3AED',
-    fontWeight: '600',
-    marginLeft: 4,
-  },
   portfolioAddText: {
     fontSize: 13,
     color: '#94A3B8',
-  },
-  bioPreview: {
-    marginTop: 12,
-    padding: 14,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-  },
-  bioPreviewLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#94A3B8',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  bioPreviewText: {
-    fontSize: 13,
-    color: '#374151',
-    lineHeight: 18,
   },
   specializationsPreview: {
     marginTop: 12,
@@ -4517,10 +3913,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
 
-  // Premium Subscription Section
-  premiumSection: {
-    marginBottom: 16,
-  },
   premiumCardLoading: {
     borderRadius: 22,
     backgroundColor: '#FFFFFF',
@@ -4536,15 +3928,6 @@ const styles = StyleSheet.create({
       },
       android: { elevation: 8 },
     }),
-  },
-  premiumLoadingShimmer: {
-    alignItems: 'center',
-    gap: 10,
-  },
-  premiumLoadingText: {
-    fontSize: 13,
-    color: '#94A3B8',
-    fontWeight: '500',
   },
   premiumCardActive: {
     borderRadius: Platform.OS === 'ios' ? 20 : 22,
