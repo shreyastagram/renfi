@@ -452,6 +452,9 @@ export const fetchFullProfile = async (userType, mongoId) => {
         profilePicture: mongoData.profilePicture || null,
         serviceTypes: mongoData.serviceTypes || [],
         experience: mongoData.experience || '',
+        // "Working since" date — backend returns it (getProviderProfile) but it
+        // was never mapped here, so the app saved it yet always displayed "New"
+        experienceStartDate: mongoData.experienceStartDate || null,
         rating: mongoData.rating || 0,
         ratings: mongoData.ratings || {},
         isAvailable: mongoData.isAvailable ?? false,

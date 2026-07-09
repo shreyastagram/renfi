@@ -60,7 +60,7 @@ import {
   sendEmailVerification,
 } from '../services/authService';
 import { getAadhaarStatus } from '../services/aadhaarService';
-import { getVerificationDashboard } from '../services/verificationService';
+import { getVerificationDashboard, syncVerificationStatus } from '../services/verificationService';
 import Geolocation from '@react-native-community/geolocation';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
@@ -71,6 +71,8 @@ import CityAutocomplete from '../components/CityAutocomplete';
 import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
 
 import { uploadProfilePicture } from '../services/cloudinaryService';
+
+const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -1019,6 +1021,22 @@ const ProfileScreen = ({ navigation, route }) => {
         setPhoneOtp(Array(6).fill(''));
         setOtpCountdown(0);
         await refreshVerificationStatus();
+        // Providers: push the verified flag into MongoDB right away. The
+        // Add-Services gate (ServiceApprovalsScreen) reads profile.phoneVerified
+        // from Mongo, which is otherwise only synced lazily in the background
+        // by the dashboard endpoint — causing a "verify all" warning for a
+        // while even after a successful OTP verification.
+        if (isProvider) {
+          const uid = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+          if (uid) {
+            try {
+              await syncVerificationStatus(uid);
+            } catch (syncErr) {
+              console.warn('[Profile] Verification sync after OTP failed (non-blocking):', syncErr?.message);
+            }
+            await refreshProfile(userType, uid, { force: true });
+          }
+        }
       } else {
         // Shake on error
         Animated.sequence([
@@ -2560,9 +2578,10 @@ const ProfileScreen = ({ navigation, route }) => {
             </View>
           )}
 
-          {/* Footer — member since (no User ID by design) */}
+          {/* Footer — brand mark + member since (no User ID by design) */}
           <SectionBand />
           <View style={styles.profileFooter}>
+            <Image source={FIXHOMI_LOGO} style={styles.footerLogo} />
             <Text style={styles.footerText}>
               {displayData?.createdAt
                 ? t('profile.memberSince', {
@@ -3010,6 +3029,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 22,
     alignItems: 'center',
+    gap: 10,
+  },
+  footerLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
   },
   footerText: {
     fontSize: 12.5,
