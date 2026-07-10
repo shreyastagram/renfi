@@ -11,8 +11,9 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import PhotographerIcon from '../assets/serviceIcons/PhotographerIcon';
-import InfluencerIcon from '../assets/serviceIcons/InfluencerIcon';
+// 3D rendered icons (Fixhomi Figma icon system)
+const Photographer3D = require('../assets/serviceIcons/3d/photographer.png');
+const Influencer3D = require('../assets/serviceIcons/3d/influencer.png');
 import {  View,
   Text,
   StyleSheet,
@@ -164,14 +165,14 @@ const SectionHeader = ({ title, style: customStyle }) => (
 /**
  * Service Card Component - Premium design
  */
-const EVENT_SVG_ICONS = {
-  photographer: PhotographerIcon,
-  influencer: InfluencerIcon,
+const EVENT_3D_ICONS = {
+  photographer: Photographer3D,
+  influencer: Influencer3D,
 };
 
 const ServiceCard = ({ service, onPress, comingSoon = false }) => {
   const { t } = useLanguage();
-  const SvgIcon = EVENT_SVG_ICONS[service.id];
+  const icon3d = EVENT_3D_ICONS[service.id];
 
   return (
     <AnimatedPressable
@@ -179,8 +180,8 @@ const ServiceCard = ({ service, onPress, comingSoon = false }) => {
       onPress={() => onPress(service)}
     >
       <View style={[styles.serviceIconContainer, comingSoon && { opacity: 0.35 }]}>
-        {SvgIcon ? (
-          <SvgIcon size={36} />
+        {icon3d ? (
+          <Image source={icon3d} style={{ width: 36, height: 36 }} resizeMode="contain" />
         ) : (
           <MaterialIcon name={service.icon} size={24} color={COLORS.secondary} />
         )}

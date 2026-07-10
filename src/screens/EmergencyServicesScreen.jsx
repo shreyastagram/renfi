@@ -55,9 +55,10 @@ import { CancellationReasonModal } from '../components';
 import { formatDistance, formatDistanceFromMeters, useDistanceUnit } from '../utils/formatDistance';
 import { formatExperience } from '../utils/experience';
 import ScreenShimmer from '../components/ShimmerLoader';
-import AmbulanceIcon from '../assets/serviceIcons/AmbulanceIcon';
-import SnakeCatcherIcon from '../assets/serviceIcons/SnakeCatcherIcon';
-import MortuaryVanIcon from '../assets/serviceIcons/MortuaryVanIcon';
+// 3D rendered icons (Fixhomi Figma icon system)
+const Ambulance3D = require('../assets/serviceIcons/3d/private_ambulance.png');
+const SnakeCatcher3D = require('../assets/serviceIcons/3d/snake_catcher.png');
+const MortuaryVan3D = require('../assets/serviceIcons/3d/mortuary_van.png');
 
 // Service-specific placeholder hints for notes input
 const EMERGENCY_NOTES_PLACEHOLDERS = {
@@ -144,14 +145,14 @@ const AnimatedPressable = ({ children, onPress, style, disabled }) => {
 /**
  * Service Card Component - Premium design with animated press
  */
-const EMERGENCY_SVG_ICONS = {
-  private_ambulance: AmbulanceIcon,
-  snake_catcher: SnakeCatcherIcon,
-  mortuary_van: MortuaryVanIcon,
+const EMERGENCY_3D_ICONS = {
+  private_ambulance: Ambulance3D,
+  snake_catcher: SnakeCatcher3D,
+  mortuary_van: MortuaryVan3D,
 };
 
 const ServiceCard = ({ service, onPress, isStatic }) => {
-  const SvgIcon = EMERGENCY_SVG_ICONS[service.id];
+  const icon3d = EMERGENCY_3D_ICONS[service.id];
 
   return (
     <AnimatedPressable
@@ -159,8 +160,8 @@ const ServiceCard = ({ service, onPress, isStatic }) => {
       onPress={() => onPress(service)}
     >
       <View style={[styles.serviceIconContainer, isStatic && styles.staticIconContainer]}>
-        {SvgIcon ? (
-          <SvgIcon size={36} />
+        {icon3d ? (
+          <Image source={icon3d} style={{ width: 36, height: 36 }} resizeMode="contain" />
         ) : (
           <MaterialIcon
             name={EMERGENCY_SERVICE_ICONS[service.id]}

@@ -38,8 +38,10 @@ import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { BlurView } from '@react-native-community/blur';
-import EmergencyIcon from '../assets/serviceIcons/EmergencyIcon';
-import EventsIcon from '../assets/serviceIcons/EventsIcon';
+// 3D rendered icons (Fixhomi Figma icon system) for the quick-access row
+const Emergency3D = require('../assets/serviceIcons/3d/emergency.png');
+const Events3D = require('../assets/serviceIcons/3d/events.png');
+const Favorites3D = require('../assets/serviceIcons/3d/favorites.png');
 import { LocationMap, Icon, ServiceIcon, DateTimePicker, LocationPicker, ProviderDetailsModal, FixhomiLogo, CancellationReasonModal } from '../components';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
 import SvgArt from '../components/SvgArt';
@@ -1554,7 +1556,7 @@ const UserHomeScreen = ({ navigation, route }) => {
             {/* Quick Access Buttons */}
             <View style={styles.quickAccessRow}>
               <QuickAccessCard
-                SvgIcon={EmergencyIcon}
+                imageSource={Emergency3D}
                 label={t('userHome.emergency')}
                 borderColor="#FECACA"
                 bgColor="#FEF2F2"
@@ -1562,7 +1564,7 @@ const UserHomeScreen = ({ navigation, route }) => {
                 onPress={() => navigation.navigate('EmergencyServices')}
               />
               <QuickAccessCard
-                SvgIcon={EventsIcon}
+                imageSource={Events3D}
                 label={t('userHome.events')}
                 borderColor="#C7D2FE"
                 bgColor="#EEF2FF"
@@ -1570,8 +1572,7 @@ const UserHomeScreen = ({ navigation, route }) => {
                 onPress={() => navigation.navigate('EventServices')}
               />
               <QuickAccessCard
-                iconName="heart"
-                iconColor="#F59E0B"
+                imageSource={Favorites3D}
                 label={t('userHome.favorites')}
                 borderColor="#FDE68A"
                 bgColor="#FFFBEB"
@@ -1790,7 +1791,7 @@ const UserHomeScreen = ({ navigation, route }) => {
 };
 
 // QuickAccessCard sub-component with press animation
-const QuickAccessCard = ({ iconName, iconColor, label, borderColor, bgColor, iconBg, onPress, SvgIcon }) => {
+const QuickAccessCard = ({ iconName, iconColor, label, borderColor, bgColor, iconBg, onPress, SvgIcon, imageSource }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const onPressIn = () => Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true, friction: 8 }).start();
   const onPressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, friction: 8 }).start();
@@ -1805,7 +1806,11 @@ const QuickAccessCard = ({ iconName, iconColor, label, borderColor, bgColor, ico
         activeOpacity={0.85}
       >
         <View style={[styles.quickAccessIconContainer, { backgroundColor: iconBg }]}>
-          {SvgIcon ? <SvgIcon size={32} /> : <Icon name={iconName} size={24} color={iconColor} />}
+          {imageSource
+            ? <Image source={imageSource} style={{ width: 36, height: 36 }} resizeMode="contain" />
+            : SvgIcon
+              ? <SvgIcon size={32} />
+              : <Icon name={iconName} size={24} color={iconColor} />}
         </View>
         <Text style={styles.quickAccessLabel}>{label}</Text>
       </TouchableOpacity>

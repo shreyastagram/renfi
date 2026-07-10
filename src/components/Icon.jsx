@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -268,11 +268,43 @@ const CUSTOM_SVG_ICONS = {
   influencer: InfluencerIcon,
 };
 
+// 3D rendered icons (soft-3D squircle tiles exported from the Fixhomi Figma
+// icon system). Preferred over the flat SVG illustrations; the SVGs remain as
+// fallback for any service type without a 3D render.
+const ICON_3D = {
+  electrician: require('../assets/serviceIcons/3d/electrician.png'),
+  plumber: require('../assets/serviceIcons/3d/plumber.png'),
+  electronics_technician: require('../assets/serviceIcons/3d/electronics_technician.png'),
+  carpenter: require('../assets/serviceIcons/3d/carpenter.png'),
+  painter: require('../assets/serviceIcons/3d/painter.png'),
+  solar_repairing: require('../assets/serviceIcons/3d/solar_repairing.png'),
+  welder: require('../assets/serviceIcons/3d/welder.png'),
+  salon: require('../assets/serviceIcons/3d/salon.png'),
+  vehicle_cleaning: require('../assets/serviceIcons/3d/vehicle_cleaning.png'),
+  mason_tiler: require('../assets/serviceIcons/3d/mason_tiler.png'),
+  driver: require('../assets/serviceIcons/3d/driver.png'),
+  ac_repair: require('../assets/serviceIcons/3d/ac_repair.png'),
+  emergency: require('../assets/serviceIcons/3d/emergency.png'),
+  private_ambulance: require('../assets/serviceIcons/3d/private_ambulance.png'),
+  snake_catcher: require('../assets/serviceIcons/3d/snake_catcher.png'),
+  mortuary_van: require('../assets/serviceIcons/3d/mortuary_van.png'),
+  photographer: require('../assets/serviceIcons/3d/photographer.png'),
+  influencer: require('../assets/serviceIcons/3d/influencer.png'),
+  events: require('../assets/serviceIcons/3d/events.png'),
+  favorites: require('../assets/serviceIcons/3d/favorites.png'),
+};
+
 export const ServiceIcon = ({ type, serviceType, size = 24, color, backgroundColor, style, useSvg }) => {
   const iconType = type || serviceType;
 
-  // Always use custom SVG if available (unless explicitly disabled)
+  // Prefer the 3D rendered icon, then custom SVG (unless explicitly disabled)
   if (useSvg !== false) {
+    const icon3d = ICON_3D[iconType];
+    if (icon3d) {
+      // Exported tiles have the rounded-squircle corners baked in (transparent
+      // corners), so a plain Image at the requested size fits any container.
+      return <Image source={icon3d} style={[{ width: size, height: size }, style]} resizeMode="contain" />;
+    }
     const SvgIcon = CUSTOM_SVG_ICONS[iconType];
     if (SvgIcon) {
       return <SvgIcon size={size} />;
