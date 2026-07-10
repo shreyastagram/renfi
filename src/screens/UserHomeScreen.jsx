@@ -158,7 +158,7 @@ const ServiceCard = React.memo(({ service, onPress, comingSoon = false }) => {
       >
         {/* Service icon — custom SVG illustration or vector fallback */}
         <View style={[styles.serviceIconWrap, comingSoon && { opacity: 0.35 }]}>
-          <ServiceIcon serviceType={service.id} size={58} useSvg={true} color={accent} />
+          <ServiceIcon serviceType={service.id} size={80} useSvg={true} color={accent} />
         </View>
         <Text style={[styles.serviceName, comingSoon && { opacity: 0.45 }]}>{label}</Text>
         {comingSoon && (
@@ -1805,13 +1805,19 @@ const QuickAccessCard = ({ iconName, iconColor, label, borderColor, bgColor, ico
         onPressOut={onPressOut}
         activeOpacity={0.85}
       >
-        <View style={[styles.quickAccessIconContainer, { backgroundColor: iconBg }]}>
-          {imageSource
-            ? <Image source={imageSource} style={{ width: 36, height: 36 }} resizeMode="contain" />
-            : SvgIcon
-              ? <SvgIcon size={32} />
-              : <Icon name={iconName} size={24} color={iconColor} />}
-        </View>
+        {imageSource ? (
+          // 3D squircle tile IS the icon — no tinted circle behind it (a white
+          // tile floating on a colored circle reads as a double background).
+          <Image
+            source={imageSource}
+            style={{ width: 48, height: 48, borderRadius: 14, marginBottom: 4 }}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={[styles.quickAccessIconContainer, { backgroundColor: iconBg }]}>
+            {SvgIcon ? <SvgIcon size={32} /> : <Icon name={iconName} size={24} color={iconColor} />}
+          </View>
+        )}
         <Text style={styles.quickAccessLabel}>{label}</Text>
       </TouchableOpacity>
     </Animated.View>
@@ -2227,8 +2233,8 @@ const styles = StyleSheet.create({
   serviceCard: {
     overflow: 'hidden',
     width: Math.floor((SCREEN_WIDTH - 64) / 3),
-    paddingTop: 18,
-    paddingBottom: 14,
+    paddingTop: 8,
+    paddingBottom: 8,
     paddingHorizontal: 6,
     borderRadius: 20,
     alignItems: 'center',
@@ -2248,7 +2254,7 @@ const styles = StyleSheet.create({
     }),
   },
   serviceIconWrap: {
-    marginBottom: 8,
+    marginBottom: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
