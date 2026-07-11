@@ -1596,6 +1596,16 @@ const UserHomeScreen = ({ navigation, route }) => {
                 <Text style={styles.quickActionText}>{t('userHome.viewHistory')}</Text>
               </TouchableOpacity>
             </View>
+
+            {/* Brand footer — edge-to-edge art at the end of the sheet
+                (negative margins break out of the sheet's 20px padding).
+                Decorative: it also provides the scroll clearance under the
+                floating tab bar, so no extra bottom padding is needed. */}
+            <Image
+              source={require('../assets/brand_footer_user.jpg')}
+              style={styles.brandFooterImage}
+              resizeMode="cover"
+            />
           </ScrollView>
     );
   };
@@ -2293,7 +2303,15 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   servicesScrollContent: {
-    paddingBottom: 160,
+    // The brand footer image is the scroll tail and provides the clearance
+    // under the floating tab bar — no synthetic bottom padding needed.
+    paddingBottom: 0,
+  },
+  brandFooterImage: {
+    width: SCREEN_WIDTH,
+    aspectRatio: 1024 / 1492,
+    marginHorizontal: -20, // sheetContent pads 20 — break out to true edge-to-edge
+    marginTop: 22,
   },
 
   // ─── Providers Section ─────────────────────────────────────

@@ -974,7 +974,7 @@ const ProviderHomeScreen = ({ navigation }) => {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 96 }]}
+        contentContainerStyle={styles.scrollContent} // brand footer image is the tail — it provides the tab-bar clearance
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFFFFF" />}
         showsVerticalScrollIndicator={false}
       >
@@ -1350,6 +1350,15 @@ const ProviderHomeScreen = ({ navigation }) => {
             <MaterialIcon name="chevron-right" size={22} color="#94A3B8" />
           </TouchableOpacity>
         </View>
+
+        {/* Brand footer — edge-to-edge art at the end of the home scroll
+            (outside contentArea, so no padding to break out of). Decorative:
+            also provides the clearance under the floating tab bar. */}
+        <Image
+          source={require('../assets/brand_footer_provider.jpg')}
+          style={styles.brandFooterImage}
+          resizeMode="cover"
+        />
       </ScrollView>
 
       {/* Location Preview — animated floating card from mini map origin */}
@@ -1500,7 +1509,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 32,
+    paddingBottom: 0,
+  },
+  brandFooterImage: {
+    width: '100%',
+    aspectRatio: 1024 / 1495,
+    marginTop: 22,
   },
 
   // ===== Hero Header =====
