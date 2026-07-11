@@ -88,3 +88,7 @@ yarn-error.log
 # APK builds
 *.apk
 public/download/
+
+# Local tooling / deploy caches
+.claude/settings.local.json
+.firebase/

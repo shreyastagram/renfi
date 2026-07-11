@@ -69,6 +69,10 @@ import {
 import { formatDistance, formatDistanceFromMeters, useDistanceUnit } from '../utils/formatDistance';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const SERVICE_CARD_WIDTH = Math.floor((SCREEN_WIDTH - 64) / 3);
+// 80 at most, but never wider than the card's content box (2 × 6 padding) —
+// otherwise the squircle tile clips inside overflow:hidden on 320–340dp phones.
+const SERVICE_ICON_SIZE = Math.min(80, SERVICE_CARD_WIDTH - 12);
 
 // Bottom sheet heights
 const SHEET_MIN_HEIGHT = 160;
@@ -159,7 +163,7 @@ const ServiceCard = React.memo(({ service, onPress, comingSoon = false }) => {
       >
         {/* Service icon — custom SVG illustration or vector fallback */}
         <View style={[styles.serviceIconWrap, comingSoon && { opacity: 0.35 }]}>
-          <ServiceIcon serviceType={service.id} size={80} useSvg={true} color={accent} />
+          <ServiceIcon serviceType={service.id} size={SERVICE_ICON_SIZE} useSvg={true} color={accent} />
         </View>
         <Text style={[styles.serviceName, comingSoon && { opacity: 0.45 }]}>{label}</Text>
         {comingSoon && (
@@ -2244,7 +2248,7 @@ const styles = StyleSheet.create({
   },
   serviceCard: {
     overflow: 'hidden',
-    width: Math.floor((SCREEN_WIDTH - 64) / 3),
+    width: SERVICE_CARD_WIDTH,
     paddingTop: 8,
     paddingBottom: 8,
     paddingHorizontal: 6,

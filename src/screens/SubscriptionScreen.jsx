@@ -345,7 +345,7 @@ const PlanCard = ({ plan, selected, onSelect, isCurrentPlan, launchOffer, t }) =
           <>
             <Text style={planStyles.oldPrice}>{plan.priceDisplay}</Text>
             <Text style={planStyles.freePrice}>₹0</Text>
-            <Text style={planStyles.duration}>/{t('subscription.perMonth')}</Text>
+            <Text style={planStyles.duration}>{t('subscription.perMonth')}</Text>
           </>
         ) : (
           <>
@@ -781,6 +781,11 @@ const SubscriptionScreen = ({ navigation }) => {
   }
 
   const isPremium = subscription?.isPremium;
+  const bonusActive = isPremium && subscription?.currentPlan?.planId === 'first_approval_bonus';
+  // The ₹0 pitch (state A) needs the profile to confirm no approved service
+  // yet. While the profile is still loading (or failed on a cold start) we
+  // fall back to the paid pitch — never promise free months we can't verify.
+  const bonusPitch = !isPremium && !!profile && !(profile?.verifiedServiceCategories?.length > 0);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -805,9 +810,7 @@ const SubscriptionScreen = ({ navigation }) => {
             C: bonus over / paid flow → standard pricing
             Paid-active keeps the existing ActiveStatusCard. */}
         {(() => {
-          const bonusActive = isPremium && subscription?.currentPlan?.planId === 'first_approval_bonus';
-          const hasApprovedService = (profile?.verifiedServiceCategories?.length || 0) > 0;
-          const offerState = bonusActive ? 'B' : (!isPremium && !hasApprovedService) ? 'A' : 'C';
+          const offerState = bonusActive ? 'B' : bonusPitch ? 'A' : 'C';
           const monthlyPrice = plans?.find((p) => p.id !== 'first_approval_bonus')?.priceDisplay || '₹299';
 
           if (isPremium && !bonusActive) {
@@ -838,17 +841,16 @@ const SubscriptionScreen = ({ navigation }) => {
                 selected={selectedPlan?.id === plan.id}
                 onSelect={setSelectedPlan}
                 isCurrentPlan={subscription?.currentPlan?.planId === plan.id && isPremium}
-                launchOffer={!isPremium && !(profile?.verifiedServiceCategories?.length > 0)}
+                launchOffer={bonusPitch}
                 t={t}
               />
             ))}
 
             {selectedPlan && (() => {
-              const hasApprovedService = (profile?.verifiedServiceCategories?.length || 0) > 0;
               // Before the first approval, the honest CTA routes to
               // verification — paying does nothing for them yet, the free
               // bonus is waiting behind document approval.
-              if (!isPremium && !hasApprovedService) {
+              if (bonusPitch) {
                 return (
                   <>
                     <TouchableOpacity
@@ -887,8 +889,9 @@ const SubscriptionScreen = ({ navigation }) => {
               );
             })()}
 
-            {/* iOS: Show web payment note */}
-            {Platform.OS === 'ios' && selectedPlan && (
+            {/* iOS: web payment note — only under a payment CTA, never the
+                state-A verification CTA ("no payment details needed today") */}
+            {Platform.OS === 'ios' && selectedPlan && !bonusPitch && (
               <Text style={styles.webPaymentNote}>
                 {t('subscription.webSubscribeNote')}
               </Text>

@@ -227,50 +227,9 @@ const Icon = ({
  * Service Icon - Specific for service types with background
  * Supports both 'type' and 'serviceType' props for flexibility
  */
-// Custom SVG icons for service cards (rich illustrations)
-import ElectricianIcon from '../assets/serviceIcons/ElectricianIcon';
-import PlumberIcon from '../assets/serviceIcons/PlumberIcon';
-import ElectronicsIcon from '../assets/serviceIcons/ElectronicsIcon';
-import CarpenterIcon from '../assets/serviceIcons/CarpenterIcon';
-import PainterIcon from '../assets/serviceIcons/PainterIcon';
-import SolarIcon from '../assets/serviceIcons/SolarIcon';
-import WelderIcon from '../assets/serviceIcons/WelderIcon';
-import SalonIcon from '../assets/serviceIcons/SalonIcon';
-import VehicleCleaningIcon from '../assets/serviceIcons/VehicleCleaningIcon';
-import MasonTilerIcon from '../assets/serviceIcons/MasonTilerIcon';
-import DriverIcon from '../assets/serviceIcons/DriverIcon';
-import AcRepairIcon from '../assets/serviceIcons/AcRepairIcon';
-import EmergencyIcon from '../assets/serviceIcons/EmergencyIcon';
-import AmbulanceIcon from '../assets/serviceIcons/AmbulanceIcon';
-import SnakeCatcherIcon from '../assets/serviceIcons/SnakeCatcherIcon';
-import MortuaryVanIcon from '../assets/serviceIcons/MortuaryVanIcon';
-import PhotographerIcon from '../assets/serviceIcons/PhotographerIcon';
-import InfluencerIcon from '../assets/serviceIcons/InfluencerIcon';
-
-const CUSTOM_SVG_ICONS = {
-  electrician: ElectricianIcon,
-  plumber: PlumberIcon,
-  electronics_technician: ElectronicsIcon,
-  carpenter: CarpenterIcon,
-  painter: PainterIcon,
-  solar_repairing: SolarIcon,
-  welder: WelderIcon,
-  salon: SalonIcon,
-  vehicle_cleaning: VehicleCleaningIcon,
-  mason_tiler: MasonTilerIcon,
-  driver: DriverIcon,
-  ac_repair: AcRepairIcon,
-  emergency: EmergencyIcon,
-  private_ambulance: AmbulanceIcon,
-  snake_catcher: SnakeCatcherIcon,
-  mortuary_van: MortuaryVanIcon,
-  photographer: PhotographerIcon,
-  influencer: InfluencerIcon,
-};
-
 // 3D rendered icons (soft-3D squircle tiles exported from the Fixhomi Figma
-// icon system). Preferred over the flat SVG illustrations; the SVGs remain as
-// fallback for any service type without a 3D render.
+// icon system). Every service type has a 3D render; unknown types fall back
+// to the ICON_MAP vector below.
 const ICON_3D = {
   electrician: require('../assets/serviceIcons/3d/electrician.png'),
   plumber: require('../assets/serviceIcons/3d/plumber.png'),
@@ -297,17 +256,13 @@ const ICON_3D = {
 export const ServiceIcon = ({ type, serviceType, size = 24, color, backgroundColor, style, useSvg }) => {
   const iconType = type || serviceType;
 
-  // Prefer the 3D rendered icon, then custom SVG (unless explicitly disabled)
+  // Prefer the 3D rendered icon (unless explicitly disabled)
   if (useSvg !== false) {
     const icon3d = ICON_3D[iconType];
     if (icon3d) {
       // Exported tiles have the rounded-squircle corners baked in (transparent
       // corners), so a plain Image at the requested size fits any container.
       return <Image source={icon3d} style={[{ width: size, height: size }, style]} resizeMode="contain" />;
-    }
-    const SvgIcon = CUSTOM_SVG_ICONS[iconType];
-    if (SvgIcon) {
-      return <SvgIcon size={size} />;
     }
   }
 

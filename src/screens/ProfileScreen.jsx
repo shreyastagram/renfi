@@ -2569,14 +2569,21 @@ const ProfileScreen = ({ navigation, route }) => {
                   <View style={styles.premiumInactiveGradient}>
                     <View style={styles.premiumInactiveDecoCircle1} />
                     <View style={styles.premiumInactiveDecoCircle2} />
-                    {/* 6-months-free offer chip — gold on navy, restrained */}
-                    <View style={styles.premiumOfferChip}>
-                      <MaterialIcon name="card-giftcard" size={13} color="#0F172A" />
-                      <Text style={styles.premiumOfferChipText}>{t('profile.premiumOfferChip')}</Text>
-                    </View>
+                    {/* 6-months-free offer chip — only while the first-approval
+                        bonus is still ahead of them; once a service is approved
+                        the bonus is granted (and later spent), so the free
+                        promise would be false */}
+                    {!(profile?.verifiedServiceCategories?.length > 0) && (
+                      <View style={styles.premiumOfferChip}>
+                        <MaterialIcon name="card-giftcard" size={13} color="#0F172A" />
+                        <Text style={styles.premiumOfferChipText}>{t('profile.premiumOfferChip')}</Text>
+                      </View>
+                    )}
                     <MaterialIcon name="workspace-premium" size={44} color="#FFD700" />
                     <Text style={styles.premiumInactiveTitle}>{t('profile.premiumGoTitle')}</Text>
-                    <Text style={styles.premiumInactiveSubtitle}>{t('profile.premiumOfferSub')}</Text>
+                    <Text style={styles.premiumInactiveSubtitle}>
+                      {t(profile?.verifiedServiceCategories?.length > 0 ? 'profile.premiumRenewSub' : 'profile.premiumOfferSub')}
+                    </Text>
                     <View style={styles.premiumInactiveBtn}>
                       <Text style={styles.premiumInactiveBtnText}>{t('profile.premiumOfferBtn')}</Text>
                       <MaterialIcon name="arrow-forward" size={18} color="#FFFFFF" />

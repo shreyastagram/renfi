@@ -10,5 +10,5 @@
  */
 
 export { default as Analytics } from './analytics';
-export { EV, STANDARD_MAP } from './events';
+export { EV } from './events';
 export { onceEver, oncePerSession } from './dedupe';

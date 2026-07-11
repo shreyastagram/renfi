@@ -21,14 +21,14 @@ import { BlurView } from '@react-native-community/blur';
 import { House, History, Wrench, Settings, CircleUserRound } from 'lucide-react-native';
 import { setBarRect, subscribeTone } from '../src/components/tabBarTone';
 import { useApp } from '../src/context/AppContext';
+import { useLanguage } from '../src/context/LanguageContext';
 import { LocationSharingProvider } from '../src/context/LocationSharingContext';
 
 // Screens from src folder
 import { 
   UserTypeScreen, 
   UserAuthScreen,
-  ProviderAuthScreen, 
-  HomeScreen,
+  ProviderAuthScreen,
   UserHomeScreen,
   ProviderHomeScreen,
   ProfileScreen,
@@ -40,7 +40,6 @@ import {
   ProviderServiceHistoryScreen,
   UserServiceHistoryScreen,
   ServiceRequestDetailScreen,
-  DocumentVerificationScreen,
   ServiceApprovalsScreen,
   LiveTrackingScreen,
   ForgotPasswordScreen,
@@ -63,13 +62,9 @@ const Tab = createBottomTabNavigator();
 // Brand Colors
 const BRAND = {
   primary: '#2563EB',
-  secondary: '#7C3AED',
   orange: '#F67C16',
   white: '#FFFFFF',
   gray: '#9CA3AF',
-  grayLight: '#F3F4F6',
-  border: '#E5E7EB',
-  text: '#1F2937',
 };
 
 
@@ -339,7 +334,8 @@ const FloatingTabBar = ({ state, descriptors, navigation }) => {
   // flows with their own bottom CTA (e.g. UserHome booking sheet, whose
   // Create Request button the floating pill would otherwise cover).
   const focusedOptions = descriptors[state.routes[state.index].key]?.options;
-  if (focusedOptions?.tabBarStyle?.display === 'none') {
+  // flatten() so array-form or registered styles hide the bar too, matching the stock tab bar
+  if (StyleSheet.flatten(focusedOptions?.tabBarStyle)?.display === 'none') {
     return null;
   }
 
@@ -490,6 +486,7 @@ const renderFloatingTabBar = (props) => <FloatingTabBar {...props} />;
  */
 const UserTabNavigator = () => {
   const { user, profile } = useApp();
+  const { t } = useLanguage();
   const profilePicture = useMemo(() => profile?.profilePicture || user?.profilePicture, [profile?.profilePicture, user?.profilePicture]);
 
   return (
@@ -508,7 +505,7 @@ const UserTabNavigator = () => {
         component={UserHomeScreen}
         options={{
           tabBarIcon: ({ focused, tone }) => (
-            <TabIcon focused={focused} tone={tone} icon="home" label="Home" accent={VERIFIED_BLUE} />
+            <TabIcon focused={focused} tone={tone} icon="home" label={t('nav.home')} accent={VERIFIED_BLUE} />
           ),
         }}
       />
@@ -517,7 +514,7 @@ const UserTabNavigator = () => {
         component={UserServiceHistoryScreen}
         options={{
           tabBarIcon: ({ focused, tone }) => (
-            <TabIcon focused={focused} tone={tone} icon="history" label="History" accent={VERIFIED_BLUE} />
+            <TabIcon focused={focused} tone={tone} icon="history" label={t('nav.history')} accent={VERIFIED_BLUE} />
           ),
         }}
       />
@@ -526,7 +523,7 @@ const UserTabNavigator = () => {
         component={SettingsScreen}
         options={{
           tabBarIcon: ({ focused, tone }) => (
-            <TabIcon focused={focused} tone={tone} icon="settings" label="Settings" accent={VERIFIED_BLUE} />
+            <TabIcon focused={focused} tone={tone} icon="settings" label={t('nav.settings')} accent={VERIFIED_BLUE} />
           ),
         }}
       />
@@ -539,7 +536,7 @@ const UserTabNavigator = () => {
               tone={tone}
               focused={focused}
               icon="profile"
-              label="Profile"
+              label={t('nav.profile')}
               accent={VERIFIED_BLUE}
               profilePicture={profilePicture}
             />
@@ -556,6 +553,7 @@ const UserTabNavigator = () => {
  */
 const ProviderTabNavigator = () => {
   const { user, profile } = useApp();
+  const { t } = useLanguage();
   const profilePicture = useMemo(() => profile?.profilePicture || user?.profilePicture, [profile?.profilePicture, user?.profilePicture]);
 
   return (
@@ -574,7 +572,7 @@ const ProviderTabNavigator = () => {
         component={ProviderHomeScreen}
         options={{
           tabBarIcon: ({ focused, tone }) => (
-            <TabIcon focused={focused} tone={tone} icon="home" label="Home" accent={BRAND.orange} />
+            <TabIcon focused={focused} tone={tone} icon="home" label={t('nav.home')} accent={BRAND.orange} />
           ),
         }}
       />
@@ -583,7 +581,7 @@ const ProviderTabNavigator = () => {
         component={ProviderServiceHistoryScreen}
         options={{
           tabBarIcon: ({ focused, tone }) => (
-            <TabIcon focused={focused} tone={tone} icon="jobs" label="Jobs" accent={BRAND.orange} />
+            <TabIcon focused={focused} tone={tone} icon="jobs" label={t('nav.jobs')} accent={BRAND.orange} />
           ),
         }}
       />
@@ -592,7 +590,7 @@ const ProviderTabNavigator = () => {
         component={SettingsScreen}
         options={{
           tabBarIcon: ({ focused, tone }) => (
-            <TabIcon focused={focused} tone={tone} icon="settings" label="Settings" accent={BRAND.orange} />
+            <TabIcon focused={focused} tone={tone} icon="settings" label={t('nav.settings')} accent={BRAND.orange} />
           ),
         }}
       />
@@ -605,7 +603,7 @@ const ProviderTabNavigator = () => {
               tone={tone}
               focused={focused}
               icon="profile"
-              label="Profile"
+              label={t('nav.profile')}
               accent={BRAND.orange}
               profilePicture={profilePicture}
             />
@@ -940,7 +938,7 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  // Clip layer — the glass stack (blur → tint → lens → specular → tabs)
+  // Clip layer — the glass stack (blur → tint → lens → tabs)
   floatPill: {
     flexDirection: 'row',
     alignItems: 'center',

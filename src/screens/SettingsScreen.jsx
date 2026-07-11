@@ -1091,7 +1091,11 @@ const SettingsScreen = ({ navigation }) => {
             <ActionRow
               iconName="star"
               title={t('settings.premiumSubscription')}
-              subtitle={displayData?.isPremium ? t('settings.premiumActiveSub') : t('settings.subscribeSub')}
+              subtitle={
+                displayData?.isPremium
+                  ? t('settings.premiumActiveSub')
+                  : t(profile?.verifiedServiceCategories?.length > 0 ? 'settings.premiumRenewSub' : 'settings.subscribeSub')
+              }
               onPress={() => navigation.navigate('Subscription')}
             />
 
