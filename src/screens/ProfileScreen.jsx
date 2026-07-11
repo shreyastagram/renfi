@@ -2569,11 +2569,16 @@ const ProfileScreen = ({ navigation, route }) => {
                   <View style={styles.premiumInactiveGradient}>
                     <View style={styles.premiumInactiveDecoCircle1} />
                     <View style={styles.premiumInactiveDecoCircle2} />
+                    {/* 6-months-free offer chip — gold on navy, restrained */}
+                    <View style={styles.premiumOfferChip}>
+                      <MaterialIcon name="card-giftcard" size={13} color="#0F172A" />
+                      <Text style={styles.premiumOfferChipText}>{t('profile.premiumOfferChip')}</Text>
+                    </View>
                     <MaterialIcon name="workspace-premium" size={44} color="#FFD700" />
-                    <Text style={styles.premiumInactiveTitle}>Go Premium</Text>
-                    <Text style={styles.premiumInactiveSubtitle}>Get priority listing & reach more customers</Text>
+                    <Text style={styles.premiumInactiveTitle}>{t('profile.premiumGoTitle')}</Text>
+                    <Text style={styles.premiumInactiveSubtitle}>{t('profile.premiumOfferSub')}</Text>
                     <View style={styles.premiumInactiveBtn}>
-                      <Text style={styles.premiumInactiveBtnText}>Subscribe Now</Text>
+                      <Text style={styles.premiumInactiveBtnText}>{t('profile.premiumOfferBtn')}</Text>
                       <MaterialIcon name="arrow-forward" size={18} color="#FFFFFF" />
                     </View>
                   </View>
@@ -3028,6 +3033,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 16,
+  },
+  premiumOfferChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#E8B54D',
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 14,
+    marginBottom: 12,
+  },
+  premiumOfferChipText: {
+    fontSize: 10.5,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    color: '#0F172A',
   },
   profileFooter: {
     backgroundColor: '#FFFFFF',

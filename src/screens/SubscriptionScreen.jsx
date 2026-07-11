@@ -32,6 +32,7 @@ import {  View,
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
@@ -55,7 +56,7 @@ const PremiumBadge = ({ isPremium, daysRemaining, t }) => {
   if (!isPremium) return <View style={{ width: 40 }} />;
   return (
     <View style={badgeStyles.wrap}>
-      <MaterialIcon name="workspace-premium" size={14} color="#92400E" />
+      <MaterialIcon name="workspace-premium" size={14} color="#EA580C" />
       <Text style={badgeStyles.text}>{t('subscription.proBadge') || 'PRO'}</Text>
       {daysRemaining > 0 && (
         <Text style={badgeStyles.days}>{daysRemaining}d</Text>
@@ -63,10 +64,11 @@ const PremiumBadge = ({ isPremium, daysRemaining, t }) => {
     </View>
   );
 };
+// Tab-bar tinted-glass language: light orange wash, hairline rim, deep-orange text
 const badgeStyles = StyleSheet.create({
-  wrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, gap: 4, borderWidth: 1, borderColor: '#FDE68A' },
-  text: { fontSize: 11, fontWeight: '800', color: '#92400E', letterSpacing: 0.5 },
-  days: { fontSize: 10, fontWeight: '600', color: '#B45309' },
+  wrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(253,242,232,0.92)', paddingHorizontal: 11, paddingVertical: 6, borderRadius: 20, gap: 4, borderWidth: 1, borderColor: 'rgba(246,124,22,0.35)' },
+  text: { fontSize: 11, fontWeight: '800', color: '#EA580C', letterSpacing: 0.5 },
+  days: { fontSize: 10, fontWeight: '700', color: '#C2410C' },
 });
 
 // ============================================
@@ -156,43 +158,165 @@ const activeStyles = StyleSheet.create({
 });
 
 // ============================================
-// UPGRADE PROMPT CARD (not premium)
+// PREMIUM HERO — 6-months-free welcome offer (3 states)
+// state: 'A' before first approval · 'B' free bonus running · 'C' bonus over
+// Deep navy plate, champagne-gold accents (accents only — never fills),
+// per-state glow tint: A warm amber (the gift), C steel blue (the decision).
 // ============================================
-const UpgradeCard = ({ onSubscribe, loading, t }) => (
-  <View style={upgradeStyles.card}>
-    <View style={upgradeStyles.decoCircle1} />
-    <View style={upgradeStyles.decoCircle2} />
-    <View style={upgradeStyles.decoCircle3} />
-    <MaterialIcon name="workspace-premium" size={52} color="#FFD700" />
-    <Text style={upgradeStyles.title}>{t('subscription.unlockPremium')}</Text>
-    <Text style={upgradeStyles.subtitle}>{t('subscription.unlockPremiumSub')}</Text>
-    <TouchableOpacity style={upgradeStyles.btn} onPress={onSubscribe} disabled={loading} accessibilityLabel="Subscribe now" accessibilityRole="button">
-      {loading ? (
-        <ActivityIndicator size="small" color="#FFFFFF" />
-      ) : (
-        <>
-          <Text style={upgradeStyles.btnText}>{t('subscription.subscribeNow')}</Text>
-          <MaterialIcon name="arrow-forward" size={18} color="#FFFFFF" />
-        </>
+const GOLD = '#E8B54D';
+const GOLD_SOFT = '#F2CE8A';
+const NAVY = '#0D1220';
+const NAVY2 = '#161D30';
+
+const PremiumHero = ({ state, daysRemaining, priceDisplay, t }) => {
+  const gradientProps = {
+    A: { colors: ['#1A1F2E', NAVY], start: { x: 0.1, y: 0 }, end: { x: 0.6, y: 1 } },
+    B: { colors: [NAVY2, NAVY], start: { x: 0.1, y: 0 }, end: { x: 0.6, y: 1 } },
+    C: { colors: ['#131A2A', NAVY], start: { x: 0.1, y: 0 }, end: { x: 0.6, y: 1 } },
+  }[state];
+  const glow = { A: 'rgba(246,124,22,0.20)', B: 'rgba(232,181,77,0.16)', C: 'rgba(43,118,188,0.22)' }[state];
+  const borderColor = state === 'C' ? 'rgba(43,118,188,0.38)' : 'rgba(232,181,77,0.30)';
+  const eyebrowColor = state === 'C' ? '#8FBAE3' : GOLD_SOFT;
+
+  return (
+    <LinearGradient {...gradientProps} style={[heroStyles.card, { borderColor }]}>
+      {/* corner glow — warm for the gift, cool for the decision */}
+      <View style={[heroStyles.glow, { backgroundColor: glow }]} />
+      {/* whisper-thin inner keyline */}
+      <View pointerEvents="none" style={[heroStyles.keyline, state === 'C' && heroStyles.keylineBlue]} />
+
+      <View style={heroStyles.crown}>
+        <MaterialIcon name="workspace-premium" size={26} color={GOLD} />
+      </View>
+      <Text style={[heroStyles.eyebrow, { color: eyebrowColor }]}>{t(`subscription.heroEyebrow${state}`)}</Text>
+      <Text style={heroStyles.title}>{t(`subscription.heroTitle${state}`)}</Text>
+      <Text style={heroStyles.sub}>{t(`subscription.heroSub${state}`)}</Text>
+
+      {/* price lockup — numerals + two-line label on one visual line */}
+      <View style={heroStyles.priceBlock}>
+        <View style={heroStyles.numGroup}>
+          {state === 'A' && (
+            <View style={heroStyles.strikeWrap}>
+              <Text style={heroStyles.strikeText}>{priceDisplay}</Text>
+              <View style={heroStyles.strikeLine} />
+            </View>
+          )}
+          <Text style={[heroStyles.bigNum, state === 'C' && heroStyles.bigNumIvory]}>
+            {state === 'A' ? '₹0' : state === 'B' ? String(daysRemaining) : priceDisplay}
+          </Text>
+        </View>
+        <View style={heroStyles.perCol}>
+          <Text style={heroStyles.perBold}>
+            {state === 'B' ? t('subscription.freeDays') : t('subscription.perMonth')}
+          </Text>
+          <Text style={heroStyles.perLight}>
+            {state === 'A' ? t('subscription.firstSixMonths') : state === 'B' ? t('subscription.remaining') : t('subscription.perPeriod')}
+          </Text>
+        </View>
+      </View>
+
+      <View style={heroStyles.thenLineWrap}>
+        <Text style={heroStyles.thenLine}>
+          {state === 'C' ? t('subscription.thenLineC') : t(`subscription.thenLine${state}`, { price: priceDisplay })}
+        </Text>
+      </View>
+
+      {state === 'A' && (
+        <View style={heroStyles.assureRow}>
+          <MaterialIcon name="verified-user" size={14} color="#7FD8A5" />
+          <Text style={heroStyles.assureText}>{t('subscription.noPaymentToday')}</Text>
+        </View>
       )}
-    </TouchableOpacity>
+    </LinearGradient>
+  );
+};
+
+const heroStyles = StyleSheet.create({
+  card: { borderRadius: 26, padding: 24, marginBottom: 18, overflow: 'hidden', position: 'relative', borderWidth: 1 },
+  glow: { position: 'absolute', top: -70, right: -50, width: 220, height: 220, borderRadius: 110 },
+  keyline: { position: 'absolute', top: 7, left: 7, right: 7, bottom: 7, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(232,181,77,0.14)' },
+  keylineBlue: { borderColor: 'rgba(43,118,188,0.16)' },
+  crown: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 16, backgroundColor: 'rgba(232,181,77,0.12)', borderWidth: 1, borderColor: 'rgba(232,181,77,0.35)' },
+  eyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 2.2, marginBottom: 8 },
+  title: { fontSize: 23, fontWeight: '800', letterSpacing: -0.4, lineHeight: 29, color: '#FDFBF7' },
+  sub: { fontSize: 13, color: '#B9C0CF', marginTop: 8, lineHeight: 20, fontWeight: '500' },
+  priceBlock: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 22 },
+  numGroup: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
+  strikeWrap: { position: 'relative' },
+  strikeText: { fontSize: 22, fontWeight: '700', color: '#6E7891' },
+  strikeLine: { position: 'absolute', left: -3, right: -3, top: '46%', height: 2, backgroundColor: GOLD, borderRadius: 2, transform: [{ rotate: '-6deg' }] },
+  bigNum: { fontSize: 54, fontWeight: '800', letterSpacing: -2, color: GOLD, lineHeight: 56 },
+  bigNumIvory: { color: '#F4EFE6' },
+  perCol: { flex: 1, minWidth: 0 },
+  perBold: { fontSize: 14, fontWeight: '700', color: '#E7E2D6', lineHeight: 20 },
+  perLight: { fontSize: 13, fontWeight: '600', color: '#B9C0CF', lineHeight: 19 },
+  thenLineWrap: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' },
+  thenLine: { fontSize: 12.5, color: '#B9C0CF', fontWeight: '500', lineHeight: 20 },
+  assureRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 12 },
+  assureText: { fontSize: 12, fontWeight: '700', color: '#7FD8A5' },
+});
+
+// ============================================
+// PREMIUM JOURNEY — 3-step path to (and through) the free months
+// Brand-orange light-tinted nodes; done steps are filled with a check.
+// ============================================
+const JourneyStep = ({ icon, done, title, tag, desc, last }) => (
+  <View style={journeyStyles.step}>
+    <View style={journeyStyles.nodeCol}>
+      <View style={[journeyStyles.node, done && journeyStyles.nodeDone]}>
+        <MaterialIcon name={done ? 'check' : icon} size={17} color={done ? '#FFFFFF' : '#EA580C'} />
+      </View>
+      {!last && <View style={journeyStyles.thread} />}
+    </View>
+    <View style={journeyStyles.stepText}>
+      <View style={journeyStyles.titleRow}>
+        <Text style={journeyStyles.stepTitle}>{title}</Text>
+        {!!tag && (
+          <View style={journeyStyles.tag}>
+            <Text style={journeyStyles.tagText}>{tag}</Text>
+          </View>
+        )}
+      </View>
+      <Text style={journeyStyles.stepDesc}>{desc}</Text>
+    </View>
   </View>
 );
-const upgradeStyles = StyleSheet.create({
-  card: { borderRadius: 22, backgroundColor: '#1E293B', padding: 32, alignItems: 'center', marginBottom: 20, overflow: 'hidden', position: 'relative' },
-  decoCircle1: { position: 'absolute', top: -30, right: -30, width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255,215,0,0.06)' },
-  decoCircle2: { position: 'absolute', bottom: -40, left: -20, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(99,102,241,0.08)' },
-  decoCircle3: { position: 'absolute', top: 40, left: -15, width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.03)' },
-  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginTop: 16, letterSpacing: -0.3 },
-  subtitle: { fontSize: 14, color: '#94A3B8', textAlign: 'center', marginTop: 8, lineHeight: 21 },
-  btn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f67c16', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 30, marginTop: 24, gap: 8, shadowColor: '#f67c16', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 5 },
-  btnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+
+const PremiumJourney = ({ state, priceDisplay, t }) => (
+  <View style={journeyStyles.card}>
+    <Text style={journeyStyles.title}>{t('subscription.journeyTitle')}</Text>
+    <JourneyStep done icon="check" title={t('subscription.j1Title')} desc={t('subscription.j1Desc')} />
+    <JourneyStep
+      done={state === 'B'}
+      icon="card-giftcard"
+      title={t('subscription.j2Title')}
+      tag={t('subscription.j2Tag')}
+      desc={t('subscription.j2Desc')}
+    />
+    <JourneyStep last icon="event" title={t('subscription.j3Title')} desc={t('subscription.j3Desc', { price: priceDisplay })} />
+  </View>
+);
+
+const journeyStyles = StyleSheet.create({
+  card: { backgroundColor: '#FFFFFF', borderRadius: 22, borderWidth: 1, borderColor: 'rgba(15,23,42,0.08)', padding: 20, paddingBottom: 6, marginBottom: 18 },
+  title: { fontSize: 11, fontWeight: '800', letterSpacing: 2, color: '#C77D3A', marginBottom: 18 },
+  step: { flexDirection: 'row', gap: 15 },
+  nodeCol: { alignItems: 'center', width: 36 },
+  node: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF5EC', borderWidth: 1, borderColor: 'rgba(234,88,12,0.28)' },
+  nodeDone: { backgroundColor: '#f67c16', borderColor: '#EA580C' },
+  thread: { width: 2, flex: 1, minHeight: 24, backgroundColor: 'rgba(234,88,12,0.18)' },
+  stepText: { flex: 1, minWidth: 0, paddingTop: 6, paddingBottom: 22 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  stepTitle: { fontSize: 14.5, fontWeight: '700', color: '#0F172A', letterSpacing: -0.1 },
+  tag: { backgroundColor: '#FFF5EC', borderWidth: 1, borderColor: 'rgba(234,88,12,0.25)', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 9 },
+  tagText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.8, color: '#EA580C' },
+  stepDesc: { fontSize: 12.5, color: '#64748B', lineHeight: 19, marginTop: 4 },
 });
 
 // ============================================
 // PLAN CARD
 // ============================================
-const PlanCard = ({ plan, selected, onSelect, isCurrentPlan, t }) => (
+const PlanCard = ({ plan, selected, onSelect, isCurrentPlan, launchOffer, t }) => (
   <TouchableOpacity
     style={[planStyles.card, selected && planStyles.selected, isCurrentPlan && planStyles.current]}
     onPress={() => onSelect(plan)}
@@ -203,20 +327,32 @@ const PlanCard = ({ plan, selected, onSelect, isCurrentPlan, t }) => (
     accessibilityState={{ selected, disabled: isCurrentPlan }}
   >
     {plan.id === 'premium_28' && (
-      <View style={planStyles.popularTag}>
-        <MaterialIcon name="local-fire-department" size={12} color="#FFFFFF" />
-        <Text style={planStyles.popularText}>{t('subscription.popular')}</Text>
+      <View style={[planStyles.popularTag, launchOffer && planStyles.offerTag]}>
+        <MaterialIcon name={launchOffer ? 'card-giftcard' : 'local-fire-department'} size={12} color={launchOffer ? '#F2CE8A' : '#FFFFFF'} />
+        <Text style={[planStyles.popularText, launchOffer && planStyles.offerText]}>
+          {launchOffer ? t('subscription.launchOffer') : t('subscription.popular')}
+        </Text>
       </View>
     )}
 
     <View style={planStyles.top}>
       <View style={{ flex: 1, paddingRight: 12 }}>
         <Text style={planStyles.name}>{plan.name}</Text>
-        <Text style={planStyles.desc}>{plan.description}</Text>
+        <Text style={planStyles.desc}>{launchOffer ? t('subscription.planFreeSub') : plan.description}</Text>
       </View>
       <View style={planStyles.priceWrap}>
-        <Text style={[planStyles.price, selected && planStyles.priceSelected]}>{plan.priceDisplay}</Text>
-        <Text style={planStyles.duration}>/{plan.durationDays}d</Text>
+        {launchOffer ? (
+          <>
+            <Text style={planStyles.oldPrice}>{plan.priceDisplay}</Text>
+            <Text style={planStyles.freePrice}>₹0</Text>
+            <Text style={planStyles.duration}>/{t('subscription.perMonth')}</Text>
+          </>
+        ) : (
+          <>
+            <Text style={[planStyles.price, selected && planStyles.priceSelected]}>{plan.priceDisplay}</Text>
+            <Text style={planStyles.duration}>/{plan.durationDays}d</Text>
+          </>
+        )}
       </View>
     </View>
 
@@ -243,6 +379,10 @@ const planStyles = StyleSheet.create({
   current: { opacity: 0.6 },
   popularTag: { position: 'absolute', top: 0, right: 18, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f67c16', paddingHorizontal: 10, paddingVertical: 4, borderBottomLeftRadius: 10, borderBottomRightRadius: 10, gap: 4, zIndex: 2 },
   popularText: { fontSize: 10, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.5 },
+  offerTag: { backgroundColor: '#161D30', borderWidth: 1, borderTopWidth: 0, borderColor: 'rgba(232,181,77,0.4)' },
+  offerText: { color: '#F2CE8A', letterSpacing: 1 },
+  oldPrice: { fontSize: 14, fontWeight: '700', color: '#98A2B3', textDecorationLine: 'line-through', textDecorationColor: '#E8B54D' },
+  freePrice: { fontSize: 27, fontWeight: '800', color: '#B98A2F', letterSpacing: -0.5 },
   top: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   name: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
   desc: { fontSize: 13, color: '#64748B', marginTop: 3, lineHeight: 18 },
@@ -659,11 +799,27 @@ const SubscriptionScreen = ({ navigation }) => {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
         showsVerticalScrollIndicator={false}
       >
-        {isPremium ? (
-          <ActiveStatusCard subscription={subscription} onRenew={handleSubscribe} loading={subscribing} t={t} />
-        ) : (
-          <UpgradeCard onSubscribe={handleSubscribe} loading={subscribing} t={t} />
-        )}
+        {/* ── 6-months-free offer states ──
+            A: no approved service yet → the gift pitch (routes to verification)
+            B: first-approval bonus running → free-days status
+            C: bonus over / paid flow → standard pricing
+            Paid-active keeps the existing ActiveStatusCard. */}
+        {(() => {
+          const bonusActive = isPremium && subscription?.currentPlan?.planId === 'first_approval_bonus';
+          const hasApprovedService = (profile?.verifiedServiceCategories?.length || 0) > 0;
+          const offerState = bonusActive ? 'B' : (!isPremium && !hasApprovedService) ? 'A' : 'C';
+          const monthlyPrice = plans?.find((p) => p.id !== 'first_approval_bonus')?.priceDisplay || '₹299';
+
+          if (isPremium && !bonusActive) {
+            return <ActiveStatusCard subscription={subscription} onRenew={handleSubscribe} loading={subscribing} t={t} />;
+          }
+          return (
+            <>
+              <PremiumHero state={offerState} daysRemaining={subscription?.daysRemaining || 0} priceDisplay={monthlyPrice} t={t} />
+              {offerState !== 'C' && <PremiumJourney state={offerState} priceDisplay={monthlyPrice} t={t} />}
+            </>
+          );
+        })()}
 
         {subscriptionStatus ? (
           <View style={styles.processingBar}>
@@ -675,35 +831,61 @@ const SubscriptionScreen = ({ navigation }) => {
         {(!isPremium || subscription?.daysRemaining <= 5) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t('subscription.chooseYourPlan')}</Text>
-            {plans.map((plan) => (
+            {plans.filter((p) => p.id !== 'first_approval_bonus').map((plan) => (
               <PlanCard
                 key={plan.id}
                 plan={plan}
                 selected={selectedPlan?.id === plan.id}
                 onSelect={setSelectedPlan}
                 isCurrentPlan={subscription?.currentPlan?.planId === plan.id && isPremium}
+                launchOffer={!isPremium && !(profile?.verifiedServiceCategories?.length > 0)}
                 t={t}
               />
             ))}
 
-            {selectedPlan && (
-              <TouchableOpacity
-                style={[styles.subscribeBtn, subscribing && styles.subscribeBtnDisabled]}
-                onPress={handleSubscribe}
-                disabled={subscribing}
-                accessibilityLabel={`Subscribe for ${selectedPlan.priceDisplay}`}
-                accessibilityRole="button"
-              >
-                {subscribing ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
+            {selectedPlan && (() => {
+              const hasApprovedService = (profile?.verifiedServiceCategories?.length || 0) > 0;
+              // Before the first approval, the honest CTA routes to
+              // verification — paying does nothing for them yet, the free
+              // bonus is waiting behind document approval.
+              if (!isPremium && !hasApprovedService) {
+                return (
                   <>
-                    <MaterialIcon name="bolt" size={20} color="#FFFFFF" />
-                    <Text style={styles.subscribeBtnText}>{t('subscription.subscribeFor', { price: selectedPlan.priceDisplay })}</Text>
+                    <TouchableOpacity
+                      style={styles.subscribeBtn}
+                      onPress={() => navigation.navigate('DocumentVerification')}
+                      accessibilityLabel={t('subscription.ctaGetVerified')}
+                      accessibilityRole="button"
+                    >
+                      <MaterialIcon name="verified" size={20} color="#FFFFFF" />
+                      <Text style={styles.subscribeBtnText}>{t('subscription.ctaGetVerified')}</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.webPaymentNote}>{t('subscription.ctaGetVerifiedSub')}</Text>
                   </>
-                )}
-              </TouchableOpacity>
-            )}
+                );
+              }
+              return (
+                <>
+                  <TouchableOpacity
+                    style={[styles.subscribeBtn, subscribing && styles.subscribeBtnDisabled]}
+                    onPress={handleSubscribe}
+                    disabled={subscribing}
+                    accessibilityLabel={t('subscription.ctaContinue', { price: selectedPlan.priceDisplay })}
+                    accessibilityRole="button"
+                  >
+                    {subscribing ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <MaterialIcon name="bolt" size={20} color="#FFFFFF" />
+                        <Text style={styles.subscribeBtnText}>{t('subscription.ctaContinue', { price: selectedPlan.priceDisplay })}</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                  <Text style={styles.webPaymentNote}>{t('subscription.ctaContinueSub')}</Text>
+                </>
+              );
+            })()}
 
             {/* iOS: Show web payment note */}
             {Platform.OS === 'ios' && selectedPlan && (
