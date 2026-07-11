@@ -185,13 +185,13 @@ const TabIcon = React.memo(({ focused, icon, label, accent = VERIFIED_BLUE, prof
 // separates cleanly even on pure-white screens (Settings).
 const GLASS = {
   user: {
-    tint: Platform.OS === 'ios' ? 'rgba(230, 240, 250, 0.55)' : 'rgba(237, 244, 251, 0.90)',
+    tint: Platform.OS === 'ios' ? 'rgba(230, 240, 250, 0.38)' : 'rgba(237, 244, 251, 0.84)',
     lensBg: 'rgba(43, 118, 188, 0.14)',
     lensBorder: 'rgba(43, 118, 188, 0.22)',
     fallback: '#EDF4FB',
   },
   provider: {
-    tint: Platform.OS === 'ios' ? 'rgba(253, 240, 229, 0.60)' : 'rgba(252, 242, 233, 0.90)',
+    tint: Platform.OS === 'ios' ? 'rgba(253, 240, 229, 0.42)' : 'rgba(252, 242, 233, 0.84)',
     lensBg: 'rgba(246, 124, 22, 0.15)',
     lensBorder: 'rgba(246, 124, 22, 0.24)',
     fallback: '#FCF2E9',
@@ -318,8 +318,6 @@ const FloatingTabBar = ({ state, descriptors, navigation }) => {
             />
           )}
 
-          {/* Specular edge — the liquid-glass signature highlight */}
-          <View pointerEvents="none" style={styles.specular} />
 
           {state.routes.map((route, index) => {
             const { options } = descriptors[route.key];
@@ -837,23 +835,13 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     borderWidth: 1,
   },
-  // Specular inner edge — bright liquid-glass rim
-  specular: {
+  // Very thin dark edge with depth — no white rim; the tinted glass flows
+  // right into the border, iOS-style
+  pillRing: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: 32,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.65)',
-  },
-  // Outer hairline — visible boundary on pure-white screens
-  pillRing: {
-    position: 'absolute',
-    top: -0.5,
-    left: -0.5,
-    right: -0.5,
-    bottom: -0.5,
-    borderRadius: 32.5,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(15,23,42,0.14)',
+    borderColor: 'rgba(0,0,0,0.22)',
   },
   floatItem: {
     flex: 1,
