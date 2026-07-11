@@ -30,6 +30,7 @@ import TouchableOpacity from '../components/TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { useApp } from '../context/AppContext';
+import TabBarDarkZone from '../components/TabBarDarkZone';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useLocation } from '../context/LocationContext';
@@ -1312,21 +1313,26 @@ const ProviderHomeScreen = ({ navigation }) => {
           </View>
           )}
 
-          {/* Tips Section */}
-          <View style={styles.tipsCard}>
-            {/* Decorative elements */}
-            <View style={styles.tipsDecorCircle1} />
-            <View style={styles.tipsDecorCircle2} />
-            <View style={styles.tipsIconCircle}>
-              <Icon name="lightbulb" size={22} color="#FFFFFF" />
+          {/* Tips Section — solid saturated orange: flagged as a dark zone so
+              the glass tab bar flips to its smoke variant (white text) while
+              this card passes under it; the orange-tinted light glass would
+              otherwise melt into the same hue. */}
+          <TabBarDarkZone>
+            <View style={styles.tipsCard}>
+              {/* Decorative elements */}
+              <View style={styles.tipsDecorCircle1} />
+              <View style={styles.tipsDecorCircle2} />
+              <View style={styles.tipsIconCircle}>
+                <Icon name="lightbulb" size={22} color="#FFFFFF" />
+              </View>
+              <View style={styles.tipsContent}>
+                <Text style={styles.tipsBadge}>{t('providerHome.proTip')}</Text>
+                <Text style={styles.tipsText}>
+                  {t('providerHome.proTipText')}
+                </Text>
+              </View>
             </View>
-            <View style={styles.tipsContent}>
-              <Text style={styles.tipsBadge}>{t('providerHome.proTip')}</Text>
-              <Text style={styles.tipsText}>
-                {t('providerHome.proTipText')}
-              </Text>
-            </View>
-          </View>
+          </TabBarDarkZone>
 
           {/* Emergency Numbers — reuses the same helpline screen Users see */}
           <TouchableOpacity
