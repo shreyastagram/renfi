@@ -43,6 +43,7 @@ import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { Icon, PhoneInput, AadhaarVerificationModal } from '../components';
 import ImageViewerModal from '../components/ImageViewerModal';
+import TabBarDarkZone from '../components/TabBarDarkZone';
 import { useShimmerAnimation, ShimmerBlock as SharedShimmerBlock } from '../components/ShimmerLoader';
 
 /** Auto-orient Cloudinary URLs to fix EXIF rotation on iOS */
@@ -2491,9 +2492,12 @@ const ProfileScreen = ({ navigation, route }) => {
             </>
           )}
 
-          {/* Premium Subscription Section - Providers Only */}
+          {/* Premium Subscription Section - Providers Only.
+              TabBarDarkZone: the premium cards are dark — the floating tab
+              bar flips to its dark glass variant while they pass under it. */}
           {isProvider && <SectionBand />}
           {isProvider && (
+            <TabBarDarkZone>
             <View style={styles.premiumFlat}>
               {!premiumLoaded ? (
                 /* Shimmer skeleton while premium status loads */
@@ -2576,6 +2580,7 @@ const ProfileScreen = ({ navigation, route }) => {
                 </TouchableOpacity>
               )}
             </View>
+            </TabBarDarkZone>
           )}
 
           {/* Footer — brand mark + member since (no User ID by design) */}
