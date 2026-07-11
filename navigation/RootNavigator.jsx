@@ -17,6 +17,7 @@ import { View, Text, StyleSheet, ActivityIndicator, Platform, Pressable, Image, 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from '@react-native-community/blur';
 import { House, History, Wrench, Settings, CircleUserRound } from 'lucide-react-native';
 import { useApp } from '../src/context/AppContext';
 import { LocationSharingProvider } from '../src/context/LocationSharingContext';
@@ -133,24 +134,9 @@ const TAB_ICONS = {
   profile: CircleUserRound,
 };
 
-// Soft pill tints per accent (12–14% of the accent color)
-const ACCENT_SOFT = {
-  [VERIFIED_BLUE]: 'rgba(43, 118, 188, 0.13)',
-  [BRAND.orange]: 'rgba(246, 124, 22, 0.14)',
-};
-
+// The active highlight is now the GLIDING GLASS LENS in FloatingTabBar —
+// TabIcon only renders the icon/avatar + label with focus color changes.
 const TabIcon = React.memo(({ focused, icon, label, accent = VERIFIED_BLUE, profilePicture }) => {
-  const anim = useRef(new Animated.Value(focused ? 1 : 0)).current;
-
-  useEffect(() => {
-    Animated.spring(anim, {
-      toValue: focused ? 1 : 0,
-      useNativeDriver: true,
-      friction: 7,
-      tension: 220,
-    }).start();
-  }, [focused, anim]);
-
   const color = focused ? accent : BRAND.gray;
   const IconCmp = TAB_ICONS[icon] || House;
 
@@ -162,18 +148,6 @@ const TabIcon = React.memo(({ focused, icon, label, accent = VERIFIED_BLUE, prof
   return (
     <View style={styles.tabIconWrapper}>
       <View style={styles.tabPillSlot}>
-        {/* Animated highlight pill — fades/springs in behind the active icon */}
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.tabPill,
-            {
-              backgroundColor: ACCENT_SOFT[accent] || ACCENT_SOFT[VERIFIED_BLUE],
-              opacity: anim,
-              transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }) }],
-            },
-          ]}
-        />
         {avatarUri ? (
           <View style={[styles.tabAvatar, focused && { borderColor: accent, borderWidth: 2 }]}>
             <Image source={{ uri: avatarUri }} style={styles.tabAvatarImg} />
@@ -206,8 +180,63 @@ const TabIcon = React.memo(({ focused, icon, label, accent = VERIFIED_BLUE, prof
  * clears the iOS home indicator, Android gesture hint, and Android
  * 3-button nav bars alike (Samsung/Redmi/Vivo/Oppo/Pixel).
  */
+// Tinted liquid-glass palette (approved mockup): light brand wash over real
+// blur, brand-tinted gliding lens, specular edge + outer hairline so the bar
+// separates cleanly even on pure-white screens (Settings).
+const GLASS = {
+  user: {
+    tint: Platform.OS === 'ios' ? 'rgba(230, 240, 250, 0.55)' : 'rgba(237, 244, 251, 0.90)',
+    lensBg: 'rgba(43, 118, 188, 0.14)',
+    lensBorder: 'rgba(43, 118, 188, 0.22)',
+    fallback: '#EDF4FB',
+  },
+  provider: {
+    tint: Platform.OS === 'ios' ? 'rgba(253, 240, 229, 0.60)' : 'rgba(252, 242, 233, 0.90)',
+    lensBg: 'rgba(246, 124, 22, 0.15)',
+    lensBorder: 'rgba(246, 124, 22, 0.24)',
+    fallback: '#FCF2E9',
+  },
+};
+
+const LENS_INSET_X = 5; // horizontal gap between lens and item edge
+
 const FloatingTabBar = ({ state, descriptors, navigation }) => {
   const insets = useSafeAreaInsets();
+  const routeCount = state.routes.length;
+
+  // Role from route shape (JobsTab exists only in the provider navigator)
+  const glass = state.routes.some((r) => r.name === 'JobsTab') ? GLASS.provider : GLASS.user;
+
+  // ── Gliding glass lens ──
+  // Animate the tab INDEX (0..N-1) with a spring; translateX is interpolated
+  // from it. A brief squash-stretch runs in parallel for the watery feel.
+  // All native-driver — never touches the JS thread mid-glide.
+  const [barWidth, setBarWidth] = useState(0);
+  const lensIndex = useRef(new Animated.Value(state.index)).current;
+  const stretch = useRef(new Animated.Value(0)).current; // 0 = round, 1 = stretched
+  const mountedRef = useRef(false);
+
+  useEffect(() => {
+    if (!mountedRef.current) {
+      // First layout: place the lens without animating
+      mountedRef.current = true;
+      lensIndex.setValue(state.index);
+      return;
+    }
+    Animated.parallel([
+      Animated.spring(lensIndex, {
+        toValue: state.index,
+        useNativeDriver: true,
+        stiffness: 180,
+        damping: 16,
+        mass: 1,
+      }),
+      Animated.sequence([
+        Animated.timing(stretch, { toValue: 1, duration: 90, useNativeDriver: true }),
+        Animated.spring(stretch, { toValue: 0, useNativeDriver: true, stiffness: 240, damping: 13 }),
+      ]),
+    ]).start();
+  }, [state.index, lensIndex, stretch]);
 
   // Hide while the keyboard is open (custom bars must handle this themselves)
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -239,44 +268,97 @@ const FloatingTabBar = ({ state, descriptors, navigation }) => {
   // sit 6px above the system area.
   const bottomOffset = Math.max(insets.bottom + 6, 16);
 
+  // Lens geometry — items span the full bar width (no side padding), so the
+  // lens for tab i sits at i*itemW + LENS_INSET_X and is itemW − 2*inset wide.
+  const itemW = barWidth > 0 ? barWidth / routeCount : 0;
+  const lensW = Math.max(itemW - LENS_INSET_X * 2, 0);
+  const lensTranslate = lensIndex.interpolate({
+    inputRange: [0, Math.max(routeCount - 1, 1)],
+    outputRange: [LENS_INSET_X, (routeCount - 1) * itemW + LENS_INSET_X],
+  });
+  const lensScaleX = stretch.interpolate({ inputRange: [0, 1], outputRange: [1, 1.16] });
+  const lensScaleY = stretch.interpolate({ inputRange: [0, 1], outputRange: [1, 0.9] });
+
   return (
     <View pointerEvents="box-none" style={[styles.floatWrap, { bottom: bottomOffset }]}>
-      <View style={styles.floatPill}>
-        {state.routes.map((route, index) => {
-          const { options } = descriptors[route.key];
-          const focused = state.index === index;
+      {/* Outer layer carries the shadow (must not clip) */}
+      <View style={styles.floatShadow}>
+        {/* Inner layer clips the glass stack to the capsule */}
+        <View
+          style={[styles.floatPill, { backgroundColor: glass.fallback }]}
+          onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
+        >
+          {/* Real frosted blur (iOS: UIVisualEffectView; Android: blur impl) */}
+          <BlurView
+            style={StyleSheet.absoluteFill}
+            blurType="light"
+            blurAmount={22}
+            reducedTransparencyFallbackColor={glass.fallback}
+          />
+          {/* Brand tint wash over the blur */}
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: glass.tint }]} />
 
-          const onPress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
-            if (!focused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
-            }
-          };
+          {/* Gliding glass lens — spans the full icon+label block, centered */}
+          {barWidth > 0 && (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.lens,
+                {
+                  width: lensW,
+                  backgroundColor: glass.lensBg,
+                  borderColor: glass.lensBorder,
+                  transform: [
+                    { translateX: lensTranslate },
+                    { scaleX: lensScaleX },
+                    { scaleY: lensScaleY },
+                  ],
+                },
+              ]}
+            />
+          )}
 
-          const onLongPress = () => {
-            navigation.emit({ type: 'tabLongPress', target: route.key });
-          };
+          {/* Specular edge — the liquid-glass signature highlight */}
+          <View pointerEvents="none" style={styles.specular} />
 
-          return (
-            <Pressable
-              key={route.key}
-              accessibilityRole="button"
-              accessibilityState={focused ? { selected: true } : {}}
-              accessibilityLabel={options.tabBarAccessibilityLabel}
-              testID={options.tabBarButtonTestID}
-              onPress={onPress}
-              onLongPress={onLongPress}
-              style={styles.floatItem}
-              android_ripple={null}
-            >
-              {options.tabBarIcon?.({ focused, color: BRAND.gray, size: 24 })}
-            </Pressable>
-          );
-        })}
+          {state.routes.map((route, index) => {
+            const { options } = descriptors[route.key];
+            const focused = state.index === index;
+
+            const onPress = () => {
+              const event = navigation.emit({
+                type: 'tabPress',
+                target: route.key,
+                canPreventDefault: true,
+              });
+              if (!focused && !event.defaultPrevented) {
+                navigation.navigate(route.name);
+              }
+            };
+
+            const onLongPress = () => {
+              navigation.emit({ type: 'tabLongPress', target: route.key });
+            };
+
+            return (
+              <Pressable
+                key={route.key}
+                accessibilityRole="button"
+                accessibilityState={focused ? { selected: true } : {}}
+                accessibilityLabel={options.tabBarAccessibilityLabel}
+                testID={options.tabBarButtonTestID}
+                onPress={onPress}
+                onLongPress={onLongPress}
+                style={styles.floatItem}
+                android_ripple={null}
+              >
+                {options.tabBarIcon?.({ focused, color: BRAND.gray, size: 24 })}
+              </Pressable>
+            );
+          })}
+        </View>
+        {/* Outer hairline — separates the bar from pure-white screens */}
+        <View pointerEvents="none" style={styles.pillRing} />
       </View>
     </View>
   );
@@ -713,32 +795,65 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   
-  // Floating pill tab bar
+  // Floating liquid-glass tab bar
   floatWrap: {
     position: 'absolute',
     left: 16,
     right: 16,
     alignItems: 'center',
   },
+  // Shadow layer — separate from the clipping layer (iOS shadows are killed
+  // by overflow:'hidden'; Android elevation needs an unclipped outline)
+  floatShadow: {
+    width: '100%',
+    borderRadius: 32,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.22,
+        shadowRadius: 28,
+      },
+      android: {
+        elevation: 14,
+      },
+    }),
+  },
+  // Clip layer — the glass stack (blur → tint → lens → specular → tabs)
   floatPill: {
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
     height: 64,
     borderRadius: 32,
-    backgroundColor: BRAND.white,
-    paddingHorizontal: 10,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.16,
-        shadowRadius: 24,
-      },
-      android: {
-        elevation: 14,
-      },
-    }),
+    overflow: 'hidden',
+  },
+  // Gliding glass lens — full height of the icon+label block, centered
+  lens: {
+    position: 'absolute',
+    top: 7,
+    bottom: 7,
+    left: 0,
+    borderRadius: 25,
+    borderWidth: 1,
+  },
+  // Specular inner edge — bright liquid-glass rim
+  specular: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 32,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.65)',
+  },
+  // Outer hairline — visible boundary on pure-white screens
+  pillRing: {
+    position: 'absolute',
+    top: -0.5,
+    left: -0.5,
+    right: -0.5,
+    bottom: -0.5,
+    borderRadius: 32.5,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(15,23,42,0.14)',
   },
   floatItem: {
     flex: 1,
@@ -747,22 +862,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // Tab item content — icon pill + label, vertically centered as one block
+  // Tab item content — icon + label as ONE centered block; the gliding lens
+  // (not a per-icon bubble) provides the highlight, so the whole block sits
+  // dead-center inside it.
   tabIconWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Fixed slot the icon sits in; the animated pill fills it behind the icon
+  // Fixed-height slot so icons and avatars align across tabs
   tabPillSlot: {
-    width: 52,
-    height: 30,
-    borderRadius: 15,
+    height: 26,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  tabPill: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 15,
   },
   tabLabelText: {
     fontSize: 10.5,
