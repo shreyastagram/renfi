@@ -49,6 +49,7 @@ import SvgArt from '../components/SvgArt';
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 import { useApp } from '../context/AppContext';
 import { Analytics, EV } from '../services/analytics';
+import BrandFooter from '../components/BrandFooter';
 import { useDialog } from '../context/DialogContext';
 import { useLocation } from '../context/LocationContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -1597,14 +1598,15 @@ const UserHomeScreen = ({ navigation, route }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Brand footer — edge-to-edge art at the end of the sheet
-                (negative margins break out of the sheet's 20px padding).
-                Decorative: it also provides the scroll clearance under the
-                floating tab bar, so no extra bottom padding is needed. */}
-            <Image
+            {/* Brand footer — edge-to-edge art at the end of the sheet.
+                Explicit numeric sizing inside BrandFooter (no zoom/crop on
+                any device); short top fade merges the sheet's white into the
+                sky, ending above the headline. Also provides the tab-bar
+                scroll clearance. */}
+            <BrandFooter
               source={require('../assets/brand_footer_user.jpg')}
-              style={styles.brandFooterImage}
-              resizeMode="cover"
+              fadeColor="#FFFFFF"
+              style={styles.brandFooterWrap}
             />
           </ScrollView>
     );
@@ -2307,9 +2309,7 @@ const styles = StyleSheet.create({
     // under the floating tab bar — no synthetic bottom padding needed.
     paddingBottom: 0,
   },
-  brandFooterImage: {
-    width: SCREEN_WIDTH,
-    aspectRatio: 1024 / 1492,
+  brandFooterWrap: {
     marginHorizontal: -20, // sheetContent pads 20 — break out to true edge-to-edge
     marginTop: 22,
   },

@@ -31,6 +31,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { useApp } from '../context/AppContext';
 import TabBarDarkZone from '../components/TabBarDarkZone';
+import BrandFooter from '../components/BrandFooter';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useLocation } from '../context/LocationContext';
@@ -1351,13 +1352,14 @@ const ProviderHomeScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Brand footer — edge-to-edge art at the end of the home scroll
-            (outside contentArea, so no padding to break out of). Decorative:
-            also provides the clearance under the floating tab bar. */}
-        <Image
+        {/* Brand footer — edge-to-edge art at the end of the home scroll.
+            Explicit numeric sizing inside BrandFooter (no zoom/crop on any
+            device); short top fade merges the screen's dark navy into the
+            sky, ending above the headline. Provides tab-bar clearance. */}
+        <BrandFooter
           source={require('../assets/brand_footer_provider.jpg')}
-          style={styles.brandFooterImage}
-          resizeMode="cover"
+          fadeColor="#0F172A"
+          style={styles.brandFooterWrap}
         />
       </ScrollView>
 
@@ -1511,9 +1513,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 0,
   },
-  brandFooterImage: {
-    width: '100%',
-    aspectRatio: 1024 / 1495,
+  brandFooterWrap: {
     marginTop: 22,
   },
 
