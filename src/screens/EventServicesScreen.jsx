@@ -179,13 +179,18 @@ const ServiceCard = ({ service, onPress, comingSoon = false }) => {
       style={styles.serviceCard}
       onPress={() => onPress(service)}
     >
-      <View style={[styles.serviceIconContainer, comingSoon && { opacity: 0.35 }]}>
-        {icon3d ? (
-          <Image source={icon3d} style={{ width: 36, height: 36 }} resizeMode="contain" />
-        ) : (
+      {icon3d ? (
+        // 3D squircle tile IS the icon — no tinted box behind it
+        <Image
+          source={icon3d}
+          style={[{ width: 56, height: 56, borderRadius: 16, marginRight: 14 }, comingSoon && { opacity: 0.35 }]}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={[styles.serviceIconContainer, comingSoon && { opacity: 0.35 }]}>
           <MaterialIcon name={service.icon} size={24} color={COLORS.secondary} />
-        )}
-      </View>
+        </View>
+      )}
       <View style={styles.serviceInfo}>
         <Text style={[styles.serviceName, comingSoon && { opacity: 0.45 }]}>{service.name}</Text>
         <Text style={[styles.serviceDescription, comingSoon && { opacity: 0.45 }]}>{service.description}</Text>
@@ -1517,7 +1522,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: COLORS.cardWhite,
     borderRadius: 22,
-    padding: 20,
+    paddingVertical: 13,
+    paddingHorizontal: 20,
     marginBottom: 14,
     ...SHADOWS,
   },

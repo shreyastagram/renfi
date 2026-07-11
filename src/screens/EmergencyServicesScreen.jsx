@@ -159,17 +159,22 @@ const ServiceCard = ({ service, onPress, isStatic }) => {
       style={[styles.serviceCard, isStatic && styles.staticServiceCard]}
       onPress={() => onPress(service)}
     >
-      <View style={[styles.serviceIconContainer, isStatic && styles.staticIconContainer]}>
-        {icon3d ? (
-          <Image source={icon3d} style={{ width: 36, height: 36 }} resizeMode="contain" />
-        ) : (
+      {icon3d ? (
+        // 3D squircle tile IS the icon — no tinted box behind it
+        <Image
+          source={icon3d}
+          style={{ width: 56, height: 56, borderRadius: 16, marginBottom: 8 }}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={[styles.serviceIconContainer, isStatic && styles.staticIconContainer]}>
           <MaterialIcon
             name={EMERGENCY_SERVICE_ICONS[service.id]}
             size={28}
             color={isStatic ? COLORS.danger : COLORS.secondary}
           />
-        )}
-      </View>
+        </View>
+      )}
       <Text style={styles.serviceName} numberOfLines={2}>{service.name}</Text>
       {isStatic && (
         <View style={styles.staticBadge}>
