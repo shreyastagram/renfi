@@ -925,41 +925,65 @@ const ProviderHomeScreen = ({ navigation }) => {
     }
   }, [isProfileLoading, verificationDashboard, user?.mongoId, profile?.mongoId, fetchVerificationData]);
 
-  // First Approval Bonus popup — show congratulations when firstApprovalBonusPending flag is set
+  // First Approval Bonus popup — show congratulations when firstApprovalBonusPending flag is set.
+  // Dedup is persisted per provider: the server clear-flag PATCH and the forced
+  // profile refresh can both fail silently, and the in-memory ref resets on every
+  // mount — without the stored flag the same congratulations re-fires on each
+  // app restart until a refresh finally lands.
   useEffect(() => {
     if (profile?.firstApprovalBonusPending !== true) return;
     if (bonusPopupShownRef.current) return;
     bonusPopupShownRef.current = true;
 
-    dialog(
-      t('providerHome.welcomePremium'),
-      t('providerHome.welcomePremiumMsg'),
-      [{
-        text: t('providerHome.awesome'),
-        onPress: async () => {
-          const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
-          if (!providerId) return;
-          try {
-            await authFetch(`${NODE_BASE_URL}/api/provider/${providerId}/clear-bonus-popup`, {
+    const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+    const shownKey = `bonus_popup_shown_${providerId || 'unknown'}`;
+
+    (async () => {
+      try {
+        const alreadyShown = await AsyncStorage.getItem(shownKey);
+        if (alreadyShown) {
+          // Popup already celebrated once — just retry the server-side clear
+          // quietly so the pending flag eventually goes away.
+          if (providerId) {
+            authFetch(`${NODE_BASE_URL}/api/provider/${providerId}/clear-bonus-popup`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
-            });
-          } catch (err) {
-            console.warn('[ProviderHome] Failed to clear bonus popup flag:', err.message);
+            }).catch(() => {});
           }
-          // Update premium status in context — FIRST_APPROVAL_BONUS is 180 days (6 months)
-          setPremiumStatus({
-            isPremiumActive: true,
-            premiumDaysLeft: 180,
-            premiumLoaded: true,
-          });
-          // Refresh profile so firstApprovalBonusPending becomes false in context
-          // This prevents the popup from re-showing on component remount
-          refreshProfile(userType, providerId, { force: true });
-          fetchVerificationData({ force: true });
-        },
-      }]
-    );
+          return;
+        }
+      } catch {} // storage unreadable → fall through and show (at worst a repeat)
+
+      AsyncStorage.setItem(shownKey, '1').catch(() => {});
+      dialog(
+        t('providerHome.welcomePremium'),
+        t('providerHome.welcomePremiumMsg'),
+        [{
+          text: t('providerHome.awesome'),
+          onPress: async () => {
+            if (!providerId) return;
+            try {
+              await authFetch(`${NODE_BASE_URL}/api/provider/${providerId}/clear-bonus-popup`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+              });
+            } catch (err) {
+              console.warn('[ProviderHome] Failed to clear bonus popup flag:', err.message);
+            }
+            // Update premium status in context — FIRST_APPROVAL_BONUS is 180 days (6 months)
+            setPremiumStatus({
+              isPremiumActive: true,
+              premiumDaysLeft: 180,
+              premiumLoaded: true,
+            });
+            // Refresh profile so firstApprovalBonusPending becomes false in context
+            // This prevents the popup from re-showing on component remount
+            refreshProfile(userType, providerId, { force: true });
+            fetchVerificationData({ force: true });
+          },
+        }]
+      );
+    })();
   }, [profile?.firstApprovalBonusPending]);
 
   const firstName = displayData?.fullName?.split(' ')[0] || 'Provider';

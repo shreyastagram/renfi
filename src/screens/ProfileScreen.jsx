@@ -376,7 +376,7 @@ const ProfileSkeletonLoader = ({ insets, onBack, provider }) => {
 const ProfileScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
-  const { user, profile, userType, refreshVerificationStatus, refreshProfile, aadhaarStatus, setAadhaarStatus, premiumStatus, setPremiumStatus, isProfileLoading } = useApp();
+  const { user, profile, userType, refreshVerificationStatus, refreshProfile, aadhaarStatus, setAadhaarStatus, premiumStatus, setPremiumStatus, getPremiumWriteSeq, isProfileLoading } = useApp();
   const { t } = useLanguage();
 
   // Set status bar for light background when this tab is focused
@@ -687,6 +687,10 @@ const ProfileScreen = ({ navigation, route }) => {
   const fetchProviderStatuses = useCallback(async () => {
     if (!isProvider) return;
     const pid = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+    // Snapshot the premium write sequence — if another writer (bonus popup,
+    // profile refresh) lands while this request is in flight, our response is
+    // stale and must not overwrite the newer state.
+    const premiumSeqAtStart = getPremiumWriteSeq?.();
 
     // Run both fetches in parallel instead of sequentially
     const [aadhaarResult, dashResult] = await Promise.allSettled([
@@ -710,8 +714,12 @@ const ProfileScreen = ({ navigation, route }) => {
       setAadhaarStatus(prev => ({ ...prev, aadhaarLoaded: true }));
     }
 
-    // Process premium/dashboard result
-    if (dashResult.status === 'fulfilled' && dashResult.value?.success && dashResult.value?.data) {
+    // Process premium/dashboard result — dropped if a newer premium write
+    // happened while the request was in flight (stale response race)
+    const premiumStale = getPremiumWriteSeq && getPremiumWriteSeq() !== premiumSeqAtStart;
+    if (premiumStale) {
+      console.log('[ProfileScreen] Dropping stale premium dashboard response');
+    } else if (dashResult.status === 'fulfilled' && dashResult.value?.success && dashResult.value?.data) {
       const premStep = dashResult.value.data.steps?.find(s => s.id === 'premium');
       setPremiumStatus({
         isPremiumActive: dashResult.value.data.isPremiumActive || false,

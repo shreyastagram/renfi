@@ -50,7 +50,17 @@ export const AppProvider = ({ children }) => {
   const [profile, setProfile] = useState(null); // Full profile data
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [aadhaarStatus, setAadhaarStatus] = useState({ isVerified: false, isNameLocked: false, aadhaarName: null, aadhaarLoaded: false });
-  const [premiumStatus, setPremiumStatus] = useState({ isPremiumActive: false, premiumDaysLeft: 0, premiumLoaded: false });
+  const [premiumStatus, setPremiumStatusRaw] = useState({ isPremiumActive: false, premiumDaysLeft: 0, premiumLoaded: false });
+  // premiumStatus has multiple async writers (profile refresh, verification
+  // dashboard fetch, bonus popup). Every write bumps this sequence; fetchers
+  // snapshot it before their request and drop the response if a newer write
+  // happened meanwhile — a slow stale response must never overwrite fresh state.
+  const premiumWriteSeq = useRef(0);
+  const setPremiumStatus = useCallback((value) => {
+    premiumWriteSeq.current += 1;
+    setPremiumStatusRaw(value);
+  }, []);
+  const getPremiumWriteSeq = useCallback(() => premiumWriteSeq.current, []);
   const profileLastFetched = useRef(0); // timestamp of last successful fetch
   const STALE_THRESHOLD = 30000; // 30 seconds — skip re-fetch if data is fresh
   const [authHealth, setAuthHealth] = useState(null); // Auth service health status
@@ -243,6 +253,7 @@ export const AppProvider = ({ children }) => {
     }
     
     profileFetchInFlight.current = true;
+    const premiumSeqAtStart = premiumWriteSeq.current;
     try {
       // Only show loading spinner on first load (no cached data yet)
       const isFirstLoad = !profile;
@@ -341,8 +352,9 @@ export const AppProvider = ({ children }) => {
         
         profileLastFetched.current = Date.now();
 
-        // Sync premium status from profile for providers
-        if (effectiveType === 'provider' && result.data) {
+        // Sync premium status from profile for providers — unless a newer
+        // premium write (e.g. the bonus popup) landed while we were fetching
+        if (effectiveType === 'provider' && result.data && premiumWriteSeq.current === premiumSeqAtStart) {
           const p = result.data;
           if (p.isPremium !== undefined) {
             const daysLeft = p.premiumExpiresAt
@@ -983,6 +995,7 @@ export const AppProvider = ({ children }) => {
     // Premium subscription status (cached in context to prevent flicker)
     premiumStatus,
     setPremiumStatus,
+    getPremiumWriteSeq,
 
     // Re-initialize (useful for token refresh)
     initializeAuth,
@@ -999,7 +1012,7 @@ export const AppProvider = ({ children }) => {
     syncProfileIfNeeded, updateProfileWithAutoSync,
     checkHealth,
     aadhaarStatus, setAadhaarStatus,
-    premiumStatus, setPremiumStatus,
+    premiumStatus, setPremiumStatus, getPremiumWriteSeq,
     initializeAuth, markInitialLoadComplete,
   ]);
 
