@@ -16,12 +16,11 @@
 
 import { Platform, NativeModules } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
-import { 
+import {
   USE_PRODUCTION_NODE_API,
-  USE_PRODUCTION_JAVA_AUTH, 
-  PRODUCTION_CONFIG, 
-  LOCAL_CONFIG,
-  getEnvironmentName 
+  USE_PRODUCTION_JAVA_AUTH,
+  PRODUCTION_CONFIG,
+  getEnvironmentName,
 } from './environment';
 
 /**

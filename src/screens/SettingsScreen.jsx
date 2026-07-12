@@ -590,18 +590,18 @@ const SettingsScreen = ({ navigation }) => {
       const info = await checkForAppUpdate();
       if (info && info.updateRequired) {
         dialog(
-          'Update Available',
-          `Version ${info.latestVersion} is available.`,
+          t('settings.updateAvailable'),
+          t('settings.updateAvailableMsg', { version: info.latestVersion }),
           [
-            { text: 'Later', style: 'cancel' },
-            { text: 'Update Now', onPress: () => openStorePage(info.storeUrl) },
+            { text: t('common.later'), style: 'cancel' },
+            { text: t('settings.updateNow'), onPress: () => openStorePage(info.storeUrl) },
           ]
         );
       } else {
-        dialog('Up to Date', `You're on the latest version (${getCurrentAppVersion()}).`);
+        dialog(t('settings.upToDate'), t('settings.upToDateMsg', { version: getCurrentAppVersion() }));
       }
     } catch {
-      dialog('Error', 'Could not check for updates. Please try again.');
+      dialog(t('common.error'), t('settings.updateCheckFailed'));
     } finally {
       setCheckingForUpdate(false);
     }
@@ -910,13 +910,13 @@ const SettingsScreen = ({ navigation }) => {
         setMaskedPhone(result.maskedPhone || phoneMask);
         setDeleteOtpModalVisible(true);
       } else if (response.status === 429) {
-        dialog('Please Wait', 'Too many attempts. Please try again in a few minutes.');
+        dialog(t('settings.pleaseWait'), t('settings.tooManyAttempts'));
       } else {
-        dialog('Error', result.message || 'Failed to send OTP. Please try again.');
+        dialog(t('common.error'), result.message || t('settings.otpSendFailed'));
       }
     } catch (error) {
       console.error('Request delete OTP error:', error);
-      dialog('Error', 'Failed to send OTP. Please check your connection and try again.');
+      dialog(t('common.error'), t('settings.otpSendFailedNetwork'));
     } finally {
       setIsRequestingOtp(false);
     }
@@ -927,7 +927,7 @@ const SettingsScreen = ({ navigation }) => {
    */
   const confirmDeleteWithOtp = async () => {
     if (deleteOtp.length !== 6) {
-      dialog('Invalid OTP', 'Please enter the 6-digit OTP sent to your phone.');
+      dialog(t('settings.invalidOtpTitle'), t('settings.invalidOtpMsg'));
       return;
     }
 
@@ -971,23 +971,23 @@ const SettingsScreen = ({ navigation }) => {
         setDeleteOtp('');
         setDeleteReason('');
         dialog(
-          'Account Deleted',
-          'Your account has been successfully deleted. We\'re sorry to see you go.',
-          [{ text: 'OK', onPress: () => { setIsLoggingOut(true); logout(); } }]
+          t('settings.accountDeletedTitle'),
+          t('settings.accountDeletedMsg'),
+          [{ text: t('common.ok'), onPress: () => { setIsLoggingOut(true); logout(); } }]
         );
       } else if (response.status === 429) {
-        dialog('Please Wait', 'Too many attempts. Please try again in a few minutes.');
+        dialog(t('settings.pleaseWait'), t('settings.tooManyAttempts'));
       } else {
         const msgLower = (result.message || '').toLowerCase();
         if (msgLower.includes('otp') || msgLower.includes('verification') || msgLower.includes('invalid')) {
-          dialog('Incorrect OTP', 'The OTP you entered is incorrect. Please check and try again.');
+          dialog(t('settings.incorrectOtpTitle'), t('settings.incorrectOtpMsg'));
         } else {
-          dialog('Unable to Delete', 'Something went wrong. Please try again.');
+          dialog(t('settings.unableToDelete'), t('common.somethingWentWrong'));
         }
       }
     } catch (error) {
       console.error('Delete account error:', error);
-      dialog('Unable to Delete', 'Something went wrong. Please try again.');
+      dialog(t('settings.unableToDelete'), t('common.somethingWentWrong'));
     } finally {
       setIsDeletingAccount(false);
     }
@@ -1092,7 +1092,10 @@ const SettingsScreen = ({ navigation }) => {
               iconName="star"
               title={t('settings.premiumSubscription')}
               subtitle={
-                displayData?.isPremium
+                // isPremium is the raw Mongo flag; the backend cron clears it only
+                // after expiry — check premiumExpiresAt so this row can't say
+                // "active" while Profile/Subscription already show it expired
+                displayData?.isPremium && (!displayData?.premiumExpiresAt || new Date(displayData.premiumExpiresAt) > new Date())
                   ? t('settings.premiumActiveSub')
                   : t(profile?.verifiedServiceCategories?.length > 0 ? 'settings.premiumRenewSub' : 'settings.subscribeSub')
               }
@@ -1114,11 +1117,11 @@ const SettingsScreen = ({ navigation }) => {
 
         {/* Refer & Earn Section — Both Users and Providers */}
         <View style={styles.section}>
-          <SectionHeader title="Refer & Earn" />
+          <SectionHeader title={t('settings.referEarnTitle')} />
           <ActionRow
             iconName="star"
-            title="Refer & Earn Rewards"
-            subtitle="Share your code, earn points, win prizes"
+            title={t('settings.referEarnRowTitle')}
+            subtitle={t('settings.referEarnRowSub')}
             onPress={() => navigation.navigate('ReferralScreen')}
           />
         </View>
@@ -1415,7 +1418,7 @@ const SettingsScreen = ({ navigation }) => {
           onPress={() => setShowLangModal(false)}
         >
           <View style={settingsLangStyles.modal}>
-            <Text style={settingsLangStyles.title}>Select Language</Text>
+            <Text style={settingsLangStyles.title}>{t('userType.selectLanguage')}</Text>
             {languages.map((lang) => (
               <TouchableOpacity
                 key={lang.code}
@@ -1477,9 +1480,9 @@ const SettingsScreen = ({ navigation }) => {
                     >
                       <View style={styles.iosDeleteContent}>
                         <Text style={styles.iosDeleteIcon}>⚠️</Text>
-                        <Text style={styles.iosDeleteTitle}>Verify Account Deletion</Text>
+                        <Text style={styles.iosDeleteTitle}>{t('settings.deleteVerifyTitle')}</Text>
                         <Text style={styles.iosDeleteSubtitle}>
-                          Enter the 6-digit OTP sent to {maskedPhone}
+                          {t('settings.deleteOtpSentTo', { phone: maskedPhone })}
                         </Text>
 
                         <TextInput
@@ -1500,7 +1503,7 @@ const SettingsScreen = ({ navigation }) => {
 
                         <TextInput
                           style={[styles.iosReasonInput, isDeletingAccount && { opacity: 0.5 }]}
-                          placeholder="Reason for leaving (optional)"
+                          placeholder={t('settings.deleteReasonPlaceholder')}
                           placeholderTextColor="rgba(0,0,0,0.2)"
                           value={deleteReason}
                           onChangeText={setDeleteReason}
@@ -1517,10 +1520,10 @@ const SettingsScreen = ({ navigation }) => {
                           {isRequestingOtp ? (
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                               <ActivityIndicator size={14} color="#007AFF" />
-                              <Text style={styles.iosResendText}>Sending...</Text>
+                              <Text style={styles.iosResendText}>{t('settings.sending')}</Text>
                             </View>
                           ) : (
-                            <Text style={styles.iosResendText}>Resend OTP</Text>
+                            <Text style={styles.iosResendText}>{t('settings.resendOtp')}</Text>
                           )}
                         </TouchableOpacity>
                       </View>
@@ -1536,7 +1539,7 @@ const SettingsScreen = ({ navigation }) => {
                           {isDeletingAccount ? (
                             <ActivityIndicator color="#FFFFFF" size="small" />
                           ) : (
-                            <Text style={styles.iosDeleteBtnText}>Delete Account</Text>
+                            <Text style={styles.iosDeleteBtnText}>{t('settings.deleteAccount')}</Text>
                           )}
                         </TouchableOpacity>
                       </View>
@@ -1563,7 +1566,7 @@ const SettingsScreen = ({ navigation }) => {
                         disabled={isDeletingAccount}
                         activeOpacity={0.7}
                       >
-                        <Text style={styles.iosCancelBtnText}>Cancel</Text>
+                        <Text style={styles.iosCancelBtnText}>{t('common.cancel')}</Text>
                       </TouchableOpacity>
                     </BlurView>
                   </View>
@@ -1583,14 +1586,14 @@ const SettingsScreen = ({ navigation }) => {
               <View style={styles.modalOverlay}>
                 <View style={styles.modalContent}>
                   <View style={styles.modalHeaderBar} />
-                  <Text style={styles.modalTitle}>Verify Account Deletion</Text>
+                  <Text style={styles.modalTitle}>{t('settings.deleteVerifyTitle')}</Text>
                   <Text style={styles.modalSubtitle}>
-                    Enter the 6-digit OTP sent to {maskedPhone}
+                    {t('settings.deleteOtpSentTo', { phone: maskedPhone })}
                   </Text>
 
                   <TextInput
                     style={[styles.otpInput, isDeletingAccount && { opacity: 0.5 }]}
-                    placeholder="Enter 6-digit OTP"
+                    placeholder={t('settings.deleteOtpPlaceholder')}
                     placeholderTextColor={COLORS.muted}
                     keyboardType="number-pad"
                     maxLength={6}
@@ -1604,7 +1607,7 @@ const SettingsScreen = ({ navigation }) => {
 
                   <TextInput
                     style={[styles.reasonInput, isDeletingAccount && { opacity: 0.5 }]}
-                    placeholder="Reason for leaving (optional)"
+                    placeholder={t('settings.deleteReasonPlaceholder')}
                     placeholderTextColor={COLORS.muted}
                     value={deleteReason}
                     onChangeText={setDeleteReason}
@@ -1621,10 +1624,10 @@ const SettingsScreen = ({ navigation }) => {
                     {isRequestingOtp ? (
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <ActivityIndicator size={14} color={COLORS.primary} />
-                        <Text style={styles.resendButtonText}>Sending...</Text>
+                        <Text style={styles.resendButtonText}>{t('settings.sending')}</Text>
                       </View>
                     ) : (
-                      <Text style={styles.resendButtonText}>Resend OTP</Text>
+                      <Text style={styles.resendButtonText}>{t('settings.resendOtp')}</Text>
                     )}
                   </TouchableOpacity>
 
@@ -1640,7 +1643,7 @@ const SettingsScreen = ({ navigation }) => {
                       }}
                       disabled={isDeletingAccount}
                     >
-                      <Text style={styles.cancelButtonText}>Cancel</Text>
+                      <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -1655,7 +1658,7 @@ const SettingsScreen = ({ navigation }) => {
                       {isDeletingAccount ? (
                         <ActivityIndicator color="#FFFFFF" size="small" />
                       ) : (
-                        <Text style={styles.deleteButtonText}>Delete Account</Text>
+                        <Text style={styles.deleteButtonText}>{t('settings.deleteAccount')}</Text>
                       )}
                     </TouchableOpacity>
                   </View>
@@ -1671,7 +1674,7 @@ const SettingsScreen = ({ navigation }) => {
         <View style={styles.logoutOverlay}>
           <View style={styles.logoutOverlayCard}>
             <ActivityIndicator size="large" color={COLORS.primary} />
-            <Text style={styles.logoutOverlayText}>Signing out...</Text>
+            <Text style={styles.logoutOverlayText}>{t('settings.signingOut')}</Text>
           </View>
         </View>
       )}

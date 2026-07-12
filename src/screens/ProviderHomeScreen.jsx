@@ -947,10 +947,10 @@ const ProviderHomeScreen = ({ navigation }) => {
           } catch (err) {
             console.warn('[ProviderHome] Failed to clear bonus popup flag:', err.message);
           }
-          // Update premium status in context
+          // Update premium status in context — FIRST_APPROVAL_BONUS is 180 days (6 months)
           setPremiumStatus({
             isPremiumActive: true,
-            premiumDaysLeft: 60,
+            premiumDaysLeft: 180,
             premiumLoaded: true,
           });
           // Refresh profile so firstApprovalBonusPending becomes false in context
@@ -1133,7 +1133,7 @@ const ProviderHomeScreen = ({ navigation }) => {
             <StatsCard
               materialIconName="play-circle-filled"
               value={stats.active}
-              label="Active"
+              label={t('providerHome.statsActive')}
               color="#10B981"
               bgColor="#10B98118"
             />
@@ -1155,7 +1155,7 @@ const ProviderHomeScreen = ({ navigation }) => {
           )}
 
           {/* Recent Active Services */}
-          <Text style={styles.sectionTitle}>ACTIVE JOBS <Text style={{ color: '#CBD5E1', fontSize: 11, fontWeight: '500', textTransform: 'none' }}>(Recent 3)</Text></Text>
+          <Text style={styles.sectionTitle}>{t('providerHome.activeJobs')} <Text style={{ color: '#CBD5E1', fontSize: 11, fontWeight: '500', textTransform: 'none' }}>{t('providerHome.recentThree')}</Text></Text>
 
           {!statsLoaded ? (
             /* Shimmer placeholders while stats are loading */
@@ -1225,7 +1225,7 @@ const ProviderHomeScreen = ({ navigation }) => {
                         }}
                       >
                         <MaterialIcon name="directions" size={16} color={BRAND.secondary} />
-                        <Text style={styles.recentActionText}>Directions</Text>
+                        <Text style={styles.recentActionText}>{t('detail.directions')}</Text>
                       </TouchableOpacity>
                     )}
                     {phone && (
@@ -1237,12 +1237,12 @@ const ProviderHomeScreen = ({ navigation }) => {
                         }}
                       >
                         <MaterialIcon name="phone" size={16} color="#10B981" />
-                        <Text style={[styles.recentActionText, { color: '#10B981' }]}>Call</Text>
+                        <Text style={[styles.recentActionText, { color: '#10B981' }]}>{t('common.call')}</Text>
                       </TouchableOpacity>
                     )}
                     <View style={styles.recentActionBtn}>
                       <MaterialIcon name="chevron-right" size={16} color={BRAND.muted} />
-                      <Text style={[styles.recentActionText, { color: BRAND.muted }]}>Details</Text>
+                      <Text style={[styles.recentActionText, { color: BRAND.muted }]}>{t('providerHome.details')}</Text>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -1251,7 +1251,7 @@ const ProviderHomeScreen = ({ navigation }) => {
           ) : (
             <View style={styles.noRecentCard}>
               <MaterialIcon name="inbox" size={28} color={BRAND.muted} />
-              <Text style={styles.noRecentText}>No active services right now</Text>
+              <Text style={styles.noRecentText}>{t('providerHome.noActiveServices')}</Text>
             </View>
           )}
 

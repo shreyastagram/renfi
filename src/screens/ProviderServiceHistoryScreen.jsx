@@ -365,7 +365,7 @@ const RequestCard = React.memo(({ request, onPress, onCall, onDirections, onComp
           <View style={{ flex: 1 }}>
             <View style={styles.svcNameRow}>
               <Text style={styles.svcName} numberOfLines={1}>{SERVICE_TYPE_LABELS[request.serviceType] || request.serviceType}</Text>
-              {isEvent && <View style={styles.typeBadge}><Text style={styles.typeBadgeText}>EVENT</Text></View>}
+              {isEvent && <View style={styles.typeBadge}><Text style={styles.typeBadgeText}>{t('providerHistory.eventBadge')}</Text></View>}
               {isEmergency && <View style={[styles.typeBadge, { backgroundColor: '#FEE2E2' }]}><Text style={[styles.typeBadgeText, { color: '#DC2626' }]}>SOS</Text></View>}
             </View>
             <Text style={styles.svcId}>#{shortId}</Text>
@@ -1038,7 +1038,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
                   <Path d="M0 28 Q30 14 60 24 T120 18" stroke={C.secondary} strokeWidth="0.8" fill="none" opacity={0.1} />
                 </Svg>
               </View>
-              <Text style={[styles.headerInlineLabel, { color: C.secondary }]}>Total</Text>
+              <Text style={[styles.headerInlineLabel, { color: C.secondary }]}>{t('providerHistory.total')}</Text>
               <Text style={[styles.headerInlineValue, { color: C.secondary }]}>{stats.total}</Text>
             </View>
             <View style={[styles.headerInlinePill, { backgroundColor: '#FAF5FF' }]}>
@@ -1048,7 +1048,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
                   <Path d="M0 28 Q30 14 60 24 T120 18" stroke={C.purple} strokeWidth="0.8" fill="none" opacity={0.1} />
                 </Svg>
               </View>
-              <Text style={[styles.headerInlineLabel, { color: C.purple }]}>Active</Text>
+              <Text style={[styles.headerInlineLabel, { color: C.purple }]}>{t('providerHistory.active')}</Text>
               <Text style={[styles.headerInlineValue, { color: C.purple }]}>{stats.active}</Text>
             </View>
           </Animated.View>

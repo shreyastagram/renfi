@@ -74,22 +74,11 @@ export const PRODUCTION_CONFIG = {
 };
 
 // ============================================
-// LOCAL DEVELOPMENT URLS
+// LOCAL DEVELOPMENT
 // ============================================
-
-export const LOCAL_CONFIG = {
-  // These will be dynamically set by api.js based on device type
-  // Keeping them here for reference
-  EMULATOR_HOST: '10.0.2.2',
-  LOCALHOST: 'localhost',
-  WIFI_IP: '192.168.1.17', // Update this to your machine's IP
-  
-  NODE_PORT: 5001,
-  JAVA_PORT: 8080,
-  
-  // Razorpay key — set via RAZORPAY_KEY_ID env var at build time
-  RAZORPAY_KEY_ID: '',
-};
+// Local hosts/ports live in api.js (LOCAL_MACHINE_IP + __DEV__-only branches),
+// which Metro dead-code-eliminates from release bundles. Nothing local is
+// exported from here — exported literals survive minification.
 
 // ============================================
 // HELPER FUNCTIONS

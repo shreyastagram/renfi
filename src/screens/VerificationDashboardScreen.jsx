@@ -430,7 +430,7 @@ const VerificationDashboardScreen = ({ navigation }) => {
         dialog(t('verificationDashboard.syncFailed'), result.error?.message || t('verificationDashboard.syncFailedMsg'));
       }
     } catch (err) {
-      dialog('Error', t('verificationDashboard.syncError'));
+      dialog(t('common.error'), t('verificationDashboard.syncError'));
     } finally {
       setSyncing(false);
       spinAnim.stopAnimation();
@@ -475,7 +475,7 @@ const VerificationDashboardScreen = ({ navigation }) => {
                 const data = await res.json();
                 if (data.success) {
                   dialog(t('common.success'), t('verificationDashboard.policiesAccepted') || 'Policies accepted successfully.');
-                  loadDashboard();
+                  fetchDashboard(false);
                 } else {
                   dialog(t('common.error'), data.error || 'Unable to save. Please try again.');
                 }

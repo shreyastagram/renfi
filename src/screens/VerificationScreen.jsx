@@ -384,7 +384,7 @@ const VerificationScreen = ({
       }
     } catch (error) {
       console.error('❌ [VerificationScreen] Send error:', error);
-      showAlert(t('common.unexpectedError'), 'error');
+      showAlert(t('auth.unexpectedError'), 'error');
     } finally {
       setSendLoading(false);
     }
@@ -492,7 +492,7 @@ const VerificationScreen = ({
       }
     } catch (error) {
       console.error('❌ [VerificationScreen] Verify error:', error);
-      showAlert(t('common.unexpectedError'), 'error');
+      showAlert(t('auth.unexpectedError'), 'error');
     } finally {
       setLoading(false);
     }

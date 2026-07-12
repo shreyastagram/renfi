@@ -158,7 +158,44 @@ run one minified **release** build per platform and confirm events in Events Man
 SDK has never been exercised in a release build); `method` param is `'unknown'` on a few legacy
 login paths; referrer-side referral + iOS subscription still need backend/CAPI.
 
-## 8. Issues Log
+## 8. 🚦 PRE-STORE-RELEASE CHECKLIST (check EVERY item before uploading to Play Store / App Store)
+
+From the full-branch production audit (2026-07-12, five-reviewer pass). None of these are
+optional — the first two ship a broken/embarrassing build if forgotten.
+
+### Code flags (MUST flip)
+- [ ] `src/config/environment.js:48` → **`USE_DEV_STAGING = false`** — currently `true` for
+      tester builds; a store build with it points ALL users at jauth-dev/noefix-dev staging
+      backends. The runtime console.warn guard is stripped in release builds, so nothing will
+      warn you. **This is the #1 gate.**
+- [ ] `src/services/analytics/analytics.js:30` → **`DEBUG_ANALYTICS = false`** — strips the
+      `[MetaDebug]` logcat logging (kept on until Meta event verification finishes).
+
+### Build config
+- [ ] `android/app/build.gradle` → `firebaseCrashlytics { mappingFileUploadEnabled true }` for
+      the store build — currently `false`, so native crash traces arrive R8-obfuscated and
+      unreadable.
+- [ ] iOS: `CURRENT_PROJECT_VERSION` was reset to **1** for 1.0.5 — confirm App Store Connect
+      has no existing 1.0.5 build with number ≥ 1, or the upload is rejected.
+- [ ] iOS: run `bundle exec pod install` before archiving (deps changed:
+      `@react-navigation/drawer` and `react-native-background-timer` were removed).
+- [ ] (Nice-to-have) pin `facebookSdkVersion` in `android/build.gradle` ext — currently floats
+      on `18.+`, so a new Facebook SDK release silently changes the next build.
+
+### Play Console declarations (policy — rejection risk if missing)
+- [ ] **Data Safety → Advertising ID**: declare AD_ID collection (`com.google.android.gms.permission.AD_ID`
+      is merged in by facebook-core; needed for Meta events).
+- [ ] **READ_PHONE_STATE**: merged into the manifest by the Razorpay SDK — either complete the
+      restricted-permission declaration, or strip it with `tools:node="remove"` after confirming
+      Razorpay checkout still works without it.
+- [ ] **ACCESS_BACKGROUND_LOCATION**: complete the background-location declaration form +
+      in-app prominent disclosure + demo video (provider live tracking).
+
+### App Store
+- [ ] Premium copy is web-payment based on iOS (no IAP) — keep the "fixhomi.com" payment note
+      wording as shipped; do not name the payment processor in UI copy.
+
+## 9. Issues Log
 
 > Add future bugs/observations here as dated entries.
 

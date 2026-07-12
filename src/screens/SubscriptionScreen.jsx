@@ -601,6 +601,7 @@ const SubscriptionScreen = ({ navigation }) => {
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] = useState('');
+  const [statusLoadFailed, setStatusLoadFailed] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -610,6 +611,10 @@ const SubscriptionScreen = ({ navigation }) => {
         getTransactions(1, 10),
       ]);
 
+      // The service swallows network errors into {success:false}. Rendering
+      // that as "not premium" would invite an active subscriber to pay again —
+      // surface a retry state instead (unless we still have data from before).
+      setStatusLoadFailed(!statusResult.success);
       if (statusResult.success) setSubscription(statusResult.subscription);
       if (plansResult.success) {
         // Filter out the first approval bonus — it's auto-granted, not a user-selectable plan
@@ -780,6 +785,36 @@ const SubscriptionScreen = ({ navigation }) => {
     );
   }
 
+  // Status fetch failed and we have nothing cached — showing the purchase UI
+  // here would tell an active premium provider they're unsubscribed.
+  if (statusLoadFailed && !subscription) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} accessibilityLabel="Go back" accessibilityRole="button">
+            <MaterialIcon name="arrow-back-ios-new" size={20} color="#0F172A" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{t('subscription.premium')}</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.emptyState}>
+          <MaterialIcon name="cloud-off" size={56} color="#CBD5E1" />
+          <Text style={styles.emptyTitle}>{t('subscription.loadFailed')}</Text>
+          <TouchableOpacity
+            style={styles.subscribeBtn}
+            onPress={() => { setLoading(true); setStatusLoadFailed(false); loadData(); }}
+            accessibilityLabel={t('common.retry')}
+            accessibilityRole="button"
+          >
+            <MaterialIcon name="refresh" size={20} color="#FFFFFF" />
+            <Text style={styles.subscribeBtnText}>{t('common.retry')}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   const isPremium = subscription?.isPremium;
   const bonusActive = isPremium && subscription?.currentPlan?.planId === 'first_approval_bonus';
   // The ₹0 pitch (state A) needs the profile to confirm no approved service
@@ -815,6 +850,12 @@ const SubscriptionScreen = ({ navigation }) => {
 
           if (isPremium && !bonusActive) {
             return <ActiveStatusCard subscription={subscription} onRenew={handleSubscribe} loading={subscribing} t={t} />;
+          }
+          // Profile unknown (still loading or fetch failed): state C's copy
+          // claims "your 6 free months are complete", which we can't assert —
+          // skip the hero and let the plans below carry honest standard pricing.
+          if (!isPremium && !profile) {
+            return null;
           }
           return (
             <>

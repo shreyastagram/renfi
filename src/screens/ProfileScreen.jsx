@@ -1226,7 +1226,7 @@ const ProfileScreen = ({ navigation, route }) => {
         await handleProfilePictureUpload(asset.uri);
       }
     } catch (error) {
-      dialog('Error', 'Couldn\'t access your photos. Please check app permissions.');
+      dialog(t('common.error'), t('profile.photoAccessError'));
     }
   };
 
@@ -1261,7 +1261,7 @@ const ProfileScreen = ({ navigation, route }) => {
         await handleProfilePictureUpload(asset.uri);
       }
     } catch (error) {
-      dialog('Error', 'Couldn\'t access your photos. Please check app permissions.');
+      dialog(t('common.error'), t('profile.photoAccessError'));
     }
   };
 
@@ -2481,9 +2481,9 @@ const ProfileScreen = ({ navigation, route }) => {
                   <MaterialIcon name="favorite" size={24} color="#F59E0B" />
                 </View>
                 <View style={styles.addressesContent}>
-                  <Text style={styles.addressesTitle} numberOfLines={1} ellipsizeMode="tail">Saved Providers</Text>
+                  <Text style={styles.addressesTitle} numberOfLines={1} ellipsizeMode="tail">{t('profile.savedProviders')}</Text>
                   <Text style={styles.addressesSubtitle} numberOfLines={2} ellipsizeMode="tail">
-                    View and manage your favorite service providers
+                    {t('profile.savedProvidersSub')}
                   </Text>
                 </View>
                 <MaterialIcon name="chevron-right" size={22} color="#94A3B8" />
@@ -2531,32 +2531,32 @@ const ProfileScreen = ({ navigation, route }) => {
                       </View>
                       <View style={styles.premiumActiveBadge}>
                         <MaterialIcon name="verified" size={14} color="#16A34A" />
-                        <Text style={styles.premiumActiveBadgeText}>ACTIVE</Text>
+                        <Text style={styles.premiumActiveBadgeText}>{t('subscription.active').toUpperCase()}</Text>
                       </View>
                     </View>
-                    <Text style={styles.premiumActiveTitle}>Premium Plan</Text>
-                    <Text style={styles.premiumActiveSubtitle}>Your premium benefits are active</Text>
+                    <Text style={styles.premiumActiveTitle}>{t('profile.premiumActiveTitle')}</Text>
+                    <Text style={styles.premiumActiveSubtitle}>{t('profile.premiumActiveSub')}</Text>
                   </View>
                   {/* Stats row */}
                   <View style={styles.premiumStatsRow}>
                     <View style={styles.premiumStatItem}>
                       <Text style={styles.premiumStatValue}>{premiumDaysLeft}</Text>
-                      <Text style={styles.premiumStatLabel}>Days Left</Text>
+                      <Text style={styles.premiumStatLabel}>{t('subscription.daysLeft')}</Text>
                     </View>
                     <View style={styles.premiumStatDivider} />
                     <View style={styles.premiumStatItem}>
                       <MaterialIcon name="trending-up" size={22} color="#16A34A" />
-                      <Text style={styles.premiumStatLabel}>Priority</Text>
+                      <Text style={styles.premiumStatLabel}>{t('subscription.priority')}</Text>
                     </View>
                     <View style={styles.premiumStatDivider} />
                     <View style={styles.premiumStatItem}>
                       <MaterialIcon name="visibility" size={22} color="#2b76bc" />
-                      <Text style={styles.premiumStatLabel}>Boosted</Text>
+                      <Text style={styles.premiumStatLabel}>{t('subscription.boosted')}</Text>
                     </View>
                   </View>
                   {/* Footer */}
                   <View style={styles.premiumActiveFooter}>
-                    <Text style={styles.premiumActiveFooterText}>Manage Subscription</Text>
+                    <Text style={styles.premiumActiveFooterText}>{t('profile.premiumManage')}</Text>
                     <MaterialIcon name="arrow-forward-ios" size={14} color="#64748B" />
                   </View>
                 </TouchableOpacity>

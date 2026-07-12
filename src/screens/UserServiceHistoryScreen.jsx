@@ -228,7 +228,7 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
                   {SERVICE_TYPE_LABELS[request.serviceType] || request.serviceType}
                 </Text>
                 {isEventService && (
-                  <View style={styles.typeBadge}><Text style={styles.typeBadgeText}>EVENT</Text></View>
+                  <View style={styles.typeBadge}><Text style={styles.typeBadgeText}>{t('userHistory.eventBadge')}</Text></View>
                 )}
                 {isEmergencyService && (
                   <View style={[styles.typeBadge, { backgroundColor: '#FEE2E2' }]}><Text style={[styles.typeBadgeText, { color: '#DC2626' }]}>SOS</Text></View>
@@ -988,7 +988,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
                   <Path d="M0 28 Q30 14 60 24 T120 18" stroke={C.success} strokeWidth="0.8" fill="none" opacity={0.1} />
                 </Svg>
               </View>
-              <Text style={[styles.headerInlineLabel, { color: C.success }]}>Active</Text>
+              <Text style={[styles.headerInlineLabel, { color: C.success }]}>{t('userHistory.active')}</Text>
               <Text style={[styles.headerInlineValue, { color: C.success }]}>{stats.active}</Text>
             </View>
             <View style={[styles.headerInlinePill, { backgroundColor: '#EFF6FF' }]}>
@@ -998,7 +998,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
                   <Path d="M0 28 Q30 14 60 24 T120 18" stroke={C.secondary} strokeWidth="0.8" fill="none" opacity={0.1} />
                 </Svg>
               </View>
-              <Text style={[styles.headerInlineLabel, { color: C.secondary }]}>Done</Text>
+              <Text style={[styles.headerInlineLabel, { color: C.secondary }]}>{t('userHistory.done')}</Text>
               <Text style={[styles.headerInlineValue, { color: C.secondary }]}>{stats.completed}</Text>
             </View>
           </Animated.View>
@@ -1065,9 +1065,9 @@ const UserServiceHistoryScreen = ({ navigation }) => {
           <>
             <View style={styles.statsBarInner}>
               <View style={styles.statsRow}>
-                <StatPill value={stats.total} label="Total" color={C.primary} bgColor="#FFF7ED" />
-                <StatPill value={stats.active} label="Active" color={C.success} bgColor={C.successBg} />
-                <StatPill value={stats.completed} label="Done" color={C.secondary} bgColor="#EFF6FF" />
+                <StatPill value={stats.total} label={t('userHistory.total')} color={C.primary} bgColor="#FFF7ED" />
+                <StatPill value={stats.active} label={t('userHistory.active')} color={C.success} bgColor={C.successBg} />
+                <StatPill value={stats.completed} label={t('userHistory.done')} color={C.secondary} bgColor="#EFF6FF" />
               </View>
             </View>
             {hasActiveFilters ? (
@@ -1078,7 +1078,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
         renderItem={renderRequestItem}
         extraData={`${resendingOtpId}-${Object.keys(ratingStatuses).length}`}
         ListEmptyComponent={<EmptyState filter={activeFilter} onBookService={() => navigation.navigate('HomeTab')} />}
-        ListFooterComponent={loadingMore ? <View style={styles.footerLoader}><ActivityIndicator size="small" color={C.primary} /><Text style={styles.footerText}>Loading more...</Text></View> : null}
+        ListFooterComponent={loadingMore ? <View style={styles.footerLoader}><ActivityIndicator size="small" color={C.primary} /><Text style={styles.footerText}>{t('userHistory.loadingMore')}</Text></View> : null}
         onEndReached={loadMore}
         onEndReachedThreshold={0.3}
         contentContainerStyle={[styles.listPad, { paddingBottom: insets.bottom + 104 }]}
