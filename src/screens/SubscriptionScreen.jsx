@@ -242,9 +242,12 @@ const heroStyles = StyleSheet.create({
   sub: { fontSize: 13, color: '#B9C0CF', marginTop: 8, lineHeight: 20, fontWeight: '500' },
   priceBlock: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 22 },
   numGroup: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
-  strikeWrap: { position: 'relative' },
-  strikeText: { fontSize: 22, fontWeight: '700', color: '#6E7891' },
-  strikeLine: { position: 'absolute', left: -3, right: -3, top: '46%', height: 2, backgroundColor: GOLD, borderRadius: 2, transform: [{ rotate: '-6deg' }] },
+  strikeWrap: { position: 'relative', justifyContent: 'center' },
+  // Explicit lineHeight + no Android font padding: the text box hugs the glyphs,
+  // so the centered line crosses the digits on every locale/fallback font
+  // (Android inflates the box for the ₹ glyph otherwise, dropping the line below).
+  strikeText: { fontSize: 22, lineHeight: 26, fontWeight: '700', color: '#6E7891', includeFontPadding: false },
+  strikeLine: { position: 'absolute', left: -3, right: -3, top: '50%', marginTop: -1, height: 2, backgroundColor: GOLD, borderRadius: 2, transform: [{ rotate: '-6deg' }] },
   bigNum: { fontSize: 54, fontWeight: '800', letterSpacing: -2, color: GOLD, lineHeight: 56 },
   bigNumIvory: { color: '#F4EFE6' },
   perCol: { flex: 1, minWidth: 0 },
