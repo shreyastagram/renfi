@@ -139,6 +139,8 @@ You will need different test accounts to see each state. Ask the developer to pr
 | F-10 | Wording check (for client) | Read all premium screens carefully | Nowhere should any payment company be named; "no automatic renewal" wording present; every ₹0 mention is accompanied by "then ₹299/month" | | |
 | F-11 | Premium in Hindi & Marathi | Repeat F-1..F-5 in Hindi, spot-check Marathi | All premium texts translated, prices formatted correctly, nothing overflowing off the card | | |
 | F-12 | iOS payment note | On iPhone, state C, select a plan | A note explains payment completes on the website (iOS pays via web). This note must NOT appear in state A under the "Get Verified" button. | | |
+| F-13 | **Bonus cannot be overwritten by paying** | Provider with the free bonus ACTIVE (state B): try every way to reach a payment (deep links, going back and forth, old screens) and if you ever see a pay button, tap it | The server must refuse with a message like "Your premium is active for another N days" — the provider's free months must NEVER be replaced by a 28-day paid plan. If any path lets the payment start, report immediately with steps. | | |
+| F-14 | Bonus popup shows only once | Get the "Welcome Premium" congratulations popup, close it, then force-close and reopen the app several times | The congratulations popup does NOT appear again on later launches | | |
 
 ---
 
