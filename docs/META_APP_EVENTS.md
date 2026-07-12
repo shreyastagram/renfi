@@ -171,6 +171,16 @@ optional — the first two ship a broken/embarrassing build if forgotten.
 - [ ] `src/services/analytics/analytics.js:30` → **`DEBUG_ANALYTICS = false`** — strips the
       `[MetaDebug]` logcat logging (kept on until Meta event verification finishes).
 
+### Backend (decided 2026-07-12: no backport — ships with this update)
+- [ ] **Merge the backend `phone-signup-providers` branch into `milestone-branch` (Render
+      auto-deploys) BEFORE or WITH this app release.** It carries the server-side booking
+      gate (`ensureBookingProfileComplete` — 403 for users without a verified phone).
+      Prod currently has NO server gate and the app's client gate deliberately fails open
+      while the profile loads, so unverified Google users can book (confirmed incident
+      2026-07-12). Shipping the app without the backend leaves that hole open.
+- [ ] After backend deploy: run test-guide section **N** (N-3/N-4 must get blocked
+      server-side).
+
 ### Build config
 - [ ] `android/app/build.gradle` → `firebaseCrashlytics { mappingFileUploadEnabled true }` for
       the store build — currently `false`, so native crash traces arrive R8-obfuscated and
