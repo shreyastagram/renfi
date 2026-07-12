@@ -227,6 +227,25 @@ You will need different test accounts to see each state. Ask the developer to pr
 
 ---
 
+## N. Booking Verification Gate (SECURITY — read carefully)
+
+**Background:** Booking is supposed to require a **verified phone number**. Today this
+is checked **only inside the app**, and the check is deliberately skipped for a moment
+right after login while your profile is still downloading. A server-side check is being
+prepared separately; until it is deployed, test N-3/N-4 may "succeed" in slipping a
+booking through — **record exactly what happens either way**, because these two tests
+tell us whether the server fix is live.
+
+| ID | Test | Steps | What you should see | Result | Remarks |
+|---|---|---|---|---|---|
+| N-1 | Unverified user, normal speed | Sign up with **Google** (no phone added), wait ~10 seconds on the home screen, then tap a service | "Verification required" popup with a Verify Now button. Booking must NOT start. | | |
+| N-2 | Verify then book | Verify your phone from Profile, then book | Booking proceeds normally | | |
+| N-3 | **The race** — unverified + instant tap | Fresh Google signup (no phone). The MOMENT the home screen appears, tap a service as fast as you can. Repeat 5 times (log out/in between). | **Expected once the server fix is live:** even if the app popup doesn't appear, the booking is rejected with a "complete your profile" message. **If the booking goes through and appears in History → report with the account email + time.** | | |
+| N-4 | Unverified + broken profile load | Google signup with no phone. Turn airplane mode ON for ~30s right after login (so the profile fails to load), turn it back on, then tap a service **without** restarting the app | Same expectation as N-3: the booking must not silently succeed for an unverified account | | |
+| N-5 | Server message readability | If you get blocked by the server in N-3/N-4 | The error shown in the app should be understandable ("complete your profile / verify phone"), not a raw technical error | | |
+
+---
+
 ## M. Final language sweep (client sign-off)
 
 Do this last, once everything above passes.
