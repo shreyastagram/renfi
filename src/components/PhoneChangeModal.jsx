@@ -20,6 +20,7 @@ import {
   ActivityIndicator, Animated, Platform, KeyboardAvoidingView,
 } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PhoneInput from './PhoneInput';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -30,10 +31,19 @@ import { getTokens } from '../utils/storage';
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 60;
 
-const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged }) => {
+const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomInset }) => {
   const { dialog } = useDialog();
   const { t } = useLanguage();
   const { user, profile, userType, refreshProfile, refreshVerificationStatus } = useApp();
+  // useSafeAreaInsets is unreliable inside an RN Modal (separate window — often
+  // returns 0 for the bottom), which let the button slip under a 3-button nav
+  // bar. Use the inset from the parent screen (correct for BOTH gesture and
+  // 3-button nav); fall back to the modal's own reading, then a small floor for
+  // the degenerate case where both report 0 (non-edge-to-edge, nav bar is opaque
+  // and the sheet already sits above it).
+  const modalInsets = useSafeAreaInsets();
+  const safeBottom = Math.max(bottomInset || 0, modalInsets.bottom || 0, 20);
+  const otpInputRef = useRef(null);
 
   const [step, setStep] = useState('enter'); // 'enter' | 'otp'
   const [newPhone, setNewPhone] = useState('');
@@ -63,6 +73,15 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged }) => {
   }, [visible]);
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
+
+  // Raise the keyboard on the OTP step. autoFocus inside an RN Modal is
+  // unreliable on iOS (focus fires before the modal finishes presenting), so
+  // focus explicitly after a short settle delay on iOS.
+  useEffect(() => {
+    if (step !== 'otp') return undefined;
+    const id = setTimeout(() => otpInputRef.current?.focus(), Platform.OS === 'ios' ? 350 : 50);
+    return () => clearTimeout(id);
+  }, [step]);
 
   const startCountdown = useCallback(() => {
     setCountdown(RESEND_SECONDS);
@@ -191,7 +210,7 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged }) => {
           on BOTH platforms — the bottom-anchored sheet then lifts above the
           keyboard and the input stays visible. */}
       <KeyboardAvoidingView behavior="padding" style={styles.overlay} keyboardVerticalOffset={0}>
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: safeBottom + 14 }]}>
           <View style={styles.dragBar} />
           <View style={styles.header}>
             <View style={styles.iconCircle}>
@@ -236,6 +255,7 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged }) => {
               <Text style={styles.subtitle}>{t('phoneChange.otpSub', { phone: `+91 ${newPhone}` })}</Text>
               <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
                 <TextInput
+                  ref={otpInputRef}
                   style={[styles.otpInput, !!otpError && styles.otpInputError]}
                   value={otp}
                   onChangeText={(v) => { setOtp(v.replace(/[^0-9]/g, '').slice(0, OTP_LENGTH)); if (otpError) setOtpError(''); }}
@@ -244,7 +264,6 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged }) => {
                   placeholder="••••••"
                   placeholderTextColor="#CBD5E1"
                   editable={!busy}
-                  autoFocus
                   textContentType="oneTimeCode"
                   autoComplete={Platform.OS === 'android' ? 'sms-otp' : 'one-time-code'}
                 />
@@ -297,7 +316,10 @@ const styles = StyleSheet.create({
   primaryBtnText: { color: '#FFFFFF', fontSize: 15.5, fontWeight: '700' },
   otpInput: {
     borderWidth: 2, borderColor: '#E2E8F0', borderRadius: 14, height: 60, textAlign: 'center',
-    fontSize: 26, fontWeight: '700', letterSpacing: 12, color: '#0F172A', backgroundColor: '#F8FAFC',
+    fontSize: 26, fontWeight: '700', letterSpacing: 8, color: '#0F172A', backgroundColor: '#F8FAFC',
+    // iOS renders trailing letter-spacing after the last glyph, shifting centered
+    // text right; nudge left to re-center. Android has no trailing gap.
+    paddingLeft: Platform.OS === 'ios' ? 8 : 0,
   },
   otpInputError: { borderColor: '#FCA5A5' },
   // Calm inline hint (amber), NOT an alarming red form-validation label

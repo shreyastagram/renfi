@@ -1671,6 +1671,7 @@ const ProfileScreen = ({ navigation, route }) => {
             visible={showPhoneChangeModal}
             onClose={() => setShowPhoneChangeModal(false)}
             currentPhone={displayData?.phone || ''}
+            bottomInset={insets.bottom}
           />
 
           {/* ─── Provider: About / Services / Experience / Portfolio ─── */}

@@ -196,10 +196,7 @@ const PremiumHero = ({ state, daysRemaining, priceDisplay, t }) => {
       <View style={heroStyles.priceBlock}>
         <View style={heroStyles.numGroup}>
           {state === 'A' && (
-            <View style={heroStyles.strikeWrap}>
-              <Text style={heroStyles.strikeText}>{priceDisplay}</Text>
-              <View style={heroStyles.strikeLine} />
-            </View>
+            <Text style={heroStyles.strikeText}>{priceDisplay}</Text>
           )}
           <Text style={[heroStyles.bigNum, state === 'C' && heroStyles.bigNumIvory]}>
             {state === 'A' ? '₹0' : state === 'B' ? String(daysRemaining) : priceDisplay}
@@ -242,12 +239,13 @@ const heroStyles = StyleSheet.create({
   sub: { fontSize: 13, color: '#B9C0CF', marginTop: 8, lineHeight: 20, fontWeight: '500' },
   priceBlock: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 22 },
   numGroup: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
-  strikeWrap: { position: 'relative', justifyContent: 'center' },
-  // Explicit lineHeight + no Android font padding: the text box hugs the glyphs,
-  // so the centered line crosses the digits on every locale/fallback font
-  // (Android inflates the box for the ₹ glyph otherwise, dropping the line below).
-  strikeText: { fontSize: 22, lineHeight: 26, fontWeight: '700', color: '#6E7891', includeFontPadding: false },
-  strikeLine: { position: 'absolute', left: -3, right: -3, top: '50%', marginTop: -1, height: 2, backgroundColor: GOLD, borderRadius: 2, transform: [{ rotate: '-6deg' }] },
+  // Native strikethrough — the OS draws the line through the actual glyphs on
+  // both iOS and Android (an absolutely-positioned line drifted off the digits
+  // depending on font/locale). Same approach the plan card's oldPrice uses.
+  strikeText: {
+    fontSize: 22, fontWeight: '700', color: '#8A93A6',
+    textDecorationLine: 'line-through', textDecorationColor: GOLD,
+  },
   bigNum: { fontSize: 54, fontWeight: '800', letterSpacing: -2, color: GOLD, lineHeight: 56 },
   bigNumIvory: { color: '#F4EFE6' },
   perCol: { flex: 1, minWidth: 0 },
