@@ -1464,6 +1464,23 @@ export default {
     tapToCheckUpdates: 'Tap to check for updates',
   },
 
+  phoneChange: {
+    addAction: 'Add',
+    changeAction: 'Change',
+    verifyAction: 'Verify',
+    enterTitle: 'Your phone number',
+    enterSubAdd: 'Add a number to secure your account and receive booking updates. We\'ll send a one-time code to verify it.',
+    enterSubChange: 'Enter your new number. Your current number stays active until the new one is verified.',
+    sendOtp: 'Send OTP',
+    otpTitle: 'Enter the code',
+    otpSub: 'We sent a 6-digit code to %{phone}.',
+    verifyChange: 'Verify & Save',
+    resend: 'Resend code',
+    resendIn: 'Resend in %{s}s',
+    changeNumber: 'Change number',
+    successMsg: 'Your phone number is verified and updated.',
+  },
+
   // ─── Profile ──────────────────────────────────────────
   profile: {
     title: 'Profile',

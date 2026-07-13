@@ -252,6 +252,10 @@ export const ENDPOINTS = {
     // Phone verification
     SEND_PHONE_OTP: '/api/auth/otp/send',
     VERIFY_PHONE_OTP: '/api/auth/otp/verify',
+    // Verify-then-replace phone change (also add-first-number & re-verify).
+    // The OTP goes to the NEW number; the account number changes only on verify.
+    PHONE_CHANGE_SEND_OTP: '/api/users/phone/change/send-otp',
+    PHONE_CHANGE_VERIFY: '/api/users/phone/change/verify',
     // Email verification
     SEND_EMAIL_VERIFICATION: '/api/auth/email/send-verification',
     VERIFY_EMAIL: '/api/auth/email/verify', // GET with ?token=xxx

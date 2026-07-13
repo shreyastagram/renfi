@@ -686,8 +686,52 @@ export const verifyPhoneOtp = async (otp) => {
 };
 
 /**
+ * Start a verify-then-replace phone change: send an OTP to the NEW number.
+ * The account's current number stays active and verified until the OTP is
+ * verified. Also used to add a first number and to re-verify a stored number.
+ *
+ * @param {string} newPhone - 10-digit or +91 phone number
+ * @returns {Promise<Object>} { success, data, error }
+ */
+export const sendPhoneChangeOtp = async (newPhone) => {
+  try {
+    const response = await authClient.post(ENDPOINTS.VERIFICATION.PHONE_CHANGE_SEND_OTP, {
+      phoneNumber: newPhone,
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    const parsedError = parseApiError(error);
+    console.error('❌ [AuthService] Send phone-change OTP failed:', parsedError);
+    return { success: false, error: parsedError };
+  }
+};
+
+/**
+ * Complete a phone change: verify the OTP sent to the NEW number. On success
+ * Java Auth atomically replaces the number and marks it verified, returning the
+ * updated profile.
+ *
+ * @param {string} newPhone - the NEW number the OTP was sent to
+ * @param {string} otp - the code entered by the user
+ * @returns {Promise<Object>} { success, data (updated profile), error }
+ */
+export const verifyPhoneChangeOtp = async (newPhone, otp) => {
+  try {
+    const response = await authClient.post(ENDPOINTS.VERIFICATION.PHONE_CHANGE_VERIFY, {
+      phoneNumber: newPhone,
+      otp: (otp || '').trim(),
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    const parsedError = parseApiError(error);
+    console.error('❌ [AuthService] Verify phone-change OTP failed:', parsedError);
+    return { success: false, error: parsedError };
+  }
+};
+
+/**
  * Send email verification link (requires auth token)
- * 
+ *
  * @returns {Promise<Object>} Response with masked email
  */
 export const sendEmailVerification = async () => {

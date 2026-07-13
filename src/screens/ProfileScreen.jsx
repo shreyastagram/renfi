@@ -41,7 +41,7 @@ import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
-import { Icon, PhoneInput, AadhaarVerificationModal } from '../components';
+import { Icon, PhoneInput, AadhaarVerificationModal, PhoneChangeModal } from '../components';
 import ImageViewerModal from '../components/ImageViewerModal';
 import TabBarDarkZone from '../components/TabBarDarkZone';
 import { useShimmerAnimation, ShimmerBlock as SharedShimmerBlock } from '../components/ShimmerLoader';
@@ -423,6 +423,8 @@ const ProfileScreen = ({ navigation, route }) => {
   // Verification state
   const [verifyingPhone, setVerifyingPhone] = useState(false);
   const [verifyingEmail, setVerifyingEmail] = useState(false);
+  // Verify-then-replace phone change (add / change / re-verify) — same sheet for both roles
+  const [showPhoneChangeModal, setShowPhoneChangeModal] = useState(false);
   const [phoneOtpSent, setPhoneOtpSent] = useState(false);
   const [phoneOtp, setPhoneOtp] = useState(Array(6).fill(''));
   const [otpFocusedIndex, setOtpFocusedIndex] = useState(-1);
@@ -896,11 +898,9 @@ const ProfileScreen = ({ navigation, route }) => {
    */
   const handleIdentitySave = () => {
     const fullName = (formData.fullName || '').trim();
-    const phone = (formData.phone || '').trim();
     const fields = {};
-    // Validate any value actually being submitted — this also blocks a
-    // CLEARED name/phone ('' would previously slip past the `if (value &&…)`
-    // guard and save the literal '+91' as the phone).
+    // Identity editor now handles the NAME only — phone moved to Contact &
+    // Location with its own verify-then-replace OTP flow.
     if (fullName !== (originalFormData.current.fullName || '')) {
       if (fullName.length < 2 || fullName.length > 100) {
         dialog(t('profile.invalidName'), t('profile.invalidNameMsg'));
@@ -908,23 +908,8 @@ const ProfileScreen = ({ navigation, route }) => {
       }
       fields.fullName = fullName;
     }
-    if (phone !== originalPhone) {
-      if (!/^[6-9]\d{9}$/.test(phone)) {
-        dialog(t('profile.invalidPhone'), t('profile.invalidPhoneMsg'));
-        return;
-      }
-      fields.phone = phone;
-    }
     if (Object.keys(fields).length === 0) {
       setEditingSection(null);
-      return;
-    }
-    // Changing a verified phone resets verification — confirm first (providers)
-    if (isProvider && fields.phone !== undefined && originalPhone.length > 0) {
-      dialog(t('profile.phoneChangeTitle'), t('profile.phoneChangeMsg'), [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('common.continue'), style: 'destructive', onPress: () => saveProfileFields(fields) },
-      ]);
       return;
     }
     saveProfileFields(fields);
@@ -1481,19 +1466,9 @@ const ProfileScreen = ({ navigation, route }) => {
                   lockedLabel={t('profile.locked')}
                   lockMessage={isNameLocked ? `Verified as "${aadhaarName || formData.fullName}" via Aadhaar` : undefined}
                 />
-                <PhoneInput
-                  label={t('profile.phoneLabel')}
-                  value={formData.phone}
-                  onChangeText={(text) => setFormData(prev => ({ ...prev, phone: text }))}
-                />
-                {isProvider && formData.phone !== originalPhone && originalPhone.length > 0 && (
-                  <View style={styles.phoneChangeWarning}>
-                    <MaterialIcon name="warning" size={16} color="#F59E0B" />
-                    <Text style={styles.phoneChangeWarningText}>
-                      {t('profile.phoneChangeWarning')}
-                    </Text>
-                  </View>
-                )}
+                {/* Phone is NOT edited here — it lives in Contact & Location with
+                    its own verify-then-replace OTP flow (semantically a contact
+                    detail, and the number only commits once the OTP is verified). */}
                 <SectionEditorActions
                   onCancel={() => switchSection(null)}
                   onSave={handleIdentitySave}
@@ -1688,6 +1663,14 @@ const ProfileScreen = ({ navigation, route }) => {
                 console.log('Error re-fetching Aadhaar status after verification:', e);
               }
             }}
+          />
+
+          {/* Verify-then-replace phone change (add / change / re-verify) — both roles.
+              Context refresh inside the modal updates every phone surface in real time. */}
+          <PhoneChangeModal
+            visible={showPhoneChangeModal}
+            onClose={() => setShowPhoneChangeModal(false)}
+            currentPhone={displayData?.phone || ''}
           />
 
           {/* ─── Provider: About / Services / Experience / Portfolio ─── */}
@@ -2135,23 +2118,46 @@ const ProfileScreen = ({ navigation, route }) => {
                   </View>
                 ) : (
                   <>
+                    {/* Phone — BOTH roles. Verify-then-replace: Add / Verify / Change
+                        all open the same OTP sheet; the number only commits on verify. */}
+                    <TouchableOpacity activeOpacity={0.7} onPress={() => setShowPhoneChangeModal(true)}>
+                      <DetailRow
+                        first
+                        iconName="phone"
+                        label={t('profile.phoneLabel')}
+                        value={displayData?.phone
+                          ? (displayData?.isPhoneVerified
+                              ? `${displayData.phone}  ✓`
+                              : displayData.phone)
+                          : t('profile.notSet')}
+                        right={
+                          <View style={styles.phoneRowAction}>
+                            <Text style={styles.phoneRowActionText}>
+                              {!displayData?.phone
+                                ? t('phoneChange.addAction')
+                                : displayData?.isPhoneVerified
+                                  ? t('phoneChange.changeAction')
+                                  : t('phoneChange.verifyAction')}
+                            </Text>
+                            <MaterialIcon name="chevron-right" size={20} color="#CBD5E1" />
+                          </View>
+                        }
+                      />
+                    </TouchableOpacity>
                     {!isProvider && (
-                      <>
-                        <DetailRow first iconName="phone" label={t('profile.phoneLabel')} value={displayData?.phone || t('profile.notSet')} />
-                        <TouchableOpacity
-                          activeOpacity={0.7}
-                          onPress={() => navigation.navigate('Verification', { verificationType: 'email' })}
-                        >
-                          <DetailRow
-                            iconName="email"
-                            label={t('profile.emailLabel')}
-                            value={displayData?.email || t('profile.notSet')}
-                            right={<MaterialIcon name="chevron-right" size={20} color="#CBD5E1" />}
-                          />
-                        </TouchableOpacity>
-                      </>
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => navigation.navigate('Verification', { verificationType: 'email' })}
+                      >
+                        <DetailRow
+                          iconName="email"
+                          label={t('profile.emailLabel')}
+                          value={displayData?.email || t('profile.notSet')}
+                          right={<MaterialIcon name="chevron-right" size={20} color="#CBD5E1" />}
+                        />
+                      </TouchableOpacity>
                     )}
-                    <DetailRow first={isProvider} iconName="location" label={t('profile.addressInfo')} value={displayData?.address || t('profile.notSet')} />
+                    <DetailRow iconName="location" label={t('profile.addressInfo')} value={displayData?.address || t('profile.notSet')} />
                     <DetailRow iconName="location" label={t('profile.cityInfo')} value={displayData?.city || t('profile.notSet')} />
                     <DetailRow iconName="location" label={t('profile.pincodeInfo')} value={displayData?.pincode || t('profile.notSet')} />
                   </>
@@ -2169,9 +2175,9 @@ const ProfileScreen = ({ navigation, route }) => {
                 label={t('profile.phoneLabel')}
                 value={displayData?.phone || t('profile.notSet')}
                 verified={displayData?.isPhoneVerified}
-                onVerify={handlePhoneVerify}
-                isLoading={verifyingPhone && !phoneOtpSent}
-                otpSent={phoneOtpSent}
+                onVerify={() => setShowPhoneChangeModal(true)}
+                isLoading={false}
+                otpSent={false}
               />
 
               {/* Phone OTP Input — Modern 6-box design */}
@@ -2293,9 +2299,9 @@ const ProfileScreen = ({ navigation, route }) => {
                 label={t('profile.phoneLabel')}
                 value={displayData?.phone || t('profile.notSet')}
                 verified={displayData?.isPhoneVerified}
-                onVerify={handlePhoneVerify}
-                isLoading={verifyingPhone && !phoneOtpSent}
-                otpSent={phoneOtpSent}
+                onVerify={() => setShowPhoneChangeModal(true)}
+                isLoading={false}
+                otpSent={false}
               />
 
               {/* Phone OTP Input — Modern 6-box design */}
@@ -3700,6 +3706,16 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  phoneRowAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  phoneRowActionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#2b76bc',
   },
   phoneChangeWarning: {
     flexDirection: 'row',
