@@ -13,7 +13,17 @@
  */
 
 import axios from 'axios';
+import { Platform } from 'react-native';
+import DeviceInfo from 'react-native-device-info';
 import { API_CONFIG } from '../config/api';
+
+// App version + platform, stamped on every request so the backend can safely
+// serve old and new app builds from one deployment (version-gate a behavior,
+// enforce a min supported version, etc.) without a second backend. Read once —
+// getVersion() is a synchronous constant for the installed build.
+const APP_VERSION = (() => {
+  try { return DeviceInfo.getVersion(); } catch { return 'unknown'; }
+})();
 import { getTokens, storeTokens, clearTokens, isTokenExpired, probeStorageState } from '../utils/storage';
 import { syncTokensToBackgroundService } from './backgroundLocationService';
 import { reportForcedLogout, reportStorageState, logBreadcrumb } from '../utils/storageTelemetry';
@@ -194,6 +204,11 @@ export const authClient = axios.create({
  * Add auth header to config with proactive token refresh
  */
 const addAuthHeader = async (config) => {
+  // Stamp app version + platform on every request (both Node and Java clients
+  // route through here). Lets the backend distinguish app builds.
+  config.headers['X-App-Version'] = APP_VERSION;
+  config.headers['X-App-Platform'] = Platform.OS;
+
   // Skip token check for auth endpoints that don't need tokens
   const skipRefreshUrls = ['/refresh', '/login', '/register', '/forgot-password', '/oauth2', '/google'];
   const shouldSkip = skipRefreshUrls.some(url => config.url?.includes(url));
