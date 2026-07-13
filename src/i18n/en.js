@@ -1478,6 +1478,8 @@ export default {
     resend: 'Resend code',
     resendIn: 'Resend in %{s}s',
     changeNumber: 'Change number',
+    numberInUse: 'This number is already linked to another account. Please try a different one.',
+    alreadyYours: 'This is already your verified number.',
     successMsg: 'Your phone number is verified and updated.',
   },
 

@@ -38,6 +38,8 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged }) => {
   const [step, setStep] = useState('enter'); // 'enter' | 'otp'
   const [newPhone, setNewPhone] = useState('');
   const [otp, setOtp] = useState('');
+  const [fieldError, setFieldError] = useState(''); // inline message under the number field
+  const [otpError, setOtpError] = useState(''); // inline message under the OTP field
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [countdown, setCountdown] = useState(0);
@@ -51,6 +53,8 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged }) => {
       setStep('enter');
       setNewPhone('');
       setOtp('');
+      setFieldError('');
+      setOtpError('');
       setCountdown(0);
     } else if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -82,8 +86,9 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged }) => {
 
   const handleSend = useCallback(async () => {
     if (inFlight.current) return;
+    setFieldError('');
     if (!/^[6-9]\d{9}$/.test(newPhone)) {
-      dialog(t('profile.invalidPhone'), t('profile.invalidPhoneMsg'));
+      setFieldError(t('profile.invalidPhoneMsg'));
       return;
     }
     // Re-entering the same number is allowed (re-verify path); the backend
@@ -95,9 +100,28 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged }) => {
       if (result.success) {
         setStep('otp');
         setOtp('');
+        setOtpError('');
         startCountdown();
       } else {
-        dialog(t('common.error'), result.error?.message || t('profile.otpSendFail'));
+        // 4xx from send-otp is always about THIS number (taken / same verified
+        // number / invalid) → show a calm inline message under the field, not a
+        // scary error dialog. Reserve dialogs for network/unexpected failures.
+        const status = result.error?.status;
+        const raw = (result.error?.message || '').toLowerCase();
+        if (status && status >= 400 && status < 500) {
+          // Order matters: "already your" must be checked before the generic
+          // "already"/"in use" so a user re-entering their OWN verified number
+          // doesn't get the "belongs to another account" message.
+          if (raw.includes('already your')) {
+            setFieldError(t('phoneChange.alreadyYours'));
+          } else if (raw.includes('in use') || raw.includes('already')) {
+            setFieldError(t('phoneChange.numberInUse'));
+          } else {
+            setFieldError(result.error?.message || t('profile.otpSendFail'));
+          }
+        } else {
+          dialog(t('common.error'), t('profile.otpSendFail'));
+        }
       }
     } catch {
       dialog(t('common.error'), t('profile.otpSendFail'));
@@ -105,45 +129,53 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged }) => {
       setSending(false);
       inFlight.current = false;
     }
-  }, [newPhone, currentPhone, dialog, t, startCountdown]);
+  }, [newPhone, dialog, t, startCountdown]);
 
   const handleVerify = useCallback(async () => {
     if (inFlight.current) return;
+    setOtpError('');
     if (otp.length !== OTP_LENGTH) { shake(); return; }
     inFlight.current = true;
     setVerifying(true);
     try {
       const result = await verifyPhoneChangeOtp(newPhone, otp);
       if (!result.success) {
+        // Verification failed → the number was NOT changed. Show the reason
+        // inline under the OTP field; the current number is still intact.
         shake();
         setOtp('');
-        dialog(t('common.error'), result.error?.message || t('profile.invalidOtp'));
+        setOtpError(result.error?.message || t('profile.invalidOtp'));
         return;
       }
-      // Java Auth committed the new number + verified flag. Mirror into Mongo —
-      // sync-phone re-reads truth from Java, so we don't send the flag ourselves.
+      // SUCCESS: Java Auth already committed the new number + verified flag in
+      // one transaction. Everything below is best-effort UI refresh — a failure
+      // here must NOT report the (already committed) change as failed.
       const uid = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
-      if (uid) {
-        try {
+      try {
+        if (uid) {
           const tokens = await getTokens();
+          // Mirror into Mongo — sync-phone re-reads truth from Java, so we don't
+          // send the flag ourselves.
           await syncPhoneToMongoDB({
             mongoId: uid,
             userType: userType === 'provider' ? 'provider' : 'user',
             accessToken: tokens?.accessToken,
           });
-        } catch (syncErr) {
-          console.warn('[PhoneChangeModal] Mongo sync after change failed (non-blocking):', syncErr?.message);
+          // Refresh so every surface reflects the new verified number immediately.
+          await refreshVerificationStatus?.();
+          await refreshProfile?.(userType, uid, { force: true });
         }
-        // Refresh so every surface reflects the new verified number immediately.
-        await refreshVerificationStatus?.();
-        await refreshProfile?.(userType, uid, { force: true });
+      } catch (refreshErr) {
+        console.warn('[PhoneChangeModal] Post-change refresh failed (change already saved):', refreshErr?.message);
       }
       onChanged?.(newPhone);
       onClose?.();
       dialog(t('common.success'), t('phoneChange.successMsg'));
     } catch {
+      // Network/unexpected error talking to the verify endpoint — the change did
+      // not complete; let the user retry.
       shake();
-      dialog(t('common.error'), t('profile.verificationFailed'));
+      setOtpError(t('profile.verificationFailed'));
     } finally {
       setVerifying(false);
       inFlight.current = false;
@@ -153,8 +185,12 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged }) => {
   const busy = sending || verifying;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => !busy && onClose?.()}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.overlay}>
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => !busy && onClose?.()}>
+      {/* RN Modal on Android is a separate window that does not reliably respond
+          to adjustResize, so we drive keyboard avoidance ourselves with padding
+          on BOTH platforms — the bottom-anchored sheet then lifts above the
+          keyboard and the input stays visible. */}
+      <KeyboardAvoidingView behavior="padding" style={styles.overlay} keyboardVerticalOffset={0}>
         <View style={styles.sheet}>
           <View style={styles.dragBar} />
           <View style={styles.header}>
@@ -175,9 +211,15 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged }) => {
               <PhoneInput
                 label={t('profile.phoneLabel')}
                 value={newPhone}
-                onChangeText={setNewPhone}
+                onChangeText={(v) => { setNewPhone(v); if (fieldError) setFieldError(''); }}
                 editable={!busy}
               />
+              {!!fieldError && (
+                <View style={styles.inlineMsg}>
+                  <MaterialIcon name="info-outline" size={16} color="#B45309" />
+                  <Text style={styles.inlineMsgText}>{fieldError}</Text>
+                </View>
+              )}
               <TouchableOpacity
                 style={[styles.primaryBtn, (busy || newPhone.length !== 10) && styles.primaryBtnDisabled]}
                 onPress={handleSend}
@@ -194,9 +236,9 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged }) => {
               <Text style={styles.subtitle}>{t('phoneChange.otpSub', { phone: `+91 ${newPhone}` })}</Text>
               <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
                 <TextInput
-                  style={styles.otpInput}
+                  style={[styles.otpInput, !!otpError && styles.otpInputError]}
                   value={otp}
-                  onChangeText={(v) => setOtp(v.replace(/[^0-9]/g, '').slice(0, OTP_LENGTH))}
+                  onChangeText={(v) => { setOtp(v.replace(/[^0-9]/g, '').slice(0, OTP_LENGTH)); if (otpError) setOtpError(''); }}
                   keyboardType="number-pad"
                   maxLength={OTP_LENGTH}
                   placeholder="••••••"
@@ -207,6 +249,12 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged }) => {
                   autoComplete={Platform.OS === 'android' ? 'sms-otp' : 'one-time-code'}
                 />
               </Animated.View>
+              {!!otpError && (
+                <View style={styles.inlineMsg}>
+                  <MaterialIcon name="info-outline" size={16} color="#B45309" />
+                  <Text style={styles.inlineMsgText}>{otpError}</Text>
+                </View>
+              )}
               <TouchableOpacity
                 style={[styles.primaryBtn, (busy || otp.length !== OTP_LENGTH) && styles.primaryBtnDisabled]}
                 onPress={handleVerify}
@@ -251,6 +299,13 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: '#E2E8F0', borderRadius: 14, height: 60, textAlign: 'center',
     fontSize: 26, fontWeight: '700', letterSpacing: 12, color: '#0F172A', backgroundColor: '#F8FAFC',
   },
+  otpInputError: { borderColor: '#FCA5A5' },
+  // Calm inline hint (amber), NOT an alarming red form-validation label
+  inlineMsg: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 7, marginTop: 10,
+    backgroundColor: '#FFFBEB', borderRadius: 10, padding: 10,
+  },
+  inlineMsgText: { flex: 1, fontSize: 12.5, color: '#92400E', lineHeight: 18, fontWeight: '600' },
   resendRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 18 },
   resendMuted: { fontSize: 13, color: '#94A3B8', fontWeight: '600' },
   resendLink: { fontSize: 13, color: '#2b76bc', fontWeight: '700' },
