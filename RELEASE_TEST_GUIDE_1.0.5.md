@@ -248,6 +248,29 @@ tell us whether the server fix is live.
 
 ---
 
+## O. Phone number — add / change / verify (NEW flow, both roles)
+
+**Background:** Phone editing moved out of the top "name" block into the **Contact & Location**
+section, for both users and providers, and now works like the email flow: you enter a number,
+get an OTP, and the number is saved **only after** the OTP is verified. The key rule: **your old
+number keeps working until the new one is verified** — a half-finished change never leaves you
+unverified. There is no longer any "Not set" error dialog, and admins can no longer change anyone's
+phone.
+
+| ID | Test | Steps | What you should see | Result | Remarks |
+|---|---|---|---|---|---|
+| O-1 | Where the phone lives | Open Profile → Contact & Location (both roles) | Phone appears here as a row. It is NO longer in the top name/edit block. | | |
+| O-2 | Add (no number yet) | Account with no phone (e.g. Google signup) → tap the phone row's **Add** | A sheet opens: enter number → Send OTP → enter code → Verify & Save. On success the number shows with a ✓ and you can book. No "error" dialog for the empty state. | | |
+| O-3 | Change a verified number | Verified user → phone row → **Change** → enter a DIFFERENT number → OTP → verify | New number saved and shown verified. Every screen (profile header, verification pill, settings) updates immediately without an app restart. | | |
+| O-4 | **Old number stays until verified** | Start a change to a new number, get the OTP screen, then CLOSE the sheet without entering the OTP. Now try to book / check your profile. | Your ORIGINAL number is still there and still verified — booking still works. The unverified new number was NOT saved anywhere. | | |
+| O-5 | **Changed number cannot book until verified** | Change to a new number but abandon before verifying (as O-4). Confirm the account still reflects the OLD verified number, not a new unverified one. | The account is never left in a "new unverified number" state. You should never be able to book on an unverified number. | | |
+| O-6 | Wrong OTP | In the change flow, enter a wrong code | Clear "invalid OTP" message, input shakes, you can retry; nothing changes on the account. | | |
+| O-7 | Resend + change number | On the OTP screen, wait for the timer, tap **Resend code**; also try **Change number** to go back | Resend works after the countdown; "Change number" returns to the entry step. | | |
+| O-8 | Number already in use | Try to change to a number that is already verified on another account | Friendly error that the number is in use; your account is unchanged. | | |
+| O-9 | Provider parity | Repeat O-2..O-6 as a PROVIDER | Identical behaviour. Also confirm: after changing a provider's phone, opening the verification dashboard does NOT silently re-mark the new number verified (it must stay unverified until OTP). | | |
+| O-10 | Language | Do the whole flow in Hindi and Marathi | Every label, subtitle, button and message translated; number/timer values render correctly. | | |
+| O-11 | Booking gate end-to-end | Change to a new number, DON'T verify, then attempt a booking | Blocked (verification required). Then verify the number and book again → allowed. | | |
+
 ## M. Final language sweep (client sign-off)
 
 Do this last, once everything above passes.
