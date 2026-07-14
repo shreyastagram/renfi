@@ -112,7 +112,7 @@ const UserTypeScreen = ({ navigation }) => {
         {/* Hero Illustration */}
         <Image
           source={require('../assets/hero_home_services.png')}
-          style={[styles.heroImage, { height: heroHeight, width: Math.round(heroHeight * 1.25) }]}
+          style={[styles.heroImage, { height: heroHeight, width: Math.round(heroHeight * 1.14) }]}
           resizeMode="contain"
           accessible={false}
         />

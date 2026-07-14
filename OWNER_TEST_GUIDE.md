@@ -49,7 +49,7 @@ Mark each ✅ pass / ❌ fail. If ❌, note what you saw.
 ## 6. Email survives leaving the app
 - [ ] Add an email → leave the app to open the email link → return to the app (even if the phone closed the app in the background) → Profile shows the email **verified**. Nothing is lost.
 
-## 7. Change the email
+## 7. Change the email ( For future update )
 - [ ] From Profile, go to add/change email again → enter a **different** email → save.
 - [ ] The old email is replaced, it shows **not verified**, and a **new** verification email arrives.
 
