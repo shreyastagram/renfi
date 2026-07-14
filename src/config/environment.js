@@ -45,7 +45,7 @@ export const USE_PRODUCTION_JAVA_AUTH = true;
 // (jauth-dev / noefix-dev), which use a dev Postgres + dev Mongo — NOT prod.
 // Use ONLY for testing the phone-signup flow on a device.
 // MUST be set back to false before committing or releasing.
-export const USE_DEV_STAGING = true;
+export const USE_DEV_STAGING = false;
 
 const DEV_STAGING_CONFIG = {
   NODE_API_URL: 'https://noefix-dev.onrender.com',

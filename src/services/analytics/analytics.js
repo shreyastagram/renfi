@@ -27,7 +27,7 @@ import { STANDARD_MAP } from './events';
  * strip so these lines reach `adb logcat` (ReactNativeJS tag) in RELEASE
  * builds too. Filter with:  adb logcat | grep MetaDebug
  */
-const DEBUG_ANALYTICS = true;
+const DEBUG_ANALYTICS = false;
 const dbg = (...args) => {
   if (!DEBUG_ANALYTICS && !__DEV__) return;
   const c = global.console;
