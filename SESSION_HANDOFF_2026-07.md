@@ -6,6 +6,20 @@
 **Read this whole file first.** Single source of truth for where things stand, what was done, why,
 what's pending, and every gotcha. Verify claims against live code before acting — file/line refs drift.
 
+> ## ⚡ 2026-07-14 GO-LIVE ADDENDUM — supersedes §5/§9 below
+> The 1.0.5 release SHIPPED on 2026-07-14: DB migrations applied (Neon email nullable, Mongo email
+> index sparse-unique), both backends merged + live on prod Render (jauth `main` @ `732af22`+docs,
+> noefix `milestone-branch` @ `e8f1f6f` merge), all §8 gates flipped (app commit `220059d`, iOS
+> build bump `7c1c4fa`), Meta §9 release-build verification PASSED and closed. **Both stores:
+> SUBMITTED FOR REVIEW (Play vc29 with Managed Publishing ON; App Store build 1.0.5 (2), manual
+> release). NOT yet approved or published.** Two prod hotfixes shipped during go-live (jauth
+> `b6673c9` add-only phone carve-out; noefix `e8f1f6f` booking-gate mirror self-heal) — full
+> incident record, verdicts, and the REVERT/SUNSET LEDGER live in
+> `docs/V104_BACKCOMPAT_AUDIT_2026-07-14.md` (authoritative go-live doc). Remaining tail: publish
+> on Play after approval, §N/§O with store builds, Meta dataset-Overview check, Meta console §5
+> (client access), force-update flip → carve-out revert, payment money-path fixes (~Dec 2026
+> deadline), pin facebookSdkVersion, revert jauth ddl-auto to validate.
+
 ---
 
 ## 0. TL;DR for the next session

@@ -1,6 +1,7 @@
 # Meta App Events — Integration Tracker
 
-**Status:** 🟡 Implemented in app · ⏳ awaiting Meta Console configuration
+**Status:** 🟢 Implemented + release-build verified (§9 closed) · ⏳ awaiting Meta Console configuration (§5, needs client access)
+**Release state (2026-07-14):** 1.0.5 SUBMITTED to both stores — Play (vc29, in review, Managed Publishing on) and App Store (build 1.0.5 (2), Waiting for Review). NOT yet approved/published. Full go-live record: `V104_BACKCOMPAT_AUDIT_2026-07-14.md`.
 **Branch:** `feature/profile-redesign`
 **Started:** 2026-07-09
 **SDK:** `react-native-fbsdk-next` v13.4.3 (native dep — requires `pod install` + full rebuild)
@@ -159,6 +160,14 @@ SDK has never been exercised in a release build); `method` param is `'unknown'` 
 login paths; referrer-side referral + iOS subscription still need backend/CAPI.
 
 ## 8. 🚦 PRE-STORE-RELEASE CHECKLIST (check EVERY item before uploading to Play Store / App Store)
+
+> ✅ **2026-07-14: EVERY item below was completed for the 1.0.5 go-live** — flags flipped (commit
+> `220059d`), backends merged+deployed (jauth `732af22`, noefix `e8f1f6f` merge), pod install run,
+> iOS build bumped to (2) after the ASC collision with the Jun-15 tester build, AD_ID + Data Safety
+> declared on Play, App Privacy (User ID / Product Interaction) published on Apple. Both stores
+> SUBMITTED, awaiting review. Checkboxes below stay unticked as the ritual for the NEXT release.
+> Notes: READ_PHONE_STATE was NOT flagged by Play at submission (current Razorpay SDK may no longer
+> merge it — re-check next release); background-location declaration was already approved and unchanged.
 
 From the full-branch production audit (2026-07-12, five-reviewer pass). None of these are
 optional — the first two ship a broken/embarrassing build if forgotten.

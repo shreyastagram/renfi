@@ -187,6 +187,35 @@ on a verified answer. Fail-open semantics unchanged (only when the mirror record
 | jauth `b6673c9` **M3 half** (commit-time re-check in legacy `verifyOtp`) | **PERMANENT** | Security hardening — keep even after the carve-out is reverted (the legacy verify endpoint itself stays for old builds' re-verify flows). |
 | noefix `e8f1f6f` (gate self-heal for empty/drifted mirror) | **PERMANENT** | Keep — not an old-app bridge. Even 1.0.5's post-verify mirror write is best-effort; without this, any Java-verified/Mongo-stale account gets wrongly blocked. |
 
+## 4b. FINAL GO-LIVE STATUS (2026-07-14) — ⏳ AWAITING STORE REVIEW
+
+Engineering release COMPLETE. Both stores submitted, **neither approved nor published yet**.
+
+- **Backends LIVE on prod:** jauth `main` (PR #9 `cefe0e8` + hotfix PR #10 `732af22`), noefix
+  `milestone-branch` (feature merge + `e8f1f6f` gate self-heal). Post-deploy smoke passed: booking
+  gate blocks phone-less accounts, verified users book, add→verify→OTP-login works on the store-era
+  flow, admin panel OK.
+- **Play (Android):** vc29/1.0.5 AAB on Production, 100% rollout, IN REVIEW. Managed Publishing ON
+  → approval does NOT auto-publish; owner must press Publish. AD_ID declaration (YES: Analytics +
+  Advertising) and Data Safety (Device/other IDs + App activity→Other actions: collected+shared,
+  App Func/Analytics/Advertising) submitted as an App Content change alongside the release.
+- **App Store (iOS):** version 1.0.5, build **1.0.5 (2)** (build 1 = Jun-15 dev-staging tester
+  build — EXPIRED in TestFlight, never attach it), Waiting for Review, manual release. App Privacy
+  published: User ID (App Func+Analytics+Dev Advertising, linked, no tracking), Product Interaction
+  (Analytics+Dev Advertising, linked, no tracking), Device ID unchanged (App Func only), NO IDFA.
+- **App release commits** (branch `feature/profile-redesign`): `eb9041d` owner welcome-screen
+  content, `220059d` release flags/pods/docs, `7c1c4fa` iOS build 2.
+
+**Post-approval tail (in order):** (1) press Publish on Play; release iOS manually. (2) Run test
+guide §N + §O with the real store builds; client M-section language sweep. (3) Meta Events Manager
+dataset Overview — confirm release events from real users (hours-delayed; Test Events won't show
+release builds). (4) §5 Meta console config once client grants access (platforms, key hashes, AEM
+priorities). (5) Weeks later at high 1.0.5 adoption: flip force-update minVersion (admin endpoint),
+watch for zero no-X-App-Version traffic, then execute the REVERT LEDGER above (jauth carve-out).
+(6) Before ~Dec 2026 (first 180-day bonuses expiring): fix the deferred payment money-path bugs.
+(7) Housekeeping next deploy: pin facebookSdkVersion; revert jauth ddl-auto update→validate.
+If either store rejects: reopen the relevant section here and in META_APP_EVENTS.md §8/§9.
+
 ## 5. Not verifiable from the repos
 
 1. Which build Java prod Render actually runs (docs say `main`; June app's Apple/forgot-email calls
