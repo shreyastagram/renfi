@@ -195,10 +195,17 @@ Engineering release COMPLETE. Both stores submitted, **neither approved nor publ
   `milestone-branch` (feature merge + `e8f1f6f` gate self-heal). Post-deploy smoke passed: booking
   gate blocks phone-less accounts, verified users book, add→verify→OTP-login works on the store-era
   flow, admin panel OK.
-- **Play (Android):** vc29/1.0.5 AAB on Production, 100% rollout, IN REVIEW. Managed Publishing ON
-  → approval does NOT auto-publish; owner must press Publish. AD_ID declaration (YES: Analytics +
-  Advertising) and Data Safety (Device/other IDs + App activity→Other actions: collected+shared,
-  App Func/Analytics/Advertising) submitted as an App Content change alongside the release.
+- **Play (Android):** ~~vc29 IN REVIEW~~ → **REJECTED 2026-07-14** under the "Photo and Video
+  Permissions" policy (READ_MEDIA_IMAGES; rolling enforcement — the permission dates back to 1.0.4,
+  the new submission simply hit the sweep). **Fixed 2026-07-15, commit `0c13f36` (vc30):** permission
+  removed from the manifest (all 5 media flows are picker-only; react-native-image-picker 8.2.1 uses
+  the permissionless Android 13+ system Photo Picker); `requestGalleryPermission` returns true on
+  API 33+ (else the gate would return UNAVAILABLE and block the picker); API ≤32 + iOS + camera
+  unchanged. **Status: awaiting owner device test → rebuild AAB (vc30) → resubmit.** Test-guide note:
+  I-6 (deny photo permission) is impossible on Android 13+ now — applies only to ≤12. AD_ID
+  declaration (YES: Analytics + Advertising) and Data Safety (Device/other IDs + App activity→Other
+  actions: collected+shared, App Func/Analytics/Advertising) submitted as an App Content change and
+  unaffected by the rejection.
 - **App Store (iOS):** version 1.0.5, build **1.0.5 (2)** (build 1 = Jun-15 dev-staging tester
   build — EXPIRED in TestFlight, never attach it), Waiting for Review, manual release. App Privacy
   published: User ID (App Func+Analytics+Dev Advertising, linked, no tracking), Product Interaction
