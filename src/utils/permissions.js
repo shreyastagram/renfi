@@ -59,12 +59,13 @@ export const requestCameraPermission = async (dialog) => {
 };
 
 // ─── Photo Library ────────────────────────────────────────────────────
+// Android 13+ (API 33+) needs NO permission: react-native-image-picker v8 opens
+// the system Photo Picker, and READ_MEDIA_IMAGES was removed from the manifest
+// per Play's "Photo and Video Permissions" policy (rejection 2026-07-14).
+// Requesting it would return UNAVAILABLE/BLOCKED and wrongly gate the picker.
 const PHOTO_LIBRARY_PERMISSION = Platform.select({
   ios: PERMISSIONS.IOS.PHOTO_LIBRARY,
-  android:
-    Number(Platform.Version) >= 33
-      ? PERMISSIONS.ANDROID.READ_MEDIA_IMAGES
-      : PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE,
+  android: PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE, // requested only on API ≤ 32
 });
 
 /**
@@ -74,6 +75,9 @@ const PHOTO_LIBRARY_PERMISSION = Platform.select({
  */
 export const requestGalleryPermission = async (dialog) => {
   try {
+    if (Platform.OS === 'android' && Number(Platform.Version) >= 33) {
+      return true; // system Photo Picker — permissionless by design
+    }
     const status = await check(PHOTO_LIBRARY_PERMISSION);
 
     if (status === RESULTS.GRANTED || status === RESULTS.LIMITED) return true;

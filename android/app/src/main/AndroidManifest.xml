@@ -13,7 +13,9 @@
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
   <uses-permission android:name="android.permission.VIBRATE" />
   <uses-permission android:name="android.permission.CAMERA" />
-  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+  <!-- READ_MEDIA_IMAGES removed 2026-07-15 (Play "Photo and Video Permissions" policy):
+       react-native-image-picker v8 uses the Android 13+ system Photo Picker, which
+       needs NO permission. Do not re-add — Play rejects broad media access. -->
   <!-- For Android 12 and below -->
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
 
