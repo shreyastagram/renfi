@@ -102,6 +102,21 @@ export const initializeSocket = (userType, userId, token) => {
     return socket;
   }
 
+  // ORPHAN GUARD: a socket that exists but is mid-reconnect (cold-starting
+  // backend, network blip) used to be silently REPLACED here — the old
+  // instance kept reconnecting (60 attempts) with its listeners attached,
+  // so every server event was delivered N× (N× banners, N× vibrations,
+  // duplicate API churn) until process death. Tear it down first.
+  if (socket) {
+    console.warn('🔌 [Socket] Replacing a live-but-disconnected socket — tearing down the old instance');
+    try {
+      socket.removeAllListeners();
+      socket.disconnect();
+    } catch (e) {
+      console.warn('🔌 [Socket] Old-instance teardown error (ignored):', e?.message);
+    }
+  }
+
   console.log(`🔌 [Socket] Initializing socket for ${userType}: ${userId}`);
 
   socket = io(NODE_BASE_URL, {

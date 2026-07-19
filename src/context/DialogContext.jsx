@@ -10,7 +10,7 @@
  *   dialog(title, message, buttons)
  */
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import CustomDialog from '../components/CustomDialog';
 
 const DialogContext = createContext(null);
@@ -104,8 +104,16 @@ export const DialogProvider = ({ children }) => {
     return () => { global.showStyledDialog = null; };
   }, [dialog]);
 
+  // Memoized (all five fns are stable useCallbacks): otherwise every dialog
+  // open/close re-rendered every useDialog() consumer app-wide via a fresh
+  // inline value object.
+  const value = useMemo(
+    () => ({ dialog, showDialog, showConfirm, showDestructive, showInfo }),
+    [dialog, showDialog, showConfirm, showDestructive, showInfo]
+  );
+
   return (
-    <DialogContext.Provider value={{ dialog, showDialog, showConfirm, showDestructive, showInfo }}>
+    <DialogContext.Provider value={value}>
       {children}
       <CustomDialog
         visible={dialogState.visible}

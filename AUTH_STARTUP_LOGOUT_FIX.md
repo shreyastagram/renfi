@@ -286,6 +286,66 @@ store builds**, so production never shipped pointing at a different dataset.
 
 > Append an entry every time this area is touched. Newest at top.
 
+### 2026-07-18 (later) — Adversarial review round: waiter-flush completeness + headless token persistence
+- 3-agent review (client diff, OEM/platform matrix, backend) of the mutex change found and fixed:
+  - **401-handler owner never flushed `refreshSubscribers` on failure** (transient + definitive +
+    no-refresh-token paths) → waiters hung forever, then fired as zombies on a later successful
+    refresh. All owner failure paths now flush (old token on transient, null on definitive).
+  - **`refreshPromise` value contract**: the 401-handler owner resolves its retried AxiosResponse,
+    not a token — both join sites now accept only string tokens and otherwise re-read storage
+    (fixes the pre-existing "Bearer [object Object]" wasted round-trip).
+  - **`isAuthenticatedRef` now synced synchronously** at every setIsAuthenticated site (the
+    effect remains as backstop) — closes the one-commit window where a legitimate expiry right
+    after login was dropped.
+  - **HEADLESS TOKEN PERSISTENCE (the likely remaining provider-logout cause): `index.js`
+    headless `authorization` case now persists TransistorSoft's natively-rotated token pair via
+    `storeTokens`** — previously it only console.logged, so a provider whose app was killed
+    during background tracking came back with an already-burned refresh token → definitive 401
+    → logout. Mirrors `backgroundLocationService`'s foreground `onAuthorization` sync.
+- **Scope, honestly stated: the client mutex closes the race between the three JS refresh paths
+  only.** The native TransistorSoft refresher remains a fourth actor (now synced in both
+  foreground and headless states, but a concurrent native-vs-JS refresh window persists), and
+  process-death between server rotation and Keychain persistence remains. Both are closed only
+  by the jauth rotation grace window / reuse detection (§10) — **IMPLEMENTED 2026-07-19 in
+  jarbac (uncommitted): `rotated_at` + `replaced_by_token` columns (ddl-auto adds them), 45s
+  grace returning the SAME successor pair (idempotent, no token chains), cleanup-job guard,
+  logout stays instant (revoked-without-rotatedAt never gets grace). Compile clean. Deploy via
+  normal jauth merge → main.** Backend analysis also confirmed: multi-device cross-logout is
+  NOT a factor (per-device chains); password reset intentionally revokes all devices; /refresh
+  429s come from a 10/min PER-IP bucket (CGNAT risk — client now treats 429/500 as transient;
+  optionally re-key the bucket per user later).
+
+### 2026-07-18 — Rotation-race fix: JS refresh paths now share ONE mutex (§7.3/§10 client side; see later entry for scope)
+- **Why:** users (providers) still reported logout "after some days" WITH the 2026-06-14 fix
+  shipped. Root cause = the residual this doc predicted in §7.3/§10: `validateAndRefreshTokens`
+  POSTed `/refresh` OUTSIDE the interceptor's `isRefreshing/refreshPromise` single-flight. A
+  protected request fired during startup (nav-state-restored screens poll immediately since
+  1.0.5, FCM re-save, provider location) triggered a CONCURRENT refresh with the same
+  SINGLE-USE token → loser's token already rotated → definitive 401 → wrongful logout of a
+  healthy session. Not Cohort A (that fix works) — this is the §7.3 race, now more frequent
+  because 1.0.5's nav-state restore fires requests earlier in startup.
+- **`src/services/apiClient.js`:** startup refresh now JOINS an in-flight refresh if one
+  exists, else OWNS the shared `refreshPromise` (semantics unchanged: 35s timeout, 1 transient
+  retry, clear ONLY on 401, all telemetry/breadcrumbs preserved; now also flushes 401-handler
+  waiters via `onTokenRefreshed`). Also closed a pre-existing waiter-hang: both owners now
+  release queued 401-handler subscribers on FAILURE too (old token on transient, null on
+  definitive) — previously they could hang forever.
+- **`src/context/AppContext.js`:** (a) `handleAuthExpired` bails out when already logged out
+  (six apiClient call sites could re-fire the full 10-setState clear cascade repeatedly —
+  also a driver of the low-end-Android render-storm "text jitter"); (b) `initializeAuth`
+  stays a plain function (closes over refreshProfile — a useCallback would go stale) but is
+  now exposed through a stable ref-wrapper (`initializeAuthStable`) so it no longer defeats
+  the context-value memo on every render (the jitter amplifier).
+- **Companion render-storm fixes (same commit):** `LanguageContext`/`DialogContext` values
+  memoized (were inline objects re-rendering every Text/dialog consumer app-wide).
+- **Dependents verified:** `validateAndRefreshTokens` return shape `{valid, accessToken}`
+  unchanged (sole caller AppContext:622); context `initializeAuth` consumer
+  (EmailVerifyHandlerScreen) calls it imperatively — stable identity is strictly safer;
+  `onTokenRefreshed` flush order unchanged for the success path. iOS untouched.
+- **Still open (backend, recommended):** §10 rotation grace window in jauth (honor the
+  just-rotated token for ~30–60s) and/or reuse detection — the server-side completion that
+  makes the race structurally impossible even across devices.
+
 ### 2026-06-14 — Advanced logout telemetry (token diagnostics) + TTL-change safety audit
 - **TTL-change safety audit:** confirmed nothing breaks from 7→60. `RefreshTokenService`
   reads `@Value("${jwt.refresh-token.expiration.days:7}")` → 60 from yaml; existing

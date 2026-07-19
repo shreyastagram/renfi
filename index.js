@@ -76,7 +76,28 @@ BackgroundGeolocation.registerHeadlessTask(async (event) => {
       }
       break;
     case 'authorization':
-      console.log('[Headless] Token refresh:', params.success ? 'OK' : 'FAILED');
+      // TransistorSoft refreshed the token NATIVELY while the app was killed.
+      // CRITICAL: persist the rotated pair. jauth refresh tokens are
+      // SINGLE-USE (rotated on every refresh) — logging only, as before, left
+      // the Keychain holding an already-burned refresh token, so the next app
+      // launch 401'd definitively and logged the provider out ("logged out
+      // after some days"). Mirrors backgroundLocationService's foreground
+      // onAuthorization sync-back.
+      if (params.success && params.response?.accessToken) {
+        try {
+          const { storeTokens } = require('./src/utils/storage');
+          await storeTokens(
+            params.response.accessToken,
+            params.response.refreshToken,
+            params.response.expiresIn || 86400
+          );
+          console.log('[Headless] Token refresh persisted to Keychain');
+        } catch (e) {
+          console.warn('[Headless] Failed to persist refreshed tokens:', e?.message);
+        }
+      } else {
+        console.log('[Headless] Token refresh:', params.success ? 'OK (no tokens in payload)' : 'FAILED');
+      }
       break;
     case 'terminate':
       // App was terminated — tracking continues via headless service

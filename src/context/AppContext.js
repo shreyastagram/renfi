@@ -66,6 +66,20 @@ export const AppProvider = ({ children }) => {
   const [authHealth, setAuthHealth] = useState(null); // Auth service health status
   const [activeSessions, setActiveSessions] = useState([]); // Multi-device sessions
   const logoutInProgressRef = useRef(false); // Prevent concurrent logout calls
+  // Mirror of isAuthenticated for use inside stable callbacks (no stale closures).
+  const isAuthenticatedRef = useRef(false);
+
+  // Post-signup phone-verification prompt (users who authenticated without a
+  // phone — Google/Apple signups). Session-scoped: set on interactive auth
+  // success, cleared when the sheet is dismissed or auth clears. Deliberately
+  // NOT set on silent session restore, so users aren't nagged every app open.
+  const [phoneOnboardingPending, setPhoneOnboardingPending] = useState(false);
+
+  // Keep the auth mirror ref in sync (read by stable callbacks like
+  // handleAuthExpired without subscribing them to state identity).
+  useEffect(() => {
+    isAuthenticatedRef.current = isAuthenticated;
+  }, [isAuthenticated]);
   const isInitialLoadRef = useRef(true); // True during first launch, false after splash completes
   const profileFetchInFlight = useRef(false); // Prevent concurrent profile fetches
   const availabilityUpdateInFlight = useRef(false); // Prevent profile refresh from overwriting optimistic availability
@@ -117,7 +131,16 @@ export const AppProvider = ({ children }) => {
       console.log('⚠️ [AppContext] Auth expiry already being handled, skipping duplicate');
       return;
     }
+    // Already logged out → nothing to clear. Without this bailout, every failed
+    // request after a logout re-fires the full 10-setState clear cascade
+    // (apiClient has six onAuthExpired call sites), re-rendering the whole app
+    // repeatedly — a driver of the low-end-Android "text jitter" storms.
+    if (!isAuthenticatedRef.current) {
+      console.log('ℹ️ [AppContext] Auth expiry signal while already logged out — ignoring');
+      return;
+    }
     logoutInProgressRef.current = true;
+    isAuthenticatedRef.current = false; // sync mirror immediately — repeat signals bail out
     console.log('⚠️ [AppContext] Auth expired, logging out...');
     try {
       await clearAllData();
@@ -128,6 +151,7 @@ export const AppProvider = ({ children }) => {
     setUserTypeState(null);
     setProfile(null);
     setIsAuthenticated(false);
+    setPhoneOnboardingPending(false);
     setIsAuthLoading(false);
     setAuthHealth(null);
     setActiveSessions([]);
@@ -609,6 +633,8 @@ export const AppProvider = ({ children }) => {
         setUserTypeState(null);
         setProfile(null);
         setIsAuthenticated(false);
+        isAuthenticatedRef.current = false;
+        setPhoneOnboardingPending(false);
         setIsAuthLoading(false);
         return;
       }
@@ -618,6 +644,7 @@ export const AppProvider = ({ children }) => {
       setUser(storedUserData);
       setUserTypeState(storedUserType);
       setIsAuthenticated(true);
+      isAuthenticatedRef.current = true; // sync mirror synchronously (no stale-ref window)
       
       // Re-initialize socket on session restore (users AND providers)
       if (storedUserData.mongoId) {
@@ -672,10 +699,25 @@ export const AppProvider = ({ children }) => {
       setUserTypeState(null);
       setProfile(null);
       setIsAuthenticated(false);
+      isAuthenticatedRef.current = false;
+      setPhoneOnboardingPending(false);
     } finally {
       setIsAuthLoading(false);
     }
   };
+
+  // ── Stable identity wrapper for initializeAuth ─────────────────────────────
+  // initializeAuth intentionally stays a plain function (it closes over
+  // refreshProfile/refreshVerificationStatus, whose identities change with
+  // profile state — a useCallback would capture stale versions). But its raw
+  // identity changes EVERY render, and it sits in the context-value memo deps,
+  // which used to defeat the memo entirely: every AppContext state write handed
+  // a new context value to all ~38 consumer files (the low-end-Android "text
+  // jitter" amplifier). The ref-wrapper below always calls the LATEST closure
+  // while exposing a permanently stable identity to the memo and consumers.
+  const initializeAuthRef = useRef(null);
+  initializeAuthRef.current = initializeAuth;
+  const initializeAuthStable = useCallback((...args) => initializeAuthRef.current?.(...args), []);
 
   /**
    * Handle successful authentication
@@ -758,6 +800,13 @@ export const AppProvider = ({ children }) => {
       setUser(userData);
       setUserTypeState(type);
       setIsAuthenticated(true);
+      isAuthenticatedRef.current = true; // sync mirror synchronously (no stale-ref window)
+
+      // Prompt phone verification after interactive USER auth. The consumer
+      // (UserHomeScreen) additionally gates on profileReady && no-phone, so
+      // phone-owning users never see a flash — this flag alone is not enough
+      // to show the sheet, by design (see PhoneOnboardingSheet race rules).
+      if (type === 'user') setPhoneOnboardingPending(true);
       
       // Fetch fresh profile data
       if (unifiedId) {
@@ -923,6 +972,8 @@ export const AppProvider = ({ children }) => {
       setUserTypeState(null);
       setProfile(null);
       setIsAuthenticated(false);
+      isAuthenticatedRef.current = false;
+      setPhoneOnboardingPending(false);
       setAadhaarStatus({ isVerified: false, isNameLocked: false, aadhaarName: null, aadhaarLoaded: false });
       setPremiumStatus({ isPremiumActive: false, premiumDaysLeft: 0, premiumLoaded: false });
       
@@ -935,6 +986,8 @@ export const AppProvider = ({ children }) => {
       setUserTypeState(null);
       setProfile(null);
       setIsAuthenticated(false);
+      isAuthenticatedRef.current = false;
+      setPhoneOnboardingPending(false);
       setAadhaarStatus({ isVerified: false, isNameLocked: false, aadhaarName: null, aadhaarLoaded: false });
       setPremiumStatus({ isPremiumActive: false, premiumDaysLeft: 0, premiumLoaded: false });
     } finally {
@@ -997,12 +1050,17 @@ export const AppProvider = ({ children }) => {
     setPremiumStatus,
     getPremiumWriteSeq,
 
-    // Re-initialize (useful for token refresh)
-    initializeAuth,
+    // Re-initialize (useful for token refresh) — stable wrapper, see above
+    initializeAuth: initializeAuthStable,
+
+    // Post-signup phone verification prompt
+    phoneOnboardingPending,
+    setPhoneOnboardingPending,
 
     // Lifecycle
     markInitialLoadComplete,
   }), [
+    phoneOnboardingPending,
     isAuthenticated, isAuthLoading, user, userType,
     profile, isProfileLoading,
     authHealth, activeSessions,
@@ -1013,7 +1071,7 @@ export const AppProvider = ({ children }) => {
     checkHealth,
     aadhaarStatus, setAadhaarStatus,
     premiumStatus, setPremiumStatus, getPremiumWriteSeq,
-    initializeAuth, markInitialLoadComplete,
+    initializeAuthStable, markInitialLoadComplete,
   ]);
 
   return (

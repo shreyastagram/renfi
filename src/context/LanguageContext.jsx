@@ -5,7 +5,7 @@
  * Provides useLanguage() hook and t() translation function.
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import i18n from '../i18n';
 
@@ -54,13 +54,18 @@ export const LanguageProvider = ({ children }) => {
     return i18n.t(key, options);
   }, [language]); // re-create when language changes so consumers re-render
 
-  const value = {
+  // Memoized: every Text-bearing component in the app consumes this context
+  // (44 files use t()). An inline object here handed ALL of them a new value
+  // identity whenever this provider re-rendered — a whole-app re-render
+  // amplifier on low-end Android ("text jitter"). `t` changes identity exactly
+  // when `language` changes, which is exactly when consumers must re-render.
+  const value = useMemo(() => ({
     language,
     setLanguage,
     t,
     languages: LANGUAGES,
     isReady,
-  };
+  }), [language, setLanguage, t, isReady]);
 
   return (
     <LanguageContext.Provider value={value}>
