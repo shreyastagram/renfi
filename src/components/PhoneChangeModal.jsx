@@ -28,9 +28,13 @@ import { useApp } from '../context/AppContext';
 import { sendPhoneChangeOtp, verifyPhoneChangeOtp, syncPhoneToMongoDB } from '../services/authService';
 import { syncVerificationStatus } from '../services/verificationService';
 import { getTokens } from '../utils/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 60;
+// Resume the OTP step for this long after send (matches server OTP validity).
+const OTP_TTL_SECONDS = 5 * 60;
+const PENDING_CHANGE_KEY = 'pending_phone_change_v1';
 
 const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomInset }) => {
   const { dialog } = useDialog();
@@ -58,20 +62,41 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomIns
   const timerRef = useRef(null);
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
-  // Reset everything whenever the sheet opens/closes.
+  // Reset on open — but RESUME the OTP step if the app was killed mid-flow
+  // (low-RAM phones die when the user hops to the SMS app). The OTP is still
+  // valid server-side; losing the sheet's in-memory state shouldn't force a
+  // fresh send. Persisted only between send and success/close/change-number.
   useEffect(() => {
     if (visible) {
-      setStep('enter');
-      setNewPhone('');
-      setOtp('');
-      setFieldError('');
-      setOtpError('');
-      setCountdown(0);
-    } else if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
+      let cancelled = false;
+      (async () => {
+        try {
+          const raw = await AsyncStorage.getItem(PENDING_CHANGE_KEY);
+          if (!cancelled && raw) {
+            const p = JSON.parse(raw);
+            const elapsed = (Date.now() - (p.sentAt || 0)) / 1000;
+            if (p.newPhone && elapsed < OTP_TTL_SECONDS) {
+              setNewPhone(p.newPhone);
+              setStep('otp');
+              setOtp('');
+              setFieldError('');
+              setOtpError('');
+              const remaining = Math.max(0, Math.ceil(RESEND_SECONDS - elapsed));
+              if (remaining > 0) resumeCountdown(remaining); else setCountdown(0);
+              return;
+            }
+          }
+        } catch (e) { /* fall through to clean reset */ }
+        if (!cancelled) {
+          setStep('enter'); setNewPhone(''); setOtp('');
+          setFieldError(''); setOtpError(''); setCountdown(0);
+        }
+      })();
+      return () => { cancelled = true; };
     }
-  }, [visible]);
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    return undefined;
+  }, [visible, resumeCountdown]);
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
@@ -84,8 +109,8 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomIns
     return () => clearTimeout(id);
   }, [step]);
 
-  const startCountdown = useCallback(() => {
-    setCountdown(RESEND_SECONDS);
+  const resumeCountdown = useCallback((from) => {
+    setCountdown(from);
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setCountdown((c) => {
@@ -94,6 +119,7 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomIns
       });
     }, 1000);
   }, []);
+  const startCountdown = useCallback(() => resumeCountdown(RESEND_SECONDS), [resumeCountdown]);
 
   const shake = useCallback(() => {
     Animated.sequence([
@@ -122,6 +148,9 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomIns
         setOtp('');
         setOtpError('');
         startCountdown();
+        // Persist so a mid-OTP process death (SMS-app hop on low-RAM phones)
+        // resumes on the OTP step instead of forcing a fresh send.
+        AsyncStorage.setItem(PENDING_CHANGE_KEY, JSON.stringify({ newPhone, sentAt: Date.now() })).catch(() => {});
       } else {
         // 4xx from send-otp is always about THIS number (taken / same verified
         // number / invalid) → show a calm inline message under the field, not a
@@ -204,6 +233,7 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomIns
       } catch (refreshErr) {
         console.warn('[PhoneChangeModal] Post-change refresh failed (change already saved):', refreshErr?.message);
       }
+      AsyncStorage.removeItem(PENDING_CHANGE_KEY).catch(() => {}); // change complete — nothing to resume
       onChanged?.(newPhone);
       onClose?.();
       dialog(t('common.success'), t('phoneChange.successMsg'));
@@ -308,7 +338,10 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomIns
                     <Text style={styles.resendLink}>{t('phoneChange.resend')}</Text>
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity onPress={() => !busy && setStep('enter')} disabled={busy}>
+                <TouchableOpacity
+                  onPress={() => { if (!busy) { AsyncStorage.removeItem(PENDING_CHANGE_KEY).catch(() => {}); setStep('enter'); } }}
+                  disabled={busy}
+                >
                   <Text style={styles.resendLink}>{t('phoneChange.changeNumber')}</Text>
                 </TouchableOpacity>
               </View>
