@@ -1659,7 +1659,11 @@ const ProfileScreen = ({ navigation, route }) => {
                 const result = await getAadhaarStatus();
                 if (result.success) {
                   setAadhaarStatus({
-                    isVerified: result.aadhaar?.isVerified || true,
+                    // Reflect the AUTHORITATIVE backend value. Was `|| true`,
+                    // which is always true — so a spoofed deep link (or any
+                    // non-verified state) still showed the user as verified in
+                    // the UI. The backend is the source of truth; trust it.
+                    isVerified: result.aadhaar?.isVerified === true,
                     isNameLocked: result.aadhaar?.isNameLocked || false,
                     aadhaarName: result.aadhaar?.aadhaarName || null,
                     aadhaarLoaded: true,
