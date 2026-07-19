@@ -5,7 +5,7 @@
 > TODO. Companion docs: `AUTH_STARTUP_LOGOUT_FIX.md` (change log 2026-07-18/19),
 > memory `post-105-stability-work`.
 
-## A. DONE — uncommitted in renfi (all babel-parse verified)
+## A. ✅ COMMITTED 2026-07-20 (da6ab7d feature / ca553cd stability / 554376a analytics)
 
 1. **Auth refresh hardening (apiClient.js)** — one single-flight mutex across all
    three JS refresh paths; 401-ONLY logout contract on every path (429/500 no
@@ -25,7 +25,7 @@
    (UserHomeScreen gate: profileReady && no phone, del_-tombstone aware);
    i18n ×3 (1957 keys parity); mockup artifact e22e0cfe.
 
-## B. DONE — uncommitted in jarbac (compile clean)
+## B. ✅ COMMITTED 2026-07-20 (jarbac 0d0ade9) — MERGE TO main TO DEPLOY
 
 7. **45s refresh-rotation grace window** — RefreshToken +rotated_at
    +replaced_by_token (ddl-auto adds), rotateRefreshToken returns the SAME
@@ -33,7 +33,11 @@
    logout stays instant. Config `jwt.refresh-token.rotation-grace-seconds: 45`
    both yamls. Deploy via normal merge → main.
 
-## C. TODO — jitter secondary fixes (identified, not yet implemented)
+## C. Jitter secondary fixes — PARTIALLY DONE 2026-07-20 (commit 5b25bc5)
+
+DONE: startup profile retry (30s/2min), GlobalBanner vibration cooldown +
+no-heads-up-while-banner-visible + 60s Map dedupe, LocationContext address
+identity guard. STILL TODO (deliberately deferred):
 
 - Startup `refreshProfile` retry with backoff when the first attempt dies
   (stuck-null profile = perpetual loading branches all session).
@@ -50,8 +54,7 @@
 - refreshProfile/refreshVerificationStatus: bail out of setUser/setProfile on
   shallow-equal snapshots (identity churn without value change).
 
-## C2. TODO — app-side follow-ups from the provider verification-dashboard
-## incident (2026-07-19; server fix `noefix 0b1757d` already cures prod)
+## C2. ✅ DONE 2026-07-20 (commit 47c9f01) — app-side verification hardening
 
 - `PhoneChangeModal.jsx:178` — pass `phoneNumber: newPhone` to syncPhoneToMongoDB
   and check/retry on `success:false` (today: single best-effort shot, result ignored).
