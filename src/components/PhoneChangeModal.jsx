@@ -26,6 +26,7 @@ import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useApp } from '../context/AppContext';
 import { sendPhoneChangeOtp, verifyPhoneChangeOtp, syncPhoneToMongoDB } from '../services/authService';
+import { syncVerificationStatus } from '../services/verificationService';
 import { getTokens } from '../utils/storage';
 
 const OTP_LENGTH = 6;
@@ -173,13 +174,29 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomIns
       try {
         if (uid) {
           const tokens = await getTokens();
-          // Mirror into Mongo — sync-phone re-reads truth from Java, so we don't
-          // send the flag ourselves.
-          await syncPhoneToMongoDB({
+          // Mirror into Mongo — the server re-reads truth from Java; we also
+          // send the number so the write doesn't depend solely on that re-read.
+          const syncPayload = {
             mongoId: uid,
             userType: userType === 'provider' ? 'provider' : 'user',
             accessToken: tokens?.accessToken,
-          });
+            phoneNumber: newPhone,
+          };
+          // One retry: the old single silent best-effort shot is how provider
+          // mirrors went stale (verification-dashboard incident, 2026-07-19).
+          let sync = await syncPhoneToMongoDB(syncPayload);
+          if (!sync?.success) {
+            await new Promise((r) => setTimeout(r, 1500));
+            sync = await syncPhoneToMongoDB(syncPayload);
+            if (!sync?.success) {
+              console.warn('[PhoneChangeModal] Mongo mirror sync failed twice — server-side dashboard self-heal will cover it');
+            }
+          }
+          // Providers: heal the verification dashboard mirror right now too,
+          // so the phone step is verified the moment they navigate there.
+          if (userType === 'provider') {
+            try { await syncVerificationStatus(uid); } catch (e) { /* dashboard self-heals server-side */ }
+          }
           // Refresh so every surface reflects the new verified number immediately.
           await refreshVerificationStatus?.();
           await refreshProfile?.(userType, uid, { force: true });

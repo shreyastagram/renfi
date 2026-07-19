@@ -31,6 +31,7 @@ import {
   AUTH_CODES
 } from '../services/authService';
 import { updateJavaAuthProfile, addUserEmail } from '../services/profileService';
+import { syncVerificationStatus } from '../services/verificationService';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -352,6 +353,13 @@ const VerificationScreen = ({
         if (errorMsg.includes('already verified')) {
           // Update verification status and show success
           await refreshVerificationStatus();
+          // Providers: the dashboard reads the Mongo mirror — heal it now so
+          // the phone step flips even if the mirror was stale (2026-07-19
+          // incident). Server-side dashboard self-heal covers failures here.
+          if (userType === 'provider') {
+            const pid = user?.mongoId || user?._id;
+            if (pid) { try { await syncVerificationStatus(pid); } catch (e) { /* best-effort */ } }
+          }
           setVerified(true);
           return;
         }

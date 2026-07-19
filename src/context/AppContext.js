@@ -80,6 +80,19 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     isAuthenticatedRef.current = isAuthenticated;
   }, [isAuthenticated]);
+
+  // Latest-state mirrors for STABLE callbacks (refreshVerificationStatus has
+  // [] deps by design — reading state directly there captured the first
+  // render's nulls forever, which silently killed its Mongo phone-sync for
+  // every user since it shipped. Refs always see current values.)
+  const userStateRef = useRef(null);
+  const profileStateRef = useRef(null);
+  const userTypeStateRef = useRef(null);
+  useEffect(() => {
+    userStateRef.current = user;
+    profileStateRef.current = profile;
+    userTypeStateRef.current = userType;
+  }, [user, profile, userType]);
   const isInitialLoadRef = useRef(true); // True during first launch, false after splash completes
   const profileFetchInFlight = useRef(false); // Prevent concurrent profile fetches
   const availabilityUpdateInFlight = useRef(false); // Prevent profile refresh from overwriting optimistic availability
@@ -451,12 +464,14 @@ export const AppProvider = ({ children }) => {
         // === SYNC PHONE TO MONGODB ===
         // After OTP verification, Java Auth has the latest phone data
         // but MongoDB still has the old/empty data. Sync it now.
-        const mongoId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+        const u = userStateRef.current;
+        const p = profileStateRef.current;
+        const mongoId = u?.mongoId || p?.mongoId || u?._id || p?._id;
         if (mongoId && data.phoneNumber) {
           console.log('📱 [AppContext] Syncing verified phone to MongoDB...');
           syncPhoneToMongoDB({
             mongoId,
-            userType: userType || 'provider',
+            userType: userTypeStateRef.current || 'provider',
             phoneNumber: data.phoneNumber,
             isPhoneVerified: data.isPhoneVerified,
           }).then(syncResult => {
