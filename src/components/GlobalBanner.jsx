@@ -93,6 +93,12 @@ const GlobalBanner = () => {
   const isProvider = userType === 'provider';
 
   const isPushEnabledRef = useRef(true);
+  // Anti-storm guards (2026-07 audit F1): a socket/FCM burst — reconnect
+  // replay, queued backlog on first open — must not buzz the phone or fire
+  // heads-up notifications continuously.
+  const lastVibrationTsRef = useRef(0);
+  const bannerVisibleRef = useRef(false);
+  const dedupMapRef = useRef(new Map());
 
   useEffect(() => {
     const loadPushPref = async () => {
@@ -112,16 +118,27 @@ const GlobalBanner = () => {
   const showBanner = useCallback((data) => {
     if (!isPushEnabledRef.current) return;
 
-    if (Platform.OS === 'ios') {
-      Vibration.vibrate(400);
-    } else {
-      Vibration.vibrate([0, 400, 200, 400]);
+    // Vibration cooldown: at most one buzz per 10s regardless of event volume.
+    const nowTs = Date.now();
+    if (nowTs - lastVibrationTsRef.current > 10000) {
+      lastVibrationTsRef.current = nowTs;
+      if (Platform.OS === 'ios') {
+        Vibration.vibrate(400);
+      } else {
+        Vibration.vibrate([0, 400, 200, 400]);
+      }
     }
 
-    playNotificationSound({
-      title: data.title || 'Fixhomi',
-      body: data.body || '',
-    });
+    // No system heads-up while the in-app banner is already on screen — the
+    // notifee notification's channel vibrates AGAIN and slides in/out of the
+    // status bar, doubling every event's noise.
+    if (!bannerVisibleRef.current) {
+      playNotificationSound({
+        title: data.title || 'Fixhomi',
+        body: data.body || '',
+      });
+    }
+    bannerVisibleRef.current = true;
 
     setBannerData(data);
 
@@ -146,6 +163,7 @@ const GlobalBanner = () => {
       useNativeDriver: true,
     }).start(() => {
       setBannerData(null);
+      bannerVisibleRef.current = false;
     });
     if (bannerTimer.current) {
       clearTimeout(bannerTimer.current);
@@ -183,8 +201,18 @@ const GlobalBanner = () => {
     trackStatusEvent(data);
     const dedupKey = `${data.requestId || data.serviceRequestId || ''}_${data.bannerType}`;
     const now = Date.now();
-    if (dedupKey && dedupKey === lastBannerRef.current.key && now - lastBannerRef.current.ts < 3000) {
-      return;
+    // Map-based dedupe, 60s window: the old single-slot 3s ref never deduped
+    // interleaved events (A,B,A,B…) and 3s was shorter than typical FCM-vs-
+    // socket skew, so double deliveries double-fired banners + vibrations.
+    if (dedupKey !== '_undefined' && dedupKey) {
+      const last = dedupMapRef.current.get(dedupKey);
+      if (last && now - last < 60000) return;
+      dedupMapRef.current.set(dedupKey, now);
+      if (dedupMapRef.current.size > 200) {
+        for (const [k, ts] of dedupMapRef.current) {
+          if (now - ts > 60000) dedupMapRef.current.delete(k);
+        }
+      }
     }
     lastBannerRef.current = { key: dedupKey, ts: now };
     showBanner(data);

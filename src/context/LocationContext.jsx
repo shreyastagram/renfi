@@ -446,7 +446,10 @@ export const LocationProvider = ({ children }) => {
           
           // Get address in background (don't block)
           reverseGeocode(latitude, longitude).then(address => {
-            if (address) setLocationAddress(address);
+            if (address) setLocationAddress(prev =>
+              (prev && prev.shortAddress === address.shortAddress && prev.fullAddress === address.fullAddress)
+                ? prev // identical address → keep identity, don't re-render every consumer each 30s tick
+                : address);
           });
           
           // STAGE 2: If accuracy is poor (>100m), get better location in background
@@ -459,7 +462,9 @@ export const LocationProvider = ({ children }) => {
                   console.log(`✅ [LocationContext] Improved: ${better.latitude.toFixed(6)}, ${better.longitude.toFixed(6)} (±${better.accuracy?.toFixed(0)}m)`);
                   applyLocation({ latitude: better.latitude, longitude: better.longitude, accuracy: better.accuracy });
                   reverseGeocode(better.latitude, better.longitude).then(addr => {
-                    if (addr) setLocationAddress(addr);
+                    if (addr) setLocationAddress(prev =>
+                      (prev && prev.shortAddress === addr.shortAddress && prev.fullAddress === addr.fullAddress)
+                        ? prev : addr);
                   });
                 }
               },
@@ -501,7 +506,10 @@ export const LocationProvider = ({ children }) => {
               
               Geolocation.clearWatch(watchId);
               reverseGeocode(latitude, longitude).then(address => {
-                if (address) setLocationAddress(address);
+                if (address) setLocationAddress(prev =>
+              (prev && prev.shortAddress === address.shortAddress && prev.fullAddress === address.fullAddress)
+                ? prev // identical address → keep identity, don't re-render every consumer each 30s tick
+                : address);
               });
             },
             (watchError) => {

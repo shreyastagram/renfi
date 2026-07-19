@@ -702,6 +702,22 @@ export const AppProvider = ({ children }) => {
       // Fetch fresh profile data in background
       if (storedUserData.mongoId) {
         refreshProfile(storedUserType, storedUserData.mongoId);
+
+        // Bad-launch resilience: if this one startup fetch dies (cold backend),
+        // `profile` stays null ALL SESSION — home screens never retry unless
+        // refocused, so every profile-gated surface sits in loading branches
+        // forever (a confirmed driver of the low-end-Android jitter). Retry at
+        // 30s and 2min while still signed in and still profile-less.
+        const scheduleProfileRetry = (delayMs, attempt) => {
+          setTimeout(() => {
+            if (!isAuthenticatedRef.current) return;
+            if (profileStateRef.current !== null) return; // loaded meanwhile
+            console.log(`🔁 [AppContext] Startup profile fetch retry #${attempt}`);
+            refreshProfile(storedUserType, storedUserData.mongoId);
+            if (attempt === 1) scheduleProfileRetry(120000, 2);
+          }, delayMs);
+        };
+        scheduleProfileRetry(30000, 1);
       } else {
         // At least refresh verification status
         refreshVerificationStatus();
