@@ -30,6 +30,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
+import { launchCameraGuarded, useCameraRecovery, recoveredAsset } from '../hooks/useCameraRecovery';
 import { pick, types, keepLocalCopy } from '@react-native-documents/picker';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
@@ -347,12 +348,21 @@ const InsuranceScreen = ({ navigation }) => {
     if (!granted) return;
 
     try {
-      const result = await launchCamera({ mediaType: 'photo', quality: 0.8, maxWidth: 1920, maxHeight: 1920 });
+      // Guarded: survives OS killing us while the system camera is open.
+      const result = await launchCameraGuarded(
+        { kind: 'insurance', docType },
+        { mediaType: 'photo', quality: 0.8, maxWidth: 1920, maxHeight: 1920 },
+      );
       if (!result.didCancel && result.assets?.[0]) stageDoc(docType, result.assets[0]);
     } catch (err) {
       dialog(t('common.error'), t('insurance.captureImageFailed'));
     }
   };
+
+  // Offer back a capture that survived a mid-camera process death.
+  useCameraRecovery('insurance', (rec) => {
+    if (rec.docType) stageDoc(rec.docType, recoveredAsset(rec));
+  });
 
   const pickGallery = async (docType) => {
     const granted = await requestGalleryPermission(dialog);

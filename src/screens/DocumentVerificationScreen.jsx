@@ -27,6 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
+import { launchCameraGuarded, useCameraRecovery, recoveredAsset } from '../hooks/useCameraRecovery';
 import { pick, types, keepLocalCopy } from '@react-native-documents/picker';
 import { useApp } from '../context/AppContext';
 import { Analytics, EV, oncePerSession } from '../services/analytics';
@@ -389,12 +390,11 @@ const DocumentVerificationScreen = ({ navigation }) => {
     if (!granted) return;
 
     try {
-      const result = await launchCamera({
-        mediaType: 'photo',
-        quality: 0.8,
-        maxWidth: 1920,
-        maxHeight: 1920,
-      });
+      // Guarded: survives OS killing us while the system camera is open.
+      const result = await launchCameraGuarded(
+        { kind: 'document', serviceCategory, documentType },
+        { mediaType: 'photo', quality: 0.8, maxWidth: 1920, maxHeight: 1920 },
+      );
 
       if (!result.didCancel && result.assets?.[0]) {
         stageDocument(serviceCategory, documentType, result.assets[0]);
@@ -404,6 +404,14 @@ const DocumentVerificationScreen = ({ navigation }) => {
       dialog('Error', 'Failed to capture image');
     }
   };
+
+  // Offer back a capture that survived a mid-camera process death (nav-state
+  // restore returns the provider to this screen).
+  useCameraRecovery('document', (rec) => {
+    if (rec.serviceCategory && rec.documentType) {
+      stageDocument(rec.serviceCategory, rec.documentType, recoveredAsset(rec));
+    }
+  });
 
   /**
    * Pick from gallery

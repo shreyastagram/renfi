@@ -65,6 +65,7 @@ import { getVerificationDashboard, syncVerificationStatus } from '../services/ve
 import Geolocation from '@react-native-community/geolocation';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
+import { launchCameraGuarded, useCameraRecovery } from '../hooks/useCameraRecovery';
 import SavedAddresses from '../components/SavedAddresses';
 import GraphBackground from '../components/GraphBackground';
 import AddressAutocomplete from '../components/AddressAutocomplete';
@@ -1241,7 +1242,9 @@ const ProfileScreen = ({ navigation, route }) => {
     };
 
     try {
-      const result = await launchCamera(options);
+      // Guarded: survives OS killing us while the system camera is open
+      // (budget Androids) — see useCameraRecovery.
+      const result = await launchCameraGuarded({ kind: 'profilePhoto' }, options);
 
       if (result.didCancel) return;
       if (result.errorCode) {
@@ -1257,6 +1260,9 @@ const ProfileScreen = ({ navigation, route }) => {
       dialog(t('common.error'), t('profile.photoAccessError'));
     }
   };
+
+  // Offer back a capture that survived a mid-camera process death.
+  useCameraRecovery('profilePhoto', (rec) => handleProfilePictureUpload(rec.uri));
 
   /**
    * Handle profile picture upload (pick → upload → save)

@@ -1496,6 +1496,8 @@ export default {
 
   // ─── Profile ──────────────────────────────────────────
   profile: {
+    recoveredPhotoTitle: 'Use the photo you took?',
+    recoveredPhotoMsg: 'The app restarted while the camera was open, but your photo was saved. Do you want to use it?',
     title: 'Profile',
     discard: 'Discard',
     notSet: 'Not set',

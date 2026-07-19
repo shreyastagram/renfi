@@ -43,6 +43,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { NODE_BASE_URL as API_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
 import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
+import { launchCameraGuarded, useCameraRecovery, recoveredAsset } from '../hooks/useCameraRecovery';
 import ScreenShimmer from '../components/ShimmerLoader';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -1098,12 +1099,11 @@ const ServiceApprovalsScreen = ({ navigation }) => {
       const granted = await requestCameraPermission(dialog);
       if (!granted) return;
 
-      const result = await launchCamera({
-        mediaType: 'photo',
-        quality: 0.8,
-        maxWidth: 1920,
-        maxHeight: 1920,
-      });
+      // Guarded: survives OS killing us while the system camera is open.
+      const result = await launchCameraGuarded(
+        { kind: 'serviceApproval', serviceCategory, documentType },
+        { mediaType: 'photo', quality: 0.8, maxWidth: 1920, maxHeight: 1920 },
+      );
 
       if (!result.didCancel && result.assets?.[0]) {
         stageDocument(serviceCategory, documentType, result.assets[0]);
@@ -1112,6 +1112,13 @@ const ServiceApprovalsScreen = ({ navigation }) => {
       dialog('Error', 'Failed to capture image');
     }
   };
+
+  // Offer back a capture that survived a mid-camera process death.
+  useCameraRecovery('serviceApproval', (rec) => {
+    if (rec.serviceCategory && rec.documentType) {
+      stageDocument(rec.serviceCategory, rec.documentType, recoveredAsset(rec));
+    }
+  });
 
   const pickFromGallery = async (serviceCategory, documentType) => {
     try {
