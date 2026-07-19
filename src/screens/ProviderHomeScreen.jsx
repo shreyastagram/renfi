@@ -562,9 +562,6 @@ const ProviderHomeScreen = ({ navigation }) => {
   // Show "Exit App?" on Android back press from home screen
   useExitConfirmation();
 
-  // Shimmer animation for inline loading states
-  const shimmerAnim = useShimmerAnimation();
-
   // Set status bar for dark hero header when this tab is focused
   useFocusEffect(
     useCallback(() => {
@@ -620,6 +617,12 @@ const ProviderHomeScreen = ({ navigation }) => {
   const [verificationDashboard, setVerificationDashboard] = useState(null);
   const [verificationLoading, setVerificationLoading] = useState(true);
   const verificationLastFetched = useRef(0);
+
+  // Shimmer driver — only spins while something is genuinely loading, so the
+  // sweep stops on a fully-loaded dashboard instead of running all session
+  // (GPU burn on low-end provider phones). Declared here, after the loading
+  // states it reads.
+  const shimmerAnim = useShimmerAnimation(isProfileLoading || verificationLoading || !statsLoaded);
   const bonusPopupShownRef = useRef(false);
   const initialLoadDone = useRef(false);
   const VERIFICATION_STALE_THRESHOLD = 30000;
@@ -882,7 +885,13 @@ const ProviderHomeScreen = ({ navigation }) => {
     return () => {
       stopLocationTracking();
     };
-  }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id, displayData?.locationTracking?.enabled, displayData?.location?.latitude]);
+    // NOTE: intentionally keyed on WHETHER a location exists, not the live
+    // latitude. Keying on displayData.location.latitude re-ran this whole
+    // effect (socket re-init + GPS watcher teardown/restart) on every profile
+    // refresh while the provider was moving — a self-sustaining churn loop.
+    // hasLocation only flips false→true once (first fix), which is all we need.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.mongoId, profile?.mongoId, user?._id, profile?._id, displayData?.locationTracking?.enabled, displayData?.location?.latitude != null]);
 
   // ─── Per-request location tracking lifecycle is now managed by
   //     LocationSharingContext (always-mounted, screen-independent).

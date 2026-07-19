@@ -68,6 +68,8 @@ export const AppProvider = ({ children }) => {
   const logoutInProgressRef = useRef(false); // Prevent concurrent logout calls
   // Mirror of isAuthenticated for use inside stable callbacks (no stale closures).
   const isAuthenticatedRef = useRef(false);
+  // Last raw profile payload — skips redundant profile/user writes (identity churn).
+  const lastProfileRawRef = useRef(null);
 
   // Post-signup phone-verification prompt (users who authenticated without a
   // phone — Google/Apple signups). Session-scoped: set on interactive auth
@@ -369,24 +371,37 @@ export const AppProvider = ({ children }) => {
           });
         }
 
-        // Preserve verification fields — they come from Java Auth and must not be lost
-        // Preserve availability if a toggle update is in flight — prevents stale DB data from
-        // overwriting the optimistic value the user just set
-        setProfile(prev => ({
-          ...result.data,
-          isEmailVerified: result.data.isEmailVerified ?? prev?.isEmailVerified ?? false,
-          isPhoneVerified: result.data.isPhoneVerified ?? prev?.isPhoneVerified ?? false,
-          ...(availabilityUpdateInFlight.current ? { isAvailable: prev?.isAvailable, isOnline: prev?.isOnline } : {}),
-        }));
+        // Identity-churn guard: the periodic (focus/30s) refresh often returns
+        // a byte-identical payload, yet the old code rebuilt new profile/user
+        // objects every time → every useApp consumer re-rendered for nothing
+        // (a low-end-Android jitter contributor). Skip both writes when the raw
+        // payload is unchanged AND no availability toggle needs preserving.
+        // JSON equality is used deliberately (identical bytes = identical value)
+        // rather than a field compare that could suppress a real nested update.
+        const rawPayload = JSON.stringify(result.data);
+        const payloadUnchanged = rawPayload === lastProfileRawRef.current;
+        lastProfileRawRef.current = rawPayload;
 
-        // Update user state with verification status
-        setUser(prev => ({
-          ...prev,
-          isEmailVerified: result.data.isEmailVerified ?? prev?.isEmailVerified ?? false,
-          isPhoneVerified: result.data.isPhoneVerified ?? prev?.isPhoneVerified ?? false,
-          ...(availabilityUpdateInFlight.current ? { isAvailable: prev?.isAvailable, isOnline: prev?.isOnline } : {}),
-        }));
-        
+        if (!(payloadUnchanged && !availabilityUpdateInFlight.current)) {
+          // Preserve verification fields — they come from Java Auth and must not be lost
+          // Preserve availability if a toggle update is in flight — prevents stale DB data from
+          // overwriting the optimistic value the user just set
+          setProfile(prev => ({
+            ...result.data,
+            isEmailVerified: result.data.isEmailVerified ?? prev?.isEmailVerified ?? false,
+            isPhoneVerified: result.data.isPhoneVerified ?? prev?.isPhoneVerified ?? false,
+            ...(availabilityUpdateInFlight.current ? { isAvailable: prev?.isAvailable, isOnline: prev?.isOnline } : {}),
+          }));
+
+          // Update user state with verification status
+          setUser(prev => ({
+            ...prev,
+            isEmailVerified: result.data.isEmailVerified ?? prev?.isEmailVerified ?? false,
+            isPhoneVerified: result.data.isPhoneVerified ?? prev?.isPhoneVerified ?? false,
+            ...(availabilityUpdateInFlight.current ? { isAvailable: prev?.isAvailable, isOnline: prev?.isOnline } : {}),
+          }));
+        }
+
         profileLastFetched.current = Date.now();
 
         // Sync premium status from profile for providers — unless a newer
