@@ -431,6 +431,17 @@ export default {
     location: 'स्थान',
   },
 
+  // ─── Post-signup phone verification prompt ───────────
+  phoneOnboarding: {
+    title: 'तुमचा फोन नंबर व्हेरिफाय करा',
+    subtitle: 'तुमच्या नवीन खात्यावर बुकिंग सुरू करण्यासाठी फक्त एक छोटी स्टेप',
+    benefitBook: 'त्वरित सर्व्हिस बुक करा',
+    benefitUpdates: 'बुकिंग अपडेट्स तुमच्या नंबरवर मिळवा',
+    benefitSecure: 'तुमचे खाते सुरक्षित ठेवा',
+    verifyNow: 'आत्ता व्हेरिफाय करा',
+    later: 'नंतर करेन',
+  },
+
   // ─── User Home Screen ────────────────────────────────
   userHome: {
     hello: 'नमस्कार, %{name}!',

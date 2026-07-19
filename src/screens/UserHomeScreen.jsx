@@ -43,6 +43,7 @@ const Emergency3D = require('../assets/serviceIcons/3d/emergency.png');
 const Events3D = require('../assets/serviceIcons/3d/events.png');
 const Favorites3D = require('../assets/serviceIcons/3d/favorites.png');
 import { LocationMap, Icon, ServiceIcon, DateTimePicker, LocationPicker, ProviderDetailsModal, FixhomiLogo, CancellationReasonModal } from '../components';
+import PhoneOnboardingSheet from '../components/PhoneOnboardingSheet';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
 import SvgArt from '../components/SvgArt';
 
@@ -360,7 +361,7 @@ const UserHomeScreen = ({ navigation, route }) => {
   // Max sheet height — 75% of screen, hard cap so it never overlaps header
   const safeMaxHeight = Math.min(SCREEN_HEIGHT * 0.75, SCREEN_HEIGHT - insets.top - 90);
   const mapRef = useRef(null);
-  const { user, profile, userType, logout, isProfileLoading, isAuthLoading } = useApp();
+  const { user, profile, userType, logout, isProfileLoading, isAuthLoading, phoneOnboardingPending, setPhoneOnboardingPending } = useApp();
 
   // Booking gate — name + verified phone required before any request is created
   const { ensureBookingProfileComplete, handleProfileIncompleteError } =
@@ -1801,6 +1802,21 @@ const UserHomeScreen = ({ navigation, route }) => {
         cancellerRole="user"
         loading={cancellingRequest}
         serviceName={selectedService?.name}
+      />
+
+      {/* Post-signup phone verification prompt (Google/Apple users, no phone).
+          Gated on profileReady && no phone anywhere, so it can never flash for
+          users whose phone simply hasn't loaded yet. */}
+      <PhoneOnboardingSheet
+        visible={(() => {
+          if (!phoneOnboardingPending || isAuthLoading || isProfileLoading || profile === null) return false;
+          // del_ tombstones and whitespace count as "no phone" — mirrors the
+          // server booking gate (serviceHelpers: del_ prefix = phone-less).
+          const p = String(user?.phone || profile?.phone || '').trim();
+          return !p || p.startsWith('del_');
+        })()}
+        onDismiss={() => setPhoneOnboardingPending(false)}
+        bottomInset={insets.bottom}
       />
     </View>
   );

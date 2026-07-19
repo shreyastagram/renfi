@@ -432,6 +432,17 @@ export default {
     location: 'Location',
   },
 
+  // ─── Post-signup phone verification prompt ───────────
+  phoneOnboarding: {
+    title: 'Verify your phone number',
+    subtitle: 'One quick step to unlock bookings on your new account',
+    benefitBook: 'Book services instantly',
+    benefitUpdates: 'Get booking updates on your number',
+    benefitSecure: 'Keep your account secure',
+    verifyNow: 'Verify now',
+    later: 'I’ll do it later',
+  },
+
   // ─── User Home Screen ────────────────────────────────
   userHome: {
     hello: 'Hello, %{name}!',
