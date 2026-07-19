@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "752028559781-56u6qd6unp5bq5o4btgg6ssqad5ckqi8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.renfi",
+            "certificate_hash": "f627048e820d639df64f78e6f0bafb8197d911d0"
+          }
+        },
+        {
           "client_id": "752028559781-eskhite9ek7f838l2pnjrgpicooqvibv.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
@@ -37,6 +45,13 @@
             {
               "client_id": "752028559781-q0mi48eo45foh0lag7mkmtthevcrhcm9.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "752028559781-0ga547aouj0tpiq4br1j08dhrqtrqru4.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.shreyashborkar.fixhomi"
+              }
             }
           ]
         }

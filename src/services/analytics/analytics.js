@@ -1,8 +1,10 @@
 /**
- * Meta App Events — Core Analytics Service
+ * Meta App Events + Firebase Analytics — Core Analytics Service
  *
- * The ONLY file that talks to the Meta SDK. Screens/services import
- * `Analytics` + `EV` from 'src/services/analytics' and never touch the SDK.
+ * The ONLY file that talks to the Meta and Firebase SDKs. Screens/services
+ * import `Analytics` + `EV` from 'src/services/analytics' and never touch
+ * either SDK. Every track/purchase/user call is mirrored to both: Meta App
+ * Events (ad optimization) and Firebase Analytics/GA4 (product analytics).
  *
  * Guarantees:
  * - Never crashes the app: SDK is lazily required; every call is try/caught
@@ -61,6 +63,30 @@ const getSdk = () => {
   return _sdk;
 };
 
+// Lazy, crash-proof Firebase Analytics access. Resolved once.
+// Mirrors every event to GA4 alongside Meta; same no-op guarantee if the
+// package is absent or the native module isn't linked.
+let _fb = null; // { mod, instance } | false (unavailable)
+const getFb = () => {
+  if (_fb !== null) return _fb;
+  try {
+    const mod = require('@react-native-firebase/analytics');
+    const instance = mod.getAnalytics();
+    _fb = { mod, instance };
+    dbg('getFb: Firebase Analytics ready');
+  } catch (e) {
+    dbg('getFb: require FAILED — Firebase events will no-op:', e?.message);
+    _fb = false;
+  }
+  return _fb;
+};
+
+// GA4 event names: letters/digits/underscores only, must start with a letter.
+const toGa4Name = (name) => {
+  const n = String(name).replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 40);
+  return /^[a-zA-Z]/.test(n) ? n : `e_${n}`.slice(0, 40);
+};
+
 /** Coerce params to Meta-safe shape: string/number values, ≤25 keys. */
 const sanitizeParams = (params) => {
   if (!params || typeof params !== 'object') return undefined;
@@ -116,6 +142,18 @@ const Analytics = {
     const name = eventName.slice(0, 40); // Meta limit: 40-char event names
     const safeParams = sanitizeParams(params);
 
+    // Firebase/GA4 mirror — independent of the Meta SDK's availability
+    const fb = getFb();
+    if (fb) {
+      try {
+        fb.mod
+          .logEvent(fb.instance, toGa4Name(name), safeParams)
+          .catch((e) => dbg('track: firebase logEvent FAILED:', name, e?.message));
+      } catch (e) {
+        dbg('track: firebase logEvent THREW:', name, e?.message);
+      }
+    }
+
     const sdk = getSdk();
     dbg('track:', name, safeParams ? JSON.stringify(safeParams) : '(no params)', sdk ? '' : '→ DROPPED (no SDK)');
     if (!sdk) return;
@@ -146,6 +184,22 @@ const Analytics = {
   trackPurchase(amount, currency, params) {
     const value = Number(amount);
     if (!isFinite(value) || value <= 0 || !currency) return;
+
+    const fb = getFb();
+    if (fb) {
+      try {
+        fb.mod
+          .logEvent(fb.instance, 'purchase', {
+            value,
+            currency: String(currency),
+            ...(sanitizeParams(params) || {}),
+          })
+          .catch((e) => dbg('trackPurchase: firebase FAILED:', e?.message));
+      } catch (e) {
+        dbg('trackPurchase: firebase THREW:', e?.message);
+      }
+    }
+
     const sdk = getSdk();
     dbg('trackPurchase:', value, currency, sdk ? '' : '→ DROPPED (no SDK)');
     if (!sdk) return;
@@ -159,8 +213,19 @@ const Analytics = {
 
   /** Associate events with the app user (improves attribution). */
   setUser(userId) {
+    if (!userId) return;
+    const fb = getFb();
+    if (fb) {
+      try {
+        fb.mod
+          .setUserId(fb.instance, String(userId))
+          .catch((e) => dbg('setUser: firebase FAILED:', e?.message));
+      } catch (e) {
+        dbg('setUser: firebase THREW:', e?.message);
+      }
+    }
     const sdk = getSdk();
-    if (!sdk || !userId) return;
+    if (!sdk) return;
     try {
       sdk.logger.setUserID(String(userId));
     } catch (e) {
@@ -170,6 +235,16 @@ const Analytics = {
 
   /** Clear the user association on logout. */
   clearUser() {
+    const fb = getFb();
+    if (fb) {
+      try {
+        fb.mod
+          .setUserId(fb.instance, null)
+          .catch((e) => dbg('clearUser: firebase FAILED:', e?.message));
+      } catch (e) {
+        dbg('clearUser: firebase THREW:', e?.message);
+      }
+    }
     const sdk = getSdk();
     if (!sdk) return;
     try {
