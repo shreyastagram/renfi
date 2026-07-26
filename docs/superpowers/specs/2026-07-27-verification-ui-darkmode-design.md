@@ -71,7 +71,7 @@ Two workstreams on one branch, phased:
 | "Some screens define a local palette (e.g. `InsuranceScreen`)" | **~30 files** already define `const BRAND` / `COLORS` / `C`. This is an accelerator, not a footnote. |
 
 Also dead: `src/screens/HomeScreen.jsx` (740 lines, 47 hex), referenced nowhere.
-**Both dead files are excluded from theming scope and flagged for separate deletion — not deleted here.**
+**Both are excluded from theming scope and deleted in Phase 1 after re-verification — see §17.**
 
 Confirmed correct in the brief: no theming infrastructure exists (zero `useColorScheme` / `Appearance` /
 `ThemeContext` / `useTheme` matches in `src/`, `navigation/`, `App.tsx`); i18n parity is exactly
@@ -340,12 +340,12 @@ Each phase is one commit and leaves the app shippable and parse-clean.
 | # | Phase | Output | Gate |
 |---|---|---|---|
 | 0 | Branch, phases MD, harness agent spec | docs only | — |
-| 1 | Theme engine, tokens, contrast validator | no visual change | validator passes |
-| 2 | HTML mockup, light + dark | no code | **owner approval** |
+| 1 | Theme engine, tokens, contrast validator + dead-file deletion (§17) | no visual change | validator passes; non-use re-verified |
+| 2 | HTML mockup, light + dark, incl. both Mapbox dark candidates (§16) | no code | **owner approval** |
 | 3 | Verification module: UI + state + V1–V6 | user + shared surfaces | unit tests on the reducer |
 | 4 | Backend read-only IDOR / race audit | findings written into the phases MD | — |
 | 5 | Shared chrome: `<Screen>`, dialogs, banner, tab bar, StatusBar | 547 hex | hex lint |
-| 6 | User screens | 918 hex | hex lint |
+| 6 | User screens, incl. Mapbox theme following at all 6 map sites (§16) | 918 hex | hex lint |
 | 7 | Auth screens | 279 hex | hex lint |
 | 8 | Provider screens | 513 hex | hex lint |
 | 9 | Full sweep | — | all gates |
@@ -409,9 +409,65 @@ This environment can Babel-parse RN and run Jest, but **cannot run the app**. Ac
 |---|---|
 | A 2,910-literal migration silently changes a colour meaning | Per-file semantic review; each phase is its own reviewable commit; hex lint prevents regression. |
 | Dark mode looks wrong on decorative SVG backgrounds (`GraphBackground`, `ThreadBackground`, `SvgArt`) | Handled explicitly in Phase 5; they take theme-aware stroke/fill rather than being hidden. |
-| Mapbox (`LiveTrackingScreen`, `MapPickerModal`) has its own light map style | Flagged in Phase 6. Switching to a dark map style is a visual decision for the owner, not an automatic one. |
+| Mapbox dark basemap differs in character from the current street map | §16. Both candidate dark styles are shown at the Phase 2 mockup gate. |
+| Runtime `styleURL` change forces a full Mapbox style reload | Only occurs on a theme switch, a rare user action. Maps not mounted at that moment are unaffected. |
 | Owner ships without device testing | Phase 9 produces an explicit device checklist; no store submission until it passes. |
 | Deferred Unistyles migration never happens | Acceptable — the pure-JS engine is a complete solution, not a stub. The interface simply keeps the option open. |
 
-**Open items requiring owner input:** whether the dead files (`DocumentVerificationScreen.jsx`,
-`HomeScreen.jsx`) should be deleted in a follow-up; and the Mapbox dark-style decision in Phase 6.
+---
+
+## 16. Mapbox theme following
+
+**Supported on the installed stack — with one constraint.**
+
+All 6 map sites currently hardcode `Mapbox.StyleURL.Street`:
+`ServiceRequestDetailScreen.jsx:550`, `LiveTrackingScreen.jsx:449`, `ProviderHomeScreen.jsx:1100` and
+`:1457`, `MapPickerModal.jsx:563`, `MapView/LocationMap.jsx:314`.
+
+`@rnmapbox/maps@10.1.42` exports `StyleURL.Dark` (`mapbox://styles/mapbox/dark-v10`) and `.Light`, and
+`styleURL` is a live prop, so the map re-styles when the theme changes. Because the style is derived from
+the resolved theme via `useTheme()`, **a manual Light/Dark override is respected automatically** — the map
+follows whatever the theme resolves to, whether that came from the system or from the user's choice.
+
+**Constraint:** the Standard style's `lightPreset: day|night` — which would give a true same-map day/night
+transition — is **not available**. `StyleImport` is documented "**V11 only**", and this project resolves
+Mapbox SDK **v10**: `ios/Podfile.lock` pins `MapboxMaps (10.19.5)`, and Android sets no
+`RNMapboxMapsVersion` override so it takes the `10.19.0` default. Reaching v11 means a native SDK major
+upgrade on both platforms — the same class of unverifiable-native risk that deferred Unistyles in §5.1.
+**Not undertaken on this branch.**
+
+Light mode keeps `StyleURL.Street` unchanged, per the no-redesign constraint in §1. For dark mode there
+are two candidates, and they differ enough to matter:
+
+| Candidate | Character | Trade-off |
+|---|---|---|
+| `StyleURL.Dark` (`dark-v10`) | Monochrome greyscale, designed as a data-viz backdrop | Cleanest dark surface; noticeably less POI detail than the light-mode street map |
+| `StyleURL.TrafficNight` (`navigation-preview-night-v4`) | Dark **street** map, roads prominent | Much closer in character to `streets-v11`; busier |
+
+Both are rendered at the **Phase 2 mockup gate** for the owner to choose. Default if unspecified:
+`StyleURL.Dark`.
+
+---
+
+## 17. Dead code removal
+
+Both files were re-verified on 2026-07-27 with an exhaustive search across all `.js/.jsx/.ts/.tsx/.json`
+sources: no import, no dynamic `require()`/`import()`, no string-keyed screen lookup, no test reference,
+and the screens barrel is never star-imported.
+
+| File | Lines | Hex | Only reference |
+|---|---|---|---|
+| `src/screens/DocumentVerificationScreen.jsx` | 1,365 | 72 | `src/screens/index.js:53` |
+| `src/screens/HomeScreen.jsx` | 740 | 47 | `src/screens/index.js:35` |
+
+The `DocumentVerification` **route name** remains live in both navigators but resolves to
+`ServiceApprovalsScreen` — deleting the file does not affect it.
+
+`RootNavigator` imports from the barrel `../src/screens`, and **Metro does not tree-shake barrel
+re-exports**, so both files are currently compiled into the production bundle despite being unreachable.
+Deleting them removes 2,105 lines and 119 hex literals from the migration and measurably reduces bundle
+parse time on low-RAM devices.
+
+**Deleted in Phase 1**, together with their two barrel export lines, as an isolated commit that can be
+reverted independently. Re-verification of non-use is a precondition of that commit, not an assumption
+carried over from this spec.
