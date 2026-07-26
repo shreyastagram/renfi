@@ -221,9 +221,14 @@ src/theme/
 Semantic names only. No screen refers to a raw scale step.
 
 `bg` · `surface` · `surfaceElevated` · `surfaceSunken` · `border` · `borderStrong` · `textPrimary` ·
-`textSecondary` · `textMuted` · `textInverse` · `brandOrange` · `brandBlue` · `accentOnBrand` ·
-`success` · `warning` · `danger` · `info`, each semantic additionally exposing a `*Container` tinted
-variant (the chip backgrounds already in use), plus `overlay` and `shadow`.
+`textSecondary` · `textMuted` · `textInverse` · `brandOrange` · `onBrandOrange` · `brandBlue` ·
+`onBrandBlue` · `success` · `warning` · `danger` · `info`, each semantic additionally exposing a
+`*Container` tinted variant (the chip backgrounds already in use), plus `overlay` and `shadow`.
+
+There is deliberately **no single `accentOnBrand` token**. The contrast audit proved the two brand
+colours need opposite foregrounds: dark text on orange (`#0F172A`, **6.64**) and white on blue
+(**4.75**). One token could not satisfy both, which is precisely how today's 2.69:1 Verify button
+happened.
 
 Dark surface ramp: `#0B1220` base → `#111827` surface → `#1E293B` elevated. Per Material 3, the base is a
 dark neutral rather than pure black and surfaces lighten as they elevate.
