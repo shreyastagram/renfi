@@ -92,3 +92,10 @@ public/download/
 # Local tooling / deploy caches
 .claude/settings.local.json
 .firebase/
+
+# SonarQube scanner output (never commit)
+.scannerwork/
+
+# Local DB backups (never commit — large, may contain PII)
+fixhomi-m10-backup/
+*-backup/
