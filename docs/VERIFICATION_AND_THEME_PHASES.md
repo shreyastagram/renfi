@@ -21,13 +21,18 @@ Branch: feature/verification-ui-darkmode
 
 ## Gates every phase must pass
 
-1. Parse-check every changed file.
+1. Parse-check every changed .js/.jsx file with module:@react-native/babel-preset.
 2. npm run check:i18n — en/hi/mr key-identical, identical %{var} per key.
 3. npm run check:hex — no raw hex in any file listed in scripts/migrated-files.json.
 4. npm run check:contrast — every semantic pair meets WCAG AA in both themes.
-5. npm run test:unit — pure-JS unit tests green.
+5. npm run check:types — tsc --noEmit. This is the ONLY working check for .tsx.
+6. npm run test:unit — pure-JS unit tests green.
 
-All four automated gates run together via: npm run verify
+Gates 2-6 run together via: npm run verify
+
+IMPORTANT: the babel CLI parse-check does NOT work on .tsx files. It fails on
+plain TypeScript syntax such as (global as any) even on an unmodified App.tsx.
+Use npm run check:types for .tsx. Verified 2026-07-27.
 
 ## Known baseline facts
 
