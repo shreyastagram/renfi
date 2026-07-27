@@ -32,7 +32,6 @@ export { default as EmailVerifyHandlerScreen } from './EmailVerifyHandlerScreen'
 export { default as ProfileScreen } from './ProfileScreen';
 
 // Main App
-export { default as HomeScreen } from './HomeScreen';
 export { default as UserHomeScreen } from './UserHomeScreen';
 export { default as ProviderHomeScreen } from './ProviderHomeScreen';
 
@@ -49,10 +48,10 @@ export { default as ProviderServiceHistoryScreen } from './ProviderServiceHistor
 export { default as SettingsScreen } from './SettingsScreen';
 export { default as AccountSecurityScreen } from './AccountSecurityScreen';
 
-// Document Verification
-export { default as DocumentVerificationScreen } from './DocumentVerificationScreen';
-
 // Service Approvals (RSAS)
+// Note: the DocumentVerification ROUTE in both navigators resolves to the
+// screen below. The old stand-alone document-verification screen was
+// unreachable and was deleted on 2026-07-27.
 export { default as ServiceApprovalsScreen } from './ServiceApprovalsScreen';
 
 // Emergency Services
