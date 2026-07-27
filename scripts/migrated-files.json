@@ -1,0 +1,16 @@
+{
+  "comment": "Files fully migrated to theme tokens. check-hex.js fails on any raw hex literal in these. Each phase appends its files here as it completes them.",
+  "exempt": [
+    "src/theme/tokens/palette.js"
+  ],
+  "migrated": [
+    "src/theme/tokens/semantic.js",
+    "src/theme/tokens/spacing.js",
+    "src/theme/themes.js",
+    "src/theme/ThemeContext.jsx",
+    "src/theme/resolveThemeName.js",
+    "src/theme/createStyleCache.js",
+    "src/theme/useThemedStyles.js",
+    "src/theme/index.js"
+  ]
+}

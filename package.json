@@ -8,7 +8,11 @@
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
-    "check:contrast": "NODE_NO_WARNINGS=1 node scripts/check-contrast.js"
+    "test:unit": "jest src/theme src/features",
+    "check:contrast": "NODE_NO_WARNINGS=1 node scripts/check-contrast.js",
+    "check:hex": "node scripts/check-hex.js",
+    "check:i18n": "NODE_NO_WARNINGS=1 node scripts/check-i18n-parity.js",
+    "verify": "npm run check:i18n && npm run check:hex && npm run check:contrast && npm run test:unit"
   },
   "dependencies": {
     "@invertase/react-native-apple-authentication": "^2.5.1",
