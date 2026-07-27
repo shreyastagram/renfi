@@ -10,7 +10,16 @@
  * extensionless specifiers. Metro accepts both forms.
  */
 
-import { brand, slate, dark, semanticLight, semanticDark, overlay } from './palette.js';
+import {
+  brand,
+  altBlue,
+  slate,
+  gray,
+  dark,
+  semanticLight,
+  semanticDark,
+  overlay,
+} from './palette.js';
 
 export const lightColors = {
   // Surfaces
@@ -19,12 +28,23 @@ export const lightColors = {
   surfaceElevated: slate[0],
   surfaceSunken: slate[25],
 
-  // Lines
+  // Lines — the *Neutral variants exist so files built on the gray ramp stay
+  // pixel-identical in light mode. They collapse onto one value in dark.
   border: slate[200],
+  borderNeutral: gray[200],
+  borderMedium: slate[300],
+  borderMediumNeutral: gray[300],
   borderStrong: slate[400],
 
-  // Text
+  // Text. textSecondary/textMuted are deliberately DARKER than the values the
+  // app ships today: Tailwind slate-500/400 and gray-500/400 all fail WCAG AA
+  // as text (4.32, 2.33, 4.39, 2.31), so both ramps converge here.
   textPrimary: slate[900],
+  textPrimaryNeutral: gray[900],
+  textStrong: slate[800],
+  textStrongNeutral: gray[800],
+  textBody: slate[700],
+  textBodyNeutral: gray[700],
   textSecondary: slate[600],
   textMuted: slate[500],
   textInverse: slate[0],
@@ -35,6 +55,11 @@ export const lightColors = {
   brandBlue: brand.blue,
   onBrandBlue: slate[0],
   info: brand.blueDeep, // brand blue readable as text on light surfaces
+
+  // Non-brand blues, preserved so light mode is unchanged. See palette.altBlue.
+  altBlueIndigo: altBlue.indigo,
+  altBlueSky: altBlue.sky,
+  altBlueIos: altBlue.ios,
 
   // Semantic
   success: semanticLight.success,
@@ -57,12 +82,20 @@ export const darkColors = {
   surfaceElevated: dark.elevated,
   surfaceSunken: dark.sunken,
 
-  // Lines
+  // Lines — both light-mode ramps UNIFY here. Dark mode gets one clean scale.
   border: dark.border,
+  borderNeutral: dark.border,
+  borderMedium: dark.borderMedium,
+  borderMediumNeutral: dark.borderMedium,
   borderStrong: dark.borderStrong,
 
-  // Text
+  // Text — the slate/gray split is a light-mode-only artefact and collapses here.
   textPrimary: dark.textPrimary,
+  textPrimaryNeutral: dark.textPrimary,
+  textStrong: dark.textPrimary,
+  textStrongNeutral: dark.textPrimary,
+  textBody: dark.textSecondary,
+  textBodyNeutral: dark.textSecondary,
   textSecondary: dark.textSecondary,
   textMuted: dark.textMuted,
   textInverse: slate[900],
@@ -73,6 +106,12 @@ export const darkColors = {
   brandBlue: brand.blueLight,
   onBrandBlue: slate[900],
   info: brand.blueLight,
+
+  // Non-brand blues also converge in dark — three near-identical blues on a
+  // dark surface would read as noise, and all three fail AA unlightened.
+  altBlueIndigo: brand.blueLight,
+  altBlueSky: brand.blueLight,
+  altBlueIos: brand.blueLight,
 
   // Semantic
   success: semanticDark.success,
