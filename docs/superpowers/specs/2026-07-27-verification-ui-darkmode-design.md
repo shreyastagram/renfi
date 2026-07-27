@@ -278,8 +278,23 @@ three ad-hoc verification blocks and gains one component.
 
 ## 7. Verification visual design
 
-Locked constraints: no new copy beyond what already exists, no new sections, no flow changes, and every
-state readable to WCAG AA in **both** themes.
+Locked constraints: no new sections, no flow changes, exactly one new string (§9), and every state
+readable to WCAG AA in **both** themes.
+
+**Approved at the Phase 2 gate (owner, 2026-07-27)** — artifact revision 2:
+
+- **No progress count and no progress bar.** An earlier revision showed a "1 of 2" counter and a
+  progress track. Rejected: it introduces a new UI concept, and the brief forbids new elements. The
+  redesign improves the existing experience only.
+- **Orange is a fill, never text or an icon on a light ground.** It works only as a ground beneath
+  dark text. This is now an app-wide rule, not a verification-surface rule.
+- **One state, one colour, app-wide.** Green = done, amber = waiting, orange = act. The current
+  blue-pill / green-badge split for a single "verified" state is the defect being removed.
+- **Cards carry a 1px token border rather than a heavy shadow** — shadows read as noise on dark
+  grounds, a border behaves identically in both themes.
+- **A resolved state removes chrome** instead of adding a success banner.
+- This surface **sets the design language the remaining screens inherit** (Phases 5–8), so the app
+  stays cohesive rather than becoming a themed patchwork.
 
 - **One status semantic.** Verified, pending, and unverified each get exactly one colour treatment used
   everywhere. The blue-pill / green-badge contradiction (V6) is resolved to a single verified treatment.
@@ -313,12 +328,18 @@ until changed. This adds **7** i18n keys (one section title, three labels, three
 ## 9. Internationalisation
 
 - en / hi / mr must remain key-identical at every commit, with identical `%{var}` placeholders per key.
-- **The only sanctioned new keys are the Settings theme control** (§8): one section title, three option
-  labels, three explanatory lines — **7 keys**, taking all three locales from 1959 to **1966**.
-- The verification rework (§6, §7) adds **no** new keys. It reuses existing ones; where a state has no
-  existing string, the design uses an existing key rather than inventing copy, per the "no new text"
-  constraint in §1. If a phase finds a state that genuinely cannot be expressed with an existing key,
-  that is a scope conflict — the harness agent must flag it to the owner rather than silently adding copy.
+- **Exactly 8 new keys are sanctioned**, taking all three locales from 1959 to **1967**:
+  - **7 for the Settings theme control** (§8): one section title, three option labels, three
+    explanatory lines.
+  - **1 for the email pending state**: `profile.emailPending` ("Check inbox"). Owner decision
+    2026-07-27 — the pending state is real and must not borrow an unrelated key just to keep the
+    count at zero. A semantically correct key is required.
+- Every other string on the verification surface reuses an existing key. Verified against `en.js`:
+  `profile.verification`, `profile.phoneLabel`, `profile.emailLabel`, `profile.verifyBtn`,
+  `profile.verifiedLabel`, `profile.verifyWarning`, `profile.enterOtp`, `profile.otpTimer`,
+  `profile.resendOtp`, `verificationScreen.emailSent`.
+- If a phase finds a further state that genuinely cannot be expressed with an existing key, that is a
+  scope conflict — the harness agent must flag it to the owner rather than silently adding copy.
 - The flatten-and-diff parity check runs in every phase gate, not only at the end.
 
 ---

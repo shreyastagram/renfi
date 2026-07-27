@@ -10,7 +10,10 @@ Branch: feature/verification-ui-darkmode
 
 - [x] Phase 0 — Branch, phase board, harness agent spec
 - [x] Phase 1 — Theme engine, tokens, gates, dead-file deletion
-- [ ] Phase 2 — HTML mockup, light + dark  ← OWNER APPROVAL GATE
+- [~] Phase 2 — HTML mockup, light + dark  ← OWNER APPROVAL GATE
+      mockup 1 of 3 (verification surface) APPROVED at revision 2, 2026-07-27.
+      Remaining: 2 = token/component reference sheet, 3 = representative themed
+      screen plus both Mapbox dark candidates.
 - [ ] Phase 3 — Verification module: UI + state + defects V1–V6
 - [ ] Phase 4 — Backend read-only IDOR / race audit
 - [ ] Phase 5 — Shared chrome (547 hex)
@@ -38,8 +41,10 @@ Use npm run check:types for .tsx. Verified 2026-07-27.
 
 - npm test is RED at baseline (App.test.tsx needs native mocks). Not in scope.
   Use npm run test:unit for a trustworthy signal.
-- i18n baseline: 1959 keys per locale. Only Phase 3's Settings control may add
-  keys, and exactly 7 of them, taking all three locales to 1966.
+- i18n baseline: 1959 keys per locale. Exactly 8 new keys are sanctioned, taking
+  all three locales to 1967: 7 for the Settings theme control, plus
+  profile.emailPending ("Check inbox") for the email waiting state.
+  Everything else on the verification surface reuses existing keys.
 - Node >= 22.12 is required by the gate scripts (they use require on ES modules).
   Every import inside src/theme/tokens/ and src/theme/themes.js must carry an
   explicit .js extension or Node's ESM resolver rejects it.
