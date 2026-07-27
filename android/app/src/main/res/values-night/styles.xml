@@ -1,0 +1,13 @@
+<resources>
+
+    <!-- Night variant of AppTheme.
+         The base theme already extends Theme.AppCompat.DayNight.NoActionBar, so
+         Android resolves this automatically under system dark mode. Setting the
+         window background here stops the cold-start light flash before the JS
+         theme mounts. -->
+    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+        <item name="android:windowBackground">@color/theme_night_background</item>
+    </style>
+
+</resources>
