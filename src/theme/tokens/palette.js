@@ -26,6 +26,28 @@ export const altBlue = {
   ios: '#007AFF', // 16 occurrences — iOS system blue, likely intentional
 };
 
+// Categorical violet accent (~42 occurrences). NOT decorative: it colour-codes
+// service categories (carpenter, photographer), event services, portfolio and
+// creative surfaces, and the in-progress/tracking state. It earns a token so it
+// stops being reintroduced as loose hex — but it stays scoped to those existing
+// uses. Brand orange and blue remain the identity; this is a support accent.
+//
+// The shipped #8B5CF6 fails AA on light surfaces at 3.87, so the light token is
+// the darker #7C3AED the app already uses elsewhere for violet TEXT.
+export const violet = {
+  light: '#7C3AED', // 5.20 min on light surfaces
+  dark: '#A78BFA', // 5.38 min on dark surfaces
+  containerLight: '#F3E8FF',
+  containerDark: '#241B3D',
+};
+
+// Third-party brand colours. NEVER themed and never token-mapped: Google's
+// brand guidelines fix this value for sign-in buttons, and altering it breaks
+// compliance. Kept here only so the value has one home.
+export const vendor = {
+  googleBlue: '#4285F4',
+};
+
 // Neutral SLATE ramp (cool-tinted) — the app's dominant scale, 669 occurrences.
 export const slate = {
   0: '#FFFFFF',

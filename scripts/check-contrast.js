@@ -65,6 +65,9 @@ const REQUIRED_PAIRS = [
   ['warning', 'warningContainer', TEXT, 'warning text on its tinted chip'],
   ['danger', 'dangerContainer', TEXT, 'danger text on its tinted chip'],
   ['info', 'infoContainer', TEXT, 'info text on its tinted chip'],
+  ['accentViolet', 'surface', TEXT, 'violet category accent on card'],
+  ['accentViolet', 'bg', TEXT, 'violet category accent on page background'],
+  ['accentViolet', 'accentVioletContainer', TEXT, 'violet accent on its tinted chip'],
   ['borderStrong', 'surface', UI, 'input border against card'],
   ['borderStrong', 'bg', UI, 'input border against page background'],
 ];

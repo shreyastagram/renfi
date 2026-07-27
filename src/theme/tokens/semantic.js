@@ -13,6 +13,7 @@
 import {
   brand,
   altBlue,
+  violet,
   slate,
   gray,
   dark,
@@ -60,6 +61,10 @@ export const lightColors = {
   altBlueIndigo: altBlue.indigo,
   altBlueSky: altBlue.sky,
   altBlueIos: altBlue.ios,
+
+  // Categorical accent — scoped to categories, events, portfolio, in-progress.
+  accentViolet: violet.light,
+  accentVioletContainer: violet.containerLight,
 
   // Semantic
   success: semanticLight.success,
@@ -112,6 +117,10 @@ export const darkColors = {
   altBlueIndigo: brand.blueLight,
   altBlueSky: brand.blueLight,
   altBlueIos: brand.blueLight,
+
+  // Categorical accent — lightened so it stays legible on dark surfaces.
+  accentViolet: violet.dark,
+  accentVioletContainer: violet.containerDark,
 
   // Semantic
   success: semanticDark.success,
