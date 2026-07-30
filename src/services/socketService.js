@@ -123,10 +123,22 @@ export const initializeSocket = (userType, userId, token) => {
     // Start with websocket, fall back to polling on iOS network transitions
     transports: ['websocket', 'polling'],
     upgrade: true,
-    auth: {
-      token,
-      userType,
-      userId,
+    // auth as a FUNCTION: socket.io evaluates it on EVERY (re)connection
+    // attempt, so reconnects present the CURRENT access token. The previous
+    // static object replayed the token captured at init — after the 24h
+    // expiry (or a rotation), every reconnect handshake was rejected by the
+    // backend's JWT check and, after 60 silent retries, the provider simply
+    // stopped receiving real-time job events for the rest of the session.
+    auth: (cb) => {
+      try {
+        // Lazy require: keeps this module free of a static storage dependency.
+        const { getTokens } = require('../utils/storage');
+        getTokens()
+          .then((t) => cb({ token: t?.accessToken || token, userType, userId }))
+          .catch(() => cb({ token, userType, userId }));
+      } catch (e) {
+        cb({ token, userType, userId });
+      }
     },
     reconnection: true,
     reconnectionAttempts: 60,

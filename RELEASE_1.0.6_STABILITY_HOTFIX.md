@@ -80,6 +80,12 @@ Other Crashlytics issues triaged: SoLoader `libreactnative.so` = **emulator-only
      full-screen shimmer all session), and while `profile` is null the screen
      retries `refreshProfile` every 15s (previously no retry path unless the
      user refocused the tab).
+   - socketService: handshake `auth` is now a function (evaluated per
+     reconnection attempt) so reconnects present the CURRENT access token —
+     the static snapshot meant every reconnect after the 24h token expiry
+     was rejected and providers silently stopped receiving job events.
+     (Orphan-socket teardown guard + no-reinit-on-GPS-move were already on
+     this branch from July 20 and were verified by the review pass.)
 3. **release(1.0.6)** — Android `versionCode 31` / `versionName "1.0.6"`;
    iOS `MARKETING_VERSION 1.0.6` / `CURRENT_PROJECT_VERSION 3`.
 4. **fix(review)** — adversarial-review findings (this commit):
