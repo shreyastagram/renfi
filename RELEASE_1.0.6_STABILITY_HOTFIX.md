@@ -128,18 +128,9 @@ Other Crashlytics issues triaged: SoLoader `libreactnative.so` = **emulator-only
    fix(review) commit; hashes were rewritten once for author identity —
    if the Mac clone has stale local commits, `git reset --hard origin/feature/profile-redesign`).
 2. `npm install`; `cd ios && pod install && cd ..`.
-3. **Device test on the Redmi 12 (release build)** — the checklist:
-   - Location permission "Approximate": provider home shows map/"Getting
-     your location…", NOT "Enable location"; a coarse fix arrives.
-   - Turn GPS off → "Location is off" appears; turn ON in Settings, return
-     → recovers without app restart.
-   - Provider home: availability toggle stays stable across foreground/
-     background cycles and permission dialogs (no online→loading loop).
-   - My Jobs tab: header + list render once; background refreshes don't
-     blank the screen; system bars don't flicker.
-   - Phone-OTP login, logout, re-login; kill app mid-session → relaunch
-     stays logged in.
-   - Pull-to-refresh on provider home with airplane mode → spinner ends.
+3. **Device test (release build)** — run the FULL user-facing test suite in
+   §7 below. Minimum device matrix: Redmi 12 (Android 13, the reported
+   device class) + one high-end Android + one iPhone.
 4. Build: Android AAB (vc31) → Play Console; iOS archive (1.0.6/3) →
    App Store Connect. **Play Data Safety + Apple Privacy labels**: re-check —
    Firebase/GA4 analytics were added this cycle (PENDING_STABILITY_WORK §D).
@@ -198,9 +189,122 @@ Other Crashlytics issues triaged: SoLoader `libreactnative.so` = **emulator-only
 - TransistorSoft plugin bump (onSaveInstanceState crash) — next cycle.
 - `LocationSharingContext` 30s/60s always-on polling — next perf pass.
 
-## 6. Reference docs
+## 6. Reference docs (see §7 below for the test suite)
 
 `AUTH_STARTUP_LOGOUT_FIX.md` (auth contract + change log),
 `docs/PENDING_STABILITY_WORK_2026-07.md` (parked jitter list — partially
 superseded by this session), `ISSUE_INVESTIGATION_REPORT.md` (Issue 4
 history), `RELEASE_TEST_GUIDE_1.0.5.md` (fuller manual test matrix).
+
+## 7. Full manual test suite — as an APP USER (no logs, no dashboards)
+
+Everything below is pass/fail from what you SEE on the device. Do the whole
+suite on the Redmi 12; A, B, C, D, E and H are the release gates. "Provider"
+cases need a provider account; G needs two devices.
+
+### A. Session & staying logged in
+
+| # | Steps | Expected |
+|---|-------|----------|
+| A1 | Fresh install → phone-OTP signup → land on home. Swipe-kill the app → reopen | Still logged in, home loads |
+| A2 | Google sign-in → kill → reopen | Still logged in |
+| A3 | Navigate deep (e.g., open a request detail) → swipe-kill → reopen | Logged in AND restored to (or near) where you were |
+| A4 | Background the app 30+ min → reopen | Logged in, no logout flash, no login screen flicker |
+| A5 | Airplane mode ON → open the app | Opens with cached data, does NOT log you out; radio back on → app recovers on its own |
+| A6 | Leave the app unopened overnight → open next day | Still logged in (silent token refresh) |
+| A7 | Logout → login screen appears once (no OTP screen restored) → log back in | Clean logout, clean re-login |
+| A8 | Logout → kill app → reopen | Still logged out (no zombie session) |
+| A9 | Provider with an active/tracked job: force-stop from Settings → wait 10 min → reopen | Still logged in, job still visible |
+| A10 | Open/close the app 10× in a row quickly | Never lands on the login screen while logged in |
+
+### B. Location correctness (the "Enable location while GPS on" family)
+
+| # | Steps | Expected |
+|---|-------|----------|
+| B1 | Android 12+: at the permission dialog choose **"Approximate"** | Accepted as granted. Provider home shows the map/"Getting your location…" and then an (approximate) position. NEVER "Enable location" |
+| B2 | Choose "Precise" | Normal accurate behavior |
+| B3 | Turn the phone's location switch OFF → open provider home | "Location is off" / enable prompt (correct). Tap Enable → lands in Settings. Turn ON, return to app | Recovers WITHOUT restarting the app |
+| B4 | Deny the permission twice (so the dialog stops appearing) | App shows a blocked state with an "Open Settings" action that actually opens Settings |
+| B5 | Location ON but indoors/basement (no fix) | Shows "Getting your location…" — never claims location is off; UI stays usable |
+| B6 | Foreground/background the app 5× with location ON | No false "Location is Turned Off" popups |
+| B7 | User side: book with Approximate-only granted | Booking works, address/GPS attaches |
+
+### C. Provider home stability (Redmi 12 focus)
+
+| # | Steps | Expected |
+|---|-------|----------|
+| C1 | Sit on provider home 3 min; background/foreground twice; trigger any permission dialog | Availability pad stays "Online" (or Offline) — NO online→loading→online loop |
+| C2 | Toggle Offline→Online→Offline | Instant UI change each time; state survives app restart |
+| C3 | Pull-to-refresh with good network | Completes, spinner ends |
+| C4 | Pull-to-refresh in airplane mode | Spinner ENDS within ~30s (no stuck spinner) |
+| C5 | Watch the Android status bar + navigation bar for 2 min of normal use | No flickering/repainting of the system bars |
+| C6 | Have a user book your service | ONE banner, ONE vibration; request appears; "View Details" opens the right request |
+
+### D. My Jobs screen
+
+| # | Steps | Expected |
+|---|-------|----------|
+| D1 | Open Jobs tab, leave it 2 min | Loads once (skeleton → list) then STABLE — header/list never blank and reload in a loop |
+| D2 | Switch to another tab and back | List updates without a full-screen blank |
+| D3 | Accept a job; complete with the customer OTP | Flow works; completion card renders (frosted on iOS, flat card on Android — intended) |
+| D4 | Open Jobs in airplane mode | Settles (cached/empty) within ~30s, no infinite skeleton |
+| D5 | Receive a new request while on Jobs tab | Appears without the screen blanking |
+
+### E. Profile screen
+
+| # | Steps | Expected |
+|---|-------|----------|
+| E1 | Open Profile on good network | Renders promptly |
+| E2 | Open Profile right after app start on slow network | Your name/email render from stored data quickly; details fill in — NO permanent full-screen shimmer |
+| E3 | Stay on a "loading" Profile without touching it | It fills in by itself within ~15–30s (auto-retry) |
+| E4 | Edit name/photo → save → restart app | Changes persist |
+| E5 | Background/foreground from Profile 5× | No loading-flash loop |
+
+### F. User home & booking end-to-end
+
+| # | Steps | Expected |
+|---|-------|----------|
+| F1 | Login → home | Services grid renders promptly, no endless spinner |
+| F2 | Full booking: pick service → date/time → search providers → send request | Request created, appears in History |
+| F3 | From History/Detail tap "Find new provider" | Home resumes the provider search for that request |
+| F4 | Cancel a request from History | Status updates everywhere (no ghost active request) |
+
+### G. Real-time & notifications (two devices)
+
+| # | Steps | Expected |
+|---|-------|----------|
+| G1 | User books → watch provider device | Banner + list update within seconds |
+| G2 | Provider accepts → watch user device | User sees accepted status/notification promptly |
+| G3 | Kill the provider app → user books → tap the push notification | App opens directly on the request detail |
+| G4 | Send 3 requests rapidly | One banner each; no duplicate banner/vibration storms |
+| G5 | EXTENDED (overnight): leave provider app running overnight → book next morning | Real-time event STILL arrives (socket re-auth works) — this was broken before |
+
+### H. Low-end polish (Redmi 12 — intended behavior)
+
+| # | Steps | Expected |
+|---|-------|----------|
+| H1 | Look at any loading skeleton | STATIC placeholder blocks (no moving light sweep) — intended on this device |
+| H2 | Tab bar + notification banner | Solid/tinted surfaces (no blur) — intended on Android |
+| H3 | Cycle all 5 tabs ×10 | Smooth, no white flashes, no system-bar blinking |
+| H4 | Home hero/status area for 1 min idle | Nothing repaints or shimmers while idle |
+
+### I. iOS smoke
+
+| # | Steps | Expected |
+|---|-------|----------|
+| I1 | Login → home → booking → jobs → profile → logout | All work |
+| I2 | Banner/dialogs/tab bar | Blur effects present (iOS keeps them) |
+| I3 | Location permission variants + background/foreground | Same correctness as B1–B6 |
+
+### J. Regression quickies
+
+| # | Steps | Expected |
+|---|-------|----------|
+| J1 | Switch language EN→HI→MR | Screens translate, no layout breaks |
+| J2 | Settings: toggle notification prefs; open delete-account flow (cancel it) | Works |
+| J3 | Emergency services + Events flows: open, submit one | Works |
+| J4 | Subscription + Referral screens | Load and render |
+
+**Release gate:** all of A–F and H pass on the Redmi 12, G1–G4 pass on the
+two-device pair, I passes on iPhone. G5 is extended (run it in parallel with
+the rollout day). Any FAIL on A/B/C/D/E blocks the store push.
