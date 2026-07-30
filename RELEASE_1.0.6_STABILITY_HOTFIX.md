@@ -1,4 +1,6 @@
-# Session Handoff — 2026-07-30 → Mac release session (1.0.6 / vc31)
+# Release 1.0.6 (vc31) — Stability Hotfix: crash, auto-logout, jitter & location fixes
+
+> Written 2026-07-30 on the Windows session; execute the release from the Mac.
 
 > Branch: `feature/profile-redesign`. Pull this on the Mac and build from HEAD.
 > Everything below was investigated, implemented, and adversarially re-verified
