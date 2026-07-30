@@ -22,6 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import { getTokens, storeTokens, clearTokens, isTokenExpired } from '../utils/storage';
+import { reportSilentLogout } from '../utils/storageTelemetry';
 
 // ==================== CONSTANTS ====================
 
@@ -630,6 +631,7 @@ export const logoutWithCleanup = async (revokeAll = false) => {
     }
     
     // Clear all auth-related storage
+    await reportSilentLogout({ reason: 'infra_logout' });
     await clearTokens();
     await AsyncStorage.multiRemove([
       SESSIONS_KEY,
@@ -644,6 +646,10 @@ export const logoutWithCleanup = async (revokeAll = false) => {
   } catch (error) {
     console.error('❌ [AuthInfra] Logout error:', error.message);
     // Still clear local tokens
+    await reportSilentLogout({
+      reason: 'infra_logout_error_path',
+      detail: String(error?.message || 'unknown').slice(0, 80),
+    });
     await clearTokens();
     return { success: true, warning: 'Local cleanup completed with errors' };
   }

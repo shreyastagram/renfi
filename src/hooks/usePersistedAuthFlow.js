@@ -19,6 +19,7 @@
  */
 import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { reportStringifyProbeFailure } from '../utils/storageTelemetry';
 
 export const AUTH_MODES = {
   LOGIN: 'login',
@@ -107,10 +108,16 @@ export default function usePersistedAuthFlow(userType, defaultMode = AUTH_MODES.
   useEffect(() => {
     if (!hydrated) return;
     if (authMode === AUTH_MODES.OTP_VERIFY && otpData) {
-      AsyncStorage.setItem(
-        keyFor(userType),
-        JSON.stringify({ authMode, otpData, savedAt: Date.now() }),
-      ).catch(() => {});
+      // Differential probe: this stringify was unguarded — a throw here was a
+      // fatal inside the effect. On failure: skip the persist, tag the event.
+      try {
+        AsyncStorage.setItem(
+          keyFor(userType),
+          JSON.stringify({ authMode, otpData, savedAt: Date.now() }),
+        ).catch(() => {});
+      } catch (jsonErr) {
+        reportStringifyProbeFailure('AUTH_FLOW_PERSIST', jsonErr);
+      }
     } else {
       AsyncStorage.removeItem(keyFor(userType)).catch(() => {});
     }

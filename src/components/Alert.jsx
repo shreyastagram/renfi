@@ -92,12 +92,25 @@ const Alert = ({
   const progressAnim = useRef(new Animated.Value(0)).current;
   const autoDismissTimer = useRef(null);
 
-  // Ensure message is a string
+  // Ensure message is a string. The stringify is guarded: an unserializable
+  // object here (e.g. a raw error with circular native refs) used to throw
+  // during render — now it renders a placeholder and tags a probe event.
   const displayMessage = typeof message === 'string'
     ? message
     : message?.message
       ? String(message.message)
-      : message ? JSON.stringify(message) : '';
+      : message
+        ? (() => {
+            try {
+              return JSON.stringify(message);
+            } catch (jsonErr) {
+              try {
+                require('../utils/storageTelemetry').reportStringifyProbeFailure('ALERT_MESSAGE', jsonErr);
+              } catch (e) { /* telemetry unavailable — still render */ }
+              return 'Something went wrong. Please try again.';
+            }
+          })()
+        : '';
 
   const handleDismiss = useCallback(() => {
     if (autoDismissTimer.current) {

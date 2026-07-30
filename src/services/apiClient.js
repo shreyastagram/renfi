@@ -26,12 +26,24 @@ const APP_VERSION = (() => {
 })();
 import { getTokens, storeTokens, clearTokens, isTokenExpired, probeStorageState } from '../utils/storage';
 import { syncTokensToBackgroundService } from './backgroundLocationService';
-import { reportForcedLogout, reportStorageState, logBreadcrumb } from '../utils/storageTelemetry';
+import {
+  reportForcedLogout,
+  reportStorageState,
+  logBreadcrumb,
+  reportSilentLogout,
+  markRefreshWindowOpen,
+  markRefreshWindowClosed,
+  checkPriorSessionMarkers,
+  setRefreshStateProvider,
+} from '../utils/storageTelemetry';
 
 // Track if we're currently refreshing tokens to avoid infinite loops
 let isRefreshing = false;
 let refreshSubscribers = [];
 let refreshPromise = null;
+
+// Let logout diagnostics ask "was a refresh in flight?" without importing us.
+setRefreshStateProvider(() => ({ inProgress: isRefreshing }));
 
 /**
  * Subscribe to token refresh
@@ -113,7 +125,7 @@ const proactiveTokenRefresh = async () => {
       const tokens = await getTokens();
       if (!tokens?.refreshToken) {
         console.log('❌ [API] No refresh token available');
-        reportForcedLogout({ trigger: 'refresh_no_token' });
+        await reportForcedLogout({ trigger: 'refresh_no_token' });
         await clearTokens();
         if (global.onAuthExpired) {
           global.onAuthExpired();
@@ -124,7 +136,12 @@ const proactiveTokenRefresh = async () => {
       }
       
       console.log('🔄 [API] Refreshing tokens proactively...');
-      
+
+      // The server may rotate the single-use refresh token the moment this
+      // request arrives — mark the window so a process death before the new
+      // pair is persisted is visible at next boot.
+      await markRefreshWindowOpen('proactive');
+
       // Retry once on transient failure (handles Java Auth cold starts on Render)
       let lastError;
       for (let attempt = 1; attempt <= 2; attempt++) {
@@ -132,15 +149,16 @@ const proactiveTokenRefresh = async () => {
           const response = await axios.post(
             `${API_CONFIG.JAVA_AUTH_URL}/api/auth/refresh`,
             { refreshToken: tokens.refreshToken },
-            { 
+            {
               headers: API_CONFIG.HEADERS,
               timeout: 35000, // 35s timeout for Render cold starts
             }
           );
-          
+
           const { accessToken, refreshToken: newRefreshToken, expiresIn } = response.data;
           await storeTokens(accessToken, newRefreshToken, expiresIn || 86400);
-          
+          markRefreshWindowClosed();
+
           console.log('✅ [API] Proactive token refresh successful');
           onTokenRefreshed(accessToken);
           syncTokensToBackgroundService(accessToken, newRefreshToken);
@@ -176,7 +194,7 @@ const proactiveTokenRefresh = async () => {
 
       // Definitive auth failure (HTTP 401 = invalid/expired/revoked refresh token)
       console.error('❌ [API] Proactive token refresh failed (auth rejected):', error.message);
-      reportForcedLogout({
+      await reportForcedLogout({
         trigger: 'refresh_definitive_auth_fail',
         error,
         token: tokens?.accessToken || null,
@@ -191,6 +209,9 @@ const proactiveTokenRefresh = async () => {
       onTokenRefreshed(null);
       return null;
     } finally {
+      // Every non-termination outcome resolves the window; only a process
+      // death mid-refresh leaves the marker for the next boot to find.
+      markRefreshWindowClosed();
       isRefreshing = false;
       refreshPromise = null;
     }
@@ -351,7 +372,7 @@ const handleResponseError = async (error, client) => {
       console.warn('🚫 [API] Account deleted — forcing logout');
       // Capture WHICH token/account/endpoint triggered this (Cohort B diagnostics).
       const acctToken = originalRequest?.headers?.Authorization?.replace?.('Bearer ', '') || null;
-      reportForcedLogout({
+      await reportForcedLogout({
         trigger: 'response_401_account_deleted',
         error,
         httpStatus: 401,
@@ -382,7 +403,10 @@ const handleResponseError = async (error, client) => {
           const tokens = await getTokens();
           if (tokens?.refreshToken) {
             console.log('🔄 [API] Attempting token refresh (401 handler)...');
-            
+
+            // Single-use token rotation window — see proactive path.
+            await markRefreshWindowOpen('response_401');
+
             // Retry once on transient failure (Java Auth cold starts)
             let lastRefreshError;
             for (let attempt = 1; attempt <= 2; attempt++) {
@@ -398,7 +422,8 @@ const handleResponseError = async (error, client) => {
                 
                 const { accessToken, refreshToken: newRefreshToken, expiresIn } = response.data;
                 await storeTokens(accessToken, newRefreshToken, expiresIn || 86400);
-                
+                markRefreshWindowClosed();
+
                 console.log('✅ [API] Token refresh successful');
                 isRefreshing = false;
                 refreshPromise = null;
@@ -427,6 +452,7 @@ const handleResponseError = async (error, client) => {
             if (refreshError?.response?.status !== 401) {
               // Non-definitive — DON'T clear tokens, DON'T force logout
               console.warn(`⚠️ [API] Token refresh failed (status=${refreshError?.response?.status ?? 'none'}, non-401), keeping tokens. Will retry on next request.`);
+              markRefreshWindowClosed();
               isRefreshing = false;
               refreshPromise = null;
               // Release queued waiters with the old token so they never hang.
@@ -456,13 +482,14 @@ const handleResponseError = async (error, client) => {
           }
         } catch (refreshError) {
           console.error('❌ [API] Token refresh failed:', refreshError.message);
+          markRefreshWindowClosed();
           isRefreshing = false;
           refreshPromise = null;
-          
+
           // Clear tokens ONLY on definitive HTTP 401 from /refresh, or when
           // there is genuinely no refresh token (contract: 401-only, §4).
           if (refreshError?.response?.status === 401 || refreshError?._noRefreshToken) {
-            reportForcedLogout({
+            await reportForcedLogout({
               trigger: 'response_401_refresh_failed',
               error: refreshError,
               token: originalRequest?.headers?.Authorization?.replace?.('Bearer ', '') || null,
@@ -667,6 +694,10 @@ export const validateAndRefreshTokens = async () => {
       fallbackHadTokens,
       recoveredFromFallback: !keychainHadTokens && fallbackHadTokens,
     });
+    // Did the previous session die inside a refresh/token-write window, or
+    // fail a nav-state serialization? Consumes the markers and emits ONE
+    // PriorSessionDiagnostic if so.
+    await checkPriorSessionMarkers();
   } catch (e) {
     // Never let telemetry affect startup.
   }
@@ -707,6 +738,8 @@ export const validateAndRefreshTokens = async () => {
         );
         if (verifyRes.data?.isActive === false) {
           console.warn('🚫 [API] Background check: account deactivated — forcing logout');
+          // Previously a fully silent logout path — now reason-coded.
+          await reportSilentLogout({ reason: 'bg_check_deactivated', httpStatus: 200 });
           await clearTokens();
           if (global.onAuthExpired) global.onAuthExpired();
         }
@@ -715,6 +748,14 @@ export const validateAndRefreshTokens = async () => {
         const code = verifyErr.response?.data?.code;
         if (status === 401 && (code === 'ACCOUNT_DELETED' || !verifyErr.response?.data?.message?.includes('expired'))) {
           console.warn('🚫 [API] Background check: account deleted — forcing logout');
+          // Previously silent. `detail` carries the server's code/message so we
+          // can see WHICH 401s hit this string-match (deleted vs invalid vs
+          // signature) — key to knowing if healthy users land here.
+          await reportSilentLogout({
+            reason: code === 'ACCOUNT_DELETED' ? 'bg_check_deleted' : 'bg_check_401_non_expired',
+            httpStatus: 401,
+            detail: String(code || verifyErr.response?.data?.message || 'no_body').slice(0, 80),
+          });
           await clearTokens();
           if (global.onAuthExpired) global.onAuthExpired();
         }
@@ -762,6 +803,9 @@ export const validateAndRefreshTokens = async () => {
   isRefreshing = true;
   refreshPromise = (async () => {
     try {
+      // Single-use token rotation window — see proactive path.
+      await markRefreshWindowOpen('startup');
+
       let lastError;
       for (let attempt = 1; attempt <= 2; attempt++) {
         try {
@@ -773,6 +817,7 @@ export const validateAndRefreshTokens = async () => {
 
           const { accessToken, refreshToken: newRefreshToken, expiresIn } = response.data;
           await storeTokens(accessToken, newRefreshToken, expiresIn || 86400);
+          markRefreshWindowClosed();
 
           console.log('✅ [API] Token refresh successful on startup');
           // Cohort A signal: a refresh that needed a retry to succeed = a session the
@@ -802,7 +847,7 @@ export const validateAndRefreshTokens = async () => {
       // reliable "this session is really dead" signal (see AUTH_STARTUP_LOGOUT_FIX.md).
       if (status === 401) {
         console.error('❌ [API] Startup refresh rejected (401, definitive auth failure). Logging out.');
-        reportForcedLogout({
+        await reportForcedLogout({
           trigger: 'startup_refresh_definitive_auth_fail',
           error,
           httpStatus: 401,
@@ -827,6 +872,8 @@ export const validateAndRefreshTokens = async () => {
       onTokenRefreshed(tokens.accessToken);
       return tokens.accessToken;
     } finally {
+      // Resolved (any outcome) — only a mid-refresh process death leaves the marker.
+      markRefreshWindowClosed();
       isRefreshing = false;
       refreshPromise = null;
     }

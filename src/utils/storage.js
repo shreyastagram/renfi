@@ -18,6 +18,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   reportKeychainFailure,
   reportFallbackRescued,
+  markTokenWriteStart,
+  markTokenWriteEnd,
 } from './storageTelemetry';
 
 // Storage keys
@@ -56,6 +58,10 @@ export const storeTokens = async (accessToken, refreshToken, expiresIn = 86400) 
   const expiryTime = Date.now() + expiresIn * 1000;
   const payload = JSON.stringify({ accessToken, refreshToken, expiryTime });
 
+  // Durable "write in progress" marker — if the process dies between here and
+  // markTokenWriteEnd, the next boot reports the interrupted persistence.
+  await markTokenWriteStart();
+
   let keychainOk = false;
   try {
     await Keychain.setGenericPassword('auth_tokens', payload, KEYCHAIN_OPTIONS);
@@ -66,11 +72,15 @@ export const storeTokens = async (accessToken, refreshToken, expiresIn = 86400) 
   }
 
   // Mirror to AsyncStorage so we can survive a transient keystore failure.
+  let fallbackOk = false;
   try {
     await AsyncStorage.setItem(STORAGE_KEYS.TOKENS_FALLBACK, payload);
+    fallbackOk = true;
   } catch (error) {
     console.warn('⚠️ [Storage] Fallback write failed:', error?.message);
   }
+
+  markTokenWriteEnd({ keychainOk, fallbackOk });
 
   if (keychainOk) {
     console.log('✅ [Storage] Tokens stored, expires at:', new Date(expiryTime).toISOString());

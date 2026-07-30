@@ -33,6 +33,7 @@ import {
 } from './src/services/fcmService';
 import { configureGoogleSignIn } from './src/services/googleAuthService';
 import { Analytics, EV } from './src/services/analytics';
+import { reportNavPersistFailure, setNavContextProvider } from './src/utils/storageTelemetry';
 
 // Suppress Mapbox view-tag unhandled promise rejections (Fabric race condition)
 const originalHandler = (global as any).ErrorUtils?.getGlobalHandler?.();
@@ -57,6 +58,12 @@ try {
 
 // Navigation reference for deep linking and notification handling
 export const navigationRef = React.createRef<NavigationContainerRef<ParamListBase>>();
+
+// Let telemetry stamp the current route onto logout diagnostics without
+// importing this module (avoids a require cycle).
+setNavContextProvider(() => ({
+  route: navigationRef.current?.getCurrentRoute?.()?.name || 'unknown',
+}));
 
 /**
  * Navigate to a screen (can be called from anywhere)
@@ -352,7 +359,16 @@ function AppContent() {
   const persistNavState = useCallback((state: any) => {
     if (navPersistTimerRef.current) clearTimeout(navPersistTimerRef.current);
     navPersistTimerRef.current = setTimeout(() => {
-      AsyncStorage.setItem(NAV_STATE_KEY, JSON.stringify({ state, savedAt: Date.now() })).catch(() => {});
+      // The stringify itself is the crash suspect (route params are held by
+      // reference and may have become cyclic since navigation). On failure:
+      // skip this flush (same net effect as the old crash — nothing was
+      // persisted) and emit the localizing non-fatal instead of dying.
+      try {
+        const payload = JSON.stringify({ state, savedAt: Date.now() });
+        AsyncStorage.setItem(NAV_STATE_KEY, payload).catch(() => {});
+      } catch (e) {
+        reportNavPersistFailure({ error: e, state, trigger: 'debounce' });
+      }
     }, 800);
   }, []);
 
@@ -421,8 +437,9 @@ function AppContent() {
           clearTimeout(navPersistTimerRef.current);
           navPersistTimerRef.current = null;
         }
+        let navState: any = null;
         try {
-          const navState = navigationRef.current?.getRootState();
+          navState = navigationRef.current?.getRootState();
           if (navState) {
             AsyncStorage.setItem(
               NAV_STATE_KEY,
@@ -430,7 +447,9 @@ function AppContent() {
             ).catch(() => {});
           }
         } catch (e) {
-          // best-effort — ignore
+          // best-effort — but this catch was silently hiding serialization
+          // failures on the background path; report them like the debounce path.
+          reportNavPersistFailure({ error: e, state: navState, trigger: 'background_flush' });
         }
       }
     });
