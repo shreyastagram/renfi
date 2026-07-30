@@ -225,11 +225,21 @@ export const LocationProvider = ({ children }) => {
         return 'unknown';
       }
 
-      // Android: check fine location permission
-      const granted = await PermissionsAndroid.check(
+      // Android: FINE first, then COARSE. On Android 12+/MIUI the dialog
+      // offers "Precise / Approximate" — Approximate grants COARSE only.
+      // Treating that as 'denied' produced "Enable location" while GPS was
+      // ON (Issue 4 residual): a coarse fix is still a usable fix.
+      const fine = await PermissionsAndroid.check(
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
       );
-      if (granted) {
+      if (fine) {
+        setLocationPermission('granted');
+        return 'granted';
+      }
+      const coarse = await PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION
+      );
+      if (coarse) {
         setLocationPermission('granted');
         return 'granted';
       }
@@ -292,21 +302,21 @@ export const LocationProvider = ({ children }) => {
     }
     
     try {
-      const granted = await PermissionsAndroid.request(
+      // Request BOTH accuracies: the "Approximate" choice on Android 12+/MIUI
+      // grants COARSE only, and that must count as granted (see
+      // checkPermissionStatus). FINE-only requests came back 'denied' for
+      // every approximate-location user — permanent "Enable location".
+      const results = await PermissionsAndroid.requestMultiple([
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        {
-          title: 'Location Permission',
-          message: 'FixHomi needs location access to find nearby service providers.',
-          buttonNeutral: 'Ask Later',
-          buttonNegative: 'Deny',
-          buttonPositive: 'Allow',
-        }
-      );
-      
-      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+      ]);
+      const fine = results[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
+      const coarse = results[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION];
+
+      if (fine === PermissionsAndroid.RESULTS.GRANTED || coarse === PermissionsAndroid.RESULTS.GRANTED) {
         setLocationPermission('granted');
         return true;
-      } else if (granted === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
+      } else if (fine === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN && coarse === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
         setLocationPermission('blocked');
         return false;
       } else {
@@ -326,10 +336,25 @@ export const LocationProvider = ({ children }) => {
    */
   const checkLocationServices = useCallback(async () => {
     try {
+      // First ask the OS for the actual location master switch — the
+      // permission API below can't see it (the historical gap that made this
+      // check "treat errors/BLOCKED as enabled" and never detect real GPS-off,
+      // nor recovery once the user re-enabled it).
+      try {
+        const enabled = await DeviceInfo.isLocationEnabled();
+        if (enabled === false) {
+          setLocationServicesEnabled(false);
+          return false;
+        }
+        setLocationServicesEnabled(true);
+      } catch (e) {
+        // Switch state unknown — fall through to the permission heuristics.
+      }
+
       const permission = Platform.OS === 'ios'
         ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
         : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
-      
+
       const result = await check(permission);
       
       if (result === RESULTS.UNAVAILABLE) {
@@ -516,9 +541,29 @@ export const LocationProvider = ({ children }) => {
               if (!resolved) {
                 resolved = true;
                 console.error('[LocationContext] Watch error:', watchError);
-                // Check if this is GPS-off error
                 if (watchError.code === 2) {
-                  showGpsOffAlert();
+                  // Code 2 (POSITION_UNAVAILABLE) does NOT mean the GPS master
+                  // switch is off — MIUI battery savers, indoor no-fix, and
+                  // fused-provider hiccups all surface as code 2. Ask the OS
+                  // for the real switch state and only claim "location off"
+                  // when it actually is (the "Enable location while GPS is ON"
+                  // report — ISSUE_INVESTIGATION_REPORT.md Issue 4 residual).
+                  DeviceInfo.isLocationEnabled()
+                    .then((enabled) => {
+                      if (enabled === false) {
+                        showGpsOffAlert();
+                      } else {
+                        setLocationLoading(false);
+                        setLocationServicesEnabled(true);
+                        if (!currentLocationRef.current) setLocationError('Waiting for GPS signal…');
+                      }
+                    })
+                    .catch(() => {
+                      // Can't determine the switch state — treat as transient,
+                      // never claim GPS is off on a guess.
+                      setLocationLoading(false);
+                      if (!currentLocationRef.current) setLocationError(watchError.message || 'Failed to get location');
+                    });
                 } else {
                   setLocationLoading(false);
                   // Don't surface an error (or wipe the screen) if we already
@@ -613,16 +658,21 @@ export const LocationProvider = ({ children }) => {
         // successfully returns a position (in fetchLocation success callbacks).
         // This prevents false "enable location" alerts on every foreground.
         console.log('📱 [LocationContext] App foregrounded - refreshing location');
+        // Re-check permission + the OS location switch first: 'denied' and
+        // 'disabled' used to be sticky for the whole session, so returning
+        // from Settings after enabling location never recovered the UI.
+        checkPermissionStatus();
+        checkLocationServices();
         // Silent: we already have a location; don't flash the loading state.
         fetchLocation(true, { silent: true });
       }
       appStateRef.current = nextAppState;
     });
-    
+
     return () => {
       subscription?.remove();
     };
-  }, [fetchLocation]);
+  }, [fetchLocation, checkPermissionStatus, checkLocationServices]);
   
   /**
    * Request notification permission (Android 13+ requires POST_NOTIFICATIONS)

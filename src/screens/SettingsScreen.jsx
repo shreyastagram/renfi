@@ -32,7 +32,7 @@ import {  View,
   Keyboard
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView } from '../components/SafeBlurView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { check, request, checkNotifications, requestNotifications, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';

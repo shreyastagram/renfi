@@ -38,7 +38,7 @@ import {  View,
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView } from '../components/SafeBlurView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -547,6 +547,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
 
   const appStateRef = useRef(AppState.currentState);
   const fetchInProgressRef = useRef(false);
+  const hasLoadedOnceRef = useRef(false); // gate the full-screen shimmer to the first load only
   const refreshDebounceRef = useRef(null);
 
   const initialTab = route?.params?.tab || 'all';
@@ -604,6 +605,9 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
   const fetchJobs = useCallback(async (showLoading = true) => {
     if (!providerId) { setLoading(false); return; }
     if (fetchInProgressRef.current) return;
+    // Full-screen shimmer only before the FIRST successful load; later
+    // re-fetches refresh in place instead of blanking the whole screen.
+    if (hasLoadedOnceRef.current) showLoading = false;
     fetchInProgressRef.current = true;
     if (showLoading) setLoading(true);
     try {
@@ -677,6 +681,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
         prev.active === newStats.active && prev.completed === newStats.completed &&
         prev.rating === newStats.rating ? prev : newStats
       );
+      hasLoadedOnceRef.current = true;
     } catch (error) {
       console.error('[ProviderJobs] Error:', error);
     } finally {
@@ -684,7 +689,11 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
       setRefreshing(false);
       fetchInProgressRef.current = false;
     }
-  }, [providerId, profile, user]);
+    // Deps are the PRIMITIVES this callback reads — never the raw profile/user
+    // objects. AppContext rebuilds those on refresh; depending on their
+    // identity re-armed the mount effect below with the full-screen shimmer,
+    // producing the "My Jobs renders → reloads → renders" loop on slow devices.
+  }, [providerId, profile?.ratings?.average, profile?.rating, user?.rating]);
 
   const debouncedRefresh = useCallback(() => {
     if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current);

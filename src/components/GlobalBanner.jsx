@@ -19,7 +19,7 @@ import {  View,
   Dimensions
 } from 'react-native';
 import TouchableOpacity from './TouchableOpacity';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView } from './SafeBlurView';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';

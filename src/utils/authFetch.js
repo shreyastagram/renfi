@@ -36,10 +36,21 @@ export const authFetch = async (url, options = {}) => {
     headers['Authorization'] = `Bearer ${tokens.accessToken}`;
   }
 
-  return fetch(url, {
-    ...options,
-    headers,
-  });
+  // Timeout: this used to be a bare fetch with NO timeout — a stalled
+  // connection (radio doze, dead Wi-Fi) hung forever, and screens await
+  // these in Promise.all, so ONE hung call pinned their loading state for
+  // the whole session ("home screen continuously loading"). Callers that
+  // pass their own AbortSignal keep full control (no timeout added).
+  if (options.signal) {
+    return fetch(url, { ...options, headers });
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs || 30000);
+  try {
+    return await fetch(url, { ...options, headers, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
 };
 
 export default authFetch;

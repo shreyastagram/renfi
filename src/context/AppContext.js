@@ -31,6 +31,7 @@ import { performFullSync, processSyncQueue, isSyncDue, updateProfileWithSync, SY
 import { checkAuthHealth, addAuthStateListener, getDeviceInfo, AUTH_HEALTH } from '../services/authInfraService';
 import { initializeSocket, disconnectSocket } from '../services/socketService';
 import { Analytics, EV, onceEver } from '../services/analytics';
+import { reportSilentLogout, reportStringifyProbeFailure } from '../utils/storageTelemetry';
 
 /**
  * App Context
@@ -157,6 +158,11 @@ export const AppProvider = ({ children }) => {
     logoutInProgressRef.current = true;
     isAuthenticatedRef.current = false; // sync mirror immediately — repeat signals bail out
     console.log('⚠️ [AppContext] Auth expired, logging out...');
+    // The state-clear moment. apiClient paths emit their own reason-coded
+    // event before signalling us; this one catches signals from any OTHER
+    // origin and stamps the correlation context at the instant auth state
+    // actually flips. Gathered before clearAllData so storage truth is pre-clear.
+    await reportSilentLogout({ reason: 'auth_expired_signal' });
     try {
       await clearAllData();
     } catch (e) {
@@ -378,8 +384,16 @@ export const AppProvider = ({ children }) => {
         // payload is unchanged AND no availability toggle needs preserving.
         // JSON equality is used deliberately (identical bytes = identical value)
         // rather than a field compare that could suppress a real nested update.
-        const rawPayload = JSON.stringify(result.data);
-        const payloadUnchanged = rawPayload === lastProfileRawRef.current;
+        let rawPayload = null;
+        try {
+          rawPayload = JSON.stringify(result.data);
+        } catch (jsonErr) {
+          // Differential probe: if THIS stringify is the production crasher,
+          // the tag says so. Treated as "payload changed" — same flow as
+          // before, minus the crash.
+          reportStringifyProbeFailure('PROFILE_RAW_COMPARE', jsonErr);
+        }
+        const payloadUnchanged = rawPayload !== null && rawPayload === lastProfileRawRef.current;
         lastProfileRawRef.current = rawPayload;
 
         if (!(payloadUnchanged && !availabilityUpdateInFlight.current)) {
@@ -440,41 +454,51 @@ export const AppProvider = ({ children }) => {
    * Also updates other profile fields from the API response
    */
   const refreshVerificationStatus = useCallback(async () => {
+    // This runs on EVERY app foreground (ProfileScreen's AppState listener).
+    // Unconditionally flipping isProfileLoading here put the provider
+    // availability pad into an online→loading→online loop (every permission
+    // dialog / notification counts as a foreground transition). Only show
+    // the global loading state when there is no profile at all yet.
+    const flipLoading = !profileStateRef.current;
     try {
       console.log('🔄 [AppContext] Refreshing verification status...');
-      setIsProfileLoading(true);
-      
+      if (flipLoading) setIsProfileLoading(true);
+
       const result = await getCurrentUser();
-      
+
       if (result.success) {
         const data = result.data;
-        
-        // Update user state with all returned fields
-        // Note: API returns 'phoneNumber' but we use 'phone' in our state
-        setUser(prev => ({
-          ...prev,
-          email: data.email || prev?.email,
-          fullName: data.fullName || prev?.fullName,
-          phone: data.phoneNumber || prev?.phone, // Map phoneNumber to phone
-          isEmailVerified: data.isEmailVerified ?? false,
-          isPhoneVerified: data.isPhoneVerified ?? false,
-          isActive: data.isActive ?? true,
-          role: data.role || prev?.role,
-          hasPassword: data.hasPassword ?? prev?.hasPassword,
-        }));
-        
-        // Also update profile state
-        setProfile(prev => ({
-          ...prev,
-          email: data.email || prev?.email,
-          fullName: data.fullName || prev?.fullName,
-          phone: data.phoneNumber || prev?.phone, // Map phoneNumber to phone
-          hasPassword: data.hasPassword ?? prev?.hasPassword,
-          isEmailVerified: data.isEmailVerified ?? false,
-          isPhoneVerified: data.isPhoneVerified ?? false,
-          isActive: data.isActive ?? true,
-          role: data.role || prev?.role,
-        }));
+
+        // Merge helper that KEEPS OBJECT IDENTITY when nothing changed —
+        // otherwise every foreground rebuilt user+profile, and every
+        // consumer/effect keyed on those objects re-ran (jobs-screen reload
+        // loop, dashboard churn on low-end devices).
+        const mergeVerificationFields = (prev) => {
+          const next = {
+            ...prev,
+            email: data.email || prev?.email,
+            fullName: data.fullName || prev?.fullName,
+            phone: data.phoneNumber || prev?.phone, // Map phoneNumber to phone
+            isEmailVerified: data.isEmailVerified ?? false,
+            isPhoneVerified: data.isPhoneVerified ?? false,
+            isActive: data.isActive ?? true,
+            role: data.role || prev?.role,
+            hasPassword: data.hasPassword ?? prev?.hasPassword,
+          };
+          const unchanged = prev &&
+            next.email === prev.email &&
+            next.fullName === prev.fullName &&
+            next.phone === prev.phone &&
+            next.isEmailVerified === prev.isEmailVerified &&
+            next.isPhoneVerified === prev.isPhoneVerified &&
+            next.isActive === prev.isActive &&
+            next.role === prev.role &&
+            next.hasPassword === prev.hasPassword;
+          return unchanged ? prev : next;
+        };
+
+        setUser(mergeVerificationFields);
+        setProfile(mergeVerificationFields);
 
         // === SYNC PHONE TO MONGODB ===
         // After OTP verification, Java Auth has the latest phone data
@@ -509,7 +533,7 @@ export const AppProvider = ({ children }) => {
       console.error('❌ [AppContext] Verification status refresh error:', error);
       return null;
     } finally {
-      setIsProfileLoading(false);
+      if (flipLoading) setIsProfileLoading(false);
     }
   }, []);
 
@@ -642,6 +666,12 @@ export const AppProvider = ({ children }) => {
       // Check if we have stored user data
       if (!storedUserData) {
         console.log('ℹ️ [AppContext] No stored session found');
+        // Anomaly detector: userData gone but tokens still present means a
+        // half-written or half-cleared session (e.g. app died between
+        // storeTokens and storeUserData) — the user experiences a silent
+        // logout. onlyIfTokensPresent keeps fresh installs / genuinely
+        // logged-out boots quiet.
+        await reportSilentLogout({ reason: 'boot_no_user_data', onlyIfTokensPresent: true });
         setIsAuthLoading(false);
         return;
       }
@@ -649,15 +679,31 @@ export const AppProvider = ({ children }) => {
       // Validate and refresh tokens BEFORE setting auth state
       console.log('🔐 [AppContext] Validating stored tokens...');
       let tokenResult;
+      let validateThrew = false;
       try {
         tokenResult = await validateAndRefreshTokens();
       } catch (validateErr) {
         console.error('❌ [AppContext] validateAndRefreshTokens threw:', validateErr?.message);
+        validateThrew = true;
+        // Previously an invisible logout: any unexpected throw here cleared
+        // the whole session with no telemetry.
+        await reportSilentLogout({
+          reason: 'startup_validate_threw',
+          detail: String(validateErr?.message || validateErr?.name || 'unknown').slice(0, 80),
+        });
         tokenResult = { valid: false, accessToken: null };
       }
 
       if (!tokenResult?.valid) {
         console.log('❌ [AppContext] Tokens invalid or expired, clearing session...');
+        // userData existed, so this user WAS logged in — this transition is
+        // always a real logout. Skip the extra event when the throw path
+        // above already reported it. (The definitive-401 case additionally
+        // has its own ForcedLogoutNonFatal from validateAndRefreshTokens;
+        // reason codes keep them distinguishable.)
+        if (!validateThrew) {
+          await reportSilentLogout({ reason: 'startup_tokens_invalid' });
+        }
         await clearAllData();
         setUser(null);
         setUserTypeState(null);
@@ -945,6 +991,10 @@ export const AppProvider = ({ children }) => {
     logoutInProgressRef.current = true;
     try {
       console.log('🚪 [AppContext] Logging out...');
+
+      // Reason-coded logout event (captures pre-clear storage truth + any
+      // nav-persist-failure correlation for this session).
+      await reportSilentLogout({ reason: 'user_initiated' });
 
       // Analytics: detach user association from future events
       Analytics.clearUser();

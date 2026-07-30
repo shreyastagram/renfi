@@ -42,10 +42,18 @@ const SHIMMER = {
  * Single shared animation driver for all shimmer blocks on a screen.
  * Avoids dozens of independent Animated.loops.
  */
-const useShimmerAnimation = () => {
+const useShimmerAnimation = (active = true) => {
   const animValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    // `active` gate: callers (ProviderHomeScreen) pass a loading flag so the
+    // sweep stops when nothing is loading. The parameter was previously
+    // ignored, so the loop ran for the entire session on every screen — a
+    // constant GPU cost on weak devices (Redmi 12 class).
+    if (!active) {
+      animValue.setValue(0);
+      return undefined;
+    }
     const loop = Animated.loop(
       Animated.timing(animValue, {
         toValue: 1,
@@ -55,7 +63,7 @@ const useShimmerAnimation = () => {
     );
     loop.start();
     return () => loop.stop();
-  }, [animValue]);
+  }, [animValue, active]);
 
   return animValue;
 };

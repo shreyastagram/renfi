@@ -17,7 +17,7 @@ import { View, Text, StyleSheet, ActivityIndicator, Platform, Pressable, Image, 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView, DEVICE_SUPPORTS_BLUR } from '../src/components/SafeBlurView';
 import { House, History, Wrench, Settings, CircleUserRound } from 'lucide-react-native';
 import { setBarRect, subscribeTone } from '../src/components/tabBarTone';
 import { useApp } from '../src/context/AppContext';
@@ -206,9 +206,11 @@ const TabIcon = React.memo(({ focused, icon, label, accent = VERIFIED_BLUE, prof
 // Liquid-glass material (final approved mockup): CLEAR glass — low blur,
 // near-invisible brand tint; legibility comes from the adaptive halo on
 // labels + the dark-variant flip, not from frosting.
-// Android < 12 (API 31): BlurView is skipped (OEM perf varies on old
-// devices) and the tint alone carries the surface — same edges, no blur.
-const SUPPORTS_BLUR = Platform.OS === 'ios' || Number(Platform.Version) >= 31;
+// Blur gate now lives in SafeBlurView (iOS-only this release): the old
+// API>=31 gate still admitted weak GPUs (Mali-G52 class — Redmi 12) where
+// Android BlurView's texture-copy loop visibly flickers. The tint alone
+// carries the surface on Android — same edges, no blur.
+const SUPPORTS_BLUR = DEVICE_SUPPORTS_BLUR;
 
 const GLASS = {
   user: {

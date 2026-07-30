@@ -45,17 +45,16 @@ const requestLocationPermission = async () => {
   }
 
   try {
-    const granted = await PermissionsAndroid.request(
+    // Request both accuracies — "Approximate" (COARSE-only) must count as
+    // granted, same as LocationContext.
+    const results = await PermissionsAndroid.requestMultiple([
       PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      {
-        title: 'Location Permission',
-        message: 'FixHomi needs access to your location to show nearby services.',
-        buttonNeutral: 'Ask Me Later',
-        buttonNegative: 'Cancel',
-        buttonPositive: 'OK',
-      }
+      PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+    ]);
+    return (
+      results[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED ||
+      results[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED
     );
-    return granted === PermissionsAndroid.RESULTS.GRANTED;
   } catch (err) {
     console.warn('Location permission error:', err);
     return false;

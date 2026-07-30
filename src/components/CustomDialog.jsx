@@ -16,7 +16,7 @@ import {  View,
   Platform
 } from 'react-native';
 import TouchableOpacity from './TouchableOpacity';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView } from './SafeBlurView';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_IOS = Platform.OS === 'ios';
