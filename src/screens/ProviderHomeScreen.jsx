@@ -767,12 +767,19 @@ const ProviderHomeScreen = ({ navigation }) => {
     setRefreshing(true);
     lastRefreshRef.current = Date.now();
     const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
-    await Promise.all([
-      fetchStats(),
-      fetchVerificationData({ force: true }),
-      providerId ? refreshProfile(userType, providerId, { force: true }) : Promise.resolve(),
-    ]);
-    setRefreshing(false);
+    try {
+      await Promise.all([
+        fetchStats(),
+        fetchVerificationData({ force: true }),
+        providerId ? refreshProfile(userType, providerId, { force: true }) : Promise.resolve(),
+      ]);
+    } catch (e) {
+      // A rejected refresh (timeout/abort) must never strand the pull-to-
+      // refresh spinner — setRefreshing(false) was previously skipped on throw.
+      console.warn('[ProviderHome] Refresh failed:', e?.message);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   /**

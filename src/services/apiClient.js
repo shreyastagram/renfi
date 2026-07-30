@@ -124,6 +124,20 @@ const proactiveTokenRefresh = async () => {
     try {
       const tokens = await getTokens();
       if (!tokens?.refreshToken) {
+        // Distinguish "no session" from "storage read failed": getTokens()
+        // returns null BOTH when no tokens exist and when Keychain+fallback
+        // reads threw. Clearing on a transient read error destroyed healthy
+        // sessions (the MIUI/OnePlus keystore family). If either store still
+        // HOLDS tokens, treat as transient — keep the session, retry later.
+        try {
+          const probe = await probeStorageState();
+          if (probe.keychainHadTokens || probe.fallbackHadTokens) {
+            console.warn('⚠️ [API] Token read inconsistent with storage probe — keeping session');
+            logBreadcrumb('REFRESH_TOKEN_READ_INCONSISTENT', {});
+            onTokenRefreshed(null);
+            return null;
+          }
+        } catch (e) { /* probe failed — fall through to the normal path */ }
         console.log('❌ [API] No refresh token available');
         await reportForcedLogout({ trigger: 'refresh_no_token' });
         await clearTokens();
@@ -806,12 +820,22 @@ export const validateAndRefreshTokens = async () => {
       // Single-use token rotation window — see proactive path.
       await markRefreshWindowOpen('startup');
 
+      // RE-READ the token pair now that we own the mutex. The `tokens`
+      // snapshot above was taken BEFORE acquisition (several awaits ago) — if
+      // another owner rotated the single-use token in that window, POSTing
+      // the stale snapshot burns the session (the exact race the mutex closes).
+      let freshTokens = tokens;
+      try {
+        const reread = await getTokens();
+        if (reread?.refreshToken) freshTokens = reread;
+      } catch (e) { /* keep the snapshot */ }
+
       let lastError;
       for (let attempt = 1; attempt <= 2; attempt++) {
         try {
           const response = await axios.post(
             `${API_CONFIG.JAVA_AUTH_URL}/api/auth/refresh`,
-            { refreshToken: tokens.refreshToken },
+            { refreshToken: freshTokens.refreshToken },
             { headers: API_CONFIG.HEADERS, timeout: 35000 } // 35s for Render cold starts
           );
 

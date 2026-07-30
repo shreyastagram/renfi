@@ -37,7 +37,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';
-import { BlurView } from '../components/SafeBlurView';
 // 3D rendered icons (Fixhomi Figma icon system) for the quick-access row
 const Emergency3D = require('../assets/serviceIcons/3d/emergency.png');
 const Events3D = require('../assets/serviceIcons/3d/events.png');
@@ -660,7 +659,15 @@ const UserHomeScreen = ({ navigation, route }) => {
         ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
         : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
 
-      const result = await request(permission);
+      let result = await request(permission);
+
+      // Android: if the user picked "Approximate" in the dialog, the FINE
+      // request reads as denied but COARSE was granted — accept it (same
+      // policy as LocationContext; a coarse fix beats a permission nag).
+      if (Platform.OS === 'android' && result !== RESULTS.GRANTED) {
+        const coarse = await check(PERMISSIONS.ANDROID.ACCESS_COARSE_LOCATION);
+        if (coarse === RESULTS.GRANTED) result = RESULTS.GRANTED;
+      }
 
       if (result === RESULTS.GRANTED) {
         setLocationPermission('granted');

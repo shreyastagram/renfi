@@ -223,9 +223,13 @@ export const startBackgroundTracking = async (providerId, requestId) => {
           // TransistorSoft refreshed the token (background/killed state)
           // Sync new tokens back to Keychain so foreground apiClient uses them too
           const { accessToken: newAccess, refreshToken: newRefresh, expiresIn } = event.response;
-          if (newAccess) {
+          // Require BOTH halves — persisting {accessToken, refreshToken: undefined}
+          // reads back as "no session" and forces a logout next launch.
+          if (newAccess && newRefresh) {
             await storeTokens(newAccess, newRefresh, expiresIn || 86400);
             console.log('[BGLocation] Token auto-refreshed by TransistorSoft — synced to Keychain');
+          } else if (newAccess) {
+            console.warn('[BGLocation] Refresh payload missing refreshToken — keeping existing pair');
           }
         } else {
           console.warn('[BGLocation] Token refresh failed:', event.error);

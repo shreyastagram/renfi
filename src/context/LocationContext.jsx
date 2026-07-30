@@ -146,6 +146,12 @@ export const LocationProvider = ({ children }) => {
   // the state value (keeps fetchLocation/refreshLocation identities stable and
   // stops the context value from churning on every fix → fixes top-section flicker).
   const currentLocationRef = useRef(null);
+  // FINE vs COARSE grant: under "Approximate location" only COARSE is granted,
+  // and a high-accuracy (GPS-provider) request then fails with code 2 instead
+  // of falling back to the network provider. All acquisition paths must use
+  // enableHighAccuracy: fineGrantedRef.current so a coarse grant yields a
+  // coarse FIX, not a permanent "Waiting for GPS signal".
+  const fineGrantedRef = useRef(true);
 
   // Minimum movement (meters) before we publish a new coordinate. A stationary
   // provider stops emitting new object references every 30s, which is the main
@@ -233,6 +239,7 @@ export const LocationProvider = ({ children }) => {
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
       );
       if (fine) {
+        fineGrantedRef.current = true;
         setLocationPermission('granted');
         return 'granted';
       }
@@ -240,6 +247,7 @@ export const LocationProvider = ({ children }) => {
         PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION
       );
       if (coarse) {
+        fineGrantedRef.current = false; // approximate-only — use network provider
         setLocationPermission('granted');
         return 'granted';
       }
@@ -314,9 +322,14 @@ export const LocationProvider = ({ children }) => {
       const coarse = results[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION];
 
       if (fine === PermissionsAndroid.RESULTS.GRANTED || coarse === PermissionsAndroid.RESULTS.GRANTED) {
+        fineGrantedRef.current = fine === PermissionsAndroid.RESULTS.GRANTED;
         setLocationPermission('granted');
         return true;
-      } else if (fine === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN && coarse === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
+      } else if (fine === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN || coarse === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
+        // Android 12+ decouples the two denial states — EITHER being
+        // never_ask_again means the dialog will not show again, so the only
+        // remedy is Settings ('blocked' routes there). Requiring BOTH lost
+        // the Settings deep-link and left users in a silent no-op loop.
         setLocationPermission('blocked');
         return false;
       } else {
@@ -494,7 +507,7 @@ export const LocationProvider = ({ children }) => {
                 }
               },
               () => {}, // Ignore errors in background refinement
-              { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+              { enableHighAccuracy: fineGrantedRef.current, timeout: 10000, maximumAge: 0 }
             );
           }
         },
@@ -574,7 +587,10 @@ export const LocationProvider = ({ children }) => {
                 resolve(currentLocationRef.current || null);
               }
             },
-            { enableHighAccuracy: true, timeout: LOCATION_TIMEOUT, maximumAge: 0, distanceFilter: 0 }
+            // High accuracy ONLY under a FINE grant: with COARSE-only the GPS
+            // provider is unavailable and a high-accuracy watch errors with
+            // code 2 instead of using the network provider.
+            { enableHighAccuracy: fineGrantedRef.current, timeout: LOCATION_TIMEOUT, maximumAge: 0, distanceFilter: 0 }
           );
           
           // Safety timeout for watch

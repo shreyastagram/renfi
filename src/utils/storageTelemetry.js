@@ -638,22 +638,30 @@ async function gatherLogoutContext() {
   }
 
   try {
-    // Lazy require avoids a static cycle (storage.js imports this module).
-    const storage = require('./storage');
-    const [probe, tokens, userDataRaw] = await Promise.all([
-      withTimeout(storage.probeStorageState(), 1500),
-      withTimeout(storage.getTokens(), 1500),
+    // STRICTLY READ-ONLY probes. Deliberately NOT storage.getTokens(): that
+    // function re-mirrors the pair to the fallback store and re-primes
+    // Keychain on read — under our timeout, an abandoned slow read could
+    // land those writes AFTER the caller's clearTokens(), resurrecting a
+    // cleared session. Token facts come from the fallback payload directly.
+    const storage = require('./storage'); // lazy: storage.js imports this module
+    const [probe, fallbackRaw, userDataRaw] = await Promise.all([
+      withTimeout(storage.probeStorageState(), 1500), // read-only by contract
+      withTimeout(AsyncStorage.getItem('@auth_tokens_fallback'), 1000), // STORAGE_KEYS.TOKENS_FALLBACK
       withTimeout(AsyncStorage.getItem('userData'), 1000), // STORAGE_KEYS.USER_DATA
     ]);
     if (probe) {
       ctx.logout_keychain_had_tokens = String(!!probe.keychainHadTokens);
       ctx.logout_fallback_had_tokens = String(!!probe.fallbackHadTokens);
     }
-    if (tokens !== undefined) {
-      ctx.logout_refresh_token_present = String(!!tokens?.refreshToken);
-      ctx.logout_access_token_expired = tokens?.expiryTime
+    const tokens = safeParse(fallbackRaw);
+    if (tokens) {
+      ctx.logout_refresh_token_present = String(!!tokens.refreshToken);
+      ctx.logout_access_token_expired = tokens.expiryTime
         ? String(Date.now() >= tokens.expiryTime)
-        : (tokens ? 'no_expiry' : 'no_tokens');
+        : 'no_expiry';
+    } else if (fallbackRaw !== undefined) {
+      ctx.logout_refresh_token_present = 'false';
+      ctx.logout_access_token_expired = 'no_tokens';
     }
     ctx.logout_user_data_present = String(!!userDataRaw);
   } catch (e) { /* leave unknowns */ }
@@ -674,8 +682,23 @@ async function gatherLogoutContext() {
  *        store holds tokens (used at boot so genuinely logged-out users and
  *        fresh installs don't generate noise).
  */
-export async function reportSilentLogout({ reason, detail = null, httpStatus = null, onlyIfTokensPresent = false }) {
+export async function reportSilentLogout({ reason, detail = null, httpStatus = null, onlyIfTokensPresent = false, lite = false }) {
   try {
+    // `lite`: breadcrumb + non-fatal only, NO storage probes and NO
+    // setAttributes. Used by auth_expired_signal, which fires AFTER apiClient
+    // already cleared tokens — probing there records post-clear state and its
+    // attributes would overwrite the correct pre-clear values the
+    // ForcedLogoutNonFatal just set for this Crashlytics session.
+    if (lite) {
+      safeCall(() => {
+        crashlytics().log(`[LOGOUT_DIAG] reason=${reason} status=${httpStatus ?? 'n/a'} detail=${detail || 'none'} (lite)`);
+        const wrapped = new Error(`Logout: reason=${reason} (lite)`);
+        wrapped.name = 'LogoutDiagnostic';
+        crashlytics().recordError(wrapped);
+      });
+      return;
+    }
+
     const ctx = await gatherLogoutContext();
 
     if (onlyIfTokensPresent &&

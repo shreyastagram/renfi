@@ -741,6 +741,19 @@ const ProfileScreen = ({ navigation, route }) => {
     }
   }, [isProvider]);
 
+  // While the profile is missing entirely, retry on a short interval — the
+  // focus effect below only fires on refocus, so a user parked on a stuck
+  // screen previously had NO retry path for the whole session.
+  useEffect(() => {
+    if (profile) return undefined;
+    const userId = user?.mongoId || user?._id;
+    if (!userId || !userType) return undefined;
+    const interval = setInterval(() => {
+      refreshProfile(userType, userId, { force: true });
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [profile, user?.mongoId, user?._id, userType, refreshProfile]);
+
   // Auto-refresh profile when screen gains focus — with 30s staleness guard
   const profileLastRefreshRef = useRef(0);
   useFocusEffect(
@@ -1299,8 +1312,13 @@ const ProfileScreen = ({ navigation, route }) => {
     }
   };
 
-  // Show skeleton until profile data is available
-  if (!profile || (isProfileLoading && !displayData?.fullName && !displayData?.email)) {
+  // Show skeleton only while we have NOTHING renderable. Requiring `profile`
+  // alone kept this screen in a full-screen shimmer for the entire session
+  // whenever the startup profile fetch died (cold backend / slow device) —
+  // even though `user` (restored from storage) already has name/email to
+  // render. Render from user data and let the profile refresh fill in.
+  if ((!profile && !displayData?.fullName && !displayData?.email) ||
+      (isProfileLoading && !displayData?.fullName && !displayData?.email)) {
     return <ProfileSkeletonLoader insets={insets} onBack={() => navigation.goBack()} provider={isProvider} />;
   }
 

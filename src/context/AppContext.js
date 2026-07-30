@@ -31,7 +31,7 @@ import { performFullSync, processSyncQueue, isSyncDue, updateProfileWithSync, SY
 import { checkAuthHealth, addAuthStateListener, getDeviceInfo, AUTH_HEALTH } from '../services/authInfraService';
 import { initializeSocket, disconnectSocket } from '../services/socketService';
 import { Analytics, EV, onceEver } from '../services/analytics';
-import { reportSilentLogout, reportStringifyProbeFailure } from '../utils/storageTelemetry';
+import { reportSilentLogout, reportStringifyProbeFailure, checkPriorSessionMarkers } from '../utils/storageTelemetry';
 
 /**
  * App Context
@@ -158,27 +158,33 @@ export const AppProvider = ({ children }) => {
     logoutInProgressRef.current = true;
     isAuthenticatedRef.current = false; // sync mirror immediately — repeat signals bail out
     console.log('⚠️ [AppContext] Auth expired, logging out...');
-    // The state-clear moment. apiClient paths emit their own reason-coded
-    // event before signalling us; this one catches signals from any OTHER
-    // origin and stamps the correlation context at the instant auth state
-    // actually flips. Gathered before clearAllData so storage truth is pre-clear.
-    await reportSilentLogout({ reason: 'auth_expired_signal' });
     try {
-      await clearAllData();
-    } catch (e) {
-      console.warn('⚠️ [AppContext] clearAllData error during auth expiry:', e.message);
+      // The state-clear moment. apiClient paths already emitted a fully
+      // context-rich ForcedLogoutNonFatal BEFORE clearing tokens — this one
+      // is `lite` (breadcrumb + event only, no storage probe): tokens are
+      // already gone here, and probing would record misleading post-clear
+      // state over the correct pre-clear attributes.
+      await reportSilentLogout({ reason: 'auth_expired_signal', lite: true });
+      try {
+        await clearAllData();
+      } catch (e) {
+        console.warn('⚠️ [AppContext] clearAllData error during auth expiry:', e.message);
+      }
+      setUser(null);
+      setUserTypeState(null);
+      setProfile(null);
+      setIsAuthenticated(false);
+      setPhoneOnboardingPending(false);
+      setIsAuthLoading(false);
+      setAuthHealth(null);
+      setActiveSessions([]);
+      setAadhaarStatus({ isVerified: false, isNameLocked: false, aadhaarName: null, aadhaarLoaded: false });
+      setPremiumStatus({ isPremiumActive: false, premiumDaysLeft: 0, premiumLoaded: false });
+    } finally {
+      // A throw above must never leave this latched — it would permanently
+      // block BOTH auth-expiry handling and user-initiated logout (shared ref).
+      logoutInProgressRef.current = false;
     }
-    setUser(null);
-    setUserTypeState(null);
-    setProfile(null);
-    setIsAuthenticated(false);
-    setPhoneOnboardingPending(false);
-    setIsAuthLoading(false);
-    setAuthHealth(null);
-    setActiveSessions([]);
-    setAadhaarStatus({ isVerified: false, isNameLocked: false, aadhaarName: null, aadhaarLoaded: false });
-    setPremiumStatus({ isPremiumActive: false, premiumDaysLeft: 0, premiumLoaded: false });
-    logoutInProgressRef.current = false;
   }, []);
 
   /**
@@ -670,8 +676,14 @@ export const AppProvider = ({ children }) => {
         // half-written or half-cleared session (e.g. app died between
         // storeTokens and storeUserData) — the user experiences a silent
         // logout. onlyIfTokensPresent keeps fresh installs / genuinely
-        // logged-out boots quiet.
-        await reportSilentLogout({ reason: 'boot_no_user_data', onlyIfTokensPresent: true });
+        // logged-out boots quiet. Fire-and-forget: nothing below touches
+        // tokens, and awaiting this added up to ~1.5s to every logged-out
+        // boot's splash for a probe that usually reports nothing.
+        reportSilentLogout({ reason: 'boot_no_user_data', onlyIfTokensPresent: true }).catch(() => {});
+        // Consume prior-session crash/refresh markers even on logged-out
+        // boots — validateAndRefreshTokens (the usual consumer) never runs
+        // here, and stale markers would be misattributed to a later session.
+        checkPriorSessionMarkers().catch(() => {});
         setIsAuthLoading(false);
         return;
       }
@@ -785,6 +797,12 @@ export const AppProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('❌ [AppContext] Auth initialization failed:', error);
+      // Previously a completely silent logout path — any unexpected throw
+      // here wiped the session with zero telemetry.
+      await reportSilentLogout({
+        reason: 'startup_init_threw',
+        detail: String(error?.message || error?.name || 'unknown').slice(0, 80),
+      });
       // On error, clear potentially corrupted state
       await clearAllData();
       setUser(null);

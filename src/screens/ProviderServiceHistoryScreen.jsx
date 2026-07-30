@@ -705,6 +705,10 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
 
   useEffect(() => () => { if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current); }, []);
 
+  // New provider identity (account switch without unmount) → the next load is
+  // a genuine first load again; show the shimmer instead of stale data.
+  useEffect(() => { hasLoadedOnceRef.current = false; }, [providerId]);
+
   // Fetch on mount
   // Defer initial fetch until after tab transition animation
   useEffect(() => {
