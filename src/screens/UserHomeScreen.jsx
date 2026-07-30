@@ -35,6 +35,7 @@ import RazorpayCheckout from 'react-native-razorpay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
+import { checkAndroidLocationGranted, requestAndroidLocationPermission } from '../utils/locationPermission';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';
 // 3D rendered icons (Fixhomi Figma icon system) for the quick-access row
@@ -624,17 +625,21 @@ const UserHomeScreen = ({ navigation, route }) => {
   // Check and request location permission
   const checkLocationPermission = useCallback(async () => {
     try {
+      // Android grant semantics (FINE/COARSE) come from the shared helper —
+      // single source of truth with LocationContext and LocationMap.
+      if (Platform.OS === 'android') {
+        const { granted } = await checkAndroidLocationGranted();
+        if (granted) {
+          setLocationPermission('granted');
+          return true;
+        }
+      }
+
       const permission = Platform.OS === 'ios'
         ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
         : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
 
-      let result = await check(permission);
-
-      // Android "Approximate location" grants COARSE only — still a grant.
-      if (Platform.OS === 'android' && result !== RESULTS.GRANTED && result !== RESULTS.LIMITED) {
-        const coarse = await check(PERMISSIONS.ANDROID.ACCESS_COARSE_LOCATION);
-        if (coarse === RESULTS.GRANTED || coarse === RESULTS.LIMITED) result = coarse;
-      }
+      const result = await check(permission);
 
       if (result === RESULTS.GRANTED || result === RESULTS.LIMITED) {
         setLocationPermission('granted');
@@ -655,19 +660,32 @@ const UserHomeScreen = ({ navigation, route }) => {
 
   const requestLocationPermission = useCallback(async () => {
     try {
-      const permission = Platform.OS === 'ios'
-        ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
-        : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
-
-      let result = await request(permission);
-
-      // Android: if the user picked "Approximate" in the dialog, the FINE
-      // request reads as denied but COARSE was granted — accept it (same
-      // policy as LocationContext; a coarse fix beats a permission nag).
-      if (Platform.OS === 'android' && result !== RESULTS.GRANTED) {
-        const coarse = await check(PERMISSIONS.ANDROID.ACCESS_COARSE_LOCATION);
-        if (coarse === RESULTS.GRANTED) result = RESULTS.GRANTED;
+      // Android: shared helper (both accuracies, "Approximate" counts,
+      // EITHER never_ask_again ⇒ blocked).
+      if (Platform.OS === 'android') {
+        const res = await requestAndroidLocationPermission();
+        if (res.granted) {
+          setLocationPermission('granted');
+          refreshLocation();
+          return true;
+        }
+        if (res.blocked) {
+          setLocationPermission('blocked');
+          dialog(
+            t('userHome.locationPermRequired'),
+            t('userHome.locationPermMsg'),
+            [
+              { text: t('common.cancel'), style: 'cancel' },
+              { text: t('common.openSettings'), onPress: () => openSettings() }
+            ]
+          );
+          return false;
+        }
+        setLocationPermission('denied');
+        return false;
       }
+
+      const result = await request(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
 
       if (result === RESULTS.GRANTED) {
         setLocationPermission('granted');

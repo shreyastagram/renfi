@@ -25,7 +25,7 @@
  */
 
 import BackgroundGeolocation from 'react-native-background-geolocation';
-import { getTokens, storeTokens } from '../utils/storage';
+import { getTokens, storeTokens, storeRotatedTokenPair } from '../utils/storage';
 import { NODE_BASE_URL, JAVA_BASE_URL } from '../config/api';
 
 // ── Module state ──
@@ -222,15 +222,12 @@ export const startBackgroundTracking = async (providerId, requestId) => {
         if (event.success) {
           // TransistorSoft refreshed the token (background/killed state)
           // Sync new tokens back to Keychain so foreground apiClient uses them too
-          const { accessToken: newAccess, refreshToken: newRefresh, expiresIn } = event.response;
-          // Require BOTH halves — persisting {accessToken, refreshToken: undefined}
-          // reads back as "no session" and forces a logout next launch.
-          if (newAccess && newRefresh) {
-            await storeTokens(newAccess, newRefresh, expiresIn || 86400);
-            console.log('[BGLocation] Token auto-refreshed by TransistorSoft — synced to Keychain');
-          } else if (newAccess) {
-            console.warn('[BGLocation] Refresh payload missing refreshToken — keeping existing pair');
-          }
+          // Both-halves guard lives in storeRotatedTokenPair (shared with the
+          // headless task in index.js — single place).
+          const stored = await storeRotatedTokenPair(event.response);
+          console.log(stored
+            ? '[BGLocation] Token auto-refreshed by TransistorSoft — synced to Keychain'
+            : '[BGLocation] Refresh payload incomplete — keeping existing pair');
         } else {
           console.warn('[BGLocation] Token refresh failed:', event.error);
         }

@@ -83,24 +83,20 @@ BackgroundGeolocation.registerHeadlessTask(async (event) => {
       // launch 401'd definitively and logged the provider out ("logged out
       // after some days"). Mirrors backgroundLocationService's foreground
       // onAuthorization sync-back.
-      if (params.success && params.response?.accessToken && params.response?.refreshToken) {
-        // BOTH halves required: persisting a pair with refreshToken undefined
-        // writes {accessToken, expiryTime} — which getTokens/startup treat as
-        // "no session" and force a logout on the next launch. Better to keep
-        // the old (possibly still-valid) pair than to write a broken one.
+      if (params.success && params.response) {
         try {
-          const { storeTokens } = require('./src/utils/storage');
-          await storeTokens(
-            params.response.accessToken,
-            params.response.refreshToken,
-            params.response.expiresIn || 86400
-          );
-          console.log('[Headless] Token refresh persisted to Keychain');
+          // Both-halves guard lives in storeRotatedTokenPair (shared with the
+          // foreground onAuthorization handler in backgroundLocationService).
+          const { storeRotatedTokenPair } = require('./src/utils/storage');
+          const stored = await storeRotatedTokenPair(params.response);
+          console.log(stored
+            ? '[Headless] Token refresh persisted to Keychain'
+            : '[Headless] Token refresh payload incomplete — kept existing pair');
         } catch (e) {
           console.warn('[Headless] Failed to persist refreshed tokens:', e?.message);
         }
       } else {
-        console.log('[Headless] Token refresh:', params.success ? 'OK (no tokens in payload)' : 'FAILED');
+        console.log('[Headless] Token refresh: FAILED');
       }
       break;
     case 'terminate':

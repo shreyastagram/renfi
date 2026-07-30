@@ -45,16 +45,10 @@ const requestLocationPermission = async () => {
   }
 
   try {
-    // Request both accuracies — "Approximate" (COARSE-only) must count as
-    // granted, same as LocationContext.
-    const results = await PermissionsAndroid.requestMultiple([
-      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
-    ]);
-    return (
-      results[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED ||
-      results[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED
-    );
+    // Shared helper — single source of truth for FINE/COARSE semantics.
+    const { requestAndroidLocationPermission } = require('../../utils/locationPermission');
+    const { granted } = await requestAndroidLocationPermission();
+    return granted;
   } catch (err) {
     console.warn('Location permission error:', err);
     return false;

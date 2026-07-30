@@ -24,6 +24,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { View, Animated, StyleSheet, Dimensions } from 'react-native';
+import { IS_LOW_END_ANDROID } from '../utils/deviceClass';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -46,11 +47,14 @@ const useShimmerAnimation = (active = true) => {
   const animValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // `active` gate: callers (ProviderHomeScreen) pass a loading flag so the
-    // sweep stops when nothing is loading. The parameter was previously
-    // ignored, so the loop ran for the entire session on every screen — a
-    // constant GPU cost on weak devices (Redmi 12 class).
-    if (!active) {
+    // Two gates, ONE place (every shimmer in the app flows through this hook):
+    // - `active`: callers (ProviderHomeScreen) pass a loading flag so the
+    //   sweep stops when nothing is loading. The parameter was previously
+    //   ignored, so the loop ran for the entire session on every screen.
+    // - IS_LOW_END_ANDROID: on weak devices (Redmi 12 class) the continuous
+    //   sweep itself is a flicker/GPU cost — skeletons render STATIC there
+    //   (flat base color, no moving highlight). High-end keeps the polish.
+    if (!active || IS_LOW_END_ANDROID) {
       animValue.setValue(0);
       return undefined;
     }

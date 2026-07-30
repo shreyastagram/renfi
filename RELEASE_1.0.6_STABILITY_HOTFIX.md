@@ -69,6 +69,11 @@ Other Crashlytics issues triaged: SoLoader `libreactnative.so` = **emulator-only
      providerId change.
    - `useShimmerAnimation(active)` gate actually implemented (the July-20
      "stop shimmer when idle" was a NO-OP — the hook ignored its argument).
+     Additionally, on low-end devices (`IS_LOW_END_ANDROID` in
+     src/utils/deviceClass.js: Android <12 or ≤6GB RAM — the Redmi 12 class)
+     ALL shimmer sweeps render static — one gate inside the hook covers
+     every screen, including the per-row loops in UserServiceHistory that
+     were the worst remaining GPU offender. High-end keeps the animation.
    - `SafeBlurView`: Android blur disabled app-wide (iOS keeps blur); the
      only real Android call sites were GlobalBanner + the tab bar.
    - `authFetch`: 30s AbortController timeout (one hung request used to pin
@@ -171,9 +176,17 @@ Other Crashlytics issues triaged: SoLoader `libreactnative.so` = **emulator-only
 - AxiosError spread `{...refreshError}` in apiClient (~line 455) is still the
   suspected cycle SOURCE — the crash is now caught+diagnosed instead;
   remove the spread once `nav_fail_hazards=axios-shape` confirms it in field data.
-- Shimmer loops still ungated on 3 always-mounted sites (worst:
-  `UserServiceHistoryScreen` per-row `Animated.loop`; also ProfileScreen
-  inline, ServiceRequestDetail OTP) — next perf pass.
+- Shimmer loops on 3 always-mounted sites (UserServiceHistory per-row,
+  ProfileScreen inline, ServiceRequestDetail OTP) still animate on HIGH-END
+  devices — harmless there; low-end devices render them static via the
+  device-class gate. Passing real `active` flags per site = next perf pass.
+- Single-source consolidations done late in the session: Android FINE/COARSE
+  permission semantics live ONLY in src/utils/locationPermission.js (used by
+  LocationContext, UserHomeScreen, LocationMap); the TransistorSoft
+  rotated-pair guard lives ONLY in storage.storeRotatedTokenPair (used by
+  index.js headless + backgroundLocationService); the socket handshake token
+  is refreshed ONLY via the auth-function in socketService (no other updater
+  exists — verified).
 - Imperative StatusBar focus-effects desync RN's prop stack (8 screens) and
   `VerificationDashboardScreen` flips barStyle between loading/loaded —
   minor visual; next pass.

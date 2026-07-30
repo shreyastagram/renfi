@@ -89,6 +89,28 @@ export const storeTokens = async (accessToken, refreshToken, expiresIn = 86400) 
 };
 
 /**
+ * Persist a rotated token pair from TransistorSoft's native refresh (both the
+ * headless task and the foreground onAuthorization handler route here —
+ * single place for the guard). Requires BOTH halves: persisting
+ * {accessToken, refreshToken: undefined} writes a pair getTokens() treats as
+ * "no session", forcing a logout on the next launch. Better to keep the old
+ * (possibly still-valid) pair than to write a broken one.
+ *
+ * @param {Object} response - { accessToken, refreshToken, expiresIn }
+ * @returns {Promise<boolean>} true if the pair was persisted
+ */
+export const storeRotatedTokenPair = async (response) => {
+  const accessToken = response?.accessToken;
+  const refreshToken = response?.refreshToken;
+  if (!accessToken || !refreshToken) {
+    console.warn('⚠️ [Storage] Rotated-pair payload incomplete — keeping existing tokens');
+    return false;
+  }
+  await storeTokens(accessToken, refreshToken, response?.expiresIn || 86400);
+  return true;
+};
+
+/**
  * Retrieve stored authentication tokens.
  *
  * Order:
@@ -359,6 +381,7 @@ export const clearAllData = async () => {
 
 export default {
   storeTokens,
+  storeRotatedTokenPair,
   getTokens,
   probeStorageState,
   clearTokens,

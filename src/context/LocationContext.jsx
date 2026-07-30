@@ -17,6 +17,7 @@ import Geolocation from '@react-native-community/geolocation';
 import { useDialog } from './DialogContext';
 import DeviceInfo from 'react-native-device-info';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
+import { checkAndroidLocationGranted, requestAndroidLocationPermission } from '../utils/locationPermission';
 import { requestNotificationPermission } from '../services/fcmService';
 import { setLatestLocation } from '../services/socketService';
 import { Analytics, EV, oncePerSession } from '../services/analytics';
@@ -231,23 +232,11 @@ export const LocationProvider = ({ children }) => {
         return 'unknown';
       }
 
-      // Android: FINE first, then COARSE. On Android 12+/MIUI the dialog
-      // offers "Precise / Approximate" — Approximate grants COARSE only.
-      // Treating that as 'denied' produced "Enable location" while GPS was
-      // ON (Issue 4 residual): a coarse fix is still a usable fix.
-      const fine = await PermissionsAndroid.check(
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-      );
-      if (fine) {
-        fineGrantedRef.current = true;
-        setLocationPermission('granted');
-        return 'granted';
-      }
-      const coarse = await PermissionsAndroid.check(
-        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION
-      );
-      if (coarse) {
-        fineGrantedRef.current = false; // approximate-only — use network provider
+      // Android: FINE/COARSE semantics live in the shared helper
+      // (src/utils/locationPermission.js) — single source of truth.
+      const res = await checkAndroidLocationGranted();
+      if (res.granted) {
+        fineGrantedRef.current = res.fine; // coarse-only → network provider
         setLocationPermission('granted');
         return 'granted';
       }
@@ -310,26 +299,14 @@ export const LocationProvider = ({ children }) => {
     }
     
     try {
-      // Request BOTH accuracies: the "Approximate" choice on Android 12+/MIUI
-      // grants COARSE only, and that must count as granted (see
-      // checkPermissionStatus). FINE-only requests came back 'denied' for
-      // every approximate-location user — permanent "Enable location".
-      const results = await PermissionsAndroid.requestMultiple([
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
-      ]);
-      const fine = results[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
-      const coarse = results[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION];
-
-      if (fine === PermissionsAndroid.RESULTS.GRANTED || coarse === PermissionsAndroid.RESULTS.GRANTED) {
-        fineGrantedRef.current = fine === PermissionsAndroid.RESULTS.GRANTED;
+      // Shared helper: both accuracies requested, "Approximate" counts as
+      // granted, EITHER never_ask_again ⇒ blocked (Settings deep-link).
+      const res = await requestAndroidLocationPermission();
+      if (res.granted) {
+        fineGrantedRef.current = res.fine;
         setLocationPermission('granted');
         return true;
-      } else if (fine === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN || coarse === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
-        // Android 12+ decouples the two denial states — EITHER being
-        // never_ask_again means the dialog will not show again, so the only
-        // remedy is Settings ('blocked' routes there). Requiring BOTH lost
-        // the Settings deep-link and left users in a silent no-op loop.
+      } else if (res.blocked) {
         setLocationPermission('blocked');
         return false;
       } else {
