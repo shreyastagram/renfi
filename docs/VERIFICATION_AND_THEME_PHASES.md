@@ -4,11 +4,60 @@
 **Spec:** `docs/superpowers/specs/2026-07-27-verification-ui-darkmode-design.md`
 **Plan (phases 0–1):** `docs/superpowers/plans/2026-07-27-theme-foundation.md`
 **Colour contract:** `docs/COLOUR_MAP.md`
-**Last updated:** 2026-07-27, end of session 1.
+**Last updated:** 2026-07-31 — **WORK PAUSED.**
 
 > **Read this file BEFORE touching code.** If anything here contradicts the code, **STOP and
 > flag it to the owner.** Do not proceed on a false premise. This repo has burned two prior
 > sessions that way — see §9.
+
+---
+
+## ⏸ PAUSED — 2026-07-31
+
+The owner stopped this workstream to switch to other branch work and will return later.
+**This is a clean pause, not an abandonment.** Nothing is half-finished:
+
+- All 17 commits are in. Working tree clean apart from the owner's own
+  `.vscode/settings.json`, which is theirs and must never be committed.
+- No stashes. `npm run verify` exits 0.
+- **The app is visually unchanged**, so this branch being unmerged blocks nothing and
+  breaks nothing. No screen consumes theme tokens yet.
+- Safe to `git checkout` away right now.
+
+### 🚩 This branch has NO UPSTREAM — it exists only on the owner's machine
+
+`git log @{u}..HEAD` reports no upstream configured. 17 commits and roughly 3,500 lines of
+work are local-only, so a forced checkout, a lost laptop, or a disk failure loses all of it.
+
+**Recommended before leaving it for any length of time:**
+
+```
+git push -u origin feature/verification-ui-darkmode
+```
+
+The owner has not been asked to do this yet — raise it when they return, or do it if they
+confirm.
+
+### On resume, re-verify these FIRST — they drift while the branch sits
+
+Do not trust the numbers in this document after other work has landed. Specifically:
+
+| Recorded here | Why it drifts | How to re-check |
+|---|---|---|
+| i18n baseline **1959** keys, budget → 1967 | Any other branch adding copy changes the baseline, which makes the 8-key budget in §8 wrong | `npm run check:i18n` — it prints the live counts |
+| Colour census **3,080 / 364 / 77 files** | Any screen work adds or removes colours, staling `docs/COLOUR_MAP.md` | Re-run the census described in COLOUR_MAP §5 |
+| Defect line numbers in §13 (e.g. `ProfileScreen.jsx:964`) | Edits to those files shift every line | Re-locate by symbol name, not line number |
+| Base is `feature/profile-redesign` @ `5cfcd56` | The base branch will very likely move | `git log --oneline feature/profile-redesign -1`, then rebase or merge before continuing |
+| `npm run verify` exit 0 | A dependency bump or another branch's change can break a gate | Run it before writing any new code |
+
+If the base branch has moved, **rebase or merge before doing anything else** — the theme
+engine touches `App.tsx`, `package.json`, `jest.config.js` and `src/screens/index.js`, all
+of which are plausible conflict sites.
+
+### Where to pick up
+
+§2 has the exact next action. In short: get the Mapbox decision (§3), build mockup 3, then
+**write a Phase 3 plan before coding** — the committed plan only covers Phases 0–1.
 
 ---
 
@@ -53,11 +102,14 @@ Nothing is blocked except ONE owner decision (§3).**
 
 ## 2. Resume here — the exact next action
 
+0. **Run the drift checks in the PAUSED section above** before anything else, and rebase
+   onto `feature/profile-redesign` if it has moved.
 1. **Get the owner's Mapbox pick (§3).** That is the only open blocker.
 2. Build **mockup 3** — token / component reference sheet (all swatches, all component
    states, both themes).
 3. Then start **Phase 3**. It needs its own plan written first via the writing-plans skill;
-   the phases 0–1 plan does not cover it.
+   the phases 0–1 plan does not cover it. **Do not start coding the verification module
+   straight from the spec** — this is the easiest step to skip and the most costly.
 
 ---
 
