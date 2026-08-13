@@ -36,6 +36,7 @@ import { Analytics, EV, onceEver } from '../services/analytics';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { Icon, ServiceIcon, StatusIcon, RatingModal, CancellationReasonModal } from '../components';
+import HelpSupportButton from '../components/HelpSupportButton';
 import Svg, { Circle, Path } from 'react-native-svg';
 import SvgArt from '../components/SvgArt';
 import GraphBackground from '../components/GraphBackground';
@@ -1365,6 +1366,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               )}
             </View>
           </View>
+          <HelpSupportButton size={24} color="#FFFFFF" style={{ marginRight: 10 }} />
           <View style={[s.headerStatusBadge, { backgroundColor: status.bgColor }]}>
             <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: status.color, marginRight: 6 }} />
             <Text style={[s.headerStatusText, { color: status.color }]}>{status.label}</Text>

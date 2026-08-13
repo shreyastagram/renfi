@@ -39,6 +39,7 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import Mapbox from '@rnmapbox/maps';
 import useExitConfirmation from '../hooks/useExitConfirmation';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
+import HelpSupportButton from '../components/HelpSupportButton';
 import SvgArt from '../components/SvgArt';
 import LocationTrackingBanner from '../components/LocationTrackingBanner';
 
@@ -1033,6 +1034,7 @@ const ProviderHomeScreen = ({ navigation }) => {
               <Text style={styles.heroSubtextInline} numberOfLines={1}>{t('providerHome.manageServices')}</Text>
             </View>
 
+            <HelpSupportButton size={26} color="#FFFFFF" />
             <AvatarButton
               name={displayData?.fullName}
               profilePicture={displayData?.profilePicture}

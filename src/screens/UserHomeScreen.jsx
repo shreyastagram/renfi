@@ -44,6 +44,7 @@ const Events3D = require('../assets/serviceIcons/3d/events.png');
 const Favorites3D = require('../assets/serviceIcons/3d/favorites.png');
 import { LocationMap, Icon, ServiceIcon, DateTimePicker, LocationPicker, ProviderDetailsModal, FixhomiLogo, CancellationReasonModal } from '../components';
 import PhoneOnboardingSheet from '../components/PhoneOnboardingSheet';
+import HelpSupportButton from '../components/HelpSupportButton';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
 import SvgArt from '../components/SvgArt';
 
@@ -1726,6 +1727,8 @@ const UserHomeScreen = ({ navigation, route }) => {
           <Image source={FIXHOMI_LOGO} style={styles.topBarLogoImg} />
         </TouchableOpacity>
         <View style={styles.topBarSpacer} />
+        {/* Help & Support */}
+        <HelpSupportButton size={24} color="#f67c16" style={styles.addressManageButton} />
         {/* Address Management Icon */}
         <TouchableOpacity
           style={styles.addressManageButton}

@@ -40,6 +40,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
 import { Analytics, EV } from '../services/analytics';
 import { useDialog } from '../context/DialogContext';
+import { showHelpSupport } from '../utils/helpSupport';
 import { useLanguage } from '../context/LanguageContext';
 import { startLocationTracking, stopLocationTracking } from '../services/socketService';
 import { Icon } from '../components';
@@ -1293,39 +1294,7 @@ const SettingsScreen = ({ navigation }) => {
             iconName="help"
             title={t('settings.helpSupport')}
             subtitle={t('settings.helpSupportSub')}
-            onPress={() => {
-              dialog(
-                'Help & Support',
-                'How would you like to reach us?',
-                [
-                  {
-                    text: 'WhatsApp',
-                    onPress: () => {
-                      Analytics.track(userType === 'provider' ? EV.SUPPORT_CONTACTED : EV.CUSTOMER_SUPPORT_CONTACTED, { role: userType, channel: 'whatsapp' });
-                      Linking.openURL('https://wa.me/918446385312');
-                    },
-                  },
-                  {
-                    text: 'Email',
-                    onPress: () => {
-                      Analytics.track(userType === 'provider' ? EV.SUPPORT_CONTACTED : EV.CUSTOMER_SUPPORT_CONTACTED, { role: userType, channel: 'email' });
-                      Linking.openURL('mailto:contact@fixhomi.com').catch(() => dialog('Email Us', 'contact@fixhomi.com'));
-                    },
-                  },
-                  {
-                    text: 'Visit Support Page',
-                    onPress: () => {
-                      Analytics.track(userType === 'provider' ? EV.SUPPORT_CONTACTED : EV.CUSTOMER_SUPPORT_CONTACTED, { role: userType, channel: 'web' });
-                      Linking.openURL('https://fixhomi.com/support');
-                    },
-                  },
-                  {
-                    text: 'Cancel',
-                    style: 'cancel',
-                  },
-                ]
-              );
-            }}
+            onPress={() => showHelpSupport(dialog, userType)}
           />
 
           <ActionRow
