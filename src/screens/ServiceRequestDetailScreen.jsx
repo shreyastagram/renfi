@@ -35,6 +35,7 @@ import { useApp } from '../context/AppContext';
 import { Analytics, EV, onceEver } from '../services/analytics';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useSupport } from '../context/SupportContext';
 import { Icon, ServiceIcon, StatusIcon, RatingModal, CancellationReasonModal } from '../components';
 import HelpSupportButton from '../components/HelpSupportButton';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -586,6 +587,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   const { t } = useLanguage();
   const { dialog } = useDialog();
   const { user, profile, userType } = useApp();
+  const { openSupport } = useSupport();
   const initialRequest = route.params?.request;
 
   const EVENT_SERVICE_TYPES = ['photographer', 'influencer'];
@@ -1928,7 +1930,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         <View style={[s.card, { alignItems: 'center' }]}>
           <Text style={{ fontSize: 14, fontWeight: '700', color: BRAND.text, marginBottom: 4 }}>{t('detail.needHelp')}</Text>
           <Text style={{ fontSize: 12, color: BRAND.textSecondary, textAlign: 'center', marginBottom: 10 }}>{t('detail.needHelpSub')}</Text>
-          <TouchableOpacity style={s.helpBtn} onPress={() => dialog('Help & Support', 'How would you like to reach us?', [{ text: 'WhatsApp', onPress: () => Linking.openURL('https://wa.me/918446385312') }, { text: 'Email', onPress: () => Linking.openURL('mailto:contact@fixhomi.com').catch(() => dialog('Email Us', 'contact@fixhomi.com')) }, { text: 'Visit Support Page', onPress: () => Linking.openURL('https://fixhomi.com/support') }, { text: t('common.cancel') || 'Cancel', style: 'cancel' }])}><Icon name="email" size={14} color={BRAND.secondary} /><Text style={s.helpBtnText}>{t('detail.contactSupport')}</Text></TouchableOpacity>
+          <TouchableOpacity style={s.helpBtn} onPress={() => openSupport(userType)}><Icon name="email" size={14} color={BRAND.secondary} /><Text style={s.helpBtnText}>{t('detail.contactSupport')}</Text></TouchableOpacity>
         </View>
       </ScrollView>
 

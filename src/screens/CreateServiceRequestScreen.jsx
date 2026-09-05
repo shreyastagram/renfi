@@ -81,8 +81,9 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
   // whole form and loses their work navigating away to fix it.
   useEffect(() => {
     if (!existingRequest) {
-      ensureBookingProfileComplete();
-      // Analytics: booking flow entered via the dedicated create screen
+      // Analytics: booking flow entered via the dedicated create screen.
+      // (The profile gate now runs at submit time — a missing name is collected
+      // inline there, so we no longer pop a collector on mount.)
       Analytics.track(EV.BOOKING_STARTED, { role: 'user', entry: 'create_screen' });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -296,7 +297,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
     }
 
     // Booking gate — a name and a verified phone are required to book.
-    if (!ensureBookingProfileComplete()) {
+    if (!(await ensureBookingProfileComplete())) {
       return;
     }
 

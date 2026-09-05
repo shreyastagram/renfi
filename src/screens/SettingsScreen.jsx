@@ -40,7 +40,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
 import { Analytics, EV } from '../services/analytics';
 import { useDialog } from '../context/DialogContext';
-import { showHelpSupport } from '../utils/helpSupport';
+import { useSupport } from '../context/SupportContext';
 import { useLanguage } from '../context/LanguageContext';
 import { startLocationTracking, stopLocationTracking } from '../services/socketService';
 import { Icon } from '../components';
@@ -315,6 +315,7 @@ const SettingsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, profile, userType, logout, refreshProfile, updateProviderAvailability, updateProviderLocationTracking, isProfileLoading } = useApp();
   const { dialog } = useDialog();
+  const { openSupport } = useSupport();
   const { t, language, setLanguage, languages } = useLanguage();
   const [showLangModal, setShowLangModal] = React.useState(false);
 
@@ -1294,7 +1295,7 @@ const SettingsScreen = ({ navigation }) => {
             iconName="help"
             title={t('settings.helpSupport')}
             subtitle={t('settings.helpSupportSub')}
-            onPress={() => showHelpSupport(dialog, userType)}
+            onPress={() => openSupport(userType)}
           />
 
           <ActionRow

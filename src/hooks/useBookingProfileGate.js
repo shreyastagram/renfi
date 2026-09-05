@@ -6,14 +6,15 @@
  * emergency). Needed because unified-auth accounts can start with an empty
  * name (phone signups) or no phone at all (Google/Apple signups).
  *
+ * A missing NAME is collected INLINE (a bottom-sheet, via ProfileCompletion
+ * provider) so the user never leaves the booking flow or loses their selected
+ * service. A missing / unverified PHONE routes to the existing add+verify OTP
+ * Verification screen.
+ *
  * The backend enforces the same rule with
  *   403 { code: 'PROFILE_INCOMPLETE', missing: { name, phone, phoneVerified } }
- * — `handleProfileIncompleteError` maps that error to the same dialog in
- * case the client-side check ran against stale profile data.
- *
- * The dialog routes to the existing 'Profile' screen (Edit Profile), which
- * already has the add-name + add-phone + verify-phone OTP UI
- * (sendPhoneVerificationOtp / verifyPhoneOtp).
+ * — `handleProfileIncompleteError` maps that error to the same UX in case the
+ * client-side check ran against stale profile data.
  *
  * USER flow only — provider screens never use this hook.
  */
@@ -22,12 +23,15 @@ import { useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useProfileCompletion } from '../context/ProfileCompletionContext';
 
 export default function useBookingProfileGate(navigation) {
   const { user, profile, isAuthLoading, isProfileLoading } = useApp();
   const { dialog } = useDialog();
   const { t } = useLanguage();
+  const { collectRequiredField } = useProfileCompletion();
 
+  // Generic fallback dialog — only used if we can't tell what's missing.
   const showProfileIncompleteDialog = useCallback(() => {
     dialog(
       t('userHome.profileIncompleteTitle') || 'Complete your profile',
@@ -43,76 +47,25 @@ export default function useBookingProfileGate(navigation) {
     );
   }, [dialog, t, navigation]);
 
-  /**
-   * Route the user to fix the SPECIFIC missing piece (backend `missing` shape
-   * { name, phone, phoneVerified }):
-   *  - missing NAME  → Profile screen, identity editor, focused on the name
-   *    field, returning to the booking screen after save.
-   *  - missing / unverified PHONE → the dedicated OTP Verification screen
-   *    (add + verify), matching the app's provider verification UX.
-   */
-  const promptCompleteProfile = useCallback(
-    (missing) => {
-      const nameMissing = !!missing?.name;
-      const phoneMissing = !!missing?.phone;
-      const phoneUnverified = !!missing?.phoneVerified;
-
-      if (nameMissing) {
-        dialog(
-          t('userHome.profileIncompleteTitle') || 'Complete your profile',
-          t('userHome.completeProfileNameMsg') ||
-            'Please add your name to your profile to continue booking a service.',
-          [
-            { text: t('common.later'), style: 'cancel' },
-            {
-              text: t('userHome.completeProfile') || 'Complete Profile',
-              onPress: () =>
-                navigation?.navigate?.('Profile', {
-                  editSection: 'identity',
-                  focusField: 'name',
-                  returnAfterSave: true,
-                }),
-            },
-          ]
-        );
-        return;
-      }
-
-      if (phoneMissing || phoneUnverified) {
-        dialog(
-          t('userHome.profileIncompleteTitle') || 'Complete your profile',
-          t('userHome.completeProfilePhoneMsg') ||
-            'Please add and verify your mobile number to continue booking a service.',
-          [
-            { text: t('common.later'), style: 'cancel' },
-            {
-              text: t('userHome.verifyNow') || 'Verify Now',
-              onPress: () =>
-                navigation?.navigate?.('Verification', {
-                  verificationType: 'phone',
-                  // phone exists but isn't verified → force a re-verify
-                  forceReVerify: phoneUnverified && !phoneMissing,
-                }),
-            },
-          ]
-        );
-        return;
-      }
-
-      // Fallback — shouldn't normally happen.
-      showProfileIncompleteDialog();
+  // Missing / unverified PHONE → the dedicated add+verify OTP screen.
+  const goToPhoneVerification = useCallback(
+    (forceReVerify) => {
+      navigation?.navigate?.('Verification', {
+        verificationType: 'phone',
+        forceReVerify: !!forceReVerify,
+      });
     },
-    [dialog, t, navigation, showProfileIncompleteDialog]
+    [navigation]
   );
 
   /**
-   * Returns true when booking may proceed. When the profile is incomplete,
-   * routes the user to the right fix (name → Profile, phone → Verification)
-   * and returns false. While the profile is still loading we do NOT block
-   * (matches the existing phone-verification gates) — the backend 403 is the
-   * safety net.
+   * Returns true when booking may proceed. A missing NAME is collected INLINE
+   * (no navigation — the booking selection is preserved); a missing/unverified
+   * PHONE routes to Verification. While the profile is still loading we do NOT
+   * block (matches the existing phone-verification gates) — the backend 403 is
+   * the safety net. ASYNC: callers must `await`.
    */
-  const ensureBookingProfileComplete = useCallback(() => {
+  const ensureBookingProfileComplete = useCallback(async () => {
     if (isAuthLoading || isProfileLoading) return true;
 
     // Name: Mongo profile uses `name`, Java Auth / user state uses `fullName`.
@@ -127,11 +80,20 @@ export default function useBookingProfileGate(navigation) {
       user?.phoneVerified ??
       false;
 
-    const missing = { name: !name, phone: !phone, phoneVerified: !phoneVerified };
-    if (missing.name || missing.phone || missing.phoneVerified) {
-      promptCompleteProfile(missing);
+    // 1) NAME missing → collect inline; abort the booking if the user cancels
+    //    or the save fails. A successful save reflects app-wide + on the backend.
+    if (!name) {
+      const ok = await collectRequiredField('name');
+      if (!ok) return false;
+    }
+
+    // 2) PHONE missing or unverified → provider-style OTP screen. `forceReVerify`
+    //    only when a number exists but isn't verified.
+    if (!phone || !phoneVerified) {
+      goToPhoneVerification(!!phone && !phoneVerified);
       return false;
     }
+
     return true;
   }, [
     isAuthLoading,
@@ -145,31 +107,34 @@ export default function useBookingProfileGate(navigation) {
     user?.phone,
     user?.isPhoneVerified,
     user?.phoneVerified,
-    promptCompleteProfile,
+    collectRequiredField,
+    goToPhoneVerification,
   ]);
 
   /**
    * Backend-403 handler for submit error paths. Pass the result object (or
    * code). Returns true when it was PROFILE_INCOMPLETE and the user was routed
-   * (caller should stop its own error handling). Uses the backend `missing`
-   * map to route to the right screen; falls back to the generic dialog.
+   * (caller should stop its own error handling). Name → inline collector;
+   * phone → Verification; unknown → generic dialog.
    */
   const handleProfileIncompleteError = useCallback(
     (codeOrResult) => {
       const isObj = codeOrResult && typeof codeOrResult === 'object';
       const code = isObj ? codeOrResult.code : codeOrResult;
-      if (code === 'PROFILE_INCOMPLETE') {
-        const missing = (isObj && codeOrResult.missing) || null;
-        if (missing) {
-          promptCompleteProfile(missing);
-        } else {
-          showProfileIncompleteDialog();
-        }
-        return true;
+      if (code !== 'PROFILE_INCOMPLETE') return false;
+
+      const missing = (isObj && codeOrResult.missing) || null;
+      if (missing?.name) {
+        // Open the inline collector; the user re-taps Create after saving.
+        collectRequiredField('name');
+      } else if (missing?.phone || missing?.phoneVerified) {
+        goToPhoneVerification(!!missing?.phoneVerified && !missing?.phone);
+      } else {
+        showProfileIncompleteDialog();
       }
-      return false;
+      return true;
     },
-    [promptCompleteProfile, showProfileIncompleteDialog]
+    [collectRequiredField, goToPhoneVerification, showProfileIncompleteDialog]
   );
 
   return {
