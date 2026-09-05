@@ -39,17 +39,21 @@ export const USE_PRODUCTION_NODE_API = true;
 export const USE_PRODUCTION_JAVA_AUTH = true;
 
 // ============================================
-// ⚠️ TEMPORARY DEV / STAGING TESTING — DO NOT COMMIT AS true ⚠️
+// ⚠️ TEMPORARY DEV / STAGING TESTING — NEVER MERGE AS true TO A RELEASE BRANCH ⚠️
 // ============================================
-// When true, the app talks to the ISOLATED dev Render services
-// (jauth-dev / noefix-dev), which use a dev Postgres + dev Mongo — NOT prod.
-// Use ONLY for testing the phone-signup flow on a device.
-// MUST be set back to false before committing or releasing.
-export const USE_DEV_STAGING = false;
+// When true, the app points NODE at the dev Render instance (noefix-dev), which
+// runs the Batch-1 code against a dev "Flex" Mongo holding a COPY of prod data —
+// so prod Mongo is never touched. AUTH stays on PROD jauth (prod Neon is unchanged),
+// so JWT_SECRET on the dev Node MUST match prod.
+// Keep this true ONLY on the throwaway devtest branch used for Firebase builds.
+// It MUST be false on feature/client-updates-batch1 and anything that merges to prod.
+export const USE_DEV_STAGING = true;
 
 const DEV_STAGING_CONFIG = {
+  // Dev Node on Render → dev "Flex" Mongo (a COPY of prod data). Update if your dev URL differs.
   NODE_API_URL: 'https://noefix-dev.onrender.com',
-  JAVA_AUTH_URL: 'https://jauth-dev.onrender.com',
+  // Keep PROD auth — jauth/Neon is unchanged, so the dev app authenticates against prod jauth.
+  JAVA_AUTH_URL: 'https://auth.fixhomi.com',
 };
 
 const REAL_PROD_CONFIG = {
