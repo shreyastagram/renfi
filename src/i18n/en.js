@@ -2,6 +2,17 @@
  * English Translations
  */
 export default {
+  // ─── Help & Support ───────────────────────────────────
+  support: {
+    title: 'Help & Support',
+    subtitle: 'How would you like to reach us?',
+    whatsapp: 'WhatsApp',
+    whatsappSub: 'Chat with our team',
+    email: 'Email',
+    visitPage: 'Visit Support Page',
+    emailUs: 'Email Us',
+    whatsappMissing: 'WhatsApp isn’t available on this device. Please email us instead.',
+  },
   // ─── Common ───────────────────────────────────────────
   common: {
     ok: 'OK',
@@ -494,6 +505,7 @@ export default {
     completeNameSub: 'Providers see this so they know who they’re helping. You only need to do this once — it saves to your profile.',
     saveContinue: 'Save & continue',
     saveFailed: 'Couldn’t save. Please check your connection and try again.',
+    saveSuccess: 'Saved',
     comingSoon: 'Coming Soon',
     comingSoonTitle: 'Coming Soon',
     comingSoonMsg: 'This service is coming soon to your city. Please check back shortly!',

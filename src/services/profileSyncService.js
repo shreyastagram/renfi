@@ -40,6 +40,35 @@ export const SYNC_STATUS = {
   PENDING: 'SYNC_PENDING',
 };
 
+// ─── Transient-safe writes ────────────────────────────────────────────────
+// Profile PUTs (name/phone) are idempotent, so retrying through a cold start
+// (Render wake / Neon autosuspend) or a brief network blip is safe — and
+// necessary: without it, a first-request timeout silently drops the Java-Auth
+// (Neon) write while Mongo still commits, leaving name-in-Mongo-not-in-Neon.
+const isTransientSyncError = (error) => {
+  if (!error) return false;
+  if (!error.response) return true; // no response = timeout / network / DNS
+  const status = error.response.status;
+  return status >= 502 && status <= 504; // gateway errors (cold start)
+};
+
+const putWithRetry = async (client, url, body, { attempts = 3, delayMs = 2500, timeout = 30000 } = {}) => {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await client.put(url, body, { timeout });
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts && isTransientSyncError(error)) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw lastError;
+};
+
 /**
  * Profile field mapping between Java Auth and MongoDB
  */
@@ -157,7 +186,7 @@ export const syncToJavaAuth = async (updates) => {
       return { success: true, data: null, skipped: true };
     }
     
-    const response = await authClient.put(ENDPOINTS.PROFILE.UPDATE_ME, javaAuthUpdates);
+    const response = await putWithRetry(authClient, ENDPOINTS.PROFILE.UPDATE_ME, javaAuthUpdates);
     
     console.log('✅ [ProfileSync] Synced to Java Auth:', response.data);
     
@@ -195,7 +224,7 @@ export const syncUserToMongoDB = async (userId, updates) => {
       delete mongoUpdates.phoneNumber;
     }
     
-    const response = await apiClient.put(`${ENDPOINTS.USER.UPDATE}/${userId}`, mongoUpdates);
+    const response = await putWithRetry(apiClient, `${ENDPOINTS.USER.UPDATE}/${userId}`, mongoUpdates);
     
     console.log('✅ [ProfileSync] Synced user to MongoDB:', response.data);
     
