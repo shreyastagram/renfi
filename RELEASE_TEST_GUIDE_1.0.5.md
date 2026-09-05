@@ -111,16 +111,16 @@ The app supports **English, Hindi, and Marathi**. A big part of this release is 
 | E-3 | ACTIVE JOBS in Hindi | Switch to Hindi, view the same section | Section title, the "(Recent 3)" tag, empty-state message, and the three buttons are all in Hindi | | |
 | E-4 | Empty state | With no active jobs | "No active services right now" (translated) with an inbox icon | | |
 | E-5 | Stats row | Check Active / Completed / Rating numbers | Numbers match reality; the "Active" label is translated in Hindi/Marathi | | |
-| E-6 | First-approval bonus popup | (Needs a provider whose first service just got approved) A congratulations popup appears | After closing it, Profile should show the premium gift — days left should be about **180 days (6 months)**, NOT 60 | | |
+| E-6 | First-approval bonus popup | (Needs a provider whose first service just got approved) A congratulations popup appears | After closing it, Profile should show the premium gift — days left should be about **60 days (2 months)**, NOT 180 | | |
 
 ---
 
 ## F. Premium / Subscription (IMPORTANT — three different states)
 
-**Background — read this first:** Premium costs ₹299/month, BUT every provider gets their **first 6 months free, automatically, when their first service is approved**. The subscription screen therefore shows one of three different designs depending on the provider:
+**Background — read this first:** Premium costs ₹299/month, BUT every provider gets their **first 2 months free, automatically, when their first service is approved**. The subscription screen therefore shows one of three different designs depending on the provider:
 
-- **State A — "The gift ahead":** provider has NO approved service yet. Dark navy card with gold accents saying the first 6 months are free, price shown as ~~₹299~~ **₹0**, a 3-step journey ("Get verified → 6 months free → then your choice"), and the main button says **"Get Verified — Unlock 6 Months Free"** and takes you to document verification (NOT to payment — paying would do nothing for them yet).
-- **State B — "Gift running":** provider's free 6 months are active right now. Same rich card but showing **free days remaining**; in the journey, **both step 1 AND step 2 show ticked**. No payment is requested.
+- **State A — "The gift ahead":** provider has NO approved service yet. Dark navy card with gold accents saying the first 2 months are free, price shown as ~~₹299~~ **₹0**, a 3-step journey ("Get verified → 2 months free → then your choice"), and the main button says **"Get Verified — Unlock 2 Months Free"** and takes you to document verification (NOT to payment — paying would do nothing for them yet).
+- **State B — "Gift running":** provider's free 2 months are active right now. Same rich card but showing **free days remaining**; in the journey, **both step 1 AND step 2 show ticked**. No payment is requested.
 - **State C — "Gift finished":** the free months are over. Steel-blue tinted card saying the free months are complete, and a normal **"Continue Premium — ₹299/month"** payment button.
 
 You will need different test accounts to see each state. Ask the developer to prepare one account per state if needed.
@@ -128,13 +128,13 @@ You will need different test accounts to see each state. Ask the developer to pr
 | ID | Test | Steps | What you should see | Result | Remarks |
 |---|---|---|---|---|---|
 | F-1 | State A look | New provider (nothing approved) → Settings/Profile → Premium | Navy/gold card, strikethrough ₹299 → ₹0, "then ₹299/month" clearly written, "No payment details needed today", 3-step journey with only step 1 ticked | | |
-| F-2 | State A button | Tap the main button | Says "Get Verified — Unlock 6 Months Free" and opens **document verification**, not a payment screen | | |
+| F-2 | State A button | Tap the main button | Says "Get Verified — Unlock 2 Months Free" and opens **document verification**, not a payment screen | | |
 | F-3 | State A plan card | Look at the plan list below | The monthly plan shows a navy/gold **LAUNCH OFFER** ribbon, ₹299 struck through, ₹0, "per month" reads naturally (not "/per month") | | |
 | F-4 | State B look | Provider with the free bonus active → Premium | Card shows **how many free days remain**; journey steps 1 **and** 2 both ticked; no payment button pushed on them | | |
-| F-5 | State C look | Provider whose bonus ended → Premium | Blue-tinted card: free months complete; button "Continue Premium — ₹299/month"; NO "6 months free" promises anywhere on this screen | | |
+| F-5 | State C look | Provider whose bonus ended → Premium | Blue-tinted card: free months complete; button "Continue Premium — ₹299/month"; NO "2 months free" promises anywhere on this screen | | |
 | F-6 | Paid & active | Provider who paid ₹299 and is active | Green/normal "active" status card with days left and renew option | | |
-| F-7 | **No contradictions across screens** | For the SAME account, compare what Profile, Settings row, and the Premium screen say | They must agree. Example of a bug: Profile promises "6 MONTHS FREE" but the Premium screen says the free months are finished. | | |
-| F-8 | Profile premium card variants | Check the Profile premium card for a state-A provider and a state-C provider | State A: gold "6 MONTHS FREE" chip + free-months text. State C: **no** free chip; text about priority listing at ₹299/month instead | | |
+| F-7 | **No contradictions across screens** | For the SAME account, compare what Profile, Settings row, and the Premium screen say | They must agree. Example of a bug: Profile promises "2 MONTHS FREE" but the Premium screen says the free months are finished. | | |
+| F-8 | Profile premium card variants | Check the Profile premium card for a state-A provider and a state-C provider | State A: gold "2 MONTHS FREE" chip + free-months text. State C: **no** free chip; text about priority listing at ₹299/month instead | | |
 | F-9 | Offline / bad network | Open the Premium screen in **airplane mode** (or very poor signal) | You should see a "failed to load" screen with a **Retry** button — NOT a screen inviting you to pay. Turn network back on, tap Retry → normal screen loads. | | |
 | F-10 | Wording check (for client) | Read all premium screens carefully | Nowhere should any payment company be named; "no automatic renewal" wording present; every ₹0 mention is accompanied by "then ₹299/month" | | |
 | F-11 | Premium in Hindi & Marathi | Repeat F-1..F-5 in Hindi, spot-check Marathi | All premium texts translated, prices formatted correctly, nothing overflowing off the card | | |
@@ -152,7 +152,7 @@ You will need different test accounts to see each state. Ask the developer to pr
 |---|---|---|---|---|---|
 | G-1 | Accept Terms & Privacy | On the verification dashboard, tap the Terms/Privacy step → Accept | ONE success message only. The step turns to done/accepted right away. **If you see a success message AND an error message together, or the step stays "Pending" — report it (this was the old bug).** | | |
 | G-2 | Steps status | Review all verification steps | Statuses match reality (done / pending); progress count correct | | |
-| G-3 | Premium step wording | Read the premium step description | Matches the 6-months-free offer, in the app's language | | |
+| G-3 | Premium step wording | Read the premium step description | Matches the 2-months-free offer, in the app's language | | |
 | G-4 | After phone re-verify | Re-verify your phone, come back | Dashboard reflects it without a long delay | | |
 
 ---

@@ -158,7 +158,7 @@ const activeStyles = StyleSheet.create({
 });
 
 // ============================================
-// PREMIUM HERO — 6-months-free welcome offer (3 states)
+// PREMIUM HERO — 2-months-free welcome offer (3 states)
 // state: 'A' before first approval · 'B' free bonus running · 'C' bonus over
 // Deep navy plate, champagne-gold accents (accents only — never fills),
 // per-state glow tint: A warm amber (the gift), C steel blue (the decision).
@@ -840,7 +840,7 @@ const SubscriptionScreen = ({ navigation }) => {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── 6-months-free offer states ──
+        {/* ── 2-months-free offer states ──
             A: no approved service yet → the gift pitch (routes to verification)
             B: first-approval bonus running → free-days status
             C: bonus over / paid flow → standard pricing
@@ -853,7 +853,7 @@ const SubscriptionScreen = ({ navigation }) => {
             return <ActiveStatusCard subscription={subscription} onRenew={handleSubscribe} loading={subscribing} t={t} />;
           }
           // Profile unknown (still loading or fetch failed): state C's copy
-          // claims "your 6 free months are complete", which we can't assert —
+          // claims "your 2 free months are complete", which we can't assert —
           // skip the hero and let the plans below carry honest standard pricing.
           if (!isPremium && !profile) {
             return null;

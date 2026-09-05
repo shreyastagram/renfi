@@ -44,10 +44,73 @@ export default function useBookingProfileGate(navigation) {
   }, [dialog, t, navigation]);
 
   /**
+   * Route the user to fix the SPECIFIC missing piece (backend `missing` shape
+   * { name, phone, phoneVerified }):
+   *  - missing NAME  → Profile screen, identity editor, focused on the name
+   *    field, returning to the booking screen after save.
+   *  - missing / unverified PHONE → the dedicated OTP Verification screen
+   *    (add + verify), matching the app's provider verification UX.
+   */
+  const promptCompleteProfile = useCallback(
+    (missing) => {
+      const nameMissing = !!missing?.name;
+      const phoneMissing = !!missing?.phone;
+      const phoneUnverified = !!missing?.phoneVerified;
+
+      if (nameMissing) {
+        dialog(
+          t('userHome.profileIncompleteTitle') || 'Complete your profile',
+          t('userHome.completeProfileNameMsg') ||
+            'Please add your name to your profile to continue booking a service.',
+          [
+            { text: t('common.later'), style: 'cancel' },
+            {
+              text: t('userHome.completeProfile') || 'Complete Profile',
+              onPress: () =>
+                navigation?.navigate?.('Profile', {
+                  editSection: 'identity',
+                  focusField: 'name',
+                  returnAfterSave: true,
+                }),
+            },
+          ]
+        );
+        return;
+      }
+
+      if (phoneMissing || phoneUnverified) {
+        dialog(
+          t('userHome.profileIncompleteTitle') || 'Complete your profile',
+          t('userHome.completeProfilePhoneMsg') ||
+            'Please add and verify your mobile number to continue booking a service.',
+          [
+            { text: t('common.later'), style: 'cancel' },
+            {
+              text: t('userHome.verifyNow') || 'Verify Now',
+              onPress: () =>
+                navigation?.navigate?.('Verification', {
+                  verificationType: 'phone',
+                  // phone exists but isn't verified → force a re-verify
+                  forceReVerify: phoneUnverified && !phoneMissing,
+                }),
+            },
+          ]
+        );
+        return;
+      }
+
+      // Fallback — shouldn't normally happen.
+      showProfileIncompleteDialog();
+    },
+    [dialog, t, navigation, showProfileIncompleteDialog]
+  );
+
+  /**
    * Returns true when booking may proceed. When the profile is incomplete,
-   * shows the "Complete your profile" dialog and returns false.
-   * While the profile is still loading we do NOT block (matches the existing
-   * phone-verification gates) — the backend 403 is the safety net.
+   * routes the user to the right fix (name → Profile, phone → Verification)
+   * and returns false. While the profile is still loading we do NOT block
+   * (matches the existing phone-verification gates) — the backend 403 is the
+   * safety net.
    */
   const ensureBookingProfileComplete = useCallback(() => {
     if (isAuthLoading || isProfileLoading) return true;
@@ -64,8 +127,9 @@ export default function useBookingProfileGate(navigation) {
       user?.phoneVerified ??
       false;
 
-    if (!name || !phone || !phoneVerified) {
-      showProfileIncompleteDialog();
+    const missing = { name: !name, phone: !phone, phoneVerified: !phoneVerified };
+    if (missing.name || missing.phone || missing.phoneVerified) {
+      promptCompleteProfile(missing);
       return false;
     }
     return true;
@@ -81,25 +145,31 @@ export default function useBookingProfileGate(navigation) {
     user?.phone,
     user?.isPhoneVerified,
     user?.phoneVerified,
-    showProfileIncompleteDialog,
+    promptCompleteProfile,
   ]);
 
   /**
-   * Backend-403 handler for submit error paths. Pass the error code (or a
-   * result object with `.code`); returns true when it was PROFILE_INCOMPLETE
-   * and the dialog was shown (caller should stop its own error handling).
+   * Backend-403 handler for submit error paths. Pass the result object (or
+   * code). Returns true when it was PROFILE_INCOMPLETE and the user was routed
+   * (caller should stop its own error handling). Uses the backend `missing`
+   * map to route to the right screen; falls back to the generic dialog.
    */
   const handleProfileIncompleteError = useCallback(
     (codeOrResult) => {
-      const code =
-        typeof codeOrResult === 'string' ? codeOrResult : codeOrResult?.code;
+      const isObj = codeOrResult && typeof codeOrResult === 'object';
+      const code = isObj ? codeOrResult.code : codeOrResult;
       if (code === 'PROFILE_INCOMPLETE') {
-        showProfileIncompleteDialog();
+        const missing = (isObj && codeOrResult.missing) || null;
+        if (missing) {
+          promptCompleteProfile(missing);
+        } else {
+          showProfileIncompleteDialog();
+        }
         return true;
       }
       return false;
     },
-    [showProfileIncompleteDialog]
+    [promptCompleteProfile, showProfileIncompleteDialog]
   );
 
   return {

@@ -174,7 +174,7 @@ const InfoRow = React.memo(({ label, value, iconName, verified, onVerify, isLoad
 /**
  * Editable Field
  */
-const EditableField = React.memo(({ label, value, onChangeText, placeholder, editable = true, locked = false, lockMessage, lockedLabel, keyboardType = 'default', maxLength, containerStyle }) => (
+const EditableField = React.memo(({ label, value, onChangeText, placeholder, editable = true, locked = false, lockMessage, lockedLabel, keyboardType = 'default', maxLength, containerStyle, autoFocus = false }) => (
   <View style={[styles.fieldContainer, containerStyle]}>
     <View style={styles.fieldLabelRow}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -194,6 +194,7 @@ const EditableField = React.memo(({ label, value, onChangeText, placeholder, edi
       editable={editable && !locked}
       keyboardType={keyboardType}
       maxLength={maxLength}
+      autoFocus={autoFocus}
     />
     {locked && lockMessage && (
       <Text style={styles.fieldLockMessage}>{lockMessage}</Text>
@@ -390,6 +391,10 @@ const ProfileScreen = ({ navigation, route }) => {
 
   // Check if we should scroll to/open addresses section
   const scrollToAddresses = route?.params?.scrollToAddresses;
+  // The booking gate can route here to complete a missing field, then return.
+  const editSectionParam = route?.params?.editSection;   // e.g. 'identity'
+  const focusFieldParam = route?.params?.focusField;     // e.g. 'name'
+  const returnAfterSave = route?.params?.returnAfterSave;
 
   // State
   const [refreshing, setRefreshing] = useState(false);
@@ -651,6 +656,13 @@ const ProfileScreen = ({ navigation, route }) => {
     }
   }, [scrollToAddresses]);
 
+  // If routed here from the booking gate to complete a field, open that editor.
+  useEffect(() => {
+    if (editSectionParam) {
+      setEditingSection(editSectionParam);
+    }
+  }, [editSectionParam]);
+
   // Combined user data
   const displayData = { ...user, ...profile };
   const isProvider = userType === 'provider';
@@ -910,7 +922,7 @@ const ProfileScreen = ({ navigation, route }) => {
    * Per-section save handlers — validate only their own fields (same rules
    * as the legacy full-form save) and submit only what changed.
    */
-  const handleIdentitySave = () => {
+  const handleIdentitySave = async () => {
     const fullName = (formData.fullName || '').trim();
     const fields = {};
     // Identity editor now handles the NAME only — phone moved to Contact &
@@ -924,9 +936,16 @@ const ProfileScreen = ({ navigation, route }) => {
     }
     if (Object.keys(fields).length === 0) {
       setEditingSection(null);
+      // Name already present — if the booking gate routed us here, go continue it.
+      if (returnAfterSave && navigation?.canGoBack?.()) navigation.goBack();
       return;
     }
-    saveProfileFields(fields);
+    const ok = await saveProfileFields(fields);
+    // If routed here from the booking flow, return so the user can continue the
+    // request (their selections are preserved on the still-mounted screen).
+    if (ok && returnAfterSave && navigation?.canGoBack?.()) {
+      navigation.goBack();
+    }
   };
 
   const handleContactSave = () => {
@@ -1489,6 +1508,7 @@ const ProfileScreen = ({ navigation, route }) => {
                   locked={isProvider && isNameLocked}
                   lockedLabel={t('profile.locked')}
                   lockMessage={isNameLocked ? `Verified as "${aadhaarName || formData.fullName}" via Aadhaar` : undefined}
+                  autoFocus={focusFieldParam === 'name'}
                 />
                 {/* Phone is NOT edited here — it lives in Contact & Location with
                     its own verify-then-replace OTP flow (semantically a contact
@@ -2612,7 +2632,7 @@ const ProfileScreen = ({ navigation, route }) => {
                   <View style={styles.premiumInactiveGradient}>
                     <View style={styles.premiumInactiveDecoCircle1} />
                     <View style={styles.premiumInactiveDecoCircle2} />
-                    {/* 6-months-free offer chip — only while the first-approval
+                    {/* 2-months-free offer chip — only while the first-approval
                         bonus is still ahead of them; once a service is approved
                         the bonus is granted (and later spent), so the free
                         promise would be false */}

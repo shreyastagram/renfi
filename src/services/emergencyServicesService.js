@@ -237,6 +237,7 @@ export const createEmergencyRequest = async ({ userId, serviceType, location, no
         suggestion,
         statusCode: response.status,
         retryAfter: data.retryAfter || null,
+        missing: data.missing || null,
       };
     }
 

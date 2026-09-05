@@ -987,10 +987,10 @@ const ProviderHomeScreen = ({ navigation }) => {
             } catch (err) {
               console.warn('[ProviderHome] Failed to clear bonus popup flag:', err.message);
             }
-            // Update premium status in context — FIRST_APPROVAL_BONUS is 180 days (6 months)
+            // Update premium status in context — FIRST_APPROVAL_BONUS is 60 days (2 months)
             setPremiumStatus({
               isPremiumActive: true,
-              premiumDaysLeft: 180,
+              premiumDaysLeft: 60,
               premiumLoaded: true,
             });
             // Refresh profile so firstApprovalBonusPending becomes false in context
