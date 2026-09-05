@@ -16,7 +16,6 @@ import {  View,
   TouchableWithoutFeedback,
   Animated,
   Dimensions,
-  Linking,
   Image,
   ScrollView,
   Platform,
@@ -27,6 +26,7 @@ import TouchableOpacity from './TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useSupport } from '../context/SupportContext';
 import Icon from './Icon';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { getAppVersionLabel } from '../config/appVersion';
@@ -220,6 +220,7 @@ export const DrawerMenu = ({
 }) => {
   const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
+  const { openSupport } = useSupport();
   const { t, language, setLanguage, languages } = useLanguage();
 
   // StatusBar.currentHeight is reliable on Android even inside Modals.
@@ -365,16 +366,7 @@ export const DrawerMenu = ({
     }
 
     if (item.action === 'help') {
-      onCloseCallbackRef.current = () => dialog(
-        'Help & Support',
-        'How would you like to reach us?',
-        [
-          { text: 'WhatsApp', onPress: () => Linking.openURL('https://wa.me/918446385312') },
-          { text: 'Email', onPress: () => Linking.openURL('mailto:contact@fixhomi.com').catch(() => dialog('Email Us', 'contact@fixhomi.com')) },
-          { text: 'Visit Support Page', onPress: () => Linking.openURL('https://fixhomi.com/support') },
-          { text: t('common.cancel') || 'Cancel', style: 'cancel' },
-        ]
-      );
+      onCloseCallbackRef.current = () => openSupport(userType);
       onClose();
       return;
     }
@@ -399,7 +391,7 @@ export const DrawerMenu = ({
         }
       }, 300);
     }
-  }, [onClose, userType, navigation, onLogout, t, dialog]);
+  }, [onClose, userType, navigation, onLogout, t, dialog, openSupport]);
 
   const handleProfilePress = useCallback(() => {
     onClose();

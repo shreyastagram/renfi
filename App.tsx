@@ -18,6 +18,8 @@ import type { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
 import { AppProvider, useApp } from './src/context/AppContext';
 import { LocationProvider } from './src/context/LocationContext';
 import { DialogProvider } from './src/context/DialogContext';
+import { ProfileCompletionProvider } from './src/context/ProfileCompletionContext';
+import { SupportProvider } from './src/context/SupportContext';
 import { LanguageProvider } from './src/context/LanguageContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RootNavigator, { linking as navLinking } from './navigation/RootNavigator';
@@ -485,6 +487,8 @@ function AppContent() {
   return (
     <LocationProvider>
       <DialogProvider>
+      <ProfileCompletionProvider>
+      <SupportProvider>
       <View style={{ flex: 1 }}>
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         {isNavReady && (
@@ -523,6 +527,8 @@ function AppContent() {
           onFinish={handleSplashFinish}
         />
       </View>
+      </SupportProvider>
+      </ProfileCompletionProvider>
       </DialogProvider>
     </LocationProvider>
   );

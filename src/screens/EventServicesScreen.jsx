@@ -906,7 +906,7 @@ const EventServicesScreen = ({ navigation }) => {
     }
 
     // Booking gate — a name and a verified phone are required to book.
-    if (!ensureBookingProfileComplete()) {
+    if (!(await ensureBookingProfileComplete())) {
       return;
     }
 
