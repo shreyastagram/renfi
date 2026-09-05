@@ -51,7 +51,7 @@ export const USE_DEV_STAGING = true;
 
 const DEV_STAGING_CONFIG = {
   // Dev Node on Render → dev "Flex" Mongo (a COPY of prod data). Update if your dev URL differs.
-  NODE_API_URL: 'https://noefix-dev.onrender.com',
+  NODE_API_URL: 'https://noefix-1-dev.onrender.com',
   // Keep PROD auth — jauth/Neon is unchanged, so the dev app authenticates against prod jauth.
   JAVA_AUTH_URL: 'https://auth.fixhomi.com',
 };
