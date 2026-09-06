@@ -213,18 +213,22 @@ export const syncUserToMongoDB = async (userId, updates) => {
   try {
     console.log(`🔄 [ProfileSync] Syncing user ${userId} to MongoDB:`, updates);
     
-    // Map Java Auth field names to MongoDB field names
+    // The Node profile endpoint (PUT /api/user/profile/:userId) reads `fullName`
+    // and `phone` (NOT `name`), so send those exact field names. (Previously this
+    // sent `name` to `ENDPOINTS.USER.UPDATE` — which is undefined, there is no
+    // USER block in ENDPOINTS — so the write THREW and the name never reached
+    // Mongo even though Java Auth/Neon saved it. Fixed to the real profile route.)
     const mongoUpdates = { ...updates };
-    if (updates.fullName) {
-      mongoUpdates.name = updates.fullName;
-      delete mongoUpdates.fullName;
+    if (updates.name && !mongoUpdates.fullName) {
+      mongoUpdates.fullName = updates.name;
     }
+    delete mongoUpdates.name; // this endpoint ignores `name`
     if (updates.phoneNumber) {
       mongoUpdates.phone = updates.phoneNumber;
       delete mongoUpdates.phoneNumber;
     }
     
-    const response = await putWithRetry(apiClient, `${ENDPOINTS.USER.UPDATE}/${userId}`, mongoUpdates);
+    const response = await putWithRetry(apiClient, `${ENDPOINTS.PROFILE.UPDATE_USER}/${userId}`, mongoUpdates);
     
     console.log('✅ [ProfileSync] Synced user to MongoDB:', response.data);
     
