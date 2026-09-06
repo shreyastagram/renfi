@@ -58,11 +58,14 @@ const FIELDS = {
       return t.length >= 2 && t.length <= 100;
     },
     toUpdates: (v) => ({ name: (v || '').trim(), fullName: (v || '').trim() }),
+    // Server-side confirmation: the required field is now present on the profile.
+    isSaved: (profileData) =>
+      ((profileData?.name || profileData?.fullName || '').trim().length >= 2),
   },
 };
 
 const InlineFieldCollectorModal = ({ field = 'name', bottomInset = 0, onDone }) => {
-  const { user, profile, updateProfileWithAutoSync } = useApp();
+  const { user, profile, userType, updateProfileWithAutoSync, refreshProfile } = useApp();
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
   const cfg = FIELDS[field] || FIELDS.name;
@@ -124,6 +127,18 @@ const InlineFieldCollectorModal = ({ field = 'name', bottomInset = 0, onDone }) 
       if (typeof updateProfileWithAutoSync === 'function') {
         const result = await updateProfileWithAutoSync(cfg.toUpdates(value));
         ok = !!result?.success;
+      }
+      // A slow/cold backend can time out the CLIENT after the SERVER already
+      // saved. Before declaring failure, verify against the server — if the
+      // value is now persisted, treat it as success (no false "couldn't save").
+      if (!ok && typeof refreshProfile === 'function') {
+        try {
+          const uid = user?.mongoId || user?._id;
+          const fresh = await refreshProfile(userType, uid, { force: true });
+          if (fresh && cfg.isSaved(fresh)) ok = true;
+        } catch (verifyErr) {
+          /* verification also failed — keep ok = false */
+        }
       }
       if (!ok) setError(labels.failed);
     } catch (e) {
