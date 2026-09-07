@@ -41,10 +41,12 @@ export const USE_PRODUCTION_JAVA_AUTH = true;
 // ============================================
 // ⚠️ TEMPORARY DEV / STAGING TESTING — NEVER MERGE AS true TO A RELEASE BRANCH ⚠️
 // ============================================
-// When true, the app points NODE at the dev Render instance (noefix-dev), which
-// runs the Batch-1 code against a dev "Flex" Mongo holding a COPY of prod data —
-// so prod Mongo is never touched. AUTH stays on PROD jauth (prod Neon is unchanged),
-// so JWT_SECRET on the dev Node MUST match prod.
+// When true, the app runs a FULLY ISOLATED dev stack:
+//   NODE → dev Render (noefix-1-dev) → dev "Flex" Mongo (a COPY of prod data)
+//   AUTH → dev jauth (jauth-1)       → dev Neon Postgres (separate, starts empty)
+// so neither prod Mongo nor prod Neon is ever touched. The dev jauth signs JWTs
+// with ITS JWT_SECRET, so the dev Node's JWT_SECRET MUST equal the dev jauth's
+// JWT_SECRET (a mismatch → token-verification 401s / "not authorized").
 // Keep this true ONLY on the throwaway devtest branch used for Firebase builds.
 // It MUST be false on feature/client-updates-batch1 and anything that merges to prod.
 export const USE_DEV_STAGING = true;
@@ -52,8 +54,8 @@ export const USE_DEV_STAGING = true;
 const DEV_STAGING_CONFIG = {
   // Dev Node on Render → dev "Flex" Mongo (a COPY of prod data). Update if your dev URL differs.
   NODE_API_URL: 'https://noefix-1-dev.onrender.com',
-  // Keep PROD auth — jauth/Neon is unchanged, so the dev app authenticates against prod jauth.
-  JAVA_AUTH_URL: 'https://auth.fixhomi.com',
+  // Dev jauth on Render → dev Neon Postgres (isolated). Its JWT_SECRET must match the dev Node's.
+  JAVA_AUTH_URL: 'https://jauth-1.onrender.com',
 };
 
 const REAL_PROD_CONFIG = {
