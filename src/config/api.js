@@ -298,6 +298,8 @@ export const ENDPOINTS = {
     UPDATE_PROVIDER: '/api/auth/provider/profile',
     // Node.js - Update provider online status (PATCH)
     UPDATE_PROVIDER_ONLINE: '/api/provider', // + /:providerId/online
+    // Node.js - Provider weekly working hours: GET / PATCH, POST …/reset
+    PROVIDER_WORK_SCHEDULE: '/api/provider', // + /:providerId/work-schedule
   },
 
   // Saved Addresses endpoints (via Node.js backend)
