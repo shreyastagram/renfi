@@ -737,7 +737,10 @@ export const sendRequestToProvider = async (requestId, providerId, distance = nu
     if (!response.ok) {
       console.error('[TraditionalService] Send to provider failed:', data);
       const errorMessage = data.error?.message || data.message || 'Failed to send request to provider';
-      throw new Error(errorMessage);
+      // Keep the machine-readable code so screens can show a translated message.
+      const err = new Error(errorMessage);
+      err.code = data.error?.code || data.code || null;
+      throw err;
     }
 
     console.log('[TraditionalService] Request sent to provider successfully:', {
@@ -757,6 +760,7 @@ export const sendRequestToProvider = async (requestId, providerId, distance = nu
     return {
       success: false,
       error: error.message || 'Failed to send request to provider',
+      code: error.code || null,
     };
   }
 };

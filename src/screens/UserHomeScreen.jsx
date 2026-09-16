@@ -1254,7 +1254,9 @@ const UserHomeScreen = ({ navigation, route }) => {
       if (result.success) {
         dialog(t('userHome.requestSent'), t('userHome.requestSentMsg', { name: provider.name }), [{ text: t('common.ok'), onPress: resetFlow }]);
       } else {
-        dialog(t('common.error'), result.error || t('userHome.sendRequestFailed'));
+        dialog(t('common.error'), result.code === 'PROVIDER_NOT_AVAILABLE_AT_TIME'
+          ? t('workHours.providerNotAvailableMsg')
+          : (result.error || t('userHome.sendRequestFailed')));
       }
     } catch (error) {
       dialog(t('common.error'), t('common.somethingWentWrong'));

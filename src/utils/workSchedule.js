@@ -78,6 +78,8 @@ export function computeHomeStatus({ days, isAvailable, emergencyServicesEnabled,
   if (!isAvailable) return { kind: 'offline' };
   if (!days) return { kind: 'unknown' };
   if (!scheduleEnforced) return { kind: 'saved_not_enforced' };
+  // Every day switched off: nobody can book them, day or night.
+  if (DAY_KEYS.every((key) => !days[key] || !days[key].enabled)) return { kind: 'no_days' };
   const day = days[moment.dayKey];
   if (!day || !day.enabled) return { kind: 'day_off' };
   const start = hhmmToMinutes(day.start);
@@ -105,6 +107,44 @@ export function agoParts(date, now = new Date()) {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return { unit: 'hours', n: hours };
   return { unit: 'days', n: Math.floor(hours / 24) };
+}
+
+const OFFLINE_CODES = new Set(['NETWORK_ERROR', 'NO_INTERNET', 'SERVER_UNREACHABLE', 'SERVER_TIMEOUT']);
+
+/**
+ * i18n key for a failed schedule save/load. Always a translated message —
+ * backend error text is English and must not reach hi/mr users.
+ */
+export function scheduleErrorKey(error) {
+  const code = error && error.code;
+  if (code === 'RATE_LIMITED') return 'workHours.errRateLimited';
+  if (code === 'INVALID_SCHEDULE') return 'workHours.errInvalid';
+  if ((error && error.isTransient) || OFFLINE_CODES.has(code)) return 'workHours.errOffline';
+  return 'workHours.saveFailed';
+}
+
+const MINUTE_MS = 60 * 1000;
+const MAX_SLEEP_MS = 6 * 60 * MINUTE_MS;
+
+/**
+ * Milliseconds until the Home status could next change (start/end of today's
+ * hours, the 07:00 / 22:00 night boundaries, or midnight). Lets the card sleep
+ * for hours instead of re-rendering every minute. Capped as a safety net.
+ */
+export function msUntilNextStatusChange(days, now = new Date()) {
+  const { dayKey, minute } = getIstMoment(now);
+  const secondsIntoMinute = now.getUTCSeconds() * 1000 + now.getUTCMilliseconds();
+  const boundaries = [NIGHT_END, NIGHT_START, 24 * 60];
+  const today = days && days[dayKey];
+  if (today && today.enabled) {
+    const start = hhmmToMinutes(today.start);
+    const end = hhmmToMinutes(today.end);
+    if (start !== null) boundaries.push(start);
+    if (end !== null) boundaries.push(end);
+  }
+  const next = Math.min(...boundaries.filter((b) => b > minute));
+  const ms = (next - minute) * MINUTE_MS - secondsIntoMinute;
+  return Math.min(Math.max(ms, 1000), MAX_SLEEP_MS);
 }
 
 const sameHours = (a, b) => a.enabled === b.enabled && (!a.enabled || (a.start === b.start && a.end === b.end));

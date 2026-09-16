@@ -687,7 +687,9 @@ const FavoritesScreen = ({ navigation }) => {
         var sendResult = await sendRequestToProvider(requestId, provider._id);
         success = sendResult.success;
         if (!success) {
-          errorMsg = sendResult.error || 'Failed to send request';
+          errorMsg = sendResult.code === 'PROVIDER_NOT_AVAILABLE_AT_TIME'
+            ? t('workHours.providerNotAvailableMsg')
+            : (sendResult.error || 'Failed to send request');
         }
       }
 

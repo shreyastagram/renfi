@@ -11,6 +11,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Switch, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useIsFocused } from '@react-navigation/native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { Icon } from '../components';
 import DayHoursSheet from '../components/DayHoursSheet';
@@ -18,7 +19,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useDialog } from '../context/DialogContext';
 import { useWorkSchedule } from '../context/WorkScheduleContext';
 import { useApp } from '../context/AppContext';
-import { DAY_KEYS, buildDaysPatch, formatTime12, getIstMoment } from '../utils/workSchedule';
+import { DAY_KEYS, buildDaysPatch, formatTime12, getIstMoment, scheduleErrorKey } from '../utils/workSchedule';
 
 const COLORS = {
   dark: '#0F172A',
@@ -39,7 +40,10 @@ const WorkAvailabilityScreen = ({ navigation }) => {
   const { days, loading, error, saving, refresh, saveDays, resetToDefault } = useWorkSchedule();
   const [editingDay, setEditingDay] = useState(null);
 
-  const todayKey = useMemo(() => getIstMoment().dayKey, []);
+  // Re-evaluated on every focus/render (O(1)), so the TODAY badge is right after midnight.
+  const isFocused = useIsFocused();
+  const todayKey = useMemo(() => getIstMoment().dayKey, [isFocused, days]); // eslint-disable-line react-hooks/exhaustive-deps
+  const allDaysOff = !!days && DAY_KEYS.every((key) => !days[key]?.enabled);
   const emergencyEnabled = (profile?.emergencyServicesEnabled ?? user?.emergencyServicesEnabled) === true;
 
   const handleSaveDay = useCallback(async (value, target) => {
@@ -47,7 +51,7 @@ const WorkAvailabilityScreen = ({ navigation }) => {
     setEditingDay(null);
     const result = await saveDays(buildDaysPatch(dayKey, value, target), dayKey);
     if (!result.success) {
-      dialog(t('workHours.title'), result.error?.message || t('workHours.saveFailed'));
+      dialog(t('workHours.title'), t(scheduleErrorKey(result.error)));
     }
   }, [editingDay, saveDays, dialog, t]);
 
@@ -56,7 +60,7 @@ const WorkAvailabilityScreen = ({ navigation }) => {
     if (!day || saving) return;
     const result = await saveDays({ [dayKey]: { ...day, enabled: !day.enabled } }, dayKey);
     if (!result.success) {
-      dialog(t('workHours.title'), result.error?.message || t('workHours.saveFailed'));
+      dialog(t('workHours.title'), t(scheduleErrorKey(result.error)));
     }
   }, [days, saving, saveDays, dialog, t]);
 
@@ -67,7 +71,7 @@ const WorkAvailabilityScreen = ({ navigation }) => {
         text: t('workHours.resetConfirmYes'),
         onPress: async () => {
           const result = await resetToDefault();
-          if (!result.success) dialog(t('workHours.title'), result.error?.message || t('workHours.saveFailed'));
+          if (!result.success) dialog(t('workHours.title'), t(scheduleErrorKey(result.error)));
         },
       },
     ]);
@@ -89,6 +93,12 @@ const WorkAvailabilityScreen = ({ navigation }) => {
         refreshControl={<RefreshControl refreshing={loading && !!days} onRefresh={() => refresh({ force: true })} tintColor={COLORS.primary} />}
       >
         <Text style={styles.intro}>{t('workHours.screenIntro')}</Text>
+
+        {allDaysOff && (
+          <View style={styles.noDaysBanner}>
+            <Text style={styles.noDaysText}>{t('workHours.noDaysBanner')}</Text>
+          </View>
+        )}
 
         {loading && !days && <ActivityIndicator color={COLORS.primary} style={styles.loader} />}
 
@@ -182,6 +192,8 @@ const styles = StyleSheet.create({
   content: { padding: 18, paddingBottom: 40 },
   intro: { fontSize: 13.5, color: COLORS.muted, lineHeight: 20, marginBottom: 14 },
   loader: { marginTop: 24 },
+  noDaysBanner: { backgroundColor: '#FEF2F2', borderRadius: 14, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#FECACA' },
+  noDaysText: { fontSize: 13, color: '#B91C1C', fontWeight: '600', lineHeight: 18 },
   errorBox: { backgroundColor: COLORS.white, borderRadius: 16, padding: 16, gap: 8 },
   errorText: { fontSize: 13.5, color: '#B91C1C', fontWeight: '600' },
   retry: { fontSize: 13.5, fontWeight: '700', color: COLORS.secondary },

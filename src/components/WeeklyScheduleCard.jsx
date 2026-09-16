@@ -6,8 +6,8 @@
  * location fix. Memoized and fed primitive props, because ProviderHomeScreen
  * re-renders on every useApp()/useLocation() change.
  *
- * The one-minute tick only runs while the screen is focused, so status text
- * stays correct across an hours boundary without waking an idle screen.
+ * The status clock sleeps until the next moment the status can change (see
+ * useIstMoment) and only runs while the screen is focused.
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -16,7 +16,7 @@ import TouchableOpacity from './TouchableOpacity';
 import { Icon } from './index';
 import { useLanguage } from '../context/LanguageContext';
 import {
-  DAY_KEYS, agoParts, computeHomeStatus, formatTime12, getIstMoment,
+  DAY_KEYS, agoParts, computeHomeStatus, formatTime12, getIstMoment, msUntilNextStatusChange,
 } from '../utils/workSchedule';
 
 const BRAND = { primary: '#f67c16', secondary: '#2b76bc', white: '#FFFFFF', dark: '#0F172A', muted: '#94A3B8', text: '#64748B' };
@@ -30,6 +30,7 @@ const STATUS_STYLE = {
   night_off: { bg: '#F1F5F9', fg: '#475569', dot: '#94A3B8' },
   offline: { bg: '#F1F5F9', fg: '#475569', dot: '#94A3B8' },
   saved_not_enforced: { bg: '#EFF6FF', fg: '#1D4ED8', dot: '#3B82F6' },
+  no_days: { bg: '#FEF2F2', fg: '#B91C1C', dot: '#EF4444' },
   unknown: { bg: '#F1F5F9', fg: '#475569', dot: '#CBD5E1' },
 };
 
@@ -42,18 +43,30 @@ const STATUS_KEY = {
   night_on: 'workHours.statusNightOn',
   night_off: 'workHours.statusNightOff',
   saved_not_enforced: 'workHours.statusSaved',
+  no_days: 'workHours.statusNoDays',
   unknown: 'workHours.statusLoading',
 };
 
-/** Live IST moment, re-evaluated every minute while `active`. */
-function useIstMoment(active) {
+/**
+ * Live IST moment that only updates when the status could actually change
+ * (hours start/end, 07:00/22:00, midnight) — a handful of re-renders a day
+ * instead of one per minute. Paused while the screen is not focused.
+ */
+function useIstMoment(active, days) {
   const [moment, setMoment] = useState(() => getIstMoment());
   useEffect(() => {
     if (!active) return undefined;
-    setMoment(getIstMoment());
-    const id = setInterval(() => setMoment(getIstMoment()), 60 * 1000);
-    return () => clearInterval(id);
-  }, [active]);
+    let timer;
+    const tick = () => {
+      setMoment((prev) => {
+        const next = getIstMoment();
+        return prev.dayKey === next.dayKey && prev.minute === next.minute ? prev : next;
+      });
+      timer = setTimeout(tick, msUntilNextStatusChange(days));
+    };
+    tick();
+    return () => clearTimeout(timer);
+  }, [active, days]);
   return moment;
 }
 
@@ -73,7 +86,7 @@ const WeeklyScheduleCard = ({
   onRetry,
 }) => {
   const { t } = useLanguage();
-  const moment = useIstMoment(focused);
+  const moment = useIstMoment(focused, days);
 
   const status = useMemo(
     () => computeHomeStatus({ days, isAvailable, emergencyServicesEnabled, scheduleEnforced, moment }),

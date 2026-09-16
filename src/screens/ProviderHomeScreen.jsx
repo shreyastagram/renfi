@@ -57,7 +57,7 @@ import {
   addEventListener,
 } from '../services/socketService';
 import { useWorkSchedule } from '../context/WorkScheduleContext';
-import { buildDaysPatch } from '../utils/workSchedule';
+import { buildDaysPatch, scheduleErrorKey } from '../utils/workSchedule';
 import { getProviderRequests } from '../services/traditionalServiceService';
 import { getVerificationDashboard } from '../services/verificationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -664,7 +664,7 @@ const ProviderHomeScreen = ({ navigation }) => {
     setEditingDay(null);
     const result = await saveWorkDays(buildDaysPatch(dayKey, value, target), dayKey);
     if (!result.success) {
-      dialog(t('workHours.title'), result.error?.message || t('workHours.saveFailed'));
+      dialog(t('workHours.title'), t(scheduleErrorKey(result.error)));
     }
   }, [editingDay, saveWorkDays, dialog, t]);
 
@@ -674,7 +674,7 @@ const ProviderHomeScreen = ({ navigation }) => {
     setUpdatingLocation(true);
     const sent = await sendLocationNow(providerId);
     if (sent) await refreshWorkSchedule({ force: true });
-    else dialog(t('workHours.title'), t('workHours.locationNever'));
+    else dialog(t('workHours.title'), t('workHours.locationUpdateFailed'));
     setUpdatingLocation(false);
   }, [user?.mongoId, user?._id, profile?.mongoId, profile?._id, updatingLocation, refreshWorkSchedule, dialog, t]);
 

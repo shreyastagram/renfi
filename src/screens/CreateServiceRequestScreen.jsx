@@ -563,7 +563,9 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
                   ]
                 );
               } else {
-                dialog(t('common.error'), result.error || t('createRequest.sendFailed'));
+                dialog(t('common.error'), result.code === 'PROVIDER_NOT_AVAILABLE_AT_TIME'
+                  ? t('workHours.providerNotAvailableMsg')
+                  : (result.error || t('createRequest.sendFailed')));
               }
             } catch (error) {
               console.error('[BookProvider] Error:', error);

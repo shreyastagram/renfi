@@ -6,6 +6,8 @@ import {
   validateDay,
   computeHomeStatus,
   agoParts,
+  scheduleErrorKey,
+  msUntilNextStatusChange,
   summarizeWeek,
   buildDaysPatch,
 } from '../src/utils/workSchedule';
@@ -124,3 +126,71 @@ describe('agoParts', () => {
     expect(agoParts(input, now)).toEqual(expected);
   });
 });
+
+describe('computeHomeStatus — every day switched off', () => {
+  test('tells the provider nobody can book them, even during what used to be hours', () => {
+    const days = Object.fromEntries(Object.entries(week()).map(([k, d]) => [k, { ...d, enabled: false }]));
+    expect(computeHomeStatus({ days, isAvailable: true, emergencyServicesEnabled: true, scheduleEnforced: true, moment: { dayKey: 'mon', minute: 660 } }))
+      .toEqual({ kind: 'no_days' });
+  });
+});
+
+describe('scheduleErrorKey — never show raw backend English', () => {
+  test.each([
+    [{ code: 'RATE_LIMITED' }, 'workHours.errRateLimited'],
+    [{ code: 'NO_INTERNET', isTransient: true }, 'workHours.errOffline'],
+    [{ code: 'NETWORK_ERROR' }, 'workHours.errOffline'],
+    [{ code: 'SERVER_TIMEOUT', isTransient: true }, 'workHours.errOffline'],
+    [{ code: 'INVALID_SCHEDULE' }, 'workHours.errInvalid'],
+    [{ code: 'PROVIDER_NOT_FOUND' }, 'workHours.saveFailed'],
+    [undefined, 'workHours.saveFailed'],
+  ])('%j → %s', (error, key) => {
+    expect(scheduleErrorKey(error)).toBe(key);
+  });
+});
+
+describe('msUntilNextStatusChange — wake only when the status can change', () => {
+  const MIN = 60 * 1000;
+  // 2026-09-14 is a Monday; 05:30Z = 11:00 IST
+  const at = (iso) => new Date(iso);
+
+  test('inside hours → wakes at the end of the working hours', () => {
+    // Mon 15:00 IST, hours 10:00–19:00 → 4 h
+    expect(msUntilNextStatusChange(week(), at('2026-09-14T09:30:00Z'))).toBe(4 * 60 * MIN);
+  });
+
+  test('a boundary further away than 6 h is capped (re-checks at the cap)', () => {
+    // Mon 11:00 IST → end at 19:00 is 8 h away
+    expect(msUntilNextStatusChange(week(), at('2026-09-14T05:30:00Z'))).toBe(6 * 60 * MIN);
+  });
+
+  test('before hours → wakes at the start', () => {
+    // Mon 08:30 IST → 10:00 is 90 min away
+    expect(msUntilNextStatusChange(week(), at('2026-09-14T03:00:00Z'))).toBe(90 * MIN);
+  });
+
+  test('accounts for seconds already elapsed in the minute', () => {
+    // Mon 09:59:30 IST → 30 s to 10:00
+    expect(msUntilNextStatusChange(week(), at('2026-09-14T04:29:30Z'))).toBe(30 * 1000);
+  });
+
+  test('after hours → wakes at the 22:00 night boundary', () => {
+    // Mon 20:00 IST → 22:00
+    expect(msUntilNextStatusChange(week(), at('2026-09-14T14:30:00Z'))).toBe(120 * MIN);
+  });
+
+  test('late night → wakes at midnight (new day)', () => {
+    // Mon 23:00 IST → 00:00
+    expect(msUntilNextStatusChange(week(), at('2026-09-14T17:30:00Z'))).toBe(60 * MIN);
+  });
+
+  test('early morning → wakes at 07:00 when the night window ends', () => {
+    // Tue 05:00 IST → 07:00
+    expect(msUntilNextStatusChange(week(), at('2026-09-14T23:30:00Z'))).toBe(120 * MIN);
+  });
+
+  test('never sleeps longer than the safety cap', () => {
+    expect(msUntilNextStatusChange(null, at('2026-09-14T05:30:00Z'))).toBeLessThanOrEqual(6 * 60 * MIN);
+  });
+});
+
