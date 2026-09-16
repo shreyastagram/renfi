@@ -7,6 +7,7 @@ import {
   computeHomeStatus,
   agoParts,
   scheduleErrorKey,
+  isProviderRefusal,
   msUntilNextStatusChange,
   summarizeWeek,
   buildDaysPatch,
@@ -194,3 +195,9 @@ describe('msUntilNextStatusChange — wake only when the status can change', () 
   });
 });
 
+test('isProviderRefusal recognises both send-to-provider refusal codes', () => {
+  expect(isProviderRefusal('PROVIDER_NOT_AVAILABLE_AT_TIME')).toBe(true);
+  expect(isProviderRefusal('PROVIDER_UNAVAILABLE')).toBe(true);
+  expect(isProviderRefusal('PROVIDER_BUSY')).toBe(false);
+  expect(isProviderRefusal(undefined)).toBe(false);
+});

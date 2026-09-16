@@ -69,7 +69,7 @@ import {
   getAvailableCategories,
 } from '../services/traditionalServiceService';
 import { formatDistance, formatDistanceFromMeters, useDistanceUnit } from '../utils/formatDistance';
-import { agoParts } from '../utils/workSchedule';
+import { agoParts, isProviderRefusal } from '../utils/workSchedule';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SERVICE_CARD_WIDTH = Math.floor((SCREEN_WIDTH - 64) / 3);
@@ -1254,7 +1254,7 @@ const UserHomeScreen = ({ navigation, route }) => {
       if (result.success) {
         dialog(t('userHome.requestSent'), t('userHome.requestSentMsg', { name: provider.name }), [{ text: t('common.ok'), onPress: resetFlow }]);
       } else {
-        dialog(t('common.error'), result.code === 'PROVIDER_NOT_AVAILABLE_AT_TIME'
+        dialog(t('common.error'), isProviderRefusal(result.code)
           ? t('workHours.providerNotAvailableMsg')
           : (result.error || t('userHome.sendRequestFailed')));
       }

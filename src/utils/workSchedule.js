@@ -109,6 +109,10 @@ export function agoParts(date, now = new Date()) {
   return { unit: 'days', n: Math.floor(hours / 24) };
 }
 
+/** Refusals from send-to-provider that mean "pick someone else". */
+const PROVIDER_REFUSAL_CODES = new Set(['PROVIDER_NOT_AVAILABLE_AT_TIME', 'PROVIDER_UNAVAILABLE']);
+export const isProviderRefusal = (code) => PROVIDER_REFUSAL_CODES.has(code);
+
 const OFFLINE_CODES = new Set(['NETWORK_ERROR', 'NO_INTERNET', 'SERVER_UNREACHABLE', 'SERVER_TIMEOUT']);
 
 /**

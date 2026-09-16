@@ -36,6 +36,7 @@ import { useApp } from '../context/AppContext';
 import { Analytics, EV } from '../services/analytics';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
+import { isProviderRefusal } from '../utils/workSchedule';
 import {
   createServiceRequest,
   getNearbyProviders,
@@ -563,7 +564,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
                   ]
                 );
               } else {
-                dialog(t('common.error'), result.code === 'PROVIDER_NOT_AVAILABLE_AT_TIME'
+                dialog(t('common.error'), isProviderRefusal(result.code)
                   ? t('workHours.providerNotAvailableMsg')
                   : (result.error || t('createRequest.sendFailed')));
               }

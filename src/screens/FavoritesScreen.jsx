@@ -36,6 +36,7 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
+import { isProviderRefusal } from '../utils/workSchedule';
 import { useLocation } from '../context/LocationContext';
 import useBookingProfileGate from '../hooks/useBookingProfileGate';
 import { getFavorites, removeFromFavorites } from '../services/favoritesService';
@@ -687,7 +688,7 @@ const FavoritesScreen = ({ navigation }) => {
         var sendResult = await sendRequestToProvider(requestId, provider._id);
         success = sendResult.success;
         if (!success) {
-          errorMsg = sendResult.code === 'PROVIDER_NOT_AVAILABLE_AT_TIME'
+          errorMsg = isProviderRefusal(sendResult.code)
             ? t('workHours.providerNotAvailableMsg')
             : (sendResult.error || 'Failed to send request');
         }
