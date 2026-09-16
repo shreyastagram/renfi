@@ -19,6 +19,10 @@ import {
   DAY_KEYS, agoParts, computeHomeStatus, formatTime12, getIstMoment, msUntilNextStatusChange,
 } from '../utils/workSchedule';
 
+// Card text may grow with accessibility font size, but not enough to break the
+// 7-column week strip on 320dp phones.
+const MAX_FONT_SCALE = 1.25;
+
 const BRAND = { primary: '#f67c16', secondary: '#2b76bc', white: '#FFFFFF', dark: '#0F172A', muted: '#94A3B8', text: '#64748B' };
 
 const STATUS_STYLE = {
@@ -106,9 +110,9 @@ const WeeklyScheduleCard = ({
   return (
     <View>
       <View style={styles.headerRow}>
-        <Text style={styles.sectionTitle}>{t('workHours.sectionTitle')}</Text>
+        <Text style={styles.sectionTitle} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t('workHours.sectionTitle')}</Text>
         <TouchableOpacity onPress={onPressEditWeek} accessibilityRole="button" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.editWeek}>{t('workHours.editWeek')} ›</Text>
+          <Text style={styles.editWeek} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t('workHours.editWeek')} ›</Text>
         </TouchableOpacity>
       </View>
 
@@ -127,13 +131,19 @@ const WeeklyScheduleCard = ({
                 <Icon name="clock" size={20} color={BRAND.primary} />
               </View>
               <View style={styles.todayTextWrap}>
-                <Text style={styles.todayLabel}>
+                <Text style={styles.todayLabel} maxFontSizeMultiplier={MAX_FONT_SCALE}>
                   {t('workHours.today', { day: t(`workHours.days.${moment.dayKey}`) })}
                 </Text>
                 {loading && !days ? (
                   <ActivityIndicator size="small" color={BRAND.muted} style={styles.todayLoader} />
                 ) : (
-                  <Text style={[styles.todayValue, !today?.enabled && styles.todayValueOff]}>
+                  <Text
+                    style={[styles.todayValue, !today?.enabled && styles.todayValueOff]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.75}
+                    maxFontSizeMultiplier={MAX_FONT_SCALE}
+                  >
                     {today?.enabled
                       ? t('workHours.range', { start: formatTime12(today.start), end: formatTime12(today.end) })
                       : t('workHours.dayOff')}
@@ -144,7 +154,7 @@ const WeeklyScheduleCard = ({
 
             <View style={[styles.status, { backgroundColor: tone.bg }]}>
               <View style={[styles.statusDot, { backgroundColor: tone.dot }]} />
-              <Text style={[styles.statusText, { color: tone.fg }]}>{statusText}</Text>
+              <Text style={[styles.statusText, { color: tone.fg }]} maxFontSizeMultiplier={MAX_FONT_SCALE}>{statusText}</Text>
             </View>
 
             <View style={styles.week}>
@@ -160,8 +170,21 @@ const WeeklyScheduleCard = ({
                     accessibilityRole="button"
                     accessibilityLabel={`${t(`workHours.days.${key}`)}: ${on ? t('workHours.range', { start: formatTime12(day.start), end: formatTime12(day.end) }) : t('workHours.dayOff')}`}
                   >
-                    <Text style={[styles.chipLetter, !on && styles.chipTextOff]}>{t(`workHours.dayLetters.${key}`)}</Text>
-                    <Text style={[styles.chipHours, !on && styles.chipTextOff]} numberOfLines={1}>
+                    <Text
+                      style={[styles.chipLetter, !on && styles.chipTextOff]}
+                      numberOfLines={1}
+                      maxFontSizeMultiplier={1.15}
+                    >
+                      {t(`workHours.dayLetters.${key}`)}
+                    </Text>
+                    {/* Narrowest case ~34dp per chip (320dp phone): shrink rather than clip */}
+                    <Text
+                      style={[styles.chipHours, !on && styles.chipTextOff]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.6}
+                      maxFontSizeMultiplier={1.15}
+                    >
                       {on ? `${shortHour(day.start)}–${shortHour(day.end)}` : t('workHours.off')}
                     </Text>
                   </TouchableOpacity>
@@ -171,9 +194,9 @@ const WeeklyScheduleCard = ({
 
             <View style={styles.locationRow}>
               <Icon name="location" size={13} color={BRAND.muted} />
-              <Text style={styles.locationText} numberOfLines={1}>{locationText}</Text>
+              <Text style={styles.locationText} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>{locationText}</Text>
               <TouchableOpacity onPress={onUpdateLocation} disabled={updatingLocation} accessibilityRole="button" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Text style={styles.locationAction}>
+                <Text style={styles.locationAction} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>
                   {updatingLocation ? t('workHours.updating') : t('workHours.updateNow')}
                 </Text>
               </TouchableOpacity>
@@ -193,8 +216,8 @@ function shortHour(hhmm) {
 }
 
 const styles = StyleSheet.create({
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, marginBottom: 10 },
-  sectionTitle: { fontSize: 13, fontWeight: '700', color: BRAND.muted, textTransform: 'uppercase', letterSpacing: 0.8 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, marginBottom: 10, gap: 8 },
+  sectionTitle: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: BRAND.muted, textTransform: 'uppercase', letterSpacing: 0.8 },
   editWeek: { fontSize: 13, fontWeight: '700', color: BRAND.secondary },
   card: {
     backgroundColor: BRAND.white, borderRadius: 16, borderWidth: 1, borderColor: '#F1F5F9',
@@ -202,16 +225,16 @@ const styles = StyleSheet.create({
   },
   todayRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   todayIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#FFF4EA', alignItems: 'center', justifyContent: 'center' },
-  todayTextWrap: { flex: 1 },
+  todayTextWrap: { flex: 1, minWidth: 0 },
   todayLabel: { fontSize: 12, fontWeight: '600', color: BRAND.text },
   todayValue: { fontSize: 17, fontWeight: '800', color: BRAND.dark, letterSpacing: -0.3, marginTop: 1 },
   todayValueOff: { color: BRAND.text, fontWeight: '700' },
   todayLoader: { alignSelf: 'flex-start', marginTop: 4 },
-  status: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 10, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 10 },
+  status: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', maxWidth: '100%', marginTop: 10, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 10 },
   statusDot: { width: 7, height: 7, borderRadius: 4 },
   statusText: { fontSize: 12.5, fontWeight: '700', flexShrink: 1 },
-  week: { flexDirection: 'row', gap: 5, marginTop: 14 },
-  chip: { flex: 1, borderWidth: 1.5, borderColor: '#FED7AA', backgroundColor: '#FFF7ED', borderRadius: 12, paddingVertical: 7, alignItems: 'center' },
+  week: { flexDirection: 'row', gap: 4, marginTop: 14 },
+  chip: { flex: 1, minWidth: 0, borderWidth: 1.5, borderColor: '#FED7AA', backgroundColor: '#FFF7ED', borderRadius: 12, paddingVertical: 7, paddingHorizontal: 2, alignItems: 'center' },
   chipOff: { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' },
   chipToday: { borderColor: BRAND.primary, borderWidth: 2 },
   chipLetter: { fontSize: 13, fontWeight: '800', color: '#C2410C' },

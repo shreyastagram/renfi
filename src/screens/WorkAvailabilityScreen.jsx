@@ -83,7 +83,7 @@ const WorkAvailabilityScreen = ({ navigation }) => {
         <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel={t('common.back')}>
           <Icon name="back" size={20} color={COLORS.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('workHours.title')}</Text>
+        <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.3}>{t('workHours.title')}</Text>
         <View style={styles.back} />
       </View>
 
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingVertical: 14, backgroundColor: COLORS.dark,
   },
   back: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.1)' },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.white, letterSpacing: 0.3 },
+  headerTitle: { flexShrink: 1, marginHorizontal: 8, fontSize: 20, fontWeight: '800', color: COLORS.white, letterSpacing: 0.3 },
   content: { padding: 18, paddingBottom: 40 },
   intro: { fontSize: 13.5, color: COLORS.muted, lineHeight: 20, marginBottom: 14 },
   loader: { marginTop: 24 },
@@ -202,8 +202,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white, borderRadius: 18, borderWidth: 1, borderColor: COLORS.line,
     paddingHorizontal: 16, paddingVertical: 14, marginBottom: 10,
   },
-  dayTextWrap: { flex: 1 },
-  dayNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dayTextWrap: { flex: 1, minWidth: 0 },
+  dayNameRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
   dayName: { fontSize: 15, fontWeight: '700', color: COLORS.dark },
   dayNameOff: { color: COLORS.muted },
   todayBadge: { backgroundColor: '#FFF4EA', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 },

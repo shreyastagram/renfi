@@ -8,8 +8,9 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Modal, Switch, ActivityIndicator, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TouchableOpacity from './TouchableOpacity';
-import TimePickerField from './TimePickerField';
+import TimePickerField, { IosTimeWheel } from './TimePickerField';
 import { useLanguage } from '../context/LanguageContext';
 import { validateDay } from '../utils/workSchedule';
 
@@ -32,9 +33,12 @@ const ERROR_KEYS = {
 };
 
 const TARGETS = ['one', 'weekdays', 'all'];
+// Keeps the sheet usable with large accessibility fonts on small phones.
+const MAX_FONT_SCALE = 1.3;
 
 const DayHoursSheet = ({ visible, dayKey, initial, saving = false, onClose, onSave }) => {
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState(initial);
   const [openField, setOpenField] = useState(null);
   const [target, setTarget] = useState('one');
@@ -66,14 +70,15 @@ const DayHoursSheet = ({ visible, dayKey, initial, saving = false, onClose, onSa
     <Modal visible transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <View style={styles.scrim}>
         <TouchableOpacity style={styles.scrimTap} onPress={saving ? undefined : onClose} accessibilityLabel={t('workHours.cancel')} />
-        <View style={styles.sheet}>
+        {/* Bottom inset keeps Save/Cancel above the iPhone home indicator / Android gesture bar */}
+        <View style={[styles.sheet, { paddingBottom: Math.max(26, insets.bottom + 12) }]}>
           <View style={styles.handle} />
           <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-            <Text style={styles.title}>{dayName}</Text>
-            <Text style={styles.subtitle}>{t('workHours.sheetSubtitle')}</Text>
+            <Text style={styles.title} maxFontSizeMultiplier={MAX_FONT_SCALE}>{dayName}</Text>
+            <Text style={styles.subtitle} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t('workHours.sheetSubtitle')}</Text>
 
             <View style={styles.workRow}>
-              <Text style={styles.workRowText}>{t('workHours.iWorkOn', { day: dayName })}</Text>
+              <Text style={styles.workRowText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t('workHours.iWorkOn', { day: dayName })}</Text>
               <Switch
                 value={draft.enabled}
                 onValueChange={setEnabled}
@@ -107,9 +112,17 @@ const DayHoursSheet = ({ visible, dayKey, initial, saving = false, onClose, onSa
               />
             </View>
 
-            {!!errorCode && <Text style={styles.error}>{t(ERROR_KEYS[errorCode])}</Text>}
+            {openField && draft.enabled && (
+              <IosTimeWheel
+                value={openField === 'start' ? draft.start : draft.end}
+                onChange={openField === 'start' ? setStart : setEnd}
+                onDone={() => setOpenField(null)}
+              />
+            )}
 
-            <Text style={styles.applyLabel}>{t('workHours.applyTo')}</Text>
+            {!!errorCode && <Text style={styles.error} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t(ERROR_KEYS[errorCode])}</Text>}
+
+            <Text style={styles.applyLabel} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t('workHours.applyTo')}</Text>
             <View style={styles.seg}>
               {TARGETS.map((key) => (
                 <TouchableOpacity
@@ -120,7 +133,7 @@ const DayHoursSheet = ({ visible, dayKey, initial, saving = false, onClose, onSa
                   accessibilityRole="button"
                   accessibilityState={{ selected: target === key }}
                 >
-                  <Text style={[styles.segText, target === key && styles.segTextOn]}>
+                  <Text style={[styles.segText, target === key && styles.segTextOn]} maxFontSizeMultiplier={MAX_FONT_SCALE}>
                     {key === 'one' ? t('workHours.applyOne', { day: dayName }) : t(`workHours.apply${key === 'weekdays' ? 'Weekdays' : 'All'}`)}
                   </Text>
                 </TouchableOpacity>
@@ -133,11 +146,11 @@ const DayHoursSheet = ({ visible, dayKey, initial, saving = false, onClose, onSa
               disabled={!!errorCode || saving}
               accessibilityRole="button"
             >
-              {saving ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.saveText}>{t('workHours.save')}</Text>}
+              {saving ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.saveText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t('workHours.save')}</Text>}
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.cancel} onPress={onClose} disabled={saving} accessibilityRole="button">
-              <Text style={styles.cancelText}>{t('workHours.cancel')}</Text>
+              <Text style={styles.cancelText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t('workHours.cancel')}</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -155,8 +168,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 26,
-    maxHeight: '88%',
+    maxHeight: '90%',
   },
   handle: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#E2E8F0', alignSelf: 'center', marginBottom: 12 },
   title: { fontSize: 20, fontWeight: '800', color: COLORS.dark },
@@ -166,7 +178,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 12,
   },
   workRowText: { fontSize: 15, fontWeight: '700', color: COLORS.text, flex: 1, marginRight: 10 },
-  times: { flexDirection: 'row', alignItems: 'flex-start' },
+  times: { flexDirection: 'row', alignItems: 'stretch' },
   gap: { width: 10 },
   error: { color: COLORS.danger, fontSize: 13, fontWeight: '600', marginTop: 10 },
   applyLabel: { fontSize: 12.5, fontWeight: '700', color: COLORS.muted, marginTop: 16, marginBottom: 8 },
