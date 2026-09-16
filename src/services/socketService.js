@@ -13,6 +13,8 @@ import { io } from 'socket.io-client';
 import { NODE_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
 import Geolocation from '@react-native-community/geolocation';
+import { AppState } from 'react-native';
+import { shouldPersistLocation, PERSIST_MIN_INTERVAL_MS } from '../utils/locationThrottle';
 
 // Socket instance
 let socket = null;
@@ -26,6 +28,9 @@ let locationUpdateInterval = null;
 // previously contended with LocationContext's watcher for the single Android
 // GPS provider and could starve it (root cause of "location unavailable").
 let latestKnownLocation = null;
+// Last fix actually sent to the server — drives the movement/heartbeat gate.
+let lastPersistedLocation = null;
+let locationAppStateSub = null;
 
 /**
  * Push the freshest GPS fix into the shared cache. Called by LocationContext on
@@ -72,8 +77,13 @@ const subscribedRooms = new Set();
  * Socket Service Configuration
  */
 const SOCKET_CONFIG = {
-  // How often to send location updates (in milliseconds)
-  LOCATION_UPDATE_INTERVAL: 10000, // 10 seconds
+  // How often the periodic sender wakes up. The send itself is gated by
+  // shouldPersistLocation (moved >=100 m, or the 5-minute heartbeat), so a
+  // stationary provider costs ~12 writes/hour instead of ~360.
+  LOCATION_UPDATE_INTERVAL: 60000, // 60 seconds
+  // Live tracking of an ACCEPTED job is a different job: the customer watches
+  // the provider move on a map, so it keeps the original 10-second heartbeat.
+  REQUEST_LOCATION_UPDATE_INTERVAL: 10000, // 10 seconds
   // High accuracy for GPS
   GEOLOCATION_OPTIONS: {
     enableHighAccuracy: true,
@@ -308,6 +318,7 @@ export const startLocationTracking = (providerId) => {
 
   // Clear any existing tracking
   stopLocationTracking();
+  lastPersistedLocation = null; // always persist the first fix of a session
 
   // Get initial position immediately with fallback
   const getInitialPosition = () => {
@@ -354,7 +365,7 @@ export const startLocationTracking = (providerId) => {
   // contended with LocationContext's watcher for the single GPS provider).
   locationUpdateInterval = setInterval(() => {
     const cached = latestKnownLocation;
-    if (cached && Date.now() - cached.at < SOCKET_CONFIG.LOCATION_UPDATE_INTERVAL * 2) {
+    if (cached && Date.now() - cached.at < SOCKET_CONFIG.LOCATION_UPDATE_INTERVAL) {
       sendLocationUpdate(providerId, cached);
       return;
     }
@@ -379,6 +390,26 @@ export const startLocationTracking = (providerId) => {
       SOCKET_CONFIG.GEOLOCATION_OPTIONS
     );
   }, SOCKET_CONFIG.LOCATION_UPDATE_INTERVAL);
+
+  // Android suspends JS timers in the background, so nothing is sent while the
+  // app is away. Send one fix on resume (still gated) so the provider's position
+  // is fresh whenever they actually open the app.
+  locationAppStateSub = AppState.addEventListener('change', (next) => {
+    if (next !== 'active') return;
+    const cached = latestKnownLocation;
+    if (cached && Date.now() - cached.at < PERSIST_MIN_INTERVAL_MS) {
+      sendLocationUpdate(providerId, cached);
+      return;
+    }
+    Geolocation.getCurrentPosition(
+      (position) => {
+        setLatestLocation(position.coords);
+        sendLocationUpdate(providerId, position.coords);
+      },
+      () => console.warn('⚠️ [Socket] Resume location unavailable'),
+      SOCKET_CONFIG.GEOLOCATION_OPTIONS_LOW_ACCURACY,
+    );
+  });
 };
 
 /**
@@ -396,13 +427,24 @@ export const stopLocationTracking = () => {
     locationUpdateInterval = null;
     console.log('📍 [Socket] Location interval stopped');
   }
+
+  if (locationAppStateSub) {
+    locationAppStateSub.remove();
+    locationAppStateSub = null;
+  }
 };
 
 /**
  * Send location update to server
  * Uses both socket (for real-time) and REST API (for persistence)
  */
-const sendLocationUpdate = async (providerId, coords) => {
+const sendLocationUpdate = async (providerId, coords, { force = false } = {}) => {
+  const now = Date.now();
+  if (!force && !shouldPersistLocation(lastPersistedLocation, coords, now)) {
+    return false;
+  }
+  lastPersistedLocation = { latitude: coords.latitude, longitude: coords.longitude, at: now };
+
   const locationData = {
     providerId,
     latitude: coords.latitude,
@@ -433,6 +475,7 @@ const sendLocationUpdate = async (providerId, coords) => {
   }
 
   console.log('📍 [Socket] Location sent:', locationData.latitude, locationData.longitude);
+  return true;
 };
 
 /**
@@ -452,7 +495,7 @@ export const sendLocationNow = async (providerId) => {
   const coords = fresh || getLatestLocation();
   if (!coords) return false;
   if (fresh) setLatestLocation(fresh);
-  await sendLocationUpdate(providerId, coords);
+  await sendLocationUpdate(providerId, coords, { force: true });
   return true;
 };
 
@@ -579,7 +622,7 @@ const ensureGpsWatcherRunning = () => {
     SOCKET_CONFIG.GEOLOCATION_OPTIONS
   );
 
-  // Regular interval heartbeat (10s)
+  // Regular interval heartbeat (10s) — live job tracking, unthrottled
   requestLocationInterval = setInterval(() => {
     Geolocation.getCurrentPosition(
       (position) => broadcastRequestLocation(position.coords),
@@ -592,7 +635,7 @@ const ensureGpsWatcherRunning = () => {
       },
       SOCKET_CONFIG.GEOLOCATION_OPTIONS
     );
-  }, SOCKET_CONFIG.LOCATION_UPDATE_INTERVAL);
+  }, SOCKET_CONFIG.REQUEST_LOCATION_UPDATE_INTERVAL);
 };
 
 /**
