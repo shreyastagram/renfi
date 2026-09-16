@@ -91,6 +91,11 @@ export function WorkScheduleProvider({ children }) {
   return <WorkScheduleContext.Provider value={value}>{children}</WorkScheduleContext.Provider>;
 }
 
+/** Returns null outside the provider tree (SettingsScreen is shared with users). */
+export function useOptionalWorkSchedule() {
+  return useContext(WorkScheduleContext);
+}
+
 export function useWorkSchedule() {
   const ctx = useContext(WorkScheduleContext);
   if (!ctx) throw new Error('useWorkSchedule must be used inside WorkScheduleProvider');

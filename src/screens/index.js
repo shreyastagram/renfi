@@ -72,6 +72,7 @@ export { default as SubscriptionScreen } from './SubscriptionScreen';
 
 // Verification Dashboard (Provider only)
 export { default as VerificationDashboardScreen } from './VerificationDashboardScreen';
+export { default as WorkAvailabilityScreen } from './WorkAvailabilityScreen';
 
 // Insurance (Provider only)
 export { default as InsuranceScreen } from './InsuranceScreen';

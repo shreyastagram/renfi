@@ -435,6 +435,27 @@ const sendLocationUpdate = async (providerId, coords) => {
   console.log('📍 [Socket] Location sent:', locationData.latitude, locationData.longitude);
 };
 
+/**
+ * Send one location fix right now (Home card's "Update now").
+ * Uses a fresh GPS read, falling back to the shared cache.
+ * @returns {Promise<boolean>} true when something was sent
+ */
+export const sendLocationNow = async (providerId) => {
+  if (!providerId) return false;
+  const fresh = await new Promise((resolve) => {
+    Geolocation.getCurrentPosition(
+      (position) => resolve(position.coords),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
+    );
+  });
+  const coords = fresh || getLatestLocation();
+  if (!coords) return false;
+  if (fresh) setLatestLocation(fresh);
+  await sendLocationUpdate(providerId, coords);
+  return true;
+};
+
 // ==================== PER-REQUEST LOCATION TRACKING ====================
 
 // Minimum distance (meters) before broadcasting — filters GPS noise when stationary

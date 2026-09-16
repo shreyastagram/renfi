@@ -42,6 +42,8 @@ import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
 import HelpSupportButton from '../components/HelpSupportButton';
 import SvgArt from '../components/SvgArt';
 import LocationTrackingBanner from '../components/LocationTrackingBanner';
+import WeeklyScheduleCard from '../components/WeeklyScheduleCard';
+import DayHoursSheet from '../components/DayHoursSheet';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 import { Icon } from '../components';
@@ -51,8 +53,11 @@ import {
   disconnectSocket,
   startLocationTracking,
   stopLocationTracking,
+  sendLocationNow,
   addEventListener,
 } from '../services/socketService';
+import { useWorkSchedule } from '../context/WorkScheduleContext';
+import { buildDaysPatch } from '../utils/workSchedule';
 import { getProviderRequests } from '../services/traditionalServiceService';
 import { getVerificationDashboard } from '../services/verificationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -641,6 +646,38 @@ const ProviderHomeScreen = ({ navigation }) => {
   }
   const isAvailable = lastKnownAvailability.current;
 
+  // ── Work hours (WorkScheduleContext — separate from AppContext on purpose) ──
+  const {
+    days: workDays,
+    view: workView,
+    loading: workLoading,
+    error: workError,
+    saving: workSaving,
+    refresh: refreshWorkSchedule,
+    saveDays: saveWorkDays,
+  } = useWorkSchedule();
+  const [editingDay, setEditingDay] = useState(null);
+  const [updatingLocation, setUpdatingLocation] = useState(false);
+
+  const handleSaveWorkDay = useCallback(async (value, target) => {
+    const dayKey = editingDay;
+    setEditingDay(null);
+    const result = await saveWorkDays(buildDaysPatch(dayKey, value, target), dayKey);
+    if (!result.success) {
+      dialog(t('workHours.title'), result.error?.message || t('workHours.saveFailed'));
+    }
+  }, [editingDay, saveWorkDays, dialog, t]);
+
+  const handleUpdateLocationNow = useCallback(async () => {
+    const providerId = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+    if (!providerId || updatingLocation) return;
+    setUpdatingLocation(true);
+    const sent = await sendLocationNow(providerId);
+    if (sent) await refreshWorkSchedule({ force: true });
+    else dialog(t('workHours.title'), t('workHours.locationNever'));
+    setUpdatingLocation(false);
+  }, [user?.mongoId, user?._id, profile?.mongoId, profile?._id, updatingLocation, refreshWorkSchedule, dialog, t]);
+
   /**
    * Fetch provider stats from API - includes traditional and event services
    */
@@ -1065,6 +1102,23 @@ const ProviderHomeScreen = ({ navigation }) => {
               />
             )}
           </View>
+
+          {/* Work Hours — quick view + quick edit (full week lives in WorkAvailabilityScreen) */}
+          <WeeklyScheduleCard
+            days={workDays}
+            isAvailable={isAvailable}
+            emergencyServicesEnabled={displayData?.emergencyServicesEnabled === true}
+            scheduleEnforced={workView?.scheduleEnforced === true}
+            lastLocationAt={workView?.lastLocationAt || null}
+            loading={workLoading}
+            error={workError}
+            focused={isFocused}
+            updatingLocation={updatingLocation}
+            onPressDay={setEditingDay}
+            onPressEditWeek={() => navigation.navigate('WorkAvailability')}
+            onUpdateLocation={handleUpdateLocationNow}
+            onRetry={() => refreshWorkSchedule({ force: true })}
+          />
 
           {/* Verification Status / Location Row */}
           {(() => {
@@ -1530,6 +1584,15 @@ const ProviderHomeScreen = ({ navigation }) => {
       )}
 
       {/* Drawer Menu */}
+      <DayHoursSheet
+        visible={!!editingDay}
+        dayKey={editingDay}
+        initial={editingDay ? workDays?.[editingDay] : null}
+        saving={!!workSaving}
+        onClose={() => setEditingDay(null)}
+        onSave={handleSaveWorkDay}
+      />
+
       <DrawerMenu
         visible={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}

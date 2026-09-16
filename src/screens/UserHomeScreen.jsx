@@ -69,6 +69,7 @@ import {
   getAvailableCategories,
 } from '../services/traditionalServiceService';
 import { formatDistance, formatDistanceFromMeters, useDistanceUnit } from '../utils/formatDistance';
+import { agoParts } from '../utils/workSchedule';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SERVICE_CARD_WIDTH = Math.floor((SCREEN_WIDTH - 64) / 3);
@@ -235,6 +236,22 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
              t('common.nearby')}
           </Text>
         </View>
+        {(() => {
+          // "Last seen" — when the provider's app last talked to the server.
+          const ago = agoParts(provider.lastSeenAt);
+          if (!ago) return null;
+          const recent = ago.unit === 'justNow' || ago.unit === 'minutes';
+          return (
+            <View style={styles.providerDistanceRow}>
+              <Icon name="clock" size={13} color={recent ? '#10B981' : '#94A3B8'} />
+              <Text style={[styles.providerDistance, recent && styles.providerActiveNow]}>
+                {recent && ago.unit === 'justNow'
+                  ? t('workHours.activeNow')
+                  : t('workHours.activeAgo', { ago: t(`workHours.ago.${ago.unit}`, { n: ago.n }) })}
+              </Text>
+            </View>
+          );
+        })()}
         {(provider.rating > 0 || provider.ratings?.average > 0) && (
           <View style={styles.providerRatingRow}>
             <Icon name="star" size={14} color="#F59E0B" />
@@ -2578,6 +2595,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
     fontWeight: '500',
+  },
+  providerActiveNow: {
+    color: '#047857',
+    fontWeight: '600',
   },
   providerRatingRow: {
     flexDirection: 'row',

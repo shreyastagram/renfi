@@ -11,7 +11,7 @@
  * @version 3.0.0 - Premium design language revamp
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {  View,
   Text,
   StyleSheet,
@@ -38,6 +38,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { check, request, checkNotifications, requestNotifications, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
+import { useOptionalWorkSchedule } from '../context/WorkScheduleContext';
+import { summarizeWeek, formatTime12 } from '../utils/workSchedule';
 import { Analytics, EV } from '../services/analytics';
 import { useDialog } from '../context/DialogContext';
 import { useSupport } from '../context/SupportContext';
@@ -235,23 +237,6 @@ const ActionRow = ({ iconName, title, subtitle, onPress, showArrow = true, dange
 );
 
 /**
- * Working Hours Display/Edit Component
- */
-const WorkingHoursRow = ({ day, hours, onEdit }) => (
-  <AnimatedPressable onPress={onEdit}>
-    <View style={styles.workingHoursRow}>
-      <Text style={styles.dayLabel}>{day}</Text>
-      <View style={styles.hoursContainer}>
-        <Text style={styles.hoursText}>
-          {hours?.start || '09:00'} - {hours?.end || '18:00'}
-        </Text>
-        <Icon name="edit" size={16} color={COLORS.muted} />
-      </View>
-    </View>
-  </AnimatedPressable>
-);
-
-/**
  * Settings Skeleton Loader — Amazon-style shimmer wave
  */
 const SettingsSkeletonLoader = ({ insets, onBack }) => {
@@ -378,7 +363,6 @@ const SettingsScreen = ({ navigation }) => {
   const [checkingForUpdate, setCheckingForUpdate] = useState(false);
 
   // Provider-specific state
-  const [workingHours, setWorkingHours] = useState(displayData?.availability?.workingHours || {});
   const [emergencyServicesEnabled, setEmergencyServicesEnabled] = useState(displayData?.emergencyServicesEnabled || false);
   const [isUpdatingEmergency, setIsUpdatingEmergency] = useState(false);
 
@@ -623,23 +607,30 @@ const SettingsScreen = ({ navigation }) => {
     }
   };
 
-  // Initialize working hours from profile data
+  // Week summary for the Work Hours row (providers only; null for users).
+  const workSchedule = useOptionalWorkSchedule();
+  const workHoursSummary = useMemo(() => {
+    const days = workSchedule?.days;
+    if (!days) return null;
+    return summarizeWeek(days)
+      .map((g) => {
+        const span = g.from === g.to
+          ? t(`workHours.daysShort.${g.from}`)
+          : `${t(`workHours.daysShort.${g.from}`)}–${t(`workHours.daysShort.${g.to}`)}`;
+        return g.enabled
+          ? `${span} ${formatTime12(g.start)} – ${formatTime12(g.end)}`
+          : `${span} ${t('workHours.dayOff')}`;
+      })
+      .join(' · ');
+  }, [workSchedule?.days, t]);
+
+  // Keep the night-emergency toggle in sync with the profile.
+  // (Weekly working hours now live in WorkScheduleContext / WorkAvailabilityScreen.)
   useEffect(() => {
     if (displayData) {
-      setWorkingHours(displayData.availability?.workingHours || getDefaultWorkingHours());
       setEmergencyServicesEnabled(displayData.emergencyServicesEnabled || false);
     }
-  }, [displayData?.availability, displayData?.emergencyServicesEnabled]);
-
-  const getDefaultWorkingHours = () => ({
-    monday: { start: '09:00', end: '18:00' },
-    tuesday: { start: '09:00', end: '18:00' },
-    wednesday: { start: '09:00', end: '18:00' },
-    thursday: { start: '09:00', end: '18:00' },
-    friday: { start: '09:00', end: '18:00' },
-    saturday: { start: '09:00', end: '16:00' },
-    sunday: { start: '10:00', end: '16:00' },
-  });
+  }, [displayData?.emergencyServicesEnabled]);
 
   /**
    * Handle availability toggle (uses centralized state from AppContext)
@@ -796,17 +787,6 @@ const SettingsScreen = ({ navigation }) => {
       '• Your regular daytime availability is not affected\n\n' +
       'Note: This applies to all service types. Event services are not affected by emergency hours.',
       [{ text: 'Got it' }]
-    );
-  };
-
-  /**
-   * Handle working hours edit
-   */
-  const handleEditWorkingHours = (day) => {
-    dialog(
-      `${day} Working Hours`,
-      'Your working hours are displayed to customers to help them know when you are available. To update your hours, please contact support.',
-      [{ text: 'OK' }]
     );
   };
 
@@ -1039,6 +1019,13 @@ const SettingsScreen = ({ navigation }) => {
               onValueChange={handleAvailabilityChange}
               onInfoPress={showAvailabilityInfo}
               disabled={isUpdatingAvailability}
+            />
+
+            <ActionRow
+              iconName="clock"
+              title={t('settings.workHoursRow')}
+              subtitle={workHoursSummary || t('settings.workHoursRowSub')}
+              onPress={() => navigation.navigate('WorkAvailability')}
             />
 
             <ToggleRow
@@ -1776,37 +1763,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.iconBg,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-
-  // Working Hours
-  workingHoursHint: {
-    fontSize: 13,
-    color: COLORS.muted,
-    marginBottom: 12,
-  },
-  workingHoursRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
-  },
-  dayLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-    textTransform: 'capitalize',
-  },
-  hoursContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  hoursText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
   },
 
   // Verification Note

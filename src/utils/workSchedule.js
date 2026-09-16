@@ -88,6 +88,22 @@ export function computeHomeStatus({ days, isAvailable, emergencyServicesEnabled,
   return { kind: 'within', end: day.end };
 }
 
+/**
+ * Relative age for "last seen" lines, as parts for i18n:
+ * @returns {null | {unit: 'justNow'|'minutes'|'hours'|'days', n: number}}
+ */
+export function agoParts(date, now = new Date()) {
+  if (!date) return null;
+  const ms = now.getTime() - new Date(date).getTime();
+  if (Number.isNaN(ms)) return null;
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 1) return { unit: 'justNow', n: 0 };
+  if (minutes < 60) return { unit: 'minutes', n: minutes };
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return { unit: 'hours', n: hours };
+  return { unit: 'days', n: Math.floor(hours / 24) };
+}
+
 const sameHours = (a, b) => a.enabled === b.enabled && (!a.enabled || (a.start === b.start && a.end === b.end));
 
 /** Consecutive days with the same hours → [{from, to, enabled, start, end}]. */

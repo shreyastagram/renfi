@@ -23,6 +23,7 @@ import { setBarRect, subscribeTone } from '../src/components/tabBarTone';
 import { useApp } from '../src/context/AppContext';
 import { useLanguage } from '../src/context/LanguageContext';
 import { LocationSharingProvider } from '../src/context/LocationSharingContext';
+import { WorkScheduleProvider } from '../src/context/WorkScheduleContext';
 
 // Screens from src folder
 import { 
@@ -49,6 +50,7 @@ import {
   FavoritesScreen,
   PortfolioEditScreen,
   SubscriptionScreen,
+  WorkAvailabilityScreen,
   VerificationDashboardScreen,
   InsuranceScreen,
   ReferralScreen,
@@ -756,6 +758,11 @@ const ProviderMainNavigator = () => {
     >
       <Stack.Screen name="ProviderTabs" component={ProviderTabNavigator} />
       <Stack.Screen name="Home" component={ProviderHomeScreen} />
+      <Stack.Screen
+        name="WorkAvailability"
+        component={WorkAvailabilityScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
       <Stack.Screen 
         name="Profile" 
         component={ProfileScreen}
@@ -893,7 +900,9 @@ const RootNavigator = () => {
   if (userType === 'provider') {
     return (
       <LocationSharingProvider>
-        <ProviderMainNavigator />
+        <WorkScheduleProvider>
+          <ProviderMainNavigator />
+        </WorkScheduleProvider>
       </LocationSharingProvider>
     );
   }

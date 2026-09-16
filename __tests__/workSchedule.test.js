@@ -5,6 +5,7 @@ import {
   getIstMoment,
   validateDay,
   computeHomeStatus,
+  agoParts,
   summarizeWeek,
   buildDaysPatch,
 } from '../src/utils/workSchedule';
@@ -105,5 +106,19 @@ describe('buildDaysPatch', () => {
   });
   test('every day', () => {
     expect(Object.keys(buildDaysPatch('sat', value, 'all'))).toEqual(DAY_KEYS);
+  });
+});
+
+describe('agoParts', () => {
+  const now = new Date('2026-09-14T12:00:00Z');
+  test.each([
+    [null, null],
+    ['2026-09-14T11:59:40Z', { unit: 'justNow', n: 0 }],
+    ['2026-09-14T11:45:00Z', { unit: 'minutes', n: 15 }],
+    ['2026-09-14T09:00:00Z', { unit: 'hours', n: 3 }],
+    ['2026-09-12T12:00:00Z', { unit: 'days', n: 2 }],
+    ['not-a-date', null],
+  ])('%s', (input, expected) => {
+    expect(agoParts(input, now)).toEqual(expected);
   });
 });
