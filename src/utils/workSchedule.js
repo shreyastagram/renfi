@@ -74,7 +74,9 @@ const isNight = (minute) => minute >= NIGHT_START || minute < NIGHT_END;
  * What the Home card tells the provider right now.
  * @returns {{kind: 'unknown'|'offline'|'saved_not_enforced'|'night_on'|'night_off'|'day_off'|'within'|'before'|'after', start?: string, end?: string}}
  */
-export function computeHomeStatus({ days, isAvailable, emergencyServicesEnabled, scheduleEnforced, moment }) {
+export function computeHomeStatus({ days, isAvailable, availabilityKnown = true, emergencyServicesEnabled, scheduleEnforced, moment }) {
+  // Never claim "offline" before the real availability has loaded.
+  if (!availabilityKnown) return { kind: 'unknown' };
   if (!isAvailable) return { kind: 'offline' };
   if (!days) return { kind: 'unknown' };
   if (!scheduleEnforced) return { kind: 'saved_not_enforced' };

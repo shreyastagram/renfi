@@ -143,6 +143,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderWidth: 1.5,
     borderColor: '#FDBA74',
+    marginBottom: 16,
     backgroundColor: '#FFF7ED',
     flex: 1,
     ...Platform.select({

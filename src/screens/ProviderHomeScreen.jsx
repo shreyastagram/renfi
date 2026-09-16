@@ -24,7 +24,7 @@ import {  View,
   Animated,
   Platform,
   Linking,
-  InteractionManager
+  InteractionManager,
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,6 +43,7 @@ import HelpSupportButton from '../components/HelpSupportButton';
 import SvgArt from '../components/SvgArt';
 import LocationTrackingBanner from '../components/LocationTrackingBanner';
 import WeeklyScheduleCard from '../components/WeeklyScheduleCard';
+import ProviderHomeTopRow from '../components/ProviderHomeTopRow';
 import DayHoursSheet from '../components/DayHoursSheet';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
@@ -154,77 +155,6 @@ const usePressAnimation = () => {
   };
 
   return { scaleAnim, onPressIn, onPressOut };
-};
-
-/**
- * Pulsing dot component for online status
- */
-const PulsingDot = ({ isOnline, paused }) => {
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const opacityAnim = useRef(new Animated.Value(0.6)).current;
-
-  useEffect(() => {
-    // Don't run animation when screen is not focused (paused=true)
-    if (isOnline && !paused) {
-      const pulse = Animated.loop(
-        Animated.parallel([
-          Animated.sequence([
-            Animated.timing(pulseAnim, {
-              toValue: 1.8,
-              duration: 1200,
-              useNativeDriver: true,
-            }),
-            Animated.timing(pulseAnim, {
-              toValue: 1,
-              duration: 0,
-              useNativeDriver: true,
-            }),
-          ]),
-          Animated.sequence([
-            Animated.timing(opacityAnim, {
-              toValue: 0,
-              duration: 1200,
-              useNativeDriver: true,
-            }),
-            Animated.timing(opacityAnim, {
-              toValue: 0.6,
-              duration: 0,
-              useNativeDriver: true,
-            }),
-          ]),
-        ])
-      );
-      pulse.start();
-      return () => {
-        pulse.stop();
-        pulseAnim.setValue(1);
-        opacityAnim.setValue(0.6);
-      };
-    }
-  }, [isOnline, paused, pulseAnim, opacityAnim]);
-
-  return (
-    <View style={styles.pulsingDotContainer}>
-      {isOnline && (
-        <Animated.View
-          style={[
-            styles.pulsingRing,
-            {
-              transform: [{ scale: pulseAnim }],
-              opacity: opacityAnim,
-              backgroundColor: '#22C55E',
-            },
-          ]}
-        />
-      )}
-      <View
-        style={[
-          styles.statusDotInner,
-          { backgroundColor: isOnline ? '#22C55E' : '#94A3B8' },
-        ]}
-      />
-    </View>
-  );
 };
 
 /**
@@ -501,60 +431,6 @@ const VerificationStatusCard = ({ dashboard, onPress, isLoading = false, t }) =>
 };
 
 /**
- * Animated Online/Offline toggle pad.
- * Scale bounce on press, instant color swap.
- */
-const StatusTogglePad = ({ isAvailable, isUpdating, onToggle, paused }) => {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-
-  const handlePress = () => {
-    if (isUpdating) return;
-    Animated.sequence([
-      Animated.timing(scaleAnim, { toValue: 0.93, duration: 80, useNativeDriver: true }),
-      Animated.spring(scaleAnim, { toValue: 1, tension: 300, friction: 10, useNativeDriver: true }),
-    ]).start();
-    onToggle();
-  };
-
-  return (
-    <TouchableOpacity
-      onPress={handlePress}
-      disabled={isUpdating}
-      activeOpacity={1}
-      accessibilityLabel={isAvailable ? 'Go offline' : 'Go online'}
-      accessibilityRole="switch"
-      accessibilityState={{ checked: isAvailable }}
-      style={{ flex: 1 }}
-    >
-      <Animated.View
-        style={[
-          styles.statusPad,
-          {
-            backgroundColor: isAvailable ? '#22C55E' : '#FFFFFF',
-            borderColor: isAvailable ? '#16A34A' : '#E2E8F0',
-            transform: [{ scale: scaleAnim }],
-          },
-        ]}
-      >
-        {isUpdating ? (
-          <ActivityIndicator size="small" color={isAvailable ? '#FFFFFF' : '#94A3B8'} />
-        ) : (
-          <>
-            <PulsingDot isOnline={isAvailable} paused={paused} />
-            <Text style={[
-              styles.statusPadText,
-              { color: isAvailable ? '#FFFFFF' : '#94A3B8' },
-            ]}>
-              {isAvailable ? 'Online' : 'Offline'}
-            </Text>
-          </>
-        )}
-      </Animated.View>
-    </TouchableOpacity>
-  );
-};
-
-/**
  * Provider Home Screen Component
  */
 const ProviderHomeScreen = ({ navigation }) => {
@@ -645,6 +521,21 @@ const ProviderHomeScreen = ({ navigation }) => {
     lastKnownAvailability.current = rawAvailable;
   }
   const isAvailable = lastKnownAvailability.current;
+  // The stored login user can carry a stale or missing isAvailable, so the
+  // Online pad and the status line stay neutral until the server profile has
+  // arrived once (or a load attempt finished without one). Latches true.
+  const availabilityKnownRef = useRef(false);
+  const sawProfileLoadRef = useRef(false);
+  if (isProfileLoading) sawProfileLoadRef.current = true;
+  if (!availabilityKnownRef.current && (
+    typeof profile?.isAvailable === 'boolean'
+    || (profile && !isProfileLoading)
+    // First load finished without a profile (offline): fall back to the last known value.
+    || (sawProfileLoadRef.current && !isProfileLoading)
+  )) {
+    availabilityKnownRef.current = true;
+  }
+  const availabilityKnown = availabilityKnownRef.current;
 
   // ── Work hours (WorkScheduleContext — separate from AppContext on purpose) ──
   const {
@@ -1040,6 +931,42 @@ const ProviderHomeScreen = ({ navigation }) => {
     })();
   }, [profile?.firstApprovalBonusPending]);
 
+  // ── Top row inputs (primitives + stable callbacks so ProviderHomeTopRow stays memoized) ──
+  const vSteps = verificationDashboard?.steps || [];
+  const vIdentitySteps = vSteps.filter(st => st.id !== 'premium');
+  const vIdentityDone = vIdentitySteps.length > 0 && vIdentitySteps.every(st => st.completed);
+  const vFullyReady = vIdentityDone && (verificationDashboard?.isPremiumActive || false);
+  const vPercent = vSteps.length > 0 ? Math.round((vSteps.filter(st => st.completed).length / vSteps.length) * 100) : 0;
+  const vDaysRemaining = vSteps.find(st => st.id === 'premium')?.daysRemaining || 0;
+  // 'loading' → placeholder tile; 'ready' → compact tile; 'hidden' → no tile
+  // (not fully verified shows the full card above the row; a failed fetch shows neither).
+  const verificationState = verificationDashboard
+    ? (vFullyReady ? 'ready' : 'hidden')
+    : ((verificationLoading || isProfileLoading) ? 'loading' : 'hidden');
+  const showFullVerificationCard = !!verificationDashboard && !vFullyReady;
+
+  // ~11 m precision: the map only re-centres on a real move, not GPS jitter.
+  const mapLatitude = providerLocation?.latitude ? Math.round(providerLocation.latitude * 1e4) / 1e4 : null;
+  const mapLongitude = providerLocation?.longitude ? Math.round(providerLocation.longitude * 1e4) / 1e4 : null;
+  const hasMapCoords = mapLatitude != null && mapLongitude != null;
+  const mapLabel = hasMapCoords
+    ? (displayAddress || t('providerHome.topMyLocation'))
+    : locationStatus === 'acquiring'
+      ? t('providerHome.topLocating')
+      : locationStatus === 'disabled'
+        ? t('providerHome.topLocationOff')
+        : locationStatus === 'denied'
+          ? t('providerHome.topEnableLocation')
+          : (displayAddress || t('providerHome.topMyLocation'));
+  const mapIcon = locationStatus === 'acquiring' ? 'my-location' : 'location-off';
+
+  const toggleRef = useRef(null);
+  toggleRef.current = () => handleAvailabilityToggle(!isAvailable);
+  const onToggleAvailability = useCallback(() => toggleRef.current?.(), []);
+  const onPressVerification = useCallback(() => navigation.navigate('VerificationDashboard'), [navigation]);
+  const onPressEditWeek = useCallback(() => navigation.navigate('WorkAvailability'), [navigation]);
+  const onRetryWorkSchedule = useCallback(() => refreshWorkSchedule({ force: true }), [refreshWorkSchedule]);
+
   const firstName = displayData?.fullName?.split(' ')[0] || 'Provider';
 
   // Show skeleton loader until profile data is available
@@ -1083,172 +1010,40 @@ const ProviderHomeScreen = ({ navigation }) => {
 
         {/* Content area with padding */}
         <View style={styles.contentArea}>
-          {/* Status Pads Row — location sharing (left) + online toggle (right) */}
-          <View style={styles.statusPadsRow}>
-            {/* Location Sharing Pad — left side, only visible when tracking */}
-            <LocationTrackingBanner />
+          {/* Not fully verified: the full verification card leads the page */}
+          {showFullVerificationCard && (
+            <VerificationStatusCard
+              dashboard={verificationDashboard}
+              onPress={onPressVerification}
+              isLoading={false}
+              t={t}
+            />
+          )}
 
-            {/* Online/Offline Toggle Pad — right side */}
-            {isProfileLoading ? (
-              <View style={[styles.statusPad, { backgroundColor: BRAND.white, borderColor: '#E2E8F0' }]}>
-                <ActivityIndicator size="small" color={BRAND.muted} />
-              </View>
-            ) : (
-              <StatusTogglePad
-                isAvailable={isAvailable}
-                isUpdating={isUpdatingAvailability || refreshing}
-                onToggle={() => handleAvailabilityToggle(!isAvailable)}
-                paused={!isFocused}
-              />
-            )}
-          </View>
-
-          {/* Work Hours — quick view + quick edit (full week lives in WorkAvailabilityScreen) */}
-          <WeeklyScheduleCard
-            days={workDays}
+          {/* Top row: verification → location map → Online toggle */}
+          <ProviderHomeTopRow
+            verification={verificationState}
+            percent={vPercent}
+            daysRemaining={vDaysRemaining}
+            onPressVerification={onPressVerification}
+            latitude={mapLatitude}
+            longitude={mapLongitude}
+            locationLabel={mapLabel}
+            locationIcon={mapIcon}
+            mapRef={miniMapRef}
+            onPressMap={openLocationModal}
+            availabilityKnown={availabilityKnown}
             isAvailable={isAvailable}
-            emergencyServicesEnabled={displayData?.emergencyServicesEnabled === true}
-            scheduleEnforced={workView?.scheduleEnforced === true}
-            lastLocationAt={workView?.lastLocationAt || null}
-            loading={workLoading}
-            error={workError}
-            focused={isFocused}
-            updatingLocation={updatingLocation}
-            onPressDay={setEditingDay}
-            onPressEditWeek={() => navigation.navigate('WorkAvailability')}
-            onUpdateLocation={handleUpdateLocationNow}
-            onRetry={() => refreshWorkSchedule({ force: true })}
+            isUpdating={isUpdatingAvailability || refreshing}
+            paused={!isFocused}
+            onToggle={onToggleAvailability}
+            t={t}
           />
 
-          {/* Verification Status / Location Row */}
-          {(() => {
-            const dashboard = verificationDashboard;
-            const steps = dashboard?.steps || [];
-            const identitySteps = steps.filter(s => s.id !== 'premium');
-            const identityDone = identitySteps.length > 0 && identitySteps.every(s => s.completed);
-            const isPremium = dashboard?.isPremiumActive || false;
-            const isFullyReady = identityDone && isPremium;
-            const percentage = steps.length > 0 ? Math.round((steps.filter(s => s.completed).length / steps.length) * 100) : 0;
-            const premiumStep = steps.find(s => s.id === 'premium');
-            const daysRemaining = premiumStep?.daysRemaining || 0;
-
-            if (isFullyReady) {
-              return (
-                <View style={styles.dualCardRow}>
-                  {/* Compact verification card */}
-                  <TouchableOpacity
-                    style={styles.miniVerificationCard}
-                    onPress={() => navigation.navigate('VerificationDashboard')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.miniVerificationPercent}>100%</Text>
-                    <View style={styles.miniVerificationBadge}>
-                      <MaterialIcon name="verified" size={12} color="#10B981" />
-                      <Text style={styles.miniVerificationBadgeText}>Premium</Text>
-                    </View>
-                    <Text style={styles.miniVerificationDays}>{daysRemaining}d left</Text>
-                  </TouchableOpacity>
-
-                  {/* Location preview card with inline map */}
-                  <TouchableOpacity
-                    ref={miniMapRef}
-                    style={styles.miniLocationCard}
-                    onPress={openLocationModal}
-                    activeOpacity={0.85}
-                  >
-                    {providerLocation?.latitude ? (
-                      <View style={styles.miniMapWrap}>
-                        <Mapbox.MapView
-                          style={styles.miniMapView}
-                          styleURL={Mapbox.StyleURL.Street}
-                          scrollEnabled={false}
-                          pitchEnabled={false}
-                          rotateEnabled={false}
-                          zoomEnabled={false}
-                        >
-                          <Mapbox.Camera
-                            centerCoordinate={[providerLocation.longitude, providerLocation.latitude]}
-                            zoomLevel={14}
-                            animationDuration={0}
-                          />
-                        </Mapbox.MapView>
-                        <View style={styles.miniMapPinOverlay} pointerEvents="none">
-                          <MaterialIcon name="person-pin-circle" size={24} color={BRAND.primary} />
-                        </View>
-                      </View>
-                    ) : (
-                      <View style={styles.miniMapPlaceholder}>
-                        <MaterialIcon
-                          name={locationStatus === 'acquiring' ? 'my-location' : 'location-off'}
-                          size={20}
-                          color={BRAND.muted}
-                        />
-                      </View>
-                    )}
-                    <Text style={styles.miniLocationLabel} numberOfLines={1}>
-                      {providerLocation?.latitude
-                        ? (displayAddress || 'My Location')
-                        : locationStatus === 'acquiring'
-                          ? 'Getting your location…'
-                          : locationStatus === 'disabled'
-                            ? 'Location is off'
-                            : locationStatus === 'denied'
-                              ? 'Enable location'
-                              : (displayAddress || 'My Location')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              );
-            }
-
-            // Not fully ready — show original full-width verification card
-            return (
-              <VerificationStatusCard
-                dashboard={verificationDashboard}
-                onPress={() => navigation.navigate('VerificationDashboard')}
-                isLoading={verificationLoading || isProfileLoading}
-                t={t}
-              />
-            );
-          })()}
-
-          {/* Stats Grid */}
-          <Text style={styles.sectionTitle}>{t('providerHome.overview')}</Text>
-          {!statsLoaded ? (
-            <View style={styles.statsGrid}>
-              {[0,1,2,3].map(i => (
-                <View key={i} style={[styles.statsCard, { padding: 14, alignItems: 'center' }]}>
-                  <ShimmerBlock width={36} height={36} borderRadius={18} shimmerAnim={shimmerAnim} />
-                  <ShimmerBlock width={30} height={20} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginTop: 8 }} />
-                  <ShimmerBlock width={50} height={10} borderRadius={5} shimmerAnim={shimmerAnim} style={{ marginTop: 4 }} />
-                </View>
-              ))}
-            </View>
-          ) : (
-          <View style={styles.statsGrid}>
-            <StatsCard
-              materialIconName="play-circle-filled"
-              value={stats.active}
-              label={t('providerHome.statsActive')}
-              color="#10B981"
-              bgColor="#10B98118"
-            />
-            <StatsCard
-              iconName="check-circle"
-              value={stats.completed}
-              label={t('providerHome.statsCompleted')}
-              color={BRAND.secondary}
-              bgColor={BRAND.secondary + '18'}
-            />
-            <StatsCard
-              materialIconName="star"
-              value={stats.rating.toFixed(1)}
-              label={t('providerHome.statsRating')}
-              color="#EAB308"
-              bgColor="#EAB30818"
-            />
+          {/* Live location sharing for accepted jobs (renders nothing when idle) */}
+          <View style={styles.trackingRow}>
+            <LocationTrackingBanner />
           </View>
-          )}
 
           {/* Recent Active Services */}
           <Text style={styles.sectionTitle}>{t('providerHome.activeJobs')} <Text style={{ color: '#CBD5E1', fontSize: 11, fontWeight: '500', textTransform: 'none' }}>{t('providerHome.recentThree')}</Text></Text>
@@ -1349,6 +1144,62 @@ const ProviderHomeScreen = ({ navigation }) => {
               <MaterialIcon name="inbox" size={28} color={BRAND.muted} />
               <Text style={styles.noRecentText}>{t('providerHome.noActiveServices')}</Text>
             </View>
+          )}
+
+          {/* Work Hours — quick view + quick edit (full week lives in WorkAvailabilityScreen) */}
+          <WeeklyScheduleCard
+            days={workDays}
+            isAvailable={isAvailable}
+            availabilityKnown={availabilityKnown}
+            emergencyServicesEnabled={displayData?.emergencyServicesEnabled === true}
+            scheduleEnforced={workView?.scheduleEnforced === true}
+            lastLocationAt={workView?.lastLocationAt || null}
+            loading={workLoading}
+            error={workError}
+            focused={isFocused}
+            updatingLocation={updatingLocation}
+            onPressDay={setEditingDay}
+            onPressEditWeek={onPressEditWeek}
+            onUpdateLocation={handleUpdateLocationNow}
+            onRetry={onRetryWorkSchedule}
+          />
+
+          {/* Stats Grid */}
+          <Text style={styles.sectionTitle}>{t('providerHome.overview')}</Text>
+          {!statsLoaded ? (
+            <View style={styles.statsGrid}>
+              {[0,1,2,3].map(i => (
+                <View key={i} style={[styles.statsCard, { padding: 14, alignItems: 'center' }]}>
+                  <ShimmerBlock width={36} height={36} borderRadius={18} shimmerAnim={shimmerAnim} />
+                  <ShimmerBlock width={30} height={20} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginTop: 8 }} />
+                  <ShimmerBlock width={50} height={10} borderRadius={5} shimmerAnim={shimmerAnim} style={{ marginTop: 4 }} />
+                </View>
+              ))}
+            </View>
+          ) : (
+          <View style={styles.statsGrid}>
+            <StatsCard
+              materialIconName="play-circle-filled"
+              value={stats.active}
+              label={t('providerHome.statsActive')}
+              color="#10B981"
+              bgColor="#10B98118"
+            />
+            <StatsCard
+              iconName="check-circle"
+              value={stats.completed}
+              label={t('providerHome.statsCompleted')}
+              color={BRAND.secondary}
+              bgColor={BRAND.secondary + '18'}
+            />
+            <StatsCard
+              materialIconName="star"
+              value={stats.rating.toFixed(1)}
+              label={t('providerHome.statsRating')}
+              color="#EAB308"
+              bgColor="#EAB30818"
+            />
+          </View>
           )}
 
           {/* Service Categories - Only show verified services */}
@@ -1698,38 +1549,8 @@ const styles = StyleSheet.create({
     paddingTop: 14,
   },
 
-  // ===== Status Pads Row =====
-  statusPadsRow: {
+  trackingRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
-  },
-  statusPad: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderWidth: 1.5,
-    flex: 1,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.06,
-        shadowRadius: 10,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-  },
-  statusPadText: {
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 0.3,
   },
 
   // ===== Availability Card (legacy — kept for skeleton loader) =====
@@ -1764,26 +1585,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-  },
-  pulsingDotContainer: {
-    width: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  pulsingRing: {
-    position: 'absolute',
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-  },
-  statusDotInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
   availabilityTextBlock: {
     flex: 1,
@@ -2285,90 +2086,6 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
 
-  // ===== Dual Card Row (verification + location) =====
-  dualCardRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  miniVerificationCard: {
-    flex: 3,
-    backgroundColor: '#ECFDF5',
-    borderRadius: 16,
-    padding: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#10B98130',
-    ...Platform.select({
-      ios: { shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12 },
-      android: { elevation: 4 },
-    }),
-  },
-  miniVerificationPercent: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#10B981',
-    letterSpacing: -0.3,
-  },
-  miniVerificationBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#D1FAE5',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    marginTop: 6,
-  },
-  miniVerificationBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#059669',
-  },
-  miniVerificationDays: {
-    fontSize: 12,
-    color: '#64748B',
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  miniLocationCard: {
-    flex: 7,
-    backgroundColor: BRAND.dark,
-    borderRadius: 16,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 14 },
-      android: { elevation: 6 },
-    }),
-  },
-  miniMapWrap: {
-    width: '100%',
-    height: 72,
-  },
-  miniMapView: {
-    flex: 1,
-  },
-  miniMapPinOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  miniMapPlaceholder: {
-    width: '100%',
-    height: 72,
-    backgroundColor: '#1E293B',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  miniLocationLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: BRAND.darkText,
-    textAlign: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 7,
-    backgroundColor: BRAND.white,
-  },
 
   // ===== Recent Service Cards =====
   recentServiceCard: {

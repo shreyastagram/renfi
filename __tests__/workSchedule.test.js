@@ -80,6 +80,11 @@ describe('computeHomeStatus', () => {
     expect(computeHomeStatus({ ...base, days, moment: at('sun', 660) })).toEqual({ kind: 'day_off' });
   });
 
+  test('availability not loaded yet → neutral, never "offline"', () => {
+    expect(computeHomeStatus({ ...base, isAvailable: false, availabilityKnown: false, moment: at('mon', 660) })).toEqual({ kind: 'unknown' });
+    expect(computeHomeStatus({ ...base, isAvailable: false, availabilityKnown: true, moment: at('mon', 660) })).toEqual({ kind: 'offline' });
+  });
+
   test('missing schedule → loading-safe status', () => {
     expect(computeHomeStatus({ ...base, days: null, moment: at('mon', 660) })).toEqual({ kind: 'unknown' });
   });

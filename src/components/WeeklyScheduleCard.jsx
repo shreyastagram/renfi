@@ -77,6 +77,7 @@ function useIstMoment(active, days) {
 const WeeklyScheduleCard = ({
   days,
   isAvailable,
+  availabilityKnown = true,
   emergencyServicesEnabled,
   scheduleEnforced,
   lastLocationAt,
@@ -93,8 +94,8 @@ const WeeklyScheduleCard = ({
   const moment = useIstMoment(focused, days);
 
   const status = useMemo(
-    () => computeHomeStatus({ days, isAvailable, emergencyServicesEnabled, scheduleEnforced, moment }),
-    [days, isAvailable, emergencyServicesEnabled, scheduleEnforced, moment],
+    () => computeHomeStatus({ days, isAvailable, availabilityKnown, emergencyServicesEnabled, scheduleEnforced, moment }),
+    [days, isAvailable, availabilityKnown, emergencyServicesEnabled, scheduleEnforced, moment],
   );
   const today = days ? days[moment.dayKey] : null;
   const tone = STATUS_STYLE[status.kind] || STATUS_STYLE.unknown;
