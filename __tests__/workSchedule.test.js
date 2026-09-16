@@ -65,6 +65,8 @@ describe('computeHomeStatus', () => {
     ['Mon 20:00 after', {}, at('mon', 1200), { kind: 'after' }],
     ['night without opt-in', {}, at('mon', 1410), { kind: 'night_off' }],
     ['night with opt-in', { emergencyServicesEnabled: true }, at('tue', 60), { kind: 'night_on' }],
+    ['hours running past 22:00 win over the night rule', { days: { ...week(), mon: { enabled: true, start: '08:00', end: '23:30' } } }, at('mon', 1350), { kind: 'within', end: '23:30' }],
+    ['a day off stays off at night even with the opt-in', { emergencyServicesEnabled: true, days: { ...week(), sun: { enabled: false, start: '09:00', end: '17:00' } } }, at('sun', 1380), { kind: 'day_off' }],
   ])('%s', (_l, over, moment, expected) => {
     expect(computeHomeStatus({ ...base, ...over, moment })).toEqual(expected);
   });

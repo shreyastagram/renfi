@@ -78,14 +78,17 @@ export function computeHomeStatus({ days, isAvailable, emergencyServicesEnabled,
   if (!isAvailable) return { kind: 'offline' };
   if (!days) return { kind: 'unknown' };
   if (!scheduleEnforced) return { kind: 'saved_not_enforced' };
-  if (isNight(moment.minute)) return { kind: emergencyServicesEnabled ? 'night_on' : 'night_off' };
   const day = days[moment.dayKey];
   if (!day || !day.enabled) return { kind: 'day_off' };
   const start = hhmmToMinutes(day.start);
   const end = hhmmToMinutes(day.end);
+  if (moment.minute >= start && moment.minute < end) return { kind: 'within', end: day.end };
+  // Inside 22:00–07:00 the Night Emergency opt-in is an ALTERNATIVE to the
+  // configured hours (it never overrides a day off or later hours) — mirrors
+  // noefix utils/workAvailability/eligibility.js.
+  if (isNight(moment.minute)) return { kind: emergencyServicesEnabled ? 'night_on' : 'night_off' };
   if (moment.minute < start) return { kind: 'before', start: day.start };
-  if (moment.minute >= end) return { kind: 'after' };
-  return { kind: 'within', end: day.end };
+  return { kind: 'after' };
 }
 
 /**
