@@ -1,4 +1,36 @@
 const { lightTheme, darkTheme } = require('../themes');
+const palette = require('../tokens/palette');
+
+describe('palette hygiene', () => {
+  // Regression guard: semanticDarkBorder was added to palette.js and never wired
+  // into semantic.js, so the dark status-chip borders existed as dead code while
+  // the mockup relied on them. Anything exported from palette must be consumed.
+  it('has no orphaned exports — every palette group is consumed by the themes', () => {
+    const consumed = new Set(
+      [lightTheme, darkTheme].flatMap((t) => Object.values(t.colors)),
+    );
+    const orphans = Object.entries(palette)
+      .filter(([name]) => name !== 'vendor') // deliberately not a theme token
+      .filter(([, group]) => {
+        const values = typeof group === 'object' ? Object.values(group) : [group];
+        return !values.some((v) => consumed.has(v));
+      })
+      .map(([name]) => name);
+
+    expect(orphans).toEqual([]);
+  });
+
+  it('only contains usable colour values', () => {
+    const valid = /^(#[0-9a-fA-F]{3,8}|transparent|rgba?\(.+\))$/;
+    for (const theme of [lightTheme, darkTheme]) {
+      for (const [key, value] of Object.entries(theme.colors)) {
+        expect(`${theme.name}.${key}=${value}`).toMatch(
+          new RegExp(`=${valid.source.slice(1, -1)}$`),
+        );
+      }
+    }
+  });
+});
 
 describe('theme tokens', () => {
   it('exposes matching key sets for light and dark', () => {

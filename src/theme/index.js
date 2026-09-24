@@ -18,3 +18,8 @@ export {
 
 export { default as useThemedStyles } from './useThemedStyles.js';
 export { lightTheme, darkTheme, themes } from './themes.js';
+
+// Third-party brand colours. NOT theme tokens — they are fixed by the vendor's
+// brand guidelines and must render identically in both themes. Exported here so
+// migrating screens have one place to import them from instead of re-hardcoding.
+export { vendor } from './tokens/palette.js';

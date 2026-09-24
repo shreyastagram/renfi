@@ -14,6 +14,7 @@ import {
   brand,
   altBlue,
   violet,
+  semanticDarkBorder,
   slate,
   gray,
   dark,
@@ -75,6 +76,14 @@ export const lightColors = {
   dangerContainer: semanticLight.dangerContainer,
   infoContainer: semanticLight.infoContainer,
 
+  // Status-chip borders. Light chips read fine on a tinted fill alone, so these
+  // are transparent here; they exist so the key sets match and so a component
+  // can set borderColor unconditionally instead of branching on theme.
+  successBorder: 'transparent',
+  warningBorder: 'transparent',
+  dangerBorder: 'transparent',
+  infoBorder: 'transparent',
+
   // Misc
   overlay: overlay.light,
   shadow: slate[900],
@@ -130,6 +139,15 @@ export const darkColors = {
   warningContainer: semanticDark.warningContainer,
   dangerContainer: semanticDark.dangerContainer,
   infoContainer: semanticDark.infoContainer,
+
+  // On a near-black card a tinted fill alone sits at roughly 1.1:1 and barely
+  // reads as a chip, so dark status chips are defined by a border in their own
+  // hue. The label and dot still carry the meaning at 6:1 or better, which is
+  // why these are not held to the 3:1 that identifying elements require.
+  successBorder: semanticDarkBorder.success,
+  warningBorder: semanticDarkBorder.warning,
+  dangerBorder: semanticDarkBorder.danger,
+  infoBorder: semanticDarkBorder.info,
 
   // Misc
   overlay: overlay.dark,
