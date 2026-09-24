@@ -21,6 +21,7 @@ import { DialogProvider } from './src/context/DialogContext';
 import { ProfileCompletionProvider } from './src/context/ProfileCompletionContext';
 import { SupportProvider } from './src/context/SupportContext';
 import { LanguageProvider } from './src/context/LanguageContext';
+import { ThemeProvider, useTheme } from './src/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RootNavigator, { linking as navLinking } from './navigation/RootNavigator';
 import SplashScreen from './src/components/SplashScreen';
@@ -314,6 +315,21 @@ const handleNotificationData = (remoteMessage: any) => {
 };
 
 /**
+ * StatusBar that follows the active theme. Dark backgrounds need light icons.
+ * Kept as its own component so only it re-renders when the theme flips.
+ */
+function ThemedStatusBar() {
+  const { isDark } = useTheme();
+  return (
+    <StatusBar
+      barStyle={isDark ? 'light-content' : 'dark-content'}
+      backgroundColor="transparent"
+      translucent
+    />
+  );
+}
+
+/**
  * Inner app content — rendered inside AppProvider so it can access useApp()
  */
 function AppContent() {
@@ -490,7 +506,7 @@ function AppContent() {
       <ProfileCompletionProvider>
       <SupportProvider>
       <View style={{ flex: 1 }}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <ThemedStatusBar />
         {isNavReady && (
           <NavigationContainer
             ref={navigationRef}
@@ -549,11 +565,13 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ErrorBoundary>
       <SafeAreaProvider>
+      <ThemeProvider>
       <LanguageProvider>
       <AppProvider>
         <AppContent />
       </AppProvider>
       </LanguageProvider>
+      </ThemeProvider>
       </SafeAreaProvider>
       </ErrorBoundary>
     </GestureHandlerRootView>
