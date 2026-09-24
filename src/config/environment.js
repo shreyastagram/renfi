@@ -49,7 +49,7 @@ export const USE_PRODUCTION_JAVA_AUTH = true;
 // JWT_SECRET (a mismatch → token-verification 401s / "not authorized").
 // Keep this true ONLY on the throwaway devtest branch used for Firebase builds.
 // It MUST be false on feature/client-updates-batch1 and anything that merges to prod.
-export const USE_DEV_STAGING = true;
+export const USE_DEV_STAGING = false;
 
 const DEV_STAGING_CONFIG = {
   // Dev Node on Render → dev "Flex" Mongo (a COPY of prod data). Update if your dev URL differs.
