@@ -31,8 +31,8 @@ App.tsx and the two accessibility fixes below — the app is otherwise visually 
 - [x] **Phase 1** — Theme engine ported + gates wired + fresh colour census
 - [x] **Phase 2** — Mockup: **Working Hours** surfaces, light + dark — APPROVED on the
       near-black ramp. Two shipped a11y failures found and fixed while measuring.
-- [ ] **Phase 3** — Mockup: verification surface (re-confirm) + home screen (redo)
-- [ ] **Phase 4** — Dead-file re-verification and removal (120 colours)
+- [x] **Phase 3** — Mockup: verification re-confirmed + home screen rebuilt on near-black
+- [x] **Phase 4** — Dead-file removal (2,105 lines, 115 colours) + DRY audit
 - [ ] **Phase 5** — Verification module + defects V1–V6 + Settings theme control
 - [ ] **Phase 6** — Shared chrome + `<Screen>` primitive
 - [ ] **Phase 7** — User screens + Mapbox theme following
@@ -126,6 +126,22 @@ T4 provider 551 · T5 auth 319 · T6 shared+rest 749 · dead files 120 (exclude)
 
 Everything else reuses existing keys. A missing key renders as `[missing …]`, so parity is
 enforced at every commit. If a state genuinely needs new copy, **flag it — do not invent.**
+
+## DRY audit (2026-09-25) — findings, and what was deliberately NOT merged
+
+The single biggest duplication in this codebase is **46 files each defining their own
+local `BRAND` / `COLORS` / `C` palette object**. Collapsing those onto one token source is
+precisely what this project is doing, so it is not a separate task.
+
+Two other candidates were examined and **both were left alone on purpose**:
+
+| Candidate | Verdict |
+|---|---|
+| `formatServiceName` in ProfileScreen, ProviderHomeScreen, ProviderDetailsModal | **Do not merge blindly.** The three are NOT identical: ProfileScreen falls back through `SERVICE_CATEGORIES`, the other two do not; ProviderDetailsModal is null-safe (`service?.`) while the other two would throw on undefined. Merging changes behaviour at 2 of 3 call sites, so it belongs in its own reviewed change, not bundled into theming. |
+| `getErrorMessage` in ProfileScreen and authService | **Not a duplicate at all.** Different functions sharing a name: authService maps an auth CODE to a user message; ProfileScreen stringifies an arbitrary error object. Merging them would be a real bug. Verified ProfileScreen does not import the other, so there is no shadowing. |
+
+Principle applied: DRY only where the duplicated code is genuinely identical. Where copies
+have diverged, consolidating them is a behaviour change and needs its own review.
 
 ## Decisions taken 2026-09-25
 
