@@ -48,6 +48,36 @@ export const vendor = {
   googleBlue: '#4285F4',
 };
 
+// Apple system colours, light and dark, exactly as the HIG defines them.
+//
+// Used only where a surface is deliberately meant to feel native iOS — today
+// that is CustomDialog, whose whole purpose is to read as a system alert. They
+// are NOT brand tokens and must not be swapped for Fixhomi colours.
+//
+// KNOWN AND ACCEPTED: white on systemBlue is 4.02:1 light and 3.65:1 dark, and
+// on systemRed 3.55:1 and 3.41:1. Those sit under the 4.5 AA wants for normal
+// text. They are Apple's own values, used in Apple's own alerts, and deviating
+// from them is what would look broken. Recorded as a deliberate exception
+// rather than silently fixed or silently ignored. Everything Fixhomi controls
+// on these surfaces still clears AA.
+export const iosSystem = {
+  light: {
+    blue: '#007AFF',
+    red: '#FF3B30',
+    label: '#000000',
+    labelSecondary: 'rgba(0, 0, 0, 0.55)',
+    surfaceFallback: '#F2F2F7',
+  },
+  dark: {
+    blue: '#0A84FF',
+    red: '#FF453A',
+    label: '#FFFFFF',
+    labelSecondary: 'rgba(235, 235, 245, 0.6)',
+    surfaceFallback: '#1C1C1E',
+  },
+  onAccent: '#FFFFFF',
+};
+
 // Neutral SLATE ramp (cool-tinted) — the app's dominant scale, 669 occurrences.
 export const slate = {
   0: '#FFFFFF',

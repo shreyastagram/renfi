@@ -17,19 +17,17 @@ import {  View,
 } from 'react-native';
 import TouchableOpacity from './TouchableOpacity';
 import { BlurView } from './SafeBlurView';
+import { useThemedStyles, useTheme } from '../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_IOS = Platform.OS === 'ios';
 
-const BRAND = {
-  primary: '#f67c16',
-  danger: '#EF4444',
-  white: '#FFFFFF',
-  text: '#0F172A',
-  textSecondary: '#64748B',
-};
-
 const CustomDialog = ({ visible, title, message, buttons = [], onDismiss }) => {
+  // makeIosStyles / makeAndroidStyles are module scope, so useThemedStyles
+  // builds each at most once per theme for the life of the process.
+  const iosStyles = useThemedStyles(makeIosStyles);
+  const androidStyles = useThemedStyles(makeAndroidStyles);
+  const { isDark, theme } = useTheme();
   const scaleAnim = useRef(new Animated.Value(0.92)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -96,9 +94,9 @@ const CustomDialog = ({ visible, title, message, buttons = [], onDismiss }) => {
             <View style={iosStyles.cardOuter}>
               <BlurView
                 style={iosStyles.blurFill}
-                blurType="light"
+                blurType={isDark ? 'dark' : 'light'}
                 blurAmount={80}
-                reducedTransparencyFallbackColor="#F2F2F7"
+                reducedTransparencyFallbackColor={theme.colors.iosSurfaceFallback}
               >
                 {/* Content */}
                 <View style={iosStyles.content}>
@@ -161,9 +159,9 @@ const CustomDialog = ({ visible, title, message, buttons = [], onDismiss }) => {
               <View style={iosStyles.cancelOuter}>
                 <BlurView
                   style={iosStyles.blurFill}
-                  blurType="light"
+                  blurType={isDark ? 'dark' : 'light'}
                   blurAmount={80}
-                  reducedTransparencyFallbackColor="#F2F2F7"
+                  reducedTransparencyFallbackColor={theme.colors.iosSurfaceFallback}
                 >
                   <TouchableOpacity
                     style={iosStyles.cancelBtn}
@@ -251,10 +249,12 @@ const CustomDialog = ({ visible, title, message, buttons = [], onDismiss }) => {
 };
 
 // ─── iOS Styles ───────────────────────────────────────────────────
-const iosStyles = StyleSheet.create({
+// Apple system colours on purpose: this sheet is meant to read as a native
+// alert. See palette.iosSystem for why those pairs are an accepted exception.
+const makeIosStyles = (theme) => StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 30,
@@ -278,7 +278,7 @@ const iosStyles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#000000',
+    color: theme.colors.iosLabel,
     textAlign: 'center',
     lineHeight: 24,
     letterSpacing: -0.45,
@@ -286,7 +286,7 @@ const iosStyles = StyleSheet.create({
   message: {
     fontSize: 14,
     fontWeight: '400',
-    color: 'rgba(0, 0, 0, 0.55)',
+    color: theme.colors.iosLabelSecondary,
     textAlign: 'center',
     lineHeight: 20,
     letterSpacing: -0.15,
@@ -298,7 +298,7 @@ const iosStyles = StyleSheet.create({
     paddingBottom: 18,
   },
   primaryBtn: {
-    backgroundColor: 'rgba(0, 122, 255, 1)',
+    backgroundColor: theme.colors.iosBlue,
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
@@ -307,14 +307,14 @@ const iosStyles = StyleSheet.create({
   primaryBtnText: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: theme.colors.onIosAccent,
     letterSpacing: -0.41,
   },
   destructiveBtn: {
-    backgroundColor: 'rgba(255, 59, 48, 1)',
+    backgroundColor: theme.colors.iosRed,
   },
   destructiveBtnText: {
-    color: '#FFFFFF',
+    color: theme.colors.onIosAccent,
   },
   cancelOuter: {
     borderRadius: 20,
@@ -329,33 +329,35 @@ const iosStyles = StyleSheet.create({
   cancelBtnText: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#007AFF',
+    color: theme.colors.iosBlue,
     letterSpacing: -0.41,
   },
 });
 
-// ─── Android Styles (unchanged) ───────────────────────────────────
-const androidStyles = StyleSheet.create({
+// ─── Android Styles ───────────────────────────────────────────────
+const makeAndroidStyles = (theme) => StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    backgroundColor: theme.colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
   },
   dialogContainer: {
     width: Math.min(SCREEN_WIDTH - 48, 360),
-    backgroundColor: BRAND.white,
+    backgroundColor: theme.colors.surface,
     borderRadius: 22,
     paddingTop: 28,
     paddingHorizontal: 24,
     paddingBottom: 22,
-    elevation: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    ...theme.elevation.raised,
   },
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: BRAND.text,
+    color: theme.colors.textPrimary,
     textAlign: 'center',
     marginBottom: 8,
     lineHeight: 24,
@@ -363,7 +365,7 @@ const androidStyles = StyleSheet.create({
   },
   message: {
     fontSize: 14,
-    color: BRAND.textSecondary,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 24,
@@ -376,13 +378,13 @@ const androidStyles = StyleSheet.create({
   buttonSpaced: { marginLeft: 10 },
   buttonVertical: { flex: 0, width: '100%' },
   buttonVerticalSpaced: { marginTop: 8 },
-  buttonDefault: { backgroundColor: BRAND.primary },
-  buttonCancel: { backgroundColor: '#F1F5F9' },
-  buttonDestructive: { backgroundColor: BRAND.danger },
+  buttonDefault: { backgroundColor: theme.colors.brandOrange },
+  buttonCancel: { backgroundColor: theme.colors.surfaceSunken, borderWidth: 1, borderColor: theme.colors.border },
+  buttonDestructive: { backgroundColor: theme.colors.danger },
   buttonText: { fontSize: 15, fontWeight: '700', textAlign: 'center' },
-  buttonTextDefault: { color: BRAND.white },
-  buttonTextCancel: { color: '#64748B' },
-  buttonTextDestructive: { color: BRAND.white },
+  buttonTextDefault: { color: theme.colors.onBrandOrange },
+  buttonTextCancel: { color: theme.colors.textSecondary },
+  buttonTextDestructive: { color: theme.colors.textInverse },
 });
 
 export default CustomDialog;

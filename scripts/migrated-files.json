@@ -11,6 +11,7 @@
     "src/theme/resolveThemeName.js",
     "src/theme/createStyleCache.js",
     "src/theme/useThemedStyles.js",
-    "src/theme/index.js"
+    "src/theme/index.js",
+    "src/components/CustomDialog.jsx"
   ]
 }

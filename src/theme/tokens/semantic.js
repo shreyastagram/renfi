@@ -14,6 +14,7 @@ import {
   brand,
   altBlue,
   violet,
+  iosSystem,
   semanticDarkBorder,
   slate,
   gray,
@@ -84,6 +85,14 @@ export const lightColors = {
   dangerBorder: 'transparent',
   infoBorder: 'transparent',
 
+  // Apple system colours — only for surfaces meant to read as native iOS.
+  iosBlue: iosSystem.light.blue,
+  iosRed: iosSystem.light.red,
+  iosLabel: iosSystem.light.label,
+  iosLabelSecondary: iosSystem.light.labelSecondary,
+  iosSurfaceFallback: iosSystem.light.surfaceFallback,
+  onIosAccent: iosSystem.onAccent,
+
   // Misc
   overlay: overlay.light,
   shadow: slate[900],
@@ -148,6 +157,14 @@ export const darkColors = {
   warningBorder: semanticDarkBorder.warning,
   dangerBorder: semanticDarkBorder.danger,
   infoBorder: semanticDarkBorder.info,
+
+  // Apple system colours — only for surfaces meant to read as native iOS.
+  iosBlue: iosSystem.dark.blue,
+  iosRed: iosSystem.dark.red,
+  iosLabel: iosSystem.dark.label,
+  iosLabelSecondary: iosSystem.dark.labelSecondary,
+  iosSurfaceFallback: iosSystem.dark.surfaceFallback,
+  onIosAccent: iosSystem.onAccent,
 
   // Misc
   overlay: overlay.dark,
