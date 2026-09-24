@@ -118,6 +118,14 @@ const StatusTogglePad = React.memo(({ known, isAvailable, isUpdating, onToggle, 
     onToggle();
   };
 
+  // a11y: white on the #22C55E fill is 2.28:1 and fails WCAG AA. This is a live
+  // control (accessibilityRole="switch"), so the exemption for disabled elements
+  // does not apply. Dark text on the same green is 7.83:1. The brand green is
+  // unchanged — only what sits on it, which is the rule the orange fills follow.
+  // Becomes an onBrandGreen token in the provider-screen migration phase.
+  const padInk = isAvailable ? '#0F172A' : '#64748B';
+  const padSpinner = isAvailable ? '#0F172A' : '#94A3B8';
+
   return (
     <TouchableOpacity
       onPress={handlePress}
@@ -139,12 +147,12 @@ const StatusTogglePad = React.memo(({ known, isAvailable, isUpdating, onToggle, 
         ]}
       >
         {isUpdating ? (
-          <ActivityIndicator size="small" color={isAvailable ? '#FFFFFF' : '#94A3B8'} />
+          <ActivityIndicator size="small" color={padSpinner} />
         ) : (
           <>
             <PulsingDot isOnline={isAvailable} paused={paused} />
             <Text
-              style={[styles.statusPadText, { color: isAvailable ? '#FFFFFF' : '#64748B' }]}
+              style={[styles.statusPadText, { color: padInk }]}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.75}

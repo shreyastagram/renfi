@@ -240,7 +240,12 @@ const styles = StyleSheet.create({
   chipToday: { borderColor: BRAND.primary, borderWidth: 2 },
   chipLetter: { fontSize: 13, fontWeight: '800', color: '#C2410C' },
   chipHours: { fontSize: 10, fontWeight: '600', color: '#9A3412', marginTop: 1 },
-  chipTextOff: { color: BRAND.muted },
+  // a11y: BRAND.muted (#94A3B8) on the off-chip (#F8FAFC) is 2.45:1 and fails.
+  // The chip is a live TouchableOpacity even when off, so the WCAG exemption for
+  // disabled controls does not apply. #5B6878 is 5.43:1 and is the value the
+  // theme's textMuted token already uses; this becomes that token in the
+  // provider-screen migration phase.
+  chipTextOff: { color: '#5B6878' },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
   locationText: { flex: 1, fontSize: 12.5, color: BRAND.text },
   locationAction: { fontSize: 12.5, fontWeight: '700', color: BRAND.secondary },

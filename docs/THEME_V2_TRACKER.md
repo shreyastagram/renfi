@@ -13,8 +13,11 @@ its surfaces are in theming scope.
 
 ## ▶ START HERE — current state
 
-**Phase 1 (engine port) is DONE and verified. No screen is themed yet; the app is visually
-unchanged.** Next action is Phase 2: the Working Hours mockup.
+**Phases 0-2 DONE. Next action is Phase 3: re-confirm the verification mockup and redo the
+home-screen mockup on the near-black ramp.**
+
+No screen is themed yet. The only rendering changes so far are the ThemedStatusBar in
+App.tsx and the two accessibility fixes below — the app is otherwise visually unchanged.
 
 - Base is the `v1.0.9` tag, which is the first git point that matches what is live in both
   stores. The 1.0.9 build previously existed only as 3 uncommitted files.
@@ -26,7 +29,8 @@ unchanged.** Next action is Phase 2: the Working Hours mockup.
 
 - [x] **Phase 0** — Branch off `v1.0.9`; inventory of the old branch; this tracker
 - [x] **Phase 1** — Theme engine ported + gates wired + fresh colour census
-- [ ] **Phase 2** — Mockup: **Working Hours** surfaces, light + dark ← OWNER APPROVAL
+- [x] **Phase 2** — Mockup: **Working Hours** surfaces, light + dark — APPROVED on the
+      near-black ramp. Two shipped a11y failures found and fixed while measuring.
 - [ ] **Phase 3** — Mockup: verification surface (re-confirm) + home screen (redo)
 - [ ] **Phase 4** — Dead-file re-verification and removal (120 colours)
 - [ ] **Phase 5** — Verification module + defects V1–V6 + Settings theme control
@@ -47,11 +51,40 @@ npm run verify
 | `check:i18n` | en/hi/mr key-identical, **baseline 2067** |
 | `check:hex` | no raw hex in files listed in `scripts/migrated-files.json` |
 | `check:contrast` | 35 semantic pairs × 2 themes meet WCAG AA |
-| `check:types` | `tsc --noEmit` — **the only working check for .tsx** |
+| `check:types` | `tsc --noEmit` — the only working check for `.tsx` |
 | `test:unit` | 19 theme tests |
 | `test:app` | **the owner's 86 Working Hours tests — never let these regress** |
 
 Lint: compare per-file against the `v1.0.9` baseline, never absolute counts.
+
+### ⚠️ Syntax-checking: the babel CLI only works on plain `.js`
+
+Corrected 2026-09-25 after it was found to fail on **unmodified** v1.0.9 files:
+
+| File type | Use | Do NOT use |
+|---|---|---|
+| `.js` | `npx babel --presets module:@react-native/babel-preset <f> -o /dev/null` | — |
+| `.jsx` | **`npx eslint <f>`** — reports `Parsing error` on bad syntax (verified) | babel CLI: fails on pristine files |
+| `.tsx` | **`npm run check:types`** | babel CLI: chokes on `(global as any)` |
+
+Jest is **not** a substitute — a file with a syntax error still shows PASS if no
+running test imports it. Verified both ways on 2026-09-25.
+
+## Accessibility fixes shipped on this branch (2026-09-25)
+
+Found while measuring the Working Hours surfaces. Both are defects in the **shipped 1.0.9
+build**, not caused by theming, and both are on **live controls** so WCAG's exemption for
+disabled elements does not apply.
+
+| Control | Was | Now | File |
+|---|---|---|---|
+| ONLINE pad label + spinner | white on `#22C55E`, **2.28** | `#0F172A` on the same green, **7.83** | `ProviderHomeTopRow.jsx` |
+| Day chip, off state | `#94A3B8` on `#F8FAFC`, **2.45** | `#5B6878`, **5.43** | `WeeklyScheduleCard.jsx` |
+
+The brand green is unchanged — only what sits on it, which is the same rule the orange
+fills follow. `#5B6878` is the value `textMuted` already uses; both become tokens in the
+provider-screen phase. The owner's 86 tests still pass; they assert order and text, not
+colour. Lint on the two files went 4 problems to 3.
 
 ## Phase 1 result (2026-09-24)
 
@@ -94,6 +127,33 @@ T4 provider 551 · T5 auth 319 · T6 shared+rest 749 · dead files 120 (exclude)
 Everything else reuses existing keys. A missing key renders as `[missing …]`, so parity is
 enforced at every commit. If a state genuinely needs new copy, **flag it — do not invent.**
 
+## Decisions taken 2026-09-25
+
+**Dark ramp = near-black neutral, hardened.** Sunken `#000000`, base `#0A0A0C`, surface
+`#17171B`, elevated `#26262B`. ~5% saturation, replacing a slate-derived ramp that read
+navy at 39%. Steps sized by 8-bit code-value gap (10/13/15) because contrast ratio is
+meaningless this close to black and budget 6-bit LCD panels crush dark values together.
+The 1px card border is the fallback that keeps cards visible if fills crush anyway —
+which makes "border not shadow" a device-robustness rule, not only an aesthetic one.
+Enforced by the dark device-safety audit in `check:contrast`.
+
+**Two shipped a11y failures fixed** (done, not deferred — see below).
+
+**Mapbox dark style = `StyleURL.TrafficNight`** (`navigation-preview-night-v4`), not
+`dark-v10`. Fixhomi is a dispatch app: a customer watches a provider travel to their
+address, so roads are the content, and `dark-v10` is a data-viz basemap that de-emphasises
+exactly that. Light mode keeps `StyleURL.Street` unchanged. Implementation at all 6 map
+sites is one derived value:
+
+```js
+styleURL={isDark ? Mapbox.StyleURL.TrafficNight : Mapbox.StyleURL.Street}
+```
+
+A manual Light/Dark override is respected for free since it derives from the resolved
+theme. Caveat: changing `styleURL` at runtime forces a full style reload, so a mounted map
+flickers on theme switch. Lands in Phase 7. **The Standard style's `lightPreset` day/night
+is V11-only and this project is on Mapbox SDK v10 — not undertaken.**
+
 ## Design language (approved from the v1 mockups, still binding)
 
 1. **Orange is a fill, never text or an icon on a light ground.** White on `#f67c16` is
@@ -131,8 +191,10 @@ it may already cover part of the planned Phase-4-era audit.
 
 1. **The RN jest preset omits `.jsx`** from its transform. Already fixed at v1.0.9 by the
    other agent; do not re-add.
-2. **The babel CLI parse-check does NOT work on `.tsx`** — it fails on `(global as any)` even
-   on an unmodified `App.tsx`. Use `npm run check:types`.
+2. **The babel CLI parse-check does NOT work on `.tsx` OR `.jsx`** — it fails on
+   `(global as any)` in an unmodified `App.tsx`, and on an unmodified
+   `ProviderHomeTopRow.jsx` too. Only plain `.js` is checkable that way. Use eslint for
+   `.jsx` and `npm run check:types` for `.tsx`. See the gates section.
 3. **Node ESM needs explicit `.js` extensions** in `src/theme/tokens/` and `themes.js`; the
    gate scripts load them via `require(esm)`. Never add `"type": "module"` — it breaks RN.
 4. **`npm test` is red at baseline** — `App.test.tsx` needs native mocks nobody built. Use
