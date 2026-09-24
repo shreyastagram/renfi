@@ -1481,6 +1481,13 @@ export default {
     storeOpenFailed: 'ॲप स्टोअर उघडता आले नाही.',
     language: 'भाषा',
     languageSub: 'ॲप प्रदर्शन भाषा बदला',
+    theme: 'स्वरूप',
+    themeLight: 'लाइट',
+    themeDark: 'डार्क',
+    themeSystem: 'सिस्टम डीफॉल्ट',
+    themeLightSub: 'नेहमी लाइट स्वरूप वापरा',
+    themeDarkSub: 'नेहमी डार्क स्वरूप वापरा',
+    themeSystemSub: 'तुमच्या डिव्हाइसच्या सेटिंगनुसार',
   },
 
   // ─── Drawer Menu ───────────────────────────────────────

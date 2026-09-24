@@ -1481,6 +1481,13 @@ export default {
     storeOpenFailed: 'ऐप स्टोर खोलने में विफल।',
     language: 'भाषा',
     languageSub: 'ऐप प्रदर्शन भाषा बदलें',
+    theme: 'रूप',
+    themeLight: 'लाइट',
+    themeDark: 'डार्क',
+    themeSystem: 'सिस्टम डिफ़ॉल्ट',
+    themeLightSub: 'हमेशा लाइट रूप का उपयोग करें',
+    themeDarkSub: 'हमेशा डार्क रूप का उपयोग करें',
+    themeSystemSub: 'अपने डिवाइस की सेटिंग के अनुसार',
   },
 
   // ─── Drawer Menu ───────────────────────────────────────

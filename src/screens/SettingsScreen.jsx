@@ -44,6 +44,7 @@ import { Analytics, EV } from '../services/analytics';
 import { useDialog } from '../context/DialogContext';
 import { useSupport } from '../context/SupportContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme, THEME_MODES } from '../theme';
 import { startLocationTracking, stopLocationTracking } from '../services/socketService';
 import { Icon } from '../components';
 import SvgArt from '../components/SvgArt';
@@ -128,6 +129,14 @@ const AnimatedPressable = ({ children, onPress, style, disabled }) => {
       </Animated.View>
     </TouchableOpacity>
   );
+};
+
+// Appearance options. Keyed by the values THEME_MODES exposes so the two cannot
+// drift apart, and declared at module scope so it is not rebuilt per render.
+const THEME_LABEL_KEYS = {
+  light: { label: 'settings.themeLight', sub: 'settings.themeLightSub' },
+  dark: { label: 'settings.themeDark', sub: 'settings.themeDarkSub' },
+  system: { label: 'settings.themeSystem', sub: 'settings.themeSystemSub' },
 };
 
 /**
@@ -303,6 +312,8 @@ const SettingsScreen = ({ navigation }) => {
   const { openSupport } = useSupport();
   const { t, language, setLanguage, languages } = useLanguage();
   const [showLangModal, setShowLangModal] = React.useState(false);
+  const { mode: themeMode, setMode: setThemeMode } = useTheme();
+  const [showThemeModal, setShowThemeModal] = React.useState(false);
 
   // Set status bar for dark hero header when this tab is focused
   useFocusEffect(
@@ -1207,6 +1218,13 @@ const SettingsScreen = ({ navigation }) => {
             subtitle={languages.find(l => l.code === language)?.nativeLabel || 'English'}
             onPress={() => setShowLangModal(true)}
           />
+
+          <ActionRow
+            iconName="settings"
+            title={t('settings.theme')}
+            subtitle={t(THEME_LABEL_KEYS[themeMode]?.label || 'settings.themeSystem')}
+            onPress={() => setShowThemeModal(true)}
+          />
         </View>
 
         {/* App Settings Section */}
@@ -1389,7 +1407,7 @@ const SettingsScreen = ({ navigation }) => {
                 }}
                 activeOpacity={0.7}
               >
-                <View style={{ flex: 1 }}>
+                <View style={settingsLangStyles.optionBody}>
                   <Text style={[
                     settingsLangStyles.optionText,
                     language === lang.code && settingsLangStyles.optionTextActive,
@@ -1399,6 +1417,56 @@ const SettingsScreen = ({ navigation }) => {
                   <Text style={settingsLangStyles.optionSub}>{lang.label}</Text>
                 </View>
                 {language === lang.code && (
+                  <Icon name="check" size={20} color={COLORS.secondary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Appearance Picker Modal — reuses settingsLangStyles on purpose, so it is
+          visually identical to the Language picker sitting directly above it. */}
+      <Modal
+        visible={showThemeModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowThemeModal(false)}
+      >
+        <TouchableOpacity
+          style={settingsLangStyles.overlay}
+          activeOpacity={1}
+          onPress={() => setShowThemeModal(false)}
+        >
+          <View style={settingsLangStyles.modal}>
+            <Text style={settingsLangStyles.title}>{t('settings.theme')}</Text>
+            {THEME_MODES.map((m) => (
+              <TouchableOpacity
+                key={m}
+                style={[
+                  settingsLangStyles.option,
+                  themeMode === m && settingsLangStyles.optionActive,
+                ]}
+                onPress={() => {
+                  setThemeMode(m);
+                  setShowThemeModal(false);
+                }}
+                activeOpacity={0.7}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: themeMode === m }}
+              >
+                <View style={settingsLangStyles.optionBody}>
+                  <Text style={[
+                    settingsLangStyles.optionText,
+                    themeMode === m && settingsLangStyles.optionTextActive,
+                  ]}>
+                    {t(THEME_LABEL_KEYS[m].label)}
+                  </Text>
+                  <Text style={settingsLangStyles.optionSub}>
+                    {t(THEME_LABEL_KEYS[m].sub)}
+                  </Text>
+                </View>
+                {themeMode === m && (
                   <Icon name="check" size={20} color={COLORS.secondary} />
                 )}
               </TouchableOpacity>
@@ -2098,6 +2166,10 @@ const styles = StyleSheet.create({
 });
 
 const settingsLangStyles = StyleSheet.create({
+  // Shared by the Language and Appearance pickers so neither needs an inline style.
+  optionBody: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',

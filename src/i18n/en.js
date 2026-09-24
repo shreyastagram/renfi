@@ -1541,6 +1541,13 @@ export default {
     storeOpenFailed: 'Could not open the app store.',
     language: 'Language',
     languageSub: 'Change app display language',
+    theme: 'Appearance',
+    themeLight: 'Light',
+    themeDark: 'Dark',
+    themeSystem: 'System Default',
+    themeLightSub: 'Always use the light appearance',
+    themeDarkSub: 'Always use the dark appearance',
+    themeSystemSub: 'Match your device setting',
   },
 
   // ─── Drawer Menu ───────────────────────────────────────
