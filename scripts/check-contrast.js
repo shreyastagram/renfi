@@ -72,6 +72,53 @@ const REQUIRED_PAIRS = [
   ['borderStrong', 'bg', UI, 'input border against page background'],
 ];
 
+/**
+ * Device-class hardening audit for the DARK theme only.
+ *
+ * Contrast ratio is a poor guide near black — it compresses toward 1.0 whatever
+ * you do — so surface separation is judged by 8-bit code-value gap instead.
+ * Budget Android is largely 6-bit + FRC, where very dark values crush together
+ * and cards visually merge into the background. Providers run exactly that
+ * hardware, so this is enforced rather than trusted to review.
+ */
+const MIN_SURFACE_GAP = 10; // code values between adjacent surfaces
+const MIN_BORDER_SEP = 1.45; // border must still define a card if fills crush
+
+const green = (hex) => parseInt(hex.replace('#', '').slice(2, 4), 16);
+
+const auditDarkDeviceSafety = (theme) => {
+  const failures = [];
+  const c = theme.colors;
+  const steps = [
+    ['surfaceSunken', 'bg'],
+    ['bg', 'surface'],
+    ['surface', 'surfaceElevated'],
+  ];
+  for (const [a, b] of steps) {
+    const gap = Math.abs(green(c[b]) - green(c[a]));
+    if (gap < MIN_SURFACE_GAP) {
+      failures.push({
+        theme: theme.name,
+        label: `surface step ${a} -> ${b}`,
+        detail: `gap ${gap} code values, needs ${MIN_SURFACE_GAP}`,
+        why: 'may crush together on 6-bit budget LCD panels',
+      });
+    }
+  }
+  for (const s of ['bg', 'surface', 'surfaceElevated']) {
+    const ratio = contrastRatio(c.border, c[s]);
+    if (ratio < MIN_BORDER_SEP) {
+      failures.push({
+        theme: theme.name,
+        label: `border vs ${s}`,
+        detail: `${ratio.toFixed(2)}, needs ${MIN_BORDER_SEP}`,
+        why: 'the border is what defines a card when fills crush',
+      });
+    }
+  }
+  return failures;
+};
+
 /** Returns an array of failure objects; empty means the theme passes. */
 const auditTheme = (theme) => {
   const failures = [];
@@ -97,7 +144,14 @@ const auditTheme = (theme) => {
   return failures;
 };
 
-module.exports = { contrastRatio, auditTheme, REQUIRED_PAIRS, TEXT, UI };
+module.exports = {
+  contrastRatio,
+  auditTheme,
+  auditDarkDeviceSafety,
+  REQUIRED_PAIRS,
+  TEXT,
+  UI,
+};
 
 if (require.main === module) {
   // Plain require() loads these ES modules directly — Node >= 22.12 supports
@@ -116,7 +170,21 @@ if (require.main === module) {
     }
     process.exit(1);
   }
+
+  const deviceFailures = auditDarkDeviceSafety(darkTheme);
+  if (deviceFailures.length) {
+    console.error('DARK device-class FAILURES:\n');
+    for (const f of deviceFailures) {
+      console.error(`  ${f.label}: ${f.detail}\n      ${f.why}`);
+    }
+    process.exit(1);
+  }
+
   console.log(
     `Contrast OK — ${REQUIRED_PAIRS.length} pairs x 2 themes all meet WCAG AA.`,
+  );
+  console.log(
+    'Dark device-safety OK — surface steps and border separation hold on ' +
+      'low-end panels.',
   );
 }

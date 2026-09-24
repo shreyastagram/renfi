@@ -82,16 +82,39 @@ export const gray = {
   900: '#111827',
 };
 
-// Dark-mode surface ramp. Base is a dark neutral, not pure black (Material 3);
-// surfaces get lighter as they elevate.
+// Dark-mode surface ramp — near-black, neutral, and hardened for every device class.
+//
+// Owner decision 2026-09-25: the previous ramp was slate-derived and read navy
+// (39% saturation, blue running 22 points above red). This one is effectively
+// neutral (~5% saturation) and genuinely dark.
+//
+// DEVICE-CLASS HARDENING — the reason these values are not simply #000/#111/#222:
+//
+//  - HIGH END (OLED): `sunken` is true black so those pixels switch off, which is
+//    where the battery saving comes from. Text is #F1F5F9 rather than pure white
+//    to avoid the halation/smearing OLED panels show with #FFF on #000.
+//
+//  - LOW END (6-bit + FRC LCD, which is most budget Android and therefore most
+//    providers): very dark values CRUSH together on these panels. Contrast RATIO
+//    is a poor guide this close to black — it compresses toward 1.0 no matter
+//    what — so the steps are sized by 8-bit CODE VALUE gap instead, held at 10+
+//    between adjacent surfaces (0->10->23->38).
+//
+//  - The real insurance is `border`. If a cheap panel crushes the fills anyway,
+//    a card is still defined by its 1px border, which holds 1.5:1 or better
+//    against every surface. This is why the design rule is "cards carry a border,
+//    not a shadow" — it is a device-robustness decision, not only an aesthetic one.
+//
+//  - `borderStrong` clears 3.0 on all three surfaces because WCAG 1.4.11 does bind
+//    input and focus boundaries: they identify the component.
 export const dark = {
-  sunken: '#080D18',
-  base: '#0B1220',
-  surface: '#111827',
-  elevated: '#1E293B',
-  border: '#263449',
-  borderMedium: '#33425C',
-  borderStrong: '#64748B',
+  sunken: '#000000', // true black — OLED pixels off
+  base: '#0A0A0C',
+  surface: '#17171B',
+  elevated: '#26262B',
+  border: '#42424A', // decorative, but the low-end safety net
+  borderMedium: '#52525C',
+  borderStrong: '#757581', // >= 3.0 everywhere — inputs and focus rings
   textPrimary: '#F1F5F9',
   textSecondary: '#A9B4C4',
   textMuted: '#8B96A8',
@@ -110,14 +133,28 @@ export const semanticLight = {
 };
 
 // Semantic hues, dark-surface variants (all >= 4.5:1 on every dark surface).
+//
+// Containers are re-based onto the near-black ramp. On a dark card a tinted fill
+// alone barely reads — the green sat at 1.15:1 against the old surface — so each
+// status also carries a border in its own hue (semanticDarkBorder below). The
+// TEXT and DOT do the semantic work at 6:1+; the border only supplies definition,
+// which is why it is not held to 3.0.
 export const semanticDark = {
   success: '#34D399',
   warning: '#FBBF24',
   danger: '#F87171',
-  successContainer: '#0C2A1E',
-  warningContainer: '#2B1F06',
-  dangerContainer: '#2C1416',
-  infoContainer: '#0E2236',
+  successContainer: '#0E2E20',
+  warningContainer: '#2E2107',
+  dangerContainer: '#2F1518',
+  infoContainer: '#102639',
+};
+
+// Borders for the status containers above — the status hue at ~70% over the card.
+export const semanticDarkBorder = {
+  success: '#2A9B77',
+  warning: '#B58D25',
+  danger: '#B3565B',
+  info: '#487DAE',
 };
 
 export const overlay = {
