@@ -37,6 +37,7 @@
     "src/screens/EmergencyServicesScreen.jsx",
     "src/screens/AccountSecurityScreen.jsx",
     "src/screens/SettingsScreen.jsx",
-    "src/screens/ChangePasswordScreen.jsx"
+    "src/screens/ChangePasswordScreen.jsx",
+    "src/screens/ProfileScreen.jsx"
   ]
 }

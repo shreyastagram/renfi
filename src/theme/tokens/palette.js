@@ -120,6 +120,14 @@ export const iconAccent = {
   'heart': '#EF4444',
   'pin': '#EF4444',
   'close_circle': '#EF4444',
+  // Portfolio platforms. The app's chosen accent per platform rather than each
+  // brand's official colour, but the same reasoning applies: it identifies a
+  // destination, so it must not change with the theme.
+  'instagram': '#DB2777',
+  'youtube': '#DC2626',
+  'website': '#0284C7',
+  'facebook': '#2563EB',
+  'tiktok': '#7C3AED',
 };
 
 // Surfaces that stay DARK in BOTH themes, and the ink that sits on them.
@@ -169,6 +177,35 @@ export const stableDark = {
   inkDim: 'rgba(255, 255, 255, 0.6)',
 };
 
+// The profile hero's brand gradient and everything drawn on it. THEME-INDEPENDENT:
+// it is a four-stop brand ramp (warm for users, blue for providers) that runs light
+// at the top to saturated at the bottom, so the nav ink and the white decorations
+// are positioned against the gradient rather than against the page. Flipping any of
+// it would break it against the ramp underneath. Same trap as stableDark.
+//
+// Note stop 3 of the user ramp is #f6851f, a near-twin of the brand orange but NOT
+// the same value. Preserved exactly rather than "corrected" -- it is a gradient stop
+// tuned against its neighbours, not a brand reference.
+export const heroGradient = {
+  userStop1: '#FFF3EA',
+  userStop2: '#FBDDC5',
+  userStop3: '#f6851f',
+  userStop4: '#EA580C',
+  providerStop1: '#E9F2FB',
+  providerStop2: '#CBE1F5',
+  providerStop3: '#3a86cf',
+  providerStop4: '#1e5f9e',
+  navInk: '#0F172A', // sits on the LIGHT end of the ramp
+  ink: '#FFFFFF', // sits on the saturated end
+  decorStroke: 'rgba(255,255,255,0.16)',
+  decorStrokeSoft: 'rgba(255,255,255,0.10)',
+  decorBlob: 'rgba(255,255,255,0.06)',
+  decorBlobSoft: 'rgba(255,255,255,0.05)',
+  decorDot: 'rgba(255,255,255,0.18)',
+  chipFill: 'rgba(255,255,255,0.24)',
+  backBtnFill: 'rgba(255,255,255,0.55)',
+};
+
 // The premium / subscription surface. THEME-INDEPENDENT, and a deliberately separate
 // system from `stableDark`: that one is slate + white chrome, this one is navy + gold
 // marketing. The hero, the active-plan header and the launch-offer chip are dark in
@@ -180,6 +217,9 @@ export const premium = {
   navyGradA: '#1A1F2E',
   navyGradC: '#131A2A',
   slateHeader: '#0F172A', // the active-plan card's dark header band
+  iosDark: '#1C1C1E', // the same band on iOS, which uses Apple's dark grey
+  slateCard: '#1E293B', // the inactive card's Android gradient base
+  indigoShadow: '#4338CA', // the inactive card's coloured drop shadow
   gold: '#E8B54D',
   goldSoft: '#F2CE8A',
   goldInk: '#B98A2F', // gold dark enough to read as TEXT on a light surface
@@ -481,4 +521,8 @@ export const overlay = {
   // which would visibly lighten a deliberately opaque barrier.
   strongLight: 'rgba(15,23,42,0.85)',
   strongDark: 'rgba(0,0,0,0.9)',
+  // A full-screen photo viewer is a lightbox: the image sits on a near-black ground
+  // in EITHER theme, because that is what a lightbox is. Not theme-dependent.
+  photo: 'rgba(0,0,0,0.92)',
+  photoSoft: 'rgba(0,0,0,0.5)',
 };

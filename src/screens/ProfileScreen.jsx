@@ -73,12 +73,78 @@ import CityAutocomplete from '../components/CityAutocomplete';
 import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
 
 import { uploadProfilePicture } from '../services/cloudinaryService';
+import {
+  useTheme,
+  useThemedStyles,
+  useThemeColors,
+  stableDark,
+  premium,
+  heroGradient,
+  iconAccent,
+} from '../theme';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Service labels for proper display
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  secondary: c.brandBlue,
+  secondaryDeep: c.info,
+  onPrimary: c.onBrandOrange,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // This screen uses FOUR near-white neutrals. Each keeps its own token so the
+  // light look is unchanged and each reads as a distinct step on a dark surface.
+  surfaceTint: c.surface,      // #FCFDFE — the stat strip, a hair off white
+  bandFill: c.surfaceSunken,   // #F4F6FA — the section band
+  inputFill: c.surfaceSunken,  // #FAFBFC — text inputs
+  sunkenNeutral: c.surfaceSunken,
+  // Two hairline weights, matching the two the screen shipped with.
+  hairline: c.bg,              // #F1F5F9
+  hairlineFaint: c.border,     // rgba(0,0,0,0.04)
+  line: c.border,              // #E2E8F0 / #EDF1F6
+  lineNeutral: c.borderNeutral,
+  lineDashed: c.borderMedium,  // #D6DEE8, the dashed empty-state outline
+  borderMedium: c.borderMedium,
+  borderMediumNeutral: c.borderMediumNeutral,
+  disabledFill: c.borderMedium,
+  text: c.textPrimary,
+  textStrong: c.textStrong,
+  textBody: c.textBody,
+  textBodyNeutral: c.textBodyNeutral,
+  textPrimaryNeutral: c.textPrimaryNeutral,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  blueBg: c.infoContainer,
+  blueLine: c.infoBorder,
+  success: c.success,
+  successBg: c.successContainer,
+  successLine: c.successBorder,
+  danger: c.danger,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  warningLine: c.warningBorder,
+  warningFill: c.warningFill,
+  purple: c.accentViolet,
+  purpleBg: c.accentVioletContainer,
+  cyan: c.info,
+  cyanFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  iosLabel: c.iosLabel,
+  iosBlue: c.iosBlue,
+  // The photo viewer is a lightbox: an image on a near-black ground in either
+  // theme, because that is what a lightbox is.
+  lightbox: c.overlayPhoto,
+  lightboxSoft: c.overlayPhotoSoft,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
+
 const SERVICE_LABELS = {
   electrician: 'Electrician',
   plumber: 'Plumber',
@@ -134,173 +200,199 @@ const getErrorMessage = (error, fallback = 'An error occurred') => {
 /**
  * Info Row (Read-only)
  */
-const InfoRow = React.memo(({ label, value, iconName, verified, onVerify, isLoading, otpSent, verifiedLabel, verifyLabel, iconColor, iconBg, materialIcon }) => (
-  <View style={styles.infoRow}>
-    <View style={[styles.infoIconContainer, iconBg && { backgroundColor: iconBg }]}>
-      {materialIcon ? (
-        <MaterialIcon name={materialIcon} size={20} color={iconColor || '#64748B'} />
-      ) : (
-        <Icon name={iconName} size={20} color={iconColor || '#64748B'} />
+const InfoRow = React.memo(({ label, value, iconName, verified, onVerify, isLoading, otpSent, verifiedLabel, verifyLabel, iconColor, iconBg, materialIcon }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  return (
+    <View style={styles.infoRow}>
+      <View style={[styles.infoIconContainer, iconBg && { backgroundColor: iconBg }]}>
+        {materialIcon ? (
+          <MaterialIcon name={materialIcon} size={20} color={iconColor || C.textSecondary} />
+        ) : (
+          <Icon name={iconName} size={20} color={iconColor || C.textSecondary} />
+        )}
+      </View>
+      <View style={styles.infoContent}>
+        <Text style={styles.infoLabel} numberOfLines={1} ellipsizeMode="tail">{label}</Text>
+        <Text style={styles.infoValue} numberOfLines={2} ellipsizeMode="tail">{value}</Text>
+      </View>
+      {verified !== undefined && (
+        verified ? (
+          <View style={styles.verifiedBadge}>
+            <Icon name="check" size={14} color={C.success} />
+            <Text style={styles.verifiedText}>{verifiedLabel || 'Verified'}</Text>
+          </View>
+        ) : otpSent ? (
+          <View style={styles.otpSentBadge}>
+            <MaterialIcon name="mark-email-read" size={14} color={C.warning} />
+            <Text style={styles.otpSentText}>OTP Sent</Text>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.verifyButton} onPress={onVerify} disabled={isLoading}>
+            {isLoading ? (
+              <ActivityIndicator size="small" color={C.onSecondary} />
+            ) : (
+              <Text style={styles.verifyButtonText}>{verifyLabel || 'Verify'}</Text>
+            )}
+          </TouchableOpacity>
+        )
       )}
     </View>
-    <View style={styles.infoContent}>
-      <Text style={styles.infoLabel} numberOfLines={1} ellipsizeMode="tail">{label}</Text>
-      <Text style={styles.infoValue} numberOfLines={2} ellipsizeMode="tail">{value}</Text>
-    </View>
-    {verified !== undefined && (
-      verified ? (
-        <View style={styles.verifiedBadge}>
-          <Icon name="check" size={14} color="#10B981" />
-          <Text style={styles.verifiedText}>{verifiedLabel || 'Verified'}</Text>
-        </View>
-      ) : otpSent ? (
-        <View style={styles.otpSentBadge}>
-          <MaterialIcon name="mark-email-read" size={14} color="#F59E0B" />
-          <Text style={styles.otpSentText}>OTP Sent</Text>
-        </View>
-      ) : (
-        <TouchableOpacity style={styles.verifyButton} onPress={onVerify} disabled={isLoading}>
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <Text style={styles.verifyButtonText}>{verifyLabel || 'Verify'}</Text>
-          )}
-        </TouchableOpacity>
-      )
-    )}
-  </View>
-));
+  );
+});
 
 /**
  * Editable Field
  */
-const EditableField = React.memo(({ label, value, onChangeText, placeholder, editable = true, locked = false, lockMessage, lockedLabel, keyboardType = 'default', maxLength, containerStyle, autoFocus = false }) => (
-  <View style={[styles.fieldContainer, containerStyle]}>
-    <View style={styles.fieldLabelRow}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      {locked && (
-        <View style={styles.lockedBadge}>
-          <MaterialIcon name="lock" size={12} color="#6B7280" />
-          <Text style={styles.lockedBadgeText}>{lockedLabel || 'Locked'}</Text>
-        </View>
+const EditableField = React.memo(({ label, value, onChangeText, placeholder, editable = true, locked = false, lockMessage, lockedLabel, keyboardType = 'default', maxLength, containerStyle, autoFocus = false }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  return (
+    <View style={[styles.fieldContainer, containerStyle]}>
+      <View style={styles.fieldLabelRow}>
+        <Text style={styles.fieldLabel}>{label}</Text>
+        {locked && (
+          <View style={styles.lockedBadge}>
+            <MaterialIcon name="lock" size={12} color={C.textSecondary} />
+            <Text style={styles.lockedBadgeText}>{lockedLabel || 'Locked'}</Text>
+          </View>
+        )}
+      </View>
+      <TextInput
+        style={[styles.fieldInput, (!editable || locked) && styles.fieldInputDisabled]}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={C.muted}
+        editable={editable && !locked}
+        keyboardType={keyboardType}
+        maxLength={maxLength}
+        autoFocus={autoFocus}
+      />
+      {locked && lockMessage && (
+        <Text style={styles.fieldLockMessage}>{lockMessage}</Text>
       )}
     </View>
-    <TextInput
-      style={[styles.fieldInput, (!editable || locked) && styles.fieldInputDisabled]}
-      value={value}
-      onChangeText={onChangeText}
-      placeholder={placeholder}
-      placeholderTextColor="#9CA3AF"
-      editable={editable && !locked}
-      keyboardType={keyboardType}
-      maxLength={maxLength}
-      autoFocus={autoFocus}
-    />
-    {locked && lockMessage && (
-      <Text style={styles.fieldLockMessage}>{lockMessage}</Text>
-    )}
-  </View>
-));
+  );
+});
 
 /**
  * Thin grey band separating flat sections (replaces card gaps)
  */
-const SectionBand = React.memo(() => <View style={styles.sectionBand} />);
+const SectionBand = React.memo(() => {
+  const styles = useThemedStyles(makeStyles);
+  return <View style={styles.sectionBand} />;
+});
 
 /**
  * Flat profile section — bold title + optional edit pencil or action link
  */
-const ProfileSection = React.memo(({ title, action, onAction, actionColor, actionIcon, editable, onEdit, children }) => (
-  <View style={styles.profileSection}>
-    <View style={styles.sectionTitleRow}>
-      <Text style={styles.sectionTitleText}>{title}</Text>
-      {editable ? (
-        <TouchableOpacity
-          style={styles.sectionEditBtn}
-          onPress={onEdit}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          activeOpacity={0.7}
-        >
-          <MaterialIcon name="edit" size={16} color="#64748B" />
-        </TouchableOpacity>
-      ) : action ? (
-        <TouchableOpacity
-          style={styles.sectionActionLink}
-          onPress={onAction}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          activeOpacity={0.7}
-        >
-          {actionIcon ? <MaterialIcon name={actionIcon} size={15} color={actionColor || '#2b76bc'} /> : null}
-          <Text style={[styles.sectionActionText, actionColor ? { color: actionColor } : null]}>{action}</Text>
-        </TouchableOpacity>
-      ) : null}
+const ProfileSection = React.memo(({ title, action, onAction, actionColor, actionIcon, editable, onEdit, children }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  return (
+    <View style={styles.profileSection}>
+      <View style={styles.sectionTitleRow}>
+        <Text style={styles.sectionTitleText}>{title}</Text>
+        {editable ? (
+          <TouchableOpacity
+            style={styles.sectionEditBtn}
+            onPress={onEdit}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            activeOpacity={0.7}
+          >
+            <MaterialIcon name="edit" size={16} color={C.textSecondary} />
+          </TouchableOpacity>
+        ) : action ? (
+          <TouchableOpacity
+            style={styles.sectionActionLink}
+            onPress={onAction}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            activeOpacity={0.7}
+          >
+            {actionIcon ? <MaterialIcon name={actionIcon} size={15} color={actionColor || C.info} /> : null}
+            <Text style={[styles.sectionActionText, actionColor ? { color: actionColor } : null]}>{action}</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+      {children}
     </View>
-    {children}
-  </View>
-));
+  );
+});
 
 /**
  * Light detail row — small icon tile + uppercase label + value + right slot
  */
-const DetailRow = React.memo(({ iconName, materialIcon, label, value, right, muted, first }) => (
-  <View style={[styles.detailRow, first && styles.detailRowFirst]}>
-    <View style={styles.detailIcon}>
-      {materialIcon
-        ? <MaterialIcon name={materialIcon} size={18} color="#64748B" />
-        : <Icon name={iconName} size={18} color="#64748B" />}
+const DetailRow = React.memo(({ iconName, materialIcon, label, value, right, muted, first }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  return (
+    <View style={[styles.detailRow, first && styles.detailRowFirst]}>
+      <View style={styles.detailIcon}>
+        {materialIcon
+          ? <MaterialIcon name={materialIcon} size={18} color={C.textSecondary} />
+          : <Icon name={iconName} size={18} color={C.textSecondary} />}
+      </View>
+      <View style={styles.detailText}>
+        <Text style={styles.detailLabel} numberOfLines={1}>{label}</Text>
+        <Text style={[styles.detailValue, muted && styles.detailValueMuted]} numberOfLines={2}>{value}</Text>
+      </View>
+      {right}
     </View>
-    <View style={styles.detailText}>
-      <Text style={styles.detailLabel} numberOfLines={1}>{label}</Text>
-      <Text style={[styles.detailValue, muted && styles.detailValueMuted]} numberOfLines={2}>{value}</Text>
-    </View>
-    {right}
-  </View>
-));
+  );
+});
 
 /**
  * Shared Save/Cancel row for the inline section editors.
  * Module-scope + memoized so its element type is stable across renders —
  * an in-body definition would remount the buttons on every keystroke.
  */
-const SectionEditorActions = React.memo(({ onCancel, onSave, saving, provider, cancelLabel, saveLabel }) => (
-  <View style={styles.editorActions}>
-    <TouchableOpacity style={styles.editorCancel} onPress={onCancel} disabled={saving} activeOpacity={0.7}>
-      <Text style={styles.editorCancelText}>{cancelLabel}</Text>
-    </TouchableOpacity>
-    <TouchableOpacity
-      style={[styles.editorSave, provider && styles.editorSaveProvider]}
-      onPress={onSave}
-      disabled={saving}
-      activeOpacity={0.8}
-    >
-      {saving ? (
-        <ActivityIndicator size="small" color="#fff" />
-      ) : (
-        <Text style={styles.editorSaveText}>{saveLabel}</Text>
-      )}
-    </TouchableOpacity>
-  </View>
-));
+const SectionEditorActions = React.memo(({ onCancel, onSave, saving, provider, cancelLabel, saveLabel }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  return (
+    <View style={styles.editorActions}>
+      <TouchableOpacity style={styles.editorCancel} onPress={onCancel} disabled={saving} activeOpacity={0.7}>
+        <Text style={styles.editorCancelText}>{cancelLabel}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.editorSave, provider && styles.editorSaveProvider]}
+        onPress={onSave}
+        disabled={saving}
+        activeOpacity={0.8}
+      >
+        {saving ? (
+          <ActivityIndicator size="small" color={C.onSecondary} />
+        ) : (
+          <Text style={styles.editorSaveText}>{saveLabel}</Text>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+});
 
 /**
  * Provider hero stat strip — jobs / rating(reviews) / experience
  */
-const StatStrip = React.memo(({ items }) => (
-  <View style={styles.statStrip}>
-    {items.map((it, i) => (
-      <React.Fragment key={it.label + i}>
-        {i > 0 && <View style={styles.statDivider} />}
-        <View style={styles.statCell}>
-          <Text style={[styles.statValue, it.star && styles.statValueStar]} numberOfLines={1}>
-            {it.value}
-            {it.sub ? <Text style={styles.statSub}> {it.sub}</Text> : null}
-          </Text>
-          <Text style={styles.statLabel} numberOfLines={1}>{it.label}</Text>
-        </View>
-      </React.Fragment>
-    ))}
-  </View>
-));
+const StatStrip = React.memo(({ items }) => {
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <View style={styles.statStrip}>
+      {items.map((it, i) => (
+        <React.Fragment key={it.label + i}>
+          {i > 0 && <View style={styles.statDivider} />}
+          <View style={styles.statCell}>
+            <Text style={[styles.statValue, it.star && styles.statValueStar]} numberOfLines={1}>
+              {it.value}
+              {it.sub ? <Text style={styles.statSub}> {it.sub}</Text> : null}
+            </Text>
+            <Text style={styles.statLabel} numberOfLines={1}>{it.label}</Text>
+          </View>
+        </React.Fragment>
+      ))}
+    </View>
+  );
+});
 
 /**
  * Profile Screen Skeleton Loader — previews the flat redesign:
@@ -308,21 +400,22 @@ const StatStrip = React.memo(({ items }) => (
  * then flat shimmer rows (no cards) so the loaded layout doesn't snap.
  */
 const ProfileSkeletonLoader = ({ insets, onBack, provider }) => {
+  const styles = useThemedStyles(makeStyles);
   const shimmerAnim = useShimmerAnimation();
   return (
     <View style={styles.container}>
       <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainerFlat, { paddingBottom: insets.bottom + 94 }]} scrollEnabled={false}>
         <LinearGradient
           colors={provider
-            ? ['#FFF3EA', '#FBDDC5', '#f6851f', '#EA580C']
-            : ['#E9F2FB', '#CBE1F5', '#3a86cf', '#1e5f9e']}
+            ? [heroGradient.userStop1, heroGradient.userStop2, heroGradient.userStop3, heroGradient.userStop4]
+            : [heroGradient.providerStop1, heroGradient.providerStop2, heroGradient.providerStop3, heroGradient.providerStop4]}
           locations={[0, 0.15, 0.56, 1]}
           style={styles.gHeader}
         >
           <View style={{ height: insets.top }} />
           <View style={styles.gNav}>
             <TouchableOpacity style={styles.gBackBtn} onPress={onBack}>
-              <Icon name="arrow_back" size={22} color="#0F172A" />
+              <Icon name="arrow_back" size={22} color={heroGradient.navInk} />
             </TouchableOpacity>
             <Text style={styles.gNavTitle}>Profile</Text>
             <View style={styles.gNavSpacer} />
@@ -376,6 +469,9 @@ const ProfileSkeletonLoader = ({ insets, onBack, provider }) => {
  * Profile Screen Component
  */
 const ProfileScreen = ({ navigation, route }) => {
+  const { isDark } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
   const { user, profile, userType, refreshVerificationStatus, refreshProfile, aadhaarStatus, setAadhaarStatus, premiumStatus, setPremiumStatus, getPremiumWriteSeq, isProfileLoading } = useApp();
@@ -384,9 +480,11 @@ const ProfileScreen = ({ navigation, route }) => {
   // Set status bar for light background when this tab is focused
   useFocusEffect(
     useCallback(() => {
-      StatusBar.setBarStyle('dark-content');
+      StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content');
       if (Platform.OS === 'android') StatusBar.setBackgroundColor('transparent');
-    }, [])
+      // `isDark` is a real dependency: without it the bar keeps the appearance it
+      // had when the screen was focused and ignores a theme switch.
+    }, [isDark])
   );
 
   // Check if we should scroll to/open addresses section
@@ -1363,8 +1461,8 @@ const ProfileScreen = ({ navigation, route }) => {
     { value: heroExpText || t('profile.newProvider'), label: t('profile.statExperience') },
   ];
   const headerColors = isProvider
-    ? ['#FFF3EA', '#FBDDC5', '#f6851f', '#EA580C']
-    : ['#E9F2FB', '#CBE1F5', '#3a86cf', '#1e5f9e'];
+    ? [heroGradient.userStop1, heroGradient.userStop2, heroGradient.userStop3, heroGradient.userStop4]
+    : [heroGradient.providerStop1, heroGradient.providerStop2, heroGradient.providerStop3, heroGradient.providerStop4];
 
   return (
     <View style={styles.container}>
@@ -1378,7 +1476,7 @@ const ProfileScreen = ({ navigation, route }) => {
           style={styles.content}
           contentContainerStyle={[styles.contentContainerFlat, { paddingBottom: insets.bottom + 94 }]}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#f67c16" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
           }
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -1398,7 +1496,7 @@ const ProfileScreen = ({ navigation, route }) => {
                 onPress={() => navigation.goBack()}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Icon name="arrow_back" size={22} color="#0F172A" />
+                <Icon name="arrow_back" size={22} color={heroGradient.navInk} />
               </TouchableOpacity>
               <Text style={styles.gNavTitle}>{t('profile.title')}</Text>
               <View style={styles.gNavSpacer} />
@@ -1406,16 +1504,16 @@ const ProfileScreen = ({ navigation, route }) => {
             <View style={styles.gBand}>
               <View style={StyleSheet.absoluteFill}>
                 <Svg width="100%" height="100%" viewBox="0 0 400 70" preserveAspectRatio="xMidYMid slice">
-                  <Path d="M0 55 Q60 25 130 45 T260 32 T400 48" stroke="rgba(255,255,255,0.16)" strokeWidth="1.5" fill="none" />
-                  <Path d="M0 64 Q80 36 170 54 T340 40 T400 60" stroke="rgba(255,255,255,0.10)" strokeWidth="1" fill="none" />
-                  <Circle cx="342" cy="12" r="40" fill="rgba(255,255,255,0.06)" />
-                  <Circle cx="60" cy="8" r="26" fill="rgba(255,255,255,0.05)" />
-                  <Circle cx="278" cy="42" r="3" fill="rgba(255,255,255,0.18)" />
+                  <Path d="M0 55 Q60 25 130 45 T260 32 T400 48" stroke={heroGradient.decorStroke} strokeWidth="1.5" fill="none" />
+                  <Path d="M0 64 Q80 36 170 54 T340 40 T400 60" stroke={heroGradient.decorStrokeSoft} strokeWidth="1" fill="none" />
+                  <Circle cx="342" cy="12" r="40" fill={heroGradient.decorBlob} />
+                  <Circle cx="60" cy="8" r="26" fill={heroGradient.decorBlobSoft} />
+                  <Circle cx="278" cy="42" r="3" fill={heroGradient.decorDot} />
                 </Svg>
               </View>
               {/* Type badge — icon + label inline-aligned */}
               <View style={styles.gTypeBadge}>
-                <Icon name={isProvider ? 'provider' : 'user'} size={12} color="#FFFFFF" />
+                <Icon name={isProvider ? 'provider' : 'user'} size={12} color={heroGradient.ink} />
                 <Text style={styles.gTypeBadgeText}>
                   {isProvider ? t('profile.serviceProvider') : t('profile.user')}
                 </Text>
@@ -1448,9 +1546,9 @@ const ProfileScreen = ({ navigation, route }) => {
                 </View>
                 <View style={[styles.cameraIconOverlay, isProvider && styles.cameraIconOverlayProvider]}>
                   {uploadingPicture ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <ActivityIndicator size="small" color={C.onSecondary} />
                   ) : (
-                    <MaterialIcon name="camera-alt" size={14} color="#FFFFFF" />
+                    <MaterialIcon name="camera-alt" size={14} color={C.onSecondary} />
                   )}
                 </View>
               </TouchableOpacity>
@@ -1461,7 +1559,7 @@ const ProfileScreen = ({ navigation, route }) => {
                 onPress={() => switchSection(editingSection === 'identity' ? null : 'identity')}
                 activeOpacity={0.8}
               >
-                <MaterialIcon name={editingSection === 'identity' ? 'close' : 'edit'} size={15} color="#0F172A" />
+                <MaterialIcon name={editingSection === 'identity' ? 'close' : 'edit'} size={15} color={C.text} />
                 <Text style={styles.heroEditText}>
                   {editingSection === 'identity' ? t('profile.cancelEdit') : t('profile.edit')}
                 </Text>
@@ -1478,7 +1576,7 @@ const ProfileScreen = ({ navigation, route }) => {
                 )}
                 {isProvider && premiumLoaded && isPremiumActive && (
                   <View style={styles.proBadge}>
-                    <MaterialIcon name="workspace-premium" size={13} color="#F59E0B" />
+                    <MaterialIcon name="workspace-premium" size={13} color={C.warning} />
                     <Text style={styles.proBadgeText}>{t('profile.proBadge')}</Text>
                   </View>
                 )}
@@ -1491,7 +1589,7 @@ const ProfileScreen = ({ navigation, route }) => {
               </Text>
               {!!displayData?.city && (
                 <View style={styles.heroLocRow}>
-                  <MaterialIcon name="location-on" size={14} color="#64748B" />
+                  <MaterialIcon name="location-on" size={14} color={C.textSecondary} />
                   <Text style={styles.heroLocText} numberOfLines={1}>{displayData.city}</Text>
                 </View>
               )}
@@ -1533,7 +1631,7 @@ const ProfileScreen = ({ navigation, route }) => {
                   styles.verificationItem,
                   displayData?.isPhoneVerified && styles.verificationItemVerified,
                 ]}>
-                  <Icon name="phone" size={13} color={displayData?.isPhoneVerified ? '#FFFFFF' : '#6B7280'} />
+                  <Icon name="phone" size={13} color={displayData?.isPhoneVerified ? C.onSecondary : C.muted} />
                   <Text style={[
                     styles.verificationLabel,
                     displayData?.isPhoneVerified && styles.verificationLabelVerified
@@ -1545,7 +1643,7 @@ const ProfileScreen = ({ navigation, route }) => {
                   styles.verificationItem,
                   displayData?.isEmailVerified && styles.verificationItemVerified,
                 ]}>
-                  <Icon name="email" size={13} color={displayData?.isEmailVerified ? '#FFFFFF' : '#6B7280'} />
+                  <Icon name="email" size={13} color={displayData?.isEmailVerified ? C.onSecondary : C.muted} />
                   <Text style={[
                     styles.verificationLabel,
                     displayData?.isEmailVerified && styles.verificationLabelVerified
@@ -1561,7 +1659,7 @@ const ProfileScreen = ({ navigation, route }) => {
                       styles.verificationItem,
                       isAadhaarVerified && styles.verificationItemVerified,
                     ]}>
-                      <Icon name="verified_user" size={13} color={isAadhaarVerified ? '#FFFFFF' : '#6B7280'} />
+                      <Icon name="verified_user" size={13} color={isAadhaarVerified ? C.onSecondary : C.muted} />
                       <Text style={[
                         styles.verificationLabel,
                         isAadhaarVerified && styles.verificationLabelVerified
@@ -1575,7 +1673,7 @@ const ProfileScreen = ({ navigation, route }) => {
 
             {!isVerified && (
               <View style={styles.verifyWarning}>
-                <Icon name="warning" size={15} color="#f67c16" />
+                <Icon name="warning" size={15} color={C.warning} />
                 <Text style={styles.verifyWarningText} numberOfLines={2} ellipsizeMode="tail">
                   {t('profile.verifyWarning')}
                 </Text>
@@ -1610,8 +1708,8 @@ const ProfileScreen = ({ navigation, route }) => {
                       setTimeout(() => setShowViewPhotoModal(true), 200);
                     }}
                   >
-                    <View style={[styles.imagePickerIconWrap, { backgroundColor: '#EFF6FF' }]}>
-                      <MaterialIcon name="visibility" size={22} color="#2b76bc" />
+                    <View style={[styles.imagePickerIconWrap, { backgroundColor: C.blueBg }]}>
+                      <MaterialIcon name="visibility" size={22} color={C.info} />
                     </View>
                     <View style={styles.imagePickerOptionContent}>
                       <Text style={styles.imagePickerOptionText}>{t('profile.viewPhoto')}</Text>
@@ -1621,8 +1719,8 @@ const ProfileScreen = ({ navigation, route }) => {
                 )}
 
                 <TouchableOpacity style={styles.imagePickerOption} onPress={handleTakePhoto}>
-                  <View style={[styles.imagePickerIconWrap, { backgroundColor: '#F0FDF4' }]}>
-                    <MaterialIcon name="camera-alt" size={22} color="#16A34A" />
+                  <View style={[styles.imagePickerIconWrap, { backgroundColor: C.successBg }]}>
+                    <MaterialIcon name="camera-alt" size={22} color={C.success} />
                   </View>
                   <View style={styles.imagePickerOptionContent}>
                     <Text style={styles.imagePickerOptionText}>{t('profile.takePhoto')}</Text>
@@ -1631,8 +1729,8 @@ const ProfileScreen = ({ navigation, route }) => {
                 </TouchableOpacity>
                 
                 <TouchableOpacity style={styles.imagePickerOption} onPress={handleSelectFromGallery}>
-                  <View style={[styles.imagePickerIconWrap, { backgroundColor: '#FFF7ED' }]}>
-                    <MaterialIcon name="photo-library" size={22} color="#EA580C" />
+                  <View style={[styles.imagePickerIconWrap, { backgroundColor: C.warningBg }]}>
+                    <MaterialIcon name="photo-library" size={22} color={C.warning} />
                   </View>
                   <View style={styles.imagePickerOptionContent}>
                     <Text style={styles.imagePickerOptionText}>{t('profile.chooseGallery')}</Text>
@@ -1668,7 +1766,7 @@ const ProfileScreen = ({ navigation, route }) => {
                   style={styles.viewPhotoCloseBtn}
                   onPress={() => setShowViewPhotoModal(false)}
                 >
-                  <MaterialIcon name="arrow-back" size={24} color="#FFFFFF" />
+                  <MaterialIcon name="arrow-back" size={24} color={stableDark.ink} />
                 </TouchableOpacity>
 
                 {displayData?.profilePicture?.url && (
@@ -1739,7 +1837,7 @@ const ProfileScreen = ({ navigation, route }) => {
                       value={formData.bio}
                       onChangeText={(text) => setFormData(prev => ({ ...prev, bio: text }))}
                       placeholder={t('profile.bioPlaceholderProfile')}
-                      placeholderTextColor="#9CA3AF"
+                      placeholderTextColor={C.muted}
                       multiline
                       // 500 matches PortfolioEditScreen's bio editor — the same
                       // field; a longer cap here would break that screen's input.
@@ -1765,7 +1863,7 @@ const ProfileScreen = ({ navigation, route }) => {
                     activeOpacity={0.7}
                   >
                     <View style={styles.aboutEmptyPlus}>
-                      <MaterialIcon name="add" size={18} color="#EA580C" />
+                      <MaterialIcon name="add" size={18} color={C.warning} />
                     </View>
                     <Text style={styles.aboutEmptyText}>{t('profile.aboutEmptyPrompt')}</Text>
                   </TouchableOpacity>
@@ -1780,19 +1878,19 @@ const ProfileScreen = ({ navigation, route }) => {
                   ? t('profile.addMoreServices')
                   : t('profile.getVerified')}
                 actionIcon="add-circle-outline"
-                actionColor="#EA580C"
+                actionColor={C.warning}
                 onAction={() => navigation.navigate('DocumentVerification')}
               >
                 {(displayData?.verifiedServiceCategories?.length > 0) && (
                   <>
                     <View style={styles.servicesLabelRow}>
-                      <Icon name="verified" size={12} color="#2b76bc" />
+                      <Icon name="verified" size={12} color={C.info} />
                       <Text style={styles.servicesLabelVerified}>{t('profile.verifiedLabel')}</Text>
                     </View>
                     <View style={styles.categoriesDisplayGrid}>
                       {displayData.verifiedServiceCategories.map((catId) => (
                         <View key={`verified-${catId}`} style={styles.categoryDisplayChipVerified}>
-                          <Icon name="check_circle" size={12} color="#2b76bc" />
+                          <Icon name="check_circle" size={12} color={C.info} />
                           <Text style={styles.categoryDisplayTextVerified}>
                             {formatServiceName(catId)}
                           </Text>
@@ -1807,7 +1905,7 @@ const ProfileScreen = ({ navigation, route }) => {
                 ).length > 0) && (
                   <>
                     <View style={[styles.servicesLabelRow, styles.servicesLabelRowSpaced]}>
-                      <Icon name="clock" size={12} color="#f67c16" />
+                      <Icon name="clock" size={12} color={C.warning} />
                       <Text style={styles.servicesLabelPending}>{t('profile.pendingApproval')}</Text>
                     </View>
                     <View style={styles.categoriesDisplayGrid}>
@@ -1815,7 +1913,7 @@ const ProfileScreen = ({ navigation, route }) => {
                         .filter(cat => !(displayData?.verifiedServiceCategories || []).includes(cat))
                         .map((catId) => (
                           <View key={`pending-${catId}`} style={styles.categoryDisplayChipPending}>
-                            <Icon name="clock" size={12} color="#f67c16" />
+                            <Icon name="clock" size={12} color={C.warning} />
                             <Text style={styles.categoryDisplayTextPending}>
                               {formatServiceName(catId)}
                             </Text>
@@ -1828,7 +1926,7 @@ const ProfileScreen = ({ navigation, route }) => {
                 {(!displayData?.verifiedServiceCategories?.length &&
                   !displayData?.serviceCategories?.length) && (
                   <View style={styles.noCategoriesWarning}>
-                    <Icon name="info" size={16} color="#f67c16" />
+                    <Icon name="info" size={16} color={C.warning} />
                     <Text style={styles.noCategoriesText}>{t('profile.noVerifiedServices')}</Text>
                   </View>
                 )}
@@ -1852,7 +1950,7 @@ const ProfileScreen = ({ navigation, route }) => {
                         onPress={() => setShowExperiencePicker(true)}
                         activeOpacity={0.7}
                       >
-                        <MaterialIcon name="work-history" size={18} color="#64748B" />
+                        <MaterialIcon name="work-history" size={18} color={C.textSecondary} />
                         <Text
                           style={[
                             styles.expPickerText,
@@ -1873,7 +1971,7 @@ const ProfileScreen = ({ navigation, route }) => {
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                           activeOpacity={0.7}
                         >
-                          <MaterialIcon name="close" size={18} color="#94A3B8" />
+                          <MaterialIcon name="close" size={18} color={C.muted} />
                         </TouchableOpacity>
                       )}
                     </View>
@@ -1921,7 +2019,7 @@ const ProfileScreen = ({ navigation, route }) => {
                   <>
                     <View style={[styles.expRow, styles.expRowFirst]}>
                       <View style={[styles.expIcon, styles.expIconWork]}>
-                        <MaterialIcon name="work-history" size={20} color="#0891B2" />
+                        <MaterialIcon name="work-history" size={20} color={C.cyan} />
                       </View>
                       <View style={styles.flex1}>
                         <Text style={styles.expTitle}>
@@ -1939,7 +2037,7 @@ const ProfileScreen = ({ navigation, route }) => {
                     {ratingAvg > 0 ? (
                       <View style={styles.expRow}>
                         <View style={[styles.expIcon, styles.expIconStar]}>
-                          <MaterialIcon name="star" size={20} color="#F59E0B" />
+                          <MaterialIcon name="star" size={20} color={iconAccent.star} />
                         </View>
                         <View style={styles.flex1}>
                           <Text style={styles.expTitle}>
@@ -1957,7 +2055,7 @@ const ProfileScreen = ({ navigation, route }) => {
                     ) : (
                       <View style={styles.expRow}>
                         <View style={[styles.expIcon, styles.expIconStar]}>
-                          <MaterialIcon name="star-outline" size={20} color="#F59E0B" />
+                          <MaterialIcon name="star-outline" size={20} color={iconAccent.star} />
                         </View>
                         <View style={styles.flex1}>
                           <Text style={styles.expTitle}>{t('profile.noRatings')}</Text>
@@ -1976,7 +2074,7 @@ const ProfileScreen = ({ navigation, route }) => {
                   <ProfileSection
                     title={t('profile.portfolioTitle')}
                     action={t('profile.editLinks')}
-                    actionColor="#7C3AED"
+                    actionColor={C.purple}
                     onAction={() => navigation.navigate('PortfolioEdit')}
                   >
                     {/* Links preview */}
@@ -1988,27 +2086,27 @@ const ProfileScreen = ({ navigation, route }) => {
                       <View style={styles.portfolioLinksPreview}>
                         {displayData.portfolioLinks.instagram && (
                           <View style={styles.portfolioLinkBadge}>
-                            <MaterialIcon name="camera-alt" size={14} color="#DB2777" />
+                            <MaterialIcon name="camera-alt" size={14} color={iconAccent.instagram} />
                           </View>
                         )}
                         {displayData.portfolioLinks.youtube && (
                           <View style={styles.portfolioLinkBadge}>
-                            <MaterialIcon name="play-circle-filled" size={14} color="#DC2626" />
+                            <MaterialIcon name="play-circle-filled" size={14} color={iconAccent.youtube} />
                           </View>
                         )}
                         {displayData.portfolioLinks.website && (
                           <View style={styles.portfolioLinkBadge}>
-                            <MaterialIcon name="language" size={14} color="#0284C7" />
+                            <MaterialIcon name="language" size={14} color={iconAccent.website} />
                           </View>
                         )}
                         {displayData.portfolioLinks.facebook && (
                           <View style={styles.portfolioLinkBadge}>
-                            <MaterialIcon name="facebook" size={14} color="#2563EB" />
+                            <MaterialIcon name="facebook" size={14} color={iconAccent.facebook} />
                           </View>
                         )}
                         {displayData.portfolioLinks.tiktok && (
                           <View style={styles.portfolioLinkBadge}>
-                            <MaterialIcon name="music-note" size={14} color="#7C3AED" />
+                            <MaterialIcon name="music-note" size={14} color={iconAccent.tiktok} />
                           </View>
                         )}
                       </View>
@@ -2102,9 +2200,9 @@ const ProfileScreen = ({ navigation, route }) => {
                         activeOpacity={0.7}
                       >
                         {detectingLocation ? (
-                          <ActivityIndicator size="small" color="#FFFFFF" />
+                          <ActivityIndicator size="small" color={C.onSecondary} />
                         ) : (
-                          <MaterialIcon name="my-location" size={16} color="#FFFFFF" />
+                          <MaterialIcon name="my-location" size={16} color={C.onSecondary} />
                         )}
                         <Text style={styles.detectLocationBtnText}>
                           {detectingLocation ? t('profile.detectingLocation') : t('profile.detectMyLocation')}
@@ -2149,7 +2247,7 @@ const ProfileScreen = ({ navigation, route }) => {
                           value={formData.pincode}
                           onChangeText={(text) => setFormData(prev => ({ ...prev, pincode: text }))}
                           placeholder={t('profile.pincodePlaceholder')}
-                          placeholderTextColor="#9CA3AF"
+                          placeholderTextColor={C.muted}
                           keyboardType="numeric"
                           maxLength={6}
                         />
@@ -2188,7 +2286,7 @@ const ProfileScreen = ({ navigation, route }) => {
                                   ? t('phoneChange.changeAction')
                                   : t('phoneChange.verifyAction')}
                             </Text>
-                            <MaterialIcon name="chevron-right" size={20} color="#CBD5E1" />
+                            <MaterialIcon name="chevron-right" size={20} color={C.borderMedium} />
                           </View>
                         }
                       />
@@ -2202,7 +2300,7 @@ const ProfileScreen = ({ navigation, route }) => {
                           iconName="email"
                           label={t('profile.emailLabel')}
                           value={displayData?.email || t('profile.notSet')}
-                          right={<MaterialIcon name="chevron-right" size={20} color="#CBD5E1" />}
+                          right={<MaterialIcon name="chevron-right" size={20} color={C.borderMedium} />}
                         />
                       </TouchableOpacity>
                     )}
@@ -2292,10 +2390,10 @@ const ProfileScreen = ({ navigation, route }) => {
                         activeOpacity={0.7}
                       >
                         {verifyingPhone ? (
-                          <ActivityIndicator size="small" color="#F59E0B" />
+                          <ActivityIndicator size="small" color={C.warning} />
                         ) : (
                           <View style={styles.otpResendButtonContent}>
-                            <MaterialIcon name="refresh" size={16} color="#F59E0B" />
+                            <MaterialIcon name="refresh" size={16} color={C.warning} />
                             <Text style={styles.otpResendButtonText}>{t('profile.resendOtp') || 'Resend OTP'}</Text>
                           </View>
                         )}
@@ -2313,10 +2411,10 @@ const ProfileScreen = ({ navigation, route }) => {
                       activeOpacity={0.8}
                     >
                       {verifyingPhone ? (
-                        <ActivityIndicator size="small" color="#fff" />
+                        <ActivityIndicator size="small" color={C.onSecondary} />
                       ) : (
                         <View style={styles.otpVerifyButtonContent}>
-                          <MaterialIcon name="verified" size={18} color="#FFFFFF" />
+                          <MaterialIcon name="verified" size={18} color={C.onPrimary} />
                           <Text style={styles.otpVerifyButtonText}>{t('profile.verifyBtn')}</Text>
                         </View>
                       )}
@@ -2415,10 +2513,10 @@ const ProfileScreen = ({ navigation, route }) => {
                         activeOpacity={0.7}
                       >
                         {verifyingPhone ? (
-                          <ActivityIndicator size="small" color="#F59E0B" />
+                          <ActivityIndicator size="small" color={C.warning} />
                         ) : (
                           <View style={styles.otpResendButtonContent}>
-                            <MaterialIcon name="refresh" size={16} color="#F59E0B" />
+                            <MaterialIcon name="refresh" size={16} color={C.warning} />
                             <Text style={styles.otpResendButtonText}>{t('profile.resendOtp') || 'Resend OTP'}</Text>
                           </View>
                         )}
@@ -2436,10 +2534,10 @@ const ProfileScreen = ({ navigation, route }) => {
                       activeOpacity={0.8}
                     >
                       {verifyingPhone ? (
-                        <ActivityIndicator size="small" color="#fff" />
+                        <ActivityIndicator size="small" color={C.onSecondary} />
                       ) : (
                         <View style={styles.otpVerifyButtonContent}>
-                          <MaterialIcon name="verified" size={18} color="#FFFFFF" />
+                          <MaterialIcon name="verified" size={18} color={C.onPrimary} />
                           <Text style={styles.otpVerifyButtonText}>{t('profile.verifyBtn')}</Text>
                         </View>
                       )}
@@ -2483,7 +2581,7 @@ const ProfileScreen = ({ navigation, route }) => {
                   {/* Name locked notice after Aadhaar */}
                   {isNameLocked && (
                     <View style={styles.nameLockNotice}>
-                      <MaterialIcon name="lock" size={14} color="#2b76bc" />
+                      <MaterialIcon name="lock" size={14} color={C.info} />
                       <Text style={styles.nameLockNoticeText}>
                         {t('profile.nameLockNotice')}
                       </Text>
@@ -2493,7 +2591,7 @@ const ProfileScreen = ({ navigation, route }) => {
                   {/* Provider Aadhaar verification notice */}
                   {!isAadhaarVerified && (
                     <View style={styles.aadhaarNotice}>
-                      <Icon name="warning" size={16} color="#f67c16" />
+                      <Icon name="warning" size={16} color={C.warning} />
                       <Text style={styles.aadhaarNoticeText}>
                         {t('profile.aadhaarVerifyNotice')}
                       </Text>
@@ -2516,7 +2614,7 @@ const ProfileScreen = ({ navigation, route }) => {
                 activeOpacity={0.7}
               >
                 <View style={styles.addressesIconContainer}>
-                  <MaterialIcon name="location-on" size={24} color="#2b76bc" />
+                  <MaterialIcon name="location-on" size={24} color={C.info} />
                 </View>
                 <View style={styles.addressesContent}>
                   <Text style={styles.addressesTitle} numberOfLines={1} ellipsizeMode="tail">{t('profile.manageAddresses')}</Text>
@@ -2524,7 +2622,7 @@ const ProfileScreen = ({ navigation, route }) => {
                     {t('profile.manageAddressesSub')}
                   </Text>
                 </View>
-                <MaterialIcon name="chevron-right" size={22} color="#94A3B8" />
+                <MaterialIcon name="chevron-right" size={22} color={C.muted} />
               </TouchableOpacity>
             </ProfileSection>
             </>
@@ -2541,7 +2639,7 @@ const ProfileScreen = ({ navigation, route }) => {
                 activeOpacity={0.7}
               >
                 <View style={[styles.addressesIconContainer, styles.favoritesIconBg]}>
-                  <MaterialIcon name="favorite" size={24} color="#F59E0B" />
+                  <MaterialIcon name="favorite" size={24} color={C.warning} />
                 </View>
                 <View style={styles.addressesContent}>
                   <Text style={styles.addressesTitle} numberOfLines={1} ellipsizeMode="tail">{t('profile.savedProviders')}</Text>
@@ -2549,7 +2647,7 @@ const ProfileScreen = ({ navigation, route }) => {
                     {t('profile.savedProvidersSub')}
                   </Text>
                 </View>
-                <MaterialIcon name="chevron-right" size={22} color="#94A3B8" />
+                <MaterialIcon name="chevron-right" size={22} color={C.muted} />
               </TouchableOpacity>
             </ProfileSection>
             </>
@@ -2590,10 +2688,10 @@ const ProfileScreen = ({ navigation, route }) => {
                     <View style={styles.premiumActiveDecoCircle2} />
                     <View style={styles.premiumActiveIconRow}>
                       <View style={styles.premiumActiveIconBg}>
-                        <MaterialIcon name="workspace-premium" size={26} color="#000" />
+                        <MaterialIcon name="workspace-premium" size={26} color={C.onPrimary} />
                       </View>
                       <View style={styles.premiumActiveBadge}>
-                        <MaterialIcon name="verified" size={14} color="#16A34A" />
+                        <MaterialIcon name="verified" size={14} color={C.success} />
                         <Text style={styles.premiumActiveBadgeText}>{t('subscription.active').toUpperCase()}</Text>
                       </View>
                     </View>
@@ -2608,19 +2706,19 @@ const ProfileScreen = ({ navigation, route }) => {
                     </View>
                     <View style={styles.premiumStatDivider} />
                     <View style={styles.premiumStatItem}>
-                      <MaterialIcon name="trending-up" size={22} color="#16A34A" />
+                      <MaterialIcon name="trending-up" size={22} color={C.success} />
                       <Text style={styles.premiumStatLabel}>{t('subscription.priority')}</Text>
                     </View>
                     <View style={styles.premiumStatDivider} />
                     <View style={styles.premiumStatItem}>
-                      <MaterialIcon name="visibility" size={22} color="#2b76bc" />
+                      <MaterialIcon name="visibility" size={22} color={C.info} />
                       <Text style={styles.premiumStatLabel}>{t('subscription.boosted')}</Text>
                     </View>
                   </View>
                   {/* Footer */}
                   <View style={styles.premiumActiveFooter}>
                     <Text style={styles.premiumActiveFooterText}>{t('profile.premiumManage')}</Text>
-                    <MaterialIcon name="arrow-forward-ios" size={14} color="#64748B" />
+                    <MaterialIcon name="arrow-forward-ios" size={14} color={C.textSecondary} />
                   </View>
                 </TouchableOpacity>
               ) : (
@@ -2638,18 +2736,18 @@ const ProfileScreen = ({ navigation, route }) => {
                         promise would be false */}
                     {!(profile?.verifiedServiceCategories?.length > 0) && (
                       <View style={styles.premiumOfferChip}>
-                        <MaterialIcon name="card-giftcard" size={13} color="#0F172A" />
+                        <MaterialIcon name="card-giftcard" size={13} color={C.onPrimary} />
                         <Text style={styles.premiumOfferChipText}>{t('profile.premiumOfferChip')}</Text>
                       </View>
                     )}
-                    <MaterialIcon name="workspace-premium" size={44} color="#FFD700" />
+                    <MaterialIcon name="workspace-premium" size={44} color={premium.crown} />
                     <Text style={styles.premiumInactiveTitle}>{t('profile.premiumGoTitle')}</Text>
                     <Text style={styles.premiumInactiveSubtitle}>
                       {t(profile?.verifiedServiceCategories?.length > 0 ? 'profile.premiumRenewSub' : 'profile.premiumOfferSub')}
                     </Text>
                     <View style={styles.premiumInactiveBtn}>
                       <Text style={styles.premiumInactiveBtnText}>{t('profile.premiumOfferBtn')}</Text>
-                      <MaterialIcon name="arrow-forward" size={18} color="#FFFFFF" />
+                      <MaterialIcon name="arrow-forward" size={18} color={C.onPrimary} />
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -2692,10 +2790,12 @@ const ProfileScreen = ({ navigation, route }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F7FB',
+    backgroundColor: C.bg,
   },
   content: {
     flex: 1,
@@ -2723,14 +2823,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    backgroundColor: heroGradient.backBtnFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   gNavTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#0F172A',
+    color: heroGradient.navInk,
     letterSpacing: -0.2,
   },
   gNavSpacer: {
@@ -2748,7 +2848,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(255,255,255,0.24)',
+    backgroundColor: heroGradient.chipFill,
     paddingHorizontal: 11,
     paddingVertical: 6,
     borderRadius: 20,
@@ -2756,13 +2856,13 @@ const styles = StyleSheet.create({
   gTypeBadgeText: {
     fontSize: 10.5,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: heroGradient.ink,
     letterSpacing: 0.4,
   },
 
   // ─── Hero body (flat white) ───
   heroBody: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     paddingBottom: 8,
   },
   heroTopRow: {
@@ -2779,9 +2879,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: C.line,
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
@@ -2789,7 +2889,7 @@ const styles = StyleSheet.create({
   heroEditText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: C.text,
   },
   heroIdBlock: {
     paddingHorizontal: 16,
@@ -2804,7 +2904,7 @@ const styles = StyleSheet.create({
   heroName: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#0F172A',
+    color: C.text,
     letterSpacing: -0.5,
     flexShrink: 1,
   },
@@ -2814,10 +2914,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   heroHeadlineProvider: {
-    color: '#EA580C',
+    color: C.warning,
   },
   heroHeadlineUser: {
-    color: '#2b76bc',
+    color: C.info,
   },
   heroLocRow: {
     flexDirection: 'row',
@@ -2828,7 +2928,7 @@ const styles = StyleSheet.create({
   heroLocText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748B',
+    color: C.textSecondary,
     flexShrink: 1,
   },
 
@@ -2839,9 +2939,9 @@ const styles = StyleSheet.create({
     marginTop: 14,
     marginBottom: 2,
     borderWidth: 1,
-    borderColor: '#EDF1F6',
+    borderColor: C.line,
     borderRadius: 16,
-    backgroundColor: '#FCFDFE',
+    backgroundColor: C.surfaceTint,
     overflow: 'hidden',
   },
   statCell: {
@@ -2852,25 +2952,25 @@ const styles = StyleSheet.create({
   },
   statDivider: {
     width: 1,
-    backgroundColor: '#EDF1F6',
+    backgroundColor: C.line,
   },
   statValue: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#0F172A',
+    color: C.text,
     letterSpacing: -0.3,
   },
   statValueStar: {
-    color: '#F59E0B',
+    color: iconAccent.star,
   },
   statSub: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: C.muted,
   },
   statLabel: {
     fontSize: 10.5,
-    color: '#94A3B8',
+    color: C.muted,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
@@ -2880,13 +2980,13 @@ const styles = StyleSheet.create({
   // ─── Flat section system ───
   sectionBand: {
     height: 9,
-    backgroundColor: '#F4F6FA',
+    backgroundColor: C.bandFill,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: '#EDF1F6',
+    borderColor: C.line,
   },
   profileSection: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     paddingHorizontal: 18,
     paddingTop: 18,
     paddingBottom: 12,
@@ -2900,14 +3000,14 @@ const styles = StyleSheet.create({
   sectionTitleText: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: C.text,
     letterSpacing: -0.3,
   },
   sectionEditBtn: {
     width: 34,
     height: 34,
     borderRadius: 11,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: C.hairline,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2919,7 +3019,7 @@ const styles = StyleSheet.create({
   sectionActionText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#2b76bc',
+    color: C.info,
   },
   detailRow: {
     flexDirection: 'row',
@@ -2927,7 +3027,7 @@ const styles = StyleSheet.create({
     gap: 13,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#EDF1F6',
+    borderTopColor: C.line,
   },
   detailRowFirst: {
     borderTopWidth: 0,
@@ -2936,7 +3036,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 11,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: C.hairline,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2947,7 +3047,7 @@ const styles = StyleSheet.create({
   detailLabel: {
     fontSize: 10.5,
     fontWeight: '800',
-    color: '#94A3B8',
+    color: C.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 2,
@@ -2955,11 +3055,11 @@ const styles = StyleSheet.create({
   detailValue: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#0F172A',
+    color: C.text,
     lineHeight: 20,
   },
   detailValueMuted: {
-    color: '#94A3B8',
+    color: C.muted,
     fontWeight: '500',
   },
 
@@ -2978,28 +3078,28 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 13,
     borderRadius: 12,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: C.hairline,
     alignItems: 'center',
   },
   editorCancelText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#64748B',
+    color: C.textSecondary,
   },
   editorSave: {
     flex: 1.4,
     paddingVertical: 13,
     borderRadius: 12,
-    backgroundColor: '#2b76bc',
+    backgroundColor: C.secondary,
     alignItems: 'center',
   },
   editorSaveProvider: {
-    backgroundColor: '#f67c16',
+    backgroundColor: C.primary,
   },
   editorSaveText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: C.onSecondary,
   },
   zIndexCity: {
     zIndex: 998,
@@ -3009,23 +3109,23 @@ const styles = StyleSheet.create({
   aboutText: {
     fontSize: 14,
     lineHeight: 22,
-    color: '#334155',
+    color: C.textBody,
     paddingBottom: 6,
   },
   aboutInput: {
     minHeight: 96,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: C.line,
     borderRadius: 12,
     padding: 12,
     fontSize: 14,
-    color: '#0F172A',
-    backgroundColor: '#FAFBFC',
+    color: C.text,
+    backgroundColor: C.inputFill,
     lineHeight: 20,
   },
   charCount: {
     fontSize: 11,
-    color: '#94A3B8',
+    color: C.muted,
     textAlign: 'right',
     marginTop: 6,
   },
@@ -3035,7 +3135,7 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 14,
     borderWidth: 1.5,
-    borderColor: '#D6DEE8',
+    borderColor: C.lineDashed,
     borderStyle: 'dashed',
     borderRadius: 14,
     marginBottom: 6,
@@ -3044,7 +3144,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: C.warningBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3052,7 +3152,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13.5,
     fontWeight: '600',
-    color: '#64748B',
+    color: C.textSecondary,
     lineHeight: 19,
   },
 
@@ -3063,7 +3163,7 @@ const styles = StyleSheet.create({
     gap: 13,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#EDF1F6',
+    borderTopColor: C.line,
   },
   expRowFirst: {
     borderTopWidth: 0,
@@ -3076,19 +3176,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   expIconWork: {
-    backgroundColor: '#ECFEFF',
+    backgroundColor: C.cyanFill,
   },
   expIconStar: {
-    backgroundColor: '#FFFBEB',
+    backgroundColor: C.warningBg,
   },
   expTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: C.text,
   },
   expSub: {
     fontSize: 12.5,
-    color: '#64748B',
+    color: C.textSecondary,
     marginTop: 2,
     fontWeight: '500',
   },
@@ -3096,11 +3196,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   favoritesIconBg: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: C.warningFill,
   },
   // Premium promo — flat white wrapper holding the dark rounded card
   premiumFlat: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     paddingHorizontal: 16,
     paddingVertical: 16,
   },
@@ -3108,7 +3208,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#E8B54D',
+    backgroundColor: premium.gold,
     paddingHorizontal: 11,
     paddingVertical: 5,
     borderRadius: 14,
@@ -3118,10 +3218,10 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: '900',
     letterSpacing: 0.8,
-    color: '#0F172A',
+    color: C.onPrimary,
   },
   profileFooter: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     paddingHorizontal: 16,
     paddingVertical: 22,
     alignItems: 'center',
@@ -3134,7 +3234,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 12.5,
-    color: '#94A3B8',
+    color: C.muted,
     fontWeight: '600',
   },
 
@@ -3156,13 +3256,13 @@ const styles = StyleSheet.create({
     height: 112,
     borderRadius: 56,
     borderWidth: 4,
-    borderColor: '#FFFFFF',
+    borderColor: C.white,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.18,
         shadowRadius: 16,
@@ -3173,14 +3273,14 @@ const styles = StyleSheet.create({
     }),
   },
   avatarRingProvider: {
-    borderColor: '#FFFFFF',
+    borderColor: C.white,
   },
   avatar: {
     overflow: 'hidden',
     width: 104,
     height: 104,
     borderRadius: 52,
-    backgroundColor: '#2b76bc',
+    backgroundColor: C.secondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3197,14 +3297,14 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#2b76bc',
+    backgroundColor: C.secondary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
-    borderColor: '#FFFFFF',
+    borderColor: C.white,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.2,
         shadowRadius: 4,
@@ -3215,29 +3315,29 @@ const styles = StyleSheet.create({
     }),
   },
   cameraIconOverlayProvider: {
-    backgroundColor: '#f67c16',
+    backgroundColor: C.primary,
   },
   avatarProvider: {
-    backgroundColor: '#f67c16',
+    backgroundColor: C.primary,
   },
   avatarText: {
-    color: '#FFFFFF',
+    color: C.onSecondary,
     fontSize: 32,
     fontWeight: '800',
   },
   proBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF3C7',
+    backgroundColor: C.warningFill,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 14,
     flexShrink: 0,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: C.warningLine,
     ...Platform.select({
       ios: {
-        shadowColor: '#F59E0B',
+        shadowColor: C.warning,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.2,
         shadowRadius: 4,
@@ -3250,7 +3350,7 @@ const styles = StyleSheet.create({
   proBadgeText: {
     fontSize: 11.5,
     fontWeight: '800',
-    color: '#D97706',
+    color: C.warning,
     marginLeft: 3,
     letterSpacing: 0.5,
   },
@@ -3258,11 +3358,11 @@ const styles = StyleSheet.create({
   // Image Picker Modal
   imagePickerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15,23,42,0.6)',
+    backgroundColor: C.overlay,
     justifyContent: 'flex-end',
   },
   imagePickerModal: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 22,
@@ -3273,14 +3373,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 5,
     borderRadius: 3,
-    backgroundColor: '#D1D5DB',
+    backgroundColor: C.borderMediumNeutral,
     alignSelf: 'center',
     marginBottom: 18,
   },
   imagePickerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0F172A',
+    color: C.text,
     textAlign: 'center',
     marginBottom: 22,
     letterSpacing: -0.3,
@@ -3306,31 +3406,31 @@ const styles = StyleSheet.create({
   },
   imagePickerOptionText: {
     fontSize: 16,
-    color: '#0F172A',
+    color: C.text,
     fontWeight: '600',
   },
   imagePickerOptionHint: {
     fontSize: 12.5,
-    color: '#94A3B8',
+    color: C.muted,
     marginTop: 2,
   },
   imagePickerCancelBtn: {
     marginTop: 14,
     paddingVertical: 15,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: C.hairline,
     borderRadius: 16,
     alignItems: 'center',
   },
   imagePickerCancelText: {
     fontSize: 16,
-    color: '#64748B',
+    color: C.textSecondary,
     fontWeight: '700',
   },
 
   // View Photo Modal
   viewPhotoOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.92)',
+    backgroundColor: C.lightbox,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -3347,7 +3447,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: stableDark.fillChip,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
@@ -3361,7 +3461,7 @@ const styles = StyleSheet.create({
   viewPhotoName: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: stableDark.ink,
     marginTop: 22,
     letterSpacing: -0.2,
   },
@@ -3378,45 +3478,45 @@ const styles = StyleSheet.create({
   verificationItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: C.hairline,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     gap: 5,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: C.line,
   },
   verificationItemVerified: {
-    backgroundColor: '#2b76bc',
-    borderColor: '#1e5f9e',
+    backgroundColor: C.secondary,
+    borderColor: C.secondaryDeep,
   },
   verificationLabel: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: C.muted,
     letterSpacing: 0.2,
   },
   verificationLabelVerified: {
-    color: '#FFFFFF',
+    color: C.onSecondary,
   },
   verifyWarning: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: C.warningBg,
     padding: 14,
     borderRadius: 14,
     marginTop: 4,
     marginHorizontal: 16,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: C.warningLine,
   },
   verifyWarningText: {
     flex: 1,
     flexShrink: 1,
     fontSize: 12.5,
-    color: '#C2410C',
+    color: C.warning,
     fontWeight: '500',
     lineHeight: 18,
   },
@@ -3424,20 +3524,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: C.warningBg,
     padding: 14,
     borderRadius: 14,
     marginTop: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#f67c16',
+    borderLeftColor: C.primary,
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: C.warningLine,
   },
   aadhaarNoticeText: {
     flex: 1,
     flexShrink: 1,
     fontSize: 13,
-    color: '#9A3412',
+    color: C.warning,
     fontWeight: '500',
     lineHeight: 18,
   },
@@ -3449,13 +3549,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: C.hairline,
   },
   infoIconContainer: {
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: C.hairline,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -3467,7 +3567,7 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 11,
-    color: '#94A3B8',
+    color: C.muted,
     marginBottom: 3,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -3475,7 +3575,7 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: 15.5,
-    color: '#0F172A',
+    color: C.text,
     fontWeight: '600',
     flexShrink: 1,
   },
@@ -3483,38 +3583,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F0FDF4',
+    backgroundColor: C.successBg,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: C.successLine,
     flexShrink: 0,
   },
   verifiedText: {
     fontSize: 12,
-    color: '#16A34A',
+    color: C.success,
     fontWeight: '700',
   },
   otpSentBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#FFFBEB',
+    backgroundColor: C.warningBg,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: C.warningLine,
     flexShrink: 0,
   },
   otpSentText: {
     fontSize: 11,
-    color: '#D97706',
+    color: C.warning,
     fontWeight: '700',
   },
   verifyButton: {
-    backgroundColor: '#f67c16',
+    backgroundColor: C.primary,
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 12,
@@ -3523,7 +3623,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     ...Platform.select({
       ios: {
-        shadowColor: '#f67c16',
+        shadowColor: C.primary,
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.25,
         shadowRadius: 6,
@@ -3535,7 +3635,7 @@ const styles = StyleSheet.create({
   },
   verifyButtonText: {
     fontSize: 13,
-    color: '#FFFFFF',
+    color: C.onPrimary,
     fontWeight: '700',
   },
 
@@ -3543,17 +3643,17 @@ const styles = StyleSheet.create({
   otpSectionModern: {
     paddingVertical: 18,
     paddingHorizontal: 6,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.sunken,
     borderRadius: 16,
     marginTop: -2,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: C.line,
   },
   otpSectionLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748B',
+    color: C.textSecondary,
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -3569,17 +3669,17 @@ const styles = StyleSheet.create({
     height: 54,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
+    borderColor: C.line,
+    backgroundColor: C.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
   otpBoxWrapperFilled: {
-    borderColor: '#2b76bc',
-    backgroundColor: '#EFF6FF',
+    borderColor: C.secondary,
+    backgroundColor: C.blueBg,
     ...Platform.select({
       ios: {
-        shadowColor: '#2b76bc',
+        shadowColor: C.secondary,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.12,
         shadowRadius: 6,
@@ -3588,11 +3688,11 @@ const styles = StyleSheet.create({
     }),
   },
   otpBoxWrapperFocused: {
-    borderColor: '#f67c16',
-    backgroundColor: '#FFFBF5',
+    borderColor: C.primary,
+    backgroundColor: C.warningBg,
     ...Platform.select({
       ios: {
-        shadowColor: '#f67c16',
+        shadowColor: C.primary,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.18,
         shadowRadius: 8,
@@ -3606,23 +3706,23 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
     textAlign: 'center',
-    color: '#1E293B',
+    color: C.textStrong,
     padding: 0,
   },
   otpBoxInputFilled: {
-    color: '#2b76bc',
+    color: C.info,
   },
   otpBoxInputFocused: {
-    color: '#f67c16',
+    color: C.warning,
   },
   otpVerifyButton: {
-    backgroundColor: '#f67c16',
+    backgroundColor: C.primary,
     borderRadius: 14,
     paddingVertical: 14,
     marginHorizontal: 12,
     ...Platform.select({
       ios: {
-        shadowColor: '#f67c16',
+        shadowColor: C.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
         shadowRadius: 8,
@@ -3631,7 +3731,7 @@ const styles = StyleSheet.create({
     }),
   },
   otpVerifyButtonDisabled: {
-    backgroundColor: '#CBD5E1',
+    backgroundColor: C.disabledFill,
     ...Platform.select({
       ios: { shadowOpacity: 0 },
       android: { elevation: 0 },
@@ -3644,13 +3744,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   otpVerifyButtonText: {
-    color: '#FFFFFF',
+    color: C.onPrimary,
     fontSize: 15,
     fontWeight: '700',
   },
   otpTimerText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: C.textSecondary,
     textAlign: 'center',
     marginBottom: 8,
   },
@@ -3663,7 +3763,7 @@ const styles = StyleSheet.create({
   },
   otpExpiredText: {
     fontSize: 13,
-    color: '#EF4444',
+    color: C.danger,
     fontWeight: '600',
   },
   otpResendButton: {
@@ -3672,9 +3772,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: '#FFFBEB',
+    backgroundColor: C.warningBg,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: C.warningLine,
   },
   otpResendButtonContent: {
     flexDirection: 'row',
@@ -3684,7 +3784,7 @@ const styles = StyleSheet.create({
   otpResendButtonText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#D97706',
+    color: C.warning,
   },
 
   // Editable Field
@@ -3695,40 +3795,40 @@ const styles = StyleSheet.create({
   expPickerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   expPickerField: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB',
+    backgroundColor: C.sunkenNeutral, borderWidth: 1, borderColor: C.lineNeutral,
     borderRadius: 12, paddingHorizontal: 14, paddingVertical: 13,
   },
-  expPickerText: { fontSize: 15, color: '#111827', fontWeight: '500' },
-  expPickerPlaceholder: { color: '#9CA3AF', fontWeight: '400' },
+  expPickerText: { fontSize: 15, color: C.textPrimaryNeutral, fontWeight: '500' },
+  expPickerPlaceholder: { color: C.muted, fontWeight: '400' },
   expClearBtn: {
-    width: 40, height: 40, borderRadius: 12, backgroundColor: '#F3F4F6',
+    width: 40, height: 40, borderRadius: 12, backgroundColor: C.sunkenNeutral,
     alignItems: 'center', justifyContent: 'center',
   },
-  expPreview: { fontSize: 13, color: '#0891B2', fontWeight: '600', marginTop: 8, marginLeft: 2 },
-  expHint: { fontSize: 11, color: '#9CA3AF', marginTop: 6, marginLeft: 2, lineHeight: 16 },
+  expPreview: { fontSize: 13, color: C.cyan, fontWeight: '600', marginTop: 8, marginLeft: 2 },
+  expHint: { fontSize: 11, color: C.muted, marginTop: 6, marginLeft: 2, lineHeight: 16 },
   expPickerDone: { alignSelf: 'flex-end', paddingVertical: 8, paddingHorizontal: 16, marginTop: 4 },
-  expPickerDoneText: { fontSize: 16, color: '#2563EB', fontWeight: '700' },
+  expPickerDoneText: { fontSize: 16, color: C.indigo, fontWeight: '700' },
   fieldLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#374151',
+    color: C.textBodyNeutral,
     marginBottom: 8,
     letterSpacing: 0.1,
   },
   fieldInput: {
     height: 50,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: C.line,
     borderRadius: 12,
     paddingHorizontal: 16,
     fontSize: 15,
-    color: '#0F172A',
-    backgroundColor: '#FAFBFC',
+    color: C.text,
+    backgroundColor: C.inputFill,
     fontWeight: '500',
   },
   fieldInputDisabled: {
-    backgroundColor: '#F1F5F9',
-    color: '#94A3B8',
+    backgroundColor: C.hairline,
+    color: C.muted,
   },
   fieldLabelRow: {
     flexDirection: 'row',
@@ -3739,7 +3839,7 @@ const styles = StyleSheet.create({
   lockedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: C.sunkenNeutral,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
@@ -3748,11 +3848,11 @@ const styles = StyleSheet.create({
   lockedBadgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#6B7280',
+    color: C.textSecondary,
   },
   fieldLockMessage: {
     fontSize: 12,
-    color: '#6B7280',
+    color: C.textSecondary,
     marginTop: 4,
     fontStyle: 'italic',
   },
@@ -3764,12 +3864,12 @@ const styles = StyleSheet.create({
   phoneRowActionText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#2b76bc',
+    color: C.info,
   },
   phoneChangeWarning: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#FEF3C7',
+    backgroundColor: C.warningFill,
     padding: 14,
     borderRadius: 12,
     marginBottom: 16,
@@ -3780,13 +3880,13 @@ const styles = StyleSheet.create({
     flex: 1,
     flexShrink: 1,
     fontSize: 12,
-    color: '#92400E',
+    color: C.warning,
     lineHeight: 18,
   },
   nameLockNotice: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
+    backgroundColor: C.blueBg,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
@@ -3798,7 +3898,7 @@ const styles = StyleSheet.create({
   },
   nameLockNoticeText: {
     fontSize: 12,
-    color: '#2b76bc',
+    color: C.info,
     fontWeight: '500',
     flexShrink: 1,
   },
@@ -3808,14 +3908,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.sunken,
     padding: 14,
     borderRadius: 12,
     marginTop: 4,
   },
   noCategoriesText: {
     fontSize: 13,
-    color: '#94A3B8',
+    color: C.muted,
   },
 
   categoriesDisplayGrid: {
@@ -3830,12 +3930,12 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 14,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: C.blueBg,
     gap: 4,
   },
   categoryDisplayTextVerified: {
     fontSize: 12,
-    color: '#2b76bc',
+    color: C.info,
     fontWeight: '600',
   },
   categoryDisplayChipPending: {
@@ -3844,12 +3944,12 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 14,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: C.warningBg,
     gap: 4,
   },
   categoryDisplayTextPending: {
     fontSize: 12,
-    color: '#f67c16',
+    color: C.warning,
     fontWeight: '600',
   },
   servicesLabelRow: {
@@ -3861,14 +3961,14 @@ const styles = StyleSheet.create({
   },
   servicesLabelVerified: {
     fontSize: 11,
-    color: '#2b76bc',
+    color: C.info,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
   servicesLabelPending: {
     fontSize: 11,
-    color: '#f67c16',
+    color: C.warning,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
@@ -3879,16 +3979,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.sunken,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: C.line,
   },
   addressesIconContainer: {
     width: 50,
     height: 50,
     borderRadius: 18,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: C.blueBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -3902,12 +4002,12 @@ const styles = StyleSheet.create({
   addressesTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: C.text,
     letterSpacing: -0.2,
   },
   addressesSubtitle: {
     fontSize: 13,
-    color: '#94A3B8',
+    color: C.muted,
     marginTop: 3,
     lineHeight: 18,
   },
@@ -3921,15 +4021,15 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: C.line,
   },
   portfolioAddText: {
     fontSize: 13,
-    color: '#94A3B8',
+    color: C.muted,
   },
   specializationsPreview: {
     marginTop: 12,
@@ -3937,7 +4037,7 @@ const styles = StyleSheet.create({
   specializationsLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: C.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 8,
@@ -3949,7 +4049,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   specializationChip: {
-    backgroundColor: '#F3E8FF',
+    backgroundColor: C.purpleBg,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 18,
@@ -3957,11 +4057,11 @@ const styles = StyleSheet.create({
   specializationChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#7C3AED',
+    color: C.purple,
   },
   moreSpecializations: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: C.muted,
     fontWeight: '500',
   },
 
@@ -3970,12 +4070,12 @@ const styles = StyleSheet.create({
     marginTop: 14,
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: C.hairline,
   },
   galleryPreviewLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: C.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 10,
@@ -3990,7 +4090,7 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     borderRadius: 10,
     overflow: 'hidden',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: C.hairline,
   },
   galleryPreviewImage: {
     width: '100%',
@@ -3998,7 +4098,7 @@ const styles = StyleSheet.create({
   },
   galleryPreviewOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: C.lightboxSoft,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 12,
@@ -4006,7 +4106,7 @@ const styles = StyleSheet.create({
   galleryPreviewOverlayText: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: stableDark.ink,
   },
 
   // Detect My Location
@@ -4020,20 +4120,20 @@ const styles = StyleSheet.create({
   locationSectionTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F172A',
+    color: C.text,
     letterSpacing: -0.2,
   },
   detectLocationBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2b76bc',
+    backgroundColor: C.secondary,
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: 22,
     gap: 6,
     ...Platform.select({
       ios: {
-        shadowColor: '#2b76bc',
+        shadowColor: C.secondary,
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.3,
         shadowRadius: 6,
@@ -4042,24 +4142,24 @@ const styles = StyleSheet.create({
     }),
   },
   detectLocationBtnDisabled: {
-    backgroundColor: '#93C5FD',
+    backgroundColor: C.blueLine,
   },
   detectLocationBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: C.onSecondary,
     letterSpacing: 0.2,
   },
 
   premiumCardLoading: {
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     paddingVertical: 38,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.12,
         shadowRadius: 24,
@@ -4069,16 +4169,16 @@ const styles = StyleSheet.create({
   },
   premiumCardActive: {
     borderRadius: Platform.OS === 'ios' ? 20 : 22,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     overflow: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.12,
         shadowRadius: 24,
         borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.04)',
+        borderColor: C.hairlineFaint,
       },
       android: { elevation: 6 },
     }),
@@ -4086,13 +4186,13 @@ const styles = StyleSheet.create({
   premiumActiveHeader: {
     ...Platform.select({
       ios: {
-        backgroundColor: '#1C1C1E',
+        backgroundColor: premium.iosDark,
         paddingHorizontal: 20,
         paddingTop: 20,
         paddingBottom: 18,
       },
       android: {
-        backgroundColor: '#0F172A',
+        backgroundColor: premium.slateHeader,
         paddingHorizontal: 22,
         paddingTop: 22,
         paddingBottom: 20,
@@ -4108,7 +4208,7 @@ const styles = StyleSheet.create({
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: 'rgba(255,215,0,0.08)',
+    backgroundColor: premium.decoGold,
   },
   premiumActiveDecoCircle2: {
     position: 'absolute',
@@ -4117,7 +4217,7 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: 'rgba(255,215,0,0.05)',
+    backgroundColor: premium.decoGold,
   },
   premiumActiveIconRow: {
     flexDirection: 'row',
@@ -4129,7 +4229,7 @@ const styles = StyleSheet.create({
     width: Platform.OS === 'ios' ? 44 : 48,
     height: Platform.OS === 'ios' ? 44 : 48,
     borderRadius: Platform.OS === 'ios' ? 12 : 16,
-    backgroundColor: '#FFD700',
+    backgroundColor: premium.crown,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4138,13 +4238,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...Platform.select({
       ios: {
-        backgroundColor: 'rgba(52,199,89,0.2)',
+        backgroundColor: premium.statusFill,
         paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 14,
       },
       android: {
-        backgroundColor: 'rgba(22,163,74,0.15)',
+        backgroundColor: premium.statusFill,
         paddingHorizontal: 10,
         paddingVertical: 5,
         borderRadius: 20,
@@ -4155,18 +4255,18 @@ const styles = StyleSheet.create({
   premiumActiveBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: Platform.OS === 'ios' ? '#34C759' : '#4ADE80',
+    color: Platform.OS === 'ios' ? premium.statusDot : premium.statusDot,
     letterSpacing: Platform.OS === 'ios' ? 0.3 : 0.5,
   },
   premiumActiveTitle: {
     fontSize: Platform.OS === 'ios' ? 20 : 22,
     fontWeight: Platform.OS === 'ios' ? '700' : '800',
-    color: '#FFFFFF',
+    color: stableDark.ink,
     letterSpacing: Platform.OS === 'ios' ? -0.45 : -0.3,
   },
   premiumActiveSubtitle: {
     fontSize: 13,
-    color: Platform.OS === 'ios' ? '#8E8E93' : '#94A3B8',
+    color: Platform.OS === 'ios' ? premium.inkMuted : premium.inkMuted,
     marginTop: 4,
     letterSpacing: Platform.OS === 'ios' ? -0.08 : 0,
   },
@@ -4177,7 +4277,7 @@ const styles = StyleSheet.create({
       ios: {
         paddingVertical: 16,
         paddingHorizontal: 8,
-        backgroundColor: '#FAFAFA',
+        backgroundColor: C.sunkenNeutral,
       },
       android: {
         paddingVertical: 18,
@@ -4194,18 +4294,18 @@ const styles = StyleSheet.create({
   premiumStatValue: {
     fontSize: Platform.OS === 'ios' ? 24 : 26,
     fontWeight: Platform.OS === 'ios' ? '700' : '800',
-    color: Platform.OS === 'ios' ? '#1C1C1E' : '#0F172A',
+    color: Platform.OS === 'ios' ? C.iosLabel : C.text,
   },
   premiumStatLabel: {
     fontSize: 11.5,
     fontWeight: '600',
-    color: Platform.OS === 'ios' ? '#8E8E93' : '#94A3B8',
+    color: Platform.OS === 'ios' ? C.muted : C.muted,
     letterSpacing: Platform.OS === 'ios' ? -0.07 : 0.2,
   },
   premiumStatDivider: {
     width: StyleSheet.hairlineWidth,
     height: 32,
-    backgroundColor: Platform.OS === 'ios' ? '#C6C6C8' : '#E2E8F0',
+    backgroundColor: Platform.OS === 'ios' ? C.line : C.line,
   },
   premiumActiveFooter: {
     flexDirection: 'row',
@@ -4213,13 +4313,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: Platform.OS === 'ios' ? 13 : 14,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Platform.OS === 'ios' ? '#C6C6C8' : '#F1F5F9',
+    borderTopColor: Platform.OS === 'ios' ? C.line : C.hairline,
     gap: 6,
   },
   premiumActiveFooterText: {
     fontSize: 14,
     fontWeight: '600',
-    color: Platform.OS === 'ios' ? '#007AFF' : '#64748B',
+    color: Platform.OS === 'ios' ? C.iosBlue : C.textSecondary,
     letterSpacing: Platform.OS === 'ios' ? -0.15 : 0,
   },
   premiumCardInactive: {
@@ -4227,18 +4327,18 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor: '#4338CA',
+        shadowColor: premium.indigoShadow,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.18,
         shadowRadius: 24,
         borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.04)',
+        borderColor: C.hairlineFaint,
       },
       android: { elevation: 6 },
     }),
   },
   premiumInactiveGradient: {
-    backgroundColor: Platform.OS === 'ios' ? '#1C1C1E' : '#1E293B',
+    backgroundColor: Platform.OS === 'ios' ? premium.iosDark : premium.slateCard,
     paddingVertical: Platform.OS === 'ios' ? 28 : 32,
     paddingHorizontal: 24,
     alignItems: 'center',
@@ -4252,7 +4352,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(255,215,0,0.06)',
+    backgroundColor: premium.decoGold,
   },
   premiumInactiveDecoCircle2: {
     position: 'absolute',
@@ -4261,18 +4361,18 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: 'rgba(99,102,241,0.08)',
+    backgroundColor: premium.decoIndigo,
   },
   premiumInactiveTitle: {
     fontSize: Platform.OS === 'ios' ? 24 : 26,
     fontWeight: Platform.OS === 'ios' ? '700' : '800',
-    color: '#FFFFFF',
+    color: stableDark.ink,
     marginTop: 14,
     letterSpacing: Platform.OS === 'ios' ? -0.45 : -0.3,
   },
   premiumInactiveSubtitle: {
     fontSize: 14,
-    color: Platform.OS === 'ios' ? '#8E8E93' : '#94A3B8',
+    color: Platform.OS === 'ios' ? premium.inkMuted : premium.inkMuted,
     textAlign: 'center',
     marginTop: 6,
     lineHeight: 20,
@@ -4281,7 +4381,7 @@ const styles = StyleSheet.create({
   premiumInactiveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f67c16',
+    backgroundColor: C.primary,
     paddingHorizontal: Platform.OS === 'ios' ? 24 : 28,
     paddingVertical: Platform.OS === 'ios' ? 13 : 14,
     borderRadius: Platform.OS === 'ios' ? 14 : 30,
@@ -4289,7 +4389,7 @@ const styles = StyleSheet.create({
     gap: 8,
     ...Platform.select({
       ios: {
-        shadowColor: '#f67c16',
+        shadowColor: C.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 10,
@@ -4300,9 +4400,10 @@ const styles = StyleSheet.create({
   premiumInactiveBtnText: {
     fontSize: Platform.OS === 'ios' ? 15 : 16,
     fontWeight: Platform.OS === 'ios' ? '600' : '700',
-    color: '#FFFFFF',
+    color: C.onPrimary,
     letterSpacing: Platform.OS === 'ios' ? -0.24 : 0,
   },
-});
+  });
+};
 
 export default ProfileScreen;

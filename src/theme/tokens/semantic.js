@@ -130,6 +130,8 @@ export const lightColors = {
   // Misc
   overlay: overlay.light,
   overlayStrong: overlay.strongLight,
+  overlayPhoto: overlay.photo,
+  overlayPhotoSoft: overlay.photoSoft,
   shadow: slate[900],
 };
 
@@ -223,5 +225,7 @@ export const darkColors = {
   // Misc
   overlay: overlay.dark,
   overlayStrong: overlay.strongDark,
+  overlayPhoto: overlay.photo,
+  overlayPhotoSoft: overlay.photoSoft,
   shadow: dark.shadow,
 };

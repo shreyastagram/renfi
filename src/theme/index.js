@@ -32,6 +32,7 @@ export {
   stableDark,
   stableEmergency,
   premium,
+  heroGradient,
   medal,
   brandTint,
   mapRoute,

@@ -31,12 +31,18 @@
 
 ### Next action
 
-**Phase 7 batch 5** — `AccountSecurityScreen` + `ChangePasswordScreen` (33 security lines,
-deliberately last in the phase), plus `SettingsScreen` and `EmergencyServicesScreen` (47
-each). After that, the remaining user-side weight is `ProfileScreen` at **324 literals** —
-the single largest file left, and NOT on this board; it belongs with Phase 5b's
-verification surfaces and will need a batch of its own. Swap `SafeAreaView` → `<Screen>`
-in each file as it is themed.
+**Phase 8 — provider screens.** `ServiceApprovalsScreen` (179), `ProviderHomeScreen` (92),
+`ProviderServiceHistoryScreen` (91), `ProviderRegisterScreen` (77), `PortfolioEditScreen`
+(48), `WorkAvailabilityScreen` (20). Note the tracker's old "Working Hours = 126 colours"
+is spread across FILES, not one screen: `WeeklyScheduleCard` (50) and `ProviderHomeTopRow`
+(32) carry most of it. `TimePickerField.jsx:94` still hard-codes `themeVariant="light"`.
+`ProviderHomeScreen:1001` passes a white `HelpSupportButton` colour — check its header, the
+detail screen had the same line and it was invisible.
+
+Then Phase 9 (auth screens, ~250 literals) and the 40 remaining components (767).
+
+**Phase 5b is still open** and is now about BEHAVIOUR only: the verification defects V1–V6
+and `profile.emailPending`. ProfileScreen's *theming* is done.
 
 ---
 
@@ -79,10 +85,10 @@ contract.
 
 | Measure | Value |
 |---|---|
-| Colour literals remaining | **2,249** (3,329 at v1.0.9) — measured, see note |
-| Files on the hex allowlist | **34** |
+| Colour literals remaining | **1,961** (3,329 at v1.0.9) — measured, see note |
+| Files on the hex allowlist | **35** |
 | Components fully themed | **8** — CustomDialog, Button, Alert, ShimmerLoader, Input, Icon, GlobalBanner, DrawerMenu (+ RootNavigator surgically) |
-| Screens fully themed | **16** — the whole user side, plus Settings, AccountSecurity, ChangePassword and EmergencyServices |
+| Screens fully themed | **17** — the whole user side, Settings, AccountSecurity, ChangePassword, EmergencyServices, and **ProfileScreen** (the largest single file, 324 literals) |
 | Theme unit tests | 26 across 5 suites |
 | Owner's Working Hours tests | 86 — **must never regress** |
 | i18n | **2074** × en/hi/mr (2067 baseline + 7 theme keys) |
@@ -102,6 +108,7 @@ series, one measurement per commit:
 | batch 4a `2f9939e` | 2,520 | 173 |
 | batch 4b `605c97f` | 2,365 | 173 |
 | batch 5 | **2,249** | 173 |
+| ProfileScreen | **1,961** | 173 |
 
 Recount with:
 

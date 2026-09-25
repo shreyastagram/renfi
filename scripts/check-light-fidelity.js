@@ -312,6 +312,45 @@ const EXPECTED_CHANGES = {
     '#E8F5E9': 'success icon circle -> successFill, which keeps a step on a dark card',
     '#FFFFFF': 'COLORS.white was dead at v1.0.9; the page background maps to surface',
   },
+  'src/screens/ProfileScreen.jsx': {
+    // The brand-gradient hero and the premium card's dark header are UNCHANGED --
+    // they moved to the theme-independent heroGradient / premium groups, which hold
+    // their shipped values verbatim. Everything below is a light-surface change.
+    //
+    // This screen shipped FOUR near-white neutrals and two hairline weights. They
+    // converge onto surface / surfaceSunken / bg / border, which is imperceptible in
+    // light and gives each one a real step on a dark surface.
+    '#FCFDFE': 'stat strip -> surface', '#F4F6FA': 'section band -> surfaceSunken',
+    '#FAFBFC': 'text inputs -> surfaceSunken', '#F4F7FB': 'page background -> bg',
+    '#FAFAFA': 'premium stats row -> surfaceSunken', '#F9FAFB': 'picker field -> surfaceSunken',
+    '#F3F4F6': 'clear button and locked badge -> surfaceSunken',
+    '#EDF1F6': 'the second hairline weight -> border (#E2E8F0)',
+    'rgba(0,0,0,0.04)': 'the premium card hairline -> border',
+    '#D6DEE8': 'the dashed empty-state outline -> borderMedium',
+    '#C6C6C8': 'the iOS separator on the premium card -> border',
+    // Warm family: this screen carried orange-600/700/800 alongside amber-600/700.
+    '#D97706': 'converged onto the warning token', '#C2410C': 'converged onto the warning token',
+    '#9A3412': 'converged onto the warning token', '#FED7AA': 'converged onto warningBorder',
+    '#FFFBEB': 'converged onto warningContainer', '#FEF3C7': 'converged onto warningContainer',
+    '#FFFBF5': 'the focused OTP box -> warningContainer',
+    // Other convergences
+    '#0891B2': 'the cyan experience accent converged onto the info token',
+    '#ECFEFF': 'its tint converged onto infoFill',
+    '#93C5FD': 'the disabled detect-location fill -> infoBorder',
+    '#8E8E93': 'the iOS grey on the premium card -> textMuted on the light part, premium.inkMuted on the dark header',
+    '#34C759': 'the iOS green badge on the dark header -> premium.statusDot (#4ADE80)',
+    'rgba(52,199,89,0.2)': 'its fill -> premium.statusFill',
+    'rgba(255,215,0,0.08)': 'gold deco blobs converged onto premium.decoGold (0.07)',
+    'rgba(255,215,0,0.06)': 'gold deco blobs converged onto premium.decoGold',
+    'rgba(255,215,0,0.05)': 'gold deco blobs converged onto premium.decoGold',
+    'rgba(99,102,241,0.08)': 'indigo deco blob converged onto premium.decoIndigo (0.06)',
+    // Not flagged but changed for real:
+    '#f67c16': 'brand orange as TEXT measured 2.7:1; the headline, chips and OTP ink take the warning token. It stays the fill on buttons, where onBrandOrange is the ink.',
+    '#2b76bc': 'brand blue as TEXT on a tint was 4.4:1; those take the info token. It stays the fill on buttons and the verified chip.',
+    '#94A3B8': 'a11y: 2.54:1 on white -> textMuted', '#6B7280': 'converged onto textSecondary',
+    '#9CA3AF': 'placeholders -> textMuted', '#16A34A': 'a11y: 3.0:1 on its tint -> the success token',
+    '#EA580C': 'converged onto the warning token',
+  },
   'src/screens/EmailVerifyHandlerScreen.jsx': {
     '#2563EB': 'altBlueIndigo', '#FFFFFF': 'surface',
     '#6B7280': 'textSecondary is now the accessible #475569',
@@ -355,6 +394,7 @@ for (const group of [
   'mapRoute',
   'mapOverlay',
   'premium',
+  'heroGradient',
   'vendor',
 ]) {
   const g = palette[group];
