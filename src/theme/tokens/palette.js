@@ -48,6 +48,103 @@ export const vendor = {
   googleBlue: '#4285F4',
 };
 
+// Service-category accents. THEME-INDEPENDENT on purpose: these identify a
+// trade (electrician, plumber, …), not a UI state, so they must stay the same
+// colour in light and dark or the categories stop being recognisable.
+//
+// Verified 2026-09-25: all twelve clear 3:1 against the near-black card, from
+// mason_tiler at 3.73 to solar at 9.32, so none needed a dark variant. Six sit
+// below 3:1 on WHITE, which is not a failure because each icon sits above its
+// text label and is therefore supplementary, but it is why they look washed out
+// in light mode.
+//
+// Single source of truth: Icon.jsx and UserHomeScreen each carried their own
+// copy of this map. They were byte-identical across all twelve entries, so they
+// now both read from here.
+export const categoryAccent = {
+  electrician: '#F59E0B',
+  plumber: '#3B82F6',
+  electronics_technician: '#6366F1',
+  carpenter: '#8B5CF6',
+  painter: '#EC4899',
+  solar_repairing: '#EAB308',
+  welder: '#EF4444',
+  salon: '#F472B6',
+  vehicle_cleaning: '#0EA5E9',
+  mason_tiler: '#78716C',
+  driver: '#14B8A6',
+  ac_repair: '#06B6D4',
+};
+
+
+// Fallback accents for the icon map. THEME-INDEPENDENT, and only ever used when
+// a caller does not pass an explicit `color` — every themed screen does pass
+// one. They encode identity (a trade, a status) rather than a UI surface, so
+// they stay constant across light and dark. The generic no-match fallback is a
+// real theme token, because that one DOES sit on a themed background.
+export const iconAccent = {
+  'photographer': '#8B5CF6',
+  'influencer': '#EC4899',
+  'snake_catcher': '#10B981',
+  'private_ambulance': '#EF4444',
+  'mortuary_van': '#6B7280',
+  'pending': '#F59E0B',
+  'accepted': '#3B82F6',
+  'in-progress': '#8B5CF6',
+  'completed': '#10B981',
+  'cancelled': '#EF4444',
+  'rejected': '#EF4444',
+  'verified': '#10B981',
+  'unverified': '#F59E0B',
+  'warning': '#F59E0B',
+  'verified_user': '#10B981',
+  'shield': '#3B82F6',
+  'call': '#10B981',
+  'directions': '#3B82F6',
+  'track': '#8B5CF6',
+  'navigate': '#3B82F6',
+  'chatbox': '#F67C16',
+  'sms': '#F67C16',
+  'chat': '#3B82F6',
+  'star': '#F59E0B',
+  'cancel': '#EF4444',
+  'my_location': '#3B82F6',
+  'other_location': '#8B5CF6',
+  'search_location': '#6B7280',
+  'gps': '#3B82F6',
+  'live': '#EF4444',
+  'online': '#10B981',
+  'offline': '#9CA3AF',
+  'close-circle': '#EF4444',
+  'check-circle': '#10B981',
+  'heart': '#EF4444',
+  'pin': '#EF4444',
+  'close_circle': '#EF4444',
+};
+
+// Surfaces that stay DARK in BOTH themes, and the ink that sits on them.
+//
+// THE TRAP THIS EXISTS TO PREVENT: a theme-flipping token like textPrimary is
+// white in dark mode and near-black in light. Used on a surface that is always
+// dark — the notification banner, a dark hero — it goes invisible the moment
+// the user switches to light. The Fixhomi website hit exactly this.
+//
+// So anything permanently dark uses these STABLE values instead. They do not
+// flip, because the surface underneath them does not flip either.
+export const stableDark = {
+  surface: 'rgba(15, 23, 42, 0.95)', // the banner's reduced-transparency fallback
+  ink: '#FFFFFF',
+  inkMuted: 'rgba(255, 255, 255, 0.7)',
+  inkFaint: 'rgba(255, 255, 255, 0.45)',
+  fill: 'rgba(255, 255, 255, 0.2)',
+  fillSubtle: 'rgba(255, 255, 255, 0.08)',
+  shadowBase: '#000000',
+  successFill: 'rgba(16, 185, 129, 0.15)',
+  successLine: 'rgba(16, 185, 129, 0.3)',
+  infoFill: 'rgba(59, 130, 246, 0.15)',
+  infoLine: 'rgba(59, 130, 246, 0.3)',
+};
+
 // Apple system colours, light and dark, exactly as the HIG defines them.
 //
 // Used only where a surface is deliberately meant to feel native iOS — today

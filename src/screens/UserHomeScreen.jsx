@@ -55,6 +55,7 @@ import BrandFooter from '../components/BrandFooter';
 import { useDialog } from '../context/DialogContext';
 import { useLocation } from '../context/LocationContext';
 import { useLanguage } from '../context/LanguageContext';
+import { categoryAccent } from '../theme';
 import useExitConfirmation from '../hooks/useExitConfirmation';
 import useBookingProfileGate from '../hooks/useBookingProfileGate';
 import {
@@ -125,21 +126,9 @@ const SERVICE_ID_TO_KEY = {
   ac_repair: 'services.acRepair',
 };
 
-// Per-service accent colors (from ICON_MAP) for 3D icon backgrounds
-const SERVICE_COLORS = {
-  electrician: '#F59E0B',
-  plumber: '#3B82F6',
-  electronics_technician: '#6366F1',
-  carpenter: '#8B5CF6',
-  painter: '#EC4899',
-  solar_repairing: '#EAB308',
-  welder: '#EF4444',
-  salon: '#F472B6',
-  vehicle_cleaning: '#0EA5E9',
-  mason_tiler: '#78716C',
-  driver: '#14B8A6',
-  ac_repair: '#06B6D4',
-};
+// Per-service accent colours. Single source of truth lives in the theme
+// palette; Icon.jsx reads the same map, and the two used to drift apart.
+const SERVICE_COLORS = categoryAccent;
 
 const ServiceCard = React.memo(({ service, onPress, comingSoon = false }) => {
   const { t } = useLanguage();

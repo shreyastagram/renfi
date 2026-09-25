@@ -23,3 +23,7 @@ export { lightTheme, darkTheme, themes } from './themes.js';
 // brand guidelines and must render identically in both themes. Exported here so
 // migrating screens have one place to import them from instead of re-hardcoding.
 export { vendor } from './tokens/palette.js';
+
+// Service-category accents. Identical in both themes by design — a trade's
+// colour must stay recognisable regardless of appearance.
+export { categoryAccent, iconAccent, stableDark, brand } from './tokens/palette.js';

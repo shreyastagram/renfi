@@ -14,31 +14,32 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import Feather from 'react-native-vector-icons/Feather';
+import { categoryAccent, iconAccent, useThemeColors } from '../theme';
 
 /**
  * Icon mapping for service types and common icons
  */
 const ICON_MAP = {
   // Service Types — rich detailed icons
-  electrician: { family: 'MaterialCommunityIcons', name: 'lightning-bolt', color: '#F59E0B' },
-  plumber: { family: 'MaterialCommunityIcons', name: 'water-pump', color: '#3B82F6' },
-  carpenter: { family: 'MaterialCommunityIcons', name: 'hand-saw', color: '#8B5CF6' },
-  painter: { family: 'MaterialCommunityIcons', name: 'brush-variant', color: '#EC4899' },
-  ac_repair: { family: 'MaterialCommunityIcons', name: 'hvac', color: '#06B6D4' },
-  electronics_technician: { family: 'MaterialCommunityIcons', name: 'monitor-cellphone', color: '#6366F1' },
-  solar_repairing: { family: 'MaterialCommunityIcons', name: 'solar-power', color: '#EAB308' },
-  driver: { family: 'MaterialCommunityIcons', name: 'steering', color: '#14B8A6' },
-  welder: { family: 'MaterialCommunityIcons', name: 'soldering-iron', color: '#EF4444' },
-  salon: { family: 'MaterialCommunityIcons', name: 'hair-dryer', color: '#F472B6' },
-  vehicle_cleaning: { family: 'MaterialCommunityIcons', name: 'spray-bottle', color: '#0EA5E9' },
-  mason_tiler: { family: 'MaterialCommunityIcons', name: 'shovel', color: '#78716C' },
+  electrician: { family: 'MaterialCommunityIcons', name: 'lightning-bolt', color: categoryAccent.electrician },
+  plumber: { family: 'MaterialCommunityIcons', name: 'water-pump', color: categoryAccent.plumber },
+  carpenter: { family: 'MaterialCommunityIcons', name: 'hand-saw', color: categoryAccent.carpenter },
+  painter: { family: 'MaterialCommunityIcons', name: 'brush-variant', color: categoryAccent.painter },
+  ac_repair: { family: 'MaterialCommunityIcons', name: 'hvac', color: categoryAccent.ac_repair },
+  electronics_technician: { family: 'MaterialCommunityIcons', name: 'monitor-cellphone', color: categoryAccent.electronics_technician },
+  solar_repairing: { family: 'MaterialCommunityIcons', name: 'solar-power', color: categoryAccent.solar_repairing },
+  driver: { family: 'MaterialCommunityIcons', name: 'steering', color: categoryAccent.driver },
+  welder: { family: 'MaterialCommunityIcons', name: 'soldering-iron', color: categoryAccent.welder },
+  salon: { family: 'MaterialCommunityIcons', name: 'hair-dryer', color: categoryAccent.salon },
+  vehicle_cleaning: { family: 'MaterialCommunityIcons', name: 'spray-bottle', color: categoryAccent.vehicle_cleaning },
+  mason_tiler: { family: 'MaterialCommunityIcons', name: 'shovel', color: categoryAccent.mason_tiler },
   // Event Services
-  photographer: { family: 'MaterialCommunityIcons', name: 'camera', color: '#8B5CF6' },
-  influencer: { family: 'MaterialCommunityIcons', name: 'account-star', color: '#EC4899' },
+  photographer: { family: 'MaterialCommunityIcons', name: 'camera', color: iconAccent.photographer },
+  influencer: { family: 'MaterialCommunityIcons', name: 'account-star', color: iconAccent.influencer },
   // Emergency Services
-  snake_catcher: { family: 'MaterialCommunityIcons', name: 'snake', color: '#10B981' },
-  private_ambulance: { family: 'MaterialCommunityIcons', name: 'ambulance', color: '#EF4444' },
-  mortuary_van: { family: 'MaterialCommunityIcons', name: 'car-emergency', color: '#6B7280' },
+  snake_catcher: { family: 'MaterialCommunityIcons', name: 'snake', color: iconAccent.snake_catcher },
+  private_ambulance: { family: 'MaterialCommunityIcons', name: 'ambulance', color: iconAccent.private_ambulance },
+  mortuary_van: { family: 'MaterialCommunityIcons', name: 'car-emergency', color: iconAccent.mortuary_van },
   
   // Navigation & Actions
   back: { family: 'Ionicons', name: 'arrow-back' },
@@ -61,33 +62,33 @@ const ICON_MAP = {
   address: { family: 'Feather', name: 'map-pin' },
   
   // Status
-  pending: { family: 'MaterialCommunityIcons', name: 'clock-outline', color: '#F59E0B' },
-  accepted: { family: 'Ionicons', name: 'checkmark-circle', color: '#3B82F6' },
-  'in-progress': { family: 'MaterialCommunityIcons', name: 'progress-wrench', color: '#8B5CF6' },
-  completed: { family: 'Ionicons', name: 'checkmark-done-circle', color: '#10B981' },
-  cancelled: { family: 'Ionicons', name: 'close-circle', color: '#EF4444' },
-  rejected: { family: 'Ionicons', name: 'close-circle-outline', color: '#EF4444' },
+  pending: { family: 'MaterialCommunityIcons', name: 'clock-outline', color: iconAccent.pending },
+  accepted: { family: 'Ionicons', name: 'checkmark-circle', color: iconAccent.accepted },
+  'in-progress': { family: 'MaterialCommunityIcons', name: 'progress-wrench', color: iconAccent['in-progress'] },
+  completed: { family: 'Ionicons', name: 'checkmark-done-circle', color: iconAccent.completed },
+  cancelled: { family: 'Ionicons', name: 'close-circle', color: iconAccent.cancelled },
+  rejected: { family: 'Ionicons', name: 'close-circle-outline', color: iconAccent.rejected },
   
   // Verification
-  verified: { family: 'Ionicons', name: 'checkmark-circle', color: '#10B981' },
-  unverified: { family: 'Ionicons', name: 'alert-circle', color: '#F59E0B' },
-  warning: { family: 'Ionicons', name: 'warning', color: '#F59E0B' },
-  verified_user: { family: 'MaterialIcons', name: 'verified-user', color: '#10B981' },
-  shield: { family: 'MaterialIcons', name: 'shield', color: '#3B82F6' },
+  verified: { family: 'Ionicons', name: 'checkmark-circle', color: iconAccent.verified },
+  unverified: { family: 'Ionicons', name: 'alert-circle', color: iconAccent.unverified },
+  warning: { family: 'Ionicons', name: 'warning', color: iconAccent.warning },
+  verified_user: { family: 'MaterialIcons', name: 'verified-user', color: iconAccent.verified_user },
+  shield: { family: 'MaterialIcons', name: 'shield', color: iconAccent.shield },
   
   // Actions
-  call: { family: 'Feather', name: 'phone-call', color: '#10B981' },
-  directions: { family: 'MaterialIcons', name: 'directions', color: '#3B82F6' },
-  track: { family: 'MaterialCommunityIcons', name: 'map-marker-radius', color: '#8B5CF6' },
-  navigate: { family: 'MaterialCommunityIcons', name: 'navigation', color: '#3B82F6' },
-  chatbox: { family: 'Ionicons', name: 'chatbox-outline', color: '#F67C16' },
-  sms: { family: 'MaterialCommunityIcons', name: 'message-text-outline', color: '#F67C16' },
-  chat: { family: 'Ionicons', name: 'chatbubble-outline', color: '#3B82F6' },
+  call: { family: 'Feather', name: 'phone-call', color: iconAccent.call },
+  directions: { family: 'MaterialIcons', name: 'directions', color: iconAccent.directions },
+  track: { family: 'MaterialCommunityIcons', name: 'map-marker-radius', color: iconAccent.track },
+  navigate: { family: 'MaterialCommunityIcons', name: 'navigation', color: iconAccent.navigate },
+  chatbox: { family: 'Ionicons', name: 'chatbox-outline', color: iconAccent.chatbox },
+  sms: { family: 'MaterialCommunityIcons', name: 'message-text-outline', color: iconAccent.sms },
+  chat: { family: 'Ionicons', name: 'chatbubble-outline', color: iconAccent.chat },
   
   // Misc
   calendar: { family: 'Feather', name: 'calendar' },
   clock: { family: 'Feather', name: 'clock' },
-  star: { family: 'FontAwesome', name: 'star', color: '#F59E0B' },
+  star: { family: 'FontAwesome', name: 'star', color: iconAccent.star },
   star_outline: { family: 'FontAwesome', name: 'star-o' },
   history: { family: 'MaterialIcons', name: 'history' },
   otp: { family: 'MaterialCommunityIcons', name: 'lock-outline' },
@@ -102,7 +103,7 @@ const ICON_MAP = {
   search: { family: 'Feather', name: 'search' },
   map: { family: 'Feather', name: 'map' },
   'map-pin': { family: 'Feather', name: 'map-pin' },
-  cancel: { family: 'MaterialIcons', name: 'cancel', color: '#EF4444' },
+  cancel: { family: 'MaterialIcons', name: 'cancel', color: iconAccent.cancel },
   arrow_back: { family: 'Ionicons', name: 'arrow-back' },
   'chevron-right': { family: 'Ionicons', name: 'chevron-forward' },
   'chevron-down': { family: 'Ionicons', name: 'chevron-down' },
@@ -113,32 +114,32 @@ const ICON_MAP = {
   'clipboard-list': { family: 'MaterialCommunityIcons', name: 'clipboard-list' },
   
   // Location
-  my_location: { family: 'MaterialIcons', name: 'my-location', color: '#3B82F6' },
-  other_location: { family: 'MaterialIcons', name: 'add-location-alt', color: '#8B5CF6' },
-  search_location: { family: 'MaterialIcons', name: 'search', color: '#6B7280' },
-  gps: { family: 'MaterialIcons', name: 'gps-fixed', color: '#3B82F6' },
+  my_location: { family: 'MaterialIcons', name: 'my-location', color: iconAccent.my_location },
+  other_location: { family: 'MaterialIcons', name: 'add-location-alt', color: iconAccent.other_location },
+  search_location: { family: 'MaterialIcons', name: 'search', color: iconAccent.search_location },
+  gps: { family: 'MaterialIcons', name: 'gps-fixed', color: iconAccent.gps },
   
   // Live tracking
-  live: { family: 'MaterialCommunityIcons', name: 'broadcast', color: '#EF4444' },
-  online: { family: 'MaterialCommunityIcons', name: 'circle', color: '#10B981' },
-  offline: { family: 'MaterialCommunityIcons', name: 'circle-outline', color: '#9CA3AF' },
+  live: { family: 'MaterialCommunityIcons', name: 'broadcast', color: iconAccent.live },
+  online: { family: 'MaterialCommunityIcons', name: 'circle', color: iconAccent.online },
+  offline: { family: 'MaterialCommunityIcons', name: 'circle-outline', color: iconAccent.offline },
   
   // Additional UI icons
   'open-in-new': { family: 'MaterialIcons', name: 'open-in-new' },
   'arrow-left': { family: 'Feather', name: 'arrow-left' },
   inbox: { family: 'MaterialCommunityIcons', name: 'inbox' },
-  'close-circle': { family: 'Ionicons', name: 'close-circle', color: '#EF4444' },
-  'check-circle': { family: 'Ionicons', name: 'checkmark-circle', color: '#10B981' },
+  'close-circle': { family: 'Ionicons', name: 'close-circle', color: iconAccent['close-circle'] },
+  'check-circle': { family: 'Ionicons', name: 'checkmark-circle', color: iconAccent['check-circle'] },
   wrench: { family: 'MaterialCommunityIcons', name: 'wrench' },
   'truck-fast': { family: 'MaterialCommunityIcons', name: 'truck-fast' },
   'map-marker-check': { family: 'MaterialCommunityIcons', name: 'map-marker-check' },
-  heart: { family: 'Ionicons', name: 'heart', color: '#EF4444' },
-  pin: { family: 'Ionicons', name: 'location', color: '#EF4444' },
+  heart: { family: 'Ionicons', name: 'heart', color: iconAccent.heart },
+  pin: { family: 'Ionicons', name: 'location', color: iconAccent.pin },
   touch: { family: 'MaterialCommunityIcons', name: 'gesture-tap' },
   'zoom-in': { family: 'Feather', name: 'maximize-2' },
   'currency-rupee': { family: 'MaterialCommunityIcons', name: 'currency-inr' },
   checklist: { family: 'MaterialCommunityIcons', name: 'clipboard-list' },
-  close_circle: { family: 'Ionicons', name: 'close-circle', color: '#EF4444' },
+  close_circle: { family: 'Ionicons', name: 'close-circle', color: iconAccent.close_circle },
   check_circle_outline: { family: 'Ionicons', name: 'checkmark-circle-outline' },
   'navigate-outline': { family: 'Ionicons', name: 'navigate-outline' },
   lock: { family: 'MaterialCommunityIcons', name: 'lock-outline' },
@@ -194,6 +195,11 @@ const Icon = ({
   style,
   containerStyle,
 }) => {
+  // The no-match fallback DOES sit on a themed surface, unlike the identity
+  // colours in ICON_MAP, so it must follow the theme or it goes near-invisible
+  // on a near-black background.
+  const { textBodyNeutral } = useThemeColors();
+
   // Check if name is in ICON_MAP
   const iconConfig = ICON_MAP[name];
   
@@ -204,12 +210,12 @@ const Icon = ({
   if (iconConfig) {
     IconComponent = getIconComponent(iconConfig.family);
     iconName = iconConfig.name;
-    iconColor = color || iconConfig.color || '#374151';
+    iconColor = color || iconConfig.color || textBodyNeutral;
   } else {
     // Use direct icon name
     IconComponent = getIconComponent(family || 'MaterialIcons');
     iconName = name;
-    iconColor = color || '#374151';
+    iconColor = color || textBodyNeutral;
   }
   
   if (containerStyle) {
@@ -254,6 +260,8 @@ const ICON_3D = {
 };
 
 export const ServiceIcon = ({ type, serviceType, size = 24, color, backgroundColor, style, useSvg }) => {
+  // Same reasoning as Icon: the no-match fallback sits on a themed surface.
+  const { textSecondary: fallbackInk } = useThemeColors();
   const iconType = type || serviceType;
 
   // Prefer the 3D rendered icon (unless explicitly disabled)
@@ -266,8 +274,9 @@ export const ServiceIcon = ({ type, serviceType, size = 24, color, backgroundCol
     }
   }
 
+
   const iconConfig = ICON_MAP[iconType] || ICON_MAP.electrician;
-  const iconColor = color || iconConfig.color || '#6B7280';
+  const iconColor = color || iconConfig.color || fallbackInk;
   const bgColor = backgroundColor || `${iconColor}20`;
 
   return (

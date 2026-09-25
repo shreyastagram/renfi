@@ -10,7 +10,9 @@ describe('palette hygiene', () => {
       [lightTheme, darkTheme].flatMap((t) => Object.values(t.colors)),
     );
     const orphans = Object.entries(palette)
-      .filter(([name]) => name !== 'vendor') // deliberately not a theme token
+      // Deliberately not theme tokens: vendor colours are fixed by a third
+      // party, and category accents are identical in both themes by design.
+      .filter(([name]) => !['vendor', 'categoryAccent', 'iconAccent', 'stableDark'].includes(name))
       .filter(([, group]) => {
         const values = typeof group === 'object' ? Object.values(group) : [group];
         return !values.some((v) => consumed.has(v));

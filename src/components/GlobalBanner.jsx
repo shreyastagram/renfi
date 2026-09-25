@@ -25,6 +25,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Icon } from '../components';
 import { useApp } from '../context/AppContext';
+import { brand, stableDark, iconAccent } from '../theme';
 import { setupForegroundMessageListener } from '../services/fcmService';
 import { addEventListener } from '../services/socketService';
 import { playNotificationSound } from '../utils/notificationSound';
@@ -33,10 +34,13 @@ import { Analytics, EV, onceEver } from '../services/analytics';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Brand colors
+// This banner is dark in BOTH themes (blurType is pinned to a dark material),
+// so it uses the stableDark tokens rather than theme-flipping ones. See the
+// note on stableDark in palette.js for why that distinction matters.
 const BRAND = {
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  white: '#FFFFFF',
+  primary: brand.orange,
+  secondary: brand.blue,
+  white: stableDark.ink,
 };
 
 // Banner type configuration
@@ -47,17 +51,17 @@ const BANNER_CONFIG = {
     autoDismissMs: 30000,
   },
   accepted: {
-    accentColor: '#10B981',
+    accentColor: iconAccent.completed,
     iconName: 'check_circle',
     autoDismissMs: 8000,
   },
   rejected: {
-    accentColor: '#EF4444',
+    accentColor: iconAccent.cancelled,
     iconName: 'cancelled',
     autoDismissMs: 8000,
   },
   cancelled: {
-    accentColor: '#F59E0B',
+    accentColor: iconAccent.pending,
     iconName: 'cancelled',
     autoDismissMs: 8000,
   },
@@ -67,7 +71,7 @@ const BANNER_CONFIG = {
     autoDismissMs: 8000,
   },
   arrived: {
-    accentColor: '#10B981',
+    accentColor: iconAccent.completed,
     iconName: 'location',
     autoDismissMs: 8000,
   },
@@ -299,7 +303,7 @@ const GlobalBanner = () => {
         style={[StyleSheet.absoluteFill, styles.blurFill]}
         blurType={Platform.OS === 'ios' ? 'chromeMaterialDark' : 'dark'}
         blurAmount={Platform.OS === 'ios' ? 30 : 25}
-        reducedTransparencyFallbackColor="rgba(15,23,42,0.95)"
+        reducedTransparencyFallbackColor={stableDark.surface}
       />
 
       {/* Accent top stripe */}
@@ -317,7 +321,7 @@ const GlobalBanner = () => {
           <Text style={styles.subtitle} numberOfLines={2}>{bannerData.body || ''}</Text>
         </View>
         <TouchableOpacity onPress={dismissBanner} style={styles.closeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Icon name="close" size={18} color="rgba(255,255,255,0.45)" />
+          <Icon name="close" size={18} color={stableDark.inkFaint} />
         </TouchableOpacity>
       </View>
 
@@ -337,7 +341,7 @@ const GlobalBanner = () => {
           </View>
           {bannerData.distance ? (
             <View style={styles.distanceBadge}>
-              <Icon name="location" size={12} color="#fff" />
+              <Icon name="location" size={12} color={stableDark.ink} />
               <Text style={styles.distanceText}>
                 {parseFloat(bannerData.distance) < 1000
                   ? `${Math.round(parseFloat(bannerData.distance))} m`
@@ -352,7 +356,7 @@ const GlobalBanner = () => {
       <View style={styles.actions}>
         {personPhone ? (
           <TouchableOpacity style={styles.callBtn} onPress={() => Linking.openURL(`tel:${personPhone.replace(/\s/g, '')}`).catch(() => {})}>
-            <Icon name="phone" size={16} color="#10B981" />
+            <Icon name="phone" size={16} color={iconAccent.call} />
             <Text style={styles.callText}>Call</Text>
           </TouchableOpacity>
         ) : null}
@@ -372,7 +376,7 @@ const GlobalBanner = () => {
               });
             }}
           >
-            <Icon name="directions" size={16} color="#3B82F6" />
+            <Icon name="directions" size={16} color={iconAccent.directions} />
             <Text style={styles.directionsText}>Directions</Text>
           </TouchableOpacity>
         ) : null}
@@ -398,7 +402,7 @@ const GlobalBanner = () => {
           }}
         >
           <Text style={styles.viewText}>View Details</Text>
-          <Icon name="chevron-right" size={16} color="#fff" />
+          <Icon name="chevron-right" size={16} color={stableDark.ink} />
         </TouchableOpacity>
       </View>
     </Animated.View>
@@ -424,7 +428,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 20,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: stableDark.shadowBase,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.3,
         shadowRadius: 20,
@@ -449,7 +453,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: stableDark.fill,
     alignSelf: 'center',
     marginBottom: 12,
     marginTop: 6,
@@ -473,11 +477,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: stableDark.ink,
   },
   subtitle: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.7)',
+    color: stableDark.inkMuted,
     marginTop: 2,
   },
   closeBtn: {
@@ -486,7 +490,7 @@ const styles = StyleSheet.create({
   personRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: stableDark.fillSubtle,
     borderRadius: 14,
     padding: 12,
     marginBottom: 12,
@@ -509,7 +513,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: stableDark.ink,
   },
   personDetails: {
     flex: 1,
@@ -518,11 +522,11 @@ const styles = StyleSheet.create({
   personName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
+    color: stableDark.ink,
   },
   personPhone: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.7)',
+    color: stableDark.inkMuted,
     marginTop: 2,
   },
   distanceBadge: {
@@ -537,7 +541,7 @@ const styles = StyleSheet.create({
   distanceText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#fff',
+    color: stableDark.ink,
   },
   actions: {
     flexDirection: 'row',
@@ -546,34 +550,34 @@ const styles = StyleSheet.create({
   callBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16,185,129,0.15)',
+    backgroundColor: stableDark.successFill,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
     gap: 6,
     borderWidth: 1,
-    borderColor: 'rgba(16,185,129,0.3)',
+    borderColor: stableDark.successLine,
   },
   callText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#10B981',
+    color: iconAccent.completed,
   },
   directionsBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(59,130,246,0.15)',
+    backgroundColor: stableDark.infoFill,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
     gap: 6,
     borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.3)',
+    borderColor: stableDark.infoLine,
   },
   directionsText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#3B82F6',
+    color: iconAccent.directions,
   },
   viewBtn: {
     flex: 1,
@@ -588,7 +592,7 @@ const styles = StyleSheet.create({
   viewText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#fff',
+    color: stableDark.ink,
   },
 });
 

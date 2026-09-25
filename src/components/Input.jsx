@@ -14,6 +14,7 @@ import {  View,
   StyleSheet
 } from 'react-native';
 import TouchableOpacity from './TouchableOpacity';
+import { useThemeColors, useThemedStyles } from '../theme';
 
 /**
  * Input Component
@@ -49,6 +50,8 @@ const Input = ({
   style,
   ...props
 }) => {
+  const c = useThemeColors();
+  const styles = useThemedStyles(makeStyles);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
 
@@ -89,7 +92,7 @@ const Input = ({
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={c.textMuted}
           accessibilityLabel={label || placeholder}
           accessibilityHint={error || undefined}
           secureTextEntry={
@@ -123,55 +126,55 @@ const Input = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => StyleSheet.create({
   container: {
     marginBottom: 16,
   },
   label: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#374151',
+    color: theme.colors.textBodyNeutral,
     marginBottom: 6,
   },
   requiredAsterisk: {
-    color: '#EF4444',
+    color: theme.colors.danger,
     fontWeight: '700',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: theme.colors.borderMediumNeutral,
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
   },
   inputFocused: {
-    borderColor: '#2563EB',
+    borderColor: theme.colors.altBlueIndigo,
     borderWidth: 2,
   },
   inputError: {
-    borderColor: '#EF4444',
+    borderColor: theme.colors.danger,
   },
   inputDisabled: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: theme.colors.surfaceSunken,
   },
   input: {
     flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 14,
     fontSize: 16,
-    color: '#111827',
+    color: theme.colors.textPrimaryNeutral,
   },
   eyeButton: {
     padding: 12,
   },
   eyeIcon: {
     fontSize: 20,
-    color: '#6B7280',
+    color: theme.colors.textSecondary,
   },
   error: {
     fontSize: 12,
-    color: '#EF4444',
+    color: theme.colors.danger,
     marginTop: 4,
   },
 });
