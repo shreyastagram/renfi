@@ -168,6 +168,45 @@ export const stableDark = {
   inkDim: 'rgba(255, 255, 255, 0.6)',
 };
 
+// The premium / subscription surface. THEME-INDEPENDENT, and a deliberately separate
+// system from `stableDark`: that one is slate + white chrome, this one is navy + gold
+// marketing. The hero, the active-plan header and the launch-offer chip are dark in
+// BOTH themes — they sell a product rather than reflect a UI mode — so nothing on
+// them may use a flipping token. Same trap as stableDark, different palette.
+export const premium = {
+  navy: '#0D1220',
+  navyLift: '#161D30',
+  navyGradA: '#1A1F2E',
+  navyGradC: '#131A2A',
+  slateHeader: '#0F172A', // the active-plan card's dark header band
+  gold: '#E8B54D',
+  goldSoft: '#F2CE8A',
+  goldInk: '#B98A2F', // gold dark enough to read as TEXT on a light surface
+  crown: '#FFD700',
+  ink: '#FDFBF7',
+  inkIvory: '#F4EFE6',
+  inkPer: '#E7E2D6',
+  inkMuted: '#B9C0CF',
+  inkFaint: '#8A93A6',
+  inkBlue: '#8FBAE3',
+  assure: '#7FD8A5',
+  statusDot: '#4ADE80',
+  keyline: 'rgba(232,181,77,0.14)',
+  keylineBlue: 'rgba(43,118,188,0.16)',
+  crownFill: 'rgba(232,181,77,0.12)',
+  crownLine: 'rgba(232,181,77,0.35)',
+  divider: 'rgba(255,255,255,0.08)',
+  glowOrange: 'rgba(246,124,22,0.20)',
+  glowGold: 'rgba(232,181,77,0.16)',
+  glowBlue: 'rgba(43,118,188,0.22)',
+  borderGold: 'rgba(232,181,77,0.30)',
+  borderBlue: 'rgba(43,118,188,0.38)',
+  offerLine: 'rgba(232,181,77,0.4)',
+  statusFill: 'rgba(22,163,74,0.15)',
+  decoGold: 'rgba(255,215,0,0.07)',
+  decoIndigo: 'rgba(99,102,241,0.06)',
+};
+
 // The emergency / panic surface (PSATriggerScreen). A deliberately alarming
 // dark-red full screen. THEME-INDEPENDENT: it signals danger, not a UI mode, and
 // it must look identical whichever appearance the user has chosen. Same class of

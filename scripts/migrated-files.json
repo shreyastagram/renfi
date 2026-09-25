@@ -32,6 +32,7 @@
     "src/screens/CreateServiceRequestScreen.jsx",
     "src/screens/UserServiceHistoryScreen.jsx",
     "src/screens/UserHomeScreen.jsx",
-    "src/screens/ServiceRequestDetailScreen.jsx"
+    "src/screens/ServiceRequestDetailScreen.jsx",
+    "src/screens/SubscriptionScreen.jsx"
   ]
 }

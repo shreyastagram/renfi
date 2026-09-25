@@ -31,10 +31,12 @@
 
 ### Next action
 
-**Phase 7 batch 4** — `UserHomeScreen` (146 colours, a map, and the tab bar over it),
-`SubscriptionScreen`, `ServiceRequestDetailScreen`. Then batch 5 last, because
-`AccountSecurityScreen` / `ChangePasswordScreen` carry 33 security lines. Swap
-`SafeAreaView` → `<Screen>` in each file as it is themed.
+**Phase 7 batch 5** — `AccountSecurityScreen` + `ChangePasswordScreen` (33 security lines,
+deliberately last in the phase), plus `SettingsScreen` and `EmergencyServicesScreen` (47
+each). After that, the remaining user-side weight is `ProfileScreen` at **324 literals** —
+the single largest file left, and NOT on this board; it belongs with Phase 5b's
+verification surfaces and will need a batch of its own. Swap `SafeAreaView` → `<Screen>`
+in each file as it is themed.
 
 ---
 
@@ -62,8 +64,8 @@ contract.
   - [x] batch 1 — `PSATriggerScreen`, `PSAContactsScreen`, `ReferralScreen` (zero-security)
   - [x] batch 2 — `FavoritesScreen`, `LiveTrackingScreen`, `EventServicesScreen`
   - [x] batch 3 — `CreateServiceRequestScreen`, `UserServiceHistoryScreen`
-  - [~] batch 4 — `UserHomeScreen` ✔, `ServiceRequestDetailScreen` ✔ (+ Mapbox — the map
-        lives HERE, not on the home screen as this board previously said), `SubscriptionScreen` next
+  - [x] batch 4 — `UserHomeScreen`, `ServiceRequestDetailScreen` (+ Mapbox — the map lives
+        HERE, not on the home screen as this board previously said), `SubscriptionScreen`
   - [ ] batch 5 — `AccountSecurityScreen`, `ChangePasswordScreen` (33 security lines — last)
 - [ ] **Phase 8** — Provider screens incl. Working Hours (5 files, 126 colours)
 - [ ] **Phase 9** — Auth screens
@@ -75,29 +77,51 @@ contract.
 
 | Measure | Value |
 |---|---|
-| Colour literals remaining | **2,848** (3,329 at v1.0.9) — measured, see note |
-| Files on the hex allowlist | **29** |
+| Colour literals remaining | **2,365** (3,329 at v1.0.9) — measured, see note |
+| Files on the hex allowlist | **30** |
 | Components fully themed | **8** — CustomDialog, Button, Alert, ShimmerLoader, Input, Icon, GlobalBanner, DrawerMenu (+ RootNavigator surgically) |
-| Screens fully themed | **11** — EmailVerifyHandler, PSATrigger, PSAContacts, Referral, Favorites, LiveTracking, EventServices, CreateServiceRequest, UserServiceHistory, UserHome, ServiceRequestDetail |
+| Screens fully themed | **12** — EmailVerifyHandler, PSATrigger, PSAContacts, Referral, Favorites, LiveTracking, EventServices, CreateServiceRequest, UserServiceHistory, UserHome, ServiceRequestDetail, Subscription |
 | Theme unit tests | 26 across 5 suites |
 | Owner's Working Hours tests | 86 — **must never regress** |
 | i18n | **2074** × en/hi/mr (2067 baseline + 7 theme keys) |
 
 **On the literal count.** 3,329 was v1.0.9 counted over its own 164 source files. Today's
-2,848 covers the 174 that exist now. The 481 difference splits into **120 removed with the
-dead files in Phase 4** and **361 genuinely migrated onto tokens**. Recount with:
+**2,365** covers the 173 that exist now.
+
+**Recount at every commit — do not carry the previous number forward.** I left this cell
+at batch 3's value through batch 4a, then guessed at 4b; both were wrong by ~300. Verified
+series, one measurement per commit:
+
+| Commit | Literals | Files |
+|---|---|---|
+| `v1.0.9` | 3,329 | 164 |
+| batch 2 `11da936` | 3,021 | 173 |
+| batch 3 `f3a1ac6` | 2,848 | 173 |
+| batch 4a `2f9939e` | 2,520 | 173 |
+| batch 4b `605c97f` | **2,365** | 173 |
+
+Recount with:
+
+```
+git ls-files | grep -E '\.(jsx?|tsx?)$' \
+  | grep -vE '^scripts/|__tests__' \
+  | xargs grep -ohE '#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)' | wc -l
+```
+
+Note the count can go UP when a palette group is added (the `premium` group added 31), so a
+drop smaller than the screen's own literal count is expected, not a mistake. Recount with:
 `git ls-files | grep -E '\.(jsx?|tsx?)$'` filtered to exclude `scripts/` and tests, matching
 `#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)`. Quoting a smaller number than that is overclaiming.
 
-**Honest split:** by "can a user see the app go dark" ≈ **30%**. By total project effort
-≈ **60%** — architecture, palette, design language, census and gates are done, and the
+**Honest split:** by "can a user see the app go dark" ≈ **40%**. By total project effort
+≈ **65%** — architecture, palette, design language, census and gates are done, and the
 pattern is proven. The remaining literals are mechanical.
 
 ### Remaining by area
 
 | Area | Colours | Phase |
 |---|---|---|
-| Everything else (screens) | ~2,098 | 7–9 |
+| Everything else (screens) | ~1,492 | 7–9 |
 | Verification surfaces | 395 | 5b |
 | Working Hours | 126 | 8 |
 | Settings screen | 47 | 6b/7 |
@@ -303,6 +327,17 @@ const MyScreen = () => {
 ```
 
 ---
+
+### Theme-independent groups (added as screens needed them)
+
+`categoryAccent`, `iconAccent`, `medal`, `brandTint`, `vendor`, `mapRoute`, `mapOverlay`,
+`stableDark`, `stableEmergency`, **`premium`**.
+
+`premium` is the navy + gold subscription system — the hero, the active-plan header band
+and the launch-offer chip. Deliberately separate from `stableDark` (slate + white chrome):
+both are "dark in both themes", but they are different visual languages and mixing them
+would blur both. A sheet whose every value is theme-independent should stay a plain
+`StyleSheet.create` rather than becoming a factory — `heroStyles` does.
 
 ## 8. DESIGN LANGUAGE (approved, binding)
 

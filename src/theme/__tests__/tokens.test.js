@@ -16,6 +16,7 @@ describe('palette hygiene', () => {
         'vendor', 'categoryAccent', 'iconAccent',
         'stableDark', 'stableEmergency', 'medal', 'brandTint', 'mapRoute',
     'mapOverlay',
+    'premium',
       ].includes(name))
       .filter(([, group]) => {
         const values = typeof group === 'object' ? Object.values(group) : [group];

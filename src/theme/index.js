@@ -31,6 +31,7 @@ export {
   iconAccent,
   stableDark,
   stableEmergency,
+  premium,
   medal,
   brandTint,
   mapRoute,

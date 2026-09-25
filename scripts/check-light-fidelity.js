@@ -237,6 +237,36 @@ const EXPECTED_CHANGES = {
     '#F59E0B': 'the Rate button keeps its gold fill (medal.gold) but its label is now dark ink; white was 2.15:1',
     '#FFFFFF': 'the help icon was WHITE ON A WHITE HEADER at v1.0.9 -- invisible. Now brand orange, matching UserHomeScreen.',
   },
+  'src/screens/SubscriptionScreen.jsx': {
+    // The navy + gold hero, the active-plan header band and the launch-offer chip are
+    // UNCHANGED -- they moved to the theme-independent `premium` group, which holds
+    // their shipped values verbatim. Everything below is a light-surface change.
+    //
+    // This screen carried its own orange family (orange-600/700 on orange-50) beside
+    // the semantic amber one. Converged, and the convergence is also the a11y fix:
+    '#EA580C': 'a11y: orange-600 on its own tint was 4.0:1 -> the warning token (5.4:1)',
+    '#C2410C': 'converged onto the warning token',
+    '#C77D3A': 'a11y: 3.6:1 on white -> the warning token',
+    '#FFF5EC': 'converged onto warningContainer',
+    'rgba(253,242,232,0.92)': 'premium badge fill -> warningContainer; the 0.92 alpha was imperceptible',
+    'rgba(246,124,22,0.35)': 'premium badge hairline -> brandOrangeBorder (#FDBA74)',
+    'rgba(234,88,12,0.28)': 'journey node hairline -> warningBorder',
+    'rgba(234,88,12,0.25)': 'journey tag hairline -> warningBorder',
+    'rgba(234,88,12,0.18)': 'journey thread -> warningBorder',
+    '#D97706': 'the pending-transaction amber converged onto the warning token; it keeps a DIFFERENT background (warningContainer) from refunded (warningFill) so the two states stay distinguishable',
+    '#FFFBEB': 'converged onto warningContainer',
+    'rgba(15,23,42,0.08)': 'journey card hairline -> border (#E2E8F0)',
+    '#F8FBFF': 'the selected plan tint -> infoContainer (#EFF6FF); a touch stronger, and it is the selection cue',
+    '#98A2B3': 'a11y: 2.6:1 on white -> textMuted (5.42:1)',
+    '#DBEAFE': 'chip hairline converged onto infoBorder',
+    '#F5F3FF': 'benefit-row violet tint -> accentVioletFill',
+    '#F0F9FF': 'benefit-row sky tint converged onto infoFill; #0EA5E9 on it was 2.8:1',
+    // Not flagged (still reachable elsewhere) but changed for real:
+    '#16A34A': 'a11y: green-600 on its tint was 3.0:1 -> the success token (4.8:1)',
+    '#0EA5E9': 'a11y: sky-500 on its tint was 2.8:1 -> the info token',
+    '#2b76bc': 'the processing bar and benefit row keep brand blue as an icon, but blue-on-tint TEXT moves to the info token (4.4 -> 5.6)',
+    'rgba(15, 23, 42, 0.6)': 'the transaction sheet scrim unified onto theme.colors.overlay (0.45)',
+  },
   'src/screens/EmailVerifyHandlerScreen.jsx': {
     '#2563EB': 'altBlueIndigo', '#FFFFFF': 'surface',
     '#6B7280': 'textSecondary is now the accessible #475569',
@@ -279,6 +309,7 @@ for (const group of [
   'brandTint',
   'mapRoute',
   'mapOverlay',
+  'premium',
   'vendor',
 ]) {
   const g = palette[group];
