@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLocation } from '../context/LocationContext';
 import * as psaService from '../services/psaService';
+import { stableEmergency } from '../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SLIDER_WIDTH = SCREEN_WIDTH - 64;
@@ -30,16 +31,20 @@ const THUMB_SIZE = 60;
 const SLIDE_THRESHOLD = SLIDER_WIDTH - THUMB_SIZE;
 const COUNTDOWN_SECONDS = 5;
 
+// This screen is the panic / SOS surface: a deliberately alarming dark-red full
+// screen. It is THEME-INDEPENDENT — it signals danger, not a UI mode, so it must
+// look identical in light and dark. Everything therefore comes from
+// stableEmergency and nothing here flips. See palette.js.
 const COLORS = {
-  background: '#7F1D1D',
-  white: '#FFFFFF',
-  whiteTranslucent: 'rgba(255,255,255,0.6)',
-  danger: '#DC2626',
-  success: '#16A34A',
-  successBg: '#052E16',
-  sliderTrack: 'rgba(255,255,255,0.15)',
-  sliderThumb: '#FFFFFF',
-  textMuted: 'rgba(255,255,255,0.7)',
+  background: stableEmergency.surface,
+  white: stableEmergency.ink,
+  whiteTranslucent: stableEmergency.inkFaint,
+  danger: stableEmergency.danger,
+  success: stableEmergency.success,
+  successBg: stableEmergency.successSurface,
+  sliderTrack: stableEmergency.sliderTrack,
+  sliderThumb: stableEmergency.ink,
+  textMuted: stableEmergency.inkMuted,
 };
 
 const STATE = { READY: 'ready', COUNTDOWN: 'countdown', SENDING: 'sending', SENT: 'sent', ERROR: 'error' };
@@ -347,30 +352,30 @@ const styles = StyleSheet.create({
   topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12 },
   closeButton: {
     width: 44, height: 44, borderRadius: 15,
-    backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: stableEmergency.fill, alignItems: 'center', justifyContent: 'center',
   },
   cancelHint: { fontSize: 14, color: COLORS.textMuted, marginLeft: 12, fontWeight: '500' },
 
   readyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
   sosCircle: {
     width: 100, height: 100, borderRadius: 50,
-    backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center',
-    marginBottom: 24, borderWidth: 2, borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: stableEmergency.fill, alignItems: 'center', justifyContent: 'center',
+    marginBottom: 24, borderWidth: 2, borderColor: stableEmergency.line,
   },
   title: { fontSize: 26, fontWeight: '800', color: COLORS.white, textAlign: 'center', marginBottom: 12 },
   subtitle: { fontSize: 15, color: COLORS.textMuted, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
 
   locationCard: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 12,
+    backgroundColor: stableEmergency.fillStrong, borderRadius: 12,
     padding: 14, width: '100%', marginBottom: 20,
   },
-  locationText: { flex: 1, fontSize: 14, color: '#1E293B', marginLeft: 10, lineHeight: 20 },
+  locationText: { flex: 1, fontSize: 14, color: stableEmergency.onFillStrong, marginLeft: 10, lineHeight: 20 },
 
   contactsPreview: { width: '100%', marginBottom: 32 },
   contactsPreviewLabel: { fontSize: 13, color: COLORS.textMuted, marginBottom: 8, fontWeight: '600' },
   contactChip: {
-    flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.1)',
+    flexDirection: 'row', backgroundColor: stableEmergency.fillSoft,
     borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 6,
   },
   contactChipText: { fontSize: 14, color: COLORS.white, fontWeight: '600' },
@@ -386,7 +391,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.sliderThumb, alignItems: 'center', justifyContent: 'center',
     position: 'absolute', left: 4, top: 4, zIndex: 2,
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8 },
+      ios: { shadowColor: stableEmergency.shadowBase, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8 },
       android: { elevation: 6 },
     }),
   },
@@ -398,9 +403,9 @@ const styles = StyleSheet.create({
   countdownUnit: { fontSize: 18, color: COLORS.textMuted, fontWeight: '500', marginBottom: 40 },
   cancelButton: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16,
+    backgroundColor: stableEmergency.sliderTrack, borderRadius: 16,
     paddingVertical: 16, paddingHorizontal: 32,
-    borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)',
+    borderWidth: 2, borderColor: stableEmergency.lineSoft,
   },
   cancelButtonText: { fontSize: 18, fontWeight: '800', color: COLORS.white, marginLeft: 10, letterSpacing: 1 },
 
@@ -417,7 +422,7 @@ const styles = StyleSheet.create({
   sentTitle: { fontSize: 26, fontWeight: '800', color: COLORS.white, marginBottom: 12 },
   sentSubtitle: { fontSize: 15, color: COLORS.textMuted, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
   sentDetails: {
-    backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14,
+    backgroundColor: stableEmergency.fillFaint, borderRadius: 14,
     padding: 18, width: '100%', marginBottom: 32,
   },
   sentDetailRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
@@ -428,7 +433,7 @@ const styles = StyleSheet.create({
   errorContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
   errorCircle: {
     width: 88, height: 88, borderRadius: 44,
-    backgroundColor: 'rgba(220,38,38,0.2)', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: stableEmergency.dangerFill, alignItems: 'center', justifyContent: 'center',
     marginBottom: 24, borderWidth: 3, borderColor: COLORS.danger,
   },
   errorTitle: { fontSize: 26, fontWeight: '800', color: COLORS.white, marginBottom: 12 },
@@ -442,12 +447,12 @@ const styles = StyleSheet.create({
   retryButtonText: { fontSize: 15, fontWeight: '700', color: COLORS.white, marginLeft: 8 },
   backButtonAlt: {
     borderRadius: 14, paddingVertical: 14, paddingHorizontal: 24,
-    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)',
+    borderWidth: 1.5, borderColor: stableEmergency.lineSoft,
   },
   backButtonAltText: { fontSize: 15, fontWeight: '600', color: COLORS.white },
   emergencyFallback: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12,
+    backgroundColor: stableEmergency.fillFaint, borderRadius: 12,
     padding: 14, width: '100%',
   },
   emergencyFallbackText: { fontSize: 13, color: COLORS.textMuted, marginLeft: 10, lineHeight: 19 },

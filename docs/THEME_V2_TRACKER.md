@@ -3,7 +3,7 @@
 **Branch:** `feature/theme-v2` (off tag **`v1.0.9`** = `b74f862`)
 **Colour contract:** `docs/COLOUR_MAP.md`
 **Also read:** `FIXORA_APP/WORK_AVAILABILITY_TRACKER.md` — Working Hours is live in prod.
-**Last updated:** 2026-09-25, after batch 6b-4 — shared chrome complete.
+**Last updated:** 2026-09-25, after Phase 7 batch 1.
 
 > **Read this file BEFORE touching code.** If it contradicts the code, **STOP and flag it** —
 > do not proceed on a false premise.
@@ -54,6 +54,11 @@ contract.
         **17 SafeAreaView sites still to swap** — they land with their own phases
         (auth screens in 9, verification in 5b), not as a big-bang change.
 - [ ] **Phase 7** — User screens + Mapbox theme following (`TrafficNight`)
+  - [x] batch 1 — `PSATriggerScreen`, `PSAContactsScreen`, `ReferralScreen` (zero-security)
+  - [ ] batch 2 — `FavoritesScreen`, `LiveTrackingScreen`, `EventServicesScreen`
+  - [ ] batch 3 — `CreateServiceRequestScreen`, `UserServiceHistoryScreen`
+  - [ ] batch 4 — `UserHomeScreen` + Mapbox, `SubscriptionScreen`, `ServiceRequestDetailScreen`
+  - [ ] batch 5 — `AccountSecurityScreen`, `ChangePasswordScreen` (33 security lines — last)
 - [ ] **Phase 8** — Provider screens incl. Working Hours (5 files, 126 colours)
 - [ ] **Phase 9** — Auth screens
 - [ ] **Phase 10** — Full sweep + device-test checklist
@@ -65,7 +70,7 @@ contract.
 | Measure | Value |
 |---|---|
 | Colour literals remaining | **~3,150** (was 3,329 at v1.0.9) |
-| Files on the hex allowlist | **19** |
+| Files on the hex allowlist | **22** |
 | Components fully themed | **8** — CustomDialog, Button, Alert, ShimmerLoader, Input, Icon, GlobalBanner, DrawerMenu (+ RootNavigator surgically) |
 | Theme unit tests | 23 across 5 suites |
 | Owner's Working Hours tests | 86 — **must never regress** |
@@ -106,6 +111,12 @@ npm run verify
 
 **Plus, per file touched:** lint against the v1.0.9 baseline for that *specific* file.
 Never a global count. This caught a real crash-on-render regression in `Input`.
+
+⚠️ **A sudden lint DROP is a red flag, not a win.** When a file stops parsing, eslint
+reports one `Parsing error` and suppresses every other diagnostic — so a regression looks
+like an improvement. `ReferralScreen` went "6 → 1" and I reported it as progress; it was
+actually a broken import. **Always check `grep -c "Parsing error"` and `npm run check:types`
+before believing a lower number.**
 
 ### Syntax checking — the babel CLI only works on plain `.js`
 
@@ -156,6 +167,10 @@ a row here.
 - **Raw near-black was worse than the old ramp on cheap panels** (surface→elevated 1.10 vs
   1.21). Fixed by sizing steps on code-value gap and leaning on the card border.
 - **The hex linter flagged its own comments.** Fixed the linter, not the comments.
+- **An "insert after the last import" heuristic split a multi-line import in half.** It
+  produced a file that eslint reported as a single `Parsing error`, which I misread as a
+  lint improvement from 6 to 1. `check:types` caught the real problem. Never insert imports
+  positionally; anchor on a complete statement.
 - **No gate verified light-mode fidelity.** Every check passed even if a colour was mapped
   to the WRONG token — hex lint only wants no literal, contrast only checks token pairs,
   tests and lint never look at values. Added `check:light`, which immediately found a

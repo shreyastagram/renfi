@@ -116,6 +116,16 @@ const EXPECTED_CHANGES = {
     'rgba(220,38,38,0.05)': 'accent-row fill converged onto dangerFill',
     'rgba(220,38,38,0.12)': 'accent-row hairline converged onto dangerLine',
   },
+  'src/screens/PSAContactsScreen.jsx': {
+    // This screen carried its own warning family (amber-600/50) alongside the
+    // semantic one (amber-700/orange-50). Converged, same call as Alert.
+    '#FECACA': 'danger hairline now dangerLine, visible in both themes',
+    '#D97706': 'converged onto the warning token (#B45309), which also passes AA',
+    '#FFFBEB': 'converged onto warningContainer',
+    '#FDE68A': 'warning hairline now warningLine',
+    '#78350F': 'disclaimer body converged onto the warning token',
+    'rgba(241,245,249,0.95)': 'sheet background now the bg token; the 0.95 alpha was imperceptible',
+  },
   'src/screens/EmailVerifyHandlerScreen.jsx': {
     '#2563EB': 'altBlueIndigo', '#FFFFFF': 'surface',
     '#6B7280': 'textSecondary is now the accessible #475569',
@@ -149,7 +159,15 @@ const norm = (v) => {
 // theme-independent groups a migrated file may legitimately reference.
 const resolvable = new Set();
 Object.values(lightTheme.colors).forEach((v) => resolvable.add(norm(String(v))));
-for (const group of ['categoryAccent', 'iconAccent', 'stableDark', 'vendor']) {
+for (const group of [
+  'categoryAccent',
+  'iconAccent',
+  'stableDark',
+  'stableEmergency',
+  'medal',
+  'brandTint',
+  'vendor',
+]) {
   const g = palette[group];
   if (g) Object.values(g).forEach((v) => resolvable.add(norm(String(v))));
 }

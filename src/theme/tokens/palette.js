@@ -147,6 +147,7 @@ export const stableDark = {
   // The drawer hero. A brand-dark panel above a light menu body, so the panel
   // and everything on it stays put while the body below flips with the theme.
   heroSurface: '#0F172A',
+  heroCard: '#1E293B',
   heroBackdrop: 'rgba(15, 23, 42, 0.6)',
   heroDivider: 'rgba(255, 255, 255, 0.1)',
   heroRowFill: 'rgba(255, 255, 255, 0.03)',
@@ -164,6 +165,58 @@ export const stableDark = {
   verifiedInk: '#86EFAC',
   inkSoft: 'rgba(255, 255, 255, 0.55)',
   inkDim: 'rgba(255, 255, 255, 0.6)',
+};
+
+// The emergency / panic surface (PSATriggerScreen). A deliberately alarming
+// dark-red full screen. THEME-INDEPENDENT: it signals danger, not a UI mode, and
+// it must look identical whichever appearance the user has chosen. Same class of
+// reasoning as stableDark — the surface does not flip, so nothing on it may.
+export const stableEmergency = {
+  surface: '#7F1D1D',
+  ink: '#FFFFFF',
+  inkMuted: 'rgba(255, 255, 255, 0.7)',
+  inkFaint: 'rgba(255, 255, 255, 0.6)',
+  fill: 'rgba(255, 255, 255, 0.12)',
+  fillStrong: 'rgba(255, 255, 255, 0.95)',
+  line: 'rgba(255, 255, 255, 0.2)',
+  sliderTrack: 'rgba(255, 255, 255, 0.15)',
+  danger: '#DC2626',
+  success: '#16A34A',
+  successSurface: '#052E16',
+  onFillStrong: '#1E293B',
+  fillFaint: 'rgba(255, 255, 255, 0.08)',
+  fillSoft: 'rgba(255, 255, 255, 0.1)',
+  lineSoft: 'rgba(255, 255, 255, 0.3)',
+  dangerFill: 'rgba(220, 38, 38, 0.2)',
+  shadowBase: '#000000',
+};
+
+// Low-alpha brand washes. THEME-INDEPENDENT because alpha composites against
+// whatever surface is beneath: 10% orange reads as a pale wash on white and as a
+// dark orange-tinted panel on near-black. Both are correct, so one value serves
+// both themes.
+export const brandTint = {
+  orange04: 'rgba(246, 124, 22, 0.04)',
+  orange06: 'rgba(246, 124, 22, 0.06)',
+  orange10: 'rgba(246, 124, 22, 0.1)',
+  orange12: 'rgba(246, 124, 22, 0.12)',
+  blue05: 'rgba(43, 118, 188, 0.05)',
+  blue06: 'rgba(43, 118, 188, 0.06)',
+  blue08: 'rgba(43, 118, 188, 0.08)',
+  blue10: 'rgba(43, 118, 188, 0.1)',
+  violet04: 'rgba(124, 58, 237, 0.04)',
+  violet10: 'rgba(124, 58, 237, 0.1)',
+};
+
+// Referral leaderboard medals. THEME-INDEPENDENT: gold, silver and bronze are
+// what they are. Recognisability beats theme consistency here.
+export const medal = {
+  gold: '#F59E0B',
+  silver: '#94A3B8',
+  bronze: '#CD7F32',
+  goldInk: '#B7791F',
+  silverInk: '#64748B',
+  bronzeInk: '#92400E',
 };
 
 // Apple system colours, light and dark, exactly as the HIG defines them.
@@ -305,6 +358,8 @@ export const semanticDark = {
 export const semanticLine = {
   dangerLight: 'rgba(239, 68, 68, 0.15)',
   dangerFillLight: 'rgba(239, 68, 68, 0.08)',
+  warningLight: 'rgba(217, 119, 6, 0.25)',
+  warningFillLight: 'rgba(217, 119, 6, 0.12)',
 };
 
 export const semanticDarkBorder = {

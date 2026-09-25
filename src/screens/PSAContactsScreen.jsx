@@ -28,32 +28,36 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import * as psaService from '../services/psaService';
+import { useThemedStyles, useThemeColors, stableDark } from '../theme';
 
 // ── Colors ──
-const COLORS = {
-  darkHero: '#0F172A',
-  background: '#F1F5F9',
-  cardWhite: '#FFFFFF',
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  danger: '#DC2626',
-  dangerLight: '#FEF2F2',
-  dangerBorder: '#FECACA',
-  success: '#16A34A',
-  successLight: '#F0FDF4',
-  warning: '#D97706',
-  warningLight: '#FFFBEB',
-  warningBorder: '#FDE68A',
-  muted: '#94A3B8',
-  textPrimary: '#1E293B',
-  textSecondary: '#64748B',
-  divider: '#E2E8F0',
-  inputBg: '#F8FAFC',
-  white: '#FFFFFF',
-};
+// MIXED surface: a brand-dark hero above a light body. Hero pieces come from
+// stableDark; everything else flips with the theme.
+const makeColors = (c) => ({
+  darkHero: stableDark.heroSurface,
+  background: c.bg,
+  cardWhite: c.surface,
+  primary: c.brandOrange,
+  secondary: c.brandBlue,
+  danger: c.danger,
+  dangerLight: c.dangerContainer,
+  dangerBorder: c.dangerLine,
+  success: c.success,
+  successLight: c.successContainer,
+  warning: c.warning,
+  warningLight: c.warningContainer,
+  warningBorder: c.warningLine,
+  muted: c.textMuted,
+  textPrimary: c.textStrong,
+  textSecondary: c.textSecondary,
+  divider: c.border,
+  inputBg: c.surfaceSunken,
+  white: c.surface,
+});
 
-const SHADOWS = Platform.select({
-  ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 20 },
+// Takes the theme because shadowColor must follow it; called from makeStyles.
+const makeShadows = (c) => Platform.select({
+  ios: { shadowColor: c.shadow, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 20 },
   android: { elevation: 5 },
 });
 
@@ -74,6 +78,9 @@ const AnimatedPressable = ({ children, onPress, style, disabled }) => {
 
 // ── Main Screen ──
 const PSAContactsScreen = ({ navigation }) => {
+  const themeColors = useThemeColors();
+  const styles = useThemedStyles(makeStyles);
+  const COLORS = makeColors(themeColors);
   const insets = useSafeAreaInsets();
   const { user, userType } = useApp();
   const { showDestructive, showInfo } = useDialog();
@@ -387,6 +394,9 @@ const PSAContactsScreen = ({ navigation }) => {
 // ── Contact Form Modal (smooth animated backdrop) ──
 
 const ContactFormModal = ({ visible, contact, onClose, onSave }) => {
+  const themeColors = useThemeColors();
+  const styles = useThemedStyles(makeStyles);
+  const COLORS = makeColors(themeColors);
   const insets = useSafeAreaInsets();
   const isEdit = !!contact;
   const [name, setName] = useState('');
@@ -530,7 +540,7 @@ const ContactFormModal = ({ visible, contact, onClose, onSave }) => {
     <Modal visible={modalVisible} animationType="none" transparent statusBarTranslucent onRequestClose={dismiss}>
       <View style={{ flex: 1 }}>
         {/* Animated backdrop */}
-        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(15, 23, 42, 0.6)', opacity: overlayOpacity }]}>
+        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: themeColors.overlay, opacity: overlayOpacity }]}>
           <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={dismiss} />
         </Animated.View>
 
@@ -539,7 +549,7 @@ const ContactFormModal = ({ visible, contact, onClose, onSave }) => {
             <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20 }]}>
               {/* Drag handle */}
               <View style={{ paddingVertical: 10, alignItems: 'center' }}>
-                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB' }} />
+                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: themeColors.borderMediumNeutral }} />
               </View>
 
               <View style={styles.modalHeader}>
@@ -627,7 +637,10 @@ const ContactFormModal = ({ visible, contact, onClose, onSave }) => {
 };
 
 // ── Styles ──
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const COLORS = makeColors(theme.colors);
+  const SHADOWS = makeShadows(theme.colors);
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -639,7 +652,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     width: 44, height: 44, borderRadius: 15,
-    backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: stableDark.fill, alignItems: 'center', justifyContent: 'center',
   },
   headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.white, letterSpacing: 0.3 },
 
@@ -649,11 +662,11 @@ const styles = StyleSheet.create({
     padding: 16, marginBottom: 16, borderWidth: 1, borderColor: COLORS.warningBorder,
   },
   disclaimerIconCircle: {
-    width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(217,119,6,0.12)',
+    width: 36, height: 36, borderRadius: 12, backgroundColor: theme.colors.warningFill,
     alignItems: 'center', justifyContent: 'center', marginRight: 12,
   },
-  disclaimerTitle: { fontSize: 13, fontWeight: '700', color: '#92400E', marginBottom: 3, textTransform: 'uppercase', letterSpacing: 0.5 },
-  disclaimerText: { fontSize: 13, color: '#78350F', lineHeight: 19 },
+  disclaimerTitle: { fontSize: 13, fontWeight: '700', color: theme.colors.warning, marginBottom: 3, textTransform: 'uppercase', letterSpacing: 0.5 },
+  disclaimerText: { fontSize: 13, color: theme.colors.warning, lineHeight: 19 },
 
   // Section
   section: {
@@ -669,7 +682,7 @@ const styles = StyleSheet.create({
   usageCard: {},
   usageHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   usageIconCircle: {
-    width: 36, height: 36, borderRadius: 12, backgroundColor: '#EFF6FF',
+    width: 36, height: 36, borderRadius: 12, backgroundColor: theme.colors.infoContainer,
     alignItems: 'center', justifyContent: 'center', marginRight: 10,
   },
   usageTop: { flexDirection: 'row', alignItems: 'center' },
@@ -714,7 +727,7 @@ const styles = StyleSheet.create({
   contactInfo: { flex: 1 },
   contactName: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
   relationshipBadge: {
-    alignSelf: 'flex-start', backgroundColor: '#EFF6FF', borderRadius: 6,
+    alignSelf: 'flex-start', backgroundColor: theme.colors.infoContainer, borderRadius: 6,
     paddingHorizontal: 8, paddingVertical: 2, marginTop: 3, marginBottom: 2,
   },
   relationshipText: { fontSize: 11, fontWeight: '600', color: COLORS.secondary },
@@ -724,7 +737,7 @@ const styles = StyleSheet.create({
   contactActionBtn: {
     width: 36, height: 36, borderRadius: 10,
     backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center', marginLeft: 6,
-    ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3 }, android: { elevation: 1 } }),
+    ...Platform.select({ ios: { shadowColor: theme.colors.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3 }, android: { elevation: 1 } }),
   },
   contactDeleteBtn: { backgroundColor: COLORS.dangerLight },
 
@@ -742,7 +755,7 @@ const styles = StyleSheet.create({
   stepRow: { flexDirection: 'row', marginBottom: 16 },
   stepIconCircle: {
     width: 40, height: 40, borderRadius: 12,
-    backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center', marginRight: 14,
+    backgroundColor: theme.colors.infoContainer, alignItems: 'center', justifyContent: 'center', marginRight: 14,
   },
   stepContent: { flex: 1 },
   stepTitle: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 3 },
@@ -761,7 +774,7 @@ const styles = StyleSheet.create({
   floatingButtonContainer: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     paddingHorizontal: 16, paddingTop: 12,
-    backgroundColor: 'rgba(241,245,249,0.95)',
+    backgroundColor: theme.colors.bg,
     borderTopWidth: 1, borderTopColor: COLORS.divider,
   },
   sosButton: {
@@ -797,7 +810,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
     backgroundColor: COLORS.inputBg, borderWidth: 1, borderColor: COLORS.divider,
   },
-  chipActive: { backgroundColor: '#EFF6FF', borderColor: COLORS.secondary },
+  chipActive: { backgroundColor: theme.colors.infoContainer, borderColor: COLORS.secondary },
   chipText: { fontSize: 13, fontWeight: '500', color: COLORS.textSecondary },
   chipTextActive: { color: COLORS.secondary, fontWeight: '600' },
   errorRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
@@ -808,6 +821,7 @@ const styles = StyleSheet.create({
   },
   saveButtonDisabled: { opacity: 0.6 },
   saveButtonText: { fontSize: 16, fontWeight: '700', color: COLORS.white },
-});
+  });
+};
 
 export default PSAContactsScreen;

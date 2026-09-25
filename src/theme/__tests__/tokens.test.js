@@ -12,7 +12,10 @@ describe('palette hygiene', () => {
     const orphans = Object.entries(palette)
       // Deliberately not theme tokens: vendor colours are fixed by a third
       // party, and category accents are identical in both themes by design.
-      .filter(([name]) => !['vendor', 'categoryAccent', 'iconAccent', 'stableDark'].includes(name))
+      .filter(([name]) => ![
+        'vendor', 'categoryAccent', 'iconAccent',
+        'stableDark', 'stableEmergency', 'medal', 'brandTint',
+      ].includes(name))
       .filter(([, group]) => {
         const values = typeof group === 'object' ? Object.values(group) : [group];
         return !values.some((v) => consumed.has(v));

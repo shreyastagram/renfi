@@ -36,29 +36,41 @@ import {
   getMyHistory,
   getCycleInfo,
 } from '../services/referralService';
+import {
+  useThemedStyles,
+  useThemeColors,
+  stableDark,
+  medal,
+  brandTint,
+} from '../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const COLORS = {
-  darkHero: '#0F172A',
-  darkCard: '#1E293B',
-  background: '#F1F5F9',
-  cardWhite: '#FFFFFF',
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  accent: '#7C3AED',
-  muted: '#94A3B8',
-  textPrimary: '#1E293B',
-  textSecondary: '#64748B',
-  gold: '#F59E0B',
-  silver: '#94A3B8',
-  bronze: '#CD7F32',
-  success: '#10B981',
-  divider: '#F1F5F9',
-};
+// MIXED surface: a brand-dark hero and dark reward card above a light body. The
+// hero pieces come from stableDark because they stay dark in both themes; the
+// body uses ordinary flipping tokens. Medal colours are theme-independent —
+// gold, silver and bronze are what they are.
+const makeColors = (c) => ({
+  darkHero: stableDark.heroSurface,
+  darkCard: stableDark.heroCard,
+  background: c.bg,
+  cardWhite: c.surface,
+  primary: c.brandOrange,
+  secondary: c.brandBlue,
+  accent: c.accentViolet,
+  muted: c.textMuted,
+  textPrimary: c.textStrong,
+  textSecondary: c.textSecondary,
+  gold: medal.gold,
+  silver: medal.silver,
+  bronze: medal.bronze,
+  success: c.success,
+  divider: c.border,
+});
 
-const SHADOWS = Platform.select({
-  ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12 },
+// Takes the theme because shadowColor must follow it; called from makeStyles.
+const makeShadows = (c) => Platform.select({
+  ios: { shadowColor: c.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12 },
   android: { elevation: 3 },
 });
 
@@ -68,18 +80,22 @@ const HeroBackground = () => (
   <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
     <Defs>
       <LinearGradient id="heroBg" x1="0" y1="0" x2="1" y2="1">
-        <Stop offset="0" stopColor="#1E293B" />
-        <Stop offset="1" stopColor="#0F172A" />
+        <Stop offset="0" stopColor={stableDark.heroCard} />
+        <Stop offset="1" stopColor={stableDark.heroSurface} />
       </LinearGradient>
     </Defs>
     <Rect width="100%" height="100%" fill="url(#heroBg)" />
-    <Circle cx="85%" cy="15%" r="80" fill="rgba(246,124,22,0.06)" />
-    <Circle cx="10%" cy="85%" r="60" fill="rgba(43,118,188,0.06)" />
-    <Circle cx="70%" cy="75%" r="40" fill="rgba(124,58,237,0.04)" />
+    <Circle cx="85%" cy="15%" r="80" fill={brandTint.orange06} />
+    <Circle cx="10%" cy="85%" r="60" fill={brandTint.blue06} />
+    <Circle cx="70%" cy="75%" r="40" fill={brandTint.violet04} />
   </Svg>
 );
 
 const ReferralScreen = ({ navigation }) => {
+  const themeColors = useThemeColors();
+  const styles = useThemedStyles(makeStyles);
+  const COLORS = makeColors(themeColors);
+  const SHADOWS = makeShadows(themeColors);
   const insets = useSafeAreaInsets();
   const { userType, user, profile } = useApp();
   const currentUserId = String(user?.mongoId || profile?.mongoId || user?._id || profile?._id || '');
@@ -203,11 +219,11 @@ const ReferralScreen = ({ navigation }) => {
 
             <View style={styles.codeActions}>
               <TouchableOpacity style={styles.copyBtn} onPress={handleCopyCode} activeOpacity={0.8}>
-                <Feather name={codeCopied ? 'check' : 'copy'} size={16} color="#FFF" />
+                <Feather name={codeCopied ? 'check' : 'copy'} size={16} color={stableDark.ink} />
                 <Text style={styles.actionBtnText}>{codeCopied ? 'Copied!' : 'Copy Code'}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.8}>
-                <Feather name="share-2" size={16} color="#FFF" />
+                <Feather name="share-2" size={16} color={stableDark.ink} />
                 <Text style={styles.actionBtnText}>Share</Text>
               </TouchableOpacity>
             </View>
@@ -217,21 +233,21 @@ const ReferralScreen = ({ navigation }) => {
         {/* ── Stats Row ── */}
         <View style={styles.statsRow}>
           <View style={[styles.statCard, SHADOWS]}>
-            <View style={[styles.statIconBg, { backgroundColor: 'rgba(246,124,22,0.1)' }]}>
+            <View style={[styles.statIconBg, { backgroundColor: brandTint.orange10 }]}>
               <MaterialCommunityIcons name="star-four-points" size={20} color={COLORS.primary} />
             </View>
             <Text style={styles.statValue}>{stats?.cyclePoints || 0}</Text>
             <Text style={styles.statLabel}>Points</Text>
           </View>
           <View style={[styles.statCard, SHADOWS]}>
-            <View style={[styles.statIconBg, { backgroundColor: 'rgba(43,118,188,0.1)' }]}>
+            <View style={[styles.statIconBg, { backgroundColor: brandTint.blue10 }]}>
               <MaterialIcons name="leaderboard" size={20} color={COLORS.secondary} />
             </View>
             <Text style={styles.statValue}>{stats?.cycleRank ? `#${stats.cycleRank}` : '—'}</Text>
             <Text style={styles.statLabel}>Rank</Text>
           </View>
           <View style={[styles.statCard, SHADOWS]}>
-            <View style={[styles.statIconBg, { backgroundColor: 'rgba(124,58,237,0.1)' }]}>
+            <View style={[styles.statIconBg, { backgroundColor: brandTint.violet10 }]}>
               <MaterialCommunityIcons name="account-group" size={20} color={COLORS.accent} />
             </View>
             <Text style={styles.statValue}>{stats?.referralCount || 0}</Text>
@@ -350,9 +366,9 @@ const ReferralScreen = ({ navigation }) => {
             <Text style={styles.sectionTitle}>Cycle Prizes</Text>
           </View>
           <View style={styles.prizeRow}>
-            <PrizeCard rank="1st" amount={'\u20B95,000'} color={COLORS.gold} iconColor="#B7791F" />
-            <PrizeCard rank="2nd" amount={'\u20B93,000'} color={COLORS.silver} iconColor="#64748B" />
-            <PrizeCard rank="3rd" amount={'\u20B91,000'} color={COLORS.bronze} iconColor="#92400E" />
+            <PrizeCard rank="1st" amount={'\u20B95,000'} color={COLORS.gold} iconColor={medal.goldInk} />
+            <PrizeCard rank="2nd" amount={'\u20B93,000'} color={COLORS.silver} iconColor={medal.silverInk} />
+            <PrizeCard rank="3rd" amount={'\u20B91,000'} color={COLORS.bronze} iconColor={medal.bronzeInk} />
           </View>
           <View style={styles.annualBanner}>
             <MaterialCommunityIcons name="party-popper" size={16} color={COLORS.primary} />
@@ -369,6 +385,8 @@ const ReferralScreen = ({ navigation }) => {
 // ── Sub-components ───────────────────────────────────────────────────────
 
 const RankIcon = ({ rank }) => {
+  const styles = useThemedStyles(makeStyles);
+  const COLORS = makeColors(useThemeColors());
   if (rank <= 3) {
     const colors = { 1: COLORS.gold, 2: COLORS.silver, 3: COLORS.bronze };
     return (
@@ -384,16 +402,21 @@ const RankIcon = ({ rank }) => {
   );
 };
 
-const Step = ({ icon, iconFamily, num, text }) => (
+const Step = ({ icon, iconFamily, num, text }) => {
+  const styles = useThemedStyles(makeStyles);
+  return (
   <View style={styles.howStep}>
     <View style={styles.howNum}>
       <Text style={styles.howNumText}>{num}</Text>
     </View>
     <Text style={styles.howText}>{text}</Text>
   </View>
-);
+  );
+};
 
-const PrizeCard = ({ rank, amount, color, iconColor }) => (
+const PrizeCard = ({ rank, amount, color, iconColor }) => {
+  const styles = useThemedStyles(makeStyles);
+  return (
   <View style={[styles.prizeCard, { borderColor: `${color}30` }]}>
     <View style={[styles.prizeIconBg, { backgroundColor: `${color}15` }]}>
       <MaterialIcons name="emoji-events" size={22} color={iconColor} />
@@ -401,16 +424,20 @@ const PrizeCard = ({ rank, amount, color, iconColor }) => (
     <Text style={styles.prizeRank}>{rank}</Text>
     <Text style={styles.prizeAmount}>{amount}</Text>
   </View>
-);
+  );
+};
 
 // ── Styles ───────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const COLORS = makeColors(theme.colors);
+  const SHADOWS = makeShadows(theme.colors);
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background, gap: 12 },
   errorText: { fontSize: 15, color: COLORS.muted, textAlign: 'center', paddingHorizontal: 32, marginTop: 8 },
   retryBtn: { marginTop: 8, paddingVertical: 10, paddingHorizontal: 28, backgroundColor: COLORS.primary, borderRadius: 12 },
-  retryBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
+  retryBtnText: { color: COLORS.cardWhite, fontWeight: '700', fontSize: 14 },
 
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10 },
   backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
@@ -425,18 +452,18 @@ const styles = StyleSheet.create({
   heroIconRow: { marginBottom: 12 },
   heroIconCircle: {
     width: 52, height: 52, borderRadius: 26,
-    backgroundColor: 'rgba(246,124,22,0.12)',
+    backgroundColor: brandTint.orange12,
     justifyContent: 'center', alignItems: 'center',
   },
-  heroTitle: { fontSize: 20, fontWeight: '800', color: '#FFF', textAlign: 'center', marginBottom: 4 },
+  heroTitle: { fontSize: 20, fontWeight: '800', color: stableDark.ink, textAlign: 'center', marginBottom: 4 },
   heroSub: { fontSize: 13, color: COLORS.muted, textAlign: 'center', marginBottom: 18 },
   codeBox: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: stableDark.fillSubtle,
     borderRadius: 14, paddingVertical: 14, paddingHorizontal: 36,
-    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.12)', borderStyle: 'dashed',
+    borderWidth: 1.5, borderColor: stableDark.heroDivider, borderStyle: 'dashed',
     marginBottom: 18,
   },
-  codeText: { fontSize: 26, fontWeight: '900', color: '#FFF', letterSpacing: 5, textAlign: 'center' },
+  codeText: { fontSize: 26, fontWeight: '900', color: stableDark.ink, letterSpacing: 5, textAlign: 'center' },
   codeActions: { flexDirection: 'row', gap: 10 },
   copyBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -448,7 +475,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary, borderRadius: 12,
     paddingVertical: 11, paddingHorizontal: 20,
   },
-  actionBtnText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
+  actionBtnText: { color: stableDark.ink, fontSize: 13, fontWeight: '700' },
 
   // Stats
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
@@ -464,14 +491,14 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 0 },
   badge: {
     fontSize: 11, fontWeight: '600', color: COLORS.secondary,
-    backgroundColor: 'rgba(43,118,188,0.08)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
+    backgroundColor: brandTint.blue08, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
   },
   emptyState: { alignItems: 'center', paddingVertical: 24, gap: 8 },
   emptyText: { fontSize: 14, color: COLORS.muted },
 
   // Leaderboard
   leaderRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 6, borderRadius: 12, marginBottom: 2 },
-  leaderRowMe: { backgroundColor: 'rgba(43,118,188,0.05)' },
+  leaderRowMe: { backgroundColor: brandTint.blue05 },
   rankBadge: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   rankNum: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center' },
   rankNumText: { fontSize: 14, fontWeight: '700', color: COLORS.muted },
@@ -487,7 +514,7 @@ const styles = StyleSheet.create({
     width: 26, height: 26, borderRadius: 13,
     backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', marginRight: 12,
   },
-  howNumText: { color: '#FFF', fontSize: 12, fontWeight: '800' },
+  howNumText: { color: stableDark.ink, fontSize: 12, fontWeight: '800' },
   howText: { flex: 1, fontSize: 14, color: COLORS.textPrimary, lineHeight: 20 },
 
   // History
@@ -504,7 +531,7 @@ const styles = StyleSheet.create({
 
   // Cycle
   cycleDate: { fontSize: 14, color: COLORS.textSecondary, marginBottom: 10 },
-  progressBar: { height: 6, backgroundColor: '#E2E8F0', borderRadius: 3, overflow: 'hidden', marginBottom: 8 },
+  progressBar: { height: 6, backgroundColor: COLORS.divider, borderRadius: 3, overflow: 'hidden', marginBottom: 8 },
   progressFill: { height: '100%', backgroundColor: COLORS.primary, borderRadius: 3 },
   cycleDays: { fontSize: 12, color: COLORS.muted, textAlign: 'right', fontWeight: '500' },
 
@@ -519,9 +546,10 @@ const styles = StyleSheet.create({
   prizeAmount: { fontSize: 17, fontWeight: '900', color: COLORS.textPrimary, marginTop: 2 },
   annualBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(246,124,22,0.06)', borderRadius: 10, padding: 12, justifyContent: 'center',
+    backgroundColor: brandTint.orange06, borderRadius: 10, padding: 12, justifyContent: 'center',
   },
   annualText: { fontSize: 13, color: COLORS.primary, fontWeight: '600' },
-});
+  });
+};
 
 export default ReferralScreen;

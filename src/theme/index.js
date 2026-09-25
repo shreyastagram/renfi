@@ -26,4 +26,12 @@ export { vendor } from './tokens/palette.js';
 
 // Service-category accents. Identical in both themes by design — a trade's
 // colour must stay recognisable regardless of appearance.
-export { categoryAccent, iconAccent, stableDark, brand } from './tokens/palette.js';
+export {
+  categoryAccent,
+  iconAccent,
+  stableDark,
+  stableEmergency,
+  medal,
+  brandTint,
+  brand,
+} from './tokens/palette.js';
