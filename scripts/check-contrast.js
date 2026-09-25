@@ -97,17 +97,24 @@ const green = (hex) => parseInt(hex.replace('#', '').slice(2, 4), 16);
 const auditDarkDeviceSafety = (theme) => {
   const failures = [];
   const c = theme.colors;
-  const steps = [
-    ['surfaceSunken', 'bg'],
-    ['bg', 'surface'],
-    ['surface', 'surfaceElevated'],
-  ];
-  for (const [a, b] of steps) {
-    const gap = Math.abs(green(c[b]) - green(c[a]));
-    if (gap < MIN_SURFACE_GAP) {
+  // Sort by code value and check ADJACENT pairs, rather than assuming an order.
+  // The order is not the same in both themes: in light a sunken well is DARKER than
+  // the card it sits in, and on dark it is LIGHTER, because light comes from
+  // elevation. Hardcoding `sunken -> bg -> surface -> elevated` silently stopped
+  // describing the dark ramp the moment it was deepened to true black.
+  const ladder = ['bg', 'surface', 'surfaceSunken', 'surfaceElevated']
+    .map((k) => ({ k, v: green(c[k]) }))
+    .sort((a, b) => a.v - b.v);
+  for (let i = 1; i < ladder.length; i += 1) {
+    const lo = ladder[i - 1];
+    const hi = ladder[i];
+    const gap = hi.v - lo.v;
+    // Two tokens may legitimately resolve to the same value (light surface and
+    // surfaceElevated are both #FFFFFF); only a NON-zero, too-small gap is a crush.
+    if (gap > 0 && gap < MIN_SURFACE_GAP) {
       failures.push({
         theme: theme.name,
-        label: `surface step ${a} -> ${b}`,
+        label: `surface step ${lo.k} -> ${hi.k}`,
         detail: `gap ${gap} code values, needs ${MIN_SURFACE_GAP}`,
         why: 'may crush together on 6-bit budget LCD panels',
       });

@@ -78,7 +78,7 @@ const makeC = (c) => ({
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,
   onSecondary: c.onBrandBlue,
-  bg: c.surfaceSunken,
+  bg: c.bg,
   white: c.surface,
   // The shipped hairline and neutral chip fill were both #F1F5F9 -- exactly  in
   // light, a recessed seam on a dark surface.

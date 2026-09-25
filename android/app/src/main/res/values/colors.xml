@@ -1,0 +1,10 @@
+<resources>
+    <!-- Cold-start window background, before the JS theme mounts.
+         MUST match lightColors.bg in src/theme/tokens/semantic.js (palette slate[100]).
+
+         This default declaration is not optional: values-night/styles.xml references
+         this name, and a colour that exists ONLY in a qualified folder can be resolved
+         in a configuration that does not match the qualifier, which Android lint flags
+         as a crash risk (MissingDefaultResource). The release build fails on it. -->
+    <color name="theme_window_background">#F1F5F9</color>
+</resources>

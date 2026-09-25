@@ -47,6 +47,11 @@ const INTENTIONAL = new Set([
   // border so switching state does not change its size. Inline, and identical at
   // v1.0.9. Line-keyed, so re-check this entry if the file shifts.
   'src/screens/ServiceApprovalsScreen.jsx:inline@L223',
+  // Apple's sign-in card is specified black-on-black by Apple's guidelines, and a
+  // checked checkbox is a solid fill whose border matches so checking it does not
+  // change its size. Both were already backgroundColor === borderColor at v1.0.9.
+  'src/components/RegisterChoice.jsx:appleCard',
+  'src/components/RegisterChoice.jsx:checkboxChecked',
 ]);
 
 // The captured expression must be the WHOLE value, so a trailing terminator is

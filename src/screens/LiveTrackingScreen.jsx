@@ -53,7 +53,7 @@ const { width: SCREEN_W } = Dimensions.get('window');
 const makeC = (c) => ({
   primary: c.brandOrange,
   secondary: c.brandBlue,
-  bg: c.surfaceSunken,
+  bg: c.bg,
   white: c.surface,
   text: c.textPrimary,
   textSec: c.textSecondary,

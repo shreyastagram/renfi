@@ -424,9 +424,20 @@ export const gray = {
 //  - `borderStrong` clears 3.0 on all three surfaces because WCAG 1.4.11 does bind
 //    input and focus boundaries: they identify the component.
 export const dark = {
-  sunken: '#000000', // true black — OLED pixels off
-  base: '#0A0A0C',
-  surface: '#17171B',
+  // TRUE BLACK page. On the OLED panels most phones now ship, a black pixel is off:
+  // it reads as genuinely black and costs no light. The previous ramp lifted the page
+  // to #0A0A0C and cards to #17171B so they would not crush together on 6-bit LCD —
+  // but that lift reads as GREY on OLED, which is what it was reported as. Deepening
+  // costs nothing: page->card separation actually improves (13 -> 14 code values) and
+  // every text and border ratio against the card goes UP.
+  base: '#000000',
+  surface: '#0E0E12',
+  // A filled well — an input, a chip — INSIDE a card. On dark this is LIGHTER than
+  // the card it sits in, which is the inverse of light mode and the standard dark
+  // convention: light comes from elevation, so recessed controls are lifted, not sunk.
+  // It can no longer double as a page background; the three screens that used it that
+  // way now say `bg`, which is what they meant.
+  sunken: '#18181D',
   elevated: '#26262B',
   border: '#42424A', // decorative, but the low-end safety net
   borderMedium: '#52525C',

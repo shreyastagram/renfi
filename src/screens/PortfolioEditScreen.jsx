@@ -48,7 +48,7 @@ const makeC = (c) => ({
   primary: c.brandOrange,
   secondary: c.brandBlue,
   purple: c.accentViolet,
-  background: c.surfaceSunken,
+  background: c.bg,
   white: c.surface,
   success: c.success,
   line: c.borderNeutral,

@@ -4,6 +4,9 @@
     <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+        <!-- Light cold-start background, the counterpart of the night variant. Without
+             it the light theme flashes the platform default before JS mounts. -->
+        <item name="android:windowBackground">@color/theme_window_background</item>
     </style>
 
 </resources>
