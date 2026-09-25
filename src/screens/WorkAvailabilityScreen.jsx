@@ -20,20 +20,33 @@ import { useDialog } from '../context/DialogContext';
 import { useWorkSchedule } from '../context/WorkScheduleContext';
 import { useApp } from '../context/AppContext';
 import { DAY_KEYS, buildDaysPatch, formatTime12, getIstMoment, scheduleErrorKey } from '../utils/workSchedule';
+import { useThemedStyles, useThemeColors, stableDark } from '../theme';
 
-const COLORS = {
-  dark: '#0F172A',
-  background: '#F1F5F9',
-  white: '#FFFFFF',
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  text: '#1E293B',
-  muted: '#64748B',
-  light: '#94A3B8',
-  line: '#F1F5F9',
-};
+const makeC = (c) => ({
+  background: c.bg,
+  white: c.surface,
+  primary: c.brandOrange,
+  secondary: c.brandBlue,
+  text: c.textStrong,
+  muted: c.textSecondary,
+  light: c.textMuted,
+  // The shipped hairline was #F1F5F9 -- exactly `bg` in light, a recessed seam on a
+  // dark surface.
+  line: c.bg,
+  border: c.border,
+  lineDashed: c.borderMedium,
+  danger: c.danger,
+  dangerBg: c.dangerContainer,
+  dangerLine: c.dangerBorder,
+  warningBg: c.warningContainer,
+  info: c.info,
+  infoBg: c.infoContainer,
+  indigo: c.altBlueIndigo,
+});
 
 const WorkAvailabilityScreen = ({ navigation }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
   const { dialog } = useDialog();
   const { profile, user } = useApp();
@@ -81,7 +94,7 @@ const WorkAvailabilityScreen = ({ navigation }) => {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel={t('common.back')}>
-          <Icon name="back" size={20} color={COLORS.white} />
+          <Icon name="back" size={20} color={C.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.3}>{t('workHours.title')}</Text>
         <View style={styles.back} />
@@ -90,7 +103,7 @@ const WorkAvailabilityScreen = ({ navigation }) => {
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={loading && !!days} onRefresh={() => refresh({ force: true })} tintColor={COLORS.primary} />}
+        refreshControl={<RefreshControl refreshing={loading && !!days} onRefresh={() => refresh({ force: true })} tintColor={C.primary} />}
       >
         <Text style={styles.intro}>{t('workHours.screenIntro')}</Text>
 
@@ -100,7 +113,7 @@ const WorkAvailabilityScreen = ({ navigation }) => {
           </View>
         )}
 
-        {loading && !days && <ActivityIndicator color={COLORS.primary} style={styles.loader} />}
+        {loading && !days && <ActivityIndicator color={C.primary} style={styles.loader} />}
 
         {!!error && !days && (
           <View style={styles.errorBox}>
@@ -135,14 +148,14 @@ const WorkAvailabilityScreen = ({ navigation }) => {
                 </Text>
               </View>
               {busy ? (
-                <ActivityIndicator size="small" color={COLORS.primary} />
+                <ActivityIndicator size="small" color={C.primary} />
               ) : (
                 <Switch
                   value={day.enabled}
                   onValueChange={() => handleToggleDay(key)}
                   disabled={!!saving}
-                  trackColor={{ false: '#E2E8F0', true: COLORS.primary }}
-                  thumbColor={COLORS.white}
+                  trackColor={{ false: C.border, true: C.primary }}
+                  thumbColor={C.white}
                   accessibilityLabel={t('workHours.iWorkOn', { day: t(`workHours.days.${key}`) })}
                 />
               )}
@@ -153,7 +166,7 @@ const WorkAvailabilityScreen = ({ navigation }) => {
         {!!days && (
           <>
             <View style={styles.nightNote}>
-              <Icon name="clock" size={16} color="#4F46E5" />
+              <Icon name="clock" size={16} color={C.indigo} />
               <Text style={styles.nightNoteText}>
                 {t('workHours.nightNote', { state: emergencyEnabled ? t('workHours.on') : t('workHours.off') })}
               </Text>
@@ -161,7 +174,7 @@ const WorkAvailabilityScreen = ({ navigation }) => {
 
             <TouchableOpacity style={styles.resetBtn} onPress={handleReset} disabled={!!saving} accessibilityRole="button">
               {saving === 'reset'
-                ? <ActivityIndicator size="small" color={COLORS.muted} />
+                ? <ActivityIndicator size="small" color={C.muted} />
                 : <Text style={styles.resetText}>{t('workHours.resetDefault')}</Text>}
             </TouchableOpacity>
             <Text style={styles.footnote}>{t('workHours.defaultFootnote')}</Text>
@@ -181,45 +194,48 @@ const WorkAvailabilityScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 14, backgroundColor: COLORS.dark,
+    paddingHorizontal: 20, paddingVertical: 14, backgroundColor: stableDark.heroSurface,
   },
-  back: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.1)' },
-  headerTitle: { flexShrink: 1, marginHorizontal: 8, fontSize: 20, fontWeight: '800', color: COLORS.white, letterSpacing: 0.3 },
+  back: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: stableDark.heroDivider },
+  headerTitle: { flexShrink: 1, marginHorizontal: 8, fontSize: 20, fontWeight: '800', color: stableDark.ink, letterSpacing: 0.3 },
   content: { padding: 18, paddingBottom: 40 },
-  intro: { fontSize: 13.5, color: COLORS.muted, lineHeight: 20, marginBottom: 14 },
+  intro: { fontSize: 13.5, color: C.muted, lineHeight: 20, marginBottom: 14 },
   loader: { marginTop: 24 },
-  noDaysBanner: { backgroundColor: '#FEF2F2', borderRadius: 14, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#FECACA' },
-  noDaysText: { fontSize: 13, color: '#B91C1C', fontWeight: '600', lineHeight: 18 },
-  errorBox: { backgroundColor: COLORS.white, borderRadius: 16, padding: 16, gap: 8 },
-  errorText: { fontSize: 13.5, color: '#B91C1C', fontWeight: '600' },
-  retry: { fontSize: 13.5, fontWeight: '700', color: COLORS.secondary },
+  noDaysBanner: { backgroundColor: C.dangerBg, borderRadius: 14, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: C.dangerLine },
+  noDaysText: { fontSize: 13, color: C.danger, fontWeight: '600', lineHeight: 18 },
+  errorBox: { backgroundColor: C.white, borderRadius: 16, padding: 16, gap: 8 },
+  errorText: { fontSize: 13.5, color: C.danger, fontWeight: '600' },
+  retry: { fontSize: 13.5, fontWeight: '700', color: C.secondary },
   dayCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: COLORS.white, borderRadius: 18, borderWidth: 1, borderColor: COLORS.line,
+    backgroundColor: C.white, borderRadius: 18, borderWidth: 1, borderColor: C.line,
     paddingHorizontal: 16, paddingVertical: 14, marginBottom: 10,
   },
   dayTextWrap: { flex: 1, minWidth: 0 },
   dayNameRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
-  dayName: { fontSize: 15, fontWeight: '700', color: COLORS.dark },
-  dayNameOff: { color: COLORS.muted },
-  todayBadge: { backgroundColor: '#FFF4EA', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 },
-  todayBadgeText: { fontSize: 10, fontWeight: '800', color: COLORS.primary, textTransform: 'uppercase' },
-  dayHours: { fontSize: 13.5, color: COLORS.muted, marginTop: 2 },
+  dayName: { fontSize: 15, fontWeight: '700', color: C.dark },
+  dayNameOff: { color: C.muted },
+  todayBadge: { backgroundColor: C.warningBg, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 },
+  todayBadgeText: { fontSize: 10, fontWeight: '800', color: C.primary, textTransform: 'uppercase' },
+  dayHours: { fontSize: 13.5, color: C.muted, marginTop: 2 },
   nightNote: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    backgroundColor: '#EEF2FF', borderRadius: 16, padding: 14, marginTop: 6, marginBottom: 14,
+    backgroundColor: C.infoBg, borderRadius: 16, padding: 14, marginTop: 6, marginBottom: 14,
   },
-  nightNoteText: { flex: 1, fontSize: 13, color: '#3730A3', lineHeight: 18 },
+  nightNoteText: { flex: 1, fontSize: 13, color: C.info, lineHeight: 18 },
   resetBtn: {
-    borderWidth: 1.5, borderColor: '#CBD5E1', borderStyle: 'dashed', borderRadius: 14,
+    borderWidth: 1.5, borderColor: C.lineDashed, borderStyle: 'dashed', borderRadius: 14,
     paddingVertical: 13, alignItems: 'center',
   },
-  resetText: { fontSize: 14, fontWeight: '700', color: COLORS.muted },
-  footnote: { textAlign: 'center', fontSize: 12, color: COLORS.light, marginTop: 10 },
-});
+  resetText: { fontSize: 14, fontWeight: '700', color: C.muted },
+  footnote: { textAlign: 'center', fontSize: 12, color: C.light, marginTop: 10 },
+  });
+};
 
 export default WorkAvailabilityScreen;

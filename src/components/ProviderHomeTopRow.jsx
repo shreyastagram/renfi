@@ -13,19 +13,36 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import Mapbox from '@rnmapbox/maps';
 import TouchableOpacity from './TouchableOpacity';
 import { computeTopRowLayout, TOP_ROW_FONT_SCALE } from '../utils/homeTopRowLayout';
+import { useThemedStyles, useThemeColors, stableDark } from '../theme';
 
-const BRAND = {
-  primary: '#f67c16',
-  white: '#FFFFFF',
-  dark: '#0F172A',
-  muted: '#94A3B8',
-  darkText: '#0F172A',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  white: c.surface,
+  dark: c.textPrimary,
+  darkText: c.textPrimary,
+  muted: c.textMuted,
+  textSecondary: c.textSecondary,
+  sunken: c.surfaceSunken,
+  line: c.border,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  // The availability pad. Fulfils the note left in the a11y pass: white on this
+  // green was 2.28:1 on a LIVE switch, dark ink on it is 7.83:1. The green itself is
+  // unchanged and identical in both themes, because it signals availability rather
+  // than describing a surface.
+  online: c.online,
+  onlineBorder: c.onlineBorder,
+  onOnline: c.onOnline,
+  shadow: c.shadow,
+});
 
 /**
  * Pulsing dot component for online status
  */
 const PulsingDot = ({ isOnline, paused }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(0.6)).current;
 
@@ -78,7 +95,7 @@ const PulsingDot = ({ isOnline, paused }) => {
             {
               transform: [{ scale: pulseAnim }],
               opacity: opacityAnim,
-              backgroundColor: '#22C55E',
+              backgroundColor: C.online,
             },
           ]}
         />
@@ -86,7 +103,7 @@ const PulsingDot = ({ isOnline, paused }) => {
       <View
         style={[
           styles.statusDotInner,
-          { backgroundColor: isOnline ? '#22C55E' : '#94A3B8' },
+          { backgroundColor: isOnline ? C.online : C.muted },
         ]}
       />
     </View>
@@ -99,12 +116,14 @@ const PulsingDot = ({ isOnline, paused }) => {
  * availability is not yet known it shows a neutral pad instead of "Offline".
  */
 const StatusTogglePad = React.memo(({ known, isAvailable, isUpdating, onToggle, paused, labels, style }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   if (!known) {
     return (
       <View style={[styles.statusPad, styles.statusPadNeutral, style]} accessibilityLabel={labels.checking}>
-        <ActivityIndicator size="small" color={BRAND.muted} />
+        <ActivityIndicator size="small" color={C.muted} />
       </View>
     );
   }
@@ -123,8 +142,8 @@ const StatusTogglePad = React.memo(({ known, isAvailable, isUpdating, onToggle, 
   // does not apply. Dark text on the same green is 7.83:1. The brand green is
   // unchanged — only what sits on it, which is the rule the orange fills follow.
   // Becomes an onBrandGreen token in the provider-screen migration phase.
-  const padInk = isAvailable ? '#0F172A' : '#64748B';
-  const padSpinner = isAvailable ? '#0F172A' : '#94A3B8';
+  const padInk = isAvailable ? C.onOnline : C.textSecondary;
+  const padSpinner = isAvailable ? C.onOnline : C.muted;
 
   return (
     <TouchableOpacity
@@ -140,8 +159,8 @@ const StatusTogglePad = React.memo(({ known, isAvailable, isUpdating, onToggle, 
         style={[
           styles.statusPad,
           {
-            backgroundColor: isAvailable ? '#22C55E' : '#FFFFFF',
-            borderColor: isAvailable ? '#16A34A' : '#E2E8F0',
+            backgroundColor: isAvailable ? C.online : C.white,
+            borderColor: isAvailable ? C.onlineBorder : C.line,
             transform: [{ scale: scaleAnim }],
           },
         ]}
@@ -173,6 +192,8 @@ const StatusTogglePad = React.memo(({ known, isAvailable, isUpdating, onToggle, 
  * parent's frequent re-renders never touch the native map view.
  */
 const MiniMap = React.memo(({ latitude, longitude }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const center = useMemo(() => [longitude, latitude], [latitude, longitude]);
   return (
     <View style={styles.miniMapWrap}>
@@ -189,7 +210,7 @@ const MiniMap = React.memo(({ latitude, longitude }) => {
         <Mapbox.Camera centerCoordinate={center} zoomLevel={14} animationDuration={0} />
       </Mapbox.MapView>
       <View style={styles.miniMapPinOverlay} pointerEvents="none">
-        <MaterialIcon name="person-pin-circle" size={24} color={BRAND.primary} />
+        <MaterialIcon name="person-pin-circle" size={24} color={C.primary} />
       </View>
     </View>
   );
@@ -210,6 +231,8 @@ const ProviderHomeTopRow = ({
   latitude, longitude, locationLabel, locationIcon, mapRef, onPressMap,
   availabilityKnown, isAvailable, isUpdating, paused, onToggle, t,
 }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { width: windowWidth, fontScale } = useWindowDimensions();
   const [rowWidth, setRowWidth] = useState(0);
   const onLayout = useCallback((e) => {
@@ -236,7 +259,7 @@ const ProviderHomeTopRow = ({
 
   const verificationTile = !showVerification ? null : verification === 'loading' ? (
     <View style={[styles.topTile, styles.topTileLoading, stacked ? styles.flexOne : { width: sideWidth }, { height: tileHeight }]}>
-      <ActivityIndicator size="small" color={BRAND.muted} />
+      <ActivityIndicator size="small" color={C.muted} />
     </View>
   ) : (
     <TouchableOpacity
@@ -248,7 +271,7 @@ const ProviderHomeTopRow = ({
     >
       <Text style={styles.miniVerificationPercent} numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={TOP_ROW_FONT_SCALE}>{percent}%</Text>
       <View style={styles.miniVerificationBadge}>
-        <MaterialIcon name="verified" size={12} color="#10B981" />
+        <MaterialIcon name="verified" size={12} color={C.success} />
         <Text style={styles.miniVerificationBadgeText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} maxFontSizeMultiplier={TOP_ROW_FONT_SCALE}>
           {t('providerHome.topPremium')}
         </Text>
@@ -272,7 +295,7 @@ const ProviderHomeTopRow = ({
         <MiniMap latitude={latitude} longitude={longitude} />
       ) : (
         <View style={styles.miniMapPlaceholder}>
-          <MaterialIcon name={locationIcon} size={20} color={BRAND.muted} />
+          <MaterialIcon name={locationIcon} size={20} color={C.muted} />
         </View>
       )}
       <Text style={styles.miniLocationLabel} numberOfLines={1} maxFontSizeMultiplier={TOP_ROW_FONT_SCALE}>
@@ -316,7 +339,9 @@ const ProviderHomeTopRow = ({
 
 export default React.memo(ProviderHomeTopRow);
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   topRowWrap: {
     gap: 10,
     marginBottom: 16,
@@ -329,9 +354,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   topTileLoading: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.sunken,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: C.line,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -352,7 +377,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.06,
         shadowRadius: 10,
@@ -364,8 +389,8 @@ const styles = StyleSheet.create({
   },
   statusPadNeutral: {
     flex: 0,
-    backgroundColor: BRAND.white,
-    borderColor: '#E2E8F0',
+    backgroundColor: C.white,
+    borderColor: C.line,
   },
   statusPadText: {
     fontSize: 14,
@@ -390,32 +415,32 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: C.white,
   },
   miniVerificationCard: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: C.successBg,
     paddingHorizontal: 6,
     paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#10B98130',
+    borderColor: C.success + '30',
     ...Platform.select({
-      ios: { shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12 },
+      ios: { shadowColor: C.success, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12 },
       android: { elevation: 4 },
     }),
   },
   miniVerificationPercent: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#10B981',
+    color: C.success,
     letterSpacing: -0.3,
   },
   miniVerificationBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#D1FAE5',
+    backgroundColor: C.successFill,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
@@ -426,19 +451,19 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 11,
     fontWeight: '700',
-    color: '#059669',
+    color: C.success,
   },
   miniVerificationDays: {
     fontSize: 12,
-    color: '#64748B',
+    color: C.textSecondary,
     fontWeight: '600',
     marginTop: 4,
   },
   miniLocationCard: {
-    backgroundColor: BRAND.dark,
+    backgroundColor: C.dark,
     overflow: 'hidden',
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 14 },
+      ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 14 },
       android: { elevation: 6 },
     }),
   },
@@ -455,17 +480,18 @@ const styles = StyleSheet.create({
   },
   miniMapPlaceholder: {
     flex: 1,
-    backgroundColor: '#1E293B',
+    backgroundColor: stableDark.heroCard,
     alignItems: 'center',
     justifyContent: 'center',
   },
   miniLocationLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: BRAND.darkText,
+    color: C.darkText,
     textAlign: 'center',
     paddingHorizontal: 8,
     paddingVertical: 7,
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
   },
-});
+  });
+};

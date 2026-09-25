@@ -20,7 +20,7 @@
  */
 
 import { useMemo } from 'react';
-import { useTheme } from './ThemeContext';
+import { useThemeContextOrDefault } from './ThemeContext';
 import { createStyleCache } from './createStyleCache.js';
 
 // One cache per makeStyles function, keyed weakly so unmounted modules can be
@@ -28,7 +28,7 @@ import { createStyleCache } from './createStyleCache.js';
 const caches = new WeakMap();
 
 const useThemedStyles = (makeStyles) => {
-  const { theme } = useTheme();
+  const { theme } = useThemeContextOrDefault();
   let cached = caches.get(makeStyles);
   if (!cached) {
     cached = createStyleCache(makeStyles);

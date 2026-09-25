@@ -6,7 +6,12 @@
  * react-native-unistyles) without touching consumers.
  */
 
-export { ThemeProvider, useTheme, useThemeColors } from './ThemeContext';
+export {
+  ThemeProvider,
+  useTheme,
+  useThemeColors,
+  useThemeContextOrDefault,
+} from './ThemeContext';
 
 // Sourced from the pure module rather than through ThemeContext so that callers
 // needing only the constants do not pull in AsyncStorage and react-native.

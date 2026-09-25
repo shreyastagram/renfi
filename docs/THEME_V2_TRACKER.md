@@ -75,7 +75,12 @@ contract.
   - [x] batch 5 — `EmergencyServicesScreen`, `AccountSecurityScreen`, `SettingsScreen`,
         `ChangePasswordScreen` — migrated in ascending order of security exposure
         (2 / 68 / 117 / 255 sensitive lines), auth screens last
-- [ ] **Phase 8** — Provider screens incl. Working Hours (5 files, 126 colours)
+- [~] **Phase 8** — provider screens
+  - [x] Working Hours cluster — `TimePickerField` (incl. the `themeVariant="light"` fix),
+        `WorkAvailabilityScreen`, `ProviderHomeTopRow`, `WeeklyScheduleCard`
+  - [ ] `ServiceApprovalsScreen` (179), `ProviderHomeScreen` (92),
+        `ProviderServiceHistoryScreen` (91), `ProviderRegisterScreen` (77),
+        `PortfolioEditScreen` (48)
 - [ ] **Phase 9** — Auth screens
 - [ ] **Phase 10** — Full sweep + device-test checklist
 
@@ -85,11 +90,11 @@ contract.
 
 | Measure | Value |
 |---|---|
-| Colour literals remaining | **1,961** (3,329 at v1.0.9) — measured, see note |
-| Files on the hex allowlist | **35** |
+| Colour literals remaining | **1,857** (3,329 at v1.0.9) — measured, see note |
+| Files on the hex allowlist | **39** |
 | Components fully themed | **8** — CustomDialog, Button, Alert, ShimmerLoader, Input, Icon, GlobalBanner, DrawerMenu (+ RootNavigator surgically) |
 | Screens fully themed | **17** — the whole user side, Settings, AccountSecurity, ChangePassword, EmergencyServices, and **ProfileScreen** (the largest single file, 324 literals) |
-| Theme unit tests | 26 across 5 suites |
+| Theme unit tests | 30 across 6 suites |
 | Owner's Working Hours tests | 86 — **must never regress** |
 | i18n | **2074** × en/hi/mr (2067 baseline + 7 theme keys) |
 
@@ -149,7 +154,7 @@ npm run verify
 |---|---|
 | `check:i18n` | en/hi/mr key-identical, **baseline 2074** |
 | `check:hex` | no raw colour literal in any allowlisted file (comments excluded) |
-| `check:contrast` | 40 semantic pairs × 2 themes meet WCAG AA — including **every ink/fill pair**, which it did not assert until batch 3 |
+| `check:contrast` | 41 semantic pairs × 2 themes meet WCAG AA — including **every ink/fill pair**, which it did not assert until batch 3 |
 | `check:contrast` | dark device-safety: surface steps + border separation |
 | `check:types` | `tsc --noEmit` |
 | `test:unit` | 24 theme tests |

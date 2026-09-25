@@ -38,6 +38,10 @@
     "src/screens/AccountSecurityScreen.jsx",
     "src/screens/SettingsScreen.jsx",
     "src/screens/ChangePasswordScreen.jsx",
-    "src/screens/ProfileScreen.jsx"
+    "src/screens/ProfileScreen.jsx",
+    "src/components/TimePickerField.jsx",
+    "src/screens/WorkAvailabilityScreen.jsx",
+    "src/components/ProviderHomeTopRow.jsx",
+    "src/components/WeeklyScheduleCard.jsx"
   ]
 }

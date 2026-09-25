@@ -58,6 +58,7 @@ const REQUIRED_PAIRS = [
   ['onBrandBlue', 'brandBlue', TEXT, 'label on a blue fill'],
   // Every filled-badge ink against the fill it actually sits on. These were
   // missing, which is how onSuccess/onWarning sat at 3.56 in light mode unnoticed.
+  ['onOnline', 'online', TEXT, 'label on the provider availability pad'],
   ['onSuccess', 'success', TEXT, 'label on a solid success fill'],
   ['onWarning', 'warning', TEXT, 'label on a solid warning fill'],
   ['onDanger', 'danger', TEXT, 'label on a solid danger fill'],

@@ -170,6 +170,7 @@ export const stableDark = {
   brandOrangeLineStrong: 'rgba(246, 124, 22, 0.6)',
   brandOrangeChip: 'rgba(246, 124, 22, 0.25)',
   onlineDot: '#22C55E',
+  onlineBorder: '#16A34A', // the ring around an online pad
   onlineChip: 'rgba(34, 197, 94, 0.18)',
   onlineInk: '#DCFCE7',
   verifiedInk: '#86EFAC',

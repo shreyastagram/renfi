@@ -23,6 +23,7 @@ import {
   dark,
   semanticLight,
   semanticDark,
+  stableDark,
   overlay,
 } from './palette.js';
 
@@ -93,6 +94,12 @@ export const lightColors = {
   // Green and amber are dark in light mode and light in dark mode, so their ink
   // must flip with the theme. Red and blue stay dark enough in both, so theirs
   // does not. All five pairs are now asserted in scripts/check-contrast.js.
+  // The provider availability pad. The green is an availability SIGNAL, not a UI
+  // surface, so it is the same in both themes -- and its ink is dark, because white
+  // on it measured 2.28:1 on a live switch. Asserted in scripts/check-contrast.js.
+  online: stableDark.onlineDot,
+  onlineBorder: stableDark.onlineBorder,
+  onOnline: slate[900],
   onSuccess: slate[0],
   onWarning: slate[0],
   onDanger: slate[0],
@@ -188,6 +195,12 @@ export const darkColors = {
   infoContainer: semanticDark.infoContainer,
 
   // Dark semantic fills are all light, so every badge takes dark text.
+  // The provider availability pad. The green is an availability SIGNAL, not a UI
+  // surface, so it is the same in both themes -- and its ink is dark, because white
+  // on it measured 2.28:1 on a live switch. Asserted in scripts/check-contrast.js.
+  online: stableDark.onlineDot,
+  onlineBorder: stableDark.onlineBorder,
+  onOnline: slate[900],
   onSuccess: slate[900],
   onWarning: slate[900],
   onDanger: slate[900],

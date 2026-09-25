@@ -18,19 +18,24 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import TouchableOpacity from './TouchableOpacity';
 import { useLanguage } from '../context/LanguageContext';
 import { formatTime12, hhmmToPickerDate, pickerDateToHhmm } from '../utils/workSchedule';
+import { useTheme, useThemedStyles, useThemeColors } from '../theme';
 
-const COLORS = {
-  border: '#E2E8F0',
-  activeBorder: '#f67c16',
-  label: '#64748B',
-  value: '#0F172A',
-  white: '#FFFFFF',
-};
+const makeC = (c) => ({
+  border: c.border,
+  primary: c.brandOrange,
+  label: c.textSecondary,
+  value: c.textPrimary,
+  white: c.surface,
+  activeFill: c.warningContainer,
+  wheelFill: c.surfaceSunken,
+  doneInk: c.info,
+});
 
 // Large accessibility font sizes must not break the two-column layout.
 const MAX_FONT_SCALE = 1.3;
 
 const TimePickerField = ({ label, value, onChange, disabled = false, isOpen = false, onOpen, onClose, testID }) => {
+  const styles = useThemedStyles(makeStyles);
   const handleAndroidChange = useCallback((event, selected) => {
     onClose();
     if (event?.type === 'set' && selected) onChange(pickerDateToHhmm(selected));
@@ -77,6 +82,9 @@ const TimePickerField = ({ label, value, onChange, disabled = false, isOpen = fa
  * wheel's text would otherwise be white-on-white (invisible).
  */
 export const IosTimeWheel = React.memo(({ value, onChange, onDone }) => {
+  const { isDark } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
   const handleChange = useCallback((event, selected) => {
     if (selected) onChange(pickerDateToHhmm(selected));
@@ -91,8 +99,8 @@ export const IosTimeWheel = React.memo(({ value, onChange, onDone }) => {
         is24Hour={false}
         display="spinner"
         minuteInterval={5}
-        themeVariant="light"
-        textColor={COLORS.value}
+        themeVariant={isDark ? 'dark' : 'light'}
+        textColor={C.value}
         onChange={handleChange}
         style={styles.iosWheel}
       />
@@ -103,37 +111,40 @@ export const IosTimeWheel = React.memo(({ value, onChange, onDone }) => {
   );
 });
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   wrap: { flex: 1, minWidth: 0 },
   field: {
     borderWidth: 1.5,
-    borderColor: COLORS.border,
+    borderColor: C.border,
     borderRadius: 14,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    backgroundColor: COLORS.white,
+    backgroundColor: C.white,
   },
-  fieldActive: { borderColor: COLORS.activeBorder, backgroundColor: '#FFFBF6' },
+  fieldActive: { borderColor: C.activeBorder, backgroundColor: C.activeFill },
   fieldDisabled: { opacity: 0.45 },
-  label: { fontSize: 11.5, fontWeight: '600', color: COLORS.label },
-  value: { fontSize: 18, fontWeight: '700', color: COLORS.value, marginTop: 1 },
+  label: { fontSize: 11.5, fontWeight: '600', color: C.label },
+  value: { fontSize: 18, fontWeight: '700', color: C.value, marginTop: 1 },
   iosWheelWrap: {
     marginTop: 10,
     borderRadius: 14,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.wheelFill,
     alignItems: 'center',
     paddingBottom: 8,
   },
-  iosWheel: { alignSelf: 'stretch', height: 180, backgroundColor: '#F8FAFC' },
+  iosWheel: { alignSelf: 'stretch', height: 180, backgroundColor: C.wheelFill },
   done: {
     paddingVertical: 8,
     paddingHorizontal: 26,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: C.border,
   },
-  doneText: { fontSize: 14, fontWeight: '700', color: '#2b76bc' },
-});
+  doneText: { fontSize: 14, fontWeight: '700', color: C.doneInk },
+  });
+};
 
 export default React.memo(TimePickerField);

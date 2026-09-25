@@ -98,6 +98,21 @@ export const ThemeProvider = ({ children }) => {
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 };
 
+// Used only when a consumer renders outside the provider. `isReady: false` marks it
+// as a fallback so a caller can tell it apart from a settled theme.
+const FALLBACK_CONTEXT = {
+  theme: lightTheme,
+  mode: 'system',
+  setMode: () => {},
+  themeName: lightTheme.name,
+  isReady: false,
+};
+
+/**
+ * Full theme access, including `mode` / `setMode`. Throws without a provider,
+ * because a caller that wants to CHANGE the theme and has no provider is a wiring
+ * bug and should fail loudly.
+ */
 export const useTheme = () => {
   const ctx = useContext(ThemeContext);
   if (!ctx) {
@@ -106,6 +121,23 @@ export const useTheme = () => {
   return ctx;
 };
 
-export const useThemeColors = () => useTheme().theme.colors;
+/**
+ * Read-only theme access, which is what the presentational hooks need.
+ *
+ * Deliberately does NOT throw without a provider — it falls back to the light
+ * theme. A theme is presentational: rendering in light mode is a far better
+ * failure than crashing the tree. This also keeps a component testable in
+ * isolation, which is how the provider-row tests render it, and how any component
+ * reached outside the provider (a detached modal, an error-boundary fallback)
+ * would behave in production.
+ *
+ * `useTheme` keeps its throw, so the fail-fast path still exists where it matters.
+ */
+export const useThemeContextOrDefault = () => {
+  const ctx = useContext(ThemeContext);
+  return ctx || FALLBACK_CONTEXT;
+};
+
+export const useThemeColors = () => useThemeContextOrDefault().theme.colors;
 
 export default ThemeContext;

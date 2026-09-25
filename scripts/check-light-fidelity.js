@@ -351,6 +351,30 @@ const EXPECTED_CHANGES = {
     '#9CA3AF': 'placeholders -> textMuted', '#16A34A': 'a11y: 3.0:1 on its tint -> the success token',
     '#EA580C': 'converged onto the warning token',
   },
+  'src/components/TimePickerField.jsx': {
+    '#FFFBF6': 'the active field tint -> warningContainer',
+  },
+  'src/screens/WorkAvailabilityScreen.jsx': {
+    '#FFF4EA': 'the today badge -> warningContainer',
+    '#EEF2FF': 'the night-note card converged onto infoContainer (indigo-50 -> blue-50)',
+    '#3730A3': 'its ink converged onto the info token',
+    '#4F46E5': 'the clock icon -> altBlueIndigo',
+  },
+  'src/components/ProviderHomeTopRow.jsx': {
+    '#ECFDF5': 'converged onto successContainer',
+    '#D1FAE5': 'the nested verification badge -> successFill, so it keeps a step against the card',
+    '#059669': 'converged onto the success token',
+    '#10B98130': 'the alpha-concatenated green hairline is now `C.success + \'30\'`, so the tint follows the token',
+    // Not flagged but now a real token rather than an inline literal:
+    '#22C55E': 'the availability pad green is unchanged -- it moved to the new `online` token, which is identical in both themes and whose dark ink is asserted in check:contrast',
+  },
+  'src/components/WeeklyScheduleCard.jsx': {
+    '#ECFDF5': 'converged onto successContainer', '#047857': 'converged onto the success token',
+    '#1D4ED8': 'the saved-not-enforced ink converged onto the info token',
+    '#FFF4EA': 'the today icon -> warningContainer', '#FED7AA': 'the chip hairline -> warningBorder',
+    '#C2410C': 'chip letter converged onto the warning token',
+    '#9A3412': 'chip hours converged onto the warning token',
+  },
   'src/screens/EmailVerifyHandlerScreen.jsx': {
     '#2563EB': 'altBlueIndigo', '#FFFFFF': 'surface',
     '#6B7280': 'textSecondary is now the accessible #475569',
