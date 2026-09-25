@@ -15,14 +15,21 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, Animated, AppState, Platform } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { getActiveTrackingRequests, subscribeTrackingChange } from '../services/socketService';
+import {
+  useThemedStyles,
+} from '../theme';
+import {
+  brand,
+} from '../theme';
 
-const BRAND_ORANGE = '#f67c16';
+const BRAND_ORANGE = brand.orange;
 const TOAST_DURATION = 3000;
 
 /**
  * Pulsing location icon — indicates active location sharing.
  */
 const PulsingLocationIcon = () => {
+  const styles = useThemedStyles(makeStyles);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(0.4)).current;
 
@@ -64,6 +71,7 @@ const PulsingLocationIcon = () => {
  * When not tracking, returns null so the online pad stretches to full width.
  */
 const LocationTrackingBanner = () => {
+  const styles = useThemedStyles(makeStyles);
   const [trackingCount, setTrackingCount] = useState(0);
   const [toastMessage, setToastMessage] = useState(null);
   const toastOpacity = useRef(new Animated.Value(0)).current;
@@ -131,7 +139,30 @@ const LocationTrackingBanner = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  white: c.surface,
+  sunken: c.surfaceSunken,
+  line: c.border,
+  borderMedium: c.borderMedium,
+  text: c.textStrong,
+  textBody: c.textBody,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  indigo: c.altBlueIndigo,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  warningLine: c.warningBorder,
+  overlay: c.overlay,
+  overlayStrong: c.overlayStrong,
+  shadow: c.shadow,
+});
+
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   // ─── Pad (matches statusPad sizing from ProviderHomeScreen) ──
   pad: {
     flexDirection: 'row',
@@ -142,13 +173,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderWidth: 1.5,
-    borderColor: '#FDBA74',
+    borderColor: C.warningLine,
     marginBottom: 16,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: C.warningBg,
     flex: 1,
     ...Platform.select({
       ios: {
-        shadowColor: '#9A3412',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.06,
         shadowRadius: 10,
@@ -164,13 +195,13 @@ const styles = StyleSheet.create({
   padTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#9A3412',
+    color: C.warning,
     letterSpacing: 0.2,
   },
   padCount: {
     fontSize: 11,
     fontWeight: '500',
-    color: '#C2410C',
+    color: C.warning,
     marginTop: 1,
   },
   // ─── Pulsing location icon ──
@@ -192,7 +223,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -36,
     alignSelf: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    backgroundColor: C.overlayStrong,
     borderRadius: 8,
     paddingVertical: 6,
     paddingHorizontal: 14,
@@ -201,8 +232,9 @@ const styles = StyleSheet.create({
   toastText: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#FFFFFF',
+    color: C.onPrimary,
   },
-});
+  });
+};
 
 export default LocationTrackingBanner;

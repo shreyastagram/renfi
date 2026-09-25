@@ -30,26 +30,41 @@ import TouchableOpacity from './TouchableOpacity';
 import { useLanguage } from '../context/LanguageContext';
 import { sendAppleEmailOtp, verifyAppleEmailOtp } from '../services/appleAuthService';
 import { parseApiError } from '../services/apiClient';
+import {
+  useThemedStyles,
+  useThemeColors,
+} from '../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const COLORS = {
-  primary: '#f67c16',
-  primaryDark: '#e06b0a',
-  white: '#FFFFFF',
-  text: '#0F172A',
-  textSecondary: '#64748B',
-  border: '#E2E8F0',
-  error: '#EF4444',
-  errorBg: '#FEF2F2',
-  success: '#10B981',
-  successBg: '#ECFDF5',
-  overlay: 'rgba(15, 23, 42, 0.55)',
-  inputBg: '#F8FAFC',
-  inputFocusBorder: '#f67c16',
-  disabled: '#94A3B8',
-  cardBg: '#FFFFFF',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  sunken: c.surfaceSunken,
+  hairline: c.bg,
+  line: c.borderNeutral,
+  lineSlate: c.border,
+  borderMedium: c.borderMediumNeutral,
+  text: c.textStrongNeutral,
+  textDark: c.textPrimary,
+  textBody: c.textBodyNeutral,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  success: c.success,
+  successBg: c.successContainer,
+  danger: c.danger,
+  dangerBg: c.dangerContainer,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  info: c.info,
+  infoBg: c.infoContainer,
+  indigo: c.altBlueIndigo,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
 
 const STEPS = {
   EMAIL_INPUT: 'EMAIL_INPUT',
@@ -67,6 +82,8 @@ const isValidEmail = (email) => {
 };
 
 const AppleEmailCollectionModal = ({ visible, appleUserId, onVerified, onCancel }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
 
   // State
@@ -397,7 +414,7 @@ const AppleEmailCollectionModal = ({ visible, appleUserId, onVerified, onCancel 
                     ref={emailInputRef}
                     style={styles.emailInput}
                     placeholder={t('auth.appleEmailPlaceholder') || 'Enter your email address'}
-                    placeholderTextColor={COLORS.disabled}
+                    placeholderTextColor={C.disabled}
                     value={email}
                     onChangeText={(text) => {
                       setEmail(text);
@@ -419,7 +436,7 @@ const AppleEmailCollectionModal = ({ visible, appleUserId, onVerified, onCancel 
                     activeOpacity={0.7}
                   >
                     {loading ? (
-                      <ActivityIndicator size="small" color={COLORS.white} />
+                      <ActivityIndicator size="small" color={C.white} />
                     ) : (
                       <Text style={styles.primaryButtonText}>
                         {t('auth.appleEmailSendOtp') || 'Send Verification Code'}
@@ -465,7 +482,7 @@ const AppleEmailCollectionModal = ({ visible, appleUserId, onVerified, onCancel 
                   >
                     {loading ? (
                       <View style={styles.loadingRow}>
-                        <ActivityIndicator size="small" color={COLORS.white} />
+                        <ActivityIndicator size="small" color={C.white} />
                         <Text style={[styles.primaryButtonText, { marginLeft: 8 }]}>
                           {t('auth.appleEmailVerifying') || 'Verifying...'}
                         </Text>
@@ -518,10 +535,12 @@ const AppleEmailCollectionModal = ({ visible, appleUserId, onVerified, onCancel 
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: COLORS.overlay,
+    backgroundColor: C.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -534,14 +553,14 @@ const styles = StyleSheet.create({
   },
   card: {
     width: Math.min(SCREEN_WIDTH - 48, 380),
-    backgroundColor: COLORS.cardBg,
+    backgroundColor: C.cardBg,
     borderRadius: 22,
     paddingTop: 28,
     paddingHorizontal: 24,
     paddingBottom: 22,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.18,
         shadowRadius: 28,
@@ -558,43 +577,43 @@ const styles = StyleSheet.create({
   headerIcon: {
     fontSize: 36,
     marginBottom: 12,
-    color: '#000000',
+    color: C.textDark,
   },
   title: {
     fontSize: 20,
     fontWeight: '800',
-    color: COLORS.text,
+    color: C.text,
     textAlign: 'center',
     marginBottom: 8,
     letterSpacing: -0.2,
   },
   subtitle: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },
   errorContainer: {
-    backgroundColor: COLORS.errorBg,
+    backgroundColor: C.errorBg,
     borderRadius: 10,
     padding: 12,
     marginBottom: 16,
   },
   errorText: {
     fontSize: 13,
-    color: COLORS.error,
+    color: C.error,
     textAlign: 'center',
     lineHeight: 18,
   },
   successContainer: {
-    backgroundColor: COLORS.successBg,
+    backgroundColor: C.successBg,
     borderRadius: 10,
     padding: 12,
     marginBottom: 16,
   },
   successText: {
     fontSize: 13,
-    color: COLORS.success,
+    color: C.success,
     textAlign: 'center',
     lineHeight: 18,
     fontWeight: '600',
@@ -603,14 +622,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emailInput: {
-    backgroundColor: COLORS.inputBg,
+    backgroundColor: C.inputBg,
     borderWidth: 1.5,
-    borderColor: COLORS.border,
+    borderColor: C.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: Platform.OS === 'ios' ? 14 : 12,
     fontSize: 16,
-    color: COLORS.text,
+    color: C.text,
     marginBottom: 16,
   },
   otpContainer: {
@@ -622,21 +641,21 @@ const styles = StyleSheet.create({
   otpInput: {
     flex: 1,
     height: 52,
-    backgroundColor: COLORS.inputBg,
+    backgroundColor: C.inputBg,
     borderWidth: 1.5,
-    borderColor: COLORS.border,
+    borderColor: C.border,
     borderRadius: 12,
     textAlign: 'center',
     fontSize: 22,
     fontWeight: '700',
-    color: COLORS.text,
+    color: C.text,
   },
   otpInputFilled: {
-    borderColor: COLORS.primary,
-    backgroundColor: '#FFF7ED',
+    borderColor: C.primary,
+    backgroundColor: C.warningBg,
   },
   primaryButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: C.primary,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -647,7 +666,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   primaryButtonText: {
-    color: COLORS.white,
+    color: C.white,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -662,16 +681,16 @@ const styles = StyleSheet.create({
   },
   countdownText: {
     fontSize: 14,
-    color: COLORS.disabled,
+    color: C.disabled,
   },
   linkText: {
     fontSize: 14,
-    color: COLORS.primary,
+    color: C.primary,
     fontWeight: '600',
   },
   backLink: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     textAlign: 'center',
     marginTop: 12,
     textDecorationLine: 'underline',
@@ -683,9 +702,10 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     fontSize: 14,
-    color: COLORS.disabled,
+    color: C.disabled,
     fontWeight: '600',
   },
-});
+  });
+};
 
 export default AppleEmailCollectionModal;

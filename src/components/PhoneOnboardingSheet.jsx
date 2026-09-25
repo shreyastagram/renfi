@@ -23,12 +23,19 @@ import LinearGradient from 'react-native-linear-gradient';
 import TouchableOpacity from './TouchableOpacity';
 import PhoneChangeModal from './PhoneChangeModal';
 import { useLanguage } from '../context/LanguageContext';
+import {
+  useThemedStyles,
+  useThemeColors,
+  heroGradient,
+} from '../theme';
 
 const ENTRY_DELAY_MS = 450;
 
 const BENEFIT_ICONS = ['flash-on', 'sms', 'verified-user'];
 
 const PhoneOnboardingSheet = ({ visible, onDismiss, bottomInset = 0 }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [phoneModalOpen, setPhoneModalOpen] = useState(false);
@@ -116,9 +123,9 @@ const PhoneOnboardingSheet = ({ visible, onDismiss, bottomInset = 0 }) => {
             <View style={styles.grabber} />
 
             <View style={styles.iconBadge}>
-              <MaterialIcon name="phone-iphone" size={30} color="#F97316" />
+              <MaterialIcon name="phone-iphone" size={30} color={C.warning} />
               <View style={styles.iconCheck}>
-                <MaterialIcon name="check" size={12} color="#FFFFFF" />
+                <MaterialIcon name="check" size={12} color={C.onPrimary} />
               </View>
             </View>
 
@@ -129,7 +136,7 @@ const PhoneOnboardingSheet = ({ visible, onDismiss, bottomInset = 0 }) => {
               {benefits.map((label, i) => (
                 <View key={BENEFIT_ICONS[i]} style={styles.benefitRow}>
                   <View style={styles.benefitIconWrap}>
-                    <MaterialIcon name={BENEFIT_ICONS[i]} size={16} color="#059669" />
+                    <MaterialIcon name={BENEFIT_ICONS[i]} size={16} color={C.success} />
                   </View>
                   <Text style={styles.benefitText}>{label}</Text>
                 </View>
@@ -138,12 +145,12 @@ const PhoneOnboardingSheet = ({ visible, onDismiss, bottomInset = 0 }) => {
 
             <TouchableOpacity activeOpacity={0.85} onPress={handleVerifyNow} style={styles.ctaWrap}>
               <LinearGradient
-                colors={['#FB923C', '#F97316', '#EA580C']}
+                colors={[heroGradient.ctaWarm1, heroGradient.ctaWarm2, heroGradient.ctaWarm3]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.cta}
               >
-                <MaterialIcon name="verified" size={18} color="#FFFFFF" style={styles.ctaIcon} />
+                <MaterialIcon name="verified" size={18} color={C.onPrimary} style={styles.ctaIcon} />
                 <Text style={styles.ctaText}>{t('phoneOnboarding.verifyNow')}</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -166,18 +173,50 @@ const PhoneOnboardingSheet = ({ visible, onDismiss, bottomInset = 0 }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  sunken: c.surfaceSunken,
+  hairline: c.bg,
+  line: c.borderNeutral,
+  lineSlate: c.border,
+  borderMedium: c.borderMediumNeutral,
+  text: c.textStrongNeutral,
+  textDark: c.textPrimary,
+  textBody: c.textBodyNeutral,
+  textBodySlate: c.textBody,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  success: c.success,
+  successBg: c.successContainer,
+  danger: c.danger,
+  dangerBg: c.dangerContainer,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  info: c.info,
+  infoBg: c.infoContainer,
+  indigo: c.altBlueIndigo,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
+
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   backdropWrap: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15, 23, 42, 0.55)' },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: C.overlay },
   sheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 24,
     paddingTop: 10,
     alignItems: 'center',
     // iOS shadow + Android elevation (repo rule: every elevation gets a shadow)
-    shadowColor: '#0F172A',
+    shadowColor: C.shadow,
     shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.12,
     shadowRadius: 16,
@@ -187,14 +226,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: C.lineSlate,
     marginBottom: 18,
   },
   iconBadge: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: C.warningBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
@@ -206,22 +245,22 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#10B981',
+    backgroundColor: C.success,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: C.white,
   },
   title: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0F172A',
+    color: C.textDark,
     textAlign: 'center',
     marginBottom: 6,
   },
   subtitle: {
     fontSize: 14,
-    color: '#64748B',
+    color: C.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 18,
@@ -233,12 +272,12 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#ECFDF5',
+    backgroundColor: C.successBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
-  benefitText: { fontSize: 14.5, color: '#334155', fontWeight: '600', flex: 1 },
+  benefitText: { fontSize: 14.5, color: C.textBodySlate, fontWeight: '600', flex: 1 },
   ctaWrap: { alignSelf: 'stretch', borderRadius: 16, overflow: 'hidden' },
   cta: {
     flexDirection: 'row',
@@ -248,9 +287,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   ctaIcon: { marginRight: 8 },
-  ctaText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800', letterSpacing: 0.2 },
+  ctaText: { color: C.onPrimary, fontSize: 16, fontWeight: '800', letterSpacing: 0.2 },
   laterBtn: { paddingVertical: 14, paddingHorizontal: 20 },
-  laterText: { color: '#94A3B8', fontSize: 14.5, fontWeight: '700' },
-});
+  laterText: { color: C.muted, fontSize: 14.5, fontWeight: '700' },
+  });
+};
 
 export default PhoneOnboardingSheet;

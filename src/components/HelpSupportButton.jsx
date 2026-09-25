@@ -12,8 +12,11 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import TouchableOpacity from './TouchableOpacity';
 import { useApp } from '../context/AppContext';
 import { useSupport } from '../context/SupportContext';
+import {
+  brand,
+} from '../theme';
 
-const BRAND_ORANGE = '#f67c16';
+const BRAND_ORANGE = brand.orange;
 
 const HelpSupportButton = ({ size = 24, color = BRAND_ORANGE, style }) => {
   const { userType } = useApp();

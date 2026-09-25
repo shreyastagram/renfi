@@ -9,12 +9,15 @@
 
 import React, { memo } from 'react';
 import { View, StyleSheet } from 'react-native';
+import {
+  brandTint,
+} from '../theme';
 
 const GRID = 28;
 const ROWS = 45;
 const COLS = 16;
 
-const GraphBackground = memo(({ lineColor = 'rgba(43,118,188,0.07)', showCircles = true }) => (
+const GraphBackground = memo(({ lineColor = brandTint.blue06, showCircles = true }) => (
   <View style={s.root} pointerEvents="none">
     {Array.from({ length: ROWS }, (_, i) => (
       <View key={`h${i}`} style={[s.lineH, { top: i * GRID, backgroundColor: lineColor }]} />
@@ -24,9 +27,9 @@ const GraphBackground = memo(({ lineColor = 'rgba(43,118,188,0.07)', showCircles
     ))}
     {showCircles && (
       <>
-        <View style={[s.circle, { top: 100, right: -10, width: 60, height: 60, backgroundColor: 'rgba(43,118,188,0.04)' }]} />
-        <View style={[s.circle, { top: 350, left: -15, width: 45, height: 45, backgroundColor: 'rgba(246,124,22,0.035)' }]} />
-        <View style={[s.circle, { top: 600, right: 20, width: 35, height: 35, backgroundColor: 'rgba(43,118,188,0.03)' }]} />
+        <View style={[s.circle, { top: 100, right: -10, width: 60, height: 60, backgroundColor: brandTint.blue05 }]} />
+        <View style={[s.circle, { top: 350, left: -15, width: 45, height: 45, backgroundColor: brandTint.orange04 }]} />
+        <View style={[s.circle, { top: 600, right: 20, width: 35, height: 35, backgroundColor: brandTint.blue05 }]} />
       </>
     )}
   </View>

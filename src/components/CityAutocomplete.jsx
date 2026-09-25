@@ -23,6 +23,10 @@ import {  View,
 import TouchableOpacity from './TouchableOpacity';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
+import {
+  useThemedStyles,
+  useThemeColors,
+} from '../theme';
 
 const GEOCODING_BASE = 'https://api.mapbox.com/geocoding/v5/mapbox.places';
 const INDIA_BBOX = '68.1766451354,6.747139,97.4025614766,35.4940095078';
@@ -36,6 +40,8 @@ const CityAutocomplete = ({
   editable = true,
   style,
 }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const [query, setQuery] = useState(value);
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -132,7 +138,7 @@ const CityAutocomplete = ({
       onPress={() => handleSelect(item)}
       activeOpacity={0.6}
     >
-      <MaterialIcon name="location-city" size={18} color="#6B7280" style={{ marginRight: 10 }} />
+      <MaterialIcon name="location-city" size={18} color={C.textSecondary} style={{ marginRight: 10 }} />
       <View style={{ flex: 1 }}>
         <Text style={styles.cityName}>{item.name}</Text>
         {item.state ? (
@@ -152,7 +158,7 @@ const CityAutocomplete = ({
           value={query}
           onChangeText={handleTextChange}
           placeholder={placeholder}
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={C.muted}
           editable={editable}
           autoCorrect={false}
           returnKeyType="done"
@@ -160,7 +166,7 @@ const CityAutocomplete = ({
             if (suggestions.length > 0) setShowSuggestions(true);
           }}
         />
-        {loading && <ActivityIndicator size="small" color="#FF6B00" />}
+        {loading && <ActivityIndicator size="small" color={C.primary} />}
       </View>
 
       {showSuggestions && (
@@ -190,7 +196,38 @@ const CityAutocomplete = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  sunken: c.surfaceSunken,
+  hairline: c.bg,
+  line: c.borderNeutral,
+  lineSlate: c.border,
+  borderMedium: c.borderMediumNeutral,
+  text: c.textStrongNeutral,
+  textDark: c.textPrimary,
+  textBody: c.textBodyNeutral,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  success: c.success,
+  successBg: c.successContainer,
+  danger: c.danger,
+  dangerBg: c.dangerContainer,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  info: c.info,
+  infoBg: c.infoContainer,
+  indigo: c.altBlueIndigo,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
+
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   container: {
     zIndex: 998,
     elevation: 998,
@@ -198,39 +235,39 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#374151',
+    color: C.textBody,
     marginBottom: 8,
     letterSpacing: 0.1,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FAFBFC',
+    backgroundColor: C.sunken,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: C.lineSlate,
     paddingHorizontal: 12,
     height: 50,
   },
   input: {
     flex: 1,
     fontSize: 15,
-    color: '#1F2937',
+    color: C.text,
     paddingVertical: Platform.OS === 'ios' ? 12 : 8,
   },
   suggestionsContainer: {
     marginTop: 4,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: C.line,
     maxHeight: 240,
     zIndex: 1000,
     overflow: 'hidden',
     elevation: 10,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.15,
         shadowRadius: 12,
@@ -252,16 +289,16 @@ const styles = StyleSheet.create({
   cityName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1F2937',
+    color: C.text,
   },
   stateName: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: C.muted,
     marginTop: 1,
   },
   separator: {
     height: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: C.sunken,
     marginHorizontal: 14,
   },
   noResults: {
@@ -270,8 +307,9 @@ const styles = StyleSheet.create({
   },
   noResultsText: {
     fontSize: 13,
-    color: '#9CA3AF',
+    color: C.muted,
   },
-});
+  });
+};
 
 export default CityAutocomplete;

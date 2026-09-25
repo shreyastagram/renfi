@@ -34,6 +34,12 @@ import GoogleLogo from './GoogleLogo';
 import LinearGradient from 'react-native-linear-gradient';
 import { useLanguage } from '../context/LanguageContext';
 import { useDialog } from '../context/DialogContext';
+import {
+  useThemedStyles,
+  useThemeColors,
+  stableDark,
+  vendor,
+} from '../theme';
 
 const TERMS_URL = 'https://fixhomi.com/terms';
 const PRIVACY_URL = 'https://fixhomi.com/privacy';
@@ -55,6 +61,8 @@ const RegisterChoice = ({
   onSwitchToLogin,
   userType = 'user',
 }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
   const { dialog } = useDialog();
   const insets = useSafeAreaInsets();
@@ -113,7 +121,9 @@ const RegisterChoice = ({
       }
       return <Text key={`x-${i}`}>{part}</Text>;
     });
-  }, [t]);
+  // `styles` belongs here: it is a per-theme object now, so without it this memo would
+  // keep serving the previous theme's link style after a switch.
+  }, [t, styles.termsLink]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -154,13 +164,13 @@ const RegisterChoice = ({
               disabled={anyLoading}
             >
               <View style={[styles.optionIconCircle, styles.manualIconCircle]}>
-                <MaterialIcons name="email" size={22} color="#f67c16" />
+                <MaterialIcons name="email" size={22} color={C.primary} />
               </View>
               <View style={styles.optionTextWrap}>
                 <Text style={styles.optionTitle}>{t('auth.fillManually')}</Text>
                 <Text style={styles.optionSub}>{t('auth.fillManuallySub')}</Text>
               </View>
-              <MaterialIcons name="arrow-forward" size={20} color={termsAccepted ? '#f67c16' : '#CBD5E1'} />
+              <MaterialIcons name="arrow-forward" size={20} color={termsAccepted ? C.primary : C.borderMedium} />
             </TouchableOpacity>
 
             {/* Continue with Google — gradient border (Google rainbow) + subtle top glare */}
@@ -173,14 +183,14 @@ const RegisterChoice = ({
               disabled={anyLoading}
             >
               <LinearGradient
-                colors={['#EA4335', '#FBBC05', '#34A853', '#4285F4']}
+                colors={[vendor.googleRed, vendor.googleYellow, vendor.googleGreen, vendor.googleBlue]}
                 start={{ x: 0, y: 0.5 }}
                 end={{ x: 1, y: 0.5 }}
                 style={styles.googleGradientBorderCard}
               >
                 <View style={styles.googleCardInner}>
                   <LinearGradient
-                    colors={['rgba(255,255,255,0.55)', 'rgba(255,255,255,0)']}
+                    colors={[stableDark.inkSoft, stableDark.inkSoftFade]}
                     start={{ x: 0.5, y: 0 }}
                     end={{ x: 0.5, y: 1 }}
                     style={styles.googleCardGlare}
@@ -188,7 +198,7 @@ const RegisterChoice = ({
                   />
                   <View style={[styles.optionIconCircle, styles.googleIconCircleWhite]}>
                     {googleLoading ? (
-                      <ActivityIndicator size="small" color="#4285F4" />
+                      <ActivityIndicator size="small" color={vendor.googleBlue} />
                     ) : (
                       <GoogleLogo size={24} />
                     )}
@@ -197,7 +207,7 @@ const RegisterChoice = ({
                     <Text style={styles.optionTitle}>{t('auth.continueWithGoogle')}</Text>
                     <Text style={styles.optionSub}>{t('auth.continueWithGoogleSub')}</Text>
                   </View>
-                  <MaterialIcons name="arrow-forward" size={20} color={termsAccepted ? '#475569' : '#CBD5E1'} />
+                  <MaterialIcons name="arrow-forward" size={20} color={termsAccepted ? C.textBody : C.borderMedium} />
                 </View>
               </LinearGradient>
             </TouchableOpacity>
@@ -213,7 +223,7 @@ const RegisterChoice = ({
                 disabled={anyLoading}
               >
                 <View style={[styles.optionIconCircle, styles.phoneIconCircle]}>
-                  <MaterialIcons name="phone-iphone" size={22} color="#2563EB" />
+                  <MaterialIcons name="phone-iphone" size={22} color={C.indigo} />
                 </View>
                 <View style={styles.optionTextWrap}>
                   <Text style={styles.optionTitle}>
@@ -223,7 +233,7 @@ const RegisterChoice = ({
                     {t('auth.continueWithPhoneSub') || "We'll send you a verification code"}
                   </Text>
                 </View>
-                <MaterialIcons name="arrow-forward" size={20} color={termsAccepted ? '#2563EB' : '#CBD5E1'} />
+                <MaterialIcons name="arrow-forward" size={20} color={termsAccepted ? C.indigo : C.borderMedium} />
               </TouchableOpacity>
             )}
 
@@ -239,7 +249,7 @@ const RegisterChoice = ({
               >
                 <View style={[styles.optionIconCircle, styles.appleIconCircle]}>
                   {appleLoading ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <ActivityIndicator size="small" color={C.onPrimary} />
                   ) : (
                     <Text style={styles.appleGlyph}>{''}</Text>
                   )}
@@ -248,7 +258,7 @@ const RegisterChoice = ({
                   <Text style={[styles.optionTitle, styles.appleOptionTitle]}>{t('auth.continueWithApple')}</Text>
                   <Text style={[styles.optionSub, styles.appleOptionSub]}>{t('auth.continueWithAppleSub')}</Text>
                 </View>
-                <MaterialIcons name="arrow-forward" size={20} color={termsAccepted ? '#FFFFFF' : '#475569'} />
+                <MaterialIcons name="arrow-forward" size={20} color={termsAccepted ? C.onPrimary : C.textBody} />
               </TouchableOpacity>
             )}
           </View>
@@ -264,7 +274,7 @@ const RegisterChoice = ({
             disabled={anyLoading}
           >
             <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
-              {termsAccepted && <MaterialIcons name="check" size={16} color="#FFFFFF" />}
+              {termsAccepted && <MaterialIcons name="check" size={16} color={C.onPrimary} />}
             </View>
             <Text style={styles.termsText}>{termsContent}</Text>
           </TouchableOpacity>
@@ -280,13 +290,13 @@ const RegisterChoice = ({
           <View style={styles.referralWrap}>
             <Text style={styles.referralLabel}>{t('auth.haveReferralCode')}</Text>
             <View style={styles.referralInputRow}>
-              <MaterialIcons name="redeem" size={18} color="#94A3B8" style={styles.referralIcon} />
+              <MaterialIcons name="redeem" size={18} color={C.muted} style={styles.referralIcon} />
               <TextInput
                 style={styles.referralInput}
                 value={referralCode}
                 onChangeText={(v) => onReferralCodeChange(v.toUpperCase())}
                 placeholder={t('auth.referralCodePlaceholder')}
-                placeholderTextColor="#CBD5E1"
+                placeholderTextColor={C.borderMedium}
                 autoCapitalize="characters"
                 autoCorrect={false}
                 maxLength={16}
@@ -318,8 +328,33 @@ const RegisterChoice = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  white: c.surface,
+  sunken: c.surfaceSunken,
+  line: c.border,
+  borderMedium: c.borderMedium,
+  text: c.textStrong,
+  textBody: c.textBody,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  indigo: c.altBlueIndigo,
+  infoBg: c.infoContainer,
+  danger: c.danger,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  warningLine: c.warningBorder,
+  overlay: c.overlay,
+  overlayStrong: c.overlayStrong,
+  shadow: c.shadow,
+});
+
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.white },
   keyboardView: { flex: 1 },
   scrollContent: { paddingHorizontal: 22, paddingTop: 12 },
 
@@ -329,14 +364,14 @@ const styles = StyleSheet.create({
   // Interactive panel — visually separates the action area from the header
   // and floats above the page with a soft shadow.
   interactivePanel: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.sunken,
     borderRadius: 18,
     padding: 18,
     borderWidth: 1,
-    borderColor: '#EEF2F6',
+    borderColor: C.line,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.10,
         shadowRadius: 18,
@@ -345,32 +380,32 @@ const styles = StyleSheet.create({
     }),
   },
   logoContainer: {
-    width: 52, height: 52, borderRadius: 13, backgroundColor: '#FFFFFF',
+    width: 52, height: 52, borderRadius: 13, backgroundColor: C.white,
     justifyContent: 'center', alignItems: 'center', overflow: 'hidden',
     ...Platform.select({
-      ios: { shadowColor: '#f67c16', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
+      ios: { shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
       android: { elevation: 5 },
     }),
   },
-  brandName: { fontSize: 15, fontWeight: '800', color: '#f67c16', marginTop: 6, marginBottom: 6, letterSpacing: 0.3 },
-  title: { fontSize: 22, fontWeight: '800', color: '#1E293B', marginBottom: 6 },
-  subtitle: { fontSize: 13, color: '#64748B', textAlign: 'center', paddingHorizontal: 8, lineHeight: 19 },
+  brandName: { fontSize: 15, fontWeight: '800', color: C.primary, marginTop: 6, marginBottom: 6, letterSpacing: 0.3 },
+  title: { fontSize: 22, fontWeight: '800', color: C.text, marginBottom: 6 },
+  subtitle: { fontSize: 13, color: C.textSecondary, textAlign: 'center', paddingHorizontal: 8, lineHeight: 19 },
 
   // Cards stack — generous gap so each option reads as a separate choice
   cards: { gap: 20, marginBottom: 16 },
   optionCard: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5, borderColor: '#E2E8F0',
+    backgroundColor: C.white,
+    borderWidth: 1.5, borderColor: C.line,
     borderRadius: 14,
     paddingVertical: 14, paddingHorizontal: 14,
     gap: 12,
     overflow: 'hidden',
   },
-  manualCard: { borderColor: '#f67c16', backgroundColor: '#FFFFFF' },
+  manualCard: { borderColor: C.primary, backgroundColor: C.white },
   // Phone signup — blue accent to differentiate from manual (orange) and Google rainbow.
-  phoneCard: { borderColor: '#2563EB', backgroundColor: '#FFFFFF' },
-  appleCard: { borderColor: '#000000', backgroundColor: '#000000' },
+  phoneCard: { borderColor: C.indigo, backgroundColor: C.white },
+  appleCard: { borderColor: vendor.appleBlack, backgroundColor: vendor.appleBlack },
   optionCardDisabled: { opacity: 0.5 },
   appleCardDisabled: { opacity: 0.5 },
 
@@ -379,7 +414,7 @@ const styles = StyleSheet.create({
   googleGradientBorderCard: { borderRadius: 14, padding: 1.5 },
   googleCardInner: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderRadius: 12.5,
     paddingVertical: 13, paddingHorizontal: 13,
     gap: 12,
@@ -394,16 +429,16 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 20,
     alignItems: 'center', justifyContent: 'center',
   },
-  manualIconCircle: { backgroundColor: '#FFFFFF' },
-  phoneIconCircle: { backgroundColor: '#EFF6FF' },
-  googleIconCircleWhite: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0' },
-  appleIconCircle: { backgroundColor: 'rgba(255,255,255,0.15)' },
-  appleGlyph: { fontSize: 22, color: '#FFFFFF', marginTop: -2 },
+  manualIconCircle: { backgroundColor: C.white },
+  phoneIconCircle: { backgroundColor: C.infoBg },
+  googleIconCircleWhite: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line },
+  appleIconCircle: { backgroundColor: stableDark.fill },
+  appleGlyph: { fontSize: 22, color: vendor.onVendor, marginTop: -2 },
   optionTextWrap: { flex: 1 },
-  optionTitle: { fontSize: 15, fontWeight: '700', color: '#1E293B' },
-  optionSub: { fontSize: 12, color: '#64748B', marginTop: 2 },
-  appleOptionTitle: { color: '#FFFFFF' },
-  appleOptionSub: { color: 'rgba(255,255,255,0.7)' },
+  optionTitle: { fontSize: 15, fontWeight: '700', color: C.text },
+  optionSub: { fontSize: 12, color: C.textSecondary, marginTop: 2 },
+  appleOptionTitle: { color: vendor.onVendor },
+  appleOptionSub: { color: stableDark.inkMuted },
 
   // T&C with link styling — extra vertical padding so it feels separated
   termsRow: {
@@ -413,34 +448,35 @@ const styles = StyleSheet.create({
   },
   checkbox: {
     width: 22, height: 22, borderRadius: 6,
-    borderWidth: 1.5, borderColor: '#94A3B8',
-    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5, borderColor: C.muted,
+    backgroundColor: C.white,
     alignItems: 'center', justifyContent: 'center',
     marginTop: 1,
   },
-  checkboxChecked: { borderColor: '#f67c16', backgroundColor: '#f67c16' },
-  termsText: { flex: 1, fontSize: 13, color: '#475569', lineHeight: 19 },
-  termsLink: { color: '#2b76bc', fontWeight: '700', textDecorationLine: 'underline' },
-  termsHint: { fontSize: 12, color: '#DC2626', marginLeft: 32, marginTop: -4, marginBottom: 4, fontStyle: 'italic' },
+  checkboxChecked: { borderColor: C.primary, backgroundColor: C.primary },
+  termsText: { flex: 1, fontSize: 13, color: C.textBody, lineHeight: 19 },
+  termsLink: { color: C.secondary, fontWeight: '700', textDecorationLine: 'underline' },
+  termsHint: { fontSize: 12, color: C.danger, marginLeft: 32, marginTop: -4, marginBottom: 4, fontStyle: 'italic' },
 
   // Break line
-  breakLine: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 10 },
+  breakLine: { height: 1, backgroundColor: C.line, marginVertical: 10 },
 
   // Referral
   referralWrap: {},
-  referralLabel: { fontSize: 13, fontWeight: '600', color: '#475569', marginBottom: 6 },
+  referralLabel: { fontSize: 13, fontWeight: '600', color: C.textBody, marginBottom: 6 },
   referralInputRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0',
+    backgroundColor: C.white, borderWidth: 1, borderColor: C.line,
     borderRadius: 12, paddingHorizontal: 12, height: 46,
   },
   referralIcon: { marginRight: 8 },
-  referralInput: { flex: 1, fontSize: 14, color: '#1E293B', letterSpacing: 1.5, fontWeight: '600' },
+  referralInput: { flex: 1, fontSize: 14, color: C.text, letterSpacing: 1.5, fontWeight: '600' },
 
   // Footer
   footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 4, paddingTop: 4 },
-  footerText: { fontSize: 13, color: '#64748B' },
-  footerLink: { fontSize: 13, color: '#2b76bc', fontWeight: '700' },
-});
+  footerText: { fontSize: 13, color: C.textSecondary },
+  footerLink: { fontSize: 13, color: C.secondary, fontWeight: '700' },
+  });
+};
 
 export default RegisterChoice;

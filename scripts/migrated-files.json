@@ -57,6 +57,20 @@
     "src/components/AddressAutocomplete.jsx",
     "src/components/PhoneChangeModal.jsx",
     "src/components/DateTimePicker.jsx",
-    "src/components/SavedAddresses.jsx"
+    "src/components/SavedAddresses.jsx",
+    "src/components/GraphBackground.jsx",
+    "src/components/SvgArt.jsx",
+    "src/components/FixhomiLogo.jsx",
+    "src/components/BrandFooter.jsx",
+    "src/components/SafeBlurView.jsx",
+    "src/components/HelpSupportButton.jsx",
+    "src/components/PhoneOnboardingSheet.jsx",
+    "src/components/AppleEmailCollectionModal.jsx",
+    "src/components/ImageViewerModal.jsx",
+    "src/components/CityAutocomplete.jsx",
+    "src/components/DayHoursSheet.jsx",
+    "src/components/PhoneInput.jsx",
+    "src/components/LocationTrackingBanner.jsx",
+    "src/components/RegisterChoice.jsx"
   ]
 }

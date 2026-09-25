@@ -685,6 +685,55 @@ const EXPECTED_CHANGES = {
     'rgba(15,23,42,0.55)': 'the modal scrim -> theme.colors.overlay (0.45)',
     'rgba(0,0,0,0.6)': 'the modal scrim -> theme.colors.overlay; on ProviderDetailsModal the same value is a chip over imagery and takes mapOverlay.hint instead',
   },
+  // ── the twelve small components still reachable from a themed screen ──
+  'src/components/GraphBackground.jsx': {
+    // Decorative brand-tinted background art. Theme-independent by design, so these
+    // moved to brandTint, which converges the four hand-tuned alphas onto two steps.
+    'rgba(43,118,188,0.07)': 'the grid line -> brandTint.blue06',
+    'rgba(43,118,188,0.04)': 'a decor blob -> brandTint.blue05',
+    'rgba(43,118,188,0.03)': 'a decor blob -> brandTint.blue05',
+    'rgba(246,124,22,0.035)': 'a decor blob -> brandTint.orange04',
+  },
+  'src/components/SafeBlurView.jsx': {
+    'rgba(15,23,42,0.92)': 'the DARK blur fallback -> stableDark.surface (0.95); it must stay dark whatever the theme, because the blurType asked for dark',
+    'rgba(255,255,255,0.92)': 'the LIGHT blur fallback -> the theme surface, so it follows the appearance instead of always being white',
+  },
+  'src/components/PhoneOnboardingSheet.jsx': {
+    '#059669': 'the benefit tick converged onto the success token',
+    '#ECFDF5': 'converged onto successContainer',
+    'rgba(15,23,42,0.55)': 'the sheet scrim -> theme.colors.overlay (0.45)',
+    // The warm CTA gradient is UNCHANGED -- its three stops moved to heroGradient.
+  },
+  'src/components/AppleEmailCollectionModal.jsx': {
+    '#e06b0a': 'COLORS.primaryDark was dead at v1.0.9 -- defined, never referenced. Removed rather than mapped.',
+    '#ECFDF5': 'converged onto successContainer',
+    'rgba(15,23,42,0.55)': 'the sheet scrim -> theme.colors.overlay',
+  },
+  'src/components/ImageViewerModal.jsx': {
+    // A photo viewer is a lightbox: the ground stays near-black and the chrome stays
+    // white in EITHER theme, so almost all of this is theme-independent by design.
+    'rgba(0,0,0,0.4)': 'a chrome scrim -> theme.colors.overlay (0.45)',
+    'rgba(0,0,0,0.6)': 'the hint chip sits on the IMAGE -> mapOverlay.hint (0.55)',
+    'rgba(255,255,255,0.4)': 'the inactive page dot -> stableDark.inkFaint (0.45)',
+  },
+  'src/components/CityAutocomplete.jsx': {
+    '#FF6B00': 'a stray coral that is NOT the Fixhomi orange -> brandOrange',
+    '#FAFBFC': 'the input fill -> surfaceSunken',
+    '#F3F4F6': 'gray-100 chips -> surfaceSunken',
+  },
+  'src/components/PhoneInput.jsx': {
+    '#F3F4F6': 'the country-code chip -> surfaceSunken',
+  },
+  'src/components/LocationTrackingBanner.jsx': {
+    '#9A3412': 'the amber-900 ink and its brown drop shadow both converge -- ink onto the warning token, shadow onto theme.colors.shadow',
+    '#C2410C': 'converged onto the warning token',
+  },
+  'src/components/RegisterChoice.jsx': {
+    // Apple's black card and Google's four brand colours are UNCHANGED -- they moved
+    // to `vendor`, which is never themed, because both are fixed by the vendors'
+    // sign-in guidelines rather than by our palette.
+    '#EEF2F6': 'a hairline weight -> border',
+  },
   'src/screens/EmailVerifyHandlerScreen.jsx': {
     '#2563EB': 'altBlueIndigo', '#FFFFFF': 'surface',
     '#6B7280': 'textSecondary is now the accessible #475569',

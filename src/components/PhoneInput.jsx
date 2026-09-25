@@ -24,6 +24,10 @@ import {
   TextInput,
   StyleSheet,
 } from 'react-native';
+import {
+  useThemedStyles,
+  useThemeColors,
+} from '../theme';
 
 const PhoneInput = ({
   label,
@@ -35,6 +39,8 @@ const PhoneInput = ({
   required = false,
   style,
 }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const [isFocused, setIsFocused] = useState(false);
 
   const handleChange = (text) => {
@@ -82,7 +88,7 @@ const PhoneInput = ({
           value={value}
           onChangeText={handleChange}
           placeholder={placeholder}
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={C.muted}
           keyboardType="number-pad"
           maxLength={10}
           editable={editable}
@@ -98,38 +104,69 @@ const PhoneInput = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  sunken: c.surfaceSunken,
+  hairline: c.bg,
+  line: c.borderNeutral,
+  lineSlate: c.border,
+  borderMedium: c.borderMediumNeutral,
+  text: c.textStrongNeutral,
+  textDark: c.textPrimary,
+  textBody: c.textBodyNeutral,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  success: c.success,
+  successBg: c.successContainer,
+  danger: c.danger,
+  dangerBg: c.dangerContainer,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  info: c.info,
+  infoBg: c.infoContainer,
+  indigo: c.altBlueIndigo,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
+
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   container: {
     marginBottom: 16,
   },
   label: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#374151',
+    color: C.textBody,
     marginBottom: 6,
   },
   requiredAsterisk: {
-    color: '#EF4444',
+    color: C.danger,
     fontWeight: '700',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: C.borderMedium,
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     height: 48,
   },
   inputFocused: {
-    borderColor: '#2563EB',
+    borderColor: C.indigo,
     borderWidth: 2,
   },
   inputError: {
-    borderColor: '#EF4444',
+    borderColor: C.danger,
   },
   inputDisabled: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: C.sunken,
   },
   prefixContainer: {
     flexDirection: 'row',
@@ -143,12 +180,12 @@ const styles = StyleSheet.create({
   countryCode: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
+    color: C.textBody,
   },
   divider: {
     width: 1,
     height: 24,
-    backgroundColor: '#D1D5DB',
+    backgroundColor: C.borderMedium,
     marginLeft: 8,
   },
   input: {
@@ -156,14 +193,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
     fontSize: 16,
-    color: '#111827',
+    color: C.text,
     letterSpacing: 0.5,
   },
   error: {
     fontSize: 12,
-    color: '#EF4444',
+    color: C.danger,
     marginTop: 4,
   },
-});
+  });
+};
 
 export default PhoneInput;

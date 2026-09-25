@@ -5,7 +5,7 @@
  * Use on headers, cards, sheets, and section backgrounds.
  *
  * Props:
- *   color  — stroke/fill color (default '#f67c16')
+ *   color  — stroke/fill color (defaults to the brand orange)
  *   height — container height (default 110)
  *   style  — extra container styles
  */
@@ -13,8 +13,11 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import {
+  brand,
+} from '../theme';
 
-const SvgArt = ({ color = '#f67c16', height = 110, style }) => (
+const SvgArt = ({ color = brand.orange, height = 110, style }) => (
   <View style={[styles.wrap, { height }, style]} pointerEvents="none">
     <Svg width="100%" height="100%" viewBox="0 0 400 110" preserveAspectRatio="xMidYMid slice">
       <Path d="M0 85 Q60 40 130 70 T260 50 T400 75" stroke={color} strokeWidth="1.5" fill="none" opacity={0.12} />

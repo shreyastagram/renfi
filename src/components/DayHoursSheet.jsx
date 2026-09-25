@@ -13,18 +13,39 @@ import TouchableOpacity from './TouchableOpacity';
 import TimePickerField, { IosTimeWheel } from './TimePickerField';
 import { useLanguage } from '../context/LanguageContext';
 import { validateDay } from '../utils/workSchedule';
+import {
+  useThemedStyles,
+  useThemeColors,
+} from '../theme';
 
-const COLORS = {
-  white: '#FFFFFF',
-  dark: '#0F172A',
-  text: '#1E293B',
-  muted: '#64748B',
-  line: '#F1F5F9',
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  danger: '#DC2626',
-  scrim: 'rgba(15, 23, 42, 0.45)',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  sunken: c.surfaceSunken,
+  hairline: c.bg,
+  line: c.borderNeutral,
+  lineSlate: c.border,
+  borderMedium: c.borderMediumNeutral,
+  text: c.textStrongNeutral,
+  textDark: c.textPrimary,
+  textBody: c.textBodyNeutral,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  success: c.success,
+  successBg: c.successContainer,
+  danger: c.danger,
+  dangerBg: c.dangerContainer,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  info: c.info,
+  infoBg: c.infoContainer,
+  indigo: c.altBlueIndigo,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
 
 const ERROR_KEYS = {
   END_BEFORE_START: 'workHours.errEndBeforeStart',
@@ -37,6 +58,8 @@ const TARGETS = ['one', 'weekdays', 'all'];
 const MAX_FONT_SCALE = 1.3;
 
 const DayHoursSheet = ({ visible, dayKey, initial, saving = false, onClose, onSave }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState(initial);
@@ -83,8 +106,8 @@ const DayHoursSheet = ({ visible, dayKey, initial, saving = false, onClose, onSa
                 value={draft.enabled}
                 onValueChange={setEnabled}
                 disabled={saving}
-                trackColor={{ false: '#E2E8F0', true: COLORS.primary }}
-                thumbColor={COLORS.white}
+                trackColor={{ false: C.lineSlate, true: C.primary }}
+                thumbColor={C.white}
               />
             </View>
 
@@ -146,7 +169,7 @@ const DayHoursSheet = ({ visible, dayKey, initial, saving = false, onClose, onSa
               disabled={!!errorCode || saving}
               accessibilityRole="button"
             >
-              {saving ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.saveText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t('workHours.save')}</Text>}
+              {saving ? <ActivityIndicator color={C.white} /> : <Text style={styles.saveText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t('workHours.save')}</Text>}
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.cancel} onPress={onClose} disabled={saving} accessibilityRole="button">
@@ -159,42 +182,45 @@ const DayHoursSheet = ({ visible, dayKey, initial, saving = false, onClose, onSa
   );
 };
 
-const styles = StyleSheet.create({
-  scrim: { flex: 1, backgroundColor: COLORS.scrim, justifyContent: 'flex-end' },
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
+  scrim: { flex: 1, backgroundColor: C.scrim, justifyContent: 'flex-end' },
   scrimTap: { flex: 1 },
   sheet: {
-    backgroundColor: COLORS.white,
+    backgroundColor: C.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 10,
     maxHeight: '90%',
   },
-  handle: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#E2E8F0', alignSelf: 'center', marginBottom: 12 },
-  title: { fontSize: 20, fontWeight: '800', color: COLORS.dark },
-  subtitle: { fontSize: 13, color: COLORS.muted, marginTop: 2, marginBottom: 14 },
+  handle: { width: 40, height: 5, borderRadius: 3, backgroundColor: C.lineSlate, alignSelf: 'center', marginBottom: 12 },
+  title: { fontSize: 20, fontWeight: '800', color: C.dark },
+  subtitle: { fontSize: 13, color: C.muted, marginTop: 2, marginBottom: 14 },
   workRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 12,
+    backgroundColor: C.sunken, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 12,
   },
-  workRowText: { fontSize: 15, fontWeight: '700', color: COLORS.text, flex: 1, marginRight: 10 },
+  workRowText: { fontSize: 15, fontWeight: '700', color: C.text, flex: 1, marginRight: 10 },
   times: { flexDirection: 'row', alignItems: 'stretch' },
   gap: { width: 10 },
-  error: { color: COLORS.danger, fontSize: 13, fontWeight: '600', marginTop: 10 },
-  applyLabel: { fontSize: 12.5, fontWeight: '700', color: COLORS.muted, marginTop: 16, marginBottom: 8 },
+  error: { color: C.danger, fontSize: 13, fontWeight: '600', marginTop: 10 },
+  applyLabel: { fontSize: 12.5, fontWeight: '700', color: C.muted, marginTop: 16, marginBottom: 8 },
   seg: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  segBtn: { borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 11, paddingVertical: 8 },
-  segBtnOn: { borderColor: COLORS.secondary, backgroundColor: '#EFF6FF' },
-  segText: { fontSize: 13, fontWeight: '600', color: COLORS.text },
-  segTextOn: { color: COLORS.secondary },
+  segBtn: { borderWidth: 1.5, borderColor: C.lineSlate, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 8 },
+  segBtnOn: { borderColor: C.secondary, backgroundColor: C.infoBg },
+  segText: { fontSize: 13, fontWeight: '600', color: C.text },
+  segTextOn: { color: C.secondary },
   save: {
-    height: 52, borderRadius: 14, backgroundColor: COLORS.primary,
+    height: 52, borderRadius: 14, backgroundColor: C.primary,
     alignItems: 'center', justifyContent: 'center', marginTop: 18,
   },
   saveDisabled: { opacity: 0.45 },
-  saveText: { color: COLORS.white, fontSize: 16, fontWeight: '800' },
+  saveText: { color: C.white, fontSize: 16, fontWeight: '800' },
   cancel: { alignItems: 'center', paddingVertical: 12, marginTop: 4 },
-  cancelText: { color: COLORS.muted, fontSize: 14, fontWeight: '700' },
-});
+  cancelText: { color: C.muted, fontSize: 14, fontWeight: '700' },
+  });
+};
 
 export default React.memo(DayHoursSheet);

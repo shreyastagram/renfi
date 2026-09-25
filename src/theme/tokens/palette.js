@@ -50,6 +50,11 @@ export const vendor = {
   // Like the Google blue, it is fixed by the vendor's guidelines, not by our theme.
   appleBlack: '#000000',
   onVendor: '#FFFFFF',
+  // Google's four brand colours, used for the "G" gradient on the sign-in card.
+  // Fixed by Google's guidelines; never themed.
+  googleRed: '#EA4335',
+  googleYellow: '#FBBC05',
+  googleGreen: '#34A853',
 };
 
 // Service-category accents. THEME-INDEPENDENT on purpose: these identify a
@@ -180,6 +185,7 @@ export const stableDark = {
   onlineInk: '#DCFCE7',
   verifiedInk: '#86EFAC',
   inkSoft: 'rgba(255, 255, 255, 0.55)',
+  inkSoftFade: 'rgba(255, 255, 255, 0)', // the transparent end of an ink gradient
   inkDim: 'rgba(255, 255, 255, 0.6)',
 };
 
@@ -209,6 +215,11 @@ export const heroGradient = {
   decorBlobSoft: 'rgba(255,255,255,0.05)',
   decorDot: 'rgba(255,255,255,0.18)',
   chipFill: 'rgba(255,255,255,0.24)',
+  // A warm three-stop CTA gradient (the phone-onboarding sheet's button). Brand art,
+  // so it does not flip -- the dark ink that sits on it is onBrandOrange either way.
+  ctaWarm1: '#FB923C',
+  ctaWarm2: '#F97316',
+  ctaWarm3: '#EA580C',
   backBtnFill: 'rgba(255,255,255,0.55)',
 };
 

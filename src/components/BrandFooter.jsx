@@ -14,11 +14,18 @@
 import React from 'react';
 import { View, Image, Dimensions, StyleSheet } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import {
+  useThemeColors,
+} from '../theme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const FADE_HEIGHT = 56;
 
-const BrandFooter = ({ source, fadeColor = '#FFFFFF', style }) => {
+const BrandFooter = ({ source, fadeColor, style }) => {
+  // Resolved here, not as a default parameter: this fades into the surface behind it,
+  // so it has to follow the theme, and a default parameter cannot call a hook.
+  const themeColors = useThemeColors();
+  const fade = fadeColor || themeColors.surface;
   const resolved = Image.resolveAssetSource(source);
   const width = SCREEN_WIDTH;
   const height =
@@ -31,7 +38,7 @@ const BrandFooter = ({ source, fadeColor = '#FFFFFF', style }) => {
       <Image source={source} style={{ width, height }} resizeMode="contain" />
       {/* Short top merge — screen bg → transparent, above the headline */}
       <LinearGradient
-        colors={[fadeColor, `${fadeColor}00`]}
+        colors={[fade, `${fade}00`]}
         style={[styles.fade, { width }]}
         pointerEvents="none"
       />

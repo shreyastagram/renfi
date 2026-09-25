@@ -28,6 +28,12 @@ import {  View,
 } from 'react-native';
 import TouchableOpacity from './TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  useThemedStyles,
+  useThemeColors,
+  stableDark,
+  mapOverlay,
+} from '../theme';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useDialog } from '../context/DialogContext';
 import Share from 'react-native-share';
@@ -70,6 +76,7 @@ const normalizeImages = (images) => {
  * Single image slide with loading state
  */
 const ImageSlide = ({ item, width }) => {
+  const styles = useThemedStyles(makeStyles);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -77,12 +84,12 @@ const ImageSlide = ({ item, width }) => {
     <View style={[styles.slideContainer, { width }]}>
       {loading && !error && (
         <View style={styles.loaderOverlay}>
-          <ActivityIndicator size="large" color="#FFFFFF" />
+          <ActivityIndicator size="large" color={stableDark.ink} />
         </View>
       )}
       {error ? (
         <View style={styles.errorContainer}>
-          <MaterialIcon name="broken-image" size={64} color="#6B7280" />
+          <MaterialIcon name="broken-image" size={64} color={stableDark.inkMuted} />
           <Text style={styles.errorText}>Couldn't load this image.</Text>
         </View>
       ) : (
@@ -110,6 +117,8 @@ const ImageSlide = ({ item, width }) => {
  * @param {function} onClose - Close handler
  */
 const ImageViewerModal = ({ visible, images = [], initialIndex = 0, onClose }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
@@ -206,7 +215,7 @@ const ImageViewerModal = ({ visible, images = [], initialIndex = 0, onClose }) =
       onRequestClose={handleClose}
       statusBarTranslucent
     >
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
+      <StatusBar barStyle="light-content" backgroundColor={C.lightbox} />
       <View style={styles.container}>
         {/* Top Bar */}
         <View style={styles.topBar}>
@@ -215,7 +224,7 @@ const ImageViewerModal = ({ visible, images = [], initialIndex = 0, onClose }) =
             onPress={handleClose}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <MaterialIcon name="close" size={26} color="#FFFFFF" />
+            <MaterialIcon name="close" size={26} color={stableDark.ink} />
           </TouchableOpacity>
 
           {normalizedImages.length > 1 && (
@@ -233,9 +242,9 @@ const ImageViewerModal = ({ visible, images = [], initialIndex = 0, onClose }) =
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             {sharing ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={stableDark.ink} />
             ) : (
-              <MaterialIcon name="share" size={24} color="#FFFFFF" />
+              <MaterialIcon name="share" size={24} color={stableDark.ink} />
             )}
           </TouchableOpacity>
         </View>
@@ -292,10 +301,19 @@ const ImageViewerModal = ({ visible, images = [], initialIndex = 0, onClose }) =
   );
 };
 
-const styles = StyleSheet.create({
+// Every value here is theme-independent: a photo viewer is a lightbox, so the ground
+// stays near-black and its chrome stays white in either theme.
+const makeC = (c) => ({
+  lightbox: c.overlayPhoto,
+  overlay: c.overlay,
+});
+
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: C.lightbox,
   },
   topBar: {
     flexDirection: 'row',
@@ -309,13 +327,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: C.overlay,
   },
   topBarButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: C.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -323,10 +341,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: mapOverlay.hint,
   },
   counterText: {
-    color: '#FFFFFF',
+    color: stableDark.ink,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -351,7 +369,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   errorText: {
-    color: '#9CA3AF',
+    color: stableDark.inkMuted,
     fontSize: 14,
   },
   captionBar: {
@@ -361,10 +379,10 @@ const styles = StyleSheet.create({
     right: 0,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: C.overlay,
   },
   captionText: {
-    color: '#FFFFFF',
+    color: stableDark.ink,
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
@@ -383,14 +401,15 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    backgroundColor: stableDark.inkFaint,
   },
   dotActive: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: stableDark.ink,
   },
-});
+  });
+};
 
 export default ImageViewerModal;

@@ -92,8 +92,8 @@ contract.
 
 | Measure | Value |
 |---|---|
-| Colour literals remaining | **1,052** (3,329 at v1.0.9) — measured, see note |
-| Files on the hex allowlist | **54** |
+| Colour literals remaining | **880** (3,329 at v1.0.9) — measured, see note |
+| Files on the hex allowlist | **68** |
 | Components fully themed | **8** — CustomDialog, Button, Alert, ShimmerLoader, Input, Icon, GlobalBanner, DrawerMenu (+ RootNavigator surgically) |
 | Screens fully themed | **24** — the entire user side AND the entire provider side |
 | Theme unit tests | 30 across 6 suites |
@@ -169,50 +169,34 @@ as both removed and added. It now reassembles each record before normalising —
 why three "new diagnostics" on `ProviderHomeScreen` turned out to be the same warnings
 reformatted.
 
-### DEVICE TEST — the ten big modals are done; 14 small reachables remain
+### ✅ DEVICE TEST IS UNBLOCKED
 
-Asked 2026-09-25 whether a Firebase build could go to a tester. The blocker then was
-that **22 of 35** unthemed components rendered inside themed screens — every modal a
-tester opens. The ten largest are now themed (336 literals): `LocationPicker`,
-`ProviderDetailsModal`, `CancellationReasonModal`, `MapPickerModal`, `RatingModal`,
-`AadhaarVerificationModal`, `AddressAutocomplete`, `PhoneChangeModal`,
-`DateTimePicker`, `SavedAddresses`.
+**Zero unthemed components are reachable from a themed screen.** Measured 22 → 14 → 2 → 0.
 
-**14 still reachable, 179 literals.** Two groups, and the second is nearly free:
+Every screen and every component a user can reach is themed: 24 screens plus 40
+components. A dark build will now be internally consistent — no white modal over a dark
+screen, no light art on a dark surface.
 
-| Still reachable | Lits | Note |
-|---|---|---|
-| `RegisterChoice` | 63 | a full-screen step, not a modal over a themed screen |
-| `PhoneOnboardingSheet`, `AppleEmailCollectionModal`, `ImageViewerModal`, `CityAutocomplete`, `DayHoursSheet`, `PhoneInput` | 94 | sheets and inputs over themed screens — still jarring |
-| `GraphBackground`, `SvgArt`, `FixhomiLogo`, `BrandFooter`, `SafeBlurView`, `HelpSupportButton` | 22 | **decorative, ~2–4 literals each.** Cheap, and they currently render light art on dark surfaces |
+**The one thing no gate can check, and the reason to build:** how the near-black ramp
+reads on a real low-end 6-bit panel. Contrast ratio is meaningless near black, so the
+dark surface steps were sized on 8-bit code-value gap (`MIN_SURFACE_GAP 10`) and the card
+border was leaned on to hold definition when fills crush. That is an engineering judgement
+with no automated check — it needs eyes on a cheap Android device.
 
-**Do the decorative six and the six sheets before building** (~116 literals). After that a
-dark build is representative and the tester's feedback is about design judgement rather
-than obviously-unfinished surfaces.
+**Suggested tester checklist**, in order of what is most likely to be wrong:
 
-Recompute with the snippet below before asking again:
+1. Dark mode on the cheapest Android you have — do cards separate from the background?
+2. Settings → Appearance: Light / Dark / System, and confirm System follows the OS.
+3. Open a modal from a dark screen (Book, Rate, Cancel, Change phone, a date field).
+4. The premium and profile heroes — they stay dark/navy in BOTH themes by design.
+5. Android 3-button navigation and gesture bar: `targetSdk 36` enforces edge-to-edge,
+   and **17 `SafeAreaView` call sites across 15 files are still to become `<Screen>`**.
+6. Light mode as a regression check: it should look like 1.0.9. 400 declared changes, all
+   justified in `scripts/check-light-fidelity.js`.
 
-```
-python3 - <<'EOF'
-import json, re, os
-done=set(json.load(open('scripts/migrated-files.json'))['migrated'])
-pat=re.compile(r'#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)')
-unthemed={f[:-4]: len(pat.findall(open('src/components/'+f).read()))
-          for f in os.listdir('src/components')
-          if f.endswith('.jsx') and 'src/components/'+f not in done}
-for s in [d for d in done if d.startswith('src/screens/')]:
-    t=open(s).read()
-    for c,n in unthemed.items():
-        if n and re.search(r'\b'+c+r'\b', t): print(c, n, os.path.basename(s))
-EOF
-```
-
-**The one thing no gate can check** remains: how the near-black ramp reads on a real
-low-end 6-bit panel. Contrast ratio is meaningless near black, so the dark surface steps
-were sized on 8-bit code-value gap. That needs your eyes on a cheap Android device.
-
-There is still **no fastlane / App Distribution automation**, and `USE_DEV_STAGING` is
-`false` in a file on the do-not-commit list, so the build is the owner's manual step.
+Recompute reachability before trusting this (the snippet is in the commit for
+`de6a23b`). Still **no fastlane / App Distribution automation**, and `USE_DEV_STAGING` is
+`false` in a do-not-commit file, so the build is the owner's manual step.
 
 ## 4. GATES — run before EVERY commit
 

@@ -14,6 +14,10 @@
 import React from 'react';
 import { Platform, View } from 'react-native';
 import { BlurView as NativeBlurView } from '@react-native-community/blur';
+import {
+  useThemeColors,
+  stableDark,
+} from '../theme';
 
 export const DEVICE_SUPPORTS_BLUR = Platform.OS === 'ios';
 
@@ -26,6 +30,9 @@ export const BlurView = ({
   children,
   ...rest
 }) => {
+  // Before the early return below, because hooks must run in the same order on every
+  // render regardless of which branch this component takes.
+  const themeColors = useThemeColors();
   if (DEVICE_SUPPORTS_BLUR) {
     return (
       <NativeBlurView
@@ -40,10 +47,12 @@ export const BlurView = ({
       </NativeBlurView>
     );
   }
+  // A dark blur always falls back to the stable dark surface; a light blur falls back
+  // to whatever the current theme's surface is.
   const fallback = reducedTransparencyFallbackColor
     || (String(blurType || '').toLowerCase().includes('dark')
-      ? 'rgba(15, 23, 42, 0.92)'
-      : 'rgba(255, 255, 255, 0.92)');
+      ? stableDark.surface
+      : themeColors.surface);
   return (
     <View style={[style, { backgroundColor: fallback }]} {...rest}>
       {children}
