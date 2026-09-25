@@ -29,6 +29,10 @@ import { sendPhoneChangeOtp, verifyPhoneChangeOtp, syncPhoneToMongoDB } from '..
 import { syncVerificationStatus } from '../services/verificationService';
 import { getTokens } from '../utils/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  useThemedStyles,
+  useThemeColors,
+} from '../theme';
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 60;
@@ -37,6 +41,8 @@ const OTP_TTL_SECONDS = 5 * 60;
 const PENDING_CHANGE_KEY = 'pending_phone_change_v1';
 
 const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomInset }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { dialog } = useDialog();
   const { t } = useLanguage();
   const { user, profile, userType, refreshProfile, refreshVerificationStatus } = useApp();
@@ -261,10 +267,10 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomIns
           <View style={styles.dragBar} />
           <View style={styles.header}>
             <View style={styles.iconCircle}>
-              <MaterialIcon name="smartphone" size={22} color="#2b76bc" />
+              <MaterialIcon name="smartphone" size={22} color={C.info} />
             </View>
             <TouchableOpacity onPress={() => !busy && onClose?.()} disabled={busy} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <MaterialIcon name="close" size={22} color="#94A3B8" />
+              <MaterialIcon name="close" size={22} color={C.muted} />
             </TouchableOpacity>
           </View>
 
@@ -282,7 +288,7 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomIns
               />
               {!!fieldError && (
                 <View style={styles.inlineMsg}>
-                  <MaterialIcon name="info-outline" size={16} color="#B45309" />
+                  <MaterialIcon name="info-outline" size={16} color={C.warning} />
                   <Text style={styles.inlineMsgText}>{fieldError}</Text>
                 </View>
               )}
@@ -292,7 +298,7 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomIns
                 disabled={busy || newPhone.length !== 10}
                 activeOpacity={0.85}
               >
-                {sending ? <ActivityIndicator size="small" color="#FFFFFF" />
+                {sending ? <ActivityIndicator size="small" color={C.onPrimary} />
                   : <Text style={styles.primaryBtnText}>{t('phoneChange.sendOtp')}</Text>}
               </TouchableOpacity>
             </>
@@ -309,7 +315,7 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomIns
                   keyboardType="number-pad"
                   maxLength={OTP_LENGTH}
                   placeholder="••••••"
-                  placeholderTextColor="#CBD5E1"
+                  placeholderTextColor={C.borderMedium}
                   editable={!busy}
                   textContentType="oneTimeCode"
                   autoComplete={Platform.OS === 'android' ? 'sms-otp' : 'one-time-code'}
@@ -317,7 +323,7 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomIns
               </Animated.View>
               {!!otpError && (
                 <View style={styles.inlineMsg}>
-                  <MaterialIcon name="info-outline" size={16} color="#B45309" />
+                  <MaterialIcon name="info-outline" size={16} color={C.warning} />
                   <Text style={styles.inlineMsgText}>{otpError}</Text>
                 </View>
               )}
@@ -327,7 +333,7 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomIns
                 disabled={busy || otp.length !== OTP_LENGTH}
                 activeOpacity={0.85}
               >
-                {verifying ? <ActivityIndicator size="small" color="#FFFFFF" />
+                {verifying ? <ActivityIndicator size="small" color={C.onPrimary} />
                   : <Text style={styles.primaryBtnText}>{t('phoneChange.verifyChange')}</Text>}
               </TouchableOpacity>
               <View style={styles.resendRow}>
@@ -353,34 +359,77 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomIns
   );
 };
 
-const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(15,23,42,0.45)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 22, paddingBottom: 34 },
-  dragBar: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: '#E2E8F0', marginBottom: 14 },
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  line: c.borderNeutral,
+  borderMedium: c.borderMediumNeutral,
+  text: c.textStrongNeutral,
+  textStrong: c.textStrong,
+  textBody: c.textBodyNeutral,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  accentSky: c.altBlueSky,
+  purple: c.accentViolet,
+  purpleBg: c.accentVioletContainer,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  warningLine: c.warningBorder,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
+
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: C.overlay, justifyContent: 'flex-end' },
+  sheet: { backgroundColor: C.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 22, paddingBottom: 34 },
+  dragBar: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: C.line, marginBottom: 14 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  iconCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#EAF2FB', alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 19, fontWeight: '800', color: '#0F172A', letterSpacing: -0.3, marginTop: 4 },
-  subtitle: { fontSize: 13.5, color: '#64748B', lineHeight: 20, marginTop: 6, marginBottom: 16 },
-  primaryBtn: { backgroundColor: '#2b76bc', borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center', marginTop: 18 },
-  primaryBtnDisabled: { backgroundColor: '#B7CDE6' },
-  primaryBtnText: { color: '#FFFFFF', fontSize: 15.5, fontWeight: '700' },
+  iconCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.infoBg, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 19, fontWeight: '800', color: C.text, letterSpacing: -0.3, marginTop: 4 },
+  subtitle: { fontSize: 13.5, color: C.textSecondary, lineHeight: 20, marginTop: 6, marginBottom: 16 },
+  primaryBtn: { backgroundColor: C.secondary, borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center', marginTop: 18 },
+  primaryBtnDisabled: { backgroundColor: C.infoFill },
+  primaryBtnText: { color: C.onPrimary, fontSize: 15.5, fontWeight: '700' },
   otpInput: {
-    borderWidth: 2, borderColor: '#E2E8F0', borderRadius: 14, height: 60, textAlign: 'center',
-    fontSize: 26, fontWeight: '700', letterSpacing: 8, color: '#0F172A', backgroundColor: '#F8FAFC',
+    borderWidth: 2, borderColor: C.line, borderRadius: 14, height: 60, textAlign: 'center',
+    fontSize: 26, fontWeight: '700', letterSpacing: 8, color: C.text, backgroundColor: C.sunken,
     // iOS renders trailing letter-spacing after the last glyph, shifting centered
     // text right; nudge left to re-center. Android has no trailing gap.
     paddingLeft: Platform.OS === 'ios' ? 8 : 0,
   },
-  otpInputError: { borderColor: '#FCA5A5' },
+  otpInputError: { borderColor: C.dangerLine },
   // Calm inline hint (amber), NOT an alarming red form-validation label
   inlineMsg: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 7, marginTop: 10,
-    backgroundColor: '#FFFBEB', borderRadius: 10, padding: 10,
+    backgroundColor: C.warningBg, borderRadius: 10, padding: 10,
   },
-  inlineMsgText: { flex: 1, fontSize: 12.5, color: '#92400E', lineHeight: 18, fontWeight: '600' },
+  inlineMsgText: { flex: 1, fontSize: 12.5, color: C.warning, lineHeight: 18, fontWeight: '600' },
   resendRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 18 },
-  resendMuted: { fontSize: 13, color: '#94A3B8', fontWeight: '600' },
-  resendLink: { fontSize: 13, color: '#2b76bc', fontWeight: '700' },
-});
+  resendMuted: { fontSize: 13, color: C.muted, fontWeight: '600' },
+  resendLink: { fontSize: 13, color: C.info, fontWeight: '700' },
+  });
+};
 
 export default PhoneChangeModal;

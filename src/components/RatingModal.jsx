@@ -27,18 +27,53 @@ import {  View,
 } from 'react-native';
 import TouchableOpacity from './TouchableOpacity';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import {
+  useThemedStyles,
+  useThemeColors,
+} from '../theme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Brand colors
-const BRAND = {
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  star: '#F59E0B',
-  starEmpty: '#D1D5DB',
-  success: '#10B981',
-  white: '#FFFFFF',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  line: c.borderNeutral,
+  borderMedium: c.borderMediumNeutral,
+  text: c.textStrongNeutral,
+  textStrong: c.textStrong,
+  textBody: c.textBodyNeutral,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  accentSky: c.altBlueSky,
+  purple: c.accentViolet,
+  purpleBg: c.accentVioletContainer,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  warningLine: c.warningBorder,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
 
 // Rating labels
 const RATING_LABELS = {
@@ -50,6 +85,8 @@ const RATING_LABELS = {
 };
 
 const StarRating = ({ rating, onRatingChange, disabled }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const [animatedValues] = useState(
     Array(5).fill(0).map(() => new Animated.Value(1))
   );
@@ -87,7 +124,7 @@ const StarRating = ({ rating, onRatingChange, disabled }) => {
             <MaterialIcon
               name={star <= rating ? 'star' : 'star-border'}
               size={48}
-              color={star <= rating ? BRAND.star : BRAND.starEmpty}
+              color={star <= rating ? C.star : C.starEmpty}
               style={styles.star}
             />
           </Animated.View>
@@ -107,6 +144,8 @@ const RatingModal = ({
   requestId,
   loading = false,
 }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const [rating, setRating] = useState(0);
   const [review, setReview] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -177,7 +216,7 @@ const RatingModal = ({
         <View style={styles.overlay}>
           <View style={styles.successContainer}>
             <View style={styles.successIconContainer}>
-              <MaterialIcon name="check-circle" size={64} color={BRAND.success} />
+              <MaterialIcon name="check-circle" size={64} color={C.success} />
             </View>
             <Text style={styles.successTitle}>Thank You!</Text>
             <Text style={styles.successText}>
@@ -198,7 +237,7 @@ const RatingModal = ({
       onRequestClose={handleClose}
     >
       <View style={{ flex: 1 }}>
-        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(15, 23, 42, 0.6)', opacity: overlayOpacity }]}>
+        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: C.overlay, opacity: overlayOpacity }]}>
           <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={handleClose} />
         </Animated.View>
         <Animated.View style={[StyleSheet.absoluteFillObject, { justifyContent: 'flex-end', transform: [{ translateY: sheetTranslateY }] }]}>
@@ -210,7 +249,7 @@ const RatingModal = ({
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
-              <MaterialIcon name="close" size={24} color="#6B7280" />
+              <MaterialIcon name="close" size={24} color={C.textSecondary} />
             </TouchableOpacity>
             <Text style={styles.title}>Rate Your Experience</Text>
             <View style={styles.closeButton} />
@@ -265,7 +304,7 @@ const RatingModal = ({
               <TextInput
                 style={styles.reviewInput}
                 placeholder="Share your experience..."
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={C.muted}
                 value={review}
                 onChangeText={setReview}
                 multiline
@@ -285,10 +324,10 @@ const RatingModal = ({
               disabled={rating === 0 || submitting || loading}
             >
               {submitting || loading ? (
-                <ActivityIndicator size="small" color={BRAND.white} />
+                <ActivityIndicator size="small" color={C.white} />
               ) : (
                 <>
-                  <MaterialIcon name="star" size={20} color={BRAND.white} />
+                  <MaterialIcon name="star" size={20} color={C.white} />
                   <Text style={styles.submitButtonText}>Submit Rating</Text>
                 </>
               )}
@@ -307,13 +346,15 @@ const RatingModal = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
   },
   modalContainer: {
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '90%',
@@ -326,20 +367,20 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: C.sunken,
   },
   closeButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: C.sunken,
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1F2937',
+    color: C.text,
   },
   content: {
     padding: 24,
@@ -347,7 +388,7 @@ const styles = StyleSheet.create({
   providerInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: C.sunken,
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
@@ -356,7 +397,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: BRAND.secondary,
+    backgroundColor: C.secondary,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
@@ -366,12 +407,12 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     marginRight: 16,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: C.line,
   },
   providerInitial: {
     fontSize: 24,
     fontWeight: '700',
-    color: BRAND.white,
+    color: C.white,
   },
   providerDetails: {
     flex: 1,
@@ -379,11 +420,11 @@ const styles = StyleSheet.create({
   providerName: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1F2937',
+    color: C.text,
   },
   serviceName: {
     fontSize: 14,
-    color: '#6B7280',
+    color: C.textSecondary,
     marginTop: 4,
   },
   ratingSection: {
@@ -393,7 +434,7 @@ const styles = StyleSheet.create({
   ratingPrompt: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
+    color: C.textBody,
     marginBottom: 16,
   },
   starsContainer: {
@@ -407,7 +448,7 @@ const styles = StyleSheet.create({
   ratingLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: BRAND.star,
+    color: C.star,
     marginTop: 12,
   },
   reviewSection: {
@@ -416,23 +457,23 @@ const styles = StyleSheet.create({
   reviewLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: C.textBody,
     marginBottom: 8,
   },
   reviewInput: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: C.sunken,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: C.line,
     padding: 16,
     fontSize: 15,
-    color: '#1F2937',
+    color: C.text,
     minHeight: 100,
     textAlignVertical: 'top',
   },
   charCount: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: C.muted,
     textAlign: 'right',
     marginTop: 4,
   },
@@ -440,18 +481,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: BRAND.primary,
+    backgroundColor: C.primary,
     borderRadius: 12,
     paddingVertical: 16,
     gap: 8,
   },
   submitButtonDisabled: {
-    backgroundColor: '#D1D5DB',
+    backgroundColor: C.borderMedium,
   },
   submitButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: BRAND.white,
+    color: C.white,
   },
   skipButton: {
     alignItems: 'center',
@@ -461,10 +502,10 @@ const styles = StyleSheet.create({
   skipButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
+    color: C.textSecondary,
   },
   successContainer: {
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     borderRadius: 24,
     padding: 32,
     margin: 24,
@@ -476,14 +517,15 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1F2937',
+    color: C.text,
     marginBottom: 8,
   },
   successText: {
     fontSize: 15,
-    color: '#6B7280',
+    color: C.textSecondary,
     textAlign: 'center',
   },
-});
+  });
+};
 
 export default RatingModal;

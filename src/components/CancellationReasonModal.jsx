@@ -27,6 +27,10 @@ import {  View,
 import TouchableOpacity from './TouchableOpacity';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  useThemedStyles,
+  useThemeColors,
+} from '../theme';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -70,6 +74,8 @@ const CancellationReasonModal = ({
   loading = false,
   serviceName = '',
 }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const [selectedReasonId, setSelectedReasonId] = useState(null);
   const [otherText, setOtherText] = useState('');
@@ -178,7 +184,7 @@ const CancellationReasonModal = ({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerIconContainer}>
-              <MaterialIcon name="cancel" size={22} color="#DC2626" />
+              <MaterialIcon name="cancel" size={22} color={C.danger} />
             </View>
             <View style={styles.headerTextContainer}>
               <Text style={styles.headerTitle}>Cancel Request</Text>
@@ -192,7 +198,7 @@ const CancellationReasonModal = ({
               disabled={loading}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <MaterialIcon name="close" size={22} color="#6B7280" />
+              <MaterialIcon name="close" size={22} color={C.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -236,7 +242,7 @@ const CancellationReasonModal = ({
                     <MaterialIcon
                       name="edit"
                       size={16}
-                      color={isSelected ? '#DC2626' : '#9CA3AF'}
+                      color={isSelected ? C.danger : C.muted}
                       style={{ marginLeft: 'auto' }}
                     />
                   )}
@@ -251,7 +257,7 @@ const CancellationReasonModal = ({
                   ref={otherInputRef}
                   style={styles.otherInput}
                   placeholder="Please describe your reason..."
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={C.muted}
                   value={otherText}
                   onChangeText={setOtherText}
                   multiline
@@ -283,10 +289,10 @@ const CancellationReasonModal = ({
               disabled={!canSubmit || loading}
             >
               {loading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={C.onDanger} />
               ) : (
                 <>
-                  <MaterialIcon name="cancel" size={18} color="#FFFFFF" />
+                  <MaterialIcon name="cancel" size={18} color={C.onDanger} />
                   <Text style={styles.cancelButtonText}>Confirm Cancel</Text>
                 </>
               )}
@@ -298,17 +304,59 @@ const CancellationReasonModal = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  line: c.borderNeutral,
+  borderMedium: c.borderMediumNeutral,
+  text: c.textStrongNeutral,
+  textStrong: c.textStrong,
+  textBody: c.textBodyNeutral,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  accentSky: c.altBlueSky,
+  purple: c.accentViolet,
+  purpleBg: c.accentVioletContainer,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  warningLine: c.warningBorder,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
+
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'flex-end',
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    backgroundColor: C.overlay,
   },
   sheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: SCREEN_HEIGHT * 0.80,
@@ -322,7 +370,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#D1D5DB',
+    backgroundColor: C.borderMedium,
   },
   header: {
     flexDirection: 'row',
@@ -335,7 +383,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: C.dangerFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -345,24 +393,24 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0F172A',
+    color: C.text,
   },
   headerSubtitle: {
     fontSize: 13,
-    color: '#6B7280',
+    color: C.textSecondary,
     marginTop: 2,
   },
   closeButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: C.sunken,
     alignItems: 'center',
     justifyContent: 'center',
   },
   instruction: {
     fontSize: 14,
-    color: '#6B7280',
+    color: C.textSecondary,
     paddingHorizontal: 20,
     marginBottom: 12,
   },
@@ -379,42 +427,42 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 14,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: C.sunken,
     marginBottom: 8,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: C.line,
     gap: 12,
   },
   reasonChipSelected: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
+    backgroundColor: C.dangerBg,
+    borderColor: C.dangerLine,
   },
   radioOuter: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: '#D1D5DB',
+    borderColor: C.borderMedium,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioOuterSelected: {
-    borderColor: '#DC2626',
+    borderColor: C.danger,
   },
   radioInner: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#DC2626',
+    backgroundColor: C.danger,
   },
   reasonText: {
     fontSize: 15,
-    color: '#374151',
+    color: C.textBody,
     fontWeight: '500',
     flex: 1,
   },
   reasonTextSelected: {
-    color: '#991B1B',
+    color: C.danger,
     fontWeight: '600',
   },
   otherInputContainer: {
@@ -423,19 +471,19 @@ const styles = StyleSheet.create({
   },
   otherInput: {
     borderWidth: 1.5,
-    borderColor: '#FECACA',
+    borderColor: C.dangerLine,
     borderRadius: 14,
     padding: 14,
     fontSize: 14,
-    color: '#0F172A',
-    backgroundColor: '#FEF2F2',
+    color: C.text,
+    backgroundColor: C.dangerBg,
     minHeight: 80,
     maxHeight: 120,
     lineHeight: 20,
   },
   charCount: {
     fontSize: 11,
-    color: '#9CA3AF',
+    color: C.muted,
     textAlign: 'right',
     marginTop: 4,
     marginRight: 4,
@@ -446,39 +494,40 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     gap: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: C.hairline,
   },
   keepButton: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: C.sunken,
     alignItems: 'center',
     justifyContent: 'center',
   },
   keepButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#374151',
+    color: C.textBody,
   },
   cancelButton: {
     flex: 1.3,
     flexDirection: 'row',
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: '#DC2626',
+    backgroundColor: C.danger,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
   },
   cancelButtonDisabled: {
-    backgroundColor: '#FCA5A5',
+    backgroundColor: C.dangerLine,
   },
   cancelButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: C.onDanger,
   },
-});
+  });
+};
 
 export default CancellationReasonModal;

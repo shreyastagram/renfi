@@ -37,14 +37,51 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Mapbox Access Token (from .env via centralized config)
 import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
+import {
+  useThemedStyles,
+  useThemeColors,
+} from '../theme';
 
 // Brand colors
-const BRAND = {
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  background: '#faf7f7',
-  white: '#FFFFFF',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  line: c.borderNeutral,
+  borderMedium: c.borderMediumNeutral,
+  text: c.textStrongNeutral,
+  textStrong: c.textStrong,
+  textBody: c.textBodyNeutral,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  accentSky: c.altBlueSky,
+  purple: c.accentViolet,
+  purpleBg: c.accentVioletContainer,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  warningLine: c.warningBorder,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
 
 /**
  * Request location permission (Android)
@@ -206,45 +243,55 @@ const reverseGeocode = async (latitude, longitude) => {
 /**
  * Location Chip for quick selection
  */
-const LocationChip = ({ icon, label, selected, onPress, loading }) => (
-  <TouchableOpacity
-    style={[styles.locationChip, selected && styles.locationChipSelected]}
-    onPress={onPress}
-    activeOpacity={0.7}
-    disabled={loading}
-  >
-    {loading ? (
-      <ActivityIndicator size="small" color={selected ? '#FFFFFF' : '#3B82F6'} />
-    ) : (
-      <Icon name={icon} size={18} color={selected ? '#FFFFFF' : '#374151'} />
-    )}
-    <Text style={[styles.locationChipText, selected && styles.locationChipTextSelected]}>
-      {label}
-    </Text>
-  </TouchableOpacity>
-);
+const LocationChip = ({ icon, label, selected, onPress, loading }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  return (
+    <TouchableOpacity
+      style={[styles.locationChip, selected && styles.locationChipSelected]}
+      onPress={onPress}
+      activeOpacity={0.7}
+      disabled={loading}
+    >
+      {loading ? (
+        <ActivityIndicator size="small" color={selected ? C.onSecondary : C.accentSky} />
+      ) : (
+        <Icon name={icon} size={18} color={selected ? C.onSecondary : C.textBody} />
+      )}
+      <Text style={[styles.locationChipText, selected && styles.locationChipTextSelected]}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+};
 
 /**
  * Search Result Item
  */
-const SearchResultItem = ({ result, onSelect }) => (
-  <TouchableOpacity style={styles.searchResultItem} onPress={() => onSelect(result)}>
-    <Icon name="location" size={20} color="#6B7280" />
-    <View style={styles.searchResultContent}>
-      <Text style={styles.searchResultTitle} numberOfLines={1}>
-        {result.shortAddress}
-      </Text>
-      <Text style={styles.searchResultSubtitle} numberOfLines={1}>
-        {result.address}
-      </Text>
-    </View>
-  </TouchableOpacity>
-);
+const SearchResultItem = ({ result, onSelect }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  return (
+    <TouchableOpacity style={styles.searchResultItem} onPress={() => onSelect(result)}>
+      <Icon name="location" size={20} color={C.textSecondary} />
+      <View style={styles.searchResultContent}>
+        <Text style={styles.searchResultTitle} numberOfLines={1}>
+          {result.shortAddress}
+        </Text>
+        <Text style={styles.searchResultSubtitle} numberOfLines={1}>
+          {result.address}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 /**
  * Saved Address Item (like Ola/Uber)
  */
 const SavedAddressItem = ({ address, onSelect }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const getTypeIcon = (type) => {
     switch (type) {
       case 'home': return 'home';
@@ -255,9 +302,9 @@ const SavedAddressItem = ({ address, onSelect }) => {
   
   const getTypeColor = (type) => {
     switch (type) {
-      case 'home': return '#3B82F6';
-      case 'work': return '#8B5CF6';
-      default: return '#6B7280';
+      case 'home': return C.accentSky;
+      case 'work': return C.purple;
+      default: return C.textSecondary;
     }
   };
   
@@ -297,7 +344,7 @@ const SavedAddressItem = ({ address, onSelect }) => {
           {[address.city, address.state].filter(Boolean).join(', ')}
         </Text>
       </View>
-      <MaterialIcon name="chevron-right" size={24} color="#D1D5DB" />
+      <MaterialIcon name="chevron-right" size={24} color={C.muted} />
     </TouchableOpacity>
   );
 };
@@ -322,6 +369,8 @@ const LocationPicker = ({
   placeholder = 'Where do you need the service?',
   error,
 }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { dialog } = useDialog();
 
   // Guard against background geocoding race conditions:
@@ -690,18 +739,18 @@ const LocationPicker = ({
         onPress={() => setShowModal(true)}
       >
         {gettingLocation ? (
-          <ActivityIndicator size="small" color="#3B82F6" />
+          <ActivityIndicator size="small" color={C.accentSky} />
         ) : (
           <Icon 
             name={locationType === 'current' ? 'my_location' : 'location'} 
             size={20} 
-            color={locationType === 'current' ? '#3B82F6' : '#6B7280'} 
+            color={locationType === 'current' ? C.accentSky : C.textSecondary} 
           />
         )}
         <Text style={[styles.valueText, !value && styles.valuePlaceholder]} numberOfLines={2}>
           {formatDisplayValue()}
         </Text>
-        <Icon name="edit" size={18} color="#6B7280" />
+        <Icon name="edit" size={18} color={C.textSecondary} />
       </TouchableOpacity>
       
       {error && <Text style={styles.errorText}>{error}</Text>}
@@ -719,7 +768,7 @@ const LocationPicker = ({
           {/* Header */}
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setShowModal(false)}>
-              <Icon name="back" size={24} color="#374151" />
+              <Icon name="back" size={24} color={C.textBody} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Search Location</Text>
             <View style={{ width: 24 }} />
@@ -727,13 +776,13 @@ const LocationPicker = ({
           
           {/* Search Input */}
           <View style={styles.searchContainer}>
-            <Icon name="search_location" size={20} color="#6B7280" />
+            <Icon name="search_location" size={20} color={C.textSecondary} />
             <TextInput
               style={styles.searchInput}
               value={searchQuery}
               onChangeText={handleSearchChange}
               placeholder="Enter address, landmark, or area"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={C.muted}
               autoFocus
               returnKeyType="search"
             />
@@ -742,7 +791,7 @@ const LocationPicker = ({
                 setSearchQuery('');
                 setSearchResults([]);
               }}>
-                <Icon name="close" size={20} color="#6B7280" />
+                <Icon name="close" size={20} color={C.textSecondary} />
               </TouchableOpacity>
             )}
           </View>
@@ -757,13 +806,13 @@ const LocationPicker = ({
             activeOpacity={0.7}
           >
             <View style={styles.locateMeIconContainer}>
-              <MaterialIcon name="my-location" size={22} color="#FFFFFF" />
+              <MaterialIcon name="my-location" size={22} color={C.onSecondary} />
             </View>
             <View style={styles.locateMeTextContainer}>
               <Text style={styles.locateMeTitle}>Use my current location</Text>
               <Text style={styles.locateMeSubtitle}>Using GPS</Text>
             </View>
-            {gettingLocation && <ActivityIndicator size="small" color="#3B82F6" />}
+            {gettingLocation && <ActivityIndicator size="small" color={C.accentSky} />}
           </TouchableOpacity>
           
           <TouchableOpacity
@@ -774,14 +823,14 @@ const LocationPicker = ({
               setTimeout(() => setShowMapPicker(true), 300);
             }}
           >
-            <Icon name="map" size={20} color={BRAND.primary} />
-            <Text style={[styles.chooseOnMapText, { color: BRAND.primary }]}>Choose location on map</Text>
+            <Icon name="map" size={20} color={C.primary} />
+            <Text style={[styles.chooseOnMapText, { color: C.primary }]}>Choose location on map</Text>
           </TouchableOpacity>
           
           {/* Search Results or Saved Addresses */}
           {searching ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#3B82F6" />
+              <ActivityIndicator size="large" color={C.accentSky} />
               <Text style={styles.loadingText}>Searching...</Text>
             </View>
           ) : (
@@ -797,7 +846,7 @@ const LocationPicker = ({
               
               {searchQuery.length >= 3 && searchResults.length === 0 && (
                 <View style={styles.noResultsContainer}>
-                  <Icon name="search_location" size={48} color="#D1D5DB" />
+                  <Icon name="search_location" size={48} color={C.muted} />
                   <Text style={styles.noResultsText}>No locations found</Text>
                   <Text style={styles.noResultsSubtext}>Try a different search term</Text>
                 </View>
@@ -811,7 +860,7 @@ const LocationPicker = ({
               {searchQuery.length === 0 && savedAddresses.length > 0 && (
                 <View style={styles.savedAddressesSection}>
                   <View style={styles.savedAddressesHeader}>
-                    <MaterialIcon name="bookmark" size={20} color="#3B82F6" />
+                    <MaterialIcon name="bookmark" size={20} color={C.accentSky} />
                     <Text style={styles.savedAddressesTitle}>Saved Addresses</Text>
                   </View>
                   {savedAddresses.map((address) => (
@@ -829,7 +878,7 @@ const LocationPicker = ({
               {/* Loading saved addresses */}
               {searchQuery.length === 0 && loadingSavedAddresses && (
                 <View style={styles.savedAddressesLoading}>
-                  <ActivityIndicator size="small" color="#3B82F6" />
+                  <ActivityIndicator size="small" color={C.accentSky} />
                   <Text style={styles.savedAddressesLoadingText}>Loading saved addresses...</Text>
                 </View>
               )}
@@ -837,7 +886,7 @@ const LocationPicker = ({
               {/* No saved addresses */}
               {searchQuery.length === 0 && !loadingSavedAddresses && savedAddresses.length === 0 && (
                 <View style={styles.noSavedAddresses}>
-                  <MaterialIcon name="bookmark-border" size={40} color="#D1D5DB" />
+                  <MaterialIcon name="bookmark-border" size={40} color={C.muted} />
                   <Text style={styles.noSavedAddressesText}>No saved addresses</Text>
                   <Text style={styles.noSavedAddressesSubtext}>
                     Save addresses from your profile for quick access
@@ -861,14 +910,16 @@ const LocationPicker = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   container: {
     marginBottom: 16,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: C.textBody,
     marginBottom: 8,
   },
   locationOptions: {
@@ -882,53 +933,53 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: C.sunken,
     borderRadius: 12,
     borderWidth: 2,
     borderColor: 'transparent',
   },
   locationChipSelected: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
+    backgroundColor: C.indigo,
+    borderColor: C.indigo,
   },
   locationChipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#374151',
+    color: C.textBody,
   },
   locationChipTextSelected: {
-    color: '#FFFFFF',
+    color: C.onSecondary,
   },
   valueDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     padding: 14,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: C.sunken,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: C.line,
   },
   valueDisplayError: {
-    borderColor: '#EF4444',
+    borderColor: C.danger,
   },
   valueText: {
     flex: 1,
     fontSize: 15,
     fontWeight: '500',
-    color: '#1F2937',
+    color: C.text,
   },
   valuePlaceholder: {
-    color: '#9CA3AF',
+    color: C.muted,
   },
   errorText: {
     fontSize: 12,
-    color: '#EF4444',
+    color: C.danger,
     marginTop: 4,
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -938,12 +989,12 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     paddingTop: Platform.OS === 'ios' ? 56 : 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: C.line,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1F2937',
+    color: C.text,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -951,13 +1002,13 @@ const styles = StyleSheet.create({
     gap: 12,
     margin: 16,
     padding: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: C.sunken,
     borderRadius: 12,
   },
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: '#1F2937',
+    color: C.text,
     padding: 0,
   },
   useCurrentButton: {
@@ -967,14 +1018,14 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 8,
     padding: 14,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: C.infoBg,
     borderRadius: 12,
   },
   useCurrentText: {
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
-    color: '#3B82F6',
+    color: C.accentSky,
   },
   // Locate Me Button (like Google Maps style)
   locateMeButton: {
@@ -984,11 +1035,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 8,
     padding: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
+    borderColor: C.line,
+    shadowColor: C.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -998,7 +1049,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#3B82F6',
+    backgroundColor: C.accentSky,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1008,11 +1059,11 @@ const styles = StyleSheet.create({
   locateMeTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1F2937',
+    color: C.text,
   },
   locateMeSubtitle: {
     fontSize: 12,
-    color: '#6B7280',
+    color: C.textSecondary,
     marginTop: 2,
   },
   chooseOnMapButton: {
@@ -1021,14 +1072,14 @@ const styles = StyleSheet.create({
     gap: 12,
     marginHorizontal: 16,
     padding: 14,
-    backgroundColor: '#F3E8FF',
+    backgroundColor: C.purpleBg,
     borderRadius: 12,
   },
   chooseOnMapText: {
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
-    color: '#8B5CF6',
+    color: C.purple,
   },
   resultsContainer: {
     flex: 1,
@@ -1040,7 +1091,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: C.sunken,
   },
   searchResultContent: {
     flex: 1,
@@ -1048,11 +1099,11 @@ const styles = StyleSheet.create({
   searchResultTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1F2937',
+    color: C.text,
   },
   searchResultSubtitle: {
     fontSize: 13,
-    color: '#6B7280',
+    color: C.textSecondary,
     marginTop: 2,
   },
   loadingContainer: {
@@ -1063,7 +1114,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 15,
-    color: '#6B7280',
+    color: C.textSecondary,
     marginTop: 12,
   },
   noResultsContainer: {
@@ -1073,17 +1124,17 @@ const styles = StyleSheet.create({
   noResultsText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
+    color: C.textBody,
     marginTop: 12,
   },
   noResultsSubtext: {
     fontSize: 14,
-    color: '#6B7280',
+    color: C.textSecondary,
     marginTop: 4,
   },
   hintText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: C.textSecondary,
     textAlign: 'center',
     paddingVertical: 20,
   },
@@ -1100,17 +1151,17 @@ const styles = StyleSheet.create({
   savedAddressesTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1F2937',
+    color: C.text,
   },
   savedAddressItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: C.line,
     marginBottom: 10,
   },
   savedAddressIconContainer: {
@@ -1133,7 +1184,7 @@ const styles = StyleSheet.create({
   savedAddressLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1F2937',
+    color: C.text,
   },
   savedAddressTypeBadge: {
     paddingHorizontal: 8,
@@ -1146,11 +1197,11 @@ const styles = StyleSheet.create({
   },
   savedAddressText: {
     fontSize: 14,
-    color: '#374151',
+    color: C.textBody,
   },
   savedAddressSubtext: {
     fontSize: 12,
-    color: '#6B7280',
+    color: C.textSecondary,
     marginTop: 2,
   },
   savedAddressesLoading: {
@@ -1162,7 +1213,7 @@ const styles = StyleSheet.create({
   },
   savedAddressesLoadingText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: C.textSecondary,
   },
   noSavedAddresses: {
     alignItems: 'center',
@@ -1171,16 +1222,17 @@ const styles = StyleSheet.create({
   noSavedAddressesText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
+    color: C.textBody,
     marginTop: 12,
   },
   noSavedAddressesSubtext: {
     fontSize: 14,
-    color: '#6B7280',
+    color: C.textSecondary,
     marginTop: 4,
     textAlign: 'center',
     paddingHorizontal: 20,
   },
-});
+  });
+};
 
 export default LocationPicker;

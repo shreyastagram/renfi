@@ -92,8 +92,8 @@ contract.
 
 | Measure | Value |
 |---|---|
-| Colour literals remaining | **1,379** (3,329 at v1.0.9) — measured, see note |
-| Files on the hex allowlist | **44** |
+| Colour literals remaining | **1,052** (3,329 at v1.0.9) — measured, see note |
+| Files on the hex allowlist | **54** |
 | Components fully themed | **8** — CustomDialog, Button, Alert, ShimmerLoader, Input, Icon, GlobalBanner, DrawerMenu (+ RootNavigator surgically) |
 | Screens fully themed | **24** — the entire user side AND the entire provider side |
 | Theme unit tests | 30 across 6 suites |
@@ -169,27 +169,28 @@ as both removed and added. It now reassembles each record before normalising —
 why three "new diagnostics" on `ProviderHomeScreen` turned out to be the same warnings
 reformatted.
 
-### ⚠️ A DEVICE TEST IS BLOCKED, AND THIS IS WHY
+### DEVICE TEST — the ten big modals are done; 14 small reachables remain
 
-Asked 2026-09-25 whether a Firebase build could go to a tester. Measured answer: **not
-for dark mode yet.** `22 of 35` unthemed components render INSIDE themed screens, and
-they are exactly the ones a tester taps:
+Asked 2026-09-25 whether a Firebase build could go to a tester. The blocker then was
+that **22 of 35** unthemed components rendered inside themed screens — every modal a
+tester opens. The ten largest are now themed (336 literals): `LocationPicker`,
+`ProviderDetailsModal`, `CancellationReasonModal`, `MapPickerModal`, `RatingModal`,
+`AadhaarVerificationModal`, `AddressAutocomplete`, `PhoneChangeModal`,
+`DateTimePicker`, `SavedAddresses`.
 
-| Component | Literals | Opened from |
+**14 still reachable, 179 literals.** Two groups, and the second is nearly free:
+
+| Still reachable | Lits | Note |
 |---|---|---|
-| `LocationPicker` | 71 | UserHome |
-| `ProviderDetailsModal` | 60 | Favorites, UserHome, EventServices |
-| `CancellationReasonModal` | 34 | 4 themed screens |
-| `MapPickerModal` | 28 | EventServices |
-| `RatingModal` / `AadhaarVerificationModal` | 26 each | History, Detail, Profile |
-| `PhoneChangeModal`, `DateTimePicker`, `SavedAddresses`, … | 12–24 | Profile, CreateRequest |
+| `RegisterChoice` | 63 | a full-screen step, not a modal over a themed screen |
+| `PhoneOnboardingSheet`, `AppleEmailCollectionModal`, `ImageViewerModal`, `CityAutocomplete`, `DayHoursSheet`, `PhoneInput` | 94 | sheets and inputs over themed screens — still jarring |
+| `GraphBackground`, `SvgArt`, `FixhomiLogo`, `BrandFooter`, `SafeBlurView`, `HelpSupportButton` | 22 | **decorative, ~2–4 literals each.** Cheap, and they currently render light art on dark surfaces |
 
-In dark mode the screens go dark and then a **fully white modal** covers them the moment
-the user taps Book / Rate / Cancel / Change phone / a date field. `GraphBackground`,
-`SvgArt` and `BrandFooter` would also render light art on dark surfaces. Feedback would
-be entirely "these modals are white", which is already known.
+**Do the decorative six and the six sheets before building** (~116 literals). After that a
+dark build is representative and the tester's feedback is about design judgement rather
+than obviously-unfinished surfaces.
 
-**Recompute the list before asking again:**
+Recompute with the snippet below before asking again:
 
 ```
 python3 - <<'EOF'
@@ -206,15 +207,12 @@ for s in [d for d in done if d.startswith('src/screens/')]:
 EOF
 ```
 
-**A LIGHT-mode build is worth doing now**, though: light mode should be
-near-identical to 1.0.9 (321 declared changes, all justified), and the one thing no gate
-can check is how the near-black dark ramp reads on a real low-end 6-bit panel — the
-surface steps were sized on code-value gap precisely because contrast ratio is
-meaningless near black. That needs a device, and it needs the modals done first.
+**The one thing no gate can check** remains: how the near-black ramp reads on a real
+low-end 6-bit panel. Contrast ratio is meaningless near black, so the dark surface steps
+were sized on 8-bit code-value gap. That needs your eyes on a cheap Android device.
 
-Also note: there is **no fastlane / App Distribution automation** in the repo, and
-`USE_DEV_STAGING` is `false` (pointing at prod) in a file on the do-not-commit list, so
-the build and distribute is the owner's manual step either way.
+There is still **no fastlane / App Distribution automation**, and `USE_DEV_STAGING` is
+`false` in a file on the do-not-commit list, so the build is the owner's manual step.
 
 ## 4. GATES — run before EVERY commit
 

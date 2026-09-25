@@ -23,23 +23,50 @@ import {
 import TouchableOpacity from './TouchableOpacity';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import {
+  useThemedStyles,
+  useThemeColors,
+} from '../theme';
 
-const COLORS = {
-  primary: '#2563EB',
-  primaryLight: '#EFF6FF',
-  primaryBorder: '#DBEAFE',
-  instant: '#F59E0B',
-  instantLight: '#FFFBEB',
-  instantBorder: '#FDE68A',
-  bg: '#F8FAFC',
-  card: '#FFFFFF',
-  border: '#E2E8F0',
-  text: '#0F172A',
-  textSecondary: '#64748B',
-  textMuted: '#94A3B8',
-  disabled: '#E2E8F0',
-  selected: '#2563EB',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  line: c.borderNeutral,
+  borderMedium: c.borderMediumNeutral,
+  text: c.textStrongNeutral,
+  textStrong: c.textStrong,
+  textBody: c.textBodyNeutral,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  accentSky: c.altBlueSky,
+  purple: c.accentViolet,
+  purpleBg: c.accentVioletContainer,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  warningLine: c.warningBorder,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
 
 const generateQuickDateOptions = () => {
   const options = [];
@@ -103,6 +130,8 @@ const formatTime = (hour, minute) => {
 
 /* ── Date Chip ──────────────────────────────────────────── */
 const DateChip = ({ option, selected, onPress }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
@@ -114,12 +143,12 @@ const DateChip = ({ option, selected, onPress }) => {
 
   const isInstant = option.isInstant;
   const chipBg = selected
-    ? (isInstant ? COLORS.instant : COLORS.selected)
-    : (isInstant ? COLORS.instantLight : COLORS.bg);
+    ? (isInstant ? C.instant : C.selected)
+    : (isInstant ? C.instantLight : C.bg);
   const chipBorder = selected
-    ? (isInstant ? COLORS.instant : COLORS.selected)
-    : (isInstant ? COLORS.instantBorder : COLORS.border);
-  const textColor = selected ? '#FFFFFF' : (isInstant ? '#B45309' : COLORS.text);
+    ? (isInstant ? C.instant : C.selected)
+    : (isInstant ? C.instantBorder : C.border);
+  const textColor = selected ? C.onSecondary : (isInstant ? C.warning : C.text);
 
   return (
     <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
@@ -131,7 +160,7 @@ const DateChip = ({ option, selected, onPress }) => {
         activeOpacity={1}
       >
         {isInstant && (
-          <MaterialIcon name="flash-on" size={14} color={selected ? '#FFF' : '#F59E0B'} style={{ marginRight: 4 }} />
+          <MaterialIcon name="flash-on" size={14} color={selected ? C.onSecondary : C.warning} style={{ marginRight: 4 }} />
         )}
         <Text style={[styles.dateChipText, { color: textColor }]}>
           {option.shortLabel}
@@ -142,20 +171,23 @@ const DateChip = ({ option, selected, onPress }) => {
 };
 
 /* ── Time Slot ──────────────────────────────────────────── */
-const TimeSlot = ({ slot, selected, onPress }) => (
-  <TouchableOpacity
-    style={[
-      styles.timeSlot,
-      selected && styles.timeSlotSelected,
-    ]}
-    onPress={() => onPress(slot)}
-    activeOpacity={0.7}
-  >
-    <Text style={[styles.timeSlotText, selected && styles.timeSlotTextSelected]}>
-      {slot.label}
-    </Text>
-  </TouchableOpacity>
-);
+const TimeSlot = ({ slot, selected, onPress }) => {
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <TouchableOpacity
+      style={[
+        styles.timeSlot,
+        selected && styles.timeSlotSelected,
+      ]}
+      onPress={() => onPress(slot)}
+      activeOpacity={0.7}
+    >
+      <Text style={[styles.timeSlotText, selected && styles.timeSlotTextSelected]}>
+        {slot.label}
+      </Text>
+    </TouchableOpacity>
+  );
+};
 
 /* ── Main Component ─────────────────────────────────────── */
 const DateTimePickerComponent = ({
@@ -170,6 +202,8 @@ const DateTimePickerComponent = ({
   placeholder = 'Select date and time',
   error,
 }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const [internalValue, setInternalValue] = useState(() => {
     if (valueProp) return valueProp;
     if (initialDate) {
@@ -297,7 +331,7 @@ const DateTimePickerComponent = ({
 
       {/* Section title */}
       <View style={styles.sectionHeader}>
-        <MaterialIcon name="event" size={16} color={COLORS.textMuted} />
+        <MaterialIcon name="event" size={16} color={C.textMuted} />
         <Text style={styles.sectionTitle}>When do you need service?</Text>
       </View>
 
@@ -321,7 +355,7 @@ const DateTimePickerComponent = ({
           onPress={() => setShowDatePicker(true)}
           activeOpacity={0.7}
         >
-          <MaterialIcon name="date-range" size={16} color={COLORS.selected} />
+          <MaterialIcon name="date-range" size={16} color={C.selected} />
           <Text style={styles.moreDatesText}>More</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -330,7 +364,7 @@ const DateTimePickerComponent = ({
       {showTime && value && !isInstantSelected && (
         <Animated.View style={[styles.timeSection, { opacity: timeFadeAnim }]}>
           <View style={styles.sectionHeader}>
-            <MaterialIcon name="schedule" size={16} color={COLORS.textMuted} />
+            <MaterialIcon name="schedule" size={16} color={C.textMuted} />
             <Text style={styles.sectionTitle}>Preferred time</Text>
           </View>
           <View style={styles.timeSlotsGrid}>
@@ -350,7 +384,7 @@ const DateTimePickerComponent = ({
               onPress={() => setShowModal(true)}
               activeOpacity={0.7}
             >
-              <MaterialIcon name="more-horiz" size={18} color={COLORS.selected} />
+              <MaterialIcon name="more-horiz" size={18} color={C.selected} />
               <Text style={styles.moreTimesText}>More</Text>
             </TouchableOpacity>
           </View>
@@ -362,14 +396,14 @@ const DateTimePickerComponent = ({
         <MaterialIcon
           name={isInstantSelected ? 'flash-on' : 'event-available'}
           size={18}
-          color={isInstantSelected ? COLORS.instant : COLORS.selected}
+          color={isInstantSelected ? C.instant : C.selected}
         />
         <Text style={[styles.summaryText, !value && styles.summaryPlaceholder]}>
           {formatDisplayValue()}
         </Text>
         {value && !isInstantSelected && (
           <TouchableOpacity onPress={() => setShowModal(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <MaterialIcon name="edit" size={16} color={COLORS.textMuted} />
+            <MaterialIcon name="edit" size={16} color={C.textMuted} />
           </TouchableOpacity>
         )}
       </View>
@@ -413,7 +447,7 @@ const DateTimePickerComponent = ({
                 style={styles.modalCloseBtn}
                 activeOpacity={0.7}
               >
-                <MaterialIcon name="close" size={22} color={COLORS.text} />
+                <MaterialIcon name="close" size={22} color={C.text} />
               </TouchableOpacity>
             </View>
 
@@ -437,7 +471,7 @@ const DateTimePickerComponent = ({
               onPress={() => { setShowModal(false); setShowTimePicker(true); }}
               activeOpacity={0.7}
             >
-              <MaterialIcon name="schedule" size={18} color={COLORS.selected} />
+              <MaterialIcon name="schedule" size={18} color={C.selected} />
               <Text style={styles.customTimeText}>Pick exact time</Text>
             </TouchableOpacity>
           </View>
@@ -447,14 +481,16 @@ const DateTimePickerComponent = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   container: {
     marginBottom: 16,
   },
   label: {
     fontSize: 14,
     fontWeight: '700',
-    color: COLORS.text,
+    color: C.text,
     marginBottom: 10,
   },
   sectionHeader: {
@@ -466,7 +502,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: COLORS.textMuted,
+    color: C.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -497,15 +533,15 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: C.primaryLight,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: COLORS.primaryBorder,
+    borderColor: C.primaryBorder,
   },
   moreDatesText: {
     fontSize: 13,
     fontWeight: '700',
-    color: COLORS.selected,
+    color: C.selected,
   },
   timeSection: {
     marginBottom: 16,
@@ -518,24 +554,24 @@ const styles = StyleSheet.create({
   timeSlot: {
     paddingHorizontal: 14,
     paddingVertical: 9,
-    backgroundColor: COLORS.bg,
+    backgroundColor: C.bg,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: COLORS.border,
+    borderColor: C.border,
     minWidth: 82,
     alignItems: 'center',
   },
   timeSlotSelected: {
-    backgroundColor: COLORS.selected,
-    borderColor: COLORS.selected,
+    backgroundColor: C.selected,
+    borderColor: C.selected,
   },
   timeSlotText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.text,
+    color: C.text,
   },
   timeSlotTextSelected: {
-    color: '#FFFFFF',
+    color: C.onSecondary,
   },
   moreTimesButton: {
     flexDirection: 'row',
@@ -543,53 +579,53 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 14,
     paddingVertical: 9,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: C.primaryLight,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: COLORS.primaryBorder,
+    borderColor: C.primaryBorder,
   },
   moreTimesText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.selected,
+    color: C.selected,
   },
   summaryBar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     padding: 14,
-    backgroundColor: COLORS.bg,
+    backgroundColor: C.bg,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: COLORS.border,
+    borderColor: C.border,
   },
   summaryBarInstant: {
-    backgroundColor: COLORS.instantLight,
-    borderColor: COLORS.instantBorder,
+    backgroundColor: C.instantLight,
+    borderColor: C.instantBorder,
   },
   summaryText: {
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.text,
+    color: C.text,
   },
   summaryPlaceholder: {
-    color: COLORS.textMuted,
+    color: C.textMuted,
     fontWeight: '500',
   },
   errorText: {
     fontSize: 12,
-    color: '#EF4444',
+    color: C.danger,
     marginTop: 6,
     fontWeight: '500',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: C.overlay,
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     maxHeight: '70%',
@@ -602,19 +638,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: C.border,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: COLORS.text,
+    color: C.text,
     letterSpacing: -0.3,
   },
   modalCloseBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.bg,
+    backgroundColor: C.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -633,16 +669,17 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 14,
     marginHorizontal: 20,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: C.primaryLight,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: COLORS.primaryBorder,
+    borderColor: C.primaryBorder,
   },
   customTimeText: {
     fontSize: 15,
     fontWeight: '700',
-    color: COLORS.selected,
+    color: C.selected,
   },
-});
+  });
+};
 
 export default DateTimePickerComponent;

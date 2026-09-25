@@ -47,6 +47,16 @@
     "src/screens/ProviderHomeScreen.jsx",
     "src/screens/ProviderRegisterScreen.jsx",
     "src/screens/ProviderServiceHistoryScreen.jsx",
-    "src/screens/ServiceApprovalsScreen.jsx"
+    "src/screens/ServiceApprovalsScreen.jsx",
+    "src/components/LocationPicker.jsx",
+    "src/components/ProviderDetailsModal.jsx",
+    "src/components/CancellationReasonModal.jsx",
+    "src/components/MapPickerModal.jsx",
+    "src/components/RatingModal.jsx",
+    "src/components/AadhaarVerificationModal.jsx",
+    "src/components/AddressAutocomplete.jsx",
+    "src/components/PhoneChangeModal.jsx",
+    "src/components/DateTimePicker.jsx",
+    "src/components/SavedAddresses.jsx"
   ]
 }

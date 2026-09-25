@@ -31,18 +31,54 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { getProviderDetails } from '../services/traditionalServiceService';
 import { formatExperience } from '../utils/experience';
 import ImageViewerModal from './ImageViewerModal';
+import {
+  useThemedStyles,
+  useThemeColors,
+  iconAccent,
+} from '../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Brand colors
-const BRAND = {
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  star: '#F59E0B',
-  success: '#10B981',
-  white: '#FFFFFF',
-  background: '#F9FAFB',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  line: c.borderNeutral,
+  borderMedium: c.borderMediumNeutral,
+  text: c.textStrongNeutral,
+  textStrong: c.textStrong,
+  textBody: c.textBodyNeutral,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  accentSky: c.altBlueSky,
+  purple: c.accentViolet,
+  purpleBg: c.accentVioletContainer,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  warningLine: c.warningBorder,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
 
 // Service labels
 const SERVICE_LABELS = {
@@ -65,6 +101,7 @@ const formatServiceName = (service) => {
 };
 
 const RatingBar = ({ value, maxValue, label }) => {
+  const styles = useThemedStyles(makeStyles);
   const percentage = maxValue > 0 ? (value / maxValue) * 100 : 0;
   return (
     <View style={styles.ratingBarContainer}>
@@ -78,6 +115,8 @@ const RatingBar = ({ value, maxValue, label }) => {
 };
 
 const ReviewCard = ({ review }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const date = review.date ? new Date(review.date).toLocaleDateString('en-IN', {
     day: 'numeric',
     month: 'short',
@@ -97,7 +136,7 @@ const ReviewCard = ({ review }) => {
           <Text style={styles.reviewService}>{formatServiceName(review.serviceType)}</Text>
         </View>
         <View style={styles.reviewRating}>
-          <MaterialIcon name="star" size={14} color={BRAND.star} />
+          <MaterialIcon name="star" size={14} color={C.star} />
           <Text style={styles.reviewRatingText}>{review.rating}</Text>
         </View>
       </View>
@@ -117,6 +156,8 @@ const ProviderDetailsModal = ({
   onBook,
   hasContacted = false,
 }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
   const [loading, setLoading] = useState(true);
@@ -270,11 +311,11 @@ const ProviderDetailsModal = ({
 
     for (let i = 0; i < 5; i++) {
       if (i < fullStars) {
-        stars.push(<MaterialIcon key={i} name="star" size={16} color={BRAND.star} />);
+        stars.push(<MaterialIcon key={i} name="star" size={16} color={C.star} />);
       } else if (i === fullStars && hasHalf) {
-        stars.push(<MaterialIcon key={i} name="star-half" size={16} color={BRAND.star} />);
+        stars.push(<MaterialIcon key={i} name="star-half" size={16} color={C.star} />);
       } else {
-        stars.push(<MaterialIcon key={i} name="star-border" size={16} color="#D1D5DB" />);
+        stars.push(<MaterialIcon key={i} name="star-border" size={16} color={C.muted} />);
       }
     }
     return stars;
@@ -289,7 +330,7 @@ const ProviderDetailsModal = ({
       onRequestClose={animatedClose}
     >
       <View style={{ flex: 1 }}>
-        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(15, 23, 42, 0.6)', opacity: overlayOpacity }]}>
+        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: C.overlay, opacity: overlayOpacity }]}>
           <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={animatedClose} />
         </Animated.View>
         <Animated.View style={[StyleSheet.absoluteFillObject, { justifyContent: 'flex-end', transform: [{ translateY: sheetTranslateY }] }]}>
@@ -298,7 +339,7 @@ const ProviderDetailsModal = ({
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity style={styles.closeButton} onPress={animatedClose}>
-              <MaterialIcon name="close" size={24} color="#6B7280" />
+              <MaterialIcon name="close" size={24} color={C.textSecondary} />
             </TouchableOpacity>
             <Text style={styles.title}>Provider Details</Text>
             <View style={styles.closeButton} />
@@ -306,12 +347,12 @@ const ProviderDetailsModal = ({
 
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={BRAND.secondary} />
+              <ActivityIndicator size="large" color={C.secondary} />
               <Text style={styles.loadingText}>Loading provider details...</Text>
             </View>
           ) : error ? (
             <View style={styles.errorContainer}>
-              <MaterialIcon name="error-outline" size={48} color="#EF4444" />
+              <MaterialIcon name="error-outline" size={48} color={C.danger} />
               <Text style={styles.errorText}>{error}</Text>
               <TouchableOpacity style={styles.retryButton} onPress={fetchDetails}>
                 <Text style={styles.retryButtonText}>Retry</Text>
@@ -342,7 +383,7 @@ const ProviderDetailsModal = ({
                   <View style={styles.nameRow}>
                     <Text style={styles.profileName}>{provider.name}</Text>
                     {provider.isVerified && (
-                      <MaterialIcon name="verified" size={18} color={BRAND.success} />
+                      <MaterialIcon name="verified" size={18} color={C.success} />
                     )}
                   </View>
                   
@@ -357,7 +398,7 @@ const ProviderDetailsModal = ({
                     const expText = formatExperience(provider.experienceStartDate, provider.experience);
                     return expText ? (
                       <View style={styles.experienceRow}>
-                        <MaterialIcon name="work" size={14} color="#6B7280" />
+                        <MaterialIcon name="work" size={14} color={C.textSecondary} />
                         <Text style={styles.experienceText}>{expText} experience</Text>
                       </View>
                     ) : null;
@@ -365,13 +406,13 @@ const ProviderDetailsModal = ({
 
                   {provider.memberSince && (
                     <View style={styles.experienceRow}>
-                      <MaterialIcon name="calendar-today" size={14} color="#6B7280" />
+                      <MaterialIcon name="calendar-today" size={14} color={C.textSecondary} />
                       <Text style={styles.experienceText}>Member since {provider.memberSince}</Text>
                     </View>
                   )}
 
                   <View style={styles.locationRow}>
-                    <MaterialIcon name="location-on" size={14} color="#6B7280" />
+                    <MaterialIcon name="location-on" size={14} color={C.textSecondary} />
                     <Text style={styles.locationText}>
                       {provider.city || provider.address || 'Location not specified'}
                     </Text>
@@ -392,7 +433,7 @@ const ProviderDetailsModal = ({
                 </View>
                 <View style={styles.statDivider} />
                 <View style={styles.statItem}>
-                  <Text style={[styles.statValue, { color: provider.isOnline ? BRAND.success : '#9CA3AF' }]}>
+                  <Text style={[styles.statValue, { color: provider.isOnline ? C.success : C.muted }]}>
                     {provider.isOnline ? 'Online' : 'Offline'}
                   </Text>
                   <Text style={styles.statLabel}>Status</Text>
@@ -406,7 +447,7 @@ const ProviderDetailsModal = ({
                   <View style={styles.servicesGrid}>
                     {provider.verifiedServiceCategories.map((service) => (
                       <View key={service} style={styles.serviceChip}>
-                        <MaterialIcon name="check-circle" size={14} color={BRAND.success} />
+                        <MaterialIcon name="check-circle" size={14} color={C.success} />
                         <Text style={styles.serviceChipText}>{formatServiceName(service)}</Text>
                       </View>
                     ))}
@@ -465,7 +506,7 @@ const ProviderDetailsModal = ({
                   <View style={styles.specializationsGrid}>
                     {provider.specializations.map((spec, index) => (
                       <View key={index} style={styles.specializationChip}>
-                        <MaterialIcon name="auto-awesome" size={14} color="#7C3AED" />
+                        <MaterialIcon name="auto-awesome" size={14} color={C.purple} />
                         <Text style={styles.specializationChipText}>{spec}</Text>
                       </View>
                     ))}
@@ -483,8 +524,8 @@ const ProviderDetailsModal = ({
                         style={styles.portfolioLinkCard}
                         onPress={() => handleOpenLink(provider.portfolioLinks.website)}
                       >
-                        <View style={[styles.portfolioLinkIcon, { backgroundColor: '#E0F2FE' }]}>
-                          <MaterialIcon name="language" size={22} color="#0284C7" />
+                        <View style={[styles.portfolioLinkIcon, { backgroundColor: iconAccent.website + '1A' }]}>
+                          <MaterialIcon name="language" size={22} color={iconAccent.website} />
                         </View>
                         <Text style={styles.portfolioLinkLabel}>Website</Text>
                       </TouchableOpacity>
@@ -494,8 +535,8 @@ const ProviderDetailsModal = ({
                         style={styles.portfolioLinkCard}
                         onPress={() => handleOpenLink(provider.portfolioLinks.instagram)}
                       >
-                        <View style={[styles.portfolioLinkIcon, { backgroundColor: '#FCE7F3' }]}>
-                          <MaterialIcon name="camera-alt" size={22} color="#DB2777" />
+                        <View style={[styles.portfolioLinkIcon, { backgroundColor: iconAccent.instagram + '1A' }]}>
+                          <MaterialIcon name="camera-alt" size={22} color={iconAccent.instagram} />
                         </View>
                         <Text style={styles.portfolioLinkLabel}>Instagram</Text>
                       </TouchableOpacity>
@@ -505,8 +546,8 @@ const ProviderDetailsModal = ({
                         style={styles.portfolioLinkCard}
                         onPress={() => handleOpenLink(provider.portfolioLinks.youtube)}
                       >
-                        <View style={[styles.portfolioLinkIcon, { backgroundColor: '#FEE2E2' }]}>
-                          <MaterialIcon name="play-circle-filled" size={22} color="#DC2626" />
+                        <View style={[styles.portfolioLinkIcon, { backgroundColor: C.dangerFill }]}>
+                          <MaterialIcon name="play-circle-filled" size={22} color={C.danger} />
                         </View>
                         <Text style={styles.portfolioLinkLabel}>YouTube</Text>
                       </TouchableOpacity>
@@ -516,8 +557,8 @@ const ProviderDetailsModal = ({
                         style={styles.portfolioLinkCard}
                         onPress={() => handleOpenLink(provider.portfolioLinks.facebook)}
                       >
-                        <View style={[styles.portfolioLinkIcon, { backgroundColor: '#DBEAFE' }]}>
-                          <MaterialIcon name="facebook" size={22} color="#2563EB" />
+                        <View style={[styles.portfolioLinkIcon, { backgroundColor: C.infoFill }]}>
+                          <MaterialIcon name="facebook" size={22} color={C.indigo} />
                         </View>
                         <Text style={styles.portfolioLinkLabel}>Facebook</Text>
                       </TouchableOpacity>
@@ -527,8 +568,8 @@ const ProviderDetailsModal = ({
                         style={styles.portfolioLinkCard}
                         onPress={() => handleOpenLink(provider.portfolioLinks.tiktok)}
                       >
-                        <View style={[styles.portfolioLinkIcon, { backgroundColor: '#F3E8FF' }]}>
-                          <MaterialIcon name="music-note" size={22} color="#7C3AED" />
+                        <View style={[styles.portfolioLinkIcon, { backgroundColor: C.purpleBg }]}>
+                          <MaterialIcon name="music-note" size={22} color={C.purple} />
                         </View>
                         <Text style={styles.portfolioLinkLabel}>TikTok</Text>
                       </TouchableOpacity>
@@ -538,8 +579,8 @@ const ProviderDetailsModal = ({
                         style={styles.portfolioLinkCard}
                         onPress={() => handleOpenLink(provider.portfolioLinks.twitter)}
                       >
-                        <View style={[styles.portfolioLinkIcon, { backgroundColor: '#E0F7FA' }]}>
-                          <MaterialIcon name="alternate-email" size={22} color="#0EA5E9" />
+                        <View style={[styles.portfolioLinkIcon, { backgroundColor: iconAccent.twitter + '1A' }]}>
+                          <MaterialIcon name="alternate-email" size={22} color={iconAccent.twitter} />
                         </View>
                         <Text style={styles.portfolioLinkLabel}>Twitter</Text>
                       </TouchableOpacity>
@@ -597,14 +638,14 @@ const ProviderDetailsModal = ({
           {provider && !loading && !error && (
             <View style={[styles.actionButtons, { paddingBottom: Math.max(16, insets.bottom + 8) }]}>
               <TouchableOpacity style={styles.callButton} onPress={handleCall}>
-                <MaterialIcon name="phone" size={22} color={BRAND.success} />
+                <MaterialIcon name="phone" size={22} color={C.success} />
                 <Text style={styles.callButtonText}>Call</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.bookButton}
                 onPress={handleBook}
               >
-                <MaterialIcon name="send" size={20} color={BRAND.white} />
+                <MaterialIcon name="send" size={20} color={C.white} />
                 <Text style={styles.bookButtonText}>Send Request</Text>
               </TouchableOpacity>
             </View>
@@ -617,13 +658,15 @@ const ProviderDetailsModal = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
   },
   modalContainer: {
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '95%',
@@ -637,20 +680,20 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: C.sunken,
   },
   closeButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: C.sunken,
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1F2937',
+    color: C.text,
   },
   loadingContainer: {
     alignItems: 'center',
@@ -658,7 +701,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: C.textSecondary,
     marginTop: 12,
   },
   errorContainer: {
@@ -667,7 +710,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 14,
-    color: '#EF4444',
+    color: C.danger,
     marginTop: 12,
     textAlign: 'center',
   },
@@ -675,11 +718,11 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingHorizontal: 24,
     paddingVertical: 10,
-    backgroundColor: BRAND.secondary,
+    backgroundColor: C.secondary,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: BRAND.white,
+    color: C.white,
     fontWeight: '600',
   },
   scrollView: {
@@ -698,20 +741,20 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     borderWidth: 3,
-    borderColor: BRAND.secondary,
+    borderColor: C.secondary,
   },
   profileAvatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: BRAND.secondary,
+    backgroundColor: C.secondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   profileInitial: {
     fontSize: 32,
     fontWeight: '700',
-    color: BRAND.white,
+    color: C.white,
   },
   profileInfo: {
     flex: 1,
@@ -725,7 +768,7 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1F2937',
+    color: C.text,
   },
   ratingRow: {
     flexDirection: 'row',
@@ -735,7 +778,7 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: C.textSecondary,
     marginLeft: 6,
   },
   experienceRow: {
@@ -746,7 +789,7 @@ const styles = StyleSheet.create({
   },
   experienceText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: C.textSecondary,
   },
   locationRow: {
     flexDirection: 'row',
@@ -756,12 +799,12 @@ const styles = StyleSheet.create({
   },
   locationText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: C.textSecondary,
     flex: 1,
   },
   statsRow: {
     flexDirection: 'row',
-    backgroundColor: BRAND.background,
+    backgroundColor: C.background,
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
@@ -773,16 +816,16 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1F2937',
+    color: C.text,
   },
   statLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    color: C.textSecondary,
     marginTop: 4,
   },
   statDivider: {
     width: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: C.line,
   },
   section: {
     marginBottom: 20,
@@ -790,7 +833,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1F2937',
+    color: C.text,
     marginBottom: 12,
   },
   servicesGrid: {
@@ -801,7 +844,7 @@ const styles = StyleSheet.create({
   serviceChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#DCFCE7',
+    backgroundColor: C.successFill,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
@@ -810,11 +853,11 @@ const styles = StyleSheet.create({
   serviceChipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#16A34A',
+    color: C.success,
   },
   ratingBreakdown: {
     flexDirection: 'row',
-    backgroundColor: BRAND.background,
+    backgroundColor: C.background,
     borderRadius: 12,
     padding: 16,
   },
@@ -822,12 +865,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingRight: 20,
     borderRightWidth: 1,
-    borderRightColor: '#E5E7EB',
+    borderRightColor: C.line,
   },
   ratingBig: {
     fontSize: 36,
     fontWeight: '700',
-    color: '#1F2937',
+    color: C.text,
   },
   ratingStarsSmall: {
     flexDirection: 'row',
@@ -835,7 +878,7 @@ const styles = StyleSheet.create({
   },
   totalReviews: {
     fontSize: 12,
-    color: '#6B7280',
+    color: C.textSecondary,
     marginTop: 4,
   },
   ratingBars: {
@@ -851,30 +894,30 @@ const styles = StyleSheet.create({
   ratingBarLabel: {
     width: 16,
     fontSize: 12,
-    color: '#6B7280',
+    color: C.textSecondary,
     textAlign: 'center',
   },
   ratingBarTrack: {
     flex: 1,
     height: 6,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: C.line,
     borderRadius: 3,
     marginHorizontal: 8,
     overflow: 'hidden',
   },
   ratingBarFill: {
     height: '100%',
-    backgroundColor: BRAND.star,
+    backgroundColor: C.star,
     borderRadius: 3,
   },
   ratingBarCount: {
     width: 24,
     fontSize: 11,
-    color: '#9CA3AF',
+    color: C.muted,
     textAlign: 'right',
   },
   reviewCard: {
-    backgroundColor: BRAND.background,
+    backgroundColor: C.background,
     borderRadius: 12,
     padding: 14,
     marginBottom: 10,
@@ -888,7 +931,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: BRAND.secondary,
+    backgroundColor: C.secondary,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -896,7 +939,7 @@ const styles = StyleSheet.create({
   reviewUserInitial: {
     fontSize: 14,
     fontWeight: '700',
-    color: BRAND.white,
+    color: C.white,
   },
   reviewUserInfo: {
     flex: 1,
@@ -904,16 +947,16 @@ const styles = StyleSheet.create({
   reviewUserName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1F2937',
+    color: C.text,
   },
   reviewService: {
     fontSize: 12,
-    color: '#6B7280',
+    color: C.textSecondary,
   },
   reviewRating: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF3C7',
+    backgroundColor: C.warningBg,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -922,27 +965,27 @@ const styles = StyleSheet.create({
   reviewRatingText: {
     fontSize: 13,
     fontWeight: '600',
-    color: BRAND.star,
+    color: C.star,
   },
   reviewText: {
     fontSize: 14,
-    color: '#374151',
+    color: C.textBody,
     lineHeight: 20,
     marginBottom: 6,
   },
   reviewDate: {
     fontSize: 11,
-    color: '#9CA3AF',
+    color: C.muted,
   },
   // Bio styles
   bioContainer: {
-    backgroundColor: BRAND.background,
+    backgroundColor: C.background,
     borderRadius: 12,
     padding: 16,
   },
   bioText: {
     fontSize: 14,
-    color: '#374151',
+    color: C.textBody,
     lineHeight: 22,
   },
   // Specializations styles
@@ -954,7 +997,7 @@ const styles = StyleSheet.create({
   specializationChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3E8FF',
+    backgroundColor: C.purpleBg,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
@@ -963,7 +1006,7 @@ const styles = StyleSheet.create({
   specializationChipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#7C3AED',
+    color: C.purple,
   },
   // Portfolio links styles
   portfolioLinksGrid: {
@@ -986,7 +1029,7 @@ const styles = StyleSheet.create({
   portfolioLinkLabel: {
     fontSize: 11,
     fontWeight: '500',
-    color: '#6B7280',
+    color: C.textSecondary,
     textAlign: 'center',
   },
   // Portfolio gallery styles
@@ -1000,7 +1043,7 @@ const styles = StyleSheet.create({
   galleryImageContainer: {
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: BRAND.background,
+    backgroundColor: C.background,
     marginRight: 12,
   },
   galleryImage: {
@@ -1010,7 +1053,7 @@ const styles = StyleSheet.create({
   },
   galleryCaption: {
     fontSize: 12,
-    color: '#6B7280',
+    color: C.textSecondary,
     padding: 8,
     maxWidth: 160,
   },
@@ -1019,14 +1062,14 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: C.sunken,
   },
   callButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#D1FAE5',
+    backgroundColor: C.successFill,
     borderRadius: 12,
     paddingVertical: 14,
     gap: 8,
@@ -1034,14 +1077,14 @@ const styles = StyleSheet.create({
   callButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: BRAND.success,
+    color: C.success,
   },
   bookButton: {
     flex: 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: BRAND.primary,
+    backgroundColor: C.primary,
     borderRadius: 12,
     paddingVertical: 14,
     gap: 8,
@@ -1049,8 +1092,9 @@ const styles = StyleSheet.create({
   bookButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: BRAND.white,
+    color: C.white,
   },
-});
+  });
+};
 
 export default ProviderDetailsModal;

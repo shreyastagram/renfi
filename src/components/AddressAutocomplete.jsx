@@ -35,6 +35,10 @@ import {  View,
 import TouchableOpacity from './TouchableOpacity';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
+import {
+  useThemedStyles,
+  useThemeColors,
+} from '../theme';
 
 // Mapbox Geocoding API v5 (free with any Mapbox token, 100k requests/month)
 const GEOCODING_BASE = 'https://api.mapbox.com/geocoding/v5/mapbox.places';
@@ -111,6 +115,8 @@ const AddressAutocomplete = ({
   editable = true,
   style,
 }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const [query, setQuery] = useState(value);
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -265,7 +271,7 @@ const AddressAutocomplete = ({
         activeOpacity={0.6}
       >
         <View style={styles.suggestionIcon}>
-          <MaterialIcon name={getIcon()} size={20} color="#6B7280" />
+          <MaterialIcon name={getIcon()} size={20} color={C.textSecondary} />
         </View>
         <View style={styles.suggestionText}>
           <Text style={styles.suggestionTitle} numberOfLines={1}>
@@ -280,7 +286,7 @@ const AddressAutocomplete = ({
             <Text style={styles.suggestionPincode}>PIN: {item.pincode}</Text>
           ) : null}
         </View>
-        <MaterialIcon name="north-west" size={16} color="#D1D5DB" />
+        <MaterialIcon name="north-west" size={16} color={C.muted} />
       </TouchableOpacity>
     );
   };
@@ -292,14 +298,14 @@ const AddressAutocomplete = ({
 
       {/* Search Input */}
       <View style={styles.inputContainer}>
-        <MaterialIcon name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+        <MaterialIcon name="search" size={20} color={C.muted} style={styles.searchIcon} />
         <TextInput
           ref={inputRef}
           style={styles.input}
           value={query}
           onChangeText={handleTextChange}
           placeholder={placeholder}
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={C.muted}
           editable={editable}
           autoCorrect={false}
           returnKeyType="search"
@@ -310,11 +316,11 @@ const AddressAutocomplete = ({
           }}
         />
         {loading && (
-          <ActivityIndicator size="small" color="#FF6B00" style={styles.loader} />
+          <ActivityIndicator size="small" color={C.primary} style={styles.loader} />
         )}
         {query.length > 0 && !loading && (
           <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
-            <MaterialIcon name="close" size={18} color="#9CA3AF" />
+            <MaterialIcon name="close" size={18} color={C.muted} />
           </TouchableOpacity>
         )}
       </View>
@@ -322,7 +328,7 @@ const AddressAutocomplete = ({
       {/* Selected address indicator */}
       {selectedAddress && (
         <View style={styles.selectedInfo}>
-          <MaterialIcon name="check-circle" size={14} color="#10B981" />
+          <MaterialIcon name="check-circle" size={14} color={C.success} />
           <Text style={styles.selectedText} numberOfLines={1}>
             {selectedAddress.city}{selectedAddress.pincode ? ` • ${selectedAddress.pincode}` : ''}
             {selectedAddress.state ? ` • ${selectedAddress.state}` : ''}
@@ -349,7 +355,7 @@ const AddressAutocomplete = ({
             </ScrollView>
           ) : !loading && query.length >= 3 ? (
             <View style={styles.noResults}>
-              <MaterialIcon name="search-off" size={24} color="#D1D5DB" />
+              <MaterialIcon name="search-off" size={24} color={C.muted} />
               <Text style={styles.noResultsText}>No addresses found</Text>
               <Text style={styles.noResultsHint}>Try a different search term</Text>
             </View>
@@ -365,7 +371,49 @@ const AddressAutocomplete = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  line: c.borderNeutral,
+  borderMedium: c.borderMediumNeutral,
+  text: c.textStrongNeutral,
+  textStrong: c.textStrong,
+  textBody: c.textBodyNeutral,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  accentSky: c.altBlueSky,
+  purple: c.accentViolet,
+  purpleBg: c.accentVioletContainer,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  warningLine: c.warningBorder,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
+
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   container: {
     zIndex: 999,
     elevation: 999,
@@ -374,17 +422,17 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#374151',
+    color: C.textBody,
     marginBottom: 8,
     letterSpacing: 0.1,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FAFBFC',
+    backgroundColor: C.sunken,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: C.line,
     paddingHorizontal: 12,
     height: 50,
   },
@@ -394,7 +442,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: '#1F2937',
+    color: C.text,
     paddingVertical: Platform.OS === 'ios' ? 12 : 8,
   },
   loader: {
@@ -413,22 +461,22 @@ const styles = StyleSheet.create({
   },
   selectedText: {
     fontSize: 12,
-    color: '#10B981',
+    color: C.success,
     fontWeight: '500',
   },
   suggestionsContainer: {
     marginTop: 4,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: C.line,
     maxHeight: 320,
     zIndex: 1000,
     elevation: 10,
     overflow: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.15,
         shadowRadius: 12,
@@ -451,7 +499,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: C.sunken,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -463,21 +511,21 @@ const styles = StyleSheet.create({
   suggestionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1F2937',
+    color: C.text,
   },
   suggestionSubtitle: {
     fontSize: 12,
-    color: '#6B7280',
+    color: C.textSecondary,
     marginTop: 2,
   },
   suggestionPincode: {
     fontSize: 11,
-    color: '#9CA3AF',
+    color: C.muted,
     marginTop: 1,
   },
   separator: {
     height: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: C.sunken,
     marginHorizontal: 14,
   },
   noResults: {
@@ -488,23 +536,24 @@ const styles = StyleSheet.create({
   noResultsText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#6B7280',
+    color: C.textSecondary,
   },
   noResultsHint: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: C.muted,
   },
   attribution: {
     paddingVertical: 6,
     paddingHorizontal: 14,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: C.sunken,
   },
   attributionText: {
     fontSize: 10,
-    color: '#D1D5DB',
+    color: C.muted,
     textAlign: 'right',
   },
-});
+  });
+};
 
 export default AddressAutocomplete;

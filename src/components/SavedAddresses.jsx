@@ -36,29 +36,56 @@ import {
   getAddressLabel,
 } from '../services/addressService';
 import AddressForm from './AddressForm';
+import {
+  useThemedStyles,
+  useThemeColors,
+} from '../theme';
 
 // Premium Design Tokens
-const COLORS = {
-  darkHero: '#0F172A',
-  background: '#F1F5F9',
-  cardWhite: '#FFFFFF',
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  muted: '#94A3B8',
-  textPrimary: '#1E293B',
-  textSecondary: '#64748B',
-  danger: '#EF4444',
-  dangerLight: '#FEF2F2',
-  success: '#10B981',
-  successLight: '#ECFDF5',
-  iconBg: '#F1F5F9',
-  border: '#E2E8F0',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  line: c.borderNeutral,
+  borderMedium: c.borderMediumNeutral,
+  text: c.textStrongNeutral,
+  textStrong: c.textStrong,
+  textBody: c.textBodyNeutral,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  accentSky: c.altBlueSky,
+  purple: c.accentViolet,
+  purpleBg: c.accentVioletContainer,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  warningLine: c.warningBorder,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
 
-const SHADOWS = {
+const makeShadows = (C) => ({
   card: Platform.select({
     ios: {
-      shadowColor: '#0F172A',
+      shadowColor: C.shadow,
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.08,
       shadowRadius: 20,
@@ -69,7 +96,7 @@ const SHADOWS = {
   }),
   float: Platform.select({
     ios: {
-      shadowColor: '#0F172A',
+      shadowColor: C.shadow,
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.18,
       shadowRadius: 24,
@@ -80,7 +107,7 @@ const SHADOWS = {
   }),
   header: Platform.select({
     ios: {
-      shadowColor: '#0F172A',
+      shadowColor: C.shadow,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.06,
       shadowRadius: 12,
@@ -89,7 +116,7 @@ const SHADOWS = {
       elevation: 4,
     },
   }),
-};
+});
 
 /**
  * Address Card Component with animated press
@@ -103,6 +130,8 @@ const AddressCard = ({
   isDefault,
   selectable = false,
 }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const labelInfo = getAddressLabel(address.label, address.customLabel);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -132,13 +161,13 @@ const AddressCard = ({
         <View
           style={[
             styles.addressIconContainer,
-            isDefault && { backgroundColor: COLORS.secondary + '15' },
+            isDefault && { backgroundColor: C.secondary + '15' },
           ]}
         >
           <MaterialIcon
             name={labelInfo.icon}
             size={22}
-            color={isDefault ? COLORS.secondary : COLORS.muted}
+            color={isDefault ? C.secondary : C.muted}
           />
         </View>
 
@@ -154,7 +183,7 @@ const AddressCard = ({
             </Text>
             {isDefault && (
               <View style={styles.defaultBadge}>
-                <MaterialIcon name="star" size={10} color={COLORS.secondary} />
+                <MaterialIcon name="star" size={10} color={C.secondary} />
                 <Text style={styles.defaultBadgeText}>Default</Text>
               </View>
             )}
@@ -178,7 +207,7 @@ const AddressCard = ({
               onPress={() => onSetDefault?.(address._id)}
               hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
             >
-              <MaterialIcon name="star-border" size={18} color={COLORS.muted} />
+              <MaterialIcon name="star-border" size={18} color={C.muted} />
             </TouchableOpacity>
           )}
 
@@ -187,15 +216,15 @@ const AddressCard = ({
             onPress={() => onEdit?.(address)}
             hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           >
-            <MaterialIcon name="edit" size={18} color={COLORS.textSecondary} />
+            <MaterialIcon name="edit" size={18} color={C.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: COLORS.dangerLight }]}
+            style={[styles.actionButton, { backgroundColor: C.dangerLight }]}
             onPress={() => onDelete?.(address._id)}
             hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           >
-            <MaterialIcon name="delete-outline" size={18} color={COLORS.danger} />
+            <MaterialIcon name="delete-outline" size={18} color={C.danger} />
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -207,6 +236,8 @@ const AddressCard = ({
  * Empty State Component
  */
 const EmptyState = ({ onAddNew }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const onPressIn = () =>
@@ -227,7 +258,7 @@ const EmptyState = ({ onAddNew }) => {
     <View style={styles.emptyState}>
       <View style={styles.emptyIconCircle}>
         <View style={styles.emptyIconInner}>
-          <MaterialIcon name="location-off" size={48} color={COLORS.muted} />
+          <MaterialIcon name="location-off" size={48} color={C.muted} />
         </View>
       </View>
       <Text style={styles.emptyTitle}>No Saved Addresses</Text>
@@ -242,7 +273,7 @@ const EmptyState = ({ onAddNew }) => {
           onPressOut={onPressOut}
           activeOpacity={0.85}
         >
-          <MaterialIcon name="add-location-alt" size={20} color="#FFFFFF" />
+          <MaterialIcon name="add-location-alt" size={20} color={C.onPrimary} />
           <Text style={styles.addButtonText}>Add New Address</Text>
         </TouchableOpacity>
       </Animated.View>
@@ -253,17 +284,20 @@ const EmptyState = ({ onAddNew }) => {
 /**
  * Section Header with accent bar
  */
-const SectionHeaderBar = ({ title, count }) => (
-  <View style={styles.sectionHeader}>
-    <View style={styles.sectionAccentBar} />
-    <Text style={styles.sectionTitle}>{title}</Text>
-    {count > 0 && (
-      <View style={styles.sectionCountBadge}>
-        <Text style={styles.sectionCountText}>{count}</Text>
-      </View>
-    )}
-  </View>
-);
+const SectionHeaderBar = ({ title, count }) => {
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <View style={styles.sectionHeader}>
+      <View style={styles.sectionAccentBar} />
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {count > 0 && (
+        <View style={styles.sectionCountBadge}>
+          <Text style={styles.sectionCountText}>{count}</Text>
+        </View>
+      )}
+    </View>
+  );
+};
 
 /**
  * SavedAddresses Component
@@ -280,6 +314,8 @@ const SavedAddresses = ({
   onClose,
   showHeader = true,
 }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
   const [addresses, setAddresses] = useState([]);
@@ -427,7 +463,7 @@ const SavedAddresses = ({
     return (
       <View style={styles.loadingContainer}>
         <View style={styles.loadingCard}>
-          <ActivityIndicator size="large" color={COLORS.secondary} />
+          <ActivityIndicator size="large" color={C.secondary} />
           <Text style={styles.loadingText}>Loading addresses...</Text>
         </View>
       </View>
@@ -445,7 +481,7 @@ const SavedAddresses = ({
         >
           {onClose && (
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <MaterialIcon name="arrow-back-ios" size={20} color={COLORS.textPrimary} />
+              <MaterialIcon name="arrow-back-ios" size={20} color={C.textPrimary} />
             </TouchableOpacity>
           )}
           <View style={styles.headerCenter}>
@@ -457,7 +493,7 @@ const SavedAddresses = ({
             )}
           </View>
           <TouchableOpacity onPress={handleAddNew} style={styles.addIconButton}>
-            <MaterialIcon name="add" size={22} color={COLORS.secondary} />
+            <MaterialIcon name="add" size={22} color={C.secondary} />
           </TouchableOpacity>
         </View>
       )}
@@ -481,8 +517,8 @@ const SavedAddresses = ({
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={handleRefresh}
-                colors={[COLORS.secondary]}
-                tintColor={COLORS.secondary}
+                colors={[C.secondary]}
+                tintColor={C.secondary}
               />
             }
             showsVerticalScrollIndicator={false}
@@ -494,7 +530,7 @@ const SavedAddresses = ({
             onPress={handleAddNew}
             activeOpacity={0.8}
           >
-            <MaterialIcon name="add" size={28} color="#FFFFFF" />
+            <MaterialIcon name="add" size={28} color={C.onPrimary} />
           </TouchableOpacity>
         </>
       )}
@@ -522,10 +558,13 @@ const SavedAddresses = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+const SHADOWS = makeShadows(C);
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: C.background,
   },
   header: {
     flexDirection: 'row',
@@ -533,7 +572,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     ...SHADOWS.header,
   },
   headerCenter: {
@@ -546,25 +585,25 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: COLORS.darkHero,
+    color: C.darkHero,
     letterSpacing: -0.3,
   },
   headerBadge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
-    backgroundColor: COLORS.secondary + '15',
+    backgroundColor: C.secondary + '15',
   },
   headerBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: COLORS.secondary,
+    color: C.secondary,
   },
   closeButton: {
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -572,7 +611,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: COLORS.secondary + '12',
+    backgroundColor: C.secondary + '12',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -580,10 +619,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: C.background,
   },
   loadingCard: {
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     borderRadius: 22,
     paddingHorizontal: 40,
     paddingVertical: 32,
@@ -594,7 +633,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.muted,
+    color: C.muted,
   },
   listContainer: {
     padding: 20,
@@ -609,21 +648,21 @@ const styles = StyleSheet.create({
     width: 4,
     height: 22,
     borderRadius: 2,
-    backgroundColor: COLORS.secondary,
+    backgroundColor: C.secondary,
     marginRight: 10,
   },
   sectionTitle: {
     flex: 1,
     fontSize: 17,
     fontWeight: '800',
-    color: COLORS.darkHero,
+    color: C.darkHero,
     letterSpacing: -0.2,
   },
   sectionCountBadge: {
     minWidth: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 8,
@@ -631,26 +670,26 @@ const styles = StyleSheet.create({
   sectionCountText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
   },
   addressCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     borderRadius: 22,
     marginBottom: 12,
     ...SHADOWS.card,
   },
   addressCardDefault: {
     borderWidth: 1.5,
-    borderColor: COLORS.secondary + '40',
+    borderColor: C.secondary + '40',
   },
   addressIconContainer: {
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -666,10 +705,10 @@ const styles = StyleSheet.create({
   addressLabel: {
     fontSize: 15,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
   },
   addressLabelDefault: {
-    color: COLORS.secondary,
+    color: C.secondary,
   },
   defaultBadge: {
     flexDirection: 'row',
@@ -678,26 +717,26 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    backgroundColor: COLORS.secondary + '15',
+    backgroundColor: C.secondary + '15',
     borderRadius: 8,
   },
   defaultBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: COLORS.secondary,
+    color: C.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   addressLine1: {
     fontSize: 14,
     fontWeight: '500',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     marginBottom: 3,
     lineHeight: 20,
   },
   addressDetails: {
     fontSize: 12,
-    color: COLORS.muted,
+    color: C.muted,
     lineHeight: 18,
   },
   addressActions: {
@@ -710,7 +749,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 11,
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -724,7 +763,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -734,20 +773,20 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: COLORS.darkHero,
+    color: C.darkHero,
     marginTop: 20,
     letterSpacing: -0.3,
   },
   emptySubtitle: {
     fontSize: 15,
-    color: COLORS.muted,
+    color: C.muted,
     textAlign: 'center',
     marginTop: 10,
     lineHeight: 23,
@@ -759,11 +798,11 @@ const styles = StyleSheet.create({
     marginTop: 28,
     paddingHorizontal: 28,
     paddingVertical: 14,
-    backgroundColor: COLORS.secondary,
+    backgroundColor: C.secondary,
     borderRadius: 16,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.secondary,
+        shadowColor: C.secondary,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.3,
         shadowRadius: 12,
@@ -776,7 +815,7 @@ const styles = StyleSheet.create({
   addButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: C.onPrimary,
   },
   floatingButton: {
     position: 'absolute',
@@ -785,12 +824,12 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 20,
-    backgroundColor: COLORS.secondary,
+    backgroundColor: C.secondary,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.secondary,
+        shadowColor: C.secondary,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.35,
         shadowRadius: 16,
@@ -800,6 +839,7 @@ const styles = StyleSheet.create({
       },
     }),
   },
-});
+  });
+};
 
 export default SavedAddresses;

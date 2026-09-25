@@ -31,14 +31,51 @@ import Geolocation from '@react-native-community/geolocation';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
+import {
+  useThemedStyles,
+  useThemeColors,
+} from '../theme';
 
 // Brand colors
-const BRAND = {
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  background: '#faf7f7',
-  white: '#FFFFFF',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  line: c.borderNeutral,
+  borderMedium: c.borderMediumNeutral,
+  text: c.textStrongNeutral,
+  textStrong: c.textStrong,
+  textBody: c.textBodyNeutral,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  accentSky: c.altBlueSky,
+  purple: c.accentViolet,
+  purpleBg: c.accentVioletContainer,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  warningLine: c.warningBorder,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
 
 // Fallback location (Mumbai) — only used if GPS fails AND no initialLocation
 const FALLBACK_LOCATION = {
@@ -128,6 +165,8 @@ const MapPickerModal = ({
   initialLocation,
   title = 'Select Location',
 }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const mapRef = useRef(null);
   const cameraRef = useRef(null);
@@ -481,7 +520,7 @@ const MapPickerModal = ({
         {/* Header */}
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <MaterialIcon name="close" size={24} color="#1F2937" />
+            <MaterialIcon name="close" size={24} color={C.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{title}</Text>
           <View style={{ width: 40 }} />
@@ -490,12 +529,12 @@ const MapPickerModal = ({
         {/* Search Bar */}
         <View style={styles.searchContainer}>
           <View style={styles.searchBar}>
-            <MaterialIcon name="search" size={22} color="#9CA3AF" />
+            <MaterialIcon name="search" size={22} color={C.muted} />
             <TextInput
               ref={searchInputRef}
               style={styles.searchInput}
               placeholder="Search area, landmark, or address..."
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={C.muted}
               value={searchQuery}
               onChangeText={handleSearchChange}
               onFocus={() => searchQuery.length >= 2 && setShowSearchResults(true)}
@@ -503,7 +542,7 @@ const MapPickerModal = ({
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchResults([]); setShowSearchResults(false); }}>
-                <MaterialIcon name="close" size={20} color="#9CA3AF" />
+                <MaterialIcon name="close" size={20} color={C.muted} />
               </TouchableOpacity>
             )}
           </View>
@@ -513,12 +552,12 @@ const MapPickerModal = ({
             <View style={styles.searchResultsContainer}>
               {isSearching ? (
                 <View style={styles.searchLoadingRow}>
-                  <ActivityIndicator size="small" color={BRAND.primary} />
+                  <ActivityIndicator size="small" color={C.primary} />
                   <Text style={styles.searchLoadingText}>Searching...</Text>
                 </View>
               ) : searchResults.length === 0 ? (
                 <View style={styles.searchLoadingRow}>
-                  <MaterialIcon name="search-off" size={20} color="#9CA3AF" />
+                  <MaterialIcon name="search-off" size={20} color={C.muted} />
                   <Text style={styles.searchLoadingText}>No results found</Text>
                 </View>
               ) : (
@@ -532,7 +571,7 @@ const MapPickerModal = ({
                       style={styles.searchResultItem}
                       onPress={() => handleSearchSelect(item)}
                     >
-                      <MaterialIcon name="location-on" size={20} color={BRAND.primary} style={{ marginTop: 2 }} />
+                      <MaterialIcon name="location-on" size={20} color={C.primary} style={{ marginTop: 2 }} />
                       <View style={{ flex: 1 }}>
                         <Text style={styles.searchResultName} numberOfLines={1}>{item.name}</Text>
                         <Text style={styles.searchResultAddress} numberOfLines={1}>{item.fullAddress}</Text>
@@ -583,7 +622,7 @@ const MapPickerModal = ({
           <View style={styles.centerPinContainer} pointerEvents="none">
             <Animated.View style={[styles.centerPin, { transform: [{ translateY: pinBounce }] }]}>
               <View style={styles.pinHead}>
-                <MaterialIcon name="place" size={40} color={BRAND.primary} />
+                <MaterialIcon name="place" size={40} color={C.primary} />
               </View>
             </Animated.View>
             <View style={styles.pinShadow} />
@@ -594,7 +633,7 @@ const MapPickerModal = ({
             style={[styles.myLocationButton, { bottom: 200 }]}
             onPress={centerToUserLocation}
           >
-            <MaterialIcon name="my-location" size={24} color={BRAND.secondary} />
+            <MaterialIcon name="my-location" size={24} color={C.secondary} />
           </TouchableOpacity>
         </View>
 
@@ -603,13 +642,13 @@ const MapPickerModal = ({
           <View style={styles.addressContainer}>
             {isLoading ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={BRAND.primary} />
+                <ActivityIndicator size="small" color={C.primary} />
                 <Text style={styles.loadingText}>Finding address...</Text>
               </View>
             ) : (
               <>
                 <View style={styles.addressIconContainer}>
-                  <MaterialIcon name="location-on" size={24} color={BRAND.primary} />
+                  <MaterialIcon name="location-on" size={24} color={C.primary} />
                 </View>
                 <View style={styles.addressTextContainer}>
                   <Text style={styles.addressTitle} numberOfLines={1}>
@@ -628,7 +667,7 @@ const MapPickerModal = ({
             onPress={handleConfirm}
             disabled={!selectedAddress || isLoading}
           >
-            <MaterialIcon name="check" size={22} color={BRAND.white} />
+            <MaterialIcon name="check" size={22} color={C.white} />
             <Text style={styles.confirmButtonText}>Confirm Location</Text>
           </TouchableOpacity>
         </View>
@@ -637,10 +676,12 @@ const MapPickerModal = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
   },
   header: {
     flexDirection: 'row',
@@ -648,36 +689,36 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 8,
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     zIndex: 10,
   },
   closeButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: C.sunken,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1F2937',
+    color: C.text,
   },
 
   // Search
   searchContainer: {
     paddingHorizontal: 16,
     paddingBottom: 10,
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     zIndex: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: C.line,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: C.sunken,
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 44,
@@ -686,17 +727,17 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: '#1F2937',
+    color: C.text,
     padding: 0,
   },
   searchResultsContainer: {
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     borderRadius: 12,
     marginTop: 6,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: C.line,
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8 },
+      ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8 },
       android: { elevation: 6 },
     }),
   },
@@ -709,7 +750,7 @@ const styles = StyleSheet.create({
   },
   searchLoadingText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: C.textSecondary,
   },
   searchResultItem: {
     flexDirection: 'row',
@@ -718,16 +759,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: C.line,
   },
   searchResultName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1F2937',
+    color: C.text,
   },
   searchResultAddress: {
     fontSize: 13,
-    color: '#6B7280',
+    color: C.textSecondary,
     marginTop: 2,
   },
 
@@ -751,7 +792,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pinHead: {
-    shadowColor: '#000',
+    shadowColor: C.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
@@ -760,7 +801,7 @@ const styles = StyleSheet.create({
   pinShadow: {
     width: 10,
     height: 4,
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: C.overlay,
     borderRadius: 5,
     marginTop: -2,
   },
@@ -770,10 +811,10 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: C.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
@@ -782,12 +823,12 @@ const styles = StyleSheet.create({
 
   // Bottom card
   bottomCard: {
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 20,
-    shadowColor: '#000',
+    shadowColor: C.shadow,
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -807,13 +848,13 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 15,
-    color: '#6B7280',
+    color: C.textSecondary,
   },
   addressIconContainer: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: BRAND.primary + '12',
+    backgroundColor: C.primary + '12',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -824,12 +865,12 @@ const styles = StyleSheet.create({
   addressTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#1F2937',
+    color: C.text,
     marginBottom: 4,
   },
   addressSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: C.textSecondary,
     lineHeight: 20,
   },
   confirmButton: {
@@ -838,17 +879,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     height: 54,
-    backgroundColor: BRAND.primary,
+    backgroundColor: C.primary,
     borderRadius: 14,
   },
   confirmButtonDisabled: {
-    backgroundColor: '#9CA3AF',
+    backgroundColor: C.muted,
   },
   confirmButtonText: {
     fontSize: 17,
     fontWeight: '700',
-    color: BRAND.white,
+    color: C.white,
   },
-});
+  });
+};
 
 export default MapPickerModal;

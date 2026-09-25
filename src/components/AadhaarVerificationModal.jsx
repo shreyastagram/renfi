@@ -43,6 +43,10 @@ import {
   checkVerificationStatus,
   getAadhaarStatus
 } from '../services/aadhaarService';
+import {
+  useThemedStyles,
+  useThemeColors,
+} from '../theme';
 
 // Steps in the verification flow
 const STEPS = {
@@ -54,26 +58,35 @@ const STEPS = {
   ERROR: 'error',
 };
 
-const COLORS = {
-  primary: '#2563EB',
-  primaryLight: '#EFF6FF',
-  primaryDark: '#1D4ED8',
-  success: '#10B981',
-  successLight: '#ECFDF5',
-  error: '#EF4444',
-  errorLight: '#FEF2F2',
-  warning: '#F59E0B',
-  warningLight: '#FFFBEB',
-  text: '#111827',
-  textSecondary: '#6B7280',
-  textMuted: '#9CA3AF',
-  bg: '#FFFFFF',
-  bgSecondary: '#F9FAFB',
-  border: '#E5E7EB',
-  overlay: 'rgba(0, 0, 0, 0.6)',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  bg: c.surface,
+  sunken: c.surfaceSunken,
+  line: c.borderNeutral,
+  borderMedium: c.borderMediumNeutral,
+  text: c.textStrongNeutral,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  success: c.success,
+  onSuccess: c.onSuccess,
+  successBg: c.successContainer,
+  error: c.danger,
+  errorLight: c.dangerContainer,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  warningLine: c.warningBorder,
+  errorLine: c.dangerBorder,
+  info: c.info,
+  infoBg: c.infoContainer,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
 
 const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
+  const s = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { dialog } = useDialog();
   const { t } = useLanguage();
   const { profile } = useApp();
@@ -301,7 +314,7 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
     <Animated.View style={{ opacity: fadeAnim }}>
       <View style={s.headerRow}>
         <View style={s.headerIconWrap}>
-          <MaterialIcon name="verified-user" size={28} color={COLORS.primary} />
+          <MaterialIcon name="verified-user" size={28} color={C.primary} />
         </View>
         <View style={s.headerTextWrap}>
           <Text style={s.headerTitle}>{t('aadhaar.title')}</Text>
@@ -317,7 +330,7 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
         ].map((item, i) => (
           <View key={i} style={s.featureRow}>
             <View style={s.featureIconWrap}>
-              <MaterialIcon name={item.icon} size={18} color={COLORS.success} />
+              <MaterialIcon name={item.icon} size={18} color={C.success} />
             </View>
             <Text style={s.featureText}>{item.text}</Text>
           </View>
@@ -325,14 +338,14 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
       </View>
 
       <View style={s.infoCard}>
-        <MaterialIcon name="info-outline" size={16} color={COLORS.primary} />
+        <MaterialIcon name="info-outline" size={16} color={C.primary} />
         <Text style={s.infoText}>
           {t('aadhaar.infoText')}
         </Text>
       </View>
 
       <View style={s.warningCard}>
-        <MaterialIcon name="warning-amber" size={16} color={COLORS.warning} />
+        <MaterialIcon name="warning-amber" size={16} color={C.warning} />
         <Text style={s.warningText}>
           {t('aadhaar.warningText')}
         </Text>
@@ -345,10 +358,10 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
         activeOpacity={0.8}
       >
         {loading ? (
-          <ActivityIndicator color="#FFF" size="small" />
+          <ActivityIndicator color={C.onPrimary} size="small" />
         ) : (
           <>
-            <MaterialIcon name="verified-user" size={20} color="#FFF" />
+            <MaterialIcon name="verified-user" size={20} color={C.onPrimary} />
             <Text style={s.primaryBtnText}>{t('aadhaar.startBtn')}</Text>
           </>
         )}
@@ -359,7 +372,7 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
   const renderNameConfirmStep = () => (
     <Animated.View style={[s.centeredContent, { opacity: fadeAnim }]}>
       <View style={s.nameIconCircle}>
-        <MaterialIcon name="person-outline" size={36} color={COLORS.primary} />
+        <MaterialIcon name="person-outline" size={36} color={C.primary} />
       </View>
 
       <Text style={s.stepTitle}>{t('aadhaar.confirmName')}</Text>
@@ -381,10 +394,10 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
         activeOpacity={0.8}
       >
         {loading ? (
-          <ActivityIndicator color="#FFF" size="small" />
+          <ActivityIndicator color={C.onPrimary} size="small" />
         ) : (
           <>
-            <MaterialIcon name="check-circle-outline" size={20} color="#FFF" />
+            <MaterialIcon name="check-circle-outline" size={20} color={C.onPrimary} />
             <Text style={s.primaryBtnText}>{t('aadhaar.yesProceed')}</Text>
           </>
         )}
@@ -417,7 +430,7 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
         }}
         activeOpacity={0.8}
       >
-        <MaterialIcon name="edit" size={18} color={COLORS.error} />
+        <MaterialIcon name="edit" size={18} color={C.error} />
         <Text style={s.outlineBtnText}>{t('aadhaar.updateName')}</Text>
       </TouchableOpacity>
     </Animated.View>
@@ -426,7 +439,7 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
   const renderVerifyingStep = () => (
     <Animated.View style={[s.centeredContent, { opacity: fadeAnim, paddingVertical: 32 }]}>
       <View style={s.pulseWrap}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={C.primary} />
       </View>
       <Text style={s.stepTitle}>{t('aadhaar.inProgress')}</Text>
       <Text style={s.stepDesc}>
@@ -445,7 +458,7 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
 
   const renderPollingStep = () => (
     <Animated.View style={[s.centeredContent, { opacity: fadeAnim, paddingVertical: 40 }]}>
-      <ActivityIndicator size="large" color={COLORS.primary} />
+      <ActivityIndicator size="large" color={C.primary} />
       <Text style={[s.stepTitle, { marginTop: 24 }]}>{t('aadhaar.checkingStatus')}</Text>
       <Text style={s.stepDesc}>{t('aadhaar.checkingDesc')}</Text>
       <Text style={s.mutedSmall}>Attempt {pollingAttempts} of 20</Text>
@@ -455,13 +468,13 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
   const renderErrorStep = () => (
     <Animated.View style={[s.centeredContent, { opacity: fadeAnim }]}>
       <View style={s.errorCircle}>
-        <MaterialIcon name="close" size={36} color={COLORS.error} />
+        <MaterialIcon name="close" size={36} color={C.error} />
       </View>
-      <Text style={[s.stepTitle, { color: COLORS.error }]}>{t('aadhaar.failed')}</Text>
+      <Text style={[s.stepTitle, { color: C.error }]}>{t('aadhaar.failed')}</Text>
       <Text style={[s.stepDesc, { marginBottom: 24 }]}>{error}</Text>
 
       <TouchableOpacity style={s.primaryBtn} onPress={handleRetry} activeOpacity={0.8}>
-        <MaterialIcon name="refresh" size={20} color="#FFF" />
+        <MaterialIcon name="refresh" size={20} color={C.onPrimary} />
         <Text style={s.primaryBtnText}>{t('aadhaar.tryAgain')}</Text>
       </TouchableOpacity>
 
@@ -474,9 +487,9 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
   const renderVerifiedStep = () => (
     <Animated.View style={[s.centeredContent, { opacity: fadeAnim, paddingVertical: 40 }]}>
       <View style={s.successCircle}>
-        <MaterialIcon name="check" size={44} color="#FFF" />
+        <MaterialIcon name="check" size={44} color={C.onSuccess} />
       </View>
-      <Text style={[s.stepTitle, { color: COLORS.success, marginTop: 20 }]}>{t('aadhaar.verified')}</Text>
+      <Text style={[s.stepTitle, { color: C.success, marginTop: 20 }]}>{t('aadhaar.verified')}</Text>
       <Text style={s.stepDesc}>{t('aadhaar.verifiedDesc')}</Text>
     </Animated.View>
   );
@@ -505,7 +518,7 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
 
           {(step === STEPS.INTRO || step === STEPS.ERROR || step === STEPS.NAME_CONFIRM) && (
             <TouchableOpacity style={s.closeBtn} onPress={onClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-              <MaterialIcon name="close" size={22} color={COLORS.textSecondary} />
+              <MaterialIcon name="close" size={22} color={C.textSecondary} />
             </TouchableOpacity>
           )}
 
@@ -523,17 +536,19 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
 
 // ─── STYLES ─────────────────────────────────────────────────
 
-const s = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: COLORS.overlay,
+    backgroundColor: C.overlay,
   },
   sheet: {
-    backgroundColor: COLORS.bg,
+    backgroundColor: C.bg,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 24,
@@ -544,7 +559,7 @@ const s = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: COLORS.border,
+    backgroundColor: C.border,
     alignSelf: 'center',
     marginBottom: 16,
   },
@@ -556,7 +571,7 @@ const s = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.bgSecondary,
+    backgroundColor: C.bgSecondary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -572,7 +587,7 @@ const s = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 14,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: C.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -581,11 +596,11 @@ const s = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.text,
+    color: C.text,
   },
   headerSubtitle: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     marginTop: 2,
   },
 
@@ -602,14 +617,14 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: COLORS.successLight,
+    backgroundColor: C.successLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   featureText: {
     fontSize: 14,
-    color: COLORS.text,
+    color: C.text,
     flex: 1,
   },
 
@@ -617,13 +632,13 @@ const s = StyleSheet.create({
   infoCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: C.primaryLight,
     borderRadius: 12,
     padding: 14,
     marginBottom: 12,
   },
   infoText: {
-    color: COLORS.primary,
+    color: C.primary,
     fontSize: 13,
     marginLeft: 10,
     flex: 1,
@@ -632,15 +647,15 @@ const s = StyleSheet.create({
   warningCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: COLORS.warningLight,
+    backgroundColor: C.warningLight,
     borderRadius: 12,
     padding: 14,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: C.warningLine,
   },
   warningText: {
-    color: '#92400E',
+    color: C.warning,
     fontSize: 13,
     marginLeft: 10,
     flex: 1,
@@ -649,7 +664,7 @@ const s = StyleSheet.create({
 
   // ─── Buttons ─────────────────────
   primaryBtn: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: C.primary,
     borderRadius: 14,
     height: 52,
     flexDirection: 'row',
@@ -657,7 +672,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
     gap: 8,
-    shadowColor: COLORS.primary,
+    shadowColor: C.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -665,7 +680,7 @@ const s = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.6 },
   primaryBtnText: {
-    color: '#FFF',
+    color: C.onPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -676,19 +691,19 @@ const s = StyleSheet.create({
     marginTop: 12,
     paddingVertical: 14,
     paddingHorizontal: 24,
-    backgroundColor: COLORS.errorLight,
+    backgroundColor: C.errorLight,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: C.errorLine,
     gap: 8,
   },
   outlineBtnText: {
-    color: COLORS.error,
+    color: C.error,
     fontSize: 14,
     fontWeight: '600',
   },
   secondaryBtn: {
-    backgroundColor: COLORS.bgSecondary,
+    backgroundColor: C.bgSecondary,
     borderRadius: 14,
     height: 48,
     justifyContent: 'center',
@@ -696,10 +711,10 @@ const s = StyleSheet.create({
     marginTop: 20,
     paddingHorizontal: 24,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: C.border,
   },
   secondaryBtnText: {
-    color: COLORS.text,
+    color: C.text,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -710,7 +725,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
   },
   linkBtnText: {
-    color: COLORS.primary,
+    color: C.primary,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -723,13 +738,13 @@ const s = StyleSheet.create({
   stepTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.text,
+    color: C.text,
     marginBottom: 8,
     textAlign: 'center',
   },
   stepDesc: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
     paddingHorizontal: 8,
@@ -737,7 +752,7 @@ const s = StyleSheet.create({
   },
   mutedSmall: {
     fontSize: 12,
-    color: COLORS.textMuted,
+    color: C.textMuted,
     marginTop: 8,
   },
 
@@ -746,24 +761,24 @@ const s = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: C.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
   },
   nameCard: {
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: C.primaryLight,
     borderRadius: 16,
     padding: 20,
     width: '100%',
     alignItems: 'center',
     marginVertical: 16,
     borderWidth: 1.5,
-    borderColor: COLORS.primary,
+    borderColor: C.primary,
   },
   nameLabel: {
     fontSize: 11,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     marginBottom: 6,
     letterSpacing: 1.5,
     fontWeight: '600',
@@ -771,13 +786,13 @@ const s = StyleSheet.create({
   nameValue: {
     fontSize: 22,
     fontWeight: '700',
-    color: COLORS.text,
+    color: C.text,
     textAlign: 'center',
   },
   nameQuestion: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.text,
+    color: C.text,
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -787,7 +802,7 @@ const s = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: COLORS.errorLight,
+    backgroundColor: C.errorLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -796,13 +811,14 @@ const s = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: COLORS.success,
+    backgroundColor: C.success,
     justifyContent: 'center',
     alignItems: 'center',
   },
   pulseWrap: {
     marginBottom: 20,
   },
-});
+  });
+};
 
 export default AadhaarVerificationModal;
