@@ -62,7 +62,8 @@ contract.
   - [x] batch 1 — `PSATriggerScreen`, `PSAContactsScreen`, `ReferralScreen` (zero-security)
   - [x] batch 2 — `FavoritesScreen`, `LiveTrackingScreen`, `EventServicesScreen`
   - [x] batch 3 — `CreateServiceRequestScreen`, `UserServiceHistoryScreen`
-  - [ ] batch 4 — `UserHomeScreen` + Mapbox, `SubscriptionScreen`, `ServiceRequestDetailScreen`
+  - [~] batch 4 — `UserHomeScreen` ✔, `ServiceRequestDetailScreen` ✔ (+ Mapbox — the map
+        lives HERE, not on the home screen as this board previously said), `SubscriptionScreen` next
   - [ ] batch 5 — `AccountSecurityScreen`, `ChangePasswordScreen` (33 security lines — last)
 - [ ] **Phase 8** — Provider screens incl. Working Hours (5 files, 126 colours)
 - [ ] **Phase 9** — Auth screens
@@ -75,10 +76,10 @@ contract.
 | Measure | Value |
 |---|---|
 | Colour literals remaining | **2,848** (3,329 at v1.0.9) — measured, see note |
-| Files on the hex allowlist | **27** |
+| Files on the hex allowlist | **29** |
 | Components fully themed | **8** — CustomDialog, Button, Alert, ShimmerLoader, Input, Icon, GlobalBanner, DrawerMenu (+ RootNavigator surgically) |
-| Screens fully themed | **9** — EmailVerifyHandler, PSATrigger, PSAContacts, Referral, Favorites, LiveTracking, EventServices, CreateServiceRequest, UserServiceHistory |
-| Theme unit tests | 24 across 5 suites |
+| Screens fully themed | **11** — EmailVerifyHandler, PSATrigger, PSAContacts, Referral, Favorites, LiveTracking, EventServices, CreateServiceRequest, UserServiceHistory, UserHome, ServiceRequestDetail |
+| Theme unit tests | 26 across 5 suites |
 | Owner's Working Hours tests | 86 — **must never regress** |
 | i18n | **2074** × en/hi/mr (2067 baseline + 7 theme keys) |
 
@@ -214,6 +215,23 @@ a row here.
   and **five ink/fill pairs were added to `check:contrast`** — it never asserted them, which
   is how this survived. 40 pairs now. **Lesson: when you change both sides of a contrast
   pair, re-measure the pair, not each side.**
+- **`*Fill` and `*Container` were IDENTICAL in dark mode.** On dark surfaces a fill
+  cannot be a low-alpha wash, so the dark `dangerFill` / `warningFill` were pointed at
+  the matching container value — which made a tinted chip the same colour as the tinted
+  card it sits on (a warning bar's icon wrap). Gave the dark fills their own lighter
+  step, completed the family with `successFill` / `infoFill` / `accentVioletFill`, and
+  added a test asserting a fill is never equal to its container. Proven failing first.
+- **A default parameter cannot see a body-scoped const.** `PulsingDot` had
+  `({ color = BRAND.success })`; once `BRAND` became a hook-derived `C` inside the body,
+  the default referenced a variable in its own TDZ — a `ReferenceError` on every
+  defaulted render, not a lint nit. Defaults that need theme values must be resolved in
+  the body. Caught by `no-undef`.
+- **Rewriting a config block wholesale nearly dropped three statuses.** I was about to
+  replace `ServiceRequestDetailScreen`'s `STATUS_CONFIG` with a hand-written factory
+  covering the six statuses I had read; it actually has **nine**
+  (`awaiting_confirmation`, `in_transit`, `arrived` were below the fold). Converted it
+  in place instead, asserting the key count. **Lesson: convert config blocks in place
+  and assert the shape; never retype one from what you happened to read.**
 - **Two literals mapped onto one token erased a hairline.** `UserServiceHistoryScreen`'s OTP
   bar had fill `#F3E8FF` and border `#DDD6FE`; both resolved to `accentVioletContainer`, so
   the border became invisible. Completed the violet container/border pair, and added
@@ -311,6 +329,20 @@ disabled-element exemption), all the same root cause: a mid-saturation fill carr
 | Dialog primary button | 2.69 | 6.64 | `CustomDialog` |
 | Alert success badge | 3.30 | 5.42 | `Alert` |
 | Alert warning badge | 3.19 | 5.60 | `Alert` |
+
+### Pre-existing bugs found while migrating (NOT caused by this work)
+
+- **`ServiceRequestDetailScreen` header help icon was white on a white header** —
+  `HelpSupportButton` got `color="#FFFFFF"` while `headerOuter` is `BRAND.white`, so the
+  control was invisible at v1.0.9. Now brand orange, matching `UserHomeScreen`. This is
+  the item flagged earlier as "the help icon as a fill still looks white".
+  `ProviderHomeScreen:1001` passes the same white — check its header in Phase 8.
+- **`getStatusDescription` is called with three arguments where it takes four** at
+  `ServiceRequestDetailScreen`, so `t` lands in `cancelledBy` and the i18n branch never
+  runs. Preserved verbatim; fixing it changes copy, which is the owner's call.
+- **Status pills failed AA at 2.4:1** — brand orange on amber-100, brand blue on
+  blue-100, for both the label and the dot. Each status keeps its hue family but takes
+  the accessible token from it.
 
 ### Still awaiting an owner decision
 

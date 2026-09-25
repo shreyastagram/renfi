@@ -34,5 +34,6 @@ export {
   medal,
   brandTint,
   mapRoute,
+  mapOverlay,
   brand,
 } from './tokens/palette.js';

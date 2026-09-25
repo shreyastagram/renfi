@@ -15,6 +15,7 @@ describe('palette hygiene', () => {
       .filter(([name]) => ![
         'vendor', 'categoryAccent', 'iconAccent',
         'stableDark', 'stableEmergency', 'medal', 'brandTint', 'mapRoute',
+    'mapOverlay',
       ].includes(name))
       .filter(([, group]) => {
         const values = typeof group === 'object' ? Object.values(group) : [group];
@@ -73,6 +74,35 @@ describe('theme tokens', () => {
       expect(level).toHaveProperty('shadowOpacity');
       expect(level).toHaveProperty('shadowRadius');
       expect(level).toHaveProperty('elevation');
+    }
+  });
+
+  // UserHomeScreen and ServiceRequestDetailScreen tint the brand colours by string
+  // concatenation -- `C.secondary + '10'` -- which only produces a valid colour if
+  // the base is a 6-digit hex. Pointing either token at an rgba() value would make
+  // those tints silently invalid rather than throw, so the shape is asserted here.
+  it('keeps alpha-concatenated brand tokens as 6-digit hex in both themes', () => {
+    for (const theme of [lightTheme, darkTheme]) {
+      for (const key of ['brandOrange', 'brandBlue']) {
+        expect(theme.colors[key]).toMatch(/^#[0-9a-fA-F]{6}$/);
+      }
+    }
+  });
+
+  // Regression guard. On dark surfaces the *Fill tokens cannot be low-alpha washes,
+  // so they were pointed at the matching *Container value — which made a tinted chip
+  // identical to the tinted card it sits on (the warning bar's icon wrap). A fill and
+  // its container must always be a visible step apart.
+  it('keeps every semantic fill distinct from its container', () => {
+    const hues = ['success', 'warning', 'danger', 'info', 'accentViolet'];
+    for (const theme of [lightTheme, darkTheme]) {
+      for (const hue of hues) {
+        const container = theme.colors[`${hue}Container`];
+        const fill = theme.colors[`${hue}Fill`];
+        expect(container).toBeDefined();
+        expect(fill).toBeDefined();
+        expect(fill).not.toBe(container);
+      }
     }
   });
 

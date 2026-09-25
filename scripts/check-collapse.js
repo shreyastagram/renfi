@@ -33,6 +33,11 @@ const ROOT = path.resolve(__dirname, '..');
 const INTENTIONAL = new Set([
   'src/screens/UserServiceHistoryScreen.jsx:filterPillActive',
   'src/screens/UserServiceHistoryScreen.jsx:dateChipOn',
+  // Timeline steps: a solid filled circle that overrides the base circle's border
+  // with its own fill colour, so the ring disappears by design. Both were already
+  // `backgroundColor === borderColor` at v1.0.9.
+  'src/screens/ServiceRequestDetailScreen.jsx:timelineCircleCompleted',
+  'src/screens/ServiceRequestDetailScreen.jsx:timelineCircleCurrent',
 ]);
 
 const FILL = /backgroundColor:\s*([A-Za-z_$][\w.$]*)/g;

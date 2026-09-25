@@ -71,6 +71,14 @@ import {
 } from '../services/traditionalServiceService';
 import { formatDistance, formatDistanceFromMeters, useDistanceUnit } from '../utils/formatDistance';
 import { agoParts, isProviderRefusal } from '../utils/workSchedule';
+import {
+  useTheme,
+  useThemedStyles,
+  useThemeColors,
+  stableDark,
+  iconAccent,
+  brandTint,
+} from '../theme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SERVICE_CARD_WIDTH = Math.floor((SCREEN_WIDTH - 64) / 3);
@@ -84,14 +92,54 @@ const SHEET_MID_HEIGHT = SCREEN_HEIGHT * 0.40; // 40% for initial state - shows 
 // SHEET_MAX_HEIGHT is computed dynamically in the component using insets (see safeMaxHeight)
 
 // Brand colors
-const BRAND = {
-  primary: '#f67c16', // Orange
-  secondary: '#2b76bc', // Blue
-  background: '#faf7f7',
-  white: '#FFFFFF',
-  neutral: '#6B7280',
-  cardBg: '#F5F7FA',
-};
+// `primary` and `secondary` are used with hex-alpha concatenation in a few places
+// (`C.secondary + '10'`), which is why they must stay 6-digit hex in BOTH themes --
+// asserted by the token tests. The concat is deliberate rather than a brandTint:
+// the base flips to the dark-mode blue, so the tint flips with it instead of
+// staying a light-blue wash that would be invisible on a near-black card.
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  secondary: c.brandBlue,
+  onPrimary: c.onBrandOrange,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  background: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, and a
+  // recessed seam on a dark surface.
+  hairline: c.bg,
+  line: c.border,
+  borderMedium: c.borderMedium,
+  disabledFill: c.borderMedium,
+  text: c.textPrimary,
+  textStrong: c.textStrong,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  verified: c.altBlueIndigo,
+  blueBg: c.infoContainer,
+  blueLine: c.infoBorder,
+  success: c.success,
+  onSuccess: c.onSuccess,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerLine: c.dangerBorder,
+  dangerFill: c.dangerFill,
+  warning: c.warning,
+  onWarning: c.onWarning,
+  warningBg: c.warningContainer,
+  warningLine: c.warningBorder,
+  warningFill: c.warningFill,
+  purpleBg: c.accentVioletContainer,
+  purpleLine: c.accentVioletBorder,
+  purpleFill: c.accentVioletFill,
+  // Decorative blobs behind a provider card. Brand-tinted washes, theme-independent
+  // because they are decoration rather than anything that has to stay legible.
+  blueDecor: brandTint.blue05,
+  orangeDecor: brandTint.orange04,
+  overlayStrong: c.overlayStrong,
+  shadow: c.shadow,
+});
 
 // Service categories - Unified neutral palette (no rainbow)
 // IDs must match backend allowedCategories for proper provider matching
@@ -131,9 +179,11 @@ const SERVICE_ID_TO_KEY = {
 const SERVICE_COLORS = categoryAccent;
 
 const ServiceCard = React.memo(({ service, onPress, comingSoon = false }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const accent = SERVICE_COLORS[service.id] || BRAND.secondary;
+  const accent = SERVICE_COLORS[service.id] || C.secondary;
 
   // No press-shrink animation for coming-soon cards (they only open a dialog).
   const onPressIn = () => { if (!comingSoon) Animated.spring(scaleAnim, { toValue: 0.92, useNativeDriver: true, speed: 50, bounciness: 4 }).start(); };
@@ -169,6 +219,8 @@ const ServiceCard = React.memo(({ service, onPress, comingSoon = false }) => {
 });
 
 const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, contacted, calling, skipping }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
   const useKm = useDistanceUnit();
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -208,17 +260,17 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
         <View style={styles.providerNameRow}>
           <Text style={styles.providerName} numberOfLines={1}>{provider.name}</Text>
           {(provider.verified || provider.verification?.isVerified) && (
-            <MaterialIcon name="verified" size={17} color="#2563EB" style={styles.verifiedBadge} />
+            <MaterialIcon name="verified" size={17} color={C.verified} style={styles.verifiedBadge} />
           )}
           {contacted && (
             <View style={styles.contactedBadge}>
-              <MaterialIcon name="call-made" size={10} color="#FFFFFF" />
+              <MaterialIcon name="call-made" size={10} color={C.onSuccess} />
               <Text style={styles.contactedBadgeText}>{t('userHome.contacted')}</Text>
             </View>
           )}
         </View>
         <View style={styles.providerDistanceRow}>
-          <Icon name="location" size={14} color="#94A3B8" />
+          <Icon name="location" size={14} color={C.muted} />
           <Text style={styles.providerDistance}>
             {provider.distanceKm ? `${formatDistance(provider.distanceKm, useKm)} ${t('common.away')}` :
              typeof provider.distance === 'number' ? `${formatDistanceFromMeters(provider.distance, useKm)} ${t('common.away')}` :
@@ -232,7 +284,7 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
           const recent = ago.unit === 'justNow' || ago.unit === 'minutes';
           return (
             <View style={styles.providerDistanceRow}>
-              <Icon name="clock" size={13} color={recent ? '#10B981' : '#94A3B8'} />
+              <Icon name="clock" size={13} color={recent ? C.success : C.muted} />
               <Text style={[styles.providerDistance, recent && styles.providerActiveNow]}>
                 {recent && ago.unit === 'justNow'
                   ? t('workHours.activeNow')
@@ -243,7 +295,7 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
         })()}
         {(provider.rating > 0 || provider.ratings?.average > 0) && (
           <View style={styles.providerRatingRow}>
-            <Icon name="star" size={14} color="#F59E0B" />
+            <Icon name="star" size={14} color={iconAccent.star} />
             <Text style={styles.providerRating}>
               {(provider.ratings?.average || provider.rating || 0).toFixed(1)}
               {provider.ratings?.total > 0 && (
@@ -260,7 +312,7 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
         accessibilityLabel={`View details for ${provider.name}`}
         accessibilityRole="button"
       >
-        <MaterialIcon name="chevron-right" size={26} color="#CBD5E1" />
+        <MaterialIcon name="chevron-right" size={26} color={C.borderMedium} />
       </TouchableOpacity>
     </View>
     <View style={styles.providerActions}>
@@ -275,9 +327,9 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
         accessibilityRole="button"
       >
         {calling ? (
-          <ActivityIndicator size="small" color="#FFFFFF" />
+          <ActivityIndicator size="small" color={C.onSuccess} />
         ) : (
-          <Icon name="phone" size={20} color="#FFFFFF" />
+          <Icon name="phone" size={20} color={C.onSuccess} />
         )}
       </TouchableOpacity>
       <TouchableOpacity
@@ -290,7 +342,7 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
         accessibilityLabel={`Book ${provider.name}`}
         accessibilityRole="button"
       >
-        {booking ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.bookButtonText}>{t('userHome.bookButton')}</Text>}
+        {booking ? <ActivityIndicator size="small" color={C.onPrimary} /> : <Text style={styles.bookButtonText}>{t('userHome.bookButton')}</Text>}
       </TouchableOpacity>
       {/* Skip / Remove Provider Button */}
       <TouchableOpacity
@@ -305,9 +357,9 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
         accessibilityRole="button"
       >
         {skipping ? (
-          <ActivityIndicator size="small" color="#EF4444" />
+          <ActivityIndicator size="small" color={C.danger} />
         ) : (
-          <MaterialIcon name="skip-next" size={20} color="#EF4444" />
+          <MaterialIcon name="skip-next" size={20} color={C.danger} />
         )}
       </TouchableOpacity>
     </View>
@@ -317,6 +369,9 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
 };
 
 const UserHomeScreen = ({ navigation, route }) => {
+  const { isDark } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
   const { t } = useLanguage();
@@ -324,12 +379,14 @@ const UserHomeScreen = ({ navigation, route }) => {
   // Show "Exit App?" on Android back press from home screen
   useExitConfirmation();
 
-  // Set status bar for light background when this tab is focused
+  // Match the status bar to the sheet behind it, which is now theme-dependent.
+  // `isDark` is a real dependency: without it the bar keeps whatever appearance it
+  // had when the tab was focused and does not follow a theme switch.
   useFocusEffect(
     useCallback(() => {
-      StatusBar.setBarStyle('dark-content');
+      StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content');
       if (Platform.OS === 'android') StatusBar.setBackgroundColor('transparent');
-    }, [])
+    }, [isDark])
   );
 
   // "Coming Soon" availability: which traditional categories currently have a
@@ -1351,7 +1408,7 @@ const UserHomeScreen = ({ navigation, route }) => {
   // changes, eliminating the ~1s delay caused by remounting the SVG icons.
   const renderSheetContent = () => {
     return (
-      <View style={{ flex: 1, backgroundColor: BRAND.white, overflow: 'hidden' }}>
+      <View style={{ flex: 1, backgroundColor: C.white, overflow: 'hidden' }}>
         {/* SELECT STEP — always mounted, base layer */}
         <View style={{ flex: 1 }}>
           {renderSelectStep()}
@@ -1361,7 +1418,7 @@ const UserHomeScreen = ({ navigation, route }) => {
           <Animated.View
             style={[
               styles.absoluteFill,
-              { backgroundColor: BRAND.white, transform: [{ translateY: dateStepTranslateY }] },
+              { backgroundColor: C.white, transform: [{ translateY: dateStepTranslateY }] },
             ]}
             pointerEvents={step === 'date' ? 'auto' : 'none'}
           >
@@ -1386,12 +1443,12 @@ const UserHomeScreen = ({ navigation, route }) => {
             <View style={styles.dateStepHeader}>
               <TouchableOpacity style={styles.backRow} onPress={resetFlow}>
                 <View style={styles.backPill}>
-                  <Icon name="arrow_back" size={18} color={BRAND.secondary} />
+                  <Icon name="arrow_back" size={18} color={C.secondary} />
                   <Text style={styles.backText}>{t('common.back')}</Text>
                 </View>
               </TouchableOpacity>
               <View style={styles.dateStepServiceChip}>
-                <ServiceIcon serviceType={selectedService.id} size={20} color={BRAND.secondary} />
+                <ServiceIcon serviceType={selectedService.id} size={20} color={C.secondary} />
                 <Text style={styles.dateStepServiceName} numberOfLines={1}>{selectedService.name}</Text>
               </View>
             </View>
@@ -1403,7 +1460,7 @@ const UserHomeScreen = ({ navigation, route }) => {
                 <View style={styles.serviceAtDotBlue} />
                 <View style={styles.serviceAtDottedLine} />
                 {/* "To" pin */}
-                <MaterialIcon name="place" size={22} color={BRAND.primary} />
+                <MaterialIcon name="place" size={22} color={C.primary} />
               </View>
               <View style={styles.serviceAtInfoCol}>
                 {/* Current location row */}
@@ -1417,7 +1474,7 @@ const UserHomeScreen = ({ navigation, route }) => {
                 {/* Service location row */}
                 <View style={styles.serviceAtRow}>
                   <Text style={styles.serviceAtRowLabel}>{t('userHome.serviceAt')}</Text>
-                  <Text style={[styles.serviceAtRowValue, serviceLocation && serviceLocation.isCurrentLocation !== true && { color: BRAND.primary, fontWeight: '700' }]} numberOfLines={1}>
+                  <Text style={[styles.serviceAtRowValue, serviceLocation && serviceLocation.isCurrentLocation !== true && { color: C.primary, fontWeight: '700' }]} numberOfLines={1}>
                     {serviceLocation && serviceLocation.isCurrentLocation !== true
                       ? (serviceLocation.shortAddress || serviceLocation.address || t('userHome.selectedAddress'))
                       : (displayAddress || t('userHome.sameAsLocation'))}
@@ -1434,7 +1491,7 @@ const UserHomeScreen = ({ navigation, route }) => {
                   }}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <MaterialIcon name="map" size={20} color={BRAND.secondary} />
+                  <MaterialIcon name="map" size={20} color={C.secondary} />
                 </TouchableOpacity>
               )}
             </View>
@@ -1460,13 +1517,13 @@ const UserHomeScreen = ({ navigation, route }) => {
               {/* Location status hint */}
               {!currentLocation && !serviceLocation && !locationServicesEnabled && (
                 <View style={styles.locationHintRow}>
-                  <MaterialIcon name="location-off" size={16} color="#EF4444" />
-                  <Text style={[styles.locationHintText, { color: '#EF4444' }]}>{t('userHome.gpsOffHint')}</Text>
+                  <MaterialIcon name="location-off" size={16} color={C.danger} />
+                  <Text style={[styles.locationHintText, { color: C.danger }]}>{t('userHome.gpsOffHint')}</Text>
                 </View>
               )}
               {!currentLocation && !serviceLocation && locationServicesEnabled && (
                 <View style={styles.locationHintRow}>
-                  <ActivityIndicator size="small" color="#94A3B8" />
+                  <ActivityIndicator size="small" color={C.muted} />
                   <Text style={styles.locationHintText}>{t('userHome.detectingHint')}</Text>
                 </View>
               )}
@@ -1476,10 +1533,10 @@ const UserHomeScreen = ({ navigation, route }) => {
                 disabled={!selectedDateTime || creatingRequest || (!currentLocation && !serviceLocation)}
               >
                 {creatingRequest ? (
-                  <ActivityIndicator color="#FFFFFF" />
+                  <ActivityIndicator color={C.onPrimary} />
                 ) : (
                   <>
-                    <MaterialIcon name="check-circle" size={22} color="#FFFFFF" />
+                    <MaterialIcon name="check-circle" size={22} color={C.onPrimary} />
                     <Text style={styles.createButtonText}>{t('userHome.createRequest')}</Text>
                   </>
                 )}
@@ -1497,28 +1554,28 @@ const UserHomeScreen = ({ navigation, route }) => {
                 {/* No "Done" button — it would leave the request in pending with no provider assigned.
                     After booking, the success Alert already calls resetFlow automatically. */}
                 <TouchableOpacity style={styles.cancelPill} onPress={handleCancelRequest}>
-                  <MaterialIcon name="cancel" size={16} color="#FFFFFF" />
+                  <MaterialIcon name="cancel" size={16} color={C.onDanger} />
                   <Text style={styles.cancelPillText}>{t('userHome.cancelRequest')}</Text>
                 </TouchableOpacity>
               </View>
               <Text style={styles.providersTitle}>{fetchingProviders ? t('userHome.findingProviders') : t('userHome.providersFound', { count: providers.length })}</Text>
               {searchRadius > 0 && (
                 <View style={styles.radiusPill}>
-                  <Icon name="location" size={13} color={BRAND.secondary} />
+                  <Icon name="location" size={13} color={C.secondary} />
                   <Text style={styles.radiusPillText}>{t('userHome.within')} {formatDistanceFromMeters(searchRadius, useKm)}</Text>
                 </View>
               )}
               {/* Contact-first tip */}
               {!fetchingProviders && providers.length > 0 && (
                 <View style={styles.providerTipRow}>
-                  <MaterialIcon name="info-outline" size={18} color="#D97706" />
+                  <MaterialIcon name="info-outline" size={18} color={C.warning} />
                   <Text style={styles.providerTipText}>{t('userHome.tipText')}</Text>
                 </View>
               )}
             </View>
             {fetchingProviders ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={BRAND.primary} />
+                <ActivityIndicator size="large" color={C.primary} />
                 <Text style={styles.loadingText}>{t('userHome.searchingProviders')}</Text>
               </View>
             ) : (
@@ -1541,17 +1598,17 @@ const UserHomeScreen = ({ navigation, route }) => {
                 ListEmptyComponent={
                   <View style={styles.emptyContainer}>
                     <View style={styles.emptyIconWrap}>
-                      <FixhomiLogo size={64} color="#CBD5E1" />
+                      <FixhomiLogo size={64} color={C.borderMedium} />
                     </View>
                     {allProvidersRejected ? (
                       <>
                         <Text style={styles.emptyText}>{t('userHome.allReviewedTitle')}</Text>
                         <Text style={styles.emptySubtext}>{t('userHome.allReviewedSubtitle')}</Text>
                         <TouchableOpacity
-                          style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
+                          style={[styles.retryButton, { backgroundColor: C.primary }]}
                           onPress={handleRetrySearch}
                         >
-                          <Icon name="refresh" size={20} color="#FFFFFF" />
+                          <Icon name="refresh" size={20} color={C.onSecondary} />
                           <Text style={styles.retryButtonText}>{t('userHome.startFreshSearch')}</Text>
                         </TouchableOpacity>
                       </>
@@ -1563,7 +1620,7 @@ const UserHomeScreen = ({ navigation, route }) => {
                           style={styles.retryButton}
                           onPress={handleRetrySearch}
                         >
-                          <Icon name="refresh" size={20} color="#FFFFFF" />
+                          <Icon name="refresh" size={20} color={C.onSecondary} />
                           <Text style={styles.retryButtonText}>{t('userHome.retrySearch')}</Text>
                         </TouchableOpacity>
                       </>
@@ -1604,25 +1661,25 @@ const UserHomeScreen = ({ navigation, route }) => {
               <QuickAccessCard
                 imageSource={Emergency3D}
                 label={t('userHome.emergency')}
-                borderColor="#FECACA"
-                bgColor="#FEF2F2"
-                iconBg="rgba(220, 38, 38, 0.08)"
+                borderColor={C.dangerLine}
+                bgColor={C.dangerBg}
+                iconBg={C.dangerFill}
                 onPress={() => navigation.navigate('EmergencyServices')}
               />
               <QuickAccessCard
                 imageSource={Events3D}
                 label={t('userHome.events')}
-                borderColor="#C7D2FE"
-                bgColor="#EEF2FF"
-                iconBg="rgba(124, 58, 237, 0.08)"
+                borderColor={C.purpleLine}
+                bgColor={C.purpleBg}
+                iconBg={C.purpleFill}
                 onPress={() => navigation.navigate('EventServices')}
               />
               <QuickAccessCard
                 imageSource={Favorites3D}
                 label={t('userHome.favorites')}
-                borderColor="#FDE68A"
-                bgColor="#FFFBEB"
-                iconBg="rgba(245, 158, 11, 0.1)"
+                borderColor={C.warningLine}
+                bgColor={C.warningBg}
+                iconBg={C.warningFill}
                 onPress={() => navigation.navigate('Favorites')}
               />
             </View>
@@ -1638,7 +1695,7 @@ const UserHomeScreen = ({ navigation, route }) => {
                 style={styles.quickActionButton}
                 onPress={() => navigation.navigate('HistoryTab')}
               >
-                <MaterialIcon name="history" size={20} color="#475569" />
+                <MaterialIcon name="history" size={20} color={C.textSecondary} />
                 <Text style={styles.quickActionText}>{t('userHome.viewHistory')}</Text>
               </TouchableOpacity>
             </View>
@@ -1650,7 +1707,7 @@ const UserHomeScreen = ({ navigation, route }) => {
                 scroll clearance. */}
             <BrandFooter
               source={require('../assets/brand_footer_user.jpg')}
-              fadeColor="#FFFFFF"
+              fadeColor={C.white}
               style={styles.brandFooterWrap}
             />
           </ScrollView>
@@ -1680,7 +1737,7 @@ const UserHomeScreen = ({ navigation, route }) => {
       {(locationPermission === 'denied' || locationPermission === 'blocked') && locationServicesEnabled && (
         <View style={[styles.permissionBar, { top: insets.top + 60 }]}>
           <View style={styles.permissionBarIconWrap}>
-            <Icon name="location" size={18} color="#F59E0B" />
+            <Icon name="location" size={18} color={C.warning} />
           </View>
           <Text style={styles.permissionBarText}>
             {t('userHome.locationPermBar')}
@@ -1698,7 +1755,7 @@ const UserHomeScreen = ({ navigation, route }) => {
       {!locationServicesEnabled && (
         <View style={[styles.permissionBar, { top: insets.top + ((locationPermission === 'denied' || locationPermission === 'blocked') && locationServicesEnabled ? 110 : 60) }]}>
           <View style={styles.permissionBarIconWrap}>
-            <Icon name="location" size={18} color="#F59E0B" />
+            <Icon name="location" size={18} color={C.warning} />
           </View>
           <Text style={styles.permissionBarText}>
             {t('userHome.locationOffBar')}
@@ -1714,8 +1771,8 @@ const UserHomeScreen = ({ navigation, route }) => {
 
       {notificationPermission === 'blocked' && (
         <View style={[styles.permissionBar, styles.permissionBarDanger, { top: insets.top + ((locationPermission === 'denied' || locationPermission === 'blocked') || !locationServicesEnabled ? 110 : 60) }]}>
-          <View style={[styles.permissionBarIconWrap, { backgroundColor: '#FEE2E2' }]}>
-            <Icon name="notification" size={18} color="#EF4444" />
+          <View style={[styles.permissionBarIconWrap, { backgroundColor: C.dangerFill }]}>
+            <Icon name="notification" size={18} color={C.danger} />
           </View>
           <Text style={[styles.permissionBarText, styles.permissionBarTextDanger]}>
             {t('userHome.notificationBar')}
@@ -1736,14 +1793,14 @@ const UserHomeScreen = ({ navigation, route }) => {
         </TouchableOpacity>
         <View style={styles.topBarSpacer} />
         {/* Help & Support */}
-        <HelpSupportButton size={24} color="#f67c16" style={styles.addressManageButton} />
+        <HelpSupportButton size={24} color={C.primary} style={styles.addressManageButton} />
         {/* Address Management Icon */}
         <TouchableOpacity
           style={styles.addressManageButton}
           onPress={() => navigation.navigate('Profile', { scrollToAddresses: true })}
           activeOpacity={0.7}
         >
-          <MaterialIcon name="bookmark" size={22} color="#475569" />
+          <MaterialIcon name="bookmark" size={22} color={C.textSecondary} />
         </TouchableOpacity>
         <AvatarButton
           name={displayData?.fullName}
@@ -1755,7 +1812,7 @@ const UserHomeScreen = ({ navigation, route }) => {
 
       {/* Bottom Sheet */}
       <Animated.View style={[styles.bottomSheet, { height: safeMaxHeight, paddingBottom: 8, transform: [{ translateY: sheetTranslateY }] }]}>
-        <SvgArt color="#f67c16" height={100} />
+        <SvgArt color={C.primary} height={100} />
         <View style={styles.sheetHandle} {...panResponder.panHandlers}>
           <View style={styles.sheetHandleBar} />
         </View>
@@ -1773,7 +1830,7 @@ const UserHomeScreen = ({ navigation, route }) => {
         <View style={styles.permissionModalOverlay}>
           <View style={styles.permissionModalContent}>
             <View style={styles.permissionModalIcon}>
-              <Icon name="notification" size={48} color="#EF4444" />
+              <Icon name="notification" size={48} color={C.danger} />
             </View>
             <Text style={styles.permissionModalTitle}>{t('userHome.notifModalTitle')}</Text>
             <Text style={styles.permissionModalMessage}>
@@ -1866,6 +1923,7 @@ const UserHomeScreen = ({ navigation, route }) => {
 
 // QuickAccessCard sub-component with press animation
 const QuickAccessCard = ({ iconName, iconColor, label, borderColor, bgColor, iconBg, onPress, SvgIcon, imageSource }) => {
+  const styles = useThemedStyles(makeStyles);
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const onPressIn = () => Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true, friction: 8 }).start();
   const onPressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, friction: 8 }).start();
@@ -1898,10 +1956,12 @@ const QuickAccessCard = ({ iconName, iconColor, label, borderColor, bgColor, ico
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BRAND.background,
+    backgroundColor: C.background,
   },
   hidden: {
     display: 'none',
@@ -1912,7 +1972,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
   },
 
   // ─── Top Bar ───────────────────────────────────────────────
@@ -1931,14 +1991,14 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: BRAND.primary + '30',
+    borderColor: C.primary + '30',
     ...Platform.select({
       ios: {
-        shadowColor: BRAND.primary,
+        shadowColor: C.primary,
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.2,
         shadowRadius: 8,
@@ -1960,15 +2020,15 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: C.hairline,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
         shadowRadius: 10,
@@ -1985,13 +2045,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     zIndex: 5,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: -6 },
         shadowOpacity: 0.12,
         shadowRadius: 16,
@@ -2010,7 +2070,7 @@ const styles = StyleSheet.create({
   sheetHandleBar: {
     width: 40,
     height: 4,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: C.line,
     borderRadius: 2,
   },
   sheetContent: {
@@ -2033,16 +2093,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: BRAND.secondary + '10',
+    backgroundColor: C.secondary + '10',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: BRAND.secondary + '20',
+    borderColor: C.secondary + '20',
   },
   backText: {
     fontSize: 14,
-    color: BRAND.secondary,
+    color: C.secondary,
     fontWeight: '700',
     letterSpacing: -0.2,
   },
@@ -2050,32 +2110,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: C.blueBg,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#DBEAFE',
+    borderColor: C.blueLine,
   },
   dateStepServiceName: {
     fontSize: 13,
     fontWeight: '700',
-    color: BRAND.secondary,
+    color: C.secondary,
     maxWidth: 110,
   },
 
   // ─── Service At Card ───────────────────────────────────────
   serviceAtCard: {
     flexDirection: 'row',
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     borderRadius: 22,
     padding: 16,
     marginBottom: 18,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: C.hairline,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.1,
         shadowRadius: 20,
@@ -2095,15 +2155,15 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#2563EB',
+    backgroundColor: C.verified,
     borderWidth: 2.5,
-    borderColor: '#93C5FD',
+    borderColor: C.blueLine,
   },
   serviceAtDottedLine: {
     width: 2,
     flex: 1,
     borderLeftWidth: 2,
-    borderLeftColor: '#CBD5E1',
+    borderLeftColor: C.borderMedium,
     borderStyle: 'dashed',
     marginVertical: 4,
     minHeight: 20,
@@ -2117,7 +2177,7 @@ const styles = StyleSheet.create({
   serviceAtRowLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: C.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 3,
@@ -2125,25 +2185,25 @@ const styles = StyleSheet.create({
   serviceAtRowValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1E293B',
+    color: C.textStrong,
     letterSpacing: -0.2,
   },
   serviceAtRowDivider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: C.hairline,
     marginVertical: 4,
   },
   serviceAtMapBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: BRAND.secondary + '12',
+    backgroundColor: C.secondary + '12',
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
     marginLeft: 10,
     borderWidth: 1,
-    borderColor: BRAND.secondary + '20',
+    borderColor: C.secondary + '20',
   },
 
   // ─── Location Hint ─────────────────────────────────────────
@@ -2156,7 +2216,7 @@ const styles = StyleSheet.create({
   },
   locationHintText: {
     fontSize: 13,
-    color: '#94A3B8',
+    color: C.muted,
     fontWeight: '600',
   },
 
@@ -2164,7 +2224,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: C.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 8,
@@ -2172,7 +2232,7 @@ const styles = StyleSheet.create({
   },
   sectionDivider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: C.hairline,
     marginVertical: 8,
   },
 
@@ -2182,7 +2242,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   createButton: {
-    backgroundColor: BRAND.primary,
+    backgroundColor: C.primary,
     height: 56,
     borderRadius: 16,
     flexDirection: 'row',
@@ -2191,7 +2251,7 @@ const styles = StyleSheet.create({
     gap: 10,
     ...Platform.select({
       ios: {
-        shadowColor: BRAND.primary,
+        shadowColor: C.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 10,
@@ -2202,7 +2262,7 @@ const styles = StyleSheet.create({
     }),
   },
   createButtonDisabled: {
-    backgroundColor: '#CBD5E1',
+    backgroundColor: C.disabledFill,
     ...Platform.select({
       ios: { shadowOpacity: 0 },
       android: { elevation: 0 },
@@ -2211,7 +2271,7 @@ const styles = StyleSheet.create({
   createButtonText: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: C.onPrimary,
     letterSpacing: -0.3,
   },
 
@@ -2222,12 +2282,12 @@ const styles = StyleSheet.create({
   welcomeText: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#0F172A',
+    color: C.text,
     letterSpacing: -0.5,
   },
   welcomeSubtext: {
     fontSize: 15,
-    color: '#94A3B8',
+    color: C.muted,
     marginTop: 4,
     fontWeight: '500',
   },
@@ -2248,7 +2308,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.06,
         shadowRadius: 10,
@@ -2269,7 +2329,7 @@ const styles = StyleSheet.create({
   quickAccessLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1E293B',
+    color: C.textStrong,
     letterSpacing: -0.2,
   },
 
@@ -2277,7 +2337,7 @@ const styles = StyleSheet.create({
   servicesSectionTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: C.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 14,
@@ -2293,7 +2353,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 6,
     alignSelf: 'center',
-    backgroundColor: '#0F172A',
+    backgroundColor: stableDark.heroSurface,
     borderRadius: 8,
     paddingHorizontal: 7,
     paddingVertical: 2,
@@ -2301,7 +2361,7 @@ const styles = StyleSheet.create({
   comingSoonBadgeText: {
     fontSize: 8,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: stableDark.ink,
     letterSpacing: 0.2,
   },
   serviceCard: {
@@ -2312,12 +2372,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     borderRadius: 20,
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: C.hairline,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.07,
         shadowRadius: 10,
@@ -2335,7 +2395,7 @@ const styles = StyleSheet.create({
   serviceName: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: '#1E293B',
+    color: C.textStrong,
     textAlign: 'center',
     lineHeight: 14,
     letterSpacing: -0.15,
@@ -2347,23 +2407,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: C.hairline,
   },
   quickActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.sunken,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 22,
     gap: 8,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: C.hairline,
   },
   quickActionText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#475569',
+    color: C.textSecondary,
     letterSpacing: -0.2,
   },
   servicesScrollContent: {
@@ -2388,14 +2448,14 @@ const styles = StyleSheet.create({
   cancelPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EF4444',
+    backgroundColor: C.danger,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     gap: 4,
     ...Platform.select({
       ios: {
-        shadowColor: '#EF4444',
+        shadowColor: C.danger,
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.25,
         shadowRadius: 6,
@@ -2407,13 +2467,13 @@ const styles = StyleSheet.create({
   },
   cancelPillText: {
     fontSize: 13,
-    color: '#FFFFFF',
+    color: C.onDanger,
     fontWeight: '700',
   },
   providersTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#0F172A',
+    color: C.text,
     marginTop: 10,
     letterSpacing: -0.5,
   },
@@ -2422,35 +2482,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     marginTop: 6,
-    backgroundColor: BRAND.secondary + '0D',
+    backgroundColor: C.secondary + '0D',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 14,
     alignSelf: 'flex-start',
     borderWidth: 1,
-    borderColor: BRAND.secondary + '18',
+    borderColor: C.secondary + '18',
   },
   radiusPillText: {
     fontSize: 13,
-    color: BRAND.secondary,
+    color: C.secondary,
     fontWeight: '600',
     letterSpacing: -0.2,
   },
   providerTipRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFBEB',
+    backgroundColor: C.warningBg,
     borderRadius: 14,
     padding: 12,
     marginTop: 10,
     gap: 8,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: C.warningLine,
   },
   providerTipText: {
     flex: 1,
     fontSize: 13,
-    color: '#92400E',
+    color: C.warning,
     lineHeight: 18,
     fontWeight: '500',
   },
@@ -2460,14 +2520,14 @@ const styles = StyleSheet.create({
 
   // ─── Provider Card ─────────────────────────────────────────
   providerCard: {
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     borderRadius: 20,
     padding: 16,
     marginBottom: 14,
     overflow: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.08,
         shadowRadius: 14,
@@ -2475,7 +2535,7 @@ const styles = StyleSheet.create({
       android: {
         elevation: 4,
         borderWidth: 1,
-        borderColor: '#F1F5F9',
+        borderColor: C.hairline,
       },
     }),
   },
@@ -2489,7 +2549,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(43,118,188,0.04)',
+    backgroundColor: C.blueDecor,
   },
   providerDecor2: {
     position: 'absolute',
@@ -2498,7 +2558,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: 'rgba(246,124,22,0.03)',
+    backgroundColor: C.orangeDecor,
   },
   providerInfo: {
     flexDirection: 'row',
@@ -2509,7 +2569,7 @@ const styles = StyleSheet.create({
     padding: 2,
     borderRadius: 28,
     borderWidth: 2,
-    borderColor: BRAND.secondary + '40',
+    borderColor: C.secondary + '40',
     marginRight: 12,
   },
   providerAvatar: {
@@ -2517,7 +2577,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: BRAND.secondary,
+    backgroundColor: C.secondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2530,7 +2590,7 @@ const styles = StyleSheet.create({
   providerInitial: {
     fontSize: 20,
     fontWeight: '800',
-    color: BRAND.white,
+    color: C.white,
   },
   providerDetails: {
     flex: 1,
@@ -2543,7 +2603,7 @@ const styles = StyleSheet.create({
   providerName: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: C.text,
     letterSpacing: -0.3,
     maxWidth: '60%',
   },
@@ -2553,7 +2613,7 @@ const styles = StyleSheet.create({
   contactedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#10B981',
+    backgroundColor: C.success,
     borderRadius: 10,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -2561,7 +2621,7 @@ const styles = StyleSheet.create({
     gap: 3,
     ...Platform.select({
       ios: {
-        shadowColor: '#10B981',
+        shadowColor: C.success,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.3,
         shadowRadius: 4,
@@ -2574,7 +2634,7 @@ const styles = StyleSheet.create({
   contactedBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: C.onSuccess,
   },
   providerDistanceRow: {
     flexDirection: 'row',
@@ -2584,11 +2644,11 @@ const styles = StyleSheet.create({
   },
   providerDistance: {
     fontSize: 13,
-    color: '#64748B',
+    color: C.textSecondary,
     fontWeight: '500',
   },
   providerActiveNow: {
-    color: '#047857',
+    color: C.success,
     fontWeight: '600',
   },
   providerRatingRow: {
@@ -2599,17 +2659,17 @@ const styles = StyleSheet.create({
   },
   providerRating: {
     fontSize: 13,
-    color: BRAND.primary,
+    color: C.primary,
     fontWeight: '700',
   },
   providerRatingCount: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: C.muted,
     fontWeight: '400',
   },
   viewDetailsIcon: {
     padding: 6,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.sunken,
     borderRadius: 12,
   },
 
@@ -2624,13 +2684,13 @@ const styles = StyleSheet.create({
     // Icon stays centered/unchanged; only the button width grows. (Task 5)
     flex: 1,
     height: 42,
-    backgroundColor: '#10B981',
+    backgroundColor: C.success,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: '#10B981',
+        shadowColor: C.success,
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.25,
         shadowRadius: 6,
@@ -2641,7 +2701,7 @@ const styles = StyleSheet.create({
     }),
   },
   callButtonCalling: {
-    backgroundColor: '#CBD5E1',
+    backgroundColor: C.disabledFill,
     ...Platform.select({
       ios: { shadowOpacity: 0 },
       android: { elevation: 0 },
@@ -2650,13 +2710,13 @@ const styles = StyleSheet.create({
   bookButton: {
     flex: 1,
     height: 42,
-    backgroundColor: BRAND.primary,
+    backgroundColor: C.primary,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: BRAND.primary,
+        shadowColor: C.primary,
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.25,
         shadowRadius: 6,
@@ -2667,7 +2727,7 @@ const styles = StyleSheet.create({
     }),
   },
   bookButtonLoading: {
-    backgroundColor: '#F5A856',
+    backgroundColor: brandTint.orangeSoft,
     ...Platform.select({
       ios: { shadowOpacity: 0 },
       android: { elevation: 0 },
@@ -2676,19 +2736,19 @@ const styles = StyleSheet.create({
   bookButtonText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: C.onPrimary,
     letterSpacing: -0.2,
   },
   skipButton: {
     width: 46,
     height: 42,
     borderRadius: 12,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: C.dangerBg,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: '#EF4444',
+        shadowColor: C.danger,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
@@ -2711,7 +2771,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#64748B',
+    color: C.textSecondary,
     marginTop: 14,
     fontWeight: '600',
   },
@@ -2724,23 +2784,23 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.sunken,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: C.hairline,
   },
   emptyText: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#1E293B',
+    color: C.textStrong,
     marginTop: 14,
     letterSpacing: -0.3,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#94A3B8',
+    color: C.muted,
     marginTop: 6,
     textAlign: 'center',
     lineHeight: 20,
@@ -2748,7 +2808,7 @@ const styles = StyleSheet.create({
   retryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: BRAND.secondary,
+    backgroundColor: C.secondary,
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 16,
@@ -2756,7 +2816,7 @@ const styles = StyleSheet.create({
     gap: 8,
     ...Platform.select({
       ios: {
-        shadowColor: BRAND.secondary,
+        shadowColor: C.secondary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -2769,7 +2829,7 @@ const styles = StyleSheet.create({
   retryButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: BRAND.white,
+    color: C.white,
     letterSpacing: -0.2,
   },
 
@@ -2778,7 +2838,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    backgroundColor: '#FFFBEB',
+    backgroundColor: C.warningBg,
     borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -2787,10 +2847,10 @@ const styles = StyleSheet.create({
     zIndex: 20,
     gap: 10,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: C.warningLine,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
         shadowRadius: 12,
@@ -2801,35 +2861,35 @@ const styles = StyleSheet.create({
     }),
   },
   permissionBarDanger: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
+    backgroundColor: C.dangerBg,
+    borderColor: C.dangerLine,
   },
   permissionBarIconWrap: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: C.warningFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   permissionBarText: {
     flex: 1,
     fontSize: 13,
-    color: '#92400E',
+    color: C.warning,
     fontWeight: '600',
     lineHeight: 18,
   },
   permissionBarTextDanger: {
-    color: '#991B1B',
+    color: C.danger,
   },
   permissionBarButton: {
-    backgroundColor: '#F59E0B',
+    backgroundColor: C.warning,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     ...Platform.select({
       ios: {
-        shadowColor: '#F59E0B',
+        shadowColor: C.warning,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.3,
         shadowRadius: 4,
@@ -2840,32 +2900,32 @@ const styles = StyleSheet.create({
     }),
   },
   permissionBarButtonDanger: {
-    backgroundColor: '#EF4444',
+    backgroundColor: C.danger,
     ...Platform.select({
       ios: {
-        shadowColor: '#EF4444',
+        shadowColor: C.danger,
       },
     }),
   },
   permissionBarButtonText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: C.onWarning,
   },
   permissionBarButtonTextDanger: {
-    color: '#FFFFFF',
+    color: C.onDanger,
   },
 
   // ─── Notification Permission Modal ─────────────────────────
   permissionModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    backgroundColor: C.overlayStrong,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   permissionModalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderRadius: 28,
     padding: 36,
     alignItems: 'center',
@@ -2873,7 +2933,7 @@ const styles = StyleSheet.create({
     width: '100%',
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 12 },
         shadowOpacity: 0.25,
         shadowRadius: 24,
@@ -2887,7 +2947,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: C.dangerFill,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
@@ -2895,20 +2955,20 @@ const styles = StyleSheet.create({
   permissionModalTitle: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#0F172A',
+    color: C.text,
     marginBottom: 12,
     textAlign: 'center',
     letterSpacing: -0.3,
   },
   permissionModalMessage: {
     fontSize: 15,
-    color: '#64748B',
+    color: C.textSecondary,
     textAlign: 'center',
     lineHeight: 23,
     marginBottom: 28,
   },
   permissionModalButton: {
-    backgroundColor: BRAND.secondary,
+    backgroundColor: C.secondary,
     paddingVertical: 16,
     paddingHorizontal: 32,
     borderRadius: 16,
@@ -2916,7 +2976,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     ...Platform.select({
       ios: {
-        shadowColor: BRAND.secondary,
+        shadowColor: C.secondary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -2929,16 +2989,17 @@ const styles = StyleSheet.create({
   permissionModalButtonText: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: C.onSecondary,
     textAlign: 'center',
     letterSpacing: -0.2,
   },
   permissionModalNote: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: C.muted,
     textAlign: 'center',
     fontWeight: '500',
   },
-});
+  });
+};
 
 export default UserHomeScreen;

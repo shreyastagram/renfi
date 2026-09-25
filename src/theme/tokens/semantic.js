@@ -112,6 +112,9 @@ export const lightColors = {
   dangerFill: semanticLine.dangerFillLight,
   warningLine: semanticLine.warningLight,
   warningFill: semanticLine.warningFillLight,
+  accentVioletFill: semanticLine.accentVioletFillLight,
+  successFill: semanticLine.successFillLight,
+  infoFill: semanticLine.infoFillLight,
 
   // Apple system colours — only for surfaces meant to read as native iOS.
   iosBlue: iosSystem.light.blue,
@@ -123,6 +126,7 @@ export const lightColors = {
 
   // Misc
   overlay: overlay.light,
+  overlayStrong: overlay.strongLight,
   shadow: slate[900],
 };
 
@@ -195,9 +199,12 @@ export const darkColors = {
   brandOrangeBorder: semanticDarkBorder.brandOrange,
   accentVioletBorder: semanticDarkBorder.accentViolet,
   dangerLine: semanticDarkBorder.danger,
-  dangerFill: semanticDark.dangerContainer,
+  dangerFill: semanticDark.dangerFill,
   warningLine: semanticDarkBorder.warning,
-  warningFill: semanticDark.warningContainer,
+  warningFill: semanticDark.warningFill,
+  accentVioletFill: semanticDark.accentVioletFill,
+  successFill: semanticDark.successFill,
+  infoFill: semanticDark.infoFill,
 
   // Apple system colours — only for surfaces meant to read as native iOS.
   iosBlue: iosSystem.dark.blue,
@@ -209,5 +216,6 @@ export const darkColors = {
 
   // Misc
   overlay: overlay.dark,
+  overlayStrong: overlay.strongDark,
   shadow: dark.shadow,
 };

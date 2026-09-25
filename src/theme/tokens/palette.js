@@ -205,6 +205,9 @@ export const brandTint = {
   blue06: 'rgba(43, 118, 188, 0.06)',
   blue08: 'rgba(43, 118, 188, 0.08)',
   blue10: 'rgba(43, 118, 188, 0.1)',
+  // Solid, not a tint: the orange button's loading state. Theme-independent for
+  // the same reason brandOrange is -- it does not flip between themes.
+  orangeSoft: '#F5A856',
   violet04: 'rgba(124, 58, 237, 0.04)',
   violet10: 'rgba(124, 58, 237, 0.1)',
 };
@@ -349,6 +352,16 @@ export const semanticLight = {
 // status also carries a border in its own hue (semanticDarkBorder below). The
 // TEXT and DOT do the semantic work at 6:1+; the border only supplies definition,
 // which is why it is not held to 3.0.
+// Things drawn ON a map. THEME-INDEPENDENT: the map tile itself is light in light
+// mode and dark in dark mode, but a pin's drop shadow and a translucent hint chip
+// read correctly over either, and making them flip would break them over the
+// opposite tile. The route colours live in `mapRoute` for the same reason.
+export const mapOverlay = {
+  pinShadowSoft: 'rgba(0,0,0,0.15)',
+  pinShadowStrong: 'rgba(0,0,0,0.2)',
+  hint: 'rgba(0,0,0,0.55)',
+};
+
 export const semanticDark = {
   success: '#34D399',
   warning: '#FBBF24',
@@ -357,6 +370,17 @@ export const semanticDark = {
   warningContainer: '#2E2107',
   dangerContainer: '#2F1518',
   infoContainer: '#102639',
+
+  // One step LIGHTER than the matching container, for a tinted chip sitting on a
+  // tinted card — the icon wrap inside a warning bar, for instance. In light mode
+  // the *Fill tokens are low-alpha washes that deepen whatever they sit on, but on
+  // dark they have to be opaque, and pointing them at the container value made the
+  // chip identical to the card it sat on. Asserted distinct by the token tests.
+  successFill: '#123B2A',
+  warningFill: '#3D2C0A',
+  dangerFill: '#3E1D21',
+  infoFill: '#16324B',
+  accentVioletFill: '#302552',
 };
 
 // Visible hairlines for danger- and warning-styled ROWS — a tinted seam across a
@@ -367,6 +391,9 @@ export const semanticLine = {
   dangerFillLight: 'rgba(239, 68, 68, 0.08)',
   warningLight: 'rgba(217, 119, 6, 0.25)',
   warningFillLight: 'rgba(217, 119, 6, 0.12)',
+  accentVioletFillLight: 'rgba(124, 58, 237, 0.1)',
+  successFillLight: 'rgba(21, 128, 61, 0.1)',
+  infoFillLight: 'rgba(30, 95, 158, 0.1)',
 };
 
 // Borders for the status CONTAINERS — a tint-200 hairline that gives a filled
@@ -402,4 +429,10 @@ export const semanticDarkBorder = {
 export const overlay = {
   light: 'rgba(15,23,42,0.45)',
   dark: 'rgba(0,0,0,0.65)',
+  // A blocking modal -- the location-permission gate -- needs a heavier scrim than
+  // a bottom sheet, because the screen behind it must read as unavailable rather
+  // than merely dimmed. Kept as its own step instead of converging onto `overlay`,
+  // which would visibly lighten a deliberately opaque barrier.
+  strongLight: 'rgba(15,23,42,0.85)',
+  strongDark: 'rgba(0,0,0,0.9)',
 };

@@ -71,30 +71,70 @@ import {
   isTrackingRequest,
 } from '../services/socketService';
 import { setupForegroundMessageListener } from '../services/fcmService';
+import {
+  useTheme,
+  useThemedStyles,
+  useThemeColors,
+  stableDark,
+  iconAccent,
+  medal,
+  mapOverlay,
+} from '../theme';
 
 // Premium Design Language
-const BRAND = {
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  dark: '#0F172A',
-  background: '#F8FAFC',
-  white: '#FFFFFF',
-  neutral: '#6B7280',
-  success: '#10B981',
-  danger: '#EF4444',
-  text: '#1F2937',
-  textSecondary: '#6B7280',
-  textMuted: '#94A3B8',
-  border: '#F1F5F9',
-  cardBg: '#FFFFFF',
-};
+// `primary` / `secondary` are also used with hex-alpha concatenation, so they must
+// stay 6-digit hex in both themes -- asserted by the token tests.
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  secondary: c.brandBlue,
+  onPrimary: c.onBrandOrange,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  background: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline and chip fill were both #F1F5F9 -- exactly `bg` in
+  // light, and a recessed seam on a dark surface.
+  hairline: c.bg,
+  border: c.bg,
+  line: c.border,
+  disabledFill: c.borderMedium,
+  text: c.textStrongNeutral,
+  textSecondary: c.textSecondary,
+  textMuted: c.textMuted,
+  muted: c.textMuted,
+  neutral: c.textSecondary,
+  info: c.info,
+  blueBg: c.infoContainer,
+  blueLine: c.infoBorder,
+  infoFill: c.infoFill,
+  success: c.success,
+  onSuccess: c.onSuccess,
+  successBg: c.successContainer,
+  successLine: c.successBorder,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerLine: c.dangerBorder,
+  dangerFill: c.dangerFill,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  warningFill: c.warningFill,
+  purple: c.accentViolet,
+  purpleBg: c.accentVioletContainer,
+  purpleLine: c.accentVioletBorder,
+  purpleFill: c.accentVioletFill,
+  // The Rate button keeps its gold fill; its label is dark ink because white on
+  // gold measured 2.15:1.
+  onGold: c.onBrandOrange,
+  shadow: c.shadow,
+});
 
-// Status configuration
-const STATUS_CONFIG = {
+const makeStatusConfig = (C) => ({
   pending: {
     label: 'Pending',
-    color: BRAND.primary,
-    bgColor: '#FEF3C7',
+    color: C.warning,
+    bgColor: C.warningFill,
     iconName: 'clock',
     userDescription: 'Waiting for a provider to accept your request',
     providerDescription: 'Customer is waiting for you to accept this request',
@@ -102,8 +142,8 @@ const STATUS_CONFIG = {
   },
   accepted: {
     label: 'Accepted',
-    color: BRAND.secondary,
-    bgColor: '#DBEAFE',
+    color: C.info,
+    bgColor: C.infoFill,
     iconName: 'check',
     userDescription: 'A provider has accepted your request',
     providerDescription: 'You have accepted this request',
@@ -111,8 +151,8 @@ const STATUS_CONFIG = {
   },
   'in-progress': {
     label: 'In Progress',
-    color: BRAND.secondary,
-    bgColor: '#DBEAFE',
+    color: C.info,
+    bgColor: C.infoFill,
     iconName: 'wrench',
     userDescription: 'The service is currently being performed',
     providerDescription: 'You are currently working on this service',
@@ -120,8 +160,8 @@ const STATUS_CONFIG = {
   },
   completed: {
     label: 'Completed',
-    color: BRAND.success,
-    bgColor: '#D1FAE5',
+    color: C.success,
+    bgColor: C.successFill,
     iconName: 'check-circle',
     userDescription: 'The service has been successfully completed',
     providerDescription: 'You have completed this service',
@@ -129,8 +169,8 @@ const STATUS_CONFIG = {
   },
   cancelled: {
     label: 'Cancelled',
-    color: BRAND.danger,
-    bgColor: '#FEE2E2',
+    color: C.danger,
+    bgColor: C.dangerFill,
     iconName: 'close',
     userDescription: 'This request was cancelled',
     providerDescription: 'This request was cancelled',
@@ -138,8 +178,8 @@ const STATUS_CONFIG = {
   },
   rejected: {
     label: 'Rejected',
-    color: BRAND.neutral,
-    bgColor: '#F3F4F6',
+    color: C.neutral,
+    bgColor: C.hairline,
     iconName: 'block',
     userDescription: 'No providers were available for this request',
     providerDescription: 'This request was rejected',
@@ -147,8 +187,8 @@ const STATUS_CONFIG = {
   },
   awaiting_confirmation: {
     label: 'Awaiting Confirmation',
-    color: BRAND.primary,
-    bgColor: '#FEF3C7',
+    color: C.warning,
+    bgColor: C.warningFill,
     iconName: 'hourglass-empty',
     userDescription: 'Waiting for the provider to confirm',
     providerDescription: 'Please confirm this emergency request',
@@ -156,8 +196,8 @@ const STATUS_CONFIG = {
   },
   in_transit: {
     label: 'On the Way',
-    color: BRAND.secondary,
-    bgColor: '#DBEAFE',
+    color: C.info,
+    bgColor: C.infoFill,
     iconName: 'directions-car',
     userDescription: 'The provider is on the way to you',
     providerDescription: 'You are on the way to the customer',
@@ -165,16 +205,19 @@ const STATUS_CONFIG = {
   },
   arrived: {
     label: 'Arrived',
-    color: BRAND.success,
-    bgColor: '#D1FAE5',
+    color: C.success,
+    bgColor: C.successFill,
     iconName: 'location-on',
     userDescription: 'The provider has arrived at your location',
     providerDescription: 'You have arrived at the customer location',
     step: 3,
   },
-};
+});
 
-const getStatusDescription = (status, isProvider, cancelledBy, t) => {
+// Takes the resolved status config rather than reading a module constant: the
+// colours in it are now theme-dependent, and this is a plain function that cannot
+// call a hook.
+const getStatusDescription = (STATUS_CONFIG, status, isProvider, cancelledBy, t) => {
   if (t && status === 'cancelled' && cancelledBy) {
     if (cancelledBy === 'user') {
       return isProvider ? t('detail.cancelledByCustomer') : t('detail.cancelledByYou');
@@ -201,7 +244,11 @@ const getStatusDescription = (status, isProvider, cancelledBy, t) => {
 };
 
 /* ─── Pulsing Dot ─────────────────────────────────────────────────── */
-const PulsingDot = ({ color = BRAND.success, size = 8 }) => {
+const PulsingDot = ({ color, size = 8 }) => {
+  const C = makeC(useThemeColors());
+  // Resolved in the body, not as a default parameter: `C` is declared here, and a
+  // default parameter evaluated before it would throw on every defaulted render.
+  const dotColor = color || C.success;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     const pulse = Animated.loop(
@@ -215,14 +262,16 @@ const PulsingDot = ({ color = BRAND.success, size = 8 }) => {
   }, []);
   return (
     <View style={{ width: size * 2.5, height: size * 2.5, alignItems: 'center', justifyContent: 'center' }}>
-      <Animated.View style={{ position: 'absolute', width: size * 2.5, height: size * 2.5, borderRadius: size * 1.25, backgroundColor: color + '30', transform: [{ scale: pulseAnim }] }} />
-      <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color }} />
+      <Animated.View style={{ position: 'absolute', width: size * 2.5, height: size * 2.5, borderRadius: size * 1.25, backgroundColor: dotColor + '30', transform: [{ scale: pulseAnim }] }} />
+      <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: dotColor }} />
     </View>
   );
 };
 
 /* ─── Cancellation Info Card ──────────────────────────────────────── */
 const CancellationInfoCard = ({ request, isProvider }) => {
+  const s = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
   if (request.status !== 'cancelled') return null;
   const cancelledBy = request.cancelledBy || null;
@@ -241,26 +290,26 @@ const CancellationInfoCard = ({ request, isProvider }) => {
     <View style={s.cancellationCard}>
       <View style={s.cancellationHeader}>
         <View style={s.cancellationIconCircle}>
-          <Icon name="warning" size={18} color="#DC2626" />
+          <Icon name="warning" size={18} color={C.danger} />
         </View>
         <Text style={s.cancellationTitle}>{t('detail.requestCancelled')}</Text>
       </View>
       {cancelledByLabel && (
         <View style={s.cancellationRow}>
-          <Icon name="person" size={14} color="#B91C1C" />
+          <Icon name="person" size={14} color={C.danger} />
           <Text style={s.cancellationRowText}>{t('detail.cancelledBy', { who: '' })}<Text style={{ fontWeight: '700' }}>{cancelledByLabel}</Text></Text>
         </View>
       )}
       {displayReason ? (
         <View style={s.cancellationRow}>
-          <Icon name="info" size={14} color="#B91C1C" style={{ marginTop: 1 }} />
+          <Icon name="info" size={14} color={C.danger} style={{ marginTop: 1 }} />
           <Text style={[s.cancellationRowText, { flex: 1, lineHeight: 18 }]}>{displayReason}</Text>
         </View>
       ) : null}
       {cancelledAt && !isNaN(cancelledAt.getTime()) && (
         <View style={s.cancellationRow}>
-          <Icon name="clock" size={14} color="#B91C1C" />
-          <Text style={[s.cancellationRowText, { fontSize: 12, color: '#9B2C2C' }]}>
+          <Icon name="clock" size={14} color={C.danger} />
+          <Text style={[s.cancellationRowText, { fontSize: 12, color: C.danger }]}>
             {cancelledAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
           </Text>
         </View>
@@ -271,6 +320,9 @@ const CancellationInfoCard = ({ request, isProvider }) => {
 
 /* ─── Status Timeline ─────────────────────────────────────────────── */
 const StatusTimeline = ({ currentStatus, isProvider = false, cancelledBy = null }) => {
+  const s = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  const STATUS_CONFIG = makeStatusConfig(C);
   const { t } = useLanguage();
   const status = STATUS_CONFIG[currentStatus] || STATUS_CONFIG.pending;
   const isCancelled = currentStatus === 'cancelled' || currentStatus === 'rejected';
@@ -285,9 +337,9 @@ const StatusTimeline = ({ currentStatus, isProvider = false, cancelledBy = null 
       <View style={s.timelineContainer}>
         <View style={s.timelineCancelledPill}>
           <View style={s.timelineCancelledIcon}>
-            <Icon name="close" size={12} color={BRAND.white} />
+            <Icon name="close" size={12} color={C.white} />
           </View>
-          <Text style={s.timelineCancelledText}>{getStatusDescription(currentStatus, isProvider, cancelledBy, t)}</Text>
+          <Text style={s.timelineCancelledText}>{getStatusDescription(STATUS_CONFIG, currentStatus, isProvider, cancelledBy, t)}</Text>
         </View>
       </View>
     );
@@ -309,9 +361,9 @@ const StatusTimeline = ({ currentStatus, isProvider = false, cancelledBy = null 
                   isCurrent && s.timelineCircleCurrent,
                 ]}>
                   {isCompleted ? (
-                    <Icon name="check" size={14} color={BRAND.white} />
+                    <Icon name="check" size={14} color={C.white} />
                   ) : isCurrent ? (
-                    <PulsingDot color={BRAND.white} size={5} />
+                    <PulsingDot color={C.white} size={5} />
                   ) : (
                     <Text style={s.timelineNumber}>{step.step}</Text>
                   )}
@@ -342,18 +394,24 @@ const StatusTimeline = ({ currentStatus, isProvider = false, cancelledBy = null 
 };
 
 /* ─── Info Row ────────────────────────────────────────────────────── */
-const InfoRow = ({ label, value, iconName }) => (
-  <View style={s.infoRow}>
-    <View style={s.infoRowLeft}>
-      <Icon name={iconName} size={15} color={BRAND.textMuted} />
-      <Text style={s.infoLabel}>{label}</Text>
+const InfoRow = ({ label, value, iconName }) => {
+  const s = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  return (
+    <View style={s.infoRow}>
+      <View style={s.infoRowLeft}>
+        <Icon name={iconName} size={15} color={C.textMuted} />
+        <Text style={s.infoLabel}>{label}</Text>
+      </View>
+      <Text style={s.infoValue} numberOfLines={2}>{value}</Text>
     </View>
-    <Text style={s.infoValue} numberOfLines={2}>{value}</Text>
-  </View>
-);
+  );
+};
 
 /* ─── OTP Display (User side) ─────────────────────────────────────── */
 const OtpDisplay = ({ otp, expiresAt, onResend, resending }) => {
+  const s = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
   const [resendPressed, setResendPressed] = useState(false);
@@ -371,12 +429,12 @@ const OtpDisplay = ({ otp, expiresAt, onResend, resending }) => {
     return (
       <View style={s.otpExpiredCard}>
         <View style={s.otpExpiredHeader}>
-          <View style={s.otpExpiredIconCircle}><Icon name="clock" size={22} color="#DC2626" /></View>
+          <View style={s.otpExpiredIconCircle}><Icon name="clock" size={22} color={C.danger} /></View>
           <Text style={s.otpExpiredTitle}>{t('detail.otpExpiredTitle')}</Text>
         </View>
         <Text style={s.otpExpiredDesc}>{t('detail.otpExpiredDesc')}</Text>
         <TouchableOpacity style={[s.otpResendBtn, resendPressed && { opacity: 0.6 }]} onPress={() => { if (resendPressed) return; setResendPressed(true); onResend(); setTimeout(() => setResendPressed(false), 5000); }} disabled={resendPressed}>
-          <Icon name="refresh" size={15} color="#FFFFFF" />
+          <Icon name="refresh" size={15} color={C.onDanger} />
           <Text style={s.otpResendBtnText}>{resendPressed ? t('detail.requesting') : t('detail.requestNewOtp')}</Text>
         </TouchableOpacity>
       </View>
@@ -386,11 +444,11 @@ const OtpDisplay = ({ otp, expiresAt, onResend, resending }) => {
     <View style={s.otpCard}>
       <View style={s.otpHeaderRow}>
         <View style={s.otpHeaderLeft}>
-          <View style={s.otpLockCircle}><Icon name="lock" size={16} color="#6D28D9" /></View>
+          <View style={s.otpLockCircle}><Icon name="lock" size={16} color={C.purple} /></View>
           <Text style={s.otpHeaderTitle}>{t('detail.completionOtp')}</Text>
         </View>
         {resending ? (
-          <Text style={[s.otpHeaderSub, { color: BRAND.primary }]}>{t('detail.generating')}</Text>
+          <Text style={[s.otpHeaderSub, { color: C.primary }]}>{t('detail.generating')}</Text>
         ) : (
           <Text style={s.otpHeaderSub}>{t('detail.shareWithProvider')}</Text>
         )}
@@ -414,24 +472,24 @@ const OtpDisplay = ({ otp, expiresAt, onResend, resending }) => {
       )}
       {!resending && (
         <TouchableOpacity onPress={handleCopy} style={s.otpCopyRow}>
-          <Icon name={copied ? 'check' : 'copy'} size={13} color={copied ? BRAND.success : BRAND.textMuted} />
-          <Text style={[s.otpCopyText, copied && { color: BRAND.success }]}>{copied ? t('common.copied') : t('detail.tapToCopy')}</Text>
+          <Icon name={copied ? 'check' : 'copy'} size={13} color={copied ? C.success : C.textMuted} />
+          <Text style={[s.otpCopyText, copied && { color: C.success }]}>{copied ? t('common.copied') : t('detail.tapToCopy')}</Text>
         </TouchableOpacity>
       )}
       {resending && (
         <View style={s.otpCopyRow}>
-          <ActivityIndicator size={12} color={BRAND.primary} />
-          <Text style={[s.otpCopyText, { color: BRAND.primary }]}>{t('detail.generatingNewOtp')}</Text>
+          <ActivityIndicator size={12} color={C.primary} />
+          <Text style={[s.otpCopyText, { color: C.primary }]}>{t('detail.generatingNewOtp')}</Text>
         </View>
       )}
       {expiresAt && !resending && (
         <View style={s.otpExpiryRow}>
-          <Icon name="timer" size={13} color={BRAND.textMuted} />
+          <Icon name="timer" size={13} color={C.textMuted} />
           <Text style={s.otpExpiryText}>{t('detail.expires', { time: new Date(expiresAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) })}</Text>
         </View>
       )}
       <View style={s.otpWarningStrip}>
-        <Icon name="info" size={14} color="#92400E" />
+        <Icon name="info" size={14} color={C.warning} />
         <Text style={s.otpWarningText}>{t('detail.otpWarning')}</Text>
       </View>
     </View>
@@ -450,6 +508,8 @@ const resolveProfilePic = (pic) => {
 
 /* ─── Provider Card ───────────────────────────────────────────────── */
 const ProviderCard = ({ provider, onCall, onGetLocation, showActions }) => {
+  const s = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
   if (!provider) return null;
   const profilePicUrl = resolveProfilePic(provider.profilePicture) || resolveProfilePic(provider.profileImage);
@@ -468,7 +528,7 @@ const ProviderCard = ({ provider, onCall, onGetLocation, showActions }) => {
             </View>
           )}
           {(provider.isVerified || provider.verified) && (
-            <View style={s.verifiedBadge}><Icon name="verified" size={10} color="#FFFFFF" /></View>
+            <View style={s.verifiedBadge}><Icon name="verified" size={10} color={C.onSuccess} /></View>
           )}
         </View>
         <View style={{ flex: 1 }}>
@@ -476,15 +536,15 @@ const ProviderCard = ({ provider, onCall, onGetLocation, showActions }) => {
           <View style={[s.rowCenter, { gap: 8, marginTop: 3 }]}>
             {ratingValue > 0 && (
               <View style={[s.rowCenter, { gap: 3 }]}>
-                <Icon name="star" size={13} color="#F59E0B" />
-                <Text style={{ fontSize: 13, fontWeight: '600', color: BRAND.text }}>{ratingValue.toFixed(1)}</Text>
-                {reviewCount > 0 && <Text style={{ fontSize: 11, color: BRAND.textMuted }}>({reviewCount})</Text>}
+                <Icon name="star" size={13} color={iconAccent.star} />
+                <Text style={{ fontSize: 13, fontWeight: '600', color: C.text }}>{ratingValue.toFixed(1)}</Text>
+                {reviewCount > 0 && <Text style={{ fontSize: 11, color: C.textMuted }}>({reviewCount})</Text>}
               </View>
             )}
             {showActions && (provider.phone || provider.verifiedPhone) && (
               <View style={[s.rowCenter, { gap: 3 }]}>
-                <Icon name="phone" size={11} color={BRAND.textMuted} />
-                <Text style={{ fontSize: 11, color: BRAND.textMuted }}>{provider.phone || provider.verifiedPhone}</Text>
+                <Icon name="phone" size={11} color={C.textMuted} />
+                <Text style={{ fontSize: 11, color: C.textMuted }}>{provider.phone || provider.verifiedPhone}</Text>
               </View>
             )}
           </View>
@@ -493,12 +553,12 @@ const ProviderCard = ({ provider, onCall, onGetLocation, showActions }) => {
       {showActions && (
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <TouchableOpacity style={s.callBtn} onPress={onCall}>
-            <Icon name="phone" size={16} color="#FFFFFF" />
+            <Icon name="phone" size={16} color={C.onSuccess} />
             <Text style={s.callBtnText}>Call</Text>
           </TouchableOpacity>
           {onGetLocation && (
             <TouchableOpacity style={s.trackBtn} onPress={onGetLocation}>
-              <Icon name="location" size={16} color="#FFFFFF" />
+              <Icon name="location" size={16} color={C.onPrimary} />
               <Text style={s.trackBtnText}>Track</Text>
             </TouchableOpacity>
           )}
@@ -510,6 +570,9 @@ const ProviderCard = ({ provider, onCall, onGetLocation, showActions }) => {
 
 /* ─── Location Map Preview ────────────────────────────────────────── */
 const LocationMapPreview = ({ location, address }) => {
+  const { isDark } = useTheme();
+  const s = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
   const [mapLoading, setMapLoading] = useState(true);
 
@@ -528,8 +591,8 @@ const LocationMapPreview = ({ location, address }) => {
       <View style={s.card}>
         <Text style={s.sectionLabel}>{t('detail.serviceLocation')}</Text>
         <View style={[s.rowCenter, { gap: 8 }]}>
-          <Icon name="location" size={16} color="#EF4444" />
-          <Text style={{ flex: 1, fontSize: 13, color: BRAND.text, lineHeight: 19 }}>{address}</Text>
+          <Icon name="location" size={16} color={C.danger} />
+          <Text style={{ flex: 1, fontSize: 13, color: C.text, lineHeight: 19 }}>{address}</Text>
         </View>
       </View>
     );
@@ -548,20 +611,20 @@ const LocationMapPreview = ({ location, address }) => {
     <View style={s.card}>
       <Text style={[s.sectionLabel, { marginBottom: 10 }]}>{t('detail.serviceLocation')}</Text>
       <View style={s.mapPreviewWrap}>
-        {mapLoading && (<View style={s.mapLoadingOverlay}><ActivityIndicator size="small" color={BRAND.secondary} /></View>)}
-        <Mapbox.MapView style={s.mapPreview} styleURL={Mapbox.StyleURL.Street} scrollEnabled={false} pitchEnabled={false} rotateEnabled={false} zoomEnabled={false} onDidFinishLoadingMap={() => setMapLoading(false)}>
+        {mapLoading && (<View style={s.mapLoadingOverlay}><ActivityIndicator size="small" color={C.secondary} /></View>)}
+        <Mapbox.MapView style={s.mapPreview} styleURL={isDark ? Mapbox.StyleURL.TrafficNight : Mapbox.StyleURL.Street} scrollEnabled={false} pitchEnabled={false} rotateEnabled={false} zoomEnabled={false} onDidFinishLoadingMap={() => setMapLoading(false)}>
           <Mapbox.Camera centerCoordinate={[lng, lat]} zoomLevel={15} animationDuration={0} />
           {Platform.OS === 'ios' ? (
             <Mapbox.MarkerView id="service-location" coordinate={[lng, lat]}>
               <View style={s.mapPinOuter}>
-                <View style={s.mapPin}><Icon name="location" size={16} color="#FFFFFF" /></View>
+                <View style={s.mapPin}><Icon name="location" size={16} color={C.onDanger} /></View>
                 <View style={s.mapPinShadow} />
               </View>
             </Mapbox.MarkerView>
           ) : (
             <Mapbox.PointAnnotation id="service-location" coordinate={[lng, lat]}>
               <View style={s.mapPinOuter}>
-                <View style={s.mapPin}><Icon name="location" size={16} color="#FFFFFF" /></View>
+                <View style={s.mapPin}><Icon name="location" size={16} color={C.onDanger} /></View>
                 <View style={s.mapPinShadow} />
               </View>
             </Mapbox.PointAnnotation>
@@ -569,11 +632,11 @@ const LocationMapPreview = ({ location, address }) => {
         </Mapbox.MapView>
       </View>
       <View style={[s.rowCenter, { gap: 8, marginBottom: 10 }]}>
-        <Icon name="location" size={15} color="#EF4444" />
-        <Text style={{ flex: 1, fontSize: 13, color: BRAND.text, lineHeight: 19 }}>{address}</Text>
+        <Icon name="location" size={15} color={C.danger} />
+        <Text style={{ flex: 1, fontSize: 13, color: C.text, lineHeight: 19 }}>{address}</Text>
       </View>
       <TouchableOpacity style={s.directionsBtn} onPress={handleGetDirections} activeOpacity={0.7}>
-        <Icon name="directions" size={18} color="#FFFFFF" />
+        <Icon name="directions" size={18} color={C.onSecondary} />
         <Text style={s.directionsBtnText}>{t('detail.getDirections')}</Text>
       </TouchableOpacity>
     </View>
@@ -584,6 +647,10 @@ const LocationMapPreview = ({ location, address }) => {
    MAIN SCREEN COMPONENT — all business logic preserved exactly
    ═══════════════════════════════════════════════════════════════════════ */
 const ServiceRequestDetailScreen = ({ navigation, route }) => {
+  const { isDark } = useTheme();
+  const s = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  const STATUS_CONFIG = makeStatusConfig(C);
   const { t } = useLanguage();
   const { dialog } = useDialog();
   const { user, profile, userType } = useApp();
@@ -1315,7 +1382,11 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     const insets = useSafeAreaInsets();
     return (
       <View style={[s.screenContainer, { paddingTop: insets.top }]}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
         <ScreenShimmer type="detail" />
       </View>
     );
@@ -1324,9 +1395,13 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
     const insets = useSafeAreaInsets();
     return (
       <View style={[s.screenContainer, { paddingTop: insets.top }]}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
         <View style={s.errorWrap}>
-          <Icon name="error" size={52} color="#EF4444" />
+          <Icon name="error" size={52} color={C.danger} />
           <Text style={s.errorTitle}>{t('detail.requestNotFound')}</Text>
           <TouchableOpacity style={s.goBackBtn} onPress={() => navigation.goBack()}><Text style={s.goBackBtnText}>{t('common.goBack')}</Text></TouchableOpacity>
         </View>
@@ -1348,13 +1423,17 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   return (
     <View style={s.screenContainer}>
       <GraphBackground />
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
       {/* ─── Simple Fixed Header ────────────────────────────────── */}
       <View style={[s.headerOuter, { paddingTop: insets.top + 8, overflow: 'hidden' }]}>
-        <SvgArt color="#f67c16" height={70} />
+        <SvgArt color={C.primary} height={70} />
         <View style={s.headerTopRow}>
           <TouchableOpacity style={s.headerBackBtn} onPress={() => navigation.goBack()}>
-            <Icon name="back" size={20} color={BRAND.text} />
+            <Icon name="back" size={20} color={C.text} />
           </TouchableOpacity>
           <View style={{ flex: 1, marginHorizontal: 12 }}>
             <Text style={s.headerServiceName} numberOfLines={1}>{SERVICE_TYPE_LABELS[request.serviceType] || request.serviceType}</Text>
@@ -1368,7 +1447,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               )}
             </View>
           </View>
-          <HelpSupportButton size={24} color="#FFFFFF" style={{ marginRight: 10 }} />
+          <HelpSupportButton size={24} color={C.primary} style={{ marginRight: 10 }} />
           <View style={[s.headerStatusBadge, { backgroundColor: status.bgColor }]}>
             <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: status.color, marginRight: 6 }} />
             <Text style={[s.headerStatusText, { color: status.color }]}>{status.label}</Text>
@@ -1379,13 +1458,13 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
       <ScrollView
         style={s.scrollView}
         contentContainerStyle={s.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[BRAND.primary]} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[C.primary]} />}
         showsVerticalScrollIndicator={false}
       >
         {/* Status Description Pill — only show for terminal states */}
         {!['accepted', 'in-progress'].includes(request.status) && (
           <View style={[s.statusPill, { backgroundColor: status.bgColor }]}>
-            <Text style={[s.statusPillText, { color: status.color }]}>{getStatusDescription(request.status, isProvider, t)}</Text>
+            <Text style={[s.statusPillText, { color: status.color }]}>{getStatusDescription(STATUS_CONFIG, request.status, isProvider, t)}</Text>
           </View>
         )}
 
@@ -1395,19 +1474,19 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             {/* SVG accent art */}
             <View style={s.acceptRejectSvgBg}>
               <Svg width="100%" height="100%" viewBox="0 0 400 100" preserveAspectRatio="xMidYMid slice">
-                <Path d="M0 70 Q60 35 140 60 T280 45 T400 65" stroke={BRAND.primary} strokeWidth="1.2" fill="none" opacity={0.1} />
-                <Path d="M0 85 Q90 50 180 75 T360 55 T400 80" stroke={BRAND.primary} strokeWidth="0.8" fill="none" opacity={0.06} />
-                <Circle cx="360" cy="20" r="30" fill={BRAND.primary} opacity={0.04} />
-                <Circle cx="30" cy="15" r="18" fill={BRAND.primary} opacity={0.03} />
+                <Path d="M0 70 Q60 35 140 60 T280 45 T400 65" stroke={C.primary} strokeWidth="1.2" fill="none" opacity={0.1} />
+                <Path d="M0 85 Q90 50 180 75 T360 55 T400 80" stroke={C.primary} strokeWidth="0.8" fill="none" opacity={0.06} />
+                <Circle cx="360" cy="20" r="30" fill={C.primary} opacity={0.04} />
+                <Circle cx="30" cy="15" r="18" fill={C.primary} opacity={0.03} />
               </Svg>
             </View>
             <Text style={s.acceptRejectTitle}>{t('detail.respondToRequest')}</Text>
             <View style={s.acceptRejectRow}>
               <TouchableOpacity style={s.rejectBtn} onPress={handleRejectRequest} disabled={rejecting || accepting}>
-                {rejecting ? <ActivityIndicator size="small" color="#64748B" /> : (<><Icon name="close" size={16} color="#94A3B8" /><Text style={s.rejectBtnText}>{t('providerHistory.reject')}</Text></>)}
+                {rejecting ? <ActivityIndicator size="small" color={C.textSecondary} /> : (<><Icon name="close" size={16} color={C.muted} /><Text style={s.rejectBtnText}>{t('providerHistory.reject')}</Text></>)}
               </TouchableOpacity>
               <TouchableOpacity style={s.acceptBtn} onPress={handleAcceptRequest} disabled={accepting || rejecting}>
-                {accepting ? <ActivityIndicator size="small" color="#FFFFFF" /> : (<><Icon name="check" size={16} color="#FFFFFF" /><Text style={s.acceptBtnText}>{t('providerHistory.accept')}</Text></>)}
+                {accepting ? <ActivityIndicator size="small" color={C.onPrimary} /> : (<><Icon name="check" size={16} color={C.onPrimary} /><Text style={s.acceptBtnText}>{t('providerHistory.accept')}</Text></>)}
               </TouchableOpacity>
             </View>
           </View>
@@ -1454,15 +1533,15 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               <View style={s.compactActionRow}>
                 {hasCoords && (
                   <TouchableOpacity style={s.compactActionBtn} onPress={handleDirections} activeOpacity={0.7}>
-                    <View style={[s.compactActionIcon, { backgroundColor: '#EFF6FF' }]}>
-                      <Icon name="directions" size={18} color={BRAND.secondary} />
+                    <View style={[s.compactActionIcon, { backgroundColor: C.infoFill }]}>
+                      <Icon name="directions" size={18} color={C.secondary} />
                     </View>
                     <Text style={s.compactActionLabel}>{t('detail.directions')}</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity style={s.compactActionBtn} onPress={handleCall} activeOpacity={0.7}>
-                  <View style={[s.compactActionIcon, { backgroundColor: '#ECFDF5' }]}>
-                    <Icon name="phone" size={18} color={BRAND.success} />
+                  <View style={[s.compactActionIcon, { backgroundColor: C.successFill }]}>
+                    <Icon name="phone" size={18} color={C.success} />
                   </View>
                   <Text style={s.compactActionLabel}>{t('common.call')}</Text>
                 </TouchableOpacity>
@@ -1471,14 +1550,14 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                   onPress={() => !locationSharingLoading && handleToggleLocationSharing(!locationSharingEnabled)}
                   activeOpacity={0.7}
                 >
-                  <View style={[s.compactActionIcon, { backgroundColor: locationSharingEnabled ? '#D1FAE5' : '#F1F5F9' }]}>
+                  <View style={[s.compactActionIcon, { backgroundColor: locationSharingEnabled ? C.successFill : C.hairline }]}>
                     {locationSharingLoading ? (
-                      <ActivityIndicator size={16} color={BRAND.secondary} />
+                      <ActivityIndicator size={16} color={C.secondary} />
                     ) : (
-                      <Icon name="location" size={18} color={locationSharingEnabled ? BRAND.success : BRAND.textMuted} />
+                      <Icon name="location" size={18} color={locationSharingEnabled ? C.success : C.textMuted} />
                     )}
                   </View>
-                  <Text style={[s.compactActionLabel, locationSharingEnabled && { color: BRAND.success, fontWeight: '700' }]}>
+                  <Text style={[s.compactActionLabel, locationSharingEnabled && { color: C.success, fontWeight: '700' }]}>
                     {locationSharingEnabled ? t('detail.sharing') : t('detail.share')}
                   </Text>
                 </TouchableOpacity>
@@ -1488,24 +1567,24 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               {locationSharingEnabled && (
                 <View style={[s.locSharingActiveBox, { marginTop: 10 }]}>
                   <View style={[s.rowCenter, { gap: 8 }]}>
-                    <PulsingDot color={BRAND.success} size={4} />
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: '#065F46' }}>{t('detail.liveSharing')}</Text>
+                    <PulsingDot color={C.success} size={4} />
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: C.success }}>{t('detail.liveSharing')}</Text>
                   </View>
                 </View>
               )}
 
               {/* Divider */}
-              <View style={{ height: 1, backgroundColor: '#F1F5F9', marginVertical: 12 }} />
+              <View style={{ height: 1, backgroundColor: C.hairline, marginVertical: 12 }} />
 
               {/* Row 2: OTP Entry */}
               <View style={[s.rowCenter, { gap: 8, marginBottom: 8 }]}>
-                <View style={s.providerOtpIconCircle}><Icon name="lock" size={16} color="#8B5CF6" /></View>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#5B21B6' }}>{t('detail.completeService')}</Text>
+                <View style={s.providerOtpIconCircle}><Icon name="lock" size={16} color={C.purple} /></View>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: C.purple }}>{t('detail.completeService')}</Text>
               </View>
               <View style={s.providerOtpInputRow}>
-                <TextInput style={s.providerOtpInput} value={enteredOtp} onChangeText={setEnteredOtp} placeholder="000000" placeholderTextColor="#D1D5DB" keyboardType="number-pad" maxLength={6} />
+                <TextInput style={s.providerOtpInput} value={enteredOtp} onChangeText={setEnteredOtp} placeholder="000000" placeholderTextColor={C.muted} keyboardType="number-pad" maxLength={6} />
                 <TouchableOpacity style={[s.providerOtpBtn, enteredOtp.length === 6 ? s.providerOtpBtnEnabled : s.providerOtpBtnDisabled]} onPress={handleVerifyOtp} disabled={enteredOtp.length !== 6 || verifyingOtp}>
-                  {verifyingOtp ? <ActivityIndicator size="small" color="#FFFFFF" /> : (<><Icon name="check" size={15} color={enteredOtp.length === 6 ? '#FFFFFF' : '#94A3B8'} /><Text style={[s.providerOtpBtnText, enteredOtp.length !== 6 && s.providerOtpBtnTextDisabled]}>{t('providerHistory.complete')}</Text></>)}
+                  {verifyingOtp ? <ActivityIndicator size="small" color={C.onSuccess} /> : (<><Icon name="check" size={15} color={enteredOtp.length === 6 ? C.onSuccess : C.muted} /><Text style={[s.providerOtpBtnText, enteredOtp.length !== 6 && s.providerOtpBtnTextDisabled]}>{t('providerHistory.complete')}</Text></>)}
                 </TouchableOpacity>
               </View>
             </View>
@@ -1538,7 +1617,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                     </View>
                   )}
                   {(sentProviderDetails.isVerified || sentProviderDetails.verified) && (
-                    <View style={s.verifiedBadge}><Icon name="verified" size={10} color="#FFFFFF" /></View>
+                    <View style={s.verifiedBadge}><Icon name="verified" size={10} color={C.onSuccess} /></View>
                   )}
                 </View>
                 <View style={{ flex: 1 }}>
@@ -1546,10 +1625,10 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                   <View style={[s.rowCenter, { gap: 8, marginTop: 3 }]}>
                     {(sentProviderDetails.ratings?.average || sentProviderDetails.rating) > 0 && (
                       <View style={[s.rowCenter, { gap: 3 }]}>
-                        <Icon name="star" size={13} color="#F59E0B" />
-                        <Text style={{ fontSize: 13, fontWeight: '600', color: BRAND.text }}>{(sentProviderDetails.ratings?.average || sentProviderDetails.rating || 0).toFixed(1)}</Text>
+                        <Icon name="star" size={13} color={iconAccent.star} />
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: C.text }}>{(sentProviderDetails.ratings?.average || sentProviderDetails.rating || 0).toFixed(1)}</Text>
                         {(sentProviderDetails.ratings?.total || sentProviderDetails.totalRatings || 0) > 0 && (
-                          <Text style={{ fontSize: 11, color: BRAND.textMuted }}>({sentProviderDetails.ratings?.total || sentProviderDetails.totalRatings})</Text>
+                          <Text style={{ fontSize: 11, color: C.textMuted }}>({sentProviderDetails.ratings?.total || sentProviderDetails.totalRatings})</Text>
                         )}
                       </View>
                     )}
@@ -1558,8 +1637,8 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               </View>
             ) : (
               <View style={[s.rowCenter, { gap: 10, marginBottom: 14 }]}>
-                <View style={[s.noProviderIcon, { backgroundColor: '#EFF6FF', borderColor: BRAND.secondary + '30' }]}>
-                  <Icon name="send" size={20} color={BRAND.secondary} />
+                <View style={[s.noProviderIcon, { backgroundColor: C.infoFill, borderColor: C.secondary + '30' }]}>
+                  <Icon name="send" size={20} color={C.secondary} />
                 </View>
                 <View style={s.noProviderInfo}>
                   <Text style={s.noProviderTitle}>{t('detail.requestSentTitle')}</Text>
@@ -1570,7 +1649,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
 
             {/* Waiting status pill */}
             <View style={s.waitingPill}>
-              <PulsingDot color={BRAND.secondary} size={6} />
+              <PulsingDot color={C.secondary} size={6} />
               <Text style={s.waitingPillText}>{t('detail.waitingForProvider')}</Text>
             </View>
 
@@ -1581,7 +1660,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                 onPress={() => navigation.navigate('UserTabs', { screen: 'HomeTab', params: { resumeRequest: request } })}
                 activeOpacity={0.7}
               >
-                <Icon name="search" size={16} color="#fff" />
+                <Icon name="search" size={16} color={C.onSecondary} />
                 <Text style={s.findProvidersBtnText}>{t('detail.findNewProvider')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -1591,10 +1670,10 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                 activeOpacity={0.7}
               >
                 {cancelling ? (
-                  <ActivityIndicator color="#DC2626" size="small" />
+                  <ActivityIndicator color={C.danger} size="small" />
                 ) : (
                   <>
-                    <Icon name="close" size={16} color="#DC2626" />
+                    <Icon name="close" size={16} color={C.danger} />
                     <Text style={s.cancelSentBtnText}>{t('common.cancel')}</Text>
                   </>
                 )}
@@ -1613,7 +1692,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               <Text style={s.sectionLabel}>{t('detail.noProviderSelected')}</Text>
               <View style={[s.rowCenter, s.noProviderRow]}>
                 <View style={[s.noProviderIcon, isWithin30Min ? s.noProviderIconActive : s.noProviderIconExpiring]}>
-                  <Icon name={isWithin30Min ? 'search' : 'clock'} size={22} color={isWithin30Min ? BRAND.primary : BRAND.danger} />
+                  <Icon name={isWithin30Min ? 'search' : 'clock'} size={22} color={isWithin30Min ? C.primary : C.danger} />
                 </View>
                 <View style={s.noProviderInfo}>
                   <Text style={s.noProviderTitle}>
@@ -1632,13 +1711,13 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                   onPress={() => navigation.navigate('UserTabs', { screen: 'HomeTab', params: { resumeRequest: request } })}
                   activeOpacity={0.7}
                 >
-                  <Icon name="search" size={18} color="#fff" />
+                  <Icon name="search" size={18} color={C.onSecondary} />
                   <Text style={s.findProvidersBtnText}>{t('userHistory.findProviders')}</Text>
                 </TouchableOpacity>
               )}
               {!isWithin30Min && (
                 <View style={s.noProviderWarning}>
-                  <Icon name="info" size={16} color={BRAND.danger} />
+                  <Icon name="info" size={16} color={C.danger} />
                   <Text style={s.noProviderWarningText}>{t('detail.autoCancelWarning')}</Text>
                 </View>
               )}
@@ -1673,15 +1752,15 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             return (
               <View style={s.card}>
                 <View style={[s.rowCenter, { gap: 10, marginBottom: 12 }]}>
-                  <View style={[s.iconCircle, { backgroundColor: '#D1FAE5' }]}><Icon name="location" size={18} color={BRAND.success} /></View>
+                  <View style={[s.iconCircle, { backgroundColor: C.successFill }]}><Icon name="location" size={18} color={C.success} /></View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: BRAND.text }}>{t('detail.providerLocation')}</Text>
-                    <View style={[s.rowCenter, { gap: 5, marginTop: 2 }]}><PulsingDot color={BRAND.success} size={4} /><Text style={{ fontSize: 11, color: '#059669', fontWeight: '600' }}>{t('detail.liveStatus')}</Text></View>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: C.text }}>{t('detail.providerLocation')}</Text>
+                    <View style={[s.rowCenter, { gap: 5, marginTop: 2 }]}><PulsingDot color={C.success} size={4} /><Text style={{ fontSize: 11, color: C.success, fontWeight: '600' }}>{t('detail.liveStatus')}</Text></View>
                   </View>
                 </View>
-                {lastUpdateLabel ? (<View style={[s.rowCenter, { gap: 6, marginBottom: 10, paddingLeft: 44 }]}><Icon name="clock" size={11} color={BRAND.textMuted} /><Text style={{ fontSize: 11, color: BRAND.textMuted }}>{t('detail.updated', { time: lastUpdateLabel })}</Text></View>) : null}
+                {lastUpdateLabel ? (<View style={[s.rowCenter, { gap: 6, marginBottom: 10, paddingLeft: 44 }]}><Icon name="clock" size={11} color={C.textMuted} /><Text style={{ fontSize: 11, color: C.textMuted }}>{t('detail.updated', { time: lastUpdateLabel })}</Text></View>) : null}
                 <TouchableOpacity style={s.trackLiveBtn} onPress={handleGetProviderLocation} activeOpacity={0.7}>
-                  <Icon name="location" size={16} color="#FFFFFF" /><Text style={s.trackLiveBtnText}>{t('detail.trackLive')}</Text><Icon name="chevron-right" size={14} color="#FFFFFF" />
+                  <Icon name="location" size={16} color={C.onSecondary} /><Text style={s.trackLiveBtnText}>{t('detail.trackLive')}</Text><Icon name="chevron-right" size={14} color={C.onSecondary} />
                 </TouchableOpacity>
               </View>
             );
@@ -1689,17 +1768,17 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             return (
               <View style={s.card}>
                 <View style={[s.rowCenter, { gap: 10, marginBottom: 8 }]}>
-                  <View style={[s.iconCircle, { backgroundColor: '#FEF3C7' }]}><ActivityIndicator size="small" color="#F59E0B" /></View>
-                  <View style={{ flex: 1 }}><Text style={{ fontSize: 14, fontWeight: '700', color: BRAND.text }}>{t('detail.providerLocation')}</Text><Text style={{ fontSize: 11, color: '#B45309' }}>{t('detail.acquiringLocation')}</Text></View>
+                  <View style={[s.iconCircle, { backgroundColor: C.warningFill }]}><ActivityIndicator size="small" color={C.warning} /></View>
+                  <View style={{ flex: 1 }}><Text style={{ fontSize: 14, fontWeight: '700', color: C.text }}>{t('detail.providerLocation')}</Text><Text style={{ fontSize: 11, color: C.warning }}>{t('detail.acquiringLocation')}</Text></View>
                 </View>
-                <Text style={{ fontSize: 11, color: BRAND.textMuted, paddingLeft: 44, lineHeight: 17 }}>{t('detail.acquiringLocationDesc')}</Text>
+                <Text style={{ fontSize: 11, color: C.textMuted, paddingLeft: 44, lineHeight: 17 }}>{t('detail.acquiringLocationDesc')}</Text>
                 {locationAcquireTimeout && (
                   <TouchableOpacity
-                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: BRAND.secondary, borderRadius: 12, paddingVertical: 10, marginTop: 8 }}
+                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.secondary, borderRadius: 12, paddingVertical: 10, marginTop: 8 }}
                     onPress={() => { setLocationAcquireTimeout(false); fetchLocationSharingStatus(); }}
                   >
-                    <Icon name="refresh" size={14} color="#FFFFFF" />
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#FFFFFF' }}>{t('common.retry')}</Text>
+                    <Icon name="refresh" size={14} color={C.onSecondary} />
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: C.onSecondary }}>{t('common.retry')}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -1708,15 +1787,15 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             return (
               <View style={s.card}>
                 <View style={[s.rowCenter, { gap: 10, marginBottom: 10 }]}>
-                  <View style={[s.iconCircle, { backgroundColor: '#F1F5F9' }]}><Icon name="location" size={18} color={BRAND.textMuted} /></View>
-                  <View style={{ flex: 1 }}><Text style={{ fontSize: 14, fontWeight: '700', color: BRAND.text }}>{t('detail.providerLocation')}</Text><Text style={{ fontSize: 11, color: BRAND.textMuted }}>{t('detail.notSharingYet')}</Text></View>
+                  <View style={[s.iconCircle, { backgroundColor: C.hairline }]}><Icon name="location" size={18} color={C.textMuted} /></View>
+                  <View style={{ flex: 1 }}><Text style={{ fontSize: 14, fontWeight: '700', color: C.text }}>{t('detail.providerLocation')}</Text><Text style={{ fontSize: 11, color: C.textMuted }}>{t('detail.notSharingYet')}</Text></View>
                 </View>
                 {!isWithin45Min && msUntilService != null && msUntilService > 0 ? (
-                  <View style={s.infoBoxBlue}><Icon name="clock" size={13} color={BRAND.secondary} style={{ marginTop: 1 }} /><Text style={s.infoBoxBlueText}>{t('detail.locationBefore45', { time: timeUntilLabel ? ` Service in ${timeUntilLabel}.` : '' })}</Text></View>
+                  <View style={s.infoBoxBlue}><Icon name="clock" size={13} color={C.secondary} style={{ marginTop: 1 }} /><Text style={s.infoBoxBlueText}>{t('detail.locationBefore45', { time: timeUntilLabel ? ` Service in ${timeUntilLabel}.` : '' })}</Text></View>
                 ) : isWithin45Min || (msUntilService != null && msUntilService <= 0) ? (
-                  <View style={s.infoBoxAmber}><Icon name="clock" size={13} color="#B45309" style={{ marginTop: 1 }} /><Text style={s.infoBoxAmberText}>{t('detail.waitingForSharing')}</Text></View>
+                  <View style={s.infoBoxAmber}><Icon name="clock" size={13} color={C.warning} style={{ marginTop: 1 }} /><Text style={s.infoBoxAmberText}>{t('detail.waitingForSharing')}</Text></View>
                 ) : (
-                  <View style={[s.infoBoxBlue, { backgroundColor: '#F1F5F9' }]}><Icon name="info" size={13} color={BRAND.textMuted} style={{ marginTop: 1 }} /><Text style={[s.infoBoxBlueText, { color: BRAND.textSecondary }]}>{t('detail.providerWillShare')}</Text></View>
+                  <View style={[s.infoBoxBlue, { backgroundColor: C.hairline }]}><Icon name="info" size={13} color={C.textMuted} style={{ marginTop: 1 }} /><Text style={[s.infoBoxBlueText, { color: C.textSecondary }]}>{t('detail.providerWillShare')}</Text></View>
                 )}
               </View>
             );
@@ -1729,35 +1808,35 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             <View style={[s.rowBetween, { marginBottom: 12 }]}>
               <Text style={[s.sectionLabel, { marginBottom: 0 }]}>{t('detail.customerLabel')}</Text>
               {request.userDetails.isRepeatCustomer && (
-                <View style={s.repeatBadge}><Icon name="heart" size={10} color={BRAND.primary} /><Text style={s.repeatBadgeText}>{t('detail.repeatBadge')}</Text></View>
+                <View style={s.repeatBadge}><Icon name="heart" size={10} color={C.primary} /><Text style={s.repeatBadgeText}>{t('detail.repeatBadge')}</Text></View>
               )}
             </View>
-            <View style={[s.rowCenter, { marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: BRAND.border }]}>
+            <View style={[s.rowCenter, { marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: C.border }]}>
               {resolveProfilePic(request.userDetails.profilePicture) ? (
-                <Image source={{ uri: resolveProfilePic(request.userDetails.profilePicture) }} style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12, backgroundColor: '#E5E7EB' }} />
+                <Image source={{ uri: resolveProfilePic(request.userDetails.profilePicture) }} style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12, backgroundColor: C.line }} />
               ) : (
-                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: BRAND.secondary, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
-                  <Text style={{ fontSize: 17, fontWeight: '700', color: BRAND.white }}>{request.userDetails.name?.charAt(0).toUpperCase() || 'C'}</Text>
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: C.secondary, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                  <Text style={{ fontSize: 17, fontWeight: '700', color: C.white }}>{request.userDetails.name?.charAt(0).toUpperCase() || 'C'}</Text>
                 </View>
               )}
               <View style={{ flex: 1 }}>
                 <View style={[s.rowCenter, { gap: 5 }]}>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: BRAND.text }}>{request.userDetails.name || t('providerHistory.customer')}</Text>
-                  {request.userDetails.isVerified && <Icon name="verified" size={14} color={BRAND.success} />}
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: C.text }}>{request.userDetails.name || t('providerHistory.customer')}</Text>
+                  {request.userDetails.isVerified && <Icon name="verified" size={14} color={C.success} />}
                 </View>
-                {request.userDetails.memberSince && <Text style={{ fontSize: 11, color: BRAND.textMuted, marginTop: 2 }}>{t('detail.memberSince', { date: request.userDetails.memberSince })}</Text>}
+                {request.userDetails.memberSince && <Text style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>{t('detail.memberSince', { date: request.userDetails.memberSince })}</Text>}
                 {request.userDetails.previousServicesWithProvider > 0 && (
-                  <Text style={{ fontSize: 11, color: BRAND.primary, fontWeight: '500', marginTop: 2 }}>{t('detail.previousServices', { n: request.userDetails.previousServicesWithProvider })}</Text>
+                  <Text style={{ fontSize: 11, color: C.primary, fontWeight: '500', marginTop: 2 }}>{t('detail.previousServices', { n: request.userDetails.previousServicesWithProvider })}</Text>
                 )}
               </View>
             </View>
             {['pending', 'awaiting_confirmation', 'accepted', 'in-progress'].includes(request.status) && (
               <View style={{ marginBottom: 12 }}>
                 {request.userDetails.email && (
-                  <View style={[s.rowCenter, { gap: 8, paddingVertical: 4 }]}><Icon name="mail" size={13} color={BRAND.textMuted} /><Text style={{ fontSize: 12, color: BRAND.text }}>{request.userDetails.email}</Text></View>
+                  <View style={[s.rowCenter, { gap: 8, paddingVertical: 4 }]}><Icon name="mail" size={13} color={C.textMuted} /><Text style={{ fontSize: 12, color: C.text }}>{request.userDetails.email}</Text></View>
                 )}
                 {(request.userDetails.address || request.userDetails.city) && (
-                  <View style={[s.rowCenter, { gap: 8, paddingVertical: 4 }]}><Icon name="location" size={13} color={BRAND.textMuted} /><Text style={{ fontSize: 12, color: BRAND.text }}>{[request.userDetails.address, request.userDetails.city].filter(Boolean).join(', ')}</Text></View>
+                  <View style={[s.rowCenter, { gap: 8, paddingVertical: 4 }]}><Icon name="location" size={13} color={C.textMuted} /><Text style={{ fontSize: 12, color: C.text }}>{[request.userDetails.address, request.userDetails.city].filter(Boolean).join(', ')}</Text></View>
                 )}
               </View>
             )}
@@ -1768,7 +1847,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               return (
                 <View style={s.serviceLocationBox}>
                   <Text style={s.serviceLocationLabel}>{t('detail.serviceLocation')}</Text>
-                  <View style={[s.rowCenter, { gap: 8, marginBottom: 8 }]}><Icon name="pin" size={13} color={BRAND.primary} /><Text style={{ flex: 1, fontSize: 12, color: BRAND.text, lineHeight: 17 }}>{locAddr || t('detail.serviceLocation')}</Text></View>
+                  <View style={[s.rowCenter, { gap: 8, marginBottom: 8 }]}><Icon name="pin" size={13} color={C.primary} /><Text style={{ flex: 1, fontSize: 12, color: C.text, lineHeight: 17 }}>{locAddr || t('detail.serviceLocation')}</Text></View>
                   <TouchableOpacity
                     style={s.openInMapsBtn}
                     onPress={() => {
@@ -1796,7 +1875,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                     }}
                     activeOpacity={0.7}
                   >
-                    <Icon name="directions" size={14} color={BRAND.secondary} />
+                    <Icon name="directions" size={14} color={C.secondary} />
                     <Text style={s.openInMapsBtnText}>{t('detail.openInMaps')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -1804,7 +1883,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             })()}
             {['pending', 'awaiting_confirmation', 'accepted', 'in-progress'].includes(request.status) && (
               <TouchableOpacity style={s.callCustomerBtn} onPress={handleCall}>
-                <Icon name="phone" size={15} color="#FFFFFF" /><Text style={s.callCustomerBtnText}>{t('detail.callCustomer')}</Text>
+                <Icon name="phone" size={15} color={C.onSuccess} /><Text style={s.callCustomerBtnText}>{t('detail.callCustomer')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -1871,7 +1950,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             disabled={cancelling}
           >
             {cancelling ? (
-              <ActivityIndicator color="#DC2626" size="small" />
+              <ActivityIndicator color={C.danger} size="small" />
             ) : (
               <Text style={s.cancelActionBtnText}>
                 {['accepted', 'in-progress'].includes(request.status) ? t('detail.cancelBooking') : t('detail.cancelRequest')}
@@ -1883,7 +1962,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         {/* Completed Banner */}
         {request.status === 'completed' && (
           <View style={s.completedBanner}>
-            <Icon name="celebration" size={28} color="#10B981" />
+            <Icon name="celebration" size={28} color={C.success} />
             <Text style={s.completedTitle}>{t('detail.serviceCompletedTitle')}</Text>
             <Text style={s.completedSub}>{t('detail.serviceCompletedSub')}</Text>
           </View>
@@ -1894,23 +1973,23 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           <View style={s.card}>
             {ratingCheckLoading ? (
               <View style={{ alignItems: 'center', paddingVertical: 10 }}>
-                <ActivityIndicator size="small" color={BRAND.primary} />
-                <Text style={{ fontSize: 12, color: BRAND.textMuted, marginTop: 6 }}>{t('detail.checkingRating')}</Text>
+                <ActivityIndicator size="small" color={C.primary} />
+                <Text style={{ fontSize: 12, color: C.textMuted, marginTop: 6 }}>{t('detail.checkingRating')}</Text>
               </View>
             ) : hasRated ? (
               <View style={{ alignItems: 'center' }}>
-                <View style={[s.rowCenter, { gap: 8, marginBottom: 10 }]}><Icon name="star" size={18} color="#F59E0B" /><Text style={{ fontSize: 14, fontWeight: '600', color: BRAND.text }}>{t('detail.youRated')}</Text></View>
+                <View style={[s.rowCenter, { gap: 8, marginBottom: 10 }]}><Icon name="star" size={18} color={iconAccent.star} /><Text style={{ fontSize: 14, fontWeight: '600', color: C.text }}>{t('detail.youRated')}</Text></View>
                 <View style={{ flexDirection: 'row', gap: 4, marginBottom: 10 }}>
-                  {[1, 2, 3, 4, 5].map((star) => (<Icon key={star} name="star" size={24} color={star <= (ratingStatus.rating?.rating || 0) ? '#F59E0B' : '#E5E7EB'} />))}
+                  {[1, 2, 3, 4, 5].map((star) => (<Icon key={star} name="star" size={24} color={star <= (ratingStatus.rating?.rating || 0) ? iconAccent.star : C.line} />))}
                 </View>
-                {ratingStatus.rating?.review ? <Text style={{ fontSize: 12, color: BRAND.textSecondary, fontStyle: 'italic', textAlign: 'center' }}>"{ratingStatus.rating.review}"</Text> : null}
+                {ratingStatus.rating?.review ? <Text style={{ fontSize: 12, color: C.textSecondary, fontStyle: 'italic', textAlign: 'center' }}>"{ratingStatus.rating.review}"</Text> : null}
               </View>
             ) : (
               <View style={{ alignItems: 'center' }}>
-                <Text style={{ fontSize: 16, fontWeight: '700', color: BRAND.text, marginBottom: 4 }}>{t('detail.rateTitle')}</Text>
-                <Text style={{ fontSize: 13, color: BRAND.textSecondary, marginBottom: 14 }}>{t('detail.rateSub')}</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: C.text, marginBottom: 4 }}>{t('detail.rateTitle')}</Text>
+                <Text style={{ fontSize: 13, color: C.textSecondary, marginBottom: 14 }}>{t('detail.rateSub')}</Text>
                 <TouchableOpacity style={s.rateBtn} onPress={() => setRatingModalVisible(true)}>
-                  <Icon name="star" size={16} color="#FFFFFF" /><Text style={s.rateBtnText}>{t('detail.rateBtn')}</Text>
+                  <Icon name="star" size={16} color={C.onGold} /><Text style={s.rateBtnText}>{t('detail.rateBtn')}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -1920,17 +1999,17 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         {/* Favorites */}
         {request.status === 'completed' && !isProvider && (request?.providerId || request?.assignedProviderDetails?._id) && (
           <TouchableOpacity style={[s.favBtn, isFavorited && s.favBtnActive]} onPress={handleToggleFavorite} disabled={togglingFavorite}>
-            {togglingFavorite ? <ActivityIndicator color={isFavorited ? '#DC2626' : '#F59E0B'} size="small" /> : (
-              <><Icon name={isFavorited ? 'favorite' : 'favorite-border'} size={16} color={isFavorited ? '#DC2626' : '#F59E0B'} /><Text style={[s.favBtnText, isFavorited && s.favBtnTextActive]}>{isFavorited ? t('detail.removeFavorite') : t('detail.addToFavorites')}</Text></>
+            {togglingFavorite ? <ActivityIndicator color={isFavorited ? C.danger : medal.gold} size="small" /> : (
+              <><Icon name={isFavorited ? 'favorite' : 'favorite-border'} size={16} color={isFavorited ? C.danger : medal.gold} /><Text style={[s.favBtnText, isFavorited && s.favBtnTextActive]}>{isFavorited ? t('detail.removeFavorite') : t('detail.addToFavorites')}</Text></>
             )}
           </TouchableOpacity>
         )}
 
         {/* Help */}
         <View style={[s.card, { alignItems: 'center' }]}>
-          <Text style={{ fontSize: 14, fontWeight: '700', color: BRAND.text, marginBottom: 4 }}>{t('detail.needHelp')}</Text>
-          <Text style={{ fontSize: 12, color: BRAND.textSecondary, textAlign: 'center', marginBottom: 10 }}>{t('detail.needHelpSub')}</Text>
-          <TouchableOpacity style={s.helpBtn} onPress={() => openSupport(userType)}><Icon name="email" size={14} color={BRAND.secondary} /><Text style={s.helpBtnText}>{t('detail.contactSupport')}</Text></TouchableOpacity>
+          <Text style={{ fontSize: 14, fontWeight: '700', color: C.text, marginBottom: 4 }}>{t('detail.needHelp')}</Text>
+          <Text style={{ fontSize: 12, color: C.textSecondary, textAlign: 'center', marginBottom: 10 }}>{t('detail.needHelpSub')}</Text>
+          <TouchableOpacity style={s.helpBtn} onPress={() => openSupport(userType)}><Icon name="email" size={14} color={C.secondary} /><Text style={s.helpBtnText}>{t('detail.contactSupport')}</Text></TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -1961,26 +2040,28 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
 /* ═══════════════════════════════════════════════════════════════════════
    STYLES — Premium Uber/Ola-quality design system
    ═══════════════════════════════════════════════════════════════════════ */
-const s = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   // Screen
-  screenContainer: { flex: 1, backgroundColor: BRAND.background },
+  screenContainer: { flex: 1, backgroundColor: C.background },
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 12, fontSize: 14, color: BRAND.textSecondary },
+  loadingText: { marginTop: 12, fontSize: 14, color: C.textSecondary },
   errorWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  errorTitle: { fontSize: 18, fontWeight: '700', color: BRAND.text, marginTop: 12, marginBottom: 16 },
-  goBackBtn: { backgroundColor: BRAND.secondary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 },
-  goBackBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
+  errorTitle: { fontSize: 18, fontWeight: '700', color: C.text, marginTop: 12, marginBottom: 16 },
+  goBackBtn: { backgroundColor: C.secondary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 },
+  goBackBtnText: { color: C.onSecondary, fontWeight: '700', fontSize: 14 },
 
   // Simple White Header
-  headerOuter: { backgroundColor: BRAND.white, paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', zIndex: 10 },
+  headerOuter: { backgroundColor: C.white, paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: C.hairline, zIndex: 10 },
   headerTopRow: { flexDirection: 'row', alignItems: 'center' },
-  headerBackBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
-  headerServiceName: { fontSize: 17, fontWeight: '700', color: BRAND.text },
-  headerRequestId: { fontSize: 12, color: BRAND.textMuted, fontWeight: '500' },
-  headerEventBadge: { backgroundColor: '#EDE9FE', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
-  headerEventBadgeText: { fontSize: 9, fontWeight: '700', color: '#7C3AED' },
-  headerEmergencyBadge: { backgroundColor: '#FEE2E2', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
-  headerEmergencyBadgeText: { fontSize: 9, fontWeight: '700', color: '#DC2626' },
+  headerBackBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.hairline, justifyContent: 'center', alignItems: 'center' },
+  headerServiceName: { fontSize: 17, fontWeight: '700', color: C.text },
+  headerRequestId: { fontSize: 12, color: C.textMuted, fontWeight: '500' },
+  headerEventBadge: { backgroundColor: C.purpleFill, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
+  headerEventBadgeText: { fontSize: 9, fontWeight: '700', color: C.purple },
+  headerEmergencyBadge: { backgroundColor: C.dangerFill, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
+  headerEmergencyBadgeText: { fontSize: 9, fontWeight: '700', color: C.danger },
   headerStatusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14 },
   headerStatusText: { fontSize: 12, fontWeight: '700' },
 
@@ -1990,217 +2071,218 @@ const s = StyleSheet.create({
   // Shared
   rowCenter: { flexDirection: 'row', alignItems: 'center' },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sectionLabel: { fontSize: 13, fontWeight: '700', color: BRAND.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 },
+  sectionLabel: { fontSize: 13, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 },
   iconCircle: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
 
   // Card base
-  card: { backgroundColor: BRAND.white, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: '#E8ECF1', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8, overflow: 'hidden' },
+  card: { backgroundColor: C.white, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: C.line, shadowColor: C.shadow, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8, overflow: 'hidden' },
 
   // Status Pill
   statusPill: { borderRadius: 14, paddingVertical: 10, paddingHorizontal: 16, marginBottom: 14 },
   statusPillText: { fontSize: 13, fontWeight: '600', textAlign: 'center' },
 
   // Timeline
-  timelineContainer: { backgroundColor: BRAND.white, borderRadius: 20, padding: 20, marginBottom: 12, borderWidth: 1, borderColor: '#E8ECF1', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8, overflow: 'hidden' },
-  timelineCancelledPill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#FEF2F2', borderRadius: 16, paddingVertical: 12, paddingHorizontal: 20, borderWidth: 1, borderColor: '#FECACA' },
-  timelineCancelledIcon: { width: 22, height: 22, borderRadius: 11, backgroundColor: BRAND.danger, justifyContent: 'center', alignItems: 'center' },
-  timelineCancelledText: { fontSize: 13, color: '#B91C1C', fontWeight: '600', letterSpacing: 0.1 },
+  timelineContainer: { backgroundColor: C.white, borderRadius: 20, padding: 20, marginBottom: 12, borderWidth: 1, borderColor: C.line, shadowColor: C.shadow, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8, overflow: 'hidden' },
+  timelineCancelledPill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: C.dangerBg, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 20, borderWidth: 1, borderColor: C.dangerLine },
+  timelineCancelledIcon: { width: 22, height: 22, borderRadius: 11, backgroundColor: C.danger, justifyContent: 'center', alignItems: 'center' },
+  timelineCancelledText: { fontSize: 13, color: C.danger, fontWeight: '600', letterSpacing: 0.1 },
   timeline: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 2, paddingTop: 2 },
   timelineStep: { alignItems: 'center', minWidth: 52, flexShrink: 0 },
   timelineConnectorWrapper: { flex: 1, justifyContent: 'center', paddingTop: 2, height: 32 },
-  timelineConnector: { height: 3, backgroundColor: '#E2E8F0', borderRadius: 1.5 },
-  timelineConnectorActive: { backgroundColor: BRAND.success },
-  timelineCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#E2E8F0' },
-  timelineCircleCompleted: { backgroundColor: BRAND.success, borderColor: BRAND.success, shadowColor: BRAND.success, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 3, elevation: 2 },
-  timelineCircleCurrent: { backgroundColor: BRAND.primary, borderColor: BRAND.primary, shadowColor: BRAND.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 6, elevation: 4 },
-  timelineNumber: { fontSize: 12, color: '#B0BEC5', fontWeight: '700', letterSpacing: -0.2 },
-  timelineLabel: { marginTop: 8, fontSize: 11, color: BRAND.textMuted, textAlign: 'center', fontWeight: '500', letterSpacing: 0.1 },
-  timelineLabelActive: { color: BRAND.text, fontWeight: '600' },
-  timelineLabelCurrent: { color: BRAND.primary, fontWeight: '700' },
+  timelineConnector: { height: 3, backgroundColor: C.line, borderRadius: 1.5 },
+  timelineConnectorActive: { backgroundColor: C.success },
+  timelineCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.sunken, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: C.line },
+  timelineCircleCompleted: { backgroundColor: C.success, borderColor: C.success, shadowColor: C.success, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 3, elevation: 2 },
+  timelineCircleCurrent: { backgroundColor: C.primary, borderColor: C.primary, shadowColor: C.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 6, elevation: 4 },
+  timelineNumber: { fontSize: 12, color: C.muted, fontWeight: '700', letterSpacing: -0.2 },
+  timelineLabel: { marginTop: 8, fontSize: 11, color: C.textMuted, textAlign: 'center', fontWeight: '500', letterSpacing: 0.1 },
+  timelineLabelActive: { color: C.text, fontWeight: '600' },
+  timelineLabelCurrent: { color: C.primary, fontWeight: '700' },
 
   // Cancellation Card
-  cancellationCard: { backgroundColor: '#FEF2F2', borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: '#FECACA' },
+  cancellationCard: { backgroundColor: C.dangerBg, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: C.dangerLine },
   cancellationHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  cancellationIconCircle: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center' },
-  cancellationTitle: { fontSize: 15, fontWeight: '700', color: '#991B1B' },
+  cancellationIconCircle: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.dangerFill, alignItems: 'center', justifyContent: 'center' },
+  cancellationTitle: { fontSize: 15, fontWeight: '700', color: C.danger },
   cancellationRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5, paddingLeft: 44 },
-  cancellationRowText: { fontSize: 13, color: '#7F1D1D' },
+  cancellationRowText: { fontSize: 13, color: C.danger },
 
   // Info Row
-  infoRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: BRAND.background },
+  infoRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: C.background },
   infoRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  infoLabel: { fontSize: 12, color: BRAND.textMuted },
-  infoValue: { flex: 1, fontSize: 13, color: BRAND.text, fontWeight: '600', textAlign: 'right', marginLeft: 12 },
+  infoLabel: { fontSize: 12, color: C.textMuted },
+  infoValue: { flex: 1, fontSize: 13, color: C.text, fontWeight: '600', textAlign: 'right', marginLeft: 12 },
 
   // OTP Card (User)
-  otpCard: { backgroundColor: BRAND.white, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1.5, borderColor: '#DDD6FE', shadowColor: '#7C3AED', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8 },
+  otpCard: { backgroundColor: C.white, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1.5, borderColor: C.purpleLine, shadowColor: C.purple, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8 },
   otpHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   otpHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  otpLockCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center' },
-  otpHeaderTitle: { fontSize: 15, fontWeight: '700', color: '#5B21B6' },
-  otpHeaderSub: { fontSize: 11, color: BRAND.textMuted },
+  otpLockCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.purpleBg, alignItems: 'center', justifyContent: 'center' },
+  otpHeaderTitle: { fontSize: 15, fontWeight: '700', color: C.purple },
+  otpHeaderSub: { fontSize: 11, color: C.textMuted },
   otpDigitsRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 10 },
-  otpDigitBox: { width: 44, height: 52, borderRadius: 14, backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#E9D5FF', justifyContent: 'center', alignItems: 'center', shadowColor: '#7C3AED', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
-  otpDigit: { fontSize: 24, fontWeight: '800', color: '#5B21B6' },
+  otpDigitBox: { width: 44, height: 52, borderRadius: 14, backgroundColor: C.white, borderWidth: 1.5, borderColor: C.purpleLine, justifyContent: 'center', alignItems: 'center', shadowColor: C.purple, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
+  otpDigit: { fontSize: 24, fontWeight: '800', color: C.purple },
   otpCopyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 8 },
-  otpCopyText: { fontSize: 12, color: BRAND.textMuted, fontWeight: '500' },
+  otpCopyText: { fontSize: 12, color: C.textMuted, fontWeight: '500' },
   otpExpiryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginBottom: 10 },
-  otpExpiryText: { fontSize: 11, color: BRAND.textMuted },
-  otpWarningStrip: { flexDirection: 'row', backgroundColor: '#FEF3C7', borderRadius: 12, padding: 10, gap: 8 },
-  otpWarningText: { flex: 1, fontSize: 11, color: '#92400E', lineHeight: 16, fontWeight: '500' },
+  otpExpiryText: { fontSize: 11, color: C.textMuted },
+  otpWarningStrip: { flexDirection: 'row', backgroundColor: C.warningBg, borderRadius: 12, padding: 10, gap: 8 },
+  otpWarningText: { flex: 1, fontSize: 11, color: C.warning, lineHeight: 16, fontWeight: '500' },
 
   // OTP Expired
-  otpExpiredCard: { backgroundColor: '#FEF2F2', borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: '#FECACA', alignItems: 'center' },
+  otpExpiredCard: { backgroundColor: C.dangerBg, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: C.dangerLine, alignItems: 'center' },
   otpExpiredHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  otpExpiredIconCircle: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center' },
-  otpExpiredTitle: { fontSize: 16, fontWeight: '700', color: '#DC2626' },
-  otpExpiredDesc: { fontSize: 13, color: '#7F1D1D', textAlign: 'center', marginBottom: 14, lineHeight: 18 },
-  otpResendBtn: { flexDirection: 'row', backgroundColor: '#DC2626', paddingHorizontal: 20, paddingVertical: 11, borderRadius: 14, gap: 6, alignItems: 'center' },
-  otpResendBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
+  otpExpiredIconCircle: { width: 38, height: 38, borderRadius: 19, backgroundColor: C.dangerFill, alignItems: 'center', justifyContent: 'center' },
+  otpExpiredTitle: { fontSize: 16, fontWeight: '700', color: C.danger },
+  otpExpiredDesc: { fontSize: 13, color: C.danger, textAlign: 'center', marginBottom: 14, lineHeight: 18 },
+  otpResendBtn: { flexDirection: 'row', backgroundColor: C.danger, paddingHorizontal: 20, paddingVertical: 11, borderRadius: 14, gap: 6, alignItems: 'center' },
+  otpResendBtnText: { color: C.onDanger, fontWeight: '700', fontSize: 14 },
 
   // Provider Card
-  providerName: { fontSize: 16, fontWeight: '700', color: BRAND.text },
-  providerAvatarImg: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#E5E7EB', borderWidth: 2.5, borderColor: BRAND.secondary + '30' },
-  providerAvatarFallback: { width: 48, height: 48, borderRadius: 24, backgroundColor: BRAND.secondary, justifyContent: 'center', alignItems: 'center' },
-  providerAvatarChar: { fontSize: 18, fontWeight: '700', color: BRAND.white },
-  verifiedBadge: { position: 'absolute', bottom: -1, right: -2, width: 18, height: 18, borderRadius: 9, backgroundColor: BRAND.success, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#FFFFFF' },
-  callBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: BRAND.success, borderRadius: 14, paddingVertical: 11 },
-  callBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
-  trackBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: BRAND.primary, borderRadius: 14, paddingVertical: 11 },
-  trackBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
+  providerName: { fontSize: 16, fontWeight: '700', color: C.text },
+  providerAvatarImg: { width: 48, height: 48, borderRadius: 24, backgroundColor: C.line, borderWidth: 2.5, borderColor: C.secondary + '30' },
+  providerAvatarFallback: { width: 48, height: 48, borderRadius: 24, backgroundColor: C.secondary, justifyContent: 'center', alignItems: 'center' },
+  providerAvatarChar: { fontSize: 18, fontWeight: '700', color: C.white },
+  verifiedBadge: { position: 'absolute', bottom: -1, right: -2, width: 18, height: 18, borderRadius: 9, backgroundColor: C.success, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: C.white },
+  callBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.success, borderRadius: 14, paddingVertical: 11 },
+  callBtnText: { color: C.onSuccess, fontWeight: '700', fontSize: 14 },
+  trackBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.primary, borderRadius: 14, paddingVertical: 11 },
+  trackBtnText: { color: C.onPrimary, fontWeight: '700', fontSize: 14 },
 
   // Map
-  mapPreviewWrap: { height: 160, borderRadius: 20, overflow: 'hidden', marginBottom: 10, backgroundColor: '#F1F5F9' },
+  mapPreviewWrap: { height: 160, borderRadius: 20, overflow: 'hidden', marginBottom: 10, backgroundColor: C.sunken },
   mapPreview: { flex: 1 },
-  mapLoadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center', zIndex: 10 },
+  mapLoadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: C.sunken, justifyContent: 'center', alignItems: 'center', zIndex: 10 },
   mapPinOuter: { width: 40, height: 44, alignItems: 'center', justifyContent: 'flex-start' },
   mapPinWrap: { alignItems: 'center' },
-  mapPin: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center', borderWidth: 2.5, borderColor: '#FFFFFF', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 4 },
-  mapPinShadow: { width: 12, height: 4, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.15)', marginTop: 1 },
-  mapHint: { position: 'absolute', bottom: 8, right: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, gap: 4 },
-  mapHintText: { fontSize: 10, fontWeight: '600', color: '#FFFFFF' },
-  expandPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, backgroundColor: '#EFF6FF', borderRadius: 14, gap: 4 },
-  expandPillText: { fontSize: 11, fontWeight: '600', color: BRAND.secondary },
+  mapPin: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.danger, justifyContent: 'center', alignItems: 'center', borderWidth: 2.5, borderColor: stableDark.ink, shadowColor: stableDark.shadowBase, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 4 },
+  mapPinShadow: { width: 12, height: 4, borderRadius: 6, backgroundColor: mapOverlay.pinShadowSoft, marginTop: 1 },
+  mapHint: { position: 'absolute', bottom: 8, right: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: mapOverlay.hint, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, gap: 4 },
+  mapHintText: { fontSize: 10, fontWeight: '600', color: stableDark.ink },
+  expandPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, backgroundColor: C.blueBg, borderRadius: 14, gap: 4 },
+  expandPillText: { fontSize: 11, fontWeight: '600', color: C.secondary },
 
   // Fullscreen Map
-  fullMapContainer: { flex: 1, backgroundColor: '#FFFFFF' },
+  fullMapContainer: { flex: 1, backgroundColor: C.white },
   fullMap: { flex: 1 },
   fullMapPinWrap: { alignItems: 'center' },
-  fullMapPin: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#FFFFFF', shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 6 },
-  fullMapPinShadow: { width: 14, height: 5, borderRadius: 7, backgroundColor: 'rgba(0,0,0,0.2)', marginTop: 3 },
-  fullMapTopBar: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 52, paddingHorizontal: 16, paddingBottom: 12, backgroundColor: 'rgba(255,255,255,0.95)' },
-  fullMapCloseBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
-  fullMapTitle: { fontSize: 17, fontWeight: '700', color: BRAND.text },
-  fullMapBottom: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', paddingTop: 18, paddingBottom: 34, paddingHorizontal: 18, borderTopLeftRadius: 24, borderTopRightRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 8 },
-  fullMapAddr: { flex: 1, fontSize: 14, color: BRAND.text, lineHeight: 20 },
-  fullMapDirBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND.secondary, paddingVertical: 13, borderRadius: 14, gap: 8 },
-  fullMapDirText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  fullMapPin: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.danger, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: stableDark.ink, shadowColor: stableDark.shadowBase, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 6 },
+  fullMapPinShadow: { width: 14, height: 5, borderRadius: 7, backgroundColor: mapOverlay.pinShadowStrong, marginTop: 3 },
+  fullMapTopBar: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 52, paddingHorizontal: 16, paddingBottom: 12, backgroundColor: C.white },
+  fullMapCloseBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.hairline, justifyContent: 'center', alignItems: 'center' },
+  fullMapTitle: { fontSize: 17, fontWeight: '700', color: C.text },
+  fullMapBottom: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.white, paddingTop: 18, paddingBottom: 34, paddingHorizontal: 18, borderTopLeftRadius: 24, borderTopRightRadius: 24, shadowColor: C.shadow, shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 8 },
+  fullMapAddr: { flex: 1, fontSize: 14, color: C.text, lineHeight: 20 },
+  fullMapDirBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.secondary, paddingVertical: 13, borderRadius: 14, gap: 8 },
+  fullMapDirText: { fontSize: 15, fontWeight: '700', color: C.onSecondary },
 
   // Directions
-  directionsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: BRAND.secondary, borderRadius: 14, paddingVertical: 12 },
-  directionsBtnText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  directionsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.secondary, borderRadius: 14, paddingVertical: 12 },
+  directionsBtnText: { fontSize: 14, fontWeight: '700', color: C.onSecondary },
 
   // Compact Action Card (provider)
-  compactActionCard: { backgroundColor: BRAND.white, borderRadius: 20, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#E8ECF1', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8 },
+  compactActionCard: { backgroundColor: C.white, borderRadius: 20, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: C.line, shadowColor: C.shadow, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8 },
   compactActionRow: { flexDirection: 'row', justifyContent: 'center', gap: 20 },
   compactActionBtn: { alignItems: 'center', gap: 6, minWidth: 64 },
   compactActionIcon: { width: 46, height: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  compactActionLabel: { fontSize: 11, fontWeight: '600', color: BRAND.text },
+  compactActionLabel: { fontSize: 11, fontWeight: '600', color: C.text },
 
   // Provider OTP
-  providerOtpCard: { backgroundColor: '#F5F3FF', borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: '#DDD6FE' },
-  providerOtpIconCircle: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center' },
-  providerOtpTitle: { fontSize: 15, fontWeight: '700', color: '#5B21B6' },
-  providerOtpDesc: { fontSize: 12, color: BRAND.textSecondary, marginBottom: 12, lineHeight: 17 },
+  providerOtpCard: { backgroundColor: C.purpleBg, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: C.purpleLine },
+  providerOtpIconCircle: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.purpleFill, alignItems: 'center', justifyContent: 'center' },
+  providerOtpTitle: { fontSize: 15, fontWeight: '700', color: C.purple },
+  providerOtpDesc: { fontSize: 12, color: C.textSecondary, marginBottom: 12, lineHeight: 17 },
   providerOtpInputRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  providerOtpInput: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, fontSize: 18, fontWeight: '700', letterSpacing: 6, borderWidth: 1.5, borderColor: '#DDD6FE', textAlign: 'center' },
+  providerOtpInput: { flex: 1, backgroundColor: C.white, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, fontSize: 18, fontWeight: '700', letterSpacing: 6, borderWidth: 1.5, borderColor: C.purpleLine, textAlign: 'center' },
   providerOtpBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, borderRadius: 14, paddingHorizontal: 16 },
-  providerOtpBtnEnabled: { backgroundColor: '#10B981', shadowColor: '#10B981', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4 },
-  providerOtpBtnDisabled: { backgroundColor: '#E2E8F0' },
-  providerOtpBtnText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
-  providerOtpBtnTextDisabled: { color: '#94A3B8' },
+  providerOtpBtnEnabled: { backgroundColor: C.success, shadowColor: C.success, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4 },
+  providerOtpBtnDisabled: { backgroundColor: C.disabledFill },
+  providerOtpBtnText: { fontSize: 14, fontWeight: '700', color: C.onSuccess },
+  providerOtpBtnTextDisabled: { color: C.muted },
 
   // Accept/Reject
-  acceptRejectCard: { backgroundColor: BRAND.white, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1.5, borderColor: BRAND.primary + '25', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8, overflow: 'hidden' },
+  acceptRejectCard: { backgroundColor: C.white, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1.5, borderColor: C.primary + '25', shadowColor: C.shadow, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8, overflow: 'hidden' },
   acceptRejectSvgBg: { position: 'absolute', top: 0, left: 0, right: 0, height: 100 },
-  acceptRejectTitle: { fontSize: 14, fontWeight: '700', color: BRAND.primary, marginBottom: 12, textAlign: 'center' },
+  acceptRejectTitle: { fontSize: 14, fontWeight: '700', color: C.primary, marginBottom: 12, textAlign: 'center' },
   acceptRejectRow: { flexDirection: 'row', gap: 10 },
-  rejectBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: 'transparent', borderRadius: 14, paddingVertical: 13, borderWidth: 1.5, borderColor: '#E2E8F0' },
-  rejectBtnText: { fontSize: 15, fontWeight: '600', color: '#64748B' },
-  acceptBtn: { flex: 1.3, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: BRAND.primary, borderRadius: 14, paddingVertical: 13, shadowColor: BRAND.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
-  acceptBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  rejectBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: 'transparent', borderRadius: 14, paddingVertical: 13, borderWidth: 1.5, borderColor: C.line },
+  rejectBtnText: { fontSize: 15, fontWeight: '600', color: C.textSecondary },
+  acceptBtn: { flex: 1.3, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.primary, borderRadius: 14, paddingVertical: 13, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
+  acceptBtnText: { fontSize: 15, fontWeight: '700', color: C.onPrimary },
 
   // Cancel
-  cancelActionBtn: { alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 16, borderWidth: 1.5, borderColor: '#FECACA', backgroundColor: '#FFF5F5', marginBottom: 12 },
-  cancelActionBtnWarning: { borderColor: '#FCA5A5' },
-  cancelActionBtnText: { fontSize: 15, fontWeight: '600', color: '#DC2626' },
+  cancelActionBtn: { alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 16, borderWidth: 1.5, borderColor: C.dangerLine, backgroundColor: C.dangerBg, marginBottom: 12 },
+  cancelActionBtnWarning: { borderColor: C.dangerLine },
+  cancelActionBtnText: { fontSize: 15, fontWeight: '600', color: C.danger },
 
   // Location sharing
-  locSharingActiveBox: { backgroundColor: '#F0FDF4', borderRadius: 14, padding: 12, gap: 6 },
+  locSharingActiveBox: { backgroundColor: C.successBg, borderRadius: 14, padding: 12, gap: 6 },
 
   // No Provider Selected
   noProviderRow: { gap: 12, marginBottom: 12 },
   noProviderIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
-  noProviderIconActive: { backgroundColor: '#FFF7ED', borderColor: BRAND.primary + '30' },
-  noProviderIconExpiring: { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
+  noProviderIconActive: { backgroundColor: C.warningFill, borderColor: C.primary + '30' },
+  noProviderIconExpiring: { backgroundColor: C.dangerFill, borderColor: C.dangerLine },
   noProviderInfo: { flex: 1 },
-  noProviderTitle: { fontSize: 15, fontWeight: '700', color: BRAND.text },
-  noProviderDesc: { fontSize: 12, color: BRAND.textMuted, marginTop: 3 },
-  findProvidersBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: BRAND.secondary, borderRadius: 12, paddingVertical: 14 },
-  findProvidersBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
-  waitingPill: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#EFF6FF', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: BRAND.secondary + '20' },
-  waitingPillText: { fontSize: 13, fontWeight: '600', color: BRAND.secondary, flex: 1 },
-  cancelSentBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12, backgroundColor: '#FEF2F2', borderRadius: 12, paddingVertical: 13, borderWidth: 1, borderColor: '#FECACA' },
-  cancelSentBtnText: { fontSize: 14, fontWeight: '700', color: '#DC2626' },
-  noProviderWarning: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FEF2F2', borderRadius: 12, padding: 12 },
-  noProviderWarningText: { flex: 1, fontSize: 12, color: '#991B1B', lineHeight: 17 },
+  noProviderTitle: { fontSize: 15, fontWeight: '700', color: C.text },
+  noProviderDesc: { fontSize: 12, color: C.textMuted, marginTop: 3 },
+  findProvidersBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.secondary, borderRadius: 12, paddingVertical: 14 },
+  findProvidersBtnText: { fontSize: 15, fontWeight: '700', color: C.onSecondary },
+  waitingPill: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.blueBg, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: C.secondary + '20' },
+  waitingPillText: { fontSize: 13, fontWeight: '600', color: C.secondary, flex: 1 },
+  cancelSentBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12, backgroundColor: C.dangerBg, borderRadius: 12, paddingVertical: 13, borderWidth: 1, borderColor: C.dangerLine },
+  cancelSentBtnText: { fontSize: 14, fontWeight: '700', color: C.danger },
+  noProviderWarning: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.dangerBg, borderRadius: 12, padding: 12 },
+  noProviderWarningText: { flex: 1, fontSize: 12, color: C.danger, lineHeight: 17 },
 
   // Info boxes
-  infoBoxAmber: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#FEF3C7', borderRadius: 12, padding: 10 },
-  infoBoxAmberText: { flex: 1, fontSize: 11, color: '#92400E', lineHeight: 17, fontWeight: '500' },
-  infoBoxBlue: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#EFF6FF', borderRadius: 12, padding: 10 },
-  infoBoxBlueText: { flex: 1, fontSize: 11, color: '#1E40AF', lineHeight: 17, fontWeight: '500' },
+  infoBoxAmber: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: C.warningBg, borderRadius: 12, padding: 10 },
+  infoBoxAmberText: { flex: 1, fontSize: 11, color: C.warning, lineHeight: 17, fontWeight: '500' },
+  infoBoxBlue: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: C.blueBg, borderRadius: 12, padding: 10 },
+  infoBoxBlueText: { flex: 1, fontSize: 11, color: C.info, lineHeight: 17, fontWeight: '500' },
 
   // Customer card extras
-  repeatBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FEF3E7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
-  repeatBadgeText: { fontSize: 10, fontWeight: '700', color: BRAND.primary },
-  serviceLocationBox: { backgroundColor: '#FEF9F4', borderRadius: 14, padding: 10, marginBottom: 12 },
-  serviceLocationLabel: { fontSize: 10, fontWeight: '700', color: BRAND.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 },
-  openInMapsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#EFF6FF', borderRadius: 10, paddingVertical: 8, borderWidth: 1, borderColor: '#DBEAFE' },
-  openInMapsBtnText: { fontSize: 12, fontWeight: '600', color: BRAND.secondary },
-  callCustomerBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: BRAND.success, borderRadius: 14, paddingVertical: 12 },
-  callCustomerBtnText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  repeatBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.warningBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  repeatBadgeText: { fontSize: 10, fontWeight: '700', color: C.primary },
+  serviceLocationBox: { backgroundColor: C.warningBg, borderRadius: 14, padding: 10, marginBottom: 12 },
+  serviceLocationLabel: { fontSize: 10, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 },
+  openInMapsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.blueBg, borderRadius: 10, paddingVertical: 8, borderWidth: 1, borderColor: C.blueLine },
+  openInMapsBtnText: { fontSize: 12, fontWeight: '600', color: C.secondary },
+  callCustomerBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.success, borderRadius: 14, paddingVertical: 12 },
+  callCustomerBtnText: { color: C.onSuccess, fontSize: 14, fontWeight: '700' },
 
   // Track provider
-  trackLiveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND.secondary, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 18, gap: 8 },
-  trackLiveBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
+  trackLiveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.secondary, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 18, gap: 8 },
+  trackLiveBtnText: { color: C.onSecondary, fontWeight: '700', fontSize: 14 },
 
   // Pricing
   priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
-  priceLabel: { fontSize: 13, color: BRAND.textSecondary },
-  priceValue: { fontSize: 14, color: BRAND.text, fontWeight: '600' },
-  priceRowFinal: { borderTopWidth: 1, borderTopColor: BRAND.border, marginTop: 6, paddingTop: 10 },
-  priceLabelFinal: { fontSize: 15, fontWeight: '700', color: BRAND.text },
-  priceValueFinal: { fontSize: 18, fontWeight: '800', color: BRAND.success },
+  priceLabel: { fontSize: 13, color: C.textSecondary },
+  priceValue: { fontSize: 14, color: C.text, fontWeight: '600' },
+  priceRowFinal: { borderTopWidth: 1, borderTopColor: C.border, marginTop: 6, paddingTop: 10 },
+  priceLabelFinal: { fontSize: 15, fontWeight: '700', color: C.text },
+  priceValueFinal: { fontSize: 18, fontWeight: '800', color: C.success },
 
   // Completed
-  completedBanner: { backgroundColor: '#D1FAE5', borderRadius: 20, padding: 20, alignItems: 'center', marginBottom: 12, borderWidth: 1, borderColor: '#A7F3D0' },
-  completedTitle: { fontSize: 17, fontWeight: '800', color: '#065F46', marginTop: 8 },
-  completedSub: { fontSize: 13, color: '#047857', textAlign: 'center', marginTop: 4 },
+  completedBanner: { backgroundColor: C.successBg, borderRadius: 20, padding: 20, alignItems: 'center', marginBottom: 12, borderWidth: 1, borderColor: C.successLine },
+  completedTitle: { fontSize: 17, fontWeight: '800', color: C.success, marginTop: 8 },
+  completedSub: { fontSize: 13, color: C.success, textAlign: 'center', marginTop: 4 },
 
   // Rate
-  rateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#F59E0B', paddingVertical: 12, paddingHorizontal: 28, borderRadius: 14, shadowColor: '#F59E0B', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 3 },
-  rateBtnText: { fontSize: 15, fontWeight: '700', color: '#FFF' },
+  rateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: medal.gold, paddingVertical: 12, paddingHorizontal: 28, borderRadius: 14, shadowColor: medal.gold, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 3 },
+  rateBtnText: { fontSize: 15, fontWeight: '700', color: C.onGold },
 
   // Favorites
-  favBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#FEF3C7', borderRadius: 16, paddingVertical: 13, marginBottom: 12, borderWidth: 1, borderColor: '#F59E0B' },
-  favBtnActive: { backgroundColor: '#FEF2F2', borderColor: '#DC2626' },
-  favBtnText: { fontSize: 14, fontWeight: '700', color: '#92400E' },
-  favBtnTextActive: { color: '#DC2626' },
+  favBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.warningBg, borderRadius: 16, paddingVertical: 13, marginBottom: 12, borderWidth: 1, borderColor: medal.gold },
+  favBtnActive: { backgroundColor: C.dangerBg, borderColor: C.danger },
+  favBtnText: { fontSize: 14, fontWeight: '700', color: C.warning },
+  favBtnTextActive: { color: C.danger },
 
   // Help
-  helpBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#EFF6FF', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 14 },
-  helpBtnText: { fontSize: 13, color: BRAND.secondary, fontWeight: '600' },
-});
+  helpBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.blueBg, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 14 },
+  helpBtnText: { fontSize: 13, color: C.secondary, fontWeight: '600' },
+  });
+};
 
 export default ServiceRequestDetailScreen;
