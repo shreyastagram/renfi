@@ -16,7 +16,8 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Screen from '../components/Screen';
+import { useThemedStyles, useThemeColors } from '../theme';
 import { Button, Alert } from '../components';
 import { verifyEmailToken, getErrorMessage, AUTH_CODES } from '../services/authService';
 import { useApp } from '../context/AppContext';
@@ -30,6 +31,8 @@ import { useLanguage } from '../context/LanguageContext';
 const EmailVerifyHandlerScreen = ({ route, navigation }) => {
   const { initializeAuth, userType } = useApp();
   const { t } = useLanguage();
+  const styles = useThemedStyles(makeStyles);
+  const c = useThemeColors();
 
   // Get token from route params or deep link
   const token = route?.params?.token;
@@ -121,19 +124,19 @@ const EmailVerifyHandlerScreen = ({ route, navigation }) => {
   // Loading state
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <Screen style={styles.container}>
         <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color="#2563EB" />
+          <ActivityIndicator size="large" color={c.altBlueIndigo} />
           <Text style={styles.loadingText}>{t('emailVerify.verifying')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   // Success state
   if (success) {
     return (
-      <SafeAreaView style={styles.container}>
+      <Screen style={styles.container}>
         <View style={styles.centerContent}>
           <View style={styles.iconContainer}>
             <Text style={styles.successIcon}>✓</Text>
@@ -151,13 +154,13 @@ const EmailVerifyHandlerScreen = ({ route, navigation }) => {
             style={styles.button}
           />
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   // Error state
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       <View style={styles.centerContent}>
         <View style={styles.iconContainerError}>
           <Text style={styles.errorIcon}>✕</Text>
@@ -176,14 +179,14 @@ const EmailVerifyHandlerScreen = ({ route, navigation }) => {
           style={styles.buttonSecondary}
         />
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
   },
   centerContent: {
     flex: 1,
@@ -194,44 +197,44 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#6B7280',
+    color: theme.colors.textSecondary,
   },
   iconContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: theme.colors.successContainer,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
   },
   successIcon: {
     fontSize: 40,
-    color: '#16A34A',
+    color: theme.colors.success,
   },
   iconContainerError: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: theme.colors.dangerContainer,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
   },
   errorIcon: {
     fontSize: 40,
-    color: '#DC2626',
+    color: theme.colors.danger,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: theme.colors.textStrongNeutral,
     marginBottom: 12,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#6B7280',
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 32,

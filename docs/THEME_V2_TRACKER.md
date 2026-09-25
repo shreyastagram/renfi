@@ -3,7 +3,7 @@
 **Branch:** `feature/theme-v2` (off tag **`v1.0.9`** = `b74f862`)
 **Colour contract:** `docs/COLOUR_MAP.md`
 **Also read:** `FIXORA_APP/WORK_AVAILABILITY_TRACKER.md` — Working Hours is live in prod.
-**Last updated:** 2026-09-25, after batch 6b-3.
+**Last updated:** 2026-09-25, after batch 6b-4 — shared chrome complete.
 
 > **Read this file BEFORE touching code.** If it contradicts the code, **STOP and flag it** —
 > do not proceed on a false premise.
@@ -15,9 +15,9 @@
 
 ## ▶ 1. WHERE WE ARE RIGHT NOW
 
-**Phases 0–5a and 6a done. Phase 6b is 3 of 4 batches done.**
+**Phases 0–5a, 6a and ALL of 6b done. Shared chrome is complete.**
 
-- The theme engine is live and **9 components consume it**. The Appearance control ships.
+- The theme engine is live and **11 components consume it**. The Appearance control ships.
 - Switching to Dark currently changes: the status bar, dialogs, alerts, inputs, icons,
   skeleton loaders, the notification banner, the drawer menu, and the tab-bar pill on
   low-end devices. **Screens themselves are not themed yet.**
@@ -27,9 +27,9 @@
 
 ### Next action
 
-**Phase 6b batch 4** — a `<Screen>` primitive to standardise the 18 `SafeAreaView`
-usages (15 declare no `edges`). After that, Phase 7 (user screens) is where the app
-visibly goes dark.
+**Phase 7 — user screens.** This is where the app visibly goes dark. Start with the
+smaller surfaces before `UserHomeScreen` (146 colours, a map, and the tab bar over it).
+Swap `SafeAreaView` → `<Screen>` in each file as it is themed.
 
 ---
 
@@ -50,7 +50,9 @@ contract.
   - [x] batch 1 — `Button`, `Alert`, `ShimmerLoader` (zero security exposure)
   - [x] batch 2 — `Input`, `Icon`, `GlobalBanner` (+ category-map dedupe)
   - [x] batch 3 — `DrawerMenu` (full), `RootNavigator` (surgical — see §15)
-  - [ ] batch 4 — a `<Screen>` primitive to standardise the 18 `SafeAreaView` usages
+  - [x] batch 4 — `<Screen>` primitive built + piloted on `EmailVerifyHandlerScreen`.
+        **17 SafeAreaView sites still to swap** — they land with their own phases
+        (auth screens in 9, verification in 5b), not as a big-bang change.
 - [ ] **Phase 7** — User screens + Mapbox theme following (`TrafficNight`)
 - [ ] **Phase 8** — Provider screens incl. Working Hours (5 files, 126 colours)
 - [ ] **Phase 9** — Auth screens
@@ -63,9 +65,9 @@ contract.
 | Measure | Value |
 |---|---|
 | Colour literals remaining | **~3,150** (was 3,329 at v1.0.9) |
-| Files on the hex allowlist | **16** |
+| Files on the hex allowlist | **19** |
 | Components fully themed | **8** — CustomDialog, Button, Alert, ShimmerLoader, Input, Icon, GlobalBanner, DrawerMenu (+ RootNavigator surgically) |
-| Theme unit tests | 21 across 4 suites |
+| Theme unit tests | 23 across 5 suites |
 | Owner's Working Hours tests | 86 — **must never regress** |
 | i18n | **2074** × en/hi/mr (2067 baseline + 7 theme keys) |
 
@@ -318,6 +320,24 @@ expiry; `PhoneChangeModal` has a reentry guard, mirror-sync retry and process-de
 - Push only when the owner says.
 - Providers run low-end Android — no per-render allocation, no new blur or gradients.
 - Commit `-m` bodies: no backticks.
+
+## 16. `<Screen>` — the safe-area primitive
+
+`src/components/Screen.jsx`. Themed background + explicit `edges`, because targetSdk 36
+enforces edge-to-edge and at v1.0.9 only 4 of 18 `SafeAreaView` usages declared `edges`.
+
+**`edges` defaults to all four on purpose** — that is what `SafeAreaView` itself does when
+the prop is omitted, so swapping it in is behaviour-neutral. Narrowing insets must be an
+explicit choice at the call site, never something the primitive does to 14 screens
+silently. Guarded by `screenEdges.test.js`.
+
+`ALL_EDGES` lives in its own dependency-free module (`screenEdges.js`) because `Screen`
+reaches AsyncStorage through the theme context, so importing it in a test needs native
+mocks. Third time this pattern was needed — see also `resolveThemeName` and
+`createStyleCache`.
+
+**17 call sites still to swap.** They land with their own phases rather than as a big-bang
+change: auth screens in Phase 9, verification surfaces in 5b.
 
 ## 15. RootNavigator — deliberately only PARTIALLY migrated
 
