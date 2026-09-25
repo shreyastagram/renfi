@@ -25,15 +25,17 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Animated, StyleSheet, Dimensions } from 'react-native';
 import { IS_LOW_END_ANDROID } from '../utils/deviceClass';
+import { useThemeColors } from '../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// Shimmer colors
-const SHIMMER = {
-  base: '#E2E8F0',
-  highlight: '#F8FAFC',
-  dark: '#CBD5E1',
-};
+// Shimmer colours, resolved from the theme at call time. Kept as a function so
+// the module stays side-effect free and nothing is captured at import.
+const shimmerColors = (c) => ({
+  base: c.border,
+  highlight: c.surfaceSunken,
+  dark: c.borderMedium,
+});
 
 // ============================================
 // CORE: Shimmer Wave Animation
@@ -82,6 +84,7 @@ const useShimmerAnimation = (active = true) => {
  * @param {Animated.Value} shimmerAnim - Shared animation value (from useShimmerAnimation)
  */
 const ShimmerBlock = ({ width, height, borderRadius = 8, style, shimmerAnim }) => {
+  const SHIMMER = shimmerColors(useThemeColors());
   const blockWidth = typeof width === 'number' ? width : SCREEN_WIDTH;
 
   const translateX = shimmerAnim
@@ -163,11 +166,29 @@ const ShimmerAvatar = ({ size = 48, style, shimmerAnim }) => (
 // CARD PRIMITIVES
 // ============================================
 
-const ShimmerCard = ({ children, style, noPadding }) => (
-  <View style={[s.card, noPadding && { padding: 0 }, style]}>
-    {children}
-  </View>
-);
+/**
+ * The two themed values the skeleton layout needs. Kept as a hook so the
+ * layout StyleSheet above can stay module scope and allocation-free.
+ */
+const useSkeletonSurface = () => {
+  const c = useThemeColors();
+  return React.useMemo(
+    () => ({
+      card: { backgroundColor: c.surface },
+      fieldBorder: { borderBottomColor: c.border },
+    }),
+    [c],
+  );
+};
+
+const ShimmerCard = ({ children, style, noPadding }) => {
+  const sk = useSkeletonSurface();
+  return (
+    <View style={[s.card, sk.card, noPadding && { padding: 0 }, style]}>
+      {children}
+    </View>
+  );
+};
 
 const ShimmerRow = ({ children, style }) => (
   <View style={[s.row, style]}>{children}</View>
@@ -181,11 +202,13 @@ const ShimmerRow = ({ children, style }) => (
  * CardListSkeleton — For service history, job list, favorites
  * Shows header bar + filter pills + repeated cards
  */
-const CardListSkeleton = ({ cardCount = 4, showStats = true, showFilters = true, shimmerAnim }) => (
+const CardListSkeleton = ({ cardCount = 4, showStats = true, showFilters = true, shimmerAnim }) => {
+  const sk = useSkeletonSurface();
+  return (
   <View style={s.fill}>
     {/* Stats bar */}
     {showStats && (
-      <View style={[s.card, { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 14 }]}>
+      <View style={[s.card, sk.card, { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 14 }]}>
         {[1, 2, 3].map(i => (
           <View key={i} style={{ alignItems: 'center', gap: 6 }}>
             <ShimmerBlock width={36} height={20} borderRadius={6} shimmerAnim={shimmerAnim} />
@@ -222,17 +245,20 @@ const CardListSkeleton = ({ cardCount = 4, showStats = true, showFilters = true,
       </ShimmerCard>
     ))}
   </View>
-);
+  );
+};
 
 /**
  * ProfileSkeleton — For profile screen, settings, home screen
  * Shows avatar + info fields + action cards
  */
-const ProfileSkeleton = ({ showAvatar = true, fieldCount = 5, cardCount = 2, shimmerAnim }) => (
+const ProfileSkeleton = ({ showAvatar = true, fieldCount = 5, cardCount = 2, shimmerAnim }) => {
+  const sk = useSkeletonSurface();
+  return (
   <View style={s.fill}>
     {/* Profile header */}
     {showAvatar && (
-      <View style={[s.card, { alignItems: 'center', paddingVertical: 24, marginHorizontal: 16 }]}>
+      <View style={[s.card, sk.card, { alignItems: 'center', paddingVertical: 24, marginHorizontal: 16 }]}>
         <ShimmerAvatar size={80} shimmerAnim={shimmerAnim} style={{ marginBottom: 14 }} />
         <ShimmerLine width={140} height={18} shimmerAnim={shimmerAnim} style={{ marginBottom: 8 }} />
         <ShimmerLine width={180} height={12} shimmerAnim={shimmerAnim} />
@@ -242,7 +268,7 @@ const ProfileSkeleton = ({ showAvatar = true, fieldCount = 5, cardCount = 2, shi
     {/* Info fields */}
     <ShimmerCard style={{ marginHorizontal: 16, marginTop: 12 }}>
       {Array.from({ length: fieldCount }).map((_, i) => (
-        <View key={i} style={[s.fieldRow, i < fieldCount - 1 && s.fieldBorder]}>
+        <View key={i} style={[s.fieldRow, i < fieldCount - 1 && [s.fieldBorder, sk.fieldBorder]]}>
           <ShimmerLine width={80} height={11} shimmerAnim={shimmerAnim} />
           <ShimmerLine width={150} height={13} shimmerAnim={shimmerAnim} />
         </View>
@@ -262,7 +288,8 @@ const ProfileSkeleton = ({ showAvatar = true, fieldCount = 5, cardCount = 2, shi
       </ShimmerCard>
     ))}
   </View>
-);
+  );
+};
 
 /**
  * DetailSkeleton — For service request detail, event detail
@@ -431,12 +458,14 @@ const SecuritySkeleton = ({ shimmerAnim }) => (
  * GridSkeleton — For stats grids (provider home)
  * Shows 2x2 or 4-across stat cards
  */
-const GridSkeleton = ({ columns = 4, rows = 1, shimmerAnim }) => (
+const GridSkeleton = ({ columns = 4, rows = 1, shimmerAnim }) => {
+  const sk = useSkeletonSurface();
+  return (
   <View style={{ gap: 10 }}>
     {Array.from({ length: rows }).map((_, r) => (
       <View key={r} style={{ flexDirection: 'row', gap: 10 }}>
         {Array.from({ length: columns }).map((_, c) => (
-          <View key={c} style={[s.card, { flex: 1, alignItems: 'center', paddingVertical: 14, gap: 8 }]}>
+          <View key={c} style={[s.card, sk.card, { flex: 1, alignItems: 'center', paddingVertical: 14, gap: 8 }]}>
             <ShimmerAvatar size={36} shimmerAnim={shimmerAnim} />
             <ShimmerBlock width={30} height={18} borderRadius={6} shimmerAnim={shimmerAnim} />
             <ShimmerLine width={50} height={10} shimmerAnim={shimmerAnim} />
@@ -445,7 +474,8 @@ const GridSkeleton = ({ columns = 4, rows = 1, shimmerAnim }) => (
       </View>
     ))}
   </View>
-);
+  );
+};
 
 /**
  * ServiceApprovalSkeleton — For service approvals screen
@@ -536,7 +566,7 @@ const s = StyleSheet.create({
     flex: 1,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    // backgroundColor comes from useSkeletonSurface() — it must follow the theme
     borderRadius: 16,
     padding: 16,
   },
@@ -552,7 +582,7 @@ const s = StyleSheet.create({
   },
   fieldBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E2E8F0',
+    // borderBottomColor comes from useSkeletonSurface()
   },
 });
 

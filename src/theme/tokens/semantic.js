@@ -61,6 +61,7 @@ export const lightColors = {
 
   // Non-brand blues, preserved so light mode is unchanged. See palette.altBlue.
   altBlueIndigo: altBlue.indigo,
+  onAltBlueIndigo: slate[0], // white — 5.17:1 on #2563EB
   altBlueSky: altBlue.sky,
   altBlueIos: altBlue.ios,
 
@@ -76,6 +77,14 @@ export const lightColors = {
   warningContainer: semanticLight.warningContainer,
   dangerContainer: semanticLight.dangerContainer,
   infoContainer: semanticLight.infoContainer,
+
+  // Foreground for a filled semantic badge. Chosen per hue, not per theme:
+  // white fails on the mid-saturation green (3.30) and amber (3.19), and dark
+  // text fails on the lighter red and blue. Same rule as onBrandOrange.
+  onSuccess: slate[900],
+  onWarning: slate[900],
+  onDanger: slate[0],
+  onInfo: slate[0],
 
   // Status-chip borders. Light chips read fine on a tinted fill alone, so these
   // are transparent here; they exist so the key sets match and so a component
@@ -133,6 +142,7 @@ export const darkColors = {
   // Non-brand blues also converge in dark — three near-identical blues on a
   // dark surface would read as noise, and all three fail AA unlightened.
   altBlueIndigo: brand.blueLight,
+  onAltBlueIndigo: slate[900], // dark text — the lightened blue needs it
   altBlueSky: brand.blueLight,
   altBlueIos: brand.blueLight,
 
@@ -148,6 +158,12 @@ export const darkColors = {
   warningContainer: semanticDark.warningContainer,
   dangerContainer: semanticDark.dangerContainer,
   infoContainer: semanticDark.infoContainer,
+
+  // Dark semantic fills are all light, so every badge takes dark text.
+  onSuccess: slate[900],
+  onWarning: slate[900],
+  onDanger: slate[900],
+  onInfo: slate[900],
 
   // On a near-black card a tinted fill alone sits at roughly 1.1:1 and barely
   // reads as a chip, so dark status chips are defined by a border in their own

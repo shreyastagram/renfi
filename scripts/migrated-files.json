@@ -12,6 +12,9 @@
     "src/theme/createStyleCache.js",
     "src/theme/useThemedStyles.js",
     "src/theme/index.js",
-    "src/components/CustomDialog.jsx"
+    "src/components/CustomDialog.jsx",
+    "src/components/Button.jsx",
+    "src/components/Alert.jsx",
+    "src/components/ShimmerLoader.jsx"
   ]
 }

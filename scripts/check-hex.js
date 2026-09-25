@@ -20,6 +20,53 @@ const config = JSON.parse(
 const HEX_LINE = /#[0-9a-fA-F]{3,8}\b/;
 const RGB_LINE = /\brgba?\s*\(/;
 
+/**
+ * Blank out comments before scanning.
+ *
+ * Explanatory comments legitimately quote hex values and contrast ratios —
+ * "white on #f67c16 is 2.69:1" is documentation, not a colour literal. Flagging
+ * those made the gate fire on its own explanatory notes. Only real code counts.
+ *
+ * Replaces comment bodies with spaces rather than deleting them, so reported
+ * line numbers still line up with the file.
+ */
+const stripComments = (src) => {
+  let out = '';
+  let i = 0;
+  let inBlock = false;
+  let inLine = false;
+  let inStr = null;
+  while (i < src.length) {
+    const ch = src[i];
+    const next = src[i + 1];
+    if (inBlock) {
+      if (ch === '*' && next === '/') { inBlock = false; out += '  '; i += 2; continue; }
+      out += ch === '\n' ? '\n' : ' ';
+      i += 1;
+      continue;
+    }
+    if (inLine) {
+      if (ch === '\n') { inLine = false; out += '\n'; i += 1; continue; }
+      out += ' ';
+      i += 1;
+      continue;
+    }
+    if (inStr) {
+      if (ch === '\\') { out += '  '; i += 2; continue; }
+      if (ch === inStr) inStr = null;
+      out += ch;
+      i += 1;
+      continue;
+    }
+    if (ch === '/' && next === '*') { inBlock = true; out += '  '; i += 2; continue; }
+    if (ch === '/' && next === '/') { inLine = true; out += '  '; i += 2; continue; }
+    if (ch === '"' || ch === "'" || ch === '`') { inStr = ch; out += ch; i += 1; continue; }
+    out += ch;
+    i += 1;
+  }
+  return out;
+};
+
 let failed = false;
 
 for (const rel of config.migrated) {
@@ -30,7 +77,7 @@ for (const rel of config.migrated) {
     continue;
   }
 
-  const lines = fs.readFileSync(abs, 'utf8').split('\n');
+  const lines = stripComments(fs.readFileSync(abs, 'utf8')).split('\n');
   const hits = [];
   lines.forEach((line, i) => {
     if (HEX_LINE.test(line) || RGB_LINE.test(line)) {

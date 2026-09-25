@@ -11,24 +11,32 @@ import {  Text,
   StyleSheet,
   ActivityIndicator} from 'react-native';
 import TouchableOpacity from './TouchableOpacity';
+import { useThemeColors } from '../theme';
 
 /**
- * Button variants
+ * Button variants.
+ *
+ * Built from theme colours rather than literals. Kept as a function at module
+ * scope and memoised by the caller, so nothing is allocated per render.
+ *
+ * Note this uses altBlueIndigo, not brandBlue: #2563EB is what the component
+ * has always shipped, and preserving it keeps light mode pixel-identical.
+ * Folding it into the brand blue would be a redesign, not a theme change.
  */
-const VARIANTS = {
+const makeVariants = (c) => ({
   primary: {
-    button: { backgroundColor: '#2563EB' },
-    text: { color: '#FFFFFF' },
+    button: { backgroundColor: c.altBlueIndigo },
+    text: { color: c.onAltBlueIndigo },
   },
   secondary: {
-    button: { backgroundColor: '#E5E7EB' },
-    text: { color: '#374151' },
+    button: { backgroundColor: c.borderNeutral },
+    text: { color: c.textBodyNeutral },
   },
   outline: {
-    button: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#2563EB' },
-    text: { color: '#2563EB' },
+    button: { backgroundColor: 'transparent', borderWidth: 1, borderColor: c.altBlueIndigo },
+    text: { color: c.altBlueIndigo },
   },
-};
+});
 
 /**
  * Button Component
@@ -51,7 +59,9 @@ const Button = ({
   style,
   textStyle,
 }) => {
-  const variantStyle = VARIANTS[variant] || VARIANTS.primary;
+  const c = useThemeColors();
+  const variants = React.useMemo(() => makeVariants(c), [c]);
+  const variantStyle = variants[variant] || variants.primary;
   const isDisabled = disabled || loading;
 
   return (
@@ -72,7 +82,7 @@ const Button = ({
       {loading ? (
         <ActivityIndicator 
           size="small" 
-          color={variant === 'primary' ? '#FFFFFF' : '#2563EB'} 
+          color={variant === 'primary' ? c.onAltBlueIndigo : c.altBlueIndigo}
         />
       ) : (
         <Text style={[styles.text, variantStyle.text, textStyle]}>

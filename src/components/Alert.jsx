@@ -11,54 +11,59 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions} from 'react-native';
 import TouchableOpacity from './TouchableOpacity';
+import { useThemeColors, useThemedStyles } from '../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 /**
  * Alert type configurations
  */
-const ALERT_TYPES = {
+const makeAlertTypes = (c) => ({
   success: {
-    bg: '#F0FDF4',
-    border: '#BBF7D0',
-    text: '#15803D',
-    accent: '#16A34A',
-    iconBg: '#16A34A',
+    bg: c.successContainer,
+    border: c.successBorder,
+    text: c.success,
+    accent: c.success,
+    iconBg: c.success,
+    onIcon: c.onSuccess,
     icon: '\u2713',
     label: 'Success',
     autoDismiss: 4000,
   },
   error: {
-    bg: '#FFF1F2',
-    border: '#FECDD3',
-    text: '#BE123C',
-    accent: '#E11D48',
-    iconBg: '#E11D48',
+    bg: c.dangerContainer,
+    border: c.dangerBorder,
+    text: c.danger,
+    accent: c.danger,
+    iconBg: c.danger,
+    onIcon: c.onDanger,
     icon: '\u2715',
     label: 'Error',
     autoDismiss: 0, // errors stay until dismissed
   },
   warning: {
-    bg: '#FFFBEB',
-    border: '#FDE68A',
-    text: '#92400E',
-    accent: '#D97706',
-    iconBg: '#D97706',
+    bg: c.warningContainer,
+    border: c.warningBorder,
+    text: c.warning,
+    accent: c.warning,
+    iconBg: c.warning,
+    onIcon: c.onWarning,
     icon: '!',
     label: 'Heads up',
     autoDismiss: 5000,
   },
   info: {
-    bg: '#EFF6FF',
-    border: '#BFDBFE',
-    text: '#1E40AF',
-    accent: '#2563EB',
-    iconBg: '#2563EB',
+    bg: c.infoContainer,
+    border: c.infoBorder,
+    text: c.info,
+    accent: c.info,
+    iconBg: c.info,
+    onIcon: c.onInfo,
     icon: 'i',
     label: 'Note',
     autoDismiss: 5000,
   },
-};
+});
 
 /**
  * Alert Component
@@ -83,7 +88,10 @@ const Alert = ({
   actionLabel,
   style,
 }) => {
-  const config = ALERT_TYPES[type] || ALERT_TYPES.info;
+  const c = useThemeColors();
+  const styles = useThemedStyles(makeStyles);
+  const alertTypes = React.useMemo(() => makeAlertTypes(c), [c]);
+  const config = alertTypes[type] || alertTypes.info;
   const dismissHandler = onClose || onDismiss;
 
   // Animations
@@ -201,7 +209,7 @@ const Alert = ({
       <View style={styles.row}>
         {/* Icon Circle */}
         <View style={[styles.iconCircle, { backgroundColor: config.iconBg }]}>
-          <Text style={styles.iconText}>{config.icon}</Text>
+          <Text style={[styles.iconText, { color: config.onIcon }]}>{config.icon}</Text>
         </View>
 
         {/* Text Content */}
@@ -223,7 +231,7 @@ const Alert = ({
               style={[styles.actionButton, { backgroundColor: config.accent }]}
               activeOpacity={0.8}
             >
-              <Text style={styles.actionButtonText}>{actionLabel}</Text>
+              <Text style={[styles.actionButtonText, { color: config.onIcon }]}>{actionLabel}</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -259,14 +267,14 @@ const Alert = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => StyleSheet.create({
   container: {
     borderRadius: 14,
     borderWidth: 1,
     marginBottom: 16,
     overflow: 'hidden',
     // Soft shadow
-    shadowColor: '#000',
+    shadowColor: theme.colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -288,7 +296,8 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   iconText: {
-    color: '#FFFFFF',
+    // colour comes from config.onIcon — it depends on the badge fill
+
     fontSize: 14,
     fontWeight: '700',
   },
@@ -323,7 +332,8 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   actionButtonText: {
-    color: '#FFFFFF',
+    // colour comes from config.onIcon — it depends on the accent fill
+
     fontSize: 13,
     fontWeight: '600',
   },
@@ -339,7 +349,7 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: 3,
-    backgroundColor: 'rgba(0,0,0,0.04)',
+    backgroundColor: theme.colors.surfaceSunken,
   },
   progressBar: {
     height: 3,
