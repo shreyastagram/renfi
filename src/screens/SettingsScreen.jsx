@@ -44,7 +44,13 @@ import { Analytics, EV } from '../services/analytics';
 import { useDialog } from '../context/DialogContext';
 import { useSupport } from '../context/SupportContext';
 import { useLanguage } from '../context/LanguageContext';
-import { useTheme, THEME_MODES } from '../theme';
+import {
+  useTheme,
+  useThemedStyles,
+  useThemeColors,
+  stableDark,
+  THEME_MODES,
+} from '../theme';
 import { startLocationTracking, stopLocationTracking } from '../services/socketService';
 import { Icon } from '../components';
 import SvgArt from '../components/SvgArt';
@@ -59,34 +65,52 @@ import { getAutoUpdateEnabled, setAutoUpdateEnabled, getCurrentAppVersion, check
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
 // Premium design tokens
-const COLORS = {
-  darkHero: '#0F172A',
-  background: '#F1F5F9',
-  cardWhite: '#FFFFFF',
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  muted: '#94A3B8',
-  textPrimary: '#1E293B',
-  textSecondary: '#64748B',
-  danger: '#EF4444',
-  dangerLight: '#FEE2E2',
-  iconBg: '#F1F5F9',
-  divider: '#F1F5F9',
-  switchTrackOff: '#E2E8F0',
-  switchThumbOff: '#CBD5E1',
-};
-
-const SHADOWS = Platform.select({
-  ios: {
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-  },
-  android: {
-    elevation: 5,
-  },
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  secondary: c.brandBlue,
+  background: c.bg,
+  cardWhite: c.surface,
+  muted: c.textMuted,
+  textPrimary: c.textStrong,
+  textPrimaryNeutral: c.textPrimaryNeutral,
+  textSecondary: c.textSecondary,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerLight: c.dangerContainer,
+  // The shipped icon chip and divider were both #F1F5F9 -- exactly `bg` in light,
+  // a recessed seam on a dark surface.
+  iconBg: c.bg,
+  divider: c.bg,
+  sunkenNeutral: c.surfaceSunken,
+  switchTrackOff: c.border,
+  switchThumbOff: c.borderMedium,
+  // Apple system colours, for the delete-account sheet that deliberately reads as
+  // native iOS. These follow the OS appearance rather than the app's palette.
+  iosBlue: c.iosBlue,
+  iosRed: c.iosRed,
+  iosLabel: c.iosLabel,
+  iosLabelSecondary: c.iosLabelSecondary,
+  iosSurface: c.iosSurfaceFallback,
+  iosFill: c.iosFill,
+  iosDisabled: c.iosDisabled,
+  iosPlaceholder: c.iosPlaceholder,
+  onIosAccent: c.onIosAccent,
+  overlay: c.overlay,
+  shadow: c.shadow,
 });
+
+const makeShadows = (C) =>
+  Platform.select({
+    ios: {
+      shadowColor: C.shadow,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.08,
+      shadowRadius: 20,
+    },
+    android: {
+      elevation: 5,
+    },
+  });
 
 const CARD_RADIUS = 22;
 const ICON_SIZE = 42;
@@ -142,17 +166,22 @@ const THEME_LABEL_KEYS = {
 /**
  * Settings Section Header with accent bar
  */
-const SectionHeader = ({ title }) => (
-  <View style={styles.sectionHeaderContainer}>
-    <View style={styles.sectionAccentBar} />
-    <Text style={styles.sectionHeader}>{title}</Text>
-  </View>
-);
+const SectionHeader = ({ title }) => {
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <View style={styles.sectionHeaderContainer}>
+      <View style={styles.sectionAccentBar} />
+      <Text style={styles.sectionHeader}>{title}</Text>
+    </View>
+  );
+};
 
 /**
  * Settings Row with toggle
  */
 const ToggleRow = ({ iconName, title, subtitle, value, onValueChange, disabled, onInfoPress }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
@@ -182,14 +211,14 @@ const ToggleRow = ({ iconName, title, subtitle, value, onValueChange, disabled, 
     >
       <Animated.View style={[styles.settingsRow, { transform: [{ scale: scaleAnim }] }]}>
         <View style={styles.rowIconContainer}>
-          <Icon name={iconName} size={20} color={COLORS.secondary} />
+          <Icon name={iconName} size={20} color={C.secondary} />
         </View>
         <View style={styles.rowContent}>
           <View style={styles.rowTitleContainer}>
             <Text style={styles.rowTitle}>{title}</Text>
             {onInfoPress && (
               <TouchableOpacity onPress={onInfoPress} style={styles.infoButton}>
-                <Icon name="info" size={16} color={COLORS.muted} />
+                <Icon name="info" size={16} color={C.muted} />
               </TouchableOpacity>
             )}
           </View>
@@ -199,9 +228,9 @@ const ToggleRow = ({ iconName, title, subtitle, value, onValueChange, disabled, 
           value={value}
           onValueChange={onValueChange}
           disabled={disabled}
-          trackColor={{ false: COLORS.switchTrackOff, true: COLORS.primary }}
-          thumbColor={Platform.OS === 'ios' ? '#FFFFFF' : (value ? COLORS.primary : COLORS.switchThumbOff)}
-          ios_backgroundColor={COLORS.switchTrackOff}
+          trackColor={{ false: C.switchTrackOff, true: C.primary }}
+          thumbColor={Platform.OS === 'ios' ? C.onIosAccent : (value ? C.primary : C.switchThumbOff)}
+          ios_backgroundColor={C.switchTrackOff}
           accessibilityLabel={title}
           accessibilityRole="switch"
           accessibilityState={{ checked: value, disabled }}
@@ -214,47 +243,53 @@ const ToggleRow = ({ iconName, title, subtitle, value, onValueChange, disabled, 
 /**
  * Settings Row with navigation/action
  */
-const ActionRow = ({ iconName, title, subtitle, onPress, showArrow = true, danger = false, loading = false, disabled = false }) => (
-  <AnimatedPressable
-    onPress={onPress}
-    disabled={loading || disabled}
-    accessibilityRole="button"
-    accessibilityLabel={subtitle ? `${title}. ${subtitle}` : title}
-    accessibilityState={{ disabled: loading || disabled }}
-  >
-    <View style={[styles.settingsRow, (loading || disabled) && { opacity: 0.6 }]}>
-      <View style={[styles.rowIconContainer, danger && styles.rowIconDanger]}>
-        {loading ? (
-          <ActivityIndicator size={18} color={danger ? COLORS.danger : COLORS.secondary} />
-        ) : (
-          <Icon name={iconName} size={20} color={danger ? COLORS.danger : COLORS.secondary} />
+const ActionRow = ({ iconName, title, subtitle, onPress, showArrow = true, danger = false, loading = false, disabled = false }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      disabled={loading || disabled}
+      accessibilityRole="button"
+      accessibilityLabel={subtitle ? `${title}. ${subtitle}` : title}
+      accessibilityState={{ disabled: loading || disabled }}
+    >
+      <View style={[styles.settingsRow, (loading || disabled) && { opacity: 0.6 }]}>
+        <View style={[styles.rowIconContainer, danger && styles.rowIconDanger]}>
+          {loading ? (
+            <ActivityIndicator size={18} color={danger ? C.danger : C.secondary} />
+          ) : (
+            <Icon name={iconName} size={20} color={danger ? C.danger : C.secondary} />
+          )}
+        </View>
+        <View style={styles.rowContent}>
+          <Text style={[styles.rowTitle, danger && styles.rowTitleDanger]}>
+            {loading ? (title + '...') : title}
+          </Text>
+          {subtitle && <Text style={styles.rowSubtitle}>{subtitle}</Text>}
+        </View>
+        {showArrow && (
+          <View style={styles.arrowContainer}>
+            <Icon name="chevron-right" size={18} color={C.muted} />
+          </View>
         )}
       </View>
-      <View style={styles.rowContent}>
-        <Text style={[styles.rowTitle, danger && styles.rowTitleDanger]}>
-          {loading ? (title + '...') : title}
-        </Text>
-        {subtitle && <Text style={styles.rowSubtitle}>{subtitle}</Text>}
-      </View>
-      {showArrow && (
-        <View style={styles.arrowContainer}>
-          <Icon name="chevron-right" size={18} color={COLORS.muted} />
-        </View>
-      )}
-    </View>
-  </AnimatedPressable>
-);
+    </AnimatedPressable>
+  );
+};
 
 /**
  * Settings Skeleton Loader — Amazon-style shimmer wave
  */
 const SettingsSkeletonLoader = ({ insets, onBack }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const shimmerAnim = useShimmerAnimation();
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Icon name="arrow_back" size={22} color={COLORS.cardWhite} />
+          <Icon name="arrow_back" size={22} color={C.cardWhite} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Settings</Text>
         <View style={{ width: 44 }} />
@@ -264,7 +299,7 @@ const SettingsSkeletonLoader = ({ insets, onBack }) => {
         <ShimmerBlock width={100} height={13} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginBottom: 12, marginTop: 8 }} />
         {/* Toggle rows */}
         {[1, 2, 3].map(i => (
-          <View key={i} style={{ backgroundColor: COLORS.cardWhite, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+          <View key={i} style={{ backgroundColor: C.cardWhite, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
             <ShimmerBlock width={40} height={40} borderRadius={12} shimmerAnim={shimmerAnim} />
             <View style={{ flex: 1, marginLeft: 12, gap: 6 }}>
               <ShimmerBlock width={130} height={14} borderRadius={6} shimmerAnim={shimmerAnim} />
@@ -277,7 +312,7 @@ const SettingsSkeletonLoader = ({ insets, onBack }) => {
         <ShimmerBlock width={120} height={13} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginBottom: 12, marginTop: 16 }} />
         {/* Setting rows */}
         {[1, 2, 3, 4].map(i => (
-          <View key={i} style={{ backgroundColor: COLORS.cardWhite, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+          <View key={i} style={{ backgroundColor: C.cardWhite, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
             <ShimmerBlock width={40} height={40} borderRadius={12} shimmerAnim={shimmerAnim} />
             <View style={{ flex: 1, marginLeft: 12, gap: 6 }}>
               <ShimmerBlock width={110 + i * 15} height={14} borderRadius={6} shimmerAnim={shimmerAnim} />
@@ -289,7 +324,7 @@ const SettingsSkeletonLoader = ({ insets, onBack }) => {
         <ShimmerBlock width={80} height={13} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginBottom: 12, marginTop: 16 }} />
         {/* Action rows */}
         {[1, 2].map(i => (
-          <View key={i} style={{ backgroundColor: COLORS.cardWhite, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+          <View key={i} style={{ backgroundColor: C.cardWhite, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
             <ShimmerBlock width={40} height={40} borderRadius={12} shimmerAnim={shimmerAnim} />
             <View style={{ flex: 1, marginLeft: 12, gap: 6 }}>
               <ShimmerBlock width={120} height={14} borderRadius={6} shimmerAnim={shimmerAnim} />
@@ -306,6 +341,9 @@ const SettingsSkeletonLoader = ({ insets, onBack }) => {
  * Settings Screen Component
  */
 const SettingsScreen = ({ navigation }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  const settingsLangStyles = useThemedStyles(makeLangStyles);
   const insets = useSafeAreaInsets();
   const { user, profile, userType, logout, refreshProfile, updateProviderAvailability, updateProviderLocationTracking, isProfileLoading } = useApp();
   const { dialog } = useDialog();
@@ -1004,9 +1042,9 @@ const SettingsScreen = ({ navigation }) => {
       <GraphBackground />
       {/* Premium Header */}
       <View style={[styles.header, { paddingTop: insets.top + 8, overflow: 'hidden' }]}>
-        <SvgArt color="rgba(255,255,255,1)" height={80} />
+        <SvgArt color={stableDark.ink} height={80} />
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Icon name="arrow_back" size={22} color={COLORS.cardWhite} />
+          <Icon name="arrow_back" size={22} color={C.cardWhite} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Settings</Text>
         <View style={{ width: 44 }} />
@@ -1104,7 +1142,7 @@ const SettingsScreen = ({ navigation }) => {
 
             <View style={styles.verificationNote}>
               <View style={styles.verificationNoteIconContainer}>
-                <Icon name="info" size={14} color={COLORS.secondary} />
+                <Icon name="info" size={14} color={C.secondary} />
               </View>
               <Text style={styles.verificationNoteText}>
                 {displayData?.isFullyVerified
@@ -1148,7 +1186,7 @@ const SettingsScreen = ({ navigation }) => {
 
             <View style={styles.verificationNote}>
               <View style={styles.verificationNoteIconContainer}>
-                <Icon name="info" size={14} color={COLORS.secondary} />
+                <Icon name="info" size={14} color={C.secondary} />
               </View>
               <Text style={styles.verificationNoteText}>
                 {t('settings.insuranceNote')}
@@ -1417,7 +1455,7 @@ const SettingsScreen = ({ navigation }) => {
                   <Text style={settingsLangStyles.optionSub}>{lang.label}</Text>
                 </View>
                 {language === lang.code && (
-                  <Icon name="check" size={20} color={COLORS.secondary} />
+                  <Icon name="check" size={20} color={C.secondary} />
                 )}
               </TouchableOpacity>
             ))}
@@ -1467,7 +1505,7 @@ const SettingsScreen = ({ navigation }) => {
                   </Text>
                 </View>
                 {themeMode === m && (
-                  <Icon name="check" size={20} color={COLORS.secondary} />
+                  <Icon name="check" size={20} color={C.secondary} />
                 )}
               </TouchableOpacity>
             ))}
@@ -1501,7 +1539,7 @@ const SettingsScreen = ({ navigation }) => {
                       style={styles.iosBlurFill}
                       blurType="light"
                       blurAmount={80}
-                      reducedTransparencyFallbackColor="#F2F2F7"
+                      reducedTransparencyFallbackColor={C.iosSurface}
                     >
                       <View style={styles.iosDeleteContent}>
                         <Text style={styles.iosDeleteIcon}>⚠️</Text>
@@ -1513,7 +1551,7 @@ const SettingsScreen = ({ navigation }) => {
                         <TextInput
                           style={[styles.iosOtpInput, isDeletingAccount && { opacity: 0.5 }]}
                           placeholder="000000"
-                          placeholderTextColor="rgba(0,0,0,0.2)"
+                          placeholderTextColor={C.iosPlaceholder}
                           keyboardType="number-pad"
                           maxLength={6}
                           value={deleteOtp}
@@ -1529,7 +1567,7 @@ const SettingsScreen = ({ navigation }) => {
                         <TextInput
                           style={[styles.iosReasonInput, isDeletingAccount && { opacity: 0.5 }]}
                           placeholder={t('settings.deleteReasonPlaceholder')}
-                          placeholderTextColor="rgba(0,0,0,0.2)"
+                          placeholderTextColor={C.iosPlaceholder}
                           value={deleteReason}
                           onChangeText={setDeleteReason}
                           multiline
@@ -1544,7 +1582,7 @@ const SettingsScreen = ({ navigation }) => {
                         >
                           {isRequestingOtp ? (
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <ActivityIndicator size={14} color="#007AFF" />
+                              <ActivityIndicator size={14} color={C.iosBlue} />
                               <Text style={styles.iosResendText}>{t('settings.sending')}</Text>
                             </View>
                           ) : (
@@ -1562,7 +1600,7 @@ const SettingsScreen = ({ navigation }) => {
                           activeOpacity={0.7}
                         >
                           {isDeletingAccount ? (
-                            <ActivityIndicator color="#FFFFFF" size="small" />
+                            <ActivityIndicator color={C.onIosAccent} size="small" />
                           ) : (
                             <Text style={styles.iosDeleteBtnText}>{t('settings.deleteAccount')}</Text>
                           )}
@@ -1577,7 +1615,7 @@ const SettingsScreen = ({ navigation }) => {
                       style={styles.iosBlurFill}
                       blurType="light"
                       blurAmount={80}
-                      reducedTransparencyFallbackColor="#F2F2F7"
+                      reducedTransparencyFallbackColor={C.iosSurface}
                     >
                       <TouchableOpacity
                         style={styles.iosCancelBtn}
@@ -1619,7 +1657,7 @@ const SettingsScreen = ({ navigation }) => {
                   <TextInput
                     style={[styles.otpInput, isDeletingAccount && { opacity: 0.5 }]}
                     placeholder={t('settings.deleteOtpPlaceholder')}
-                    placeholderTextColor={COLORS.muted}
+                    placeholderTextColor={C.muted}
                     keyboardType="number-pad"
                     maxLength={6}
                     value={deleteOtp}
@@ -1633,7 +1671,7 @@ const SettingsScreen = ({ navigation }) => {
                   <TextInput
                     style={[styles.reasonInput, isDeletingAccount && { opacity: 0.5 }]}
                     placeholder={t('settings.deleteReasonPlaceholder')}
-                    placeholderTextColor={COLORS.muted}
+                    placeholderTextColor={C.muted}
                     value={deleteReason}
                     onChangeText={setDeleteReason}
                     multiline
@@ -1648,7 +1686,7 @@ const SettingsScreen = ({ navigation }) => {
                   >
                     {isRequestingOtp ? (
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <ActivityIndicator size={14} color={COLORS.primary} />
+                        <ActivityIndicator size={14} color={C.primary} />
                         <Text style={styles.resendButtonText}>{t('settings.sending')}</Text>
                       </View>
                     ) : (
@@ -1681,7 +1719,7 @@ const SettingsScreen = ({ navigation }) => {
                       disabled={isDeletingAccount || deleteOtp.length !== 6}
                     >
                       {isDeletingAccount ? (
-                        <ActivityIndicator color="#FFFFFF" size="small" />
+                        <ActivityIndicator color={C.onDanger} size="small" />
                       ) : (
                         <Text style={styles.deleteButtonText}>{t('settings.deleteAccount')}</Text>
                       )}
@@ -1698,7 +1736,7 @@ const SettingsScreen = ({ navigation }) => {
       {isLoggingOut && (
         <View style={styles.logoutOverlay}>
           <View style={styles.logoutOverlayCard}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+            <ActivityIndicator size="large" color={C.primary} />
             <Text style={styles.logoutOverlayText}>{t('settings.signingOut')}</Text>
           </View>
         </View>
@@ -1707,10 +1745,13 @@ const SettingsScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  const SHADOWS = makeShadows(C);
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: C.background,
   },
 
   // Premium Header
@@ -1720,20 +1761,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: COLORS.darkHero,
+    backgroundColor: C.darkHero,
   },
   backButton: {
     width: 44,
     height: 44,
     borderRadius: 15,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: stableDark.fillChip,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: COLORS.cardWhite,
+    color: C.cardWhite,
     letterSpacing: 0.3,
   },
 
@@ -1748,7 +1789,7 @@ const styles = StyleSheet.create({
 
   // Premium Card Section
   section: {
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     borderRadius: CARD_RADIUS,
     padding: 20,
     marginBottom: 20,
@@ -1764,14 +1805,14 @@ const styles = StyleSheet.create({
   sectionAccentBar: {
     width: 4,
     height: 18,
-    backgroundColor: COLORS.primary,
+    backgroundColor: C.primary,
     borderRadius: 2,
     marginRight: 10,
   },
   sectionHeader: {
     fontSize: 14,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
@@ -1782,19 +1823,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+    borderBottomColor: C.divider,
   },
   rowIconContainer: {
     width: ICON_SIZE,
     height: ICON_SIZE,
     borderRadius: ICON_RADIUS,
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
   },
   rowIconDanger: {
-    backgroundColor: COLORS.dangerLight,
+    backgroundColor: C.dangerLight,
   },
   rowContent: {
     flex: 1,
@@ -1807,7 +1848,7 @@ const styles = StyleSheet.create({
   rowTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     flexShrink: 1,
   },
   infoButton: {
@@ -1816,11 +1857,11 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   rowTitleDanger: {
-    color: COLORS.danger,
+    color: C.danger,
   },
   rowSubtitle: {
     fontSize: 13,
-    color: COLORS.muted,
+    color: C.muted,
     marginTop: 3,
     lineHeight: 17,
   },
@@ -1828,7 +1869,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1838,7 +1879,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     padding: 14,
     borderRadius: 14,
     marginTop: 12,
@@ -1847,7 +1888,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
@@ -1855,7 +1896,7 @@ const styles = StyleSheet.create({
   verificationNoteText: {
     flex: 1,
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     lineHeight: 19,
   },
 
@@ -1866,12 +1907,12 @@ const styles = StyleSheet.create({
   },
   accountInfoText: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     fontWeight: '600',
   },
   accountInfoSubtext: {
     fontSize: 12,
-    color: COLORS.muted,
+    color: C.muted,
     marginTop: 4,
   },
 
@@ -1885,7 +1926,7 @@ const styles = StyleSheet.create({
   brandLogoContainer: {
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.primary,
+        shadowColor: C.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,
         shadowRadius: 12,
@@ -1903,12 +1944,12 @@ const styles = StyleSheet.create({
   brandFooterText: {
     fontSize: 20,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: C.primary,
     letterSpacing: 0.5,
   },
   brandFooterTagline: {
     fontSize: 12,
-    color: COLORS.muted,
+    color: C.muted,
     fontStyle: 'italic',
     letterSpacing: 0.3,
   },
@@ -1916,13 +1957,13 @@ const styles = StyleSheet.create({
   // Delete Account OTP Modal (Premium)
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    backgroundColor: C.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     borderRadius: CARD_RADIUS,
     padding: 28,
     width: '100%',
@@ -1932,7 +1973,7 @@ const styles = StyleSheet.create({
   modalHeaderBar: {
     width: 40,
     height: 4,
-    backgroundColor: COLORS.divider,
+    backgroundColor: C.divider,
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 20,
@@ -1940,34 +1981,34 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     textAlign: 'center',
     marginBottom: 8,
   },
   modalSubtitle: {
     fontSize: 14,
-    color: COLORS.muted,
+    color: C.muted,
     textAlign: 'center',
     marginBottom: 28,
     lineHeight: 20,
   },
   otpInput: {
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     borderRadius: 16,
     padding: 18,
     fontSize: 24,
     fontWeight: '700',
     textAlign: 'center',
     letterSpacing: 8,
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     marginBottom: 16,
   },
   reasonInput: {
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     borderRadius: 16,
     padding: 16,
     fontSize: 14,
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     marginBottom: 16,
     minHeight: 60,
     textAlignVertical: 'top',
@@ -1980,7 +2021,7 @@ const styles = StyleSheet.create({
   },
   resendButtonText: {
     fontSize: 14,
-    color: COLORS.primary,
+    color: C.primary,
     fontWeight: '700',
   },
   modalButtons: {
@@ -1995,20 +2036,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelButton: {
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
   },
   deleteButton: {
-    backgroundColor: COLORS.danger,
+    backgroundColor: C.danger,
   },
   deleteButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.cardWhite,
+    color: C.cardWhite,
   },
   disabledButton: {
     opacity: 0.5,
@@ -2017,7 +2058,7 @@ const styles = StyleSheet.create({
   // ─── iOS Delete Account OTP ────────────────────────────────────
   iosDeleteBg: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    backgroundColor: C.overlay,
   },
   iosDeleteCenter: {
     flex: 1,
@@ -2047,7 +2088,7 @@ const styles = StyleSheet.create({
   iosDeleteTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#000000',
+    color: C.iosLabel,
     textAlign: 'center',
     lineHeight: 24,
     letterSpacing: -0.45,
@@ -2055,7 +2096,7 @@ const styles = StyleSheet.create({
   iosDeleteSubtitle: {
     fontSize: 14,
     fontWeight: '400',
-    color: 'rgba(0, 0, 0, 0.55)',
+    color: C.iosLabelSecondary,
     textAlign: 'center',
     lineHeight: 20,
     letterSpacing: -0.15,
@@ -2064,7 +2105,7 @@ const styles = StyleSheet.create({
   },
   iosOtpInput: {
     width: '100%',
-    backgroundColor: 'rgba(120, 120, 128, 0.12)',
+    backgroundColor: C.iosFill,
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -2072,17 +2113,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     letterSpacing: 10,
-    color: '#000000',
+    color: C.iosLabel,
     marginBottom: 12,
   },
   iosReasonInput: {
     width: '100%',
-    backgroundColor: 'rgba(120, 120, 128, 0.12)',
+    backgroundColor: C.iosFill,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
     fontSize: 15,
-    color: '#000000',
+    color: C.iosLabel,
     marginBottom: 12,
     minHeight: 52,
     textAlignVertical: 'top',
@@ -2094,7 +2135,7 @@ const styles = StyleSheet.create({
   },
   iosResendText: {
     fontSize: 15,
-    color: '#007AFF',
+    color: C.iosBlue,
     fontWeight: '400',
     letterSpacing: -0.24,
   },
@@ -2104,19 +2145,19 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
   },
   iosDeleteBtn: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: C.iosRed,
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iosDeleteBtnDisabled: {
-    backgroundColor: '#C7C7CC',
+    backgroundColor: C.iosDisabled,
   },
   iosDeleteBtnText: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: C.onIosAccent,
     letterSpacing: -0.41,
   },
   iosCancelOuter: {
@@ -2132,26 +2173,26 @@ const styles = StyleSheet.create({
   iosCancelBtnText: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#007AFF',
+    color: C.iosBlue,
     letterSpacing: -0.41,
   },
 
   // Logout overlay
   logoutOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    backgroundColor: C.overlay,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 999,
   },
   logoutOverlayCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.cardWhite,
     borderRadius: 20,
     paddingVertical: 32,
     paddingHorizontal: 40,
     alignItems: 'center',
     gap: 16,
-    shadowColor: '#000',
+    shadowColor: C.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 24,
@@ -2160,24 +2201,27 @@ const styles = StyleSheet.create({
   logoutOverlayText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     letterSpacing: 0.2,
   },
-});
+  });
+};
 
-const settingsLangStyles = StyleSheet.create({
+const makeLangStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   // Shared by the Language and Appearance pickers so neither needs an inline style.
   optionBody: {
     flex: 1,
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: C.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modal: {
-    backgroundColor: '#fff',
+    backgroundColor: C.cardWhite,
     borderRadius: 16,
     padding: 24,
     width: '80%',
@@ -2186,7 +2230,7 @@ const settingsLangStyles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
+    color: C.textPrimaryNeutral,
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -2197,26 +2241,27 @@ const settingsLangStyles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     marginBottom: 8,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: C.sunkenNeutral,
   },
   optionActive: {
-    backgroundColor: `${COLORS.secondary}15`,
+    backgroundColor: `${C.secondary}15`,
     borderWidth: 1,
-    borderColor: COLORS.secondary,
+    borderColor: C.secondary,
   },
   optionText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#111827',
+    color: C.textPrimaryNeutral,
   },
   optionTextActive: {
-    color: COLORS.secondary,
+    color: C.secondary,
   },
   optionSub: {
     fontSize: 13,
-    color: '#6B7280',
+    color: C.textSecondary,
     marginTop: 2,
   },
-});
+  });
+};
 
 export default SettingsScreen;

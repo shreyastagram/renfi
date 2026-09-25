@@ -45,68 +45,83 @@ import { Icon } from '../components';
 import ScreenShimmer from '../components/ShimmerLoader';
 import GraphBackground from '../components/GraphBackground';
 import SvgArt from '../components/SvgArt';
+import { useThemedStyles, useThemeColors } from '../theme';
 
 // ─── Design Tokens (matching Settings / Profile) ────────────────────
-const C = {
-  dark: '#0F172A',
-  bg: '#F1F5F9',
-  white: '#FFFFFF',
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  success: '#10B981',
-  successBg: '#ECFDF5',
-  warning: '#F59E0B',
-  warningBg: '#FFFBEB',
-  danger: '#EF4444',
-  dangerBg: '#FEF2F2',
-  text: '#1E293B',
-  textSec: '#64748B',
-  muted: '#94A3B8',
-  border: '#F1F5F9',
-  iconBg: '#F1F5F9',
-};
-
-const SHADOWS = Platform.select({
-  ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 20 },
-  android: { elevation: 5 },
+// `dark` was dead at v1.0.9 -- defined, never referenced -- so it is not mapped.
+const makeC = (c) => ({
+  bg: c.bg,
+  white: c.surface,
+  primary: c.brandOrange,
+  secondary: c.brandBlue,
+  success: c.success,
+  successBg: c.successContainer,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  danger: c.danger,
+  dangerBg: c.dangerContainer,
+  text: c.textStrong,
+  textSec: c.textSecondary,
+  muted: c.textMuted,
+  // The shipped hairline and icon chip were both #F1F5F9 -- exactly `bg` in light,
+  // a recessed seam on a dark surface.
+  border: c.bg,
+  iconBg: c.bg,
+  infoFill: c.infoFill,
+  shadow: c.shadow,
 });
+
+const makeShadows = (C) =>
+  Platform.select({
+    ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 20 },
+    android: { elevation: 5 },
+  });
 
 const CARD_RADIUS = 22;
 const ICON_SIZE = 42;
 
 // ─── Health config (labels are translation keys) ────────────────────
-const HEALTH_MAP = {
+const makeHealthMap = (C) => ({
   [AUTH_HEALTH.HEALTHY]: { icon: 'verified-user', color: C.success, bg: C.successBg, labelKey: 'accountSecurity.healthy' },
   [AUTH_HEALTH.TOKEN_EXPIRING]: { icon: 'schedule', color: C.warning, bg: C.warningBg, labelKey: 'accountSecurity.tokenExpiring' },
   [AUTH_HEALTH.TOKEN_EXPIRED]: { icon: 'error-outline', color: C.danger, bg: C.dangerBg, labelKey: 'accountSecurity.tokenExpired' },
   [AUTH_HEALTH.NO_SESSION]: { icon: 'cancel', color: C.muted, bg: C.border, labelKey: 'accountSecurity.noSession' },
   [AUTH_HEALTH.SERVICE_ERROR]: { icon: 'cloud-off', color: C.warning, bg: C.warningBg, labelKey: 'accountSecurity.serviceUnavailable' },
-};
+});
 
 // ─── Section Header ─────────────────────────────────────────────────
-const SectionHeader = ({ title }) => (
-  <View style={s.sectionHeaderWrap}>
-    <View style={s.sectionAccent} />
-    <Text style={s.sectionTitle}>{title}</Text>
-  </View>
-);
+const SectionHeader = ({ title }) => {
+  const s = useThemedStyles(makeStyles);
+  return (
+    <View style={s.sectionHeaderWrap}>
+      <View style={s.sectionAccent} />
+      <Text style={s.sectionTitle}>{title}</Text>
+    </View>
+  );
+};
 
 // ─── Menu Row ───────────────────────────────────────────────────────
-const MenuRow = ({ icon, iconBg, iconColor, label, sublabel, onPress, trailing, disabled }) => (
-  <TouchableOpacity style={s.menuRow} onPress={onPress} activeOpacity={0.7} disabled={disabled}>
-    <View style={[s.menuIcon, { backgroundColor: iconBg || C.iconBg }]}>
-      <MaterialIcon name={icon} size={22} color={iconColor || C.textSec} />
-    </View>
-    <View style={s.menuTextWrap}>
-      <Text style={s.menuLabel}>{label}</Text>
-      {sublabel ? <Text style={s.menuSublabel} numberOfLines={1}>{sublabel}</Text> : null}
-    </View>
-    {trailing || <MaterialIcon name="chevron-right" size={22} color={C.muted} />}
-  </TouchableOpacity>
-);
+const MenuRow = ({ icon, iconBg, iconColor, label, sublabel, onPress, trailing, disabled }) => {
+  const s = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  return (
+    <TouchableOpacity style={s.menuRow} onPress={onPress} activeOpacity={0.7} disabled={disabled}>
+      <View style={[s.menuIcon, { backgroundColor: iconBg || C.iconBg }]}>
+        <MaterialIcon name={icon} size={22} color={iconColor || C.textSec} />
+      </View>
+      <View style={s.menuTextWrap}>
+        <Text style={s.menuLabel}>{label}</Text>
+        {sublabel ? <Text style={s.menuSublabel} numberOfLines={1}>{sublabel}</Text> : null}
+      </View>
+      {trailing || <MaterialIcon name="chevron-right" size={22} color={C.muted} />}
+    </TouchableOpacity>
+  );
+};
 
 // ─── Session Card ───────────────────────────────────────────────────
 const SessionCard = ({ session, isCurrentDevice, onRevoke, isRevoking }) => {
+  const s = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const platformIcon = (session.platform || '').toLowerCase() === 'ios' ? 'phone-iphone' : 'phone-android';
   const formatDate = (d) => {
     if (!d) return 'Unknown';
@@ -117,7 +132,7 @@ const SessionCard = ({ session, isCurrentDevice, onRevoke, isRevoking }) => {
   return (
     <View style={[s.sessionCard, isCurrentDevice && s.sessionCardCurrent]}>
       <View style={s.sessionRow}>
-        <View style={[s.menuIcon, { backgroundColor: isCurrentDevice ? '#EFF6FF' : C.iconBg }]}>
+        <View style={[s.menuIcon, { backgroundColor: isCurrentDevice ? C.infoFill : C.iconBg }]}>
           <MaterialIcon name={platformIcon} size={22} color={isCurrentDevice ? C.secondary : C.textSec} />
         </View>
         <View style={s.menuTextWrap}>
@@ -154,6 +169,9 @@ const SessionCard = ({ session, isCurrentDevice, onRevoke, isRevoking }) => {
 
 // ═══════════════════════════════════════════════════════════════════
 const AccountSecurityScreen = () => {
+  const s = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  const HEALTH_MAP = makeHealthMap(C);
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { user, profile, logout } = useApp();
@@ -217,7 +235,7 @@ const AccountSecurityScreen = () => {
           const result = await revokeSession(sessionId);
           setRevokingSession(null);
           if (result.success) {
-            setSessions(prev => prev.filter(s => (s.id || s.sessionId) !== sessionId));
+            setSessions(prev => prev.filter(sess => (sess.id || sess.sessionId) !== sessionId));
             dialog(t('common.success'), t('accountSecurity.deviceSignedOut'));
           } else {
             dialog(t('common.error'), result.error?.message || t('accountSecurity.signOutFailed'));
@@ -274,7 +292,7 @@ const AccountSecurityScreen = () => {
 
       {/* Header */}
       <View style={[s.header, { paddingTop: insets.top + 8, overflow: 'hidden' }]}>
-        <SvgArt color="#f67c16" height={70} />
+        <SvgArt color={C.primary} height={70} />
         <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
           <MaterialIcon name="arrow-back" size={22} color={C.text} />
         </TouchableOpacity>
@@ -347,7 +365,7 @@ const AccountSecurityScreen = () => {
           <SectionHeader title={t('accountSecurity.securityActions')} />
           <MenuRow
             icon="lock-reset"
-            iconBg="#EFF6FF"
+            iconBg={C.infoFill}
             iconColor={C.secondary}
             label={t('accountSecurity.changePasswordMenu')}
             sublabel={t('accountSecurity.changePasswordSub')}
@@ -356,8 +374,8 @@ const AccountSecurityScreen = () => {
           <View style={s.divider} />
           <MenuRow
             icon="refresh"
-            iconBg="#FFF7ED"
-            iconColor={C.primary}
+            iconBg={C.warningBg}
+            iconColor={C.warning}
             label={t('accountSecurity.refreshToken')}
             sublabel={t('accountSecurity.refreshTokenSub')}
             onPress={async () => {
@@ -418,7 +436,10 @@ const AccountSecurityScreen = () => {
 };
 
 // ═══════════════════════════════════════════════════════════════════
-const s = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  const SHADOWS = makeShadows(C);
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
 
   // Header — matches Settings
@@ -480,6 +501,7 @@ const s = StyleSheet.create({
   dangerSection: { borderWidth: 1, borderColor: C.danger + '20' },
   dangerBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 14, backgroundColor: C.dangerBg, borderWidth: 1, borderColor: C.danger + '30' },
   dangerBtnText: { fontSize: 15, fontWeight: '700', color: C.danger },
-});
+  });
+};
 
 export default AccountSecurityScreen;

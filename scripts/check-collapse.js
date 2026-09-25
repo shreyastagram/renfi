@@ -40,8 +40,13 @@ const INTENTIONAL = new Set([
   'src/screens/ServiceRequestDetailScreen.jsx:timelineCircleCurrent',
 ]);
 
-const FILL = /backgroundColor:\s*([A-Za-z_$][\w.$]*)/g;
-const BORDER = /border(?:Top|Bottom|Left|Right)?Color:\s*([A-Za-z_$][\w.$]*)/g;
+// The captured expression must be the WHOLE value, so a trailing terminator is
+// required. Without it, `C.danger + '12'` and `C.danger + '30'` both captured just
+// `C.danger` and looked collapsed -- they are different alphas of the same hue, a
+// pattern several screens use deliberately. A false positive here is worse than a
+// miss: it trains you to allowlist, and the next allowlist entry hides a real bug.
+const FILL = /backgroundColor:\s*([A-Za-z_$][\w.$]*)\s*(?=[,}\n])/g;
+const BORDER = /border(?:Top|Bottom|Left|Right)?Color:\s*([A-Za-z_$][\w.$]*)\s*(?=[,}\n])/g;
 
 const config = JSON.parse(
   fs.readFileSync(path.join(__dirname, 'migrated-files.json'), 'utf8'),

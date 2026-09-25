@@ -122,6 +122,9 @@ export const lightColors = {
   iosLabel: iosSystem.light.label,
   iosLabelSecondary: iosSystem.light.labelSecondary,
   iosSurfaceFallback: iosSystem.light.surfaceFallback,
+  iosFill: iosSystem.light.fill,
+  iosDisabled: iosSystem.light.disabled,
+  iosPlaceholder: iosSystem.light.placeholder,
   onIosAccent: iosSystem.onAccent,
 
   // Misc
@@ -212,6 +215,9 @@ export const darkColors = {
   iosLabel: iosSystem.dark.label,
   iosLabelSecondary: iosSystem.dark.labelSecondary,
   iosSurfaceFallback: iosSystem.dark.surfaceFallback,
+  iosFill: iosSystem.dark.fill,
+  iosDisabled: iosSystem.dark.disabled,
+  iosPlaceholder: iosSystem.dark.placeholder,
   onIosAccent: iosSystem.onAccent,
 
   // Misc

@@ -35,21 +35,27 @@ import {
 import { validatePassword } from '../utils/validation';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useThemedStyles, useThemeColors } from '../theme';
 
 // Colors
-const COLORS = {
-  primary: '#FF6B35',
-  primaryLight: '#FFF0EB',
-  background: '#FFFFFF',
-  surface: '#F8F9FA',
-  text: '#1A1A2E',
-  textSecondary: '#6C757D',
-  textLight: '#ADB5BD',
-  border: '#E9ECEF',
-  error: '#DC3545',
-  success: '#28A745',
-  white: '#FFFFFF',
-};
+// Another pre-design-system palette: a coral `#FF6B35` that is NOT the Fixhomi
+// orange, plus Bootstrap red/green and its own grey ramp. `primary` is only ever
+// used as TEXT here (three links and a spinner) and measured 2.9:1 on white, so it
+// takes the warning token -- the same call already made for warm accent text on
+// SubscriptionScreen and EmergencyServicesScreen. `white` was dead at v1.0.9.
+const makeC = (c) => ({
+  primary: c.warning,
+  primaryLight: c.warningContainer,
+  background: c.surface,
+  surface: c.surfaceSunken,
+  text: c.textPrimary,
+  textSecondary: c.textSecondary,
+  textLight: c.textMuted,
+  border: c.border,
+  error: c.danger,
+  success: c.success,
+  successFill: c.successFill,
+});
 
 /**
  * ChangePasswordScreen Component
@@ -57,6 +63,8 @@ const COLORS = {
  * @param {Object} props - Navigation props
  */
 const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { user, profile, refreshVerificationStatus } = useApp();
   const { t } = useLanguage();
 
@@ -398,7 +406,7 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
    */
   const renderLoadingState = () => (
     <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color={COLORS.primary} />
+      <ActivityIndicator size="large" color={C.primary} />
       <Text style={styles.loadingText}>{t('common.loading')}</Text>
     </View>
   );
@@ -461,7 +469,7 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
                   keyboardType="number-pad"
                   maxLength={6}
                   placeholder="000000"
-                  placeholderTextColor={COLORS.textLight}
+                  placeholderTextColor={C.textLight}
                   textContentType="oneTimeCode"
                   autoComplete={Platform.OS === 'android' ? 'sms-otp' : 'one-time-code'}
                 />
@@ -728,21 +736,26 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
 /**
  * Password Requirement Indicator Component
  */
-const PasswordRequirement = ({ met, text }) => (
-  <View style={styles.requirement}>
-    <Text style={[styles.requirementIcon, met && styles.requirementMet]}>
-      {met ? '✓' : '○'}
-    </Text>
-    <Text style={[styles.requirementText, met && styles.requirementTextMet]}>
-      {text}
-    </Text>
-  </View>
-);
+const PasswordRequirement = ({ met, text }) => {
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <View style={styles.requirement}>
+      <Text style={[styles.requirementIcon, met && styles.requirementMet]}>
+        {met ? '✓' : '○'}
+      </Text>
+      <Text style={[styles.requirementText, met && styles.requirementTextMet]}>
+        {text}
+      </Text>
+    </View>
+  );
+};
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: C.background,
   },
   keyboardAvoid: {
     flex: 1,
@@ -758,7 +771,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 16,
-    color: COLORS.primary,
+    color: C.primary,
     fontWeight: '500',
   },
   alert: {
@@ -775,12 +788,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: COLORS.text,
+    color: C.text,
     marginBottom: 12,
   },
   subtitle: {
     fontSize: 16,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     lineHeight: 24,
   },
   
@@ -793,18 +806,18 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: COLORS.border,
+    backgroundColor: C.border,
   },
   dividerText: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     paddingHorizontal: 16,
     fontWeight: '500',
   },
   
   // Password Requirements
   requirementsContainer: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: C.surface,
     borderRadius: 12,
     padding: 16,
     marginTop: 8,
@@ -813,7 +826,7 @@ const styles = StyleSheet.create({
   requirementsTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.text,
+    color: C.text,
     marginBottom: 12,
   },
   requirement: {
@@ -823,19 +836,19 @@ const styles = StyleSheet.create({
   },
   requirementIcon: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: C.textLight,
     marginRight: 8,
     width: 16,
   },
   requirementMet: {
-    color: COLORS.success,
+    color: C.success,
   },
   requirementText: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
   },
   requirementTextMet: {
-    color: COLORS.text,
+    color: C.text,
   },
   
   submitButton: {
@@ -848,7 +861,7 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: 16,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     fontWeight: '500',
   },
 
@@ -863,7 +876,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: C.successFill,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
@@ -874,13 +887,13 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: COLORS.success,
+    color: C.success,
     marginBottom: 16,
     textAlign: 'center',
   },
   successMessage: {
     fontSize: 16,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 32,
@@ -899,7 +912,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
   },
   
   // Forgot Password Link
@@ -911,30 +924,30 @@ const styles = StyleSheet.create({
   },
   forgotPasswordText: {
     fontSize: 14,
-    color: COLORS.primary,
+    color: C.primary,
     fontWeight: '500',
   },
   
   // Phone Info
   phoneInfoContainer: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: C.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
   },
   phoneInfoLabel: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     marginBottom: 4,
   },
   phoneInfoValue: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.text,
+    color: C.text,
   },
   noPhoneWarning: {
     fontSize: 13,
-    color: COLORS.error,
+    color: C.error,
     textAlign: 'center',
     marginTop: 16,
     lineHeight: 20,
@@ -947,21 +960,21 @@ const styles = StyleSheet.create({
   otpLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: COLORS.text,
+    color: C.text,
     marginBottom: 8,
   },
   otpInputContainer: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: C.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: C.border,
     paddingHorizontal: 16,
     paddingVertical: 4,
   },
   otpInput: {
     fontSize: 24,
     fontWeight: '600',
-    color: COLORS.text,
+    color: C.text,
     textAlign: 'center',
     letterSpacing: 8,
     paddingVertical: 12,
@@ -973,12 +986,13 @@ const styles = StyleSheet.create({
   },
   resendText: {
     fontSize: 14,
-    color: COLORS.primary,
+    color: C.primary,
     fontWeight: '500',
   },
   resendTextDisabled: {
-    color: COLORS.textLight,
+    color: C.textLight,
   },
-});
+  });
+};
 
 export default ChangePasswordScreen;

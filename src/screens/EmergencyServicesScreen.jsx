@@ -55,6 +55,12 @@ import { CancellationReasonModal } from '../components';
 import { formatDistance, formatDistanceFromMeters, useDistanceUnit } from '../utils/formatDistance';
 import { formatExperience } from '../utils/experience';
 import ScreenShimmer from '../components/ShimmerLoader';
+import {
+  useThemedStyles,
+  useThemeColors,
+  stableDark,
+  brandTint,
+} from '../theme';
 // 3D rendered icons (Fixhomi Figma icon system)
 const Ambulance3D = require('../assets/serviceIcons/3d/private_ambulance.png');
 const SnakeCatcher3D = require('../assets/serviceIcons/3d/snake_catcher.png');
@@ -68,37 +74,55 @@ const EMERGENCY_NOTES_PLACEHOLDERS = {
 };
 
 // Premium design tokens
-const COLORS = {
-  darkHero: '#0F172A',
-  background: '#F1F5F9',
-  cardWhite: '#FFFFFF',
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  muted: '#94A3B8',
-  textPrimary: '#1E293B',
-  textSecondary: '#64748B',
-  danger: '#EF4444',
-  dangerLight: '#FEF2F2',
-  dangerBorder: '#FECACA',
-  success: '#10B981',
-  successLight: '#ECFDF5',
-  warning: '#F59E0B',
-  divider: '#E2E8F0',
-  inputBg: '#F8FAFC',
-  white: '#FFFFFF',
-};
-
-const SHADOWS = Platform.select({
-  ios: {
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-  },
-  android: {
-    elevation: 5,
-  },
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  secondary: c.brandBlue,
+  onPrimary: c.onBrandOrange,
+  onSecondary: c.onBrandBlue,
+  onSuccess: c.onSuccess,
+  onDanger: c.onDanger,
+  background: c.bg,
+  cardWhite: c.surface,
+  white: c.surface,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  divider: c.border,
+  borderMedium: c.borderMedium,
+  inputBg: c.surfaceSunken,
+  muted: c.textMuted,
+  textPrimary: c.textStrong,
+  textBody: c.textBody,
+  textSecondary: c.textSecondary,
+  verified: c.altBlueIndigo,
+  infoFill: c.infoFill,
+  danger: c.danger,
+  dangerLight: c.dangerContainer,
+  dangerBorder: c.dangerBorder,
+  dangerFill: c.dangerFill,
+  success: c.success,
+  successLight: c.successContainer,
+  successLine: c.successBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  warningLine: c.warningBorder,
+  warningFill: c.warningFill,
+  overlay: c.overlay,
+  shadow: c.shadow,
 });
+
+const makeShadows = (C) =>
+  Platform.select({
+    ios: {
+      shadowColor: C.shadow,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.08,
+      shadowRadius: 20,
+    },
+    android: {
+      elevation: 5,
+    },
+  });
 
 const CARD_RADIUS = 22;
 
@@ -152,6 +176,8 @@ const EMERGENCY_3D_ICONS = {
 };
 
 const ServiceCard = ({ service, onPress, isStatic }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const icon3d = EMERGENCY_3D_ICONS[service.id];
 
   return (
@@ -171,14 +197,14 @@ const ServiceCard = ({ service, onPress, isStatic }) => {
           <MaterialIcon
             name={EMERGENCY_SERVICE_ICONS[service.id]}
             size={28}
-            color={isStatic ? COLORS.danger : COLORS.secondary}
+            color={isStatic ? C.danger : C.secondary}
           />
         </View>
       )}
       <Text style={styles.serviceName} numberOfLines={2}>{service.name}</Text>
       {isStatic && (
         <View style={styles.staticBadge}>
-          <MaterialIcon name="phone" size={11} color={COLORS.danger} />
+          <MaterialIcon name="phone" size={11} color={C.danger} />
           <Text style={styles.staticBadgeText}>Call</Text>
         </View>
       )}
@@ -190,6 +216,8 @@ const ServiceCard = ({ service, onPress, isStatic }) => {
  * Provider Card Component — Premium with profile picture, phone, status
  */
 const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite, hasContacted }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const useKm = useDistanceUnit();
   const { t } = useLanguage();
   const profilePictureUrl = typeof provider.profilePicture === 'string'
@@ -217,7 +245,7 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite, 
           )}
           {isFavorite && (
             <View style={styles.favoriteBadge}>
-              <MaterialIcon name="star" size={10} color={COLORS.warning} />
+              <MaterialIcon name="star" size={10} color={C.warning} />
             </View>
           )}
         </View>
@@ -225,11 +253,11 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite, 
           <View style={styles.providerNameRow}>
             <Text style={styles.providerName} numberOfLines={1}>{provider.name}</Text>
             {(provider.verified || provider.isVerified) && (
-              <MaterialIcon name="verified" size={16} color="#2563EB" style={styles.verifiedBadge} />
+              <MaterialIcon name="verified" size={16} color={C.verified} style={styles.verifiedBadge} />
             )}
           </View>
           <View style={styles.providerDistanceRow}>
-            <MaterialIcon name="location-on" size={14} color={COLORS.muted} />
+            <MaterialIcon name="location-on" size={14} color={C.muted} />
             <Text style={styles.providerDistance}>
               {provider.distanceKm ? formatDistance(provider.distanceKm, useKm) :
                provider.distance != null ? formatDistanceFromMeters(Number(provider.distance), useKm) : t('common.nearby')}
@@ -237,7 +265,7 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite, 
           </View>
           {(provider.rating > 0 || provider.ratings?.average > 0) && (
             <View style={styles.providerRatingRow}>
-              <MaterialIcon name="star" size={14} color={COLORS.warning} />
+              <MaterialIcon name="star" size={14} color={C.warning} />
               <Text style={styles.providerRating}>
                 {(provider.ratings?.average || provider.rating || 0).toFixed(1)}
               </Text>
@@ -250,14 +278,14 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite, 
           )}
           {phone ? (
             <View style={styles.providerPhoneRow}>
-              <MaterialIcon name="phone" size={13} color={COLORS.success} />
+              <MaterialIcon name="phone" size={13} color={C.success} />
               <Text style={styles.providerPhoneText}>{phone}</Text>
             </View>
           ) : null}
           {/* Online/Available status */}
           <View style={styles.providerStatusRow}>
-            <View style={[styles.statusDot, { backgroundColor: (provider.isOnline || provider.isAvailable) ? COLORS.success : COLORS.muted }]} />
-            <Text style={[styles.providerStatusText, { color: (provider.isOnline || provider.isAvailable) ? COLORS.success : COLORS.muted }]}>
+            <View style={[styles.statusDot, { backgroundColor: (provider.isOnline || provider.isAvailable) ? C.success : C.muted }]} />
+            <Text style={[styles.providerStatusText, { color: (provider.isOnline || provider.isAvailable) ? C.success : C.muted }]}>
               {(provider.isOnline || provider.isAvailable) ? t('common.available') : t('common.offline')}
             </Text>
           </View>
@@ -272,7 +300,7 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite, 
           }}
           activeOpacity={0.8}
         >
-          <MaterialIcon name="phone" size={20} color={COLORS.white} />
+          <MaterialIcon name="phone" size={20} color={C.onSuccess} />
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.bookButton, booking && styles.bookButtonLoading, !hasContacted && { opacity: 0.5 }]}
@@ -284,7 +312,7 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite, 
           activeOpacity={0.8}
         >
           {booking ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={C.onPrimary} />
           ) : (
             <Text style={styles.bookButtonText}>{hasContacted ? t('common.sendRequest') : t('emergencyServices.sendRequestOrCallFirst')}</Text>
           )}
@@ -293,7 +321,7 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite, 
       {/* View Details indicator */}
       <View style={styles.viewDetailsHint}>
         <Text style={styles.viewDetailsText}>{t('common.viewDetails')}</Text>
-        <MaterialIcon name="chevron-right" size={16} color={COLORS.muted} />
+        <MaterialIcon name="chevron-right" size={16} color={C.muted} />
       </View>
     </AnimatedPressable>
   );
@@ -303,6 +331,8 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite, 
  * Static Numbers Modal — Premium bottom sheet
  */
 const StaticNumbersModal = ({ visible, onClose, numbers, serviceType }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
   return (
   <Modal
@@ -320,14 +350,14 @@ const StaticNumbersModal = ({ visible, onClose, numbers, serviceType }) => {
         <View style={styles.modalHeader}>
           <View style={styles.modalHeaderLeft}>
             <View style={styles.modalIconWrap}>
-              <MaterialIcon name="phone-in-talk" size={20} color={COLORS.danger} />
+              <MaterialIcon name="phone-in-talk" size={20} color={C.danger} />
             </View>
             <Text style={styles.modalTitle}>
               {EMERGENCY_SERVICE_LABELS[serviceType] || 'Emergency'} Numbers
             </Text>
           </View>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <MaterialIcon name="close" size={20} color={COLORS.muted} />
+            <MaterialIcon name="close" size={20} color={C.muted} />
           </TouchableOpacity>
         </View>
 
@@ -335,7 +365,7 @@ const StaticNumbersModal = ({ visible, onClose, numbers, serviceType }) => {
           {numbers.length === 0 ? (
             <View style={styles.emptyNumbersContainer}>
               <View style={styles.emptyIconCircle}>
-                <MaterialIcon name="phone-disabled" size={36} color={COLORS.muted} />
+                <MaterialIcon name="phone-disabled" size={36} color={C.muted} />
               </View>
               <Text style={styles.noNumbersText}>{t('emergencyServices.noNumbersAvailable')}</Text>
               <Text style={styles.noNumbersSubtext}>{t('emergencyServices.checkBackLater')}</Text>
@@ -345,7 +375,7 @@ const StaticNumbersModal = ({ visible, onClose, numbers, serviceType }) => {
               <View key={index} style={[styles.numberCard, index === numbers.length - 1 && { borderBottomWidth: 0 }]}>
                 <View style={styles.numberCardLeft}>
                   <View style={styles.numberIconWrap}>
-                    <MaterialIcon name="phone" size={20} color={COLORS.danger} />
+                    <MaterialIcon name="phone" size={20} color={C.danger} />
                   </View>
                   <View style={styles.numberInfo}>
                     <Text style={styles.numberLabel}>{item.label || item.name}</Text>
@@ -359,7 +389,7 @@ const StaticNumbersModal = ({ visible, onClose, numbers, serviceType }) => {
                   onPress={() => Linking.openURL(`tel:${item.number}`)}
                   activeOpacity={0.8}
                 >
-                  <MaterialIcon name="phone" size={20} color={COLORS.white} />
+                  <MaterialIcon name="phone" size={20} color={C.onDanger} />
                   <Text style={styles.callNumberText}>{item.number}</Text>
                 </TouchableOpacity>
               </View>
@@ -380,6 +410,8 @@ const StaticNumbersModal = ({ visible, onClose, numbers, serviceType }) => {
  * Emergency Provider Details Modal — Premium design
  */
 const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onBook, hasContacted, booking }) => {
+  const detailStyles = useThemedStyles(makeDetailStyles);
+  const C = makeC(useThemeColors());
   const { dialog } = useDialog();
   const useKm = useDistanceUnit();
   const { t } = useLanguage();
@@ -419,7 +451,7 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
             {/* Header */}
             <View style={detailStyles.header}>
               <TouchableOpacity style={detailStyles.closeBtn} onPress={onClose}>
-                <MaterialIcon name="close" size={20} color={COLORS.muted} />
+                <MaterialIcon name="close" size={20} color={C.muted} />
               </TouchableOpacity>
               <Text style={detailStyles.headerTitle}>{t('emergencyServices.providerDetailsTitle')}</Text>
               <View style={{ width: 40 }} />
@@ -442,7 +474,7 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
                 )}
                 {(provider.verified || provider.isVerified || provider.isFullyVerified) && (
                   <View style={detailStyles.verifiedBadge}>
-                    <MaterialIcon name="verified" size={20} color={COLORS.success} />
+                    <MaterialIcon name="verified" size={20} color={C.success} />
                   </View>
                 )}
               </View>
@@ -453,7 +485,7 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
                 {/* Rating */}
                 {(provider.rating > 0 || provider.ratings?.average > 0) && (
                   <View style={detailStyles.ratingRow}>
-                    <MaterialIcon name="star" size={18} color={COLORS.warning} />
+                    <MaterialIcon name="star" size={18} color={C.warning} />
                     <Text style={detailStyles.ratingText}>
                       {(provider.ratings?.average || provider.rating || 0).toFixed(1)}
                     </Text>
@@ -470,7 +502,7 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
                   const expText = formatExperience(provider.experienceStartDate, provider.experience, t);
                   return expText ? (
                     <View style={detailStyles.infoRow}>
-                      <MaterialIcon name="work" size={14} color={COLORS.muted} />
+                      <MaterialIcon name="work" size={14} color={C.muted} />
                       <Text style={detailStyles.infoText}>{expText}</Text>
                     </View>
                   ) : null;
@@ -479,7 +511,7 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
                 {/* Member Since */}
                 {memberSince && (
                   <View style={detailStyles.infoRow}>
-                    <MaterialIcon name="calendar-today" size={14} color={COLORS.muted} />
+                    <MaterialIcon name="calendar-today" size={14} color={C.muted} />
                     <Text style={detailStyles.infoText}>{t('detail.memberSince', { date: memberSince })}</Text>
                   </View>
                 )}
@@ -487,7 +519,7 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
                 {/* Distance */}
                 {(provider.distanceKm || provider.distance != null) && (
                   <View style={detailStyles.infoRow}>
-                    <MaterialIcon name="location-on" size={14} color={COLORS.primary} />
+                    <MaterialIcon name="location-on" size={14} color={C.primary} />
                     <Text style={detailStyles.infoText}>
                       {provider.distanceKm ? `${formatDistance(provider.distanceKm, useKm)} ${t('common.away')}` :
                        `${formatDistanceFromMeters(Number(provider.distance), useKm)} ${t('common.away')}`}
@@ -498,7 +530,7 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
                 {/* City/Address */}
                 {(provider.city || provider.address) && (
                   <View style={detailStyles.infoRow}>
-                    <MaterialIcon name="place" size={14} color={COLORS.muted} />
+                    <MaterialIcon name="place" size={14} color={C.muted} />
                     <Text style={detailStyles.infoText}>
                       {provider.city || provider.address}
                     </Text>
@@ -525,7 +557,7 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
               <View style={detailStyles.statDivider} />
               <View style={detailStyles.statItem}>
                 <Text style={[detailStyles.statValue, {
-                  color: (provider.isOnline || provider.isAvailable) ? COLORS.success : COLORS.muted
+                  color: (provider.isOnline || provider.isAvailable) ? C.success : C.muted
                 }]}>
                   {(provider.isOnline || provider.isAvailable) ? t('common.online') : t('common.offline')}
                 </Text>
@@ -556,7 +588,7 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
                 <View style={detailStyles.tagsContainer}>
                   {provider.verifiedServiceCategories.map((cat, index) => (
                     <View key={index} style={detailStyles.serviceTag}>
-                      <MaterialIcon name="verified" size={12} color={COLORS.success} />
+                      <MaterialIcon name="verified" size={12} color={C.success} />
                       <Text style={detailStyles.serviceTagText}>
                         {EMERGENCY_SERVICE_LABELS[cat] || cat.replace(/_/g, ' ')}
                       </Text>
@@ -579,12 +611,12 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
                   activeOpacity={0.8}
                 >
                   <View style={detailStyles.phoneIconWrap}>
-                    <MaterialIcon name="phone" size={18} color={COLORS.success} />
+                    <MaterialIcon name="phone" size={18} color={C.success} />
                   </View>
                   <Text style={detailStyles.phoneButtonText}>
                     {t('emergencyServices.callProviderPhone', { phone })}
                   </Text>
-                  <MaterialIcon name="chevron-right" size={18} color={COLORS.muted} />
+                  <MaterialIcon name="chevron-right" size={18} color={C.muted} />
                 </TouchableOpacity>
               ) : (
                 <Text style={detailStyles.noPhoneText}>{t('emergencyServices.phoneNotAvailable')}</Text>
@@ -599,7 +631,7 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
               onPress={() => onCall(provider)}
               activeOpacity={0.8}
             >
-              <MaterialIcon name="phone" size={20} color={COLORS.success} />
+              <MaterialIcon name="phone" size={20} color={C.success} />
               <Text style={detailStyles.callActionText}>{t('common.call')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -615,10 +647,10 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
               activeOpacity={0.8}
             >
               {booking ? (
-                <ActivityIndicator size="small" color={COLORS.white} />
+                <ActivityIndicator size="small" color={C.onPrimary} />
               ) : (
                 <>
-                  <MaterialIcon name="send" size={18} color={COLORS.white} />
+                  <MaterialIcon name="send" size={18} color={C.onPrimary} />
                   <Text style={detailStyles.bookActionText}>
                     {hasContacted ? t('common.sendRequest') : t('emergencyServices.sendRequestOrCallFirst')}
                   </Text>
@@ -633,6 +665,8 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
 };
 
 const EmergencyServicesScreen = ({ navigation }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const { user, profile, userType, isAuthLoading, isProfileLoading } = useApp();
   const { dialog } = useDialog();
@@ -1163,7 +1197,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
         }}
         activeOpacity={0.7}
       >
-        <MaterialIcon name="arrow-back" size={22} color={COLORS.white} />
+        <MaterialIcon name="arrow-back" size={22} color={stableDark.ink} />
       </TouchableOpacity>
       <View style={styles.headerCenter}>
         <Text style={styles.headerTitle}>
@@ -1197,7 +1231,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
           <View style={styles.sectionHeader}>
             <View style={styles.sectionAccentBar} />
             <View style={styles.sectionIconContainer}>
-              <MaterialIcon name="location-on" size={20} color={COLORS.primary} />
+              <MaterialIcon name="location-on" size={20} color={C.primary} />
             </View>
             <Text style={styles.sectionTitle}>{t('emergencyServices.locationBasedServices')}</Text>
           </View>
@@ -1220,9 +1254,9 @@ const EmergencyServicesScreen = ({ navigation }) => {
 
       {/* Static Number Services */}
       <View style={[styles.sectionHeader, !isProvider && { marginTop: 28 }]}>
-        <View style={[styles.sectionAccentBar, { backgroundColor: COLORS.danger }]} />
-        <View style={[styles.sectionIconContainer, { backgroundColor: COLORS.dangerLight }]}>
-          <MaterialIcon name="phone" size={20} color={COLORS.danger} />
+        <View style={[styles.sectionAccentBar, { backgroundColor: C.danger }]} />
+        <View style={[styles.sectionIconContainer, { backgroundColor: C.dangerLight }]}>
+          <MaterialIcon name="phone" size={20} color={C.danger} />
         </View>
         <Text style={styles.sectionTitle}>{t('emergencyServices.emergencyHelplines')}</Text>
       </View>
@@ -1243,9 +1277,9 @@ const EmergencyServicesScreen = ({ navigation }) => {
 
       {/* Government Helplines Section */}
       <View style={[styles.sectionHeader, { marginTop: 28 }]}>
-        <View style={[styles.sectionAccentBar, { backgroundColor: COLORS.secondary }]} />
-        <View style={[styles.sectionIconContainer, { backgroundColor: '#EFF6FF' }]}>
-          <MaterialIcon name="account-balance" size={20} color={COLORS.secondary} />
+        <View style={[styles.sectionAccentBar, { backgroundColor: C.secondary }]} />
+        <View style={[styles.sectionIconContainer, { backgroundColor: C.infoFill }]}>
+          <MaterialIcon name="account-balance" size={20} color={C.secondary} />
         </View>
         <Text style={styles.sectionTitle}>Government Helplines</Text>
       </View>
@@ -1265,13 +1299,13 @@ const EmergencyServicesScreen = ({ navigation }) => {
       </View>
 
       {/* Government disclaimer */}
-      <View style={[styles.emergencyInfoCard, { borderColor: '#E2E8F0', backgroundColor: '#F8FAFC' }]}>
-        <View style={[styles.emergencyInfoIcon, { backgroundColor: '#F1F5F9' }]}>
-          <MaterialIcon name="verified" size={20} color={COLORS.secondary} />
+      <View style={[styles.emergencyInfoCard, { borderColor: C.divider, backgroundColor: C.inputBg }]}>
+        <View style={[styles.emergencyInfoIcon, { backgroundColor: C.hairline }]}>
+          <MaterialIcon name="verified" size={20} color={C.secondary} />
         </View>
         <View style={styles.emergencyInfoContent}>
-          <Text style={[styles.emergencyInfoTitle, { color: '#334155' }]}>Verified Government Services</Text>
-          <Text style={[styles.emergencyInfoText, { color: '#64748B' }]}>
+          <Text style={[styles.emergencyInfoTitle, { color: C.textBody }]}>Verified Government Services</Text>
+          <Text style={[styles.emergencyInfoText, { color: C.textSecondary }]}>
             All listed helplines are owned and operated by their respective government departments. Fixhomi does not operate, control, or monitor these services.
           </Text>
         </View>
@@ -1280,7 +1314,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
       {/* Emergency info card */}
       <View style={styles.emergencyInfoCard}>
         <View style={styles.emergencyInfoIcon}>
-          <MaterialIcon name="info-outline" size={20} color={COLORS.danger} />
+          <MaterialIcon name="info-outline" size={20} color={C.danger} />
         </View>
         <View style={styles.emergencyInfoContent}>
           <Text style={styles.emergencyInfoTitle}>{t('emergencyServices.emergencyInfo')}</Text>
@@ -1311,9 +1345,9 @@ const EmergencyServicesScreen = ({ navigation }) => {
           activeOpacity={0.7}
         >
           {refreshing ? (
-            <ActivityIndicator size="small" color={COLORS.primary} />
+            <ActivityIndicator size="small" color={C.warning} />
           ) : (
-            <MaterialIcon name="refresh" size={20} color={COLORS.primary} />
+            <MaterialIcon name="refresh" size={20} color={C.warning} />
           )}
         </TouchableOpacity>
       </View>
@@ -1321,7 +1355,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
       {providers.length === 0 ? (
         <View style={styles.emptyProviders}>
           <View style={styles.emptyIconCircle}>
-            <MaterialIcon name="search-off" size={44} color={COLORS.muted} />
+            <MaterialIcon name="search-off" size={44} color={C.muted} />
           </View>
           <Text style={styles.emptyText}>{t('emergencyServices.noProvidersAvailable')}</Text>
           <Text style={styles.emptySubtext}>
@@ -1332,7 +1366,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
             onPress={handleRetrySearch}
             activeOpacity={0.8}
           >
-            <MaterialIcon name="refresh" size={18} color={COLORS.white} style={{ marginRight: 6 }} />
+            <MaterialIcon name="refresh" size={18} color={C.onPrimary} style={{ marginRight: 6 }} />
             <Text style={styles.retryLargeButtonText}>{t('emergencyServices.searchAgain')}</Text>
           </TouchableOpacity>
         </View>
@@ -1357,8 +1391,8 @@ const EmergencyServicesScreen = ({ navigation }) => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRetrySearch}
-              colors={[COLORS.primary]}
-              tintColor={COLORS.primary}
+              colors={[C.primary]}
+              tintColor={C.primary}
             />
           }
         />
@@ -1369,7 +1403,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
         onPress={handleCancelRequest}
         activeOpacity={0.8}
       >
-        <MaterialIcon name="close" size={18} color={COLORS.danger} style={{ marginRight: 6 }} />
+        <MaterialIcon name="close" size={18} color={C.danger} style={{ marginRight: 6 }} />
         <Text style={styles.cancelButtonText}>{t('emergencyServices.cancelRequest')}</Text>
       </TouchableOpacity>
     </View>
@@ -1463,7 +1497,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
     >
       <View style={{ flex: 1 }}>
         <Animated.View
-          style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(15, 23, 42, 0.6)', opacity: notesOverlayOpacity }]}
+          style={[StyleSheet.absoluteFill, { backgroundColor: C.overlay, opacity: notesOverlayOpacity }]}
         >
           <TouchableOpacity
             style={{ flex: 1 }}
@@ -1496,7 +1530,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
               <MaterialIcon
                 name={EMERGENCY_SERVICE_ICONS[selectedService?.id] || 'warning'}
                 size={24}
-                color={COLORS.primary}
+                color={C.primary}
               />
             </View>
             <View style={{ flex: 1 }}>
@@ -1514,7 +1548,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
           <TextInput
             style={styles.notesInput}
             placeholder={EMERGENCY_NOTES_PLACEHOLDERS[selectedService?.id] || t('emergencyServices.addDetails')}
-            placeholderTextColor={COLORS.muted}
+            placeholderTextColor={C.muted}
             value={notes}
             onChangeText={setNotes}
             multiline
@@ -1525,7 +1559,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
           {/* Location preview */}
           <View style={styles.locationPreview}>
             <View style={styles.locationIconWrap}>
-              <MaterialIcon name="my-location" size={16} color={COLORS.primary} />
+              <MaterialIcon name="my-location" size={16} color={C.primary} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.locationLabel}>{t('emergencyServices.yourLocationLabel')}</Text>
@@ -1533,7 +1567,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
                 {displayAddress || t('emergencyServices.fetchingLocation')}
               </Text>
             </View>
-            {locationLoading && <ActivityIndicator size="small" color={COLORS.primary} />}
+            {locationLoading && <ActivityIndicator size="small" color={C.warning} />}
           </View>
 
           {/* Action buttons */}
@@ -1552,10 +1586,10 @@ const EmergencyServicesScreen = ({ navigation }) => {
               activeOpacity={0.8}
             >
               {isLoading ? (
-                <ActivityIndicator size="small" color={COLORS.white} />
+                <ActivityIndicator size="small" color={C.onPrimary} />
               ) : (
                 <>
-                  <MaterialIcon name="search" size={20} color={COLORS.white} style={{ marginRight: 8 }} />
+                  <MaterialIcon name="search" size={20} color={C.onPrimary} style={{ marginRight: 8 }} />
                   <Text style={styles.notesModalConfirmText}>{t('userHome.findProviders')}</Text>
                 </>
               )}
@@ -1576,15 +1610,15 @@ const EmergencyServicesScreen = ({ navigation }) => {
         <View style={styles.loadingContainer}>
           {loadingTimedOut ? (
             <>
-              <View style={[styles.loadingIconCircle, { backgroundColor: '#FEF2F2' }]}>
-                <MaterialIcon name="error-outline" size={40} color={COLORS.danger} />
+              <View style={[styles.loadingIconCircle, { backgroundColor: C.dangerFill }]}>
+                <MaterialIcon name="error-outline" size={40} color={C.danger} />
               </View>
               <Text style={styles.loadingText}>{t('emergencyServices.takingTooLong')}</Text>
               <Text style={styles.loadingSubtext}>
                 {t('emergencyServices.serverNotResponding')}
               </Text>
               <TouchableOpacity style={styles.retryButton} onPress={handleRetryProviders} activeOpacity={0.8}>
-                <MaterialIcon name="refresh" size={20} color={COLORS.primary} />
+                <MaterialIcon name="refresh" size={20} color={C.warning} />
                 <Text style={styles.retryButtonText}>{t('common.tryAgain')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.cancelSearchButton} onPress={handleCancelSearch} activeOpacity={0.8}>
@@ -1641,17 +1675,20 @@ const EmergencyServicesScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  const SHADOWS = makeShadows(C);
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: C.background,
   },
 
   // ── Header ──────────────────────────────────────────────
   header: {
     paddingHorizontal: 20,
     paddingBottom: 20,
-    backgroundColor: COLORS.darkHero,
+    backgroundColor: C.darkHero,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -1659,7 +1696,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: stableDark.fillChip,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1670,11 +1707,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: COLORS.white,
+    color: C.white,
   },
   headerSubtitle: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.55)',
+    color: stableDark.inkSoft,
     marginTop: 2,
   },
   headerSpacer: {
@@ -1684,7 +1721,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: 'rgba(239,68,68,0.15)',
+    backgroundColor: stableDark.dangerFill,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1692,7 +1729,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: COLORS.danger,
+    backgroundColor: C.danger,
   },
 
   // ── Content ─────────────────────────────────────────────
@@ -1714,14 +1751,14 @@ const styles = StyleSheet.create({
     width: 4,
     height: 20,
     borderRadius: 2,
-    backgroundColor: COLORS.primary,
+    backgroundColor: C.primary,
     marginRight: 10,
   },
   sectionIconContainer: {
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: C.warningFill,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
@@ -1729,11 +1766,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
   },
   sectionSubtitle: {
     fontSize: 13,
-    color: COLORS.muted,
+    color: C.muted,
     marginBottom: 16,
     marginLeft: 54,
   },
@@ -1747,7 +1784,7 @@ const styles = StyleSheet.create({
   serviceCard: {
     width: '47%',
     flexGrow: 1,
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     borderRadius: CARD_RADIUS,
     padding: 18,
     alignItems: 'center',
@@ -1756,25 +1793,25 @@ const styles = StyleSheet.create({
   },
   staticServiceCard: {
     borderWidth: 1.5,
-    borderColor: COLORS.dangerBorder,
-    backgroundColor: COLORS.dangerLight,
+    borderColor: C.dangerBorder,
+    backgroundColor: C.dangerLight,
   },
   serviceIconContainer: {
     width: 52,
     height: 52,
     borderRadius: 16,
-    backgroundColor: COLORS.background,
+    backgroundColor: C.background,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
   staticIconContainer: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: C.dangerFill,
   },
   serviceName: {
     fontSize: 13,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     textAlign: 'center',
     lineHeight: 18,
   },
@@ -1784,12 +1821,12 @@ const styles = StyleSheet.create({
     marginTop: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: C.dangerFill,
     borderRadius: 10,
   },
   staticBadgeText: {
     fontSize: 10,
-    color: COLORS.danger,
+    color: C.danger,
     marginLeft: 3,
     fontWeight: '600',
   },
@@ -1800,16 +1837,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 20,
     padding: 16,
-    backgroundColor: COLORS.dangerLight,
+    backgroundColor: C.dangerLight,
     borderRadius: CARD_RADIUS,
     borderWidth: 1,
-    borderColor: COLORS.dangerBorder,
+    borderColor: C.dangerBorder,
   },
   emergencyInfoIcon: {
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: C.dangerFill,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -1820,12 +1857,12 @@ const styles = StyleSheet.create({
   emergencyInfoTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: COLORS.danger,
+    color: C.danger,
     marginBottom: 2,
   },
   emergencyInfoText: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     lineHeight: 17,
   },
 
@@ -1843,11 +1880,11 @@ const styles = StyleSheet.create({
   providersTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
   },
   providersSubtitle: {
     fontSize: 13,
-    color: COLORS.muted,
+    color: C.muted,
     marginTop: 2,
   },
   headerRetryButton: {
@@ -1855,14 +1892,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 8,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: C.warningBg,
     borderRadius: 14,
   },
   providersList: {
     paddingBottom: 80,
   },
   providerCard: {
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     borderRadius: CARD_RADIUS,
     padding: 18,
     marginBottom: 14,
@@ -1877,7 +1914,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 18,
-    backgroundColor: COLORS.secondary,
+    backgroundColor: C.secondary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -1891,7 +1928,7 @@ const styles = StyleSheet.create({
   providerInitial: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.white,
+    color: C.white,
   },
   favoriteBadge: {
     position: 'absolute',
@@ -1900,11 +1937,11 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: COLORS.white,
+    backgroundColor: C.white,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: COLORS.warning,
+    borderColor: C.warning,
   },
   providerDetails: {
     flex: 1,
@@ -1916,7 +1953,7 @@ const styles = StyleSheet.create({
   providerName: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
   },
   verifiedBadge: {
     marginLeft: 5,
@@ -1928,7 +1965,7 @@ const styles = StyleSheet.create({
   },
   providerDistance: {
     fontSize: 13,
-    color: COLORS.muted,
+    color: C.muted,
     marginLeft: 4,
   },
   providerRatingRow: {
@@ -1938,13 +1975,13 @@ const styles = StyleSheet.create({
   },
   providerRating: {
     fontSize: 13,
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     fontWeight: '600',
     marginLeft: 4,
   },
   providerRatingCount: {
     fontSize: 12,
-    color: COLORS.muted,
+    color: C.muted,
     marginLeft: 4,
   },
   providerPhoneRow: {
@@ -1954,7 +1991,7 @@ const styles = StyleSheet.create({
   },
   providerPhoneText: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     marginLeft: 4,
   },
   providerActions: {
@@ -1965,13 +2002,13 @@ const styles = StyleSheet.create({
     width: 54,
     height: 54,
     borderRadius: 16,
-    backgroundColor: COLORS.success,
+    backgroundColor: C.success,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.success,
+        shadowColor: C.success,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -1983,12 +2020,12 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 54,
     borderRadius: 16,
-    backgroundColor: COLORS.primary,
+    backgroundColor: C.primary,
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.primary,
+        shadowColor: C.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -2002,7 +2039,7 @@ const styles = StyleSheet.create({
   bookButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: COLORS.white,
+    color: C.white,
   },
 
   // ── Provider Status ─────────────────────────────────────
@@ -2028,11 +2065,11 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: COLORS.background,
+    borderTopColor: C.background,
   },
   viewDetailsText: {
     fontSize: 12,
-    color: COLORS.muted,
+    color: C.muted,
     marginRight: 2,
   },
 
@@ -2047,7 +2084,7 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: COLORS.background,
+    backgroundColor: C.background,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -2055,11 +2092,11 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
   },
   emptySubtext: {
     fontSize: 14,
-    color: COLORS.muted,
+    color: C.muted,
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 20,
@@ -2070,11 +2107,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 28,
     paddingVertical: 14,
-    backgroundColor: COLORS.primary,
+    backgroundColor: C.primary,
     borderRadius: 14,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.primary,
+        shadowColor: C.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -2085,7 +2122,7 @@ const styles = StyleSheet.create({
   retryLargeButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: COLORS.white,
+    color: C.white,
   },
 
   // ── Cancel Button ───────────────────────────────────────
@@ -2096,9 +2133,9 @@ const styles = StyleSheet.create({
     right: 20,
     height: 52,
     borderRadius: 14,
-    backgroundColor: COLORS.dangerLight,
+    backgroundColor: C.dangerLight,
     borderWidth: 1.5,
-    borderColor: COLORS.dangerBorder,
+    borderColor: C.dangerBorder,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -2106,7 +2143,7 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: COLORS.danger,
+    color: C.danger,
   },
 
   // ── Loading ─────────────────────────────────────────────
@@ -2119,7 +2156,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -2128,11 +2165,11 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
   },
   loadingSubtext: {
     fontSize: 13,
-    color: COLORS.muted,
+    color: C.muted,
     marginTop: 4,
     textAlign: 'center',
     paddingHorizontal: 32,
@@ -2141,9 +2178,9 @@ const styles = StyleSheet.create({
   retryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(246,124,22,0.12)',
+    backgroundColor: brandTint.orange12,
     borderWidth: 1.5,
-    borderColor: COLORS.primary,
+    borderColor: C.primary,
     paddingHorizontal: 28,
     paddingVertical: 14,
     borderRadius: 14,
@@ -2153,7 +2190,7 @@ const styles = StyleSheet.create({
   retryButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: C.primary,
   },
   cancelSearchButton: {
     paddingHorizontal: 20,
@@ -2163,24 +2200,24 @@ const styles = StyleSheet.create({
   cancelSearchText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.muted,
+    color: C.muted,
   },
 
   // ── Modal Common ────────────────────────────────────────
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    backgroundColor: C.overlay,
     justifyContent: 'flex-end',
   },
   modalDragHandle: {
     width: 40,
     height: 5,
     borderRadius: 3,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: C.borderMedium,
     alignSelf: 'center',
   },
   modalContent: {
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 24,
@@ -2203,7 +2240,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: COLORS.dangerLight,
+    backgroundColor: C.dangerLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -2211,14 +2248,14 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     flex: 1,
   },
   closeButton: {
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: COLORS.background,
+    backgroundColor: C.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -2234,16 +2271,16 @@ const styles = StyleSheet.create({
   noNumbersText: {
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     marginTop: 16,
   },
   noNumbersSubtext: {
     fontSize: 13,
-    color: COLORS.muted,
+    color: C.muted,
     marginTop: 4,
   },
   numberCard: {
-    backgroundColor: COLORS.background,
+    backgroundColor: C.background,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -2258,7 +2295,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: COLORS.dangerLight,
+    backgroundColor: C.dangerLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -2269,11 +2306,11 @@ const styles = StyleSheet.create({
   numberLabel: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
   },
   numberDescription: {
     fontSize: 13,
-    color: COLORS.muted,
+    color: C.muted,
     marginTop: 3,
     lineHeight: 18,
   },
@@ -2281,13 +2318,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.danger,
+    backgroundColor: C.danger,
     paddingHorizontal: 20,
     height: 52,
     borderRadius: 14,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.danger,
+        shadowColor: C.danger,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -2298,7 +2335,7 @@ const styles = StyleSheet.create({
   callNumberText: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.white,
+    color: C.white,
     marginLeft: 10,
     letterSpacing: 0.5,
   },
@@ -2306,14 +2343,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
     height: 52,
     borderRadius: 14,
-    backgroundColor: COLORS.background,
+    backgroundColor: C.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
   closeModalButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
   },
 
   // ── Notes Modal ─────────────────────────────────────────
@@ -2324,7 +2361,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   notesModalContent: {
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 24,
@@ -2339,7 +2376,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 16,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: C.warningFill,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -2347,31 +2384,31 @@ const styles = StyleSheet.create({
   notesModalTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
   },
   notesModalSubtitle: {
     fontSize: 13,
-    color: COLORS.muted,
+    color: C.muted,
     marginTop: 3,
     lineHeight: 18,
   },
   notesLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   notesInput: {
     borderWidth: 1.5,
-    borderColor: COLORS.divider,
+    borderColor: C.divider,
     borderRadius: 16,
     padding: 16,
     fontSize: 15,
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     minHeight: 120,
-    backgroundColor: COLORS.inputBg,
+    backgroundColor: C.inputBg,
     lineHeight: 22,
   },
   locationPreview: {
@@ -2379,16 +2416,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
     padding: 14,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: C.warningBg,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#FFEDD5',
+    borderColor: C.warningLine,
   },
   locationIconWrap: {
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: '#FFEDD5',
+    backgroundColor: C.warningFill,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -2396,7 +2433,7 @@ const styles = StyleSheet.create({
   locationLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: C.primary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 2,
@@ -2404,7 +2441,7 @@ const styles = StyleSheet.create({
   locationText: {
     flex: 1,
     fontSize: 13,
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     lineHeight: 18,
   },
   notesModalActions: {
@@ -2416,27 +2453,27 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 56,
     borderRadius: 16,
-    backgroundColor: COLORS.background,
+    backgroundColor: C.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
   notesModalCancelText: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
   },
   notesModalConfirmButton: {
     flex: 2,
     height: 56,
     borderRadius: 16,
-    backgroundColor: COLORS.primary,
+    backgroundColor: C.primary,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 10,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.primary,
+        shadowColor: C.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -2447,21 +2484,24 @@ const styles = StyleSheet.create({
   notesModalConfirmText: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.white,
+    color: C.white,
   },
-});
+  });
+};
 
 /**
  * Styles for EmergencyProviderDetailsModal — Premium
  */
-const detailStyles = StyleSheet.create({
+const makeDetailStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    backgroundColor: C.overlay,
     justifyContent: 'flex-end',
   },
   container: {
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     maxHeight: '92%',
@@ -2471,7 +2511,7 @@ const detailStyles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: COLORS.divider,
+    backgroundColor: C.divider,
     alignSelf: 'center',
     marginTop: 12,
   },
@@ -2483,20 +2523,20 @@ const detailStyles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.background,
+    borderBottomColor: C.background,
   },
   closeBtn: {
     width: 40,
     height: 40,
     borderRadius: 14,
-    backgroundColor: COLORS.background,
+    backgroundColor: C.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
   },
   profileSection: {
     flexDirection: 'row',
@@ -2516,25 +2556,25 @@ const detailStyles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: 22,
-    backgroundColor: COLORS.secondary,
+    backgroundColor: C.secondary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarInitial: {
     fontSize: 28,
     fontWeight: '800',
-    color: COLORS.white,
+    color: C.white,
   },
   verifiedBadge: {
     position: 'absolute',
     bottom: -2,
     right: -4,
-    backgroundColor: COLORS.white,
+    backgroundColor: C.white,
     borderRadius: 12,
     padding: 2,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
@@ -2549,7 +2589,7 @@ const detailStyles = StyleSheet.create({
   providerName: {
     fontSize: 20,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     marginBottom: 4,
   },
   ratingRow: {
@@ -2560,12 +2600,12 @@ const detailStyles = StyleSheet.create({
   ratingText: {
     fontSize: 15,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     marginLeft: 4,
   },
   ratingCount: {
     fontSize: 13,
-    color: COLORS.muted,
+    color: C.muted,
     marginLeft: 4,
   },
   infoRow: {
@@ -2575,7 +2615,7 @@ const detailStyles = StyleSheet.create({
   },
   infoText: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     marginLeft: 6,
   },
   statsRow: {
@@ -2584,7 +2624,7 @@ const detailStyles = StyleSheet.create({
     justifyContent: 'space-around',
     marginHorizontal: 20,
     paddingVertical: 18,
-    backgroundColor: COLORS.background,
+    backgroundColor: C.background,
     borderRadius: CARD_RADIUS,
     marginBottom: 20,
   },
@@ -2595,18 +2635,18 @@ const detailStyles = StyleSheet.create({
   statValue: {
     fontSize: 18,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
   },
   statLabel: {
     fontSize: 12,
-    color: COLORS.muted,
+    color: C.muted,
     marginTop: 3,
     fontWeight: '500',
   },
   statDivider: {
     width: 1,
     height: 32,
-    backgroundColor: COLORS.divider,
+    backgroundColor: C.divider,
   },
   section: {
     paddingHorizontal: 20,
@@ -2621,22 +2661,22 @@ const detailStyles = StyleSheet.create({
     width: 4,
     height: 18,
     borderRadius: 2,
-    backgroundColor: COLORS.primary,
+    backgroundColor: C.primary,
     marginRight: 8,
   },
   sectionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
   },
   bioContainer: {
-    backgroundColor: COLORS.background,
+    backgroundColor: C.background,
     borderRadius: 14,
     padding: 14,
   },
   bioText: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     lineHeight: 21,
   },
   tagsContainer: {
@@ -2646,7 +2686,7 @@ const detailStyles = StyleSheet.create({
   serviceTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.successLight,
+    backgroundColor: C.successLight,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 14,
@@ -2655,7 +2695,7 @@ const detailStyles = StyleSheet.create({
   },
   serviceTagText: {
     fontSize: 12,
-    color: '#065F46',
+    color: C.success,
     fontWeight: '600',
     marginLeft: 5,
     textTransform: 'capitalize',
@@ -2663,17 +2703,17 @@ const detailStyles = StyleSheet.create({
   phoneButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.successLight,
+    backgroundColor: C.successLight,
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#D1FAE5',
+    borderColor: C.successLine,
   },
   phoneIconWrap: {
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: COLORS.white,
+    backgroundColor: C.white,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -2681,12 +2721,12 @@ const detailStyles = StyleSheet.create({
   phoneButtonText: {
     flex: 1,
     fontSize: 15,
-    color: COLORS.success,
+    color: C.success,
     fontWeight: '700',
   },
   noPhoneText: {
     fontSize: 14,
-    color: COLORS.muted,
+    color: C.muted,
     fontStyle: 'italic',
   },
   actions: {
@@ -2696,8 +2736,8 @@ const detailStyles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 24,
     borderTopWidth: 1,
-    borderTopColor: COLORS.background,
-    backgroundColor: COLORS.cardWhite,
+    borderTopColor: C.background,
+    backgroundColor: C.cardWhite,
   },
   callActionBtn: {
     flexDirection: 'row',
@@ -2706,15 +2746,15 @@ const detailStyles = StyleSheet.create({
     paddingHorizontal: 24,
     height: 56,
     borderRadius: 16,
-    backgroundColor: COLORS.successLight,
+    backgroundColor: C.successLight,
     borderWidth: 1.5,
-    borderColor: COLORS.success,
+    borderColor: C.success,
     marginRight: 12,
   },
   callActionText: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.success,
+    color: C.success,
     marginLeft: 8,
   },
   bookActionBtn: {
@@ -2724,10 +2764,10 @@ const detailStyles = StyleSheet.create({
     justifyContent: 'center',
     height: 56,
     borderRadius: 16,
-    backgroundColor: COLORS.primary,
+    backgroundColor: C.primary,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.primary,
+        shadowColor: C.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -2738,9 +2778,10 @@ const detailStyles = StyleSheet.create({
   bookActionText: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.white,
+    color: C.white,
     marginLeft: 8,
   },
-});
+  });
+};
 
 export default EmergencyServicesScreen;

@@ -142,6 +142,7 @@ export const stableDark = {
   shadowBase: '#000000',
   successFill: 'rgba(16, 185, 129, 0.15)',
   successLine: 'rgba(16, 185, 129, 0.3)',
+  dangerFill: 'rgba(239, 68, 68, 0.15)',
   infoFill: 'rgba(59, 130, 246, 0.15)',
   infoLine: 'rgba(59, 130, 246, 0.3)',
 
@@ -289,6 +290,9 @@ export const iosSystem = {
     label: '#000000',
     labelSecondary: 'rgba(0, 0, 0, 0.55)',
     surfaceFallback: '#F2F2F7',
+    fill: 'rgba(120, 120, 128, 0.12)', // Apple tertiarySystemFill
+    disabled: '#C7C7CC',
+    placeholder: 'rgba(0, 0, 0, 0.2)',
   },
   dark: {
     blue: '#0A84FF',
@@ -296,6 +300,9 @@ export const iosSystem = {
     label: '#FFFFFF',
     labelSecondary: 'rgba(235, 235, 245, 0.6)',
     surfaceFallback: '#1C1C1E',
+    fill: 'rgba(120, 120, 128, 0.24)',
+    disabled: '#3A3A3C',
+    placeholder: 'rgba(235, 235, 245, 0.3)',
   },
   onAccent: '#FFFFFF',
 };

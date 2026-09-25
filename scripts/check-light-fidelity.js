@@ -267,6 +267,51 @@ const EXPECTED_CHANGES = {
     '#2b76bc': 'the processing bar and benefit row keep brand blue as an icon, but blue-on-tint TEXT moves to the info token (4.4 -> 5.6)',
     'rgba(15, 23, 42, 0.6)': 'the transaction sheet scrim unified onto theme.colors.overlay (0.45)',
   },
+  'src/screens/EmergencyServicesScreen.jsx': {
+    '#ECFDF5': 'converged onto successContainer',
+    '#D1FAE5': 'phone-button hairline -> successBorder (#BBF7D0)',
+    '#065F46': 'service-tag ink converged onto the success token',
+    '#FEE2E2': 'danger icon chips -> dangerFill, which keeps a step against the card under them',
+    '#FFEDD5': 'the location-preview hairline and its nested icon chip split into warningBorder and warningFill, so the chip no longer matches the box it sits in',
+    // Not flagged but changed for real:
+    '#10B981': 'a11y: white on this fill was 2.46:1 -> the success fill',
+    '#F59E0B': 'the header retry chip held BRAND ORANGE icons on a #FFF7ED fill at 2.3:1 -- an icon-only control below the 3:1 floor. Fill -> warningContainer, icon -> the warning token (5.4:1)',
+    'rgba(15, 23, 42, 0.6)': 'the three modal scrims unified onto theme.colors.overlay (0.45)',
+  },
+  'src/screens/AccountSecurityScreen.jsx': {
+    '#ECFDF5': 'converged onto successContainer',
+    '#FFFBEB': 'converged onto warningContainer',
+    '#0F172A': 'C.dark was dead at v1.0.9 -- not mapped; the shadow uses theme.colors.shadow',
+    // Not flagged but changed for real:
+    '#f67c16': 'the refresh-token row kept brand orange as an ICON on a #FFF7ED chip -- 2.3:1, below the 3:1 floor. Chip -> warningContainer, icon -> the warning token.',
+    '#10B981': 'a11y: emerald-500 was 2.46:1 on white -> the success token',
+    '#EF4444': 'a11y: red-500 was 3.76:1 on white -> the danger token',
+  },
+  'src/screens/SettingsScreen.jsx': {
+    '#FEE2E2': 'the danger row tint -> dangerContainer',
+    '#F9FAFB': 'language-option fill -> surfaceSunken',
+    'rgba(0,0,0,0.35)': 'the native-iOS delete sheet scrim -> theme.colors.overlay',
+    'rgba(0,0,0,0.4)': 'the language-modal scrim -> theme.colors.overlay',
+    // The delete-account sheet deliberately reads as native iOS, so its colours moved
+    // to the Apple tokens (iosLabel / iosFill / iosBlue / iosRed / iosDisabled /
+    // iosPlaceholder), which follow the OS appearance. Three of those needed adding.
+    '#94A3B8': 'a11y: 2.54:1 on white -> textMuted',
+    '#F1F5F9': 'the icon chip and divider both map to bg, which is this value in light',
+  },
+  'src/screens/ChangePasswordScreen.jsx': {
+    // A pre-design-system palette, and not even the Fixhomi orange.
+    '#FF6B35': 'a11y: this coral measured 2.9:1 as text on white, and it is ONLY used as text here (three links + a spinner). Mapped to the warning token (5.4:1), matching the call already made for warm accent text on Subscription and EmergencyServices.',
+    '#FFF0EB': 'converged onto warningContainer',
+    '#1A1A2E': 'heading ink -> textPrimary',
+    '#6C757D': 'secondary ink -> textSecondary (#475569)',
+    '#ADB5BD': 'a11y: 2.1:1 on white -> textMuted (5.42:1)',
+    '#E9ECEF': 'hairline -> border (#E2E8F0)',
+    '#F8F9FA': 'sunken surface -> surfaceSunken (#F8FAFC)',
+    '#DC3545': 'a11y: Bootstrap red was 4.53:1 -> the danger token (7.00:1)',
+    '#28A745': 'a11y: Bootstrap green was 3.03:1 -> the success token (4.83:1)',
+    '#E8F5E9': 'success icon circle -> successFill, which keeps a step on a dark card',
+    '#FFFFFF': 'COLORS.white was dead at v1.0.9; the page background maps to surface',
+  },
   'src/screens/EmailVerifyHandlerScreen.jsx': {
     '#2563EB': 'altBlueIndigo', '#FFFFFF': 'surface',
     '#6B7280': 'textSecondary is now the accessible #475569',

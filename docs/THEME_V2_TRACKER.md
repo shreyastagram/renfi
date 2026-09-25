@@ -66,7 +66,9 @@ contract.
   - [x] batch 3 — `CreateServiceRequestScreen`, `UserServiceHistoryScreen`
   - [x] batch 4 — `UserHomeScreen`, `ServiceRequestDetailScreen` (+ Mapbox — the map lives
         HERE, not on the home screen as this board previously said), `SubscriptionScreen`
-  - [ ] batch 5 — `AccountSecurityScreen`, `ChangePasswordScreen` (33 security lines — last)
+  - [x] batch 5 — `EmergencyServicesScreen`, `AccountSecurityScreen`, `SettingsScreen`,
+        `ChangePasswordScreen` — migrated in ascending order of security exposure
+        (2 / 68 / 117 / 255 sensitive lines), auth screens last
 - [ ] **Phase 8** — Provider screens incl. Working Hours (5 files, 126 colours)
 - [ ] **Phase 9** — Auth screens
 - [ ] **Phase 10** — Full sweep + device-test checklist
@@ -77,10 +79,10 @@ contract.
 
 | Measure | Value |
 |---|---|
-| Colour literals remaining | **2,365** (3,329 at v1.0.9) — measured, see note |
-| Files on the hex allowlist | **30** |
+| Colour literals remaining | **2,249** (3,329 at v1.0.9) — measured, see note |
+| Files on the hex allowlist | **34** |
 | Components fully themed | **8** — CustomDialog, Button, Alert, ShimmerLoader, Input, Icon, GlobalBanner, DrawerMenu (+ RootNavigator surgically) |
-| Screens fully themed | **12** — EmailVerifyHandler, PSATrigger, PSAContacts, Referral, Favorites, LiveTracking, EventServices, CreateServiceRequest, UserServiceHistory, UserHome, ServiceRequestDetail, Subscription |
+| Screens fully themed | **16** — the whole user side, plus Settings, AccountSecurity, ChangePassword and EmergencyServices |
 | Theme unit tests | 26 across 5 suites |
 | Owner's Working Hours tests | 86 — **must never regress** |
 | i18n | **2074** × en/hi/mr (2067 baseline + 7 theme keys) |
@@ -98,7 +100,8 @@ series, one measurement per commit:
 | batch 2 `11da936` | 3,021 | 173 |
 | batch 3 `f3a1ac6` | 2,848 | 173 |
 | batch 4a `2f9939e` | 2,520 | 173 |
-| batch 4b `605c97f` | **2,365** | 173 |
+| batch 4b `605c97f` | 2,365 | 173 |
+| batch 5 | **2,249** | 173 |
 
 Recount with:
 

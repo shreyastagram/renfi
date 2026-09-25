@@ -33,6 +33,10 @@
     "src/screens/UserServiceHistoryScreen.jsx",
     "src/screens/UserHomeScreen.jsx",
     "src/screens/ServiceRequestDetailScreen.jsx",
-    "src/screens/SubscriptionScreen.jsx"
+    "src/screens/SubscriptionScreen.jsx",
+    "src/screens/EmergencyServicesScreen.jsx",
+    "src/screens/AccountSecurityScreen.jsx",
+    "src/screens/SettingsScreen.jsx",
+    "src/screens/ChangePasswordScreen.jsx"
   ]
 }
