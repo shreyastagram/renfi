@@ -64,33 +64,67 @@ import { setupForegroundMessageListener } from '../services/fcmService';
 import { STATIC_NUMBER_SERVICES, getProviderEmergencyRequests } from '../services/emergencyServicesService';
 import { authFetch } from '../utils/authFetch';
 import { NODE_BASE_URL } from '../config/api';
+import {
+  useTheme,
+  useThemedStyles,
+  useThemeColors,
+  medal,
+} from '../theme';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
-const C = {
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  dark: '#0F172A',
-  bg: '#F8FAFC',
-  white: '#FFFFFF',
-  border: '#F1F5F9',
-  muted: '#94A3B8',
-  text: '#0F172A',
-  textSec: '#64748B',
-  success: '#10B981',
-  successBg: '#ECFDF5',
-  danger: '#EF4444',
-  dangerBg: '#FEF2F2',
-  purple: '#8B5CF6',
-  purpleBg: '#EDE9FE',
-  blue: '#3B82F6',
-  blueBg: '#DBEAFE',
-  gold: '#F59E0B',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  bg: c.surfaceSunken,
+  white: c.surface,
+  // The shipped hairline and neutral chip fill were both #F1F5F9 -- exactly  in
+  // light, a recessed seam on a dark surface.
+  border: c.bg,
+  neutralFill: c.bg,
+  line: c.border,
+  muted: c.textMuted,
+  text: c.textPrimary,
+  textSec: c.textSecondary,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  purple: c.accentViolet,
+  purpleBg: c.accentVioletContainer,
+  purpleFill: c.accentVioletFill,
+  blue: c.altBlueSky,
+  blueBg: c.infoContainer,
+  infoFill: c.infoFill,
+  info: c.info,
+  gold: medal.gold,
+  // Selected filter pill: a dark chip in light mode, so it inverts in dark rather
+  // than sitting dark-on-dark.
+  invertFill: c.textStrong,
+  onInvert: c.textInverse,
+  // The OTP sheet deliberately reads as native iOS; these follow the OS appearance.
+  iosLabel: c.iosLabel,
+  iosLabelSecondary: c.iosLabelSecondary,
+  iosSurface: c.iosSurfaceFallback,
+  iosFill: c.iosFill,
+  iosDisabled: c.iosDisabled,
+  iosPlaceholder: c.iosPlaceholder,
+  iosRed: c.iosRed,
+  iosBlue: c.iosBlue,
+  onIosAccent: c.onIosAccent,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
 
-const STATUS_CONFIG = {
-  pending: { labelKey: 'providerHistory.statusPending', color: C.primary, bgColor: '#FEF3C7', dotColor: C.primary },
-  awaiting_confirmation: { labelKey: 'providerHistory.statusAwaiting', color: C.primary, bgColor: '#FEF3C7', dotColor: C.primary },
+const makeStatusConfig = (C) => ({
+  pending: { labelKey: 'providerHistory.statusPending', color: C.primary, bgColor: C.warningBg, dotColor: C.primary },
+  awaiting_confirmation: { labelKey: 'providerHistory.statusAwaiting', color: C.primary, bgColor: C.warningBg, dotColor: C.primary },
   accepted: { labelKey: 'providerHistory.statusAccepted', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
   'in-progress': { labelKey: 'providerHistory.statusInProgress', color: C.purple, bgColor: C.purpleBg, dotColor: C.purple },
   in_transit: { labelKey: 'providerHistory.statusOnTheWay', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
@@ -98,8 +132,8 @@ const STATUS_CONFIG = {
   completed: { labelKey: 'providerHistory.statusCompleted', color: C.success, bgColor: C.successBg, dotColor: C.success },
   cancelled: { labelKey: 'providerHistory.statusCancelled', color: C.danger, bgColor: C.dangerBg, dotColor: C.danger },
   rejected: { labelKey: 'providerHistory.statusRejected', color: C.danger, bgColor: C.dangerBg, dotColor: C.danger },
-  expired: { labelKey: 'providerHistory.statusExpired', color: C.muted, bgColor: '#F1F5F9', dotColor: C.muted },
-};
+  expired: { labelKey: 'providerHistory.statusExpired', color: C.muted, bgColor: C.neutralFill, dotColor: C.muted },
+});
 
 const FILTER_TABS = [
   { key: 'all', labelKey: 'providerHistory.allJobs' },
@@ -143,23 +177,28 @@ const getDateRange = (preset) => {
 };
 
 /* ── Stat Pill ─────────────────────────────────────────────────────── */
-const StatPill = React.memo(({ value, label, color, bgColor }) => (
-  <View style={[styles.statPill, { backgroundColor: bgColor }]}>
-    <View style={styles.statSvgBg}>
-      <Svg width="100%" height="100%" viewBox="0 0 100 70" preserveAspectRatio="xMidYMid slice">
-        <Circle cx="85" cy="-5" r="35" fill={color} opacity={0.06} />
-        <Circle cx="90" cy="60" r="20" fill={color} opacity={0.05} />
-        <Path d="M0 50 Q25 30 50 45 T100 35" stroke={color} strokeWidth="1" fill="none" opacity={0.1} />
-        <Path d="M0 60 Q30 40 60 55 T100 50" stroke={color} strokeWidth="0.8" fill="none" opacity={0.07} />
-      </Svg>
+const StatPill = React.memo(({ value, label, color, bgColor }) => {
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <View style={[styles.statPill, { backgroundColor: bgColor }]}>
+      <View style={styles.statSvgBg}>
+        <Svg width="100%" height="100%" viewBox="0 0 100 70" preserveAspectRatio="xMidYMid slice">
+          <Circle cx="85" cy="-5" r="35" fill={color} opacity={0.06} />
+          <Circle cx="90" cy="60" r="20" fill={color} opacity={0.05} />
+          <Path d="M0 50 Q25 30 50 45 T100 35" stroke={color} strokeWidth="1" fill="none" opacity={0.1} />
+          <Path d="M0 60 Q30 40 60 55 T100 50" stroke={color} strokeWidth="0.8" fill="none" opacity={0.07} />
+        </Svg>
+      </View>
+      <Text style={[styles.statValue, { color }]}>{value}</Text>
+      <Text style={[styles.statLabel, { color: color + 'B0' }]}>{label}</Text>
     </View>
-    <Text style={[styles.statValue, { color }]}>{value}</Text>
-    <Text style={[styles.statLabel, { color: color + 'B0' }]}>{label}</Text>
-  </View>
-));
+  );
+});
 
 /* ── OTP Modal ─────────────────────────────────────────────────────── */
 const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
   const otpInsets = useSafeAreaInsets();
   const [otp, setOtp] = useState('');
@@ -197,7 +236,7 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
                       style={styles.iosBlurFill}
                       blurType="light"
                       blurAmount={80}
-                      reducedTransparencyFallbackColor="#F2F2F7"
+                      reducedTransparencyFallbackColor={C.iosSurface}
                     >
                       <View style={styles.iosOtpContent}>
                         <Text style={{ fontSize: 36, marginBottom: 12 }}>🔐</Text>
@@ -205,11 +244,11 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
                         <Text style={styles.iosOtpSubtitle}>{t('providerHistory.enterCompletionOtpSub')}</Text>
 
                         <TextInput
-                          style={[styles.iosOtpInput, isLocked && { backgroundColor: 'rgba(255,59,48,0.08)' }]}
+                          style={[styles.iosOtpInput, isLocked && { backgroundColor: C.iosRed + '14' }]}
                           value={otp}
                           onChangeText={handleOtpChange}
                           placeholder="000000"
-                          placeholderTextColor="rgba(0,0,0,0.2)"
+                          placeholderTextColor={C.iosPlaceholder}
                           keyboardType="number-pad"
                           maxLength={6}
                           autoFocus
@@ -236,7 +275,7 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
                           activeOpacity={0.7}
                         >
                           {isVerifying ? (
-                            <ActivityIndicator color="#FFFFFF" size="small" />
+                            <ActivityIndicator color={C.white} size="small" />
                           ) : (
                             <Text style={[styles.iosVerifyBtnText, isDisabled && styles.iosVerifyBtnTextDisabled]}>
                               {t('providerHistory.verifyComplete')}
@@ -253,7 +292,7 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
                       style={styles.iosBlurFill}
                       blurType="light"
                       blurAmount={80}
-                      reducedTransparencyFallbackColor="#F2F2F7"
+                      reducedTransparencyFallbackColor={C.iosSurface}
                     >
                       <TouchableOpacity
                         style={styles.iosCancelBtn}
@@ -291,11 +330,11 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
               </View>
               <Text style={styles.modalSubtitle}>{t('providerHistory.enterCompletionOtpSub')}</Text>
               <TextInput
-                style={[styles.otpInput, isLocked && { borderColor: '#EF4444', backgroundColor: '#FEF2F2' }]}
+                style={[styles.otpInput, isLocked && { borderColor: C.danger, backgroundColor: C.dangerBg }]}
                 value={otp}
                 onChangeText={handleOtpChange}
                 placeholder="000000"
-                placeholderTextColor="#D1D5DB"
+                placeholderTextColor={C.muted}
                 keyboardType="number-pad"
                 maxLength={6}
                 autoFocus
@@ -318,7 +357,7 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
                 onPress={handleVerify}
                 disabled={otp.length !== 6 || isVerifying || isLocked}
               >
-                {isVerifying ? <ActivityIndicator color="#fff" /> : <Text style={styles.verifyBtnText}>{t('providerHistory.verifyComplete')}</Text>}
+                {isVerifying ? <ActivityIndicator color={C.onPrimary} /> : <Text style={styles.verifyBtnText}>{t('providerHistory.verifyComplete')}</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -330,6 +369,9 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
 
 /* ── Request Card ──────────────────────────────────────────────────── */
 const RequestCard = React.memo(({ request, onPress, onCall, onDirections, onComplete, onCancel, onAccept, onReject, isAccepting, isRejecting }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  const STATUS_CONFIG = makeStatusConfig(C);
   const { t } = useLanguage();
   const status = STATUS_CONFIG[request.status] || STATUS_CONFIG.pending;
   const serviceDate = new Date(request.serviceDate || request.createdAt);
@@ -366,7 +408,7 @@ const RequestCard = React.memo(({ request, onPress, onCall, onDirections, onComp
             <View style={styles.svcNameRow}>
               <Text style={styles.svcName} numberOfLines={1}>{SERVICE_TYPE_LABELS[request.serviceType] || request.serviceType}</Text>
               {isEvent && <View style={styles.typeBadge}><Text style={styles.typeBadgeText}>{t('providerHistory.eventBadge')}</Text></View>}
-              {isEmergency && <View style={[styles.typeBadge, { backgroundColor: '#FEE2E2' }]}><Text style={[styles.typeBadgeText, { color: '#DC2626' }]}>SOS</Text></View>}
+              {isEmergency && <View style={[styles.typeBadge, { backgroundColor: C.dangerFill }]}><Text style={[styles.typeBadgeText, { color: C.danger }]}>SOS</Text></View>}
             </View>
             <Text style={styles.svcId}>#{shortId}</Text>
           </View>
@@ -386,7 +428,7 @@ const RequestCard = React.memo(({ request, onPress, onCall, onDirections, onComp
         if (reason && !generic.includes(reason.toLowerCase()) && by) label += ` \u2014 ${reason}`;
         return (
           <View style={styles.cancelStrip}>
-            <Icon name="info" size={13} color="#B91C1C" />
+            <Icon name="info" size={13} color={C.danger} />
             <Text style={styles.cancelStripText} numberOfLines={2}>{label}</Text>
           </View>
         );
@@ -476,8 +518,8 @@ const RequestCard = React.memo(({ request, onPress, onCall, onDirections, onComp
                 onPress={() => onReject(request)}
                 disabled={isRejecting || isAccepting}
               >
-                {isRejecting ? <ActivityIndicator color="#64748B" size="small" /> : (
-                  <><Icon name="close" size={15} color="#94A3B8" /><Text style={styles.rejectBtnText}>{t('providerHistory.reject')}</Text></>
+                {isRejecting ? <ActivityIndicator color={C.textSec} size="small" /> : (
+                  <><Icon name="close" size={15} color={C.muted} /><Text style={styles.rejectBtnText}>{t('providerHistory.reject')}</Text></>
                 )}
               </TouchableOpacity>
               <TouchableOpacity
@@ -485,8 +527,8 @@ const RequestCard = React.memo(({ request, onPress, onCall, onDirections, onComp
                 onPress={() => onAccept(request)}
                 disabled={isAccepting || isRejecting}
               >
-                {isAccepting ? <ActivityIndicator color="#fff" size="small" /> : (
-                  <><Icon name="check" size={15} color="#fff" /><Text style={styles.acceptBtnText}>{t('providerHistory.accept')}</Text></>
+                {isAccepting ? <ActivityIndicator color={C.onPrimary} size="small" /> : (
+                  <><Icon name="check" size={15} color={C.onPrimary} /><Text style={styles.acceptBtnText}>{t('providerHistory.accept')}</Text></>
                 )}
               </TouchableOpacity>
             </View>
@@ -518,6 +560,8 @@ const RequestCard = React.memo(({ request, onPress, onCall, onDirections, onComp
 
 /* ── Empty State ───────────────────────────────────────────────────── */
 const EmptyState = ({ filter }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
   const msg = filter === 'pending' ? t('providerHistory.noNewRequests') : filter === 'active' ? t('providerHistory.noActiveJobs') : filter === 'completed' ? t('providerHistory.noCompletedJobs') : filter === 'cancelled' ? t('providerHistory.noCancelledJobs') : t('providerHistory.noJobsYet');
   return (
@@ -531,6 +575,9 @@ const EmptyState = ({ filter }) => {
 
 /* ── Main Screen ───────────────────────────────────────────────────── */
 const ProviderServiceHistoryScreen = ({ navigation, route }) => {
+  const { isDark } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const { user, profile, userType, logout } = useApp();
@@ -540,9 +587,11 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
   // Set status bar for light background when this tab is focused
   useFocusEffect(
     useCallback(() => {
-      StatusBar.setBarStyle('dark-content');
+      StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content');
       if (Platform.OS === 'android') StatusBar.setBackgroundColor('transparent');
-    }, [])
+      // `isDark` is a real dependency: without it the bar keeps the appearance it had
+      // when the tab was focused and ignores a theme switch.
+    }, [isDark])
   );
 
   const appStateRef = useRef(AppState.currentState);
@@ -1026,7 +1075,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
       <GraphBackground />
       {/* Header row — fades between title and compact stats */}
       <View style={[styles.header, { overflow: 'hidden' }]}>
-        <SvgArt color="#f67c16" height={60} />
+        <SvgArt color={C.primary} height={60} />
         <TouchableOpacity onPress={() => setIsDrawerOpen(true)} activeOpacity={0.7} style={styles.headerLogoBtn}>
           <Image source={FIXHOMI_LOGO} style={styles.headerLogoImg} />
         </TouchableOpacity>
@@ -1044,7 +1093,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
             opacity: scrollY.interpolate({ inputRange: [30, 70], outputRange: [0, 1], extrapolate: 'clamp' }),
             position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, justifyContent: 'center',
           }]}>
-            <View style={[styles.headerInlinePill, { backgroundColor: '#EFF6FF' }]}>
+            <View style={[styles.headerInlinePill, { backgroundColor: C.infoFill }]}>
               <View style={styles.headerInlineSvg}>
                 <Svg width="100%" height="100%" viewBox="0 0 120 36" preserveAspectRatio="xMidYMid slice">
                   <Circle cx="100" cy="0" r="18" fill={C.secondary} opacity={0.07} />
@@ -1054,7 +1103,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
               <Text style={[styles.headerInlineLabel, { color: C.secondary }]}>{t('providerHistory.total')}</Text>
               <Text style={[styles.headerInlineValue, { color: C.secondary }]}>{stats.total}</Text>
             </View>
-            <View style={[styles.headerInlinePill, { backgroundColor: '#FAF5FF' }]}>
+            <View style={[styles.headerInlinePill, { backgroundColor: C.purpleFill }]}>
               <View style={styles.headerInlineSvg}>
                 <Svg width="100%" height="100%" viewBox="0 0 120 36" preserveAspectRatio="xMidYMid slice">
                   <Circle cx="100" cy="0" r="18" fill={C.purple} opacity={0.07} />
@@ -1122,10 +1171,10 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
           <>
             <View style={styles.statsBarInner}>
               <View style={styles.statsRow}>
-                <StatPill value={stats.total} label={t('providerHistory.statTotal')} color={C.secondary} bgColor="#EFF6FF" />
-                <StatPill value={stats.pending} label={t('providerHistory.statNew')} color={C.primary} bgColor="#FFF7ED" />
-                <StatPill value={stats.active} label={t('providerHistory.filterActive')} color={C.purple} bgColor="#FAF5FF" />
-                <StatPill value={stats.completed} label={t('providerHistory.filterDone')} color={C.success} bgColor="#ECFDF5" />
+                <StatPill value={stats.total} label={t('providerHistory.statTotal')} color={C.secondary} bgColor={C.infoFill} />
+                <StatPill value={stats.pending} label={t('providerHistory.statNew')} color={C.primary} bgColor={C.warningBg} />
+                <StatPill value={stats.active} label={t('providerHistory.filterActive')} color={C.purple} bgColor={C.purpleFill} />
+                <StatPill value={stats.completed} label={t('providerHistory.filterDone')} color={C.success} bgColor={C.successFill} />
               </View>
             </View>
             {hasActiveFilters ? (
@@ -1170,7 +1219,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
           delayLongPress={1000}
           activeOpacity={0.75}
         >
-          <MaterialIcon name="tune" size={20} color={filtersVisible ? '#FFFFFF' : '#94A3B8'} />
+          <MaterialIcon name="tune" size={20} color={filtersVisible ? C.white : C.muted} />
           {hasActiveFilters && <View style={styles.filterBarActiveDot} />}
         </TouchableOpacity>
       </View>
@@ -1178,7 +1227,9 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
 
   // Header
@@ -1190,7 +1241,7 @@ const styles = StyleSheet.create({
   headerInlineSvg: { ...StyleSheet.absoluteFillObject },
   headerInlineLabel: { fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3 },
   headerInlineValue: { fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
-  headerLogoBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.95)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
+  headerLogoBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.white, alignItems: 'center', justifyContent: 'center', shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
   headerLogoImg: { width: 30, height: 30, borderRadius: 8 },
 
   // Loader
@@ -1201,16 +1252,16 @@ const styles = StyleSheet.create({
   // statsBarOuter removed — stats are now inside FlatList ListHeaderComponent
   statsBarInner: { paddingHorizontal: 14, paddingTop: 2, paddingBottom: 10 },
   statsRow: { flexDirection: 'row', gap: 6 },
-  statPill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 8, borderRadius: 14, overflow: 'hidden', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3 },
+  statPill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 8, borderRadius: 14, overflow: 'hidden', elevation: 1, shadowColor: C.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3 },
   statSvgBg: { ...StyleSheet.absoluteFillObject },
   statValue: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3, lineHeight: 22 },
   statLabel: { fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.3, marginTop: 3, lineHeight: 12 },
 
   // Filter section — unified container
-  filterSection: { backgroundColor: C.white, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: '#E8ECF0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 3 },
-  filterDivider: { height: 1, backgroundColor: '#F1F5F9', marginHorizontal: 16, marginVertical: 4 },
+  filterSection: { backgroundColor: C.white, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: C.line, shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 3 },
+  filterDivider: { height: 1, backgroundColor: C.neutralFill, marginHorizontal: 16, marginVertical: 4 },
   filterScroll: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
-  filterPill: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#F1F5F9', borderRadius: 20, borderWidth: 1, borderColor: '#E2E8F0' },
+  filterPill: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: C.neutralFill, borderRadius: 20, borderWidth: 1, borderColor: C.line },
   filterPillActive: { backgroundColor: C.primary, borderColor: C.primary },
   filterPillText: { fontSize: 13, fontWeight: '600', color: C.textSec },
   filterPillTextActive: { color: C.white },
@@ -1227,17 +1278,17 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: C.neutralFill,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: C.line,
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6 },
+      ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6 },
       android: { elevation: 4 },
     }),
   },
   filterBarPillOn: {
-    backgroundColor: '#1E293B',
-    borderColor: '#1E293B',
+    backgroundColor: C.invertFill,
+    borderColor: C.invertFill,
   },
   filterBarActiveDot: {
     position: 'absolute',
@@ -1246,21 +1297,21 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#10B981',
+    backgroundColor: C.success,
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    borderColor: C.white,
   },
 
   // Category chips
   categoryScroll: { paddingHorizontal: 16, paddingTop: 2, paddingBottom: 8, gap: 6 },
-  categoryChip: { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0' },
-  categoryChipActive: { backgroundColor: '#EFF6FF', borderColor: C.secondary },
+  categoryChip: { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: C.bg, borderRadius: 16, borderWidth: 1, borderColor: C.line },
+  categoryChipActive: { backgroundColor: C.infoFill, borderColor: C.secondary },
   categoryChipText: { fontSize: 12, fontWeight: '600', color: C.muted },
   categoryChipTextActive: { color: C.secondary },
 
   // Date chips
   dateScroll: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8, gap: 6 },
-  dateChip: { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0' },
+  dateChip: { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: C.bg, borderRadius: 16, borderWidth: 1, borderColor: C.line },
   dateChipOn: { backgroundColor: C.secondary, borderColor: C.secondary },
   dateChipText: { fontSize: 12, fontWeight: '600', color: C.textSec },
   dateChipTextOn: { color: C.white },
@@ -1269,16 +1320,16 @@ const styles = StyleSheet.create({
   listPad: { padding: 14 },
 
   // Card
-  card: { backgroundColor: C.white, borderRadius: 20, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: C.border, shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 5, overflow: 'hidden' },
+  card: { backgroundColor: C.white, borderRadius: 20, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: C.border, shadowColor: C.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 5, overflow: 'hidden' },
   cardPending: { borderColor: C.primary + '35', borderWidth: 1.5 },
   cardCompact: { padding: 14, marginBottom: 10 },
   cardSvgBg: { position: 'absolute', top: 0, left: 0, right: 0, height: 60 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   cardTopLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 },
-  svcIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#FFF7ED', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  svcIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.warningBg, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   svcNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
   svcName: { fontSize: 15, fontWeight: '700', color: C.text, textTransform: 'capitalize', flexShrink: 1 },
-  typeBadge: { backgroundColor: '#F3E8FF', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  typeBadge: { backgroundColor: C.purpleBg, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   typeBadgeText: { fontSize: 8, fontWeight: '800', color: C.purple, letterSpacing: 0.5 },
   svcId: { fontSize: 11, fontWeight: '500', color: C.muted, marginTop: 1 },
   statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, gap: 5 },
@@ -1287,7 +1338,7 @@ const styles = StyleSheet.create({
 
   // Cancel strip
   cancelStrip: { backgroundColor: C.dangerBg, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  cancelStripText: { fontSize: 11, fontWeight: '500', color: '#991B1B', flex: 1, lineHeight: 16 },
+  cancelStripText: { fontSize: 11, fontWeight: '500', color: C.danger, flex: 1, lineHeight: 16 },
 
   // Compact
   compactRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 },
@@ -1311,19 +1362,19 @@ const styles = StyleSheet.create({
   descInline: { fontSize: 12, color: C.textSec, marginBottom: 8 },
 
   // Date/Time
-  dtRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: '#EEF2F6' },
+  dtRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.bg, borderRadius: 12, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: C.line },
   dtItem: { flex: 1, alignItems: 'center' },
   dtLabel: { fontSize: 9, fontWeight: '700', color: C.muted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 3 },
   dtVal: { fontSize: 13, fontWeight: '600', color: C.text },
-  dtDiv: { width: 1, height: 28, backgroundColor: '#E2E8F0', marginHorizontal: 4 },
+  dtDiv: { width: 1, height: 28, backgroundColor: C.line, marginHorizontal: 4 },
 
   // Pending: Map + Accept/Reject row
   pendingActionRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
   viewMapBtnCompact: { width: 42, alignItems: 'center', justifyContent: 'center', backgroundColor: C.secondary + '12', borderRadius: 10, borderWidth: 1, borderColor: C.secondary + '30' },
-  rejectBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', paddingVertical: 11, borderRadius: 12, gap: 5, borderWidth: 1.5, borderColor: '#E2E8F0' },
-  rejectBtnText: { color: '#64748B', fontSize: 13, fontWeight: '600' },
+  rejectBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', paddingVertical: 11, borderRadius: 12, gap: 5, borderWidth: 1.5, borderColor: C.line },
+  rejectBtnText: { color: C.textSec, fontSize: 13, fontWeight: '600' },
   acceptBtn: { flex: 1.3, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.primary, paddingVertical: 11, borderRadius: 10, gap: 5 },
-  acceptBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  acceptBtnText: { color: C.onPrimary, fontSize: 14, fontWeight: '600' },
   btnDisabled: { opacity: 0.5 },
 
   // Active: Complete + Cancel
@@ -1378,44 +1429,45 @@ const styles = StyleSheet.create({
 
   // Empty
   emptyWrap: { alignItems: 'center', paddingVertical: 70, paddingHorizontal: 40 },
-  emptyCircle: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  emptyCircle: { width: 90, height: 90, borderRadius: 45, backgroundColor: C.neutralFill, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   emptyTitle: { fontSize: 18, fontWeight: '800', color: C.text, marginBottom: 6 },
   emptyMsg: { fontSize: 13, fontWeight: '500', color: C.textSec, textAlign: 'center', lineHeight: 20 },
 
   // OTP Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalOverlay: { flex: 1, backgroundColor: C.overlay, justifyContent: 'flex-end' },
   modalContent: { backgroundColor: C.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   modalTitle: { fontSize: 19, fontWeight: '800', color: C.text },
   modalClose: { padding: 4 },
   modalSubtitle: { fontSize: 13, fontWeight: '500', color: C.textSec, lineHeight: 19, marginBottom: 18 },
-  otpInput: { borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 14, fontSize: 26, fontWeight: '700', color: C.text, textAlign: 'center', paddingVertical: 14, letterSpacing: 10, marginBottom: 10 },
+  otpInput: { borderWidth: 1.5, borderColor: C.line, borderRadius: 14, fontSize: 26, fontWeight: '700', color: C.text, textAlign: 'center', paddingVertical: 14, letterSpacing: 10, marginBottom: 10 },
   otpError: { fontSize: 12, fontWeight: '500', color: C.danger, textAlign: 'center', marginBottom: 10 },
   otpHintText: { fontSize: 11, fontWeight: '500', textAlign: 'center', marginBottom: 10 },
   verifyBtn: { backgroundColor: C.success, borderRadius: 14, paddingVertical: 15, alignItems: 'center', shadowColor: C.success, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
-  verifyBtnDisabled: { backgroundColor: '#94A3B8', shadowOpacity: 0, elevation: 0 },
+  verifyBtnDisabled: { backgroundColor: C.muted, shadowOpacity: 0, elevation: 0 },
   verifyBtnText: { fontSize: 15, fontWeight: '700', color: C.white },
 
   // ─── iOS OTP Modal ─────────────────────────────────────────────
-  iosOtpBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' },
+  iosOtpBg: { flex: 1, backgroundColor: C.overlay },
   iosOtpCenter: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
   iosOtpWrap: { width: '100%', maxWidth: 300 },
   iosOtpCardOuter: { borderRadius: 20, overflow: 'hidden' },
   iosBlurFill: {},
   iosOtpContent: { paddingTop: 28, paddingBottom: 6, paddingHorizontal: 22, alignItems: 'center' },
-  iosOtpTitle: { fontSize: 18, fontWeight: '700', color: '#000', textAlign: 'center', lineHeight: 24, letterSpacing: -0.45 },
-  iosOtpSubtitle: { fontSize: 14, fontWeight: '400', color: 'rgba(0,0,0,0.55)', textAlign: 'center', lineHeight: 20, letterSpacing: -0.15, marginTop: 6, marginBottom: 20 },
-  iosOtpInput: { width: '100%', backgroundColor: 'rgba(120,120,128,0.12)', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16, fontSize: 24, fontWeight: '600', textAlign: 'center', letterSpacing: 10, color: '#000', marginBottom: 10 },
-  iosOtpError: { fontSize: 13, fontWeight: '400', color: '#FF3B30', textAlign: 'center', marginBottom: 8, letterSpacing: -0.08 },
-  iosOtpHint: { fontSize: 12, fontWeight: '400', color: 'rgba(0,0,0,0.4)', textAlign: 'center', marginBottom: 6 },
+  iosOtpTitle: { fontSize: 18, fontWeight: '700', color: C.iosLabel, textAlign: 'center', lineHeight: 24, letterSpacing: -0.45 },
+  iosOtpSubtitle: { fontSize: 14, fontWeight: '400', color: C.iosLabelSecondary, textAlign: 'center', lineHeight: 20, letterSpacing: -0.15, marginTop: 6, marginBottom: 20 },
+  iosOtpInput: { width: '100%', backgroundColor: C.iosFill, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16, fontSize: 24, fontWeight: '600', textAlign: 'center', letterSpacing: 10, color: C.iosLabel, marginBottom: 10 },
+  iosOtpError: { fontSize: 13, fontWeight: '400', color: C.iosRed, textAlign: 'center', marginBottom: 8, letterSpacing: -0.08 },
+  iosOtpHint: { fontSize: 12, fontWeight: '400', color: C.iosPlaceholder, textAlign: 'center', marginBottom: 6 },
   iosOtpActions: { paddingHorizontal: 18, paddingTop: 14, paddingBottom: 18 },
   iosVerifyBtn: { backgroundColor: C.success, borderRadius: 14, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
-  iosVerifyBtnDisabled: { backgroundColor: '#C7C7CC' },
-  iosVerifyBtnText: { fontSize: 17, fontWeight: '600', color: '#FFFFFF', letterSpacing: -0.41 },
-  iosVerifyBtnTextDisabled: { color: 'rgba(255,255,255,0.7)' },
+  iosVerifyBtnDisabled: { backgroundColor: C.iosDisabled },
+  iosVerifyBtnText: { fontSize: 17, fontWeight: '600', color: C.onIosAccent, letterSpacing: -0.41 },
+  iosVerifyBtnTextDisabled: { color: C.muted },
   iosCancelOuter: { borderRadius: 20, overflow: 'hidden', marginTop: 10 },
   iosCancelBtn: { paddingVertical: 16, alignItems: 'center', justifyContent: 'center' },
-  iosCancelBtnText: { fontSize: 17, fontWeight: '600', color: '#007AFF', letterSpacing: -0.41 },
-});
+  iosCancelBtnText: { fontSize: 17, fontWeight: '600', color: C.iosBlue, letterSpacing: -0.41 },
+  });
+};
 
 export default ProviderServiceHistoryScreen;

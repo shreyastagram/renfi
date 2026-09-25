@@ -38,6 +38,11 @@ const INTENTIONAL = new Set([
   // `backgroundColor === borderColor` at v1.0.9.
   'src/screens/ServiceRequestDetailScreen.jsx:timelineCircleCompleted',
   'src/screens/ServiceRequestDetailScreen.jsx:timelineCircleCurrent',
+  // Solid filled controls: a checked checkbox and two selected pills, all of which
+  // were already `backgroundColor === borderColor` at v1.0.9.
+  'src/screens/ProviderRegisterScreen.jsx:checkboxChecked',
+  'src/screens/ProviderServiceHistoryScreen.jsx:filterPillActive',
+  'src/screens/ProviderServiceHistoryScreen.jsx:dateChipOn',
 ]);
 
 // The captured expression must be the WHOLE value, so a trailing terminator is

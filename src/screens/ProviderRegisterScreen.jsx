@@ -52,13 +52,51 @@ import AppleEmailCollectionModal from '../components/AppleEmailCollectionModal';
 import RegisterChoice from '../components/RegisterChoice';
 import { isInsideServiceZone, getZoneStatus } from '../utils/serviceZone';
 import { useLanguage } from '../context/LanguageContext';
+import {
+  useThemedStyles,
+  useThemeColors,
+  brandTint,
+  vendor,
+} from '../theme';
 
 /**
  * ProviderRegisterScreen Component
  * 
  * @param {Object} props - Navigation props
  */
+// This screen had no palette block -- every colour was inline.
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  onPrimary: c.onBrandOrange,
+  white: c.surface,
+  text: c.textStrong,
+  textBody: c.textBody,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  infoInk: c.textSecondary,
+  line: c.border,
+  borderMedium: c.borderMedium,
+  hairline: c.bg,
+  sunken: c.surfaceSunken,
+  success: c.success,
+  danger: c.danger,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  warningLine: c.warningBorder,
+  info: c.info,
+  indigo: c.altBlueIndigo,
+  cyan: c.info,
+  brandOrangeFill: brandTint.orange10,
+  brandBlueFill: brandTint.blue08,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
+
 const ProviderRegisterScreen = ({ navigation }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { handleAuthSuccess } = useApp();
   const { t } = useLanguage();
 
@@ -922,7 +960,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={handleBack} style={styles.backButton} activeOpacity={0.7}>
-              <Ionicons name="arrow-back" size={20} color="#1E293B" />
+              <Ionicons name="arrow-back" size={20} color={C.text} />
             </TouchableOpacity>
             <View style={styles.logoContainer}>
               <FixhomiLogo size={44} />
@@ -1031,7 +1069,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
                   onPress={() => setShowExperiencePicker(true)}
                   activeOpacity={0.7}
                 >
-                  <MaterialIcons name="work-history" size={18} color="#64748B" />
+                  <MaterialIcons name="work-history" size={18} color={C.textSecondary} />
                   <Text
                     style={[
                       styles.experiencePickerText,
@@ -1050,7 +1088,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     activeOpacity={0.7}
                   >
-                    <MaterialIcons name="close" size={18} color="#94A3B8" />
+                    <MaterialIcons name="close" size={18} color={C.muted} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -1090,7 +1128,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
 
             <View style={styles.infoBox}>
               <View style={styles.infoRow}>
-                <MaterialIcons name="info-outline" size={16} color="#64748B" />
+                <MaterialIcons name="info-outline" size={16} color={C.textSecondary} />
                 <Text style={styles.infoTitle}>{t('providerRegister.completeProfileLater')}</Text>
               </View>
               <Text style={styles.infoText}>
@@ -1102,11 +1140,11 @@ const ProviderRegisterScreen = ({ navigation }) => {
             <View style={styles.locationBox}>
               <View style={styles.locationHeader}>
                 <View style={styles.locationTitleRow}>
-                  <Ionicons name="location" size={15} color="#64748B" />
+                  <Ionicons name="location" size={15} color={C.textSecondary} />
                   <Text style={styles.locationTitle}>{t('providerRegister.yourLocation')}</Text>
                 </View>
                 {locationLoading && (
-                  <ActivityIndicator size="small" color="#2563EB" />
+                  <ActivityIndicator size="small" color={C.indigo} />
                 )}
               </View>
               {location ? (
@@ -1118,7 +1156,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
                         <Ionicons
                           name={zoneStatus.inside ? 'checkmark-circle' : 'warning'}
                           size={16}
-                          color={zoneStatus.inside ? '#16A34A' : '#D97706'}
+                          color={zoneStatus.inside ? C.success : C.warning}
                         />
                         <Text style={zoneStatus.inside ? styles.locationSuccessText : styles.locationWarningText}>
                           {zoneStatus.inside
@@ -1145,7 +1183,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
                 </View>
               ) : !locationLoading ? (
                 <TouchableOpacity onPress={getCurrentLocation} style={styles.getLocationButton} activeOpacity={0.7}>
-                  <Ionicons name="navigate" size={14} color="#FFF" />
+                  <Ionicons name="navigate" size={14} color={C.onSecondary} />
                   <Text style={styles.getLocationButtonText}>{t('providerRegister.detectMyLocation')}</Text>
                 </TouchableOpacity>
               ) : null}
@@ -1179,7 +1217,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalIconCircle}>
-              <MaterialIcons name="person" size={28} color="#f67c16" />
+              <MaterialIcons name="person" size={28} color={C.primary} />
             </View>
             <Text style={styles.modalTitle}>{t('auth.accountAlreadyExists')}</Text>
             <Text style={styles.modalEmail}>{existingEmail}</Text>
@@ -1239,7 +1277,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalIconCircle}>
-              <MaterialIcons name="phone-android" size={28} color="#f67c16" />
+              <MaterialIcons name="phone-android" size={28} color={C.primary} />
             </View>
             <Text style={styles.modalTitle}>{t('auth.numberAlreadyRegistered')}</Text>
             <Text style={styles.modalEmail}>+91 {existingPhone}</Text>
@@ -1296,9 +1334,11 @@ const ProviderRegisterScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   // ── Layout ──
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: C.white },
   keyboardView: { flex: 1 },
   scrollView: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 },
@@ -1306,20 +1346,20 @@ const styles = StyleSheet.create({
   // ── Header ──
   header: { marginBottom: 28, alignItems: 'center' },
   backButton: {
-    width: 38, height: 38, borderRadius: 12, backgroundColor: '#F1F5F9',
+    width: 38, height: 38, borderRadius: 12, backgroundColor: C.hairline,
     justifyContent: 'center', alignItems: 'center', alignSelf: 'flex-start', marginBottom: 18,
   },
   logoContainer: {
-    width: 64, height: 64, borderRadius: 16, backgroundColor: '#FFFFFF',
+    width: 64, height: 64, borderRadius: 16, backgroundColor: C.white,
     justifyContent: 'center', alignItems: 'center', overflow: 'hidden',
     ...Platform.select({
-      ios: { shadowColor: '#f67c16', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
+      ios: { shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
       android: { elevation: 5 },
     }),
   },
-  brandName: { fontSize: 18, fontWeight: '800', color: '#f67c16', marginTop: 10, letterSpacing: 0.3 },
-  title: { fontSize: 24, fontWeight: '800', color: '#1E293B', marginTop: 10, marginBottom: 6 },
-  subtitle: { fontSize: 14, color: '#64748B', lineHeight: 21, textAlign: 'center', paddingHorizontal: 8 },
+  brandName: { fontSize: 18, fontWeight: '800', color: C.primary, marginTop: 10, letterSpacing: 0.3 },
+  title: { fontSize: 24, fontWeight: '800', color: C.text, marginTop: 10, marginBottom: 6 },
+  subtitle: { fontSize: 14, color: C.textSecondary, lineHeight: 21, textAlign: 'center', paddingHorizontal: 8 },
 
   // ── Form ──
   form: { flex: 1 },
@@ -1328,143 +1368,144 @@ const styles = StyleSheet.create({
 
   // ── Experience (Working since) ──
   experienceBox: { marginTop: 4, marginBottom: 14 },
-  experienceLabel: { fontSize: 14, fontWeight: '600', color: '#334155', marginBottom: 8 },
+  experienceLabel: { fontSize: 14, fontWeight: '600', color: C.textBody, marginBottom: 8 },
   experiencePickerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   experiencePickerField: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0',
+    backgroundColor: C.white, borderWidth: 1, borderColor: C.line,
     borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14,
   },
-  experiencePickerText: { fontSize: 15, color: '#1E293B', fontWeight: '500' },
-  experiencePickerPlaceholder: { color: '#94A3B8', fontWeight: '400' },
+  experiencePickerText: { fontSize: 15, color: C.text, fontWeight: '500' },
+  experiencePickerPlaceholder: { color: C.muted, fontWeight: '400' },
   experienceClearBtn: {
-    width: 40, height: 40, borderRadius: 12, backgroundColor: '#F1F5F9',
+    width: 40, height: 40, borderRadius: 12, backgroundColor: C.hairline,
     alignItems: 'center', justifyContent: 'center',
   },
-  experiencePreview: { fontSize: 13, color: '#0891B2', fontWeight: '600', marginTop: 8, marginLeft: 2 },
+  experiencePreview: { fontSize: 13, color: C.cyan, fontWeight: '600', marginTop: 8, marginLeft: 2 },
   experiencePickerDone: { alignSelf: 'flex-end', paddingVertical: 8, paddingHorizontal: 16, marginTop: 4 },
-  experiencePickerDoneText: { fontSize: 16, color: '#2563EB', fontWeight: '700' },
-  experienceHint: { fontSize: 11, color: '#94A3B8', marginTop: 6, marginLeft: 2, lineHeight: 16 },
+  experiencePickerDoneText: { fontSize: 16, color: C.indigo, fontWeight: '700' },
+  experienceHint: { fontSize: 11, color: C.muted, marginTop: 6, marginLeft: 2, lineHeight: 16 },
 
   // ── Info Box ──
   infoBox: {
-    backgroundColor: '#F8FAFC', borderRadius: 12, padding: 14,
-    marginTop: 4, marginBottom: 14, borderWidth: 1, borderColor: '#E2E8F0',
+    backgroundColor: C.sunken, borderRadius: 12, padding: 14,
+    marginTop: 4, marginBottom: 14, borderWidth: 1, borderColor: C.line,
   },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-  infoTitle: { fontSize: 13, fontWeight: '600', color: '#475569' },
-  infoText: { fontSize: 12, color: '#64748B', lineHeight: 18, marginLeft: 22 },
+  infoTitle: { fontSize: 13, fontWeight: '600', color: C.infoInk },
+  infoText: { fontSize: 12, color: C.textSecondary, lineHeight: 18, marginLeft: 22 },
 
   // ── Location Box ──
   locationBox: {
-    backgroundColor: '#F8FAFC', borderRadius: 12, padding: 14,
-    marginBottom: 14, borderWidth: 1, borderColor: '#E2E8F0',
+    backgroundColor: C.sunken, borderRadius: 12, padding: 14,
+    marginBottom: 14, borderWidth: 1, borderColor: C.line,
   },
   locationHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   locationTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  locationTitle: { fontSize: 13, fontWeight: '600', color: '#475569' },
+  locationTitle: { fontSize: 13, fontWeight: '600', color: C.infoInk },
   locationSuccess: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-  locationSuccessText: { fontSize: 13, color: '#15803D', fontWeight: '500' },
+  locationSuccessText: { fontSize: 13, color: C.success, fontWeight: '500' },
   locationOutOfZone: {},
-  locationWarningText: { fontSize: 13, color: '#92400E', fontWeight: '500' },
+  locationWarningText: { fontSize: 13, color: C.warning, fontWeight: '500' },
   outOfZoneBanner: {
-    backgroundColor: '#FFFBEB', borderRadius: 8, padding: 10, marginTop: 6, marginBottom: 4,
-    borderWidth: 1, borderColor: '#FDE68A',
+    backgroundColor: C.warningBg, borderRadius: 8, padding: 10, marginTop: 6, marginBottom: 4,
+    borderWidth: 1, borderColor: C.warningLine,
   },
-  outOfZoneText: { fontSize: 12, color: '#92400E', lineHeight: 17 },
+  outOfZoneText: { fontSize: 12, color: C.warning, lineHeight: 17 },
   locationErrorContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  locationErrorText: { fontSize: 13, color: '#EF4444', flex: 1 },
+  locationErrorText: { fontSize: 13, color: C.danger, flex: 1 },
   retryButton: {
-    backgroundColor: '#2b76bc', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, marginLeft: 8,
+    backgroundColor: C.secondary, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, marginLeft: 8,
   },
-  retryButtonText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
+  retryButtonText: { color: C.onSecondary, fontSize: 12, fontWeight: '700' },
   getLocationButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: '#2b76bc', paddingVertical: 9, borderRadius: 10,
+    backgroundColor: C.secondary, paddingVertical: 9, borderRadius: 10,
     alignSelf: 'flex-start', paddingHorizontal: 16, marginBottom: 4,
   },
-  getLocationButtonText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
-  locationHint: { fontSize: 11, color: '#94A3B8', marginTop: 6 },
+  getLocationButtonText: { color: C.onSecondary, fontSize: 13, fontWeight: '700' },
+  locationHint: { fontSize: 11, color: C.muted, marginTop: 6 },
 
   // ── Submit Button ──
   submitButton: { marginTop: 8 },
 
   // ── Divider ──
   divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 20 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#E2E8F0' },
-  dividerText: { marginHorizontal: 14, color: '#94A3B8', fontSize: 13, fontWeight: '500' },
+  dividerLine: { flex: 1, height: 1, backgroundColor: C.line },
+  dividerText: { marginHorizontal: 14, color: C.muted, fontSize: 13, fontWeight: '500' },
 
   // ── Google Button ──
   googleButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0',
+    backgroundColor: C.white, borderWidth: 1, borderColor: C.line,
     borderRadius: 14, paddingVertical: 14, paddingHorizontal: 20, marginBottom: 10,
   },
   googleButtonDisabled: { opacity: 0.5 },
   googleIconContainer: {
     width: 22, height: 22, borderRadius: 11,
-    backgroundColor: '#4285F4', alignItems: 'center', justifyContent: 'center', marginRight: 10,
+    backgroundColor: vendor.googleBlue, alignItems: 'center', justifyContent: 'center', marginRight: 10,
   },
-  googleIcon: { color: '#FFF', fontSize: 13, fontWeight: 'bold' },
-  googleButtonText: { fontSize: 15, fontWeight: '600', color: '#1E293B' },
+  googleIcon: { color: vendor.onVendor, fontSize: 13, fontWeight: 'bold' },
+  googleButtonText: { fontSize: 15, fontWeight: '600', color: C.text },
 
   // ── Apple Button ──
   appleButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#000000', borderRadius: 14,
+    backgroundColor: vendor.appleBlack, borderRadius: 14,
     paddingVertical: 14, paddingHorizontal: 24, marginBottom: 12,
   },
   appleButtonDisabled: { opacity: 0.5 },
-  appleIcon: { fontSize: 18, color: '#FFF', marginRight: 10 },
-  appleButtonText: { fontSize: 15, fontWeight: '600', color: '#FFF' },
+  appleIcon: { fontSize: 18, color: vendor.onVendor, marginRight: 10 },
+  appleButtonText: { fontSize: 15, fontWeight: '600', color: vendor.onVendor },
 
   // ── Terms ──
   termsRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16, marginTop: 8, gap: 10 },
   checkbox: {
-    width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#CBD5E1',
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: C.borderMedium,
     alignItems: 'center', justifyContent: 'center', marginTop: 1,
   },
-  checkboxChecked: { backgroundColor: '#f67c16', borderColor: '#f67c16' },
-  checkmark: { color: '#FFF', fontSize: 14, fontWeight: '700' },
-  termsText: { flex: 1, fontSize: 13, color: '#64748B', lineHeight: 20 },
-  termsLink: { color: '#2b76bc', fontWeight: '600' },
+  checkboxChecked: { backgroundColor: C.primary, borderColor: C.primary },
+  checkmark: { color: C.onPrimary, fontSize: 14, fontWeight: '700' },
+  termsText: { flex: 1, fontSize: 13, color: C.textSecondary, lineHeight: 20 },
+  termsLink: { color: C.secondary, fontWeight: '600' },
 
   // ── Footer ──
   footer: { paddingVertical: 20 },
-  footerText: { fontSize: 12, color: '#94A3B8', textAlign: 'center', lineHeight: 18 },
-  link: { color: '#2b76bc', fontWeight: '500' },
+  footerText: { fontSize: 12, color: C.muted, textAlign: 'center', lineHeight: 18 },
+  link: { color: C.secondary, fontWeight: '500' },
 
   // ── Modals ──
   modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    flex: 1, backgroundColor: C.overlay,
     justifyContent: 'center', alignItems: 'center', padding: 24,
   },
   modalContent: {
-    backgroundColor: '#FFF', borderRadius: 20, padding: 28, width: '100%', maxWidth: 340,
+    backgroundColor: C.white, borderRadius: 20, padding: 28, width: '100%', maxWidth: 340,
     ...Platform.select({
-      ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 24 },
+      ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 24 },
       android: { elevation: 10 },
     }),
   },
   modalIconCircle: {
-    width: 56, height: 56, borderRadius: 16, backgroundColor: 'rgba(246,124,22,0.08)',
+    width: 56, height: 56, borderRadius: 16, backgroundColor: C.brandOrangeFill,
     justifyContent: 'center', alignItems: 'center', alignSelf: 'center', marginBottom: 16,
   },
-  modalTitle: { fontSize: 19, fontWeight: '700', color: '#1E293B', textAlign: 'center', marginBottom: 8 },
-  modalEmail: { fontSize: 14, color: '#64748B', textAlign: 'center', marginBottom: 8, fontStyle: 'italic' },
-  modalMessage: { fontSize: 14, color: '#64748B', textAlign: 'center', marginBottom: 24, lineHeight: 21 },
+  modalTitle: { fontSize: 19, fontWeight: '700', color: C.text, textAlign: 'center', marginBottom: 8 },
+  modalEmail: { fontSize: 14, color: C.textSecondary, textAlign: 'center', marginBottom: 8, fontStyle: 'italic' },
+  modalMessage: { fontSize: 14, color: C.textSecondary, textAlign: 'center', marginBottom: 24, lineHeight: 21 },
   modalButtons: { gap: 10 },
-  modalPrimaryButton: { backgroundColor: '#f67c16', borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
-  modalPrimaryButtonText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
-  modalSecondaryButton: { backgroundColor: '#F1F5F9', borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
-  modalSecondaryButtonText: { color: '#1E293B', fontSize: 15, fontWeight: '600' },
+  modalPrimaryButton: { backgroundColor: C.primary, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
+  modalPrimaryButtonText: { color: C.onPrimary, fontSize: 15, fontWeight: '700' },
+  modalSecondaryButton: { backgroundColor: C.hairline, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
+  modalSecondaryButtonText: { color: C.text, fontSize: 15, fontWeight: '600' },
   modalDismissButton: { paddingVertical: 10, alignItems: 'center', marginTop: 4 },
-  modalDismissText: { color: '#94A3B8', fontSize: 14, fontWeight: '500' },
+  modalDismissText: { color: C.muted, fontSize: 14, fontWeight: '500' },
   accountTypeBadge: {
-    alignSelf: 'center', backgroundColor: 'rgba(43,118,188,0.08)',
+    alignSelf: 'center', backgroundColor: C.brandBlueFill,
     borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, marginBottom: 16,
   },
-  accountTypeBadgeText: { fontSize: 12, fontWeight: '600', color: '#2b76bc' },
-});
+  accountTypeBadgeText: { fontSize: 12, fontWeight: '600', color: C.secondary },
+  });
+};
 
 export default ProviderRegisterScreen;

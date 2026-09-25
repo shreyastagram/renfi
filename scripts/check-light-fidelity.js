@@ -406,6 +406,29 @@ const EXPECTED_CHANGES = {
     '#9A3412': 'a brown drop shadow -> theme.colors.shadow',
     'rgba(0,0,0,0.08)': 'the location modal hairline -> border',
   },
+  'src/screens/ProviderRegisterScreen.jsx': {
+    // Google's blue and Apple's black are UNCHANGED -- they moved to `vendor`, which
+    // is never themed, because both are fixed by the vendor's sign-in guidelines.
+    '#D97706': 'the out-of-zone amber converged onto the warning token',
+    '#FFFBEB': 'its banner converged onto warningContainer',
+    '#0891B2': 'the cyan experience preview converged onto the info token',
+    'rgba(15, 23, 42, 0.5)': 'the modal scrim -> theme.colors.overlay (0.45)',
+  },
+  'src/screens/ProviderServiceHistoryScreen.jsx': {
+    '#ECFDF5': 'converged onto successContainer', '#EDE9FE': 'converged onto accentVioletContainer',
+    '#DBEAFE': 'converged onto infoContainer', '#FEF3C7': 'the pending tint -> warningContainer',
+    '#FEE2E2': 'the cancel chip -> dangerFill', '#FAF5FF': 'the violet action tint -> accentVioletFill',
+    '#E8ECF0': 'the filter-bar hairline -> border', '#EEF2F6': 'the date-row hairline -> border',
+    '#991B1B': 'converged onto the danger token',
+    'rgba(255,59,48,0.08)': "the iOS-red tint now follows the token: C.iosRed + '14'",
+    'rgba(0,0,0,0.35)': 'the native-iOS OTP scrim -> theme.colors.overlay',
+    'rgba(0,0,0,0.4)': 'its hint text -> iosPlaceholder',
+    // The OTP sheet deliberately reads as native iOS, so its colours moved to the
+    // Apple tokens, which follow the OS appearance rather than the app palette.
+    '#94A3B8': 'a11y: 2.54:1 on white -> textMuted',
+    '#10B981': 'a11y: emerald-500 was 2.46:1 -> the success token',
+    '#8B5CF6': 'converged onto accentViolet',
+  },
   'src/screens/EmailVerifyHandlerScreen.jsx': {
     '#2563EB': 'altBlueIndigo', '#FFFFFF': 'surface',
     '#6B7280': 'textSecondary is now the accessible #475569',

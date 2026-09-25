@@ -46,6 +46,10 @@ export const violet = {
 // compliance. Kept here only so the value has one home.
 export const vendor = {
   googleBlue: '#4285F4',
+  // Apple's Sign in with Apple button is specified as black on light backgrounds.
+  // Like the Google blue, it is fixed by the vendor's guidelines, not by our theme.
+  appleBlack: '#000000',
+  onVendor: '#FFFFFF',
 };
 
 // Service-category accents. THEME-INDEPENDENT on purpose: these identify a

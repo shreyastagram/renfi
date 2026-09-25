@@ -44,6 +44,8 @@
     "src/components/ProviderHomeTopRow.jsx",
     "src/components/WeeklyScheduleCard.jsx",
     "src/screens/PortfolioEditScreen.jsx",
-    "src/screens/ProviderHomeScreen.jsx"
+    "src/screens/ProviderHomeScreen.jsx",
+    "src/screens/ProviderRegisterScreen.jsx",
+    "src/screens/ProviderServiceHistoryScreen.jsx"
   ]
 }
