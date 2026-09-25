@@ -56,6 +56,13 @@ const REQUIRED_PAIRS = [
   ['textMuted', 'surfaceElevated', TEXT, 'muted text on elevated card'],
   ['onBrandOrange', 'brandOrange', TEXT, 'label on an orange fill'],
   ['onBrandBlue', 'brandBlue', TEXT, 'label on a blue fill'],
+  // Every filled-badge ink against the fill it actually sits on. These were
+  // missing, which is how onSuccess/onWarning sat at 3.56 in light mode unnoticed.
+  ['onSuccess', 'success', TEXT, 'label on a solid success fill'],
+  ['onWarning', 'warning', TEXT, 'label on a solid warning fill'],
+  ['onDanger', 'danger', TEXT, 'label on a solid danger fill'],
+  ['onInfo', 'info', TEXT, 'label on a solid info fill'],
+  ['onAltBlueIndigo', 'altBlueIndigo', TEXT, 'label on an indigo fill'],
   ['info', 'bg', TEXT, 'link/info text on page background'],
   ['info', 'surface', TEXT, 'link/info text on card'],
   ['success', 'surface', TEXT, 'success text on card'],

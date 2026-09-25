@@ -61,42 +61,69 @@ import { setupForegroundMessageListener } from '../services/fcmService';
 import { NODE_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
 import { getUserEmergencyRequests } from '../services/emergencyServicesService';
+import {
+  useTheme,
+  useThemedStyles,
+  useThemeColors,
+  medal,
+} from '../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const C = {
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  dark: '#0F172A',
-  bg: '#F8FAFC',
-  white: '#FFFFFF',
-  border: '#F1F5F9',
-  muted: '#94A3B8',
-  text: '#0F172A',
-  textSec: '#64748B',
-  success: '#10B981',
-  successBg: '#ECFDF5',
-  danger: '#EF4444',
-  dangerBg: '#FEF2F2',
-  purple: '#7C3AED',
-  purpleBg: '#EDE9FE',
-  blue: '#3B82F6',
-  blueBg: '#DBEAFE',
-  gold: '#F59E0B',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  secondary: c.brandBlue,
+  white: c.surface,
+  surfaceElevated: c.surfaceElevated,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // `border` and `neutralFill` are one token in two roles: the shipped hairline
+  // and the neutral chip fill were both #F1F5F9, which `bg` matches exactly in
+  // light while reading as a recessed seam on a dark surface.
+  border: c.bg,
+  neutralFill: c.bg,
+  line: c.border,
+  muted: c.textMuted,
+  text: c.textPrimary,
+  textSec: c.textSecondary,
+  success: c.success,
+  successBg: c.successContainer,
+  danger: c.danger,
+  dangerBg: c.dangerContainer,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  warningLine: c.warningBorder,
+  purple: c.accentViolet,
+  purpleBg: c.accentVioletContainer,
+  purpleLine: c.accentVioletBorder,
+  blue: c.altBlueSky,
+  blueBg: c.infoContainer,
+  // The Rate button stays gold in both themes -- a rating colour is a convention,
+  // not a UI state. Its label was white on gold at 2.15:1; dark ink on the same
+  // gold is 9.5:1, so the button looks as shipped and the label is readable.
+  gold: medal.gold,
+  onGold: c.onBrandOrange,
+  // Selected filter pill: a dark chip in light mode, so it inverts in dark rather
+  // than sitting dark-on-dark and vanishing.
+  invertFill: c.textStrong,
+  onInvert: c.textInverse,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
 
-const STATUS_CONFIG = {
-  pending: { label: 'Pending', color: '#D97706', bgColor: '#FEF3C7', dotColor: '#D97706' },
-  awaiting_confirmation: { label: 'Awaiting', color: '#D97706', bgColor: '#FEF3C7', dotColor: '#D97706' },
+const makeStatusConfig = (C) => ({
+  pending: { label: 'Pending', color: C.warning, bgColor: C.warningBg, dotColor: C.warning },
+  awaiting_confirmation: { label: 'Awaiting', color: C.warning, bgColor: C.warningBg, dotColor: C.warning },
   accepted: { label: 'Accepted', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
   'in-progress': { label: 'In Progress', color: C.purple, bgColor: C.purpleBg, dotColor: C.purple },
   in_transit: { label: 'On the Way', color: C.purple, bgColor: C.purpleBg, dotColor: C.purple },
   arrived: { label: 'Arrived', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
-  completed: { label: 'Completed', color: '#059669', bgColor: '#D1FAE5', dotColor: '#059669' },
-  cancelled: { label: 'Cancelled', color: '#DC2626', bgColor: '#FEE2E2', dotColor: '#DC2626' },
-  rejected: { label: 'Rejected', color: '#DC2626', bgColor: '#FEE2E2', dotColor: '#DC2626' },
-  expired: { label: 'Expired', color: C.muted, bgColor: '#F1F5F9', dotColor: C.muted },
-};
+  completed: { label: 'Completed', color: C.success, bgColor: C.successBg, dotColor: C.success },
+  cancelled: { label: 'Cancelled', color: C.danger, bgColor: C.dangerBg, dotColor: C.danger },
+  rejected: { label: 'Rejected', color: C.danger, bgColor: C.dangerBg, dotColor: C.danger },
+  expired: { label: 'Expired', color: C.muted, bgColor: C.neutralFill, dotColor: C.muted },
+});
 
 const FILTER_TABS = [
   { key: 'all', label: 'All' },
@@ -141,23 +168,29 @@ const getDateRange = (preset) => {
 };
 
 /* -- Stat Pill ----------------------------------------------------------- */
-const StatPill = React.memo(({ value, label, color, bgColor }) => (
-  <View style={[styles.statPill, { backgroundColor: bgColor }]}>
-    <View style={styles.statSvgBg}>
-      <Svg width="100%" height="100%" viewBox="0 0 100 70" preserveAspectRatio="xMidYMid slice">
-        <Circle cx="85" cy="-5" r="35" fill={color} opacity={0.06} />
-        <Circle cx="90" cy="60" r="20" fill={color} opacity={0.05} />
-        <Path d="M0 50 Q25 30 50 45 T100 35" stroke={color} strokeWidth="1" fill="none" opacity={0.1} />
-        <Path d="M0 60 Q30 40 60 55 T100 50" stroke={color} strokeWidth="0.8" fill="none" opacity={0.07} />
-      </Svg>
+const StatPill = React.memo(({ value, label, color, bgColor }) => {
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <View style={[styles.statPill, { backgroundColor: bgColor }]}>
+      <View style={styles.statSvgBg}>
+        <Svg width="100%" height="100%" viewBox="0 0 100 70" preserveAspectRatio="xMidYMid slice">
+          <Circle cx="85" cy="-5" r="35" fill={color} opacity={0.06} />
+          <Circle cx="90" cy="60" r="20" fill={color} opacity={0.05} />
+          <Path d="M0 50 Q25 30 50 45 T100 35" stroke={color} strokeWidth="1" fill="none" opacity={0.1} />
+          <Path d="M0 60 Q30 40 60 55 T100 50" stroke={color} strokeWidth="0.8" fill="none" opacity={0.07} />
+        </Svg>
+      </View>
+      <Text style={[styles.statValue, { color }]}>{value}</Text>
+      <Text style={[styles.statLabel, { color: color + 'B0' }]}>{label}</Text>
     </View>
-    <Text style={[styles.statValue, { color }]}>{value}</Text>
-    <Text style={[styles.statLabel, { color: color + 'B0' }]}>{label}</Text>
-  </View>
-));
+  );
+});
 
 /* -- Request Card -------------------------------------------------------- */
 const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, onTrackProvider, onRate, onFindProviders, ratingStatus, onResendOtp, resendingOtpId }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  const STATUS_CONFIG = makeStatusConfig(C);
   const { dialog } = useDialog();
   const { t } = useLanguage();
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -231,7 +264,7 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
                   <View style={styles.typeBadge}><Text style={styles.typeBadgeText}>{t('userHistory.eventBadge')}</Text></View>
                 )}
                 {isEmergencyService && (
-                  <View style={[styles.typeBadge, { backgroundColor: '#FEE2E2' }]}><Text style={[styles.typeBadgeText, { color: '#DC2626' }]}>SOS</Text></View>
+                  <View style={[styles.typeBadge, { backgroundColor: C.dangerBg }]}><Text style={[styles.typeBadgeText, { color: C.danger }]}>SOS</Text></View>
                 )}
               </View>
             </View>
@@ -257,8 +290,8 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
           const isRejected = request.status === 'rejected';
           return (
             <View style={[styles.cancelStrip, isRejected && styles.cancelStripDanger]}>
-              <Icon name="info" size={13} color={isRejected ? '#DC2626' : '#92400E'} />
-              <Text style={[styles.cancelStripText, { color: isRejected ? '#991B1B' : '#92400E' }]} numberOfLines={2}>{label}</Text>
+              <Icon name="info" size={13} color={isRejected ? C.danger : C.warning} />
+              <Text style={[styles.cancelStripText, { color: isRejected ? C.danger : C.warning }]} numberOfLines={2}>{label}</Text>
             </View>
           );
         })()}
@@ -276,11 +309,11 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
           <View style={styles.ratingRow}>
             {hasRated ? (
               <View style={styles.ratedStrip}>
-                <Icon name="star" size={13} color="#D97706" />
+                <Icon name="star" size={13} color={C.warning} />
                 <Text style={styles.ratedText}>{ratedStars ? t('userHistory.ratedStars', { stars: ratedStars }) : ''}</Text>
               </View>
             ) : ratingChecking ? (
-              <View style={[styles.ratedStrip, { backgroundColor: '#F1F5F9', borderColor: '#E2E8F0' }]}>
+              <View style={[styles.ratedStrip, { backgroundColor: C.neutralFill, borderColor: C.line }]}>
                 <ActivityIndicator size={12} color={C.muted} />
                 <Text style={[styles.ratedText, { color: C.muted }]}>{t('userHistory.checking')}</Text>
               </View>
@@ -362,7 +395,7 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
                     <Text style={styles.providerName} numberOfLines={1}>{request.providerDetails.name}</Text>
                     {request.providerDetails.rating > 0 && (
                       <View style={styles.ratingChip}>
-                        <Icon name="star" size={10} color="#D97706" />
+                        <Icon name="star" size={10} color={C.warning} />
                         <Text style={styles.ratingChipText}>{Number(request.providerDetails.rating).toFixed(1)}</Text>
                       </View>
                     )}
@@ -420,7 +453,7 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
               const isWithin30Min = ageMs < 30 * 60 * 1000;
               return (
                 <View style={styles.noProviderStrip}>
-                  <Icon name="clock" size={11} color={isWithin30Min ? '#92400E' : C.muted} />
+                  <Icon name="clock" size={11} color={isWithin30Min ? C.warning : C.muted} />
                   <Text style={styles.noProviderStripText}>
                     {isWithin30Min ? t('userHistory.noProviderSelected') : t('userHistory.autoCancelWarning')}
                   </Text>
@@ -451,7 +484,7 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
                   </View>
                 </View>
               ) : isOtpExpired ? (
-                <View style={[styles.otpBar, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}>
+                <View style={[styles.otpBar, { backgroundColor: C.dangerBg, borderColor: C.dangerLine }]}>
                   <View style={styles.otpLeft}>
                     <Icon name="clock" size={14} color={C.danger} />
                     <Text style={[styles.otpLabel, { color: C.danger }]}>{t('userHistory.otpExpired')}</Text>
@@ -500,6 +533,8 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
 
 /* -- Empty State --------------------------------------------------------- */
 const EmptyState = ({ filter, onBookService }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
   const msg = filter === 'pending' ? t('userHistory.noPendingBookings') : filter === 'accepted' ? t('userHistory.noActiveBookings') : filter === 'completed' ? t('userHistory.noCompletedBookings') : filter === 'cancelled' ? t('userHistory.noCancelledBookings') : t('userHistory.noBookingsYet');
   return (
@@ -519,18 +554,23 @@ const EmptyState = ({ filter, onBookService }) => {
 
 /* -- Main Screen --------------------------------------------------------- */
 const UserServiceHistoryScreen = ({ navigation }) => {
+  const { isDark } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const { user, profile, userType, logout } = useApp();
   const { dialog } = useDialog();
   const { t } = useLanguage();
 
-  // Set status bar for light background when this tab is focused
+  // Match the status bar to the header, which is now theme-dependent. `isDark` is
+  // a real dependency: without it the bar keeps the appearance it had when the tab
+  // was focused and does not follow a theme switch.
   useFocusEffect(
     useCallback(() => {
-      StatusBar.setBarStyle('dark-content');
+      StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content');
       if (Platform.OS === 'android') StatusBar.setBackgroundColor('transparent');
-    }, [])
+    }, [isDark])
   );
 
   const appStateRef = useRef(AppState.currentState);
@@ -963,7 +1003,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
       <GraphBackground />
       {/* Header row — fades between title and compact stats */}
       <View style={[styles.header, { overflow: 'hidden' }]}>
-        <SvgArt color="#f67c16" height={60} />
+        <SvgArt color={C.primary} height={60} />
         <TouchableOpacity onPress={() => setIsDrawerOpen(true)} activeOpacity={0.7} style={styles.logoBtn}>
           <Image source={FIXHOMI_LOGO} style={styles.logoImg} />
         </TouchableOpacity>
@@ -991,7 +1031,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
               <Text style={[styles.headerInlineLabel, { color: C.success }]}>{t('userHistory.active')}</Text>
               <Text style={[styles.headerInlineValue, { color: C.success }]}>{stats.active}</Text>
             </View>
-            <View style={[styles.headerInlinePill, { backgroundColor: '#EFF6FF' }]}>
+            <View style={[styles.headerInlinePill, { backgroundColor: C.blueBg }]}>
               <View style={styles.headerInlineSvg}>
                 <Svg width="100%" height="100%" viewBox="0 0 120 36" preserveAspectRatio="xMidYMid slice">
                   <Circle cx="100" cy="0" r="18" fill={C.secondary} opacity={0.07} />
@@ -1065,9 +1105,9 @@ const UserServiceHistoryScreen = ({ navigation }) => {
           <>
             <View style={styles.statsBarInner}>
               <View style={styles.statsRow}>
-                <StatPill value={stats.total} label={t('userHistory.total')} color={C.primary} bgColor="#FFF7ED" />
+                <StatPill value={stats.total} label={t('userHistory.total')} color={C.primary} bgColor={C.orangeBg} />
                 <StatPill value={stats.active} label={t('userHistory.active')} color={C.success} bgColor={C.successBg} />
-                <StatPill value={stats.completed} label={t('userHistory.done')} color={C.secondary} bgColor="#EFF6FF" />
+                <StatPill value={stats.completed} label={t('userHistory.done')} color={C.secondary} bgColor={C.blueBg} />
               </View>
             </View>
             {hasActiveFilters ? (
@@ -1123,7 +1163,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
           delayLongPress={1000}
           activeOpacity={0.75}
         >
-          <MaterialIcon name="tune" size={20} color={filtersVisible ? '#FFFFFF' : '#94A3B8'} />
+          <MaterialIcon name="tune" size={20} color={filtersVisible ? C.onInvert : C.muted} />
           {hasActiveFilters && <View style={styles.filterBarActiveDot} />}
         </TouchableOpacity>
       </View>
@@ -1131,8 +1171,10 @@ const UserServiceHistoryScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F0F2F5' },
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.bg },
 
   // Header
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 10, backgroundColor: C.white, zIndex: 10, gap: 12 },
@@ -1143,7 +1185,7 @@ const styles = StyleSheet.create({
   headerInlineSvg: { ...StyleSheet.absoluteFillObject },
   headerInlineLabel: { fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3 },
   headerInlineValue: { fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
-  logoBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.95)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
+  logoBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.surfaceElevated, alignItems: 'center', justifyContent: 'center', shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
   logoImg: { width: 30, height: 30, borderRadius: 8 },
 
   // Loader
@@ -1154,16 +1196,16 @@ const styles = StyleSheet.create({
   // statsBarOuter removed — stats are now inside FlatList ListHeaderComponent
   statsBarInner: { paddingHorizontal: 14, paddingTop: 2, paddingBottom: 10 },
   statsRow: { flexDirection: 'row', gap: 8 },
-  statPill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 16, overflow: 'hidden', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3 },
+  statPill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 16, overflow: 'hidden', elevation: 1, shadowColor: C.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3 },
   statSvgBg: { ...StyleSheet.absoluteFillObject },
   statValue: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5, marginBottom: 1 },
   statLabel: { fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
 
   // Filter section — unified container
-  filterSection: { backgroundColor: C.white, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: '#E8ECF0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 3 },
-  filterDivider: { height: 1, backgroundColor: '#F1F5F9', marginHorizontal: 16, marginVertical: 4 },
+  filterSection: { backgroundColor: C.white, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: C.line, shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 3 },
+  filterDivider: { height: 1, backgroundColor: C.neutralFill, marginHorizontal: 16, marginVertical: 4 },
   filterScroll: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
-  filterPill: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#F1F5F9', borderRadius: 20, borderWidth: 1, borderColor: '#E2E8F0' },
+  filterPill: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: C.neutralFill, borderRadius: 20, borderWidth: 1, borderColor: C.line },
   filterPillActive: { backgroundColor: C.primary, borderColor: C.primary },
   filterPillText: { fontSize: 13, fontWeight: '600', color: C.textSec },
   filterPillTextActive: { color: C.white },
@@ -1179,17 +1221,17 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: C.neutralFill,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: C.line,
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6 },
+      ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6 },
       android: { elevation: 4 },
     }),
   },
   filterBarPillOn: {
-    backgroundColor: '#1E293B',
-    borderColor: '#1E293B',
+    backgroundColor: C.invertFill,
+    borderColor: C.invertFill,
   },
   filterBarActiveDot: {
     position: 'absolute',
@@ -1198,21 +1240,21 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#10B981',
+    backgroundColor: C.success,
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    borderColor: C.white,
   },
 
   // Category chips
   categoryScroll: { paddingHorizontal: 16, paddingTop: 2, paddingBottom: 8, gap: 6 },
-  categoryChip: { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0' },
-  categoryChipActive: { backgroundColor: '#EFF6FF', borderColor: C.secondary },
+  categoryChip: { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: C.sunken, borderRadius: 16, borderWidth: 1, borderColor: C.line },
+  categoryChipActive: { backgroundColor: C.blueBg, borderColor: C.secondary },
   categoryChipText: { fontSize: 12, fontWeight: '600', color: C.muted },
   categoryChipTextActive: { color: C.secondary },
 
   // Date chips
   dateScroll: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8, gap: 6 },
-  dateChip: { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0' },
+  dateChip: { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: C.sunken, borderRadius: 16, borderWidth: 1, borderColor: C.line },
   dateChipOn: { backgroundColor: C.secondary, borderColor: C.secondary },
   dateChipText: { fontSize: 12, fontWeight: '600', color: C.textSec },
   dateChipTextOn: { color: C.white },
@@ -1224,24 +1266,24 @@ const styles = StyleSheet.create({
   listPad: { padding: 14, paddingBottom: 40 },
 
   // Card
-  card: { backgroundColor: C.white, borderRadius: 20, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: '#E8ECF0', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 6, overflow: 'hidden' },
+  card: { backgroundColor: C.white, borderRadius: 20, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: C.line, shadowColor: C.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 6, overflow: 'hidden' },
   cardPending: { borderColor: C.primary + '35', borderWidth: 1.5 },
   cardCompact: { padding: 14, marginBottom: 12 },
   cardSvgBg: { position: 'absolute', top: 0, left: 0, right: 0, height: 60 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   cardTopLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 },
-  svcIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#FFF7ED', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  svcIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.orangeBg, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   svcNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
   svcName: { fontSize: 15, fontWeight: '700', color: C.text, textTransform: 'capitalize', flexShrink: 1 },
-  typeBadge: { backgroundColor: '#F3E8FF', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  typeBadge: { backgroundColor: C.purpleBg, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   typeBadgeText: { fontSize: 8, fontWeight: '800', color: C.purple, letterSpacing: 0.5 },
   statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, gap: 5 },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusText: { fontSize: 11, fontWeight: '700' },
 
   // Cancel strip
-  cancelStrip: { backgroundColor: '#FEF3C7', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#FDE68A' },
-  cancelStripDanger: { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
+  cancelStrip: { backgroundColor: C.warningBg, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: C.warningLine },
+  cancelStripDanger: { backgroundColor: C.dangerBg, borderColor: C.dangerLine },
   cancelStripText: { fontSize: 11, fontWeight: '500', flex: 1, lineHeight: 16 },
 
   // Compact
@@ -1251,17 +1293,17 @@ const styles = StyleSheet.create({
 
   // Rating row (for compact done cards)
   ratingRow: { marginTop: 8 },
-  ratedStrip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FEF3C7', paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: '#FDE68A' },
-  ratedText: { fontSize: 12, fontWeight: '600', color: '#92400E' },
+  ratedStrip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.warningBg, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: C.warningLine },
+  ratedText: { fontSize: 12, fontWeight: '600', color: C.warning },
   rateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.gold, paddingVertical: 10, borderRadius: 12, shadowColor: C.gold, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
-  rateBtnText: { fontSize: 13, fontWeight: '700', color: C.white },
+  rateBtnText: { fontSize: 13, fontWeight: '700', color: C.onGold },
 
   // Date/Time
-  dtRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: '#EEF2F6' },
+  dtRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.sunken, borderRadius: 12, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: C.line },
   dtItem: { flex: 1, alignItems: 'center' },
   dtLabel: { fontSize: 9, fontWeight: '700', color: C.muted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 3 },
   dtVal: { fontSize: 13, fontWeight: '600', color: C.text },
-  dtDiv: { width: 1, height: 28, backgroundColor: '#E2E8F0', marginHorizontal: 4 },
+  dtDiv: { width: 1, height: 28, backgroundColor: C.line, marginHorizontal: 4 },
 
   // Provider
   providerRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: C.border, marginBottom: 10 },
@@ -1272,14 +1314,14 @@ const styles = StyleSheet.create({
   providerInitial: { fontSize: 15, fontWeight: '700', color: C.white },
   verifiedBadge: { position: 'absolute', bottom: -1, right: -1, width: 14, height: 14, borderRadius: 7, backgroundColor: C.success, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.white },
   providerName: { fontSize: 14, fontWeight: '600', color: C.text },
-  ratingChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, alignSelf: 'flex-start', marginTop: 2 },
-  ratingChipText: { fontSize: 10, fontWeight: '700', color: '#92400E' },
+  ratingChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: C.warningBg, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, alignSelf: 'flex-start', marginTop: 2 },
+  ratingChipText: { fontSize: 10, fontWeight: '700', color: C.warning },
   quickActions: { flexDirection: 'row', gap: 7 },
   btnCall: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.success, alignItems: 'center', justifyContent: 'center', shadowColor: C.success, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
   btnTrack: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center', shadowColor: C.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
 
   // OTP
-  otpBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.purpleBg, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 10, borderWidth: 1, borderColor: '#DDD6FE' },
+  otpBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.purpleBg, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 10, borderWidth: 1, borderColor: C.purpleLine },
   otpLeft: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   otpLabel: { fontSize: 12, fontWeight: '600', color: C.purple },
   otpRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -1293,10 +1335,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: C.dangerBg,
     paddingVertical: 11,
     borderWidth: 1.5,
-    borderColor: '#FECACA',
+    borderColor: C.dangerLine,
     marginBottom: 10,
     ...Platform.select({
       ios: { borderRadius: 14 },
@@ -1315,22 +1357,23 @@ const styles = StyleSheet.create({
 
   // Empty
   emptyWrap: { alignItems: 'center', paddingVertical: 70, paddingHorizontal: 40 },
-  emptyCircle: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  emptyCircle: { width: 90, height: 90, borderRadius: 45, backgroundColor: C.neutralFill, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   emptyTitle: { fontSize: 18, fontWeight: '800', color: C.text, marginBottom: 6 },
   emptyMsg: { fontSize: 13, fontWeight: '500', color: C.textSec, textAlign: 'center', lineHeight: 20, marginBottom: 20 },
   emptyCta: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: C.primary, paddingHorizontal: 22, paddingVertical: 13, borderRadius: 14, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
   emptyCtaText: { fontSize: 14, fontWeight: '700', color: C.white },
 
   // Sent-to / no-provider strips
-  sentToStrip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#EFF6FF', paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, marginBottom: 6, borderWidth: 1, borderColor: C.secondary + '20' },
+  sentToStrip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.blueBg, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, marginBottom: 6, borderWidth: 1, borderColor: C.secondary + '20' },
   sentToStripRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
   sentToStripText: { fontSize: 11, fontWeight: '600', color: C.secondary },
-  cancelSentStripBtn: { backgroundColor: '#FEF2F2', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: '#FECACA', marginLeft: 8 },
-  cancelSentStripBtnText: { fontSize: 11, fontWeight: '700', color: '#DC2626' },
-  noProviderStrip: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#FDE68A' },
-  noProviderStripText: { fontSize: 11, fontWeight: '600', color: '#92400E', flex: 1 },
+  cancelSentStripBtn: { backgroundColor: C.dangerBg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: C.dangerLine, marginLeft: 8 },
+  cancelSentStripBtnText: { fontSize: 11, fontWeight: '700', color: C.danger },
+  noProviderStrip: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, backgroundColor: C.warningBg, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: C.warningLine },
+  noProviderStripText: { fontSize: 11, fontWeight: '600', color: C.warning, flex: 1 },
   findProvidersBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.secondary, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
   findProvidersBtnText: { fontSize: 11, fontWeight: '700', color: C.white },
-});
+  });
+};
 
 export default UserServiceHistoryScreen;

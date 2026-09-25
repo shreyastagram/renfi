@@ -80,11 +80,21 @@ export const lightColors = {
   dangerContainer: semanticLight.dangerContainer,
   infoContainer: semanticLight.infoContainer,
 
-  // Foreground for a filled semantic badge. Chosen per hue, not per theme:
-  // white fails on the mid-saturation green (3.30) and amber (3.19), and dark
-  // text fails on the lighter red and blue. Same rule as onBrandOrange.
-  onSuccess: slate[900],
-  onWarning: slate[900],
+  // Foreground for a filled semantic badge.
+  //
+  // CORRECTED. The first version reasoned "white fails on the mid-saturation
+  // green (3.30) and amber (3.19), so use dark ink" — but those numbers were
+  // measured against the SHIPPED fills (#16A34A / #D97706), and the same pass
+  // darkened the fills to #15803D / #B45309. Against the fills these tokens
+  // actually sit on, dark ink is 3.56 and white is 5.02, so the "fix" left both
+  // badges failing. The fill and the ink were changed independently and the
+  // combination was never re-measured.
+  //
+  // Green and amber are dark in light mode and light in dark mode, so their ink
+  // must flip with the theme. Red and blue stay dark enough in both, so theirs
+  // does not. All five pairs are now asserted in scripts/check-contrast.js.
+  onSuccess: slate[0],
+  onWarning: slate[0],
   onDanger: slate[0],
   onInfo: slate[0],
 
@@ -95,6 +105,7 @@ export const lightColors = {
   dangerBorder: semanticLightBorder.danger,
   infoBorder: semanticLightBorder.info,
   brandOrangeBorder: semanticLightBorder.brandOrange,
+  accentVioletBorder: semanticLightBorder.accentViolet,
 
   // Visible danger hairline + fill, for rows rather than chips. See semanticLine.
   dangerLine: semanticLine.dangerLight,
@@ -182,6 +193,7 @@ export const darkColors = {
   dangerBorder: semanticDarkBorder.danger,
   infoBorder: semanticDarkBorder.info,
   brandOrangeBorder: semanticDarkBorder.brandOrange,
+  accentVioletBorder: semanticDarkBorder.accentViolet,
   dangerLine: semanticDarkBorder.danger,
   dangerFill: semanticDark.dangerContainer,
   warningLine: semanticDarkBorder.warning,

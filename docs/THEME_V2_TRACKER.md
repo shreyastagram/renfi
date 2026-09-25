@@ -15,7 +15,7 @@
 
 ## ▶ 1. WHERE WE ARE RIGHT NOW
 
-**Phases 0–5a, 6a, ALL of 6b, and Phase 7 batches 1–2 done.**
+**Phases 0–5a, 6a, ALL of 6b, and Phase 7 batches 1–3 done.**
 
 - The theme engine is live and **11 components consume it**. The Appearance control ships.
 - Switching to Dark currently changes: the status bar, dialogs, alerts, inputs, icons,
@@ -23,17 +23,18 @@
   low-end devices. **Screens themselves are not themed yet.**
 - `npm run verify` exits 0. Working tree clean apart from the owner's `.vscode/settings.json`
   and `android/clean.log`.
-- **Six user screens are now themed** (`PSATriggerScreen`, `PSAContactsScreen`,
-  `ReferralScreen`, `FavoritesScreen`, `LiveTrackingScreen`, `EventServicesScreen`), and the
-  live-tracking map follows the theme via `StyleURL.TrafficNight`.
+- **Eight user screens are now themed** (`PSATriggerScreen`, `PSAContactsScreen`,
+  `ReferralScreen`, `FavoritesScreen`, `LiveTrackingScreen`, `EventServicesScreen`,
+  `CreateServiceRequestScreen`, `UserServiceHistoryScreen`), and the live-tracking map
+  follows the theme via `StyleURL.TrafficNight`.
 - **Nothing is device-verified.** This environment cannot run the app.
 
 ### Next action
 
-**Phase 7 batch 3** — `CreateServiceRequestScreen`, `UserServiceHistoryScreen`. Then
-batch 4 (`UserHomeScreen` + Mapbox, `SubscriptionScreen`, `ServiceRequestDetailScreen`) and
-batch 5 last, because `AccountSecurityScreen` / `ChangePasswordScreen` carry 33 security
-lines. Swap `SafeAreaView` → `<Screen>` in each file as it is themed.
+**Phase 7 batch 4** — `UserHomeScreen` (146 colours, a map, and the tab bar over it),
+`SubscriptionScreen`, `ServiceRequestDetailScreen`. Then batch 5 last, because
+`AccountSecurityScreen` / `ChangePasswordScreen` carry 33 security lines. Swap
+`SafeAreaView` → `<Screen>` in each file as it is themed.
 
 ---
 
@@ -60,7 +61,7 @@ contract.
 - [ ] **Phase 7** — User screens + Mapbox theme following (`TrafficNight`)
   - [x] batch 1 — `PSATriggerScreen`, `PSAContactsScreen`, `ReferralScreen` (zero-security)
   - [x] batch 2 — `FavoritesScreen`, `LiveTrackingScreen`, `EventServicesScreen`
-  - [ ] batch 3 — `CreateServiceRequestScreen`, `UserServiceHistoryScreen`
+  - [x] batch 3 — `CreateServiceRequestScreen`, `UserServiceHistoryScreen`
   - [ ] batch 4 — `UserHomeScreen` + Mapbox, `SubscriptionScreen`, `ServiceRequestDetailScreen`
   - [ ] batch 5 — `AccountSecurityScreen`, `ChangePasswordScreen` (33 security lines — last)
 - [ ] **Phase 8** — Provider screens incl. Working Hours (5 files, 126 colours)
@@ -73,29 +74,29 @@ contract.
 
 | Measure | Value |
 |---|---|
-| Colour literals remaining | **3,021** (3,329 at v1.0.9) — measured, see note |
-| Files on the hex allowlist | **25** |
+| Colour literals remaining | **2,848** (3,329 at v1.0.9) — measured, see note |
+| Files on the hex allowlist | **27** |
 | Components fully themed | **8** — CustomDialog, Button, Alert, ShimmerLoader, Input, Icon, GlobalBanner, DrawerMenu (+ RootNavigator surgically) |
-| Screens fully themed | **7** — EmailVerifyHandler, PSATrigger, PSAContacts, Referral, Favorites, LiveTracking, EventServices |
+| Screens fully themed | **9** — EmailVerifyHandler, PSATrigger, PSAContacts, Referral, Favorites, LiveTracking, EventServices, CreateServiceRequest, UserServiceHistory |
 | Theme unit tests | 24 across 5 suites |
 | Owner's Working Hours tests | 86 — **must never regress** |
 | i18n | **2074** × en/hi/mr (2067 baseline + 7 theme keys) |
 
 **On the literal count.** 3,329 was v1.0.9 counted over its own 164 source files. Today's
-3,021 covers the 173 that exist now. The 308 difference splits into **120 removed with the
-dead files in Phase 4** and **188 genuinely migrated onto tokens**. Recount with:
+2,848 covers the 174 that exist now. The 481 difference splits into **120 removed with the
+dead files in Phase 4** and **361 genuinely migrated onto tokens**. Recount with:
 `git ls-files | grep -E '\.(jsx?|tsx?)$'` filtered to exclude `scripts/` and tests, matching
 `#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)`. Quoting a smaller number than that is overclaiming.
 
-**Honest split:** by "can a user see the app go dark" ≈ **20%**. By total project effort
-≈ **52%** — architecture, palette, design language, census and gates are done, and the
+**Honest split:** by "can a user see the app go dark" ≈ **30%**. By total project effort
+≈ **60%** — architecture, palette, design language, census and gates are done, and the
 pattern is proven. The remaining literals are mechanical.
 
 ### Remaining by area
 
 | Area | Colours | Phase |
 |---|---|---|
-| Everything else (screens) | ~2,271 | 7–9 |
+| Everything else (screens) | ~2,098 | 7–9 |
 | Verification surfaces | 395 | 5b |
 | Working Hours | 126 | 8 |
 | Settings screen | 47 | 6b/7 |
@@ -113,11 +114,12 @@ npm run verify
 |---|---|
 | `check:i18n` | en/hi/mr key-identical, **baseline 2074** |
 | `check:hex` | no raw colour literal in any allowlisted file (comments excluded) |
-| `check:contrast` | 35 semantic pairs × 2 themes meet WCAG AA |
+| `check:contrast` | 40 semantic pairs × 2 themes meet WCAG AA — including **every ink/fill pair**, which it did not assert until batch 3 |
 | `check:contrast` | dark device-safety: surface steps + border separation |
 | `check:types` | `tsc --noEmit` |
-| `test:unit` | 21 theme tests |
+| `test:unit` | 24 theme tests |
 | `check:light` | **every migrated file still resolves its ORIGINAL light-mode colours**, or the change is declared with a reason |
+| `check:collapse` | no style's `borderColor` resolves to the same token as its `backgroundColor` — i.e. no hairline was erased by mapping two literals onto one token |
 | `test:app` | the owner's 86 Working Hours tests |
 
 **Plus, per file touched:** lint against the v1.0.9 baseline for that *specific* file.
@@ -202,6 +204,22 @@ a row here.
   Added a unit test asserting **no `*Border` / `*Line` token ever resolves to transparent**,
   proven to fail on the old value first. **Lesson: when a fix is scoped to the one file that
   exposed a bug, check every other consumer of the same token before calling it done.**
+- **`onSuccess` and `onWarning` were still failing after the "fix".** The original reasoning
+  was "white fails on the mid-saturation green (3.30) and amber (3.19), so use dark ink" —
+  but those ratios were measured against the SHIPPED fills, and the same pass also darkened
+  the fills to `#15803D` / `#B45309`. Against the fills the ink actually sits on, dark ink is
+  **3.56** and white is **5.02**, so both badges still failed AA. The fill and the ink were
+  changed independently and the combination was never re-measured. Light-mode `onSuccess` /
+  `onWarning` are now white (dark ink stays correct in dark mode, where the fills lighten),
+  and **five ink/fill pairs were added to `check:contrast`** — it never asserted them, which
+  is how this survived. 40 pairs now. **Lesson: when you change both sides of a contrast
+  pair, re-measure the pair, not each side.**
+- **Two literals mapped onto one token erased a hairline.** `UserServiceHistoryScreen`'s OTP
+  bar had fill `#F3E8FF` and border `#DDD6FE`; both resolved to `accentVioletContainer`, so
+  the border became invisible. Completed the violet container/border pair, and added
+  **`check:collapse`** — a gate that fails when a style's `borderColor` resolves to the same
+  expression as its `backgroundColor`, with an allowlist for the two solid "selected" pills
+  that were deliberately like that at v1.0.9. Proven to fail on the OTP bar first.
 
 ---
 

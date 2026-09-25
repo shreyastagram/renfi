@@ -28,6 +28,8 @@
     "src/screens/PSAContactsScreen.jsx",
     "src/screens/LiveTrackingScreen.jsx",
     "src/screens/FavoritesScreen.jsx",
-    "src/screens/EventServicesScreen.jsx"
+    "src/screens/EventServicesScreen.jsx",
+    "src/screens/CreateServiceRequestScreen.jsx",
+    "src/screens/UserServiceHistoryScreen.jsx"
   ]
 }

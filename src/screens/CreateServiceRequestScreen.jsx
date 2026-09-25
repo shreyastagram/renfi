@@ -49,6 +49,11 @@ import SavedAddresses from '../components/SavedAddresses';
 import useBookingProfileGate from '../hooks/useBookingProfileGate';
 import { getSavedAddresses, getDefaultAddress } from '../services/addressService';
 import { formatDistance, formatDistanceFromMeters, useDistanceUnit } from '../utils/formatDistance';
+import {
+  useTheme,
+  useThemedStyles,
+  useThemeColors,
+} from '../theme';
 
 // Service type icons (using emoji for simplicity, replace with actual icons)
 const SERVICE_ICONS = {
@@ -66,7 +71,43 @@ const SERVICE_ICONS = {
   ac_repair: '❄️',
 };
 
+// This screen predates the design system: bare greys (#333/#666/#999), Bootstrap
+// red/green, and iOS blue as the accent. Mapped onto tokens without restyling it
+// -- the iOS blue stays `altBlueIos` rather than converging on the brand blue,
+// which would be a redesign of the screen, not a theme change.
+const makeC = (c) => ({
+  bg: c.bg,
+  surface: c.surface,
+  surfaceSunken: c.surfaceSunken,
+  border: c.border,
+  borderNeutral: c.borderNeutral,
+  textPrimary: c.textPrimary,
+  textStrongNeutral: c.textStrongNeutral,
+  textBody: c.textBody,
+  textSecondary: c.textSecondary,
+  textMuted: c.textMuted,
+  danger: c.danger,
+  success: c.success,
+  onSuccess: c.onSuccess,
+  // The screen's action colour. `onBrandBlue` is its ink: white in light (4.02 on
+  // iOS blue -- Apple's own pairing, the documented exception) and dark ink in
+  // dark, where the fill lightens to #5FA8E8.
+  accent: c.altBlueIos,
+  onAccent: c.onBrandBlue,
+  accentSky: c.altBlueSky,
+  accentContainer: c.infoContainer,
+  // A neutral chip fill and a disabled-control fill -- grey steps in light, and
+  // recessed dark steps in dark.
+  chipFill: c.bg,
+  disabledFill: c.borderMedium,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
+
 const CreateServiceRequestScreen = ({ navigation, route }) => {
+  const { isDark } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const { user, profile } = useApp();
   const { dialog } = useDialog();
@@ -713,14 +754,14 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
               disabled={isBooking}
             >
               {isBooking ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={C.onAccent} />
               ) : (
                 <Text style={styles.bookButtonText}>📋 {t('createRequest.bookProvider')}</Text>
               )}
             </TouchableOpacity>
           ) : (
-            <View style={[styles.bookButton, { backgroundColor: '#E5E7EB' }]}>
-              <Text style={[styles.bookButtonText, { color: '#999' }]}>{t('createRequest.callFirstToBook')}</Text>
+            <View style={[styles.bookButton, { backgroundColor: C.disabledFill }]}>
+              <Text style={[styles.bookButtonText, { color: C.textMuted }]}>{t('createRequest.callFirstToBook')}</Text>
             </View>
           )}
         </View>
@@ -789,7 +830,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
 
         {isFetchingProviders ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#007AFF" />
+            <ActivityIndicator size="large" color={C.accent} />
             <Text style={styles.loadingText}>{t('createRequest.findingProviders')}</Text>
             <Text style={styles.loadingSubtext}>
               {t('createRequest.searchingRadius')}
@@ -834,7 +875,11 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: 40 + insets.bottom }]}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent
+      />
       <Text style={styles.title}>{t('createRequest.title')}</Text>
       <Text style={styles.subtitle}>
         {t('createRequest.subtitle')}
@@ -853,14 +898,14 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
             <MaterialIcon 
               name={usingCurrentLocation ? 'my-location' : 'location-on'} 
               size={24} 
-              color={usingCurrentLocation ? '#3B82F6' : '#10B981'} 
+              color={usingCurrentLocation ? C.accentSky : C.success} 
             />
           </View>
           <View style={styles.addressContent}>
             {locationLoading ? (
               <>
                 <Text style={styles.addressTitle}>{t('createRequest.gettingLocation')}</Text>
-                <ActivityIndicator size="small" color="#3B82F6" style={{ marginTop: 4 }} />
+                <ActivityIndicator size="small" color={C.accentSky} style={{ marginTop: 4 }} />
               </>
             ) : locationError ? (
               <>
@@ -892,7 +937,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
               </>
             )}
           </View>
-          <MaterialIcon name="chevron-right" size={24} color="#9CA3AF" />
+          <MaterialIcon name="chevron-right" size={24} color={C.textMuted} />
         </TouchableOpacity>
         
         {/* Quick Actions */}
@@ -902,7 +947,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
               style={styles.addressActionBtn}
               onPress={handleUseCurrentLocation}
             >
-              <MaterialIcon name="my-location" size={18} color="#3B82F6" />
+              <MaterialIcon name="my-location" size={18} color={C.accentSky} />
               <Text style={styles.addressActionText}>{t('createRequest.useCurrentLocation')}</Text>
             </TouchableOpacity>
           )}
@@ -910,7 +955,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
             style={styles.addressActionBtn}
             onPress={() => setShowAddressModal(true)}
           >
-            <MaterialIcon name="bookmark" size={18} color="#3B82F6" />
+            <MaterialIcon name="bookmark" size={18} color={C.accentSky} />
             <Text style={styles.addressActionText}>{t('createRequest.savedAddresses')}</Text>
           </TouchableOpacity>
         </View>
@@ -966,7 +1011,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
         disabled={!selectedService || !serviceDate || !location || isCreating}
       >
         {isCreating ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={C.onAccent} />
         ) : (
           <Text style={styles.createButtonText}>{t('createRequest.createRequestBtn')}</Text>
         )}
@@ -1013,10 +1058,12 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: C.bg,
   },
   content: {
     padding: 20,
@@ -1025,27 +1072,27 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1a1a1a',
+    color: C.textPrimary,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: C.textSecondary,
     marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: C.textPrimary,
     marginTop: 20,
     marginBottom: 12,
   },
   locationStatus: {
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 8,
-    shadowColor: '#000',
+    shadowColor: C.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -1058,21 +1105,21 @@ const styles = StyleSheet.create({
   },
   locationText: {
     fontSize: 14,
-    color: '#666',
+    color: C.textSecondary,
     marginLeft: 12,
     flex: 1,
   },
   locationError: {
     fontSize: 14,
-    color: '#dc3545',
+    color: C.danger,
   },
   locationSuccess: {
     fontSize: 14,
-    color: '#28a745',
+    color: C.success,
   },
   retryText: {
     fontSize: 14,
-    color: '#007AFF',
+    color: C.accent,
     fontWeight: '600',
   },
   servicesGrid: {
@@ -1082,22 +1129,22 @@ const styles = StyleSheet.create({
   },
   serviceCard: {
     width: '31%',
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
     marginBottom: 12,
     borderWidth: 2,
     borderColor: 'transparent',
-    shadowColor: '#000',
+    shadowColor: C.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
   serviceCardSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#f0f7ff',
+    borderColor: C.accent,
+    backgroundColor: C.accentContainer,
   },
   serviceIcon: {
     fontSize: 32,
@@ -1105,22 +1152,22 @@ const styles = StyleSheet.create({
   },
   serviceLabel: {
     fontSize: 12,
-    color: '#333',
+    color: C.textBody,
     textAlign: 'center',
     fontWeight: '500',
   },
   serviceLabelSelected: {
-    color: '#007AFF',
+    color: C.accent,
     fontWeight: '600',
   },
   dateInput: {
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
     borderRadius: 12,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    shadowColor: '#000',
+    shadowColor: C.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -1128,23 +1175,23 @@ const styles = StyleSheet.create({
   },
   dateInputText: {
     fontSize: 16,
-    color: '#333',
+    color: C.textBody,
   },
   dateInputPlaceholder: {
     fontSize: 16,
-    color: '#999',
+    color: C.textMuted,
   },
   dateInputIcon: {
     fontSize: 24,
   },
   datePickerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: C.overlay,
     justifyContent: 'center',
     padding: 20,
   },
   datePickerContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
     borderRadius: 16,
     padding: 20,
   },
@@ -1158,95 +1205,95 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     marginBottom: 8,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: C.surfaceSunken,
   },
   dateOptionSelected: {
-    backgroundColor: '#007AFF',
+    backgroundColor: C.accent,
   },
   dateLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: C.textBody,
   },
   dateFullLabel: {
     fontSize: 14,
-    color: '#666',
+    color: C.textSecondary,
     marginTop: 4,
   },
   dateLabelSelected: {
-    color: '#fff',
+    color: C.onAccent,
   },
   createButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: C.accent,
     borderRadius: 12,
     padding: 18,
     alignItems: 'center',
     marginTop: 24,
   },
   createButtonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: C.disabledFill,
   },
   createButtonText: {
-    color: '#fff',
+    color: C.onAccent,
     fontSize: 18,
     fontWeight: '600',
   },
   fetchProvidersButton: {
-    backgroundColor: '#28a745',
+    backgroundColor: C.success,
     borderRadius: 12,
     padding: 18,
     alignItems: 'center',
     marginTop: 16,
   },
   fetchProvidersText: {
-    color: '#fff',
+    color: C.onSuccess,
     fontSize: 18,
     fontWeight: '600',
   },
   cancelRequestButton: {
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
     borderRadius: 12,
     padding: 18,
     alignItems: 'center',
     marginTop: 12,
     borderWidth: 2,
-    borderColor: '#dc3545',
+    borderColor: C.danger,
   },
   cancelRequestText: {
-    color: '#dc3545',
+    color: C.danger,
     fontSize: 16,
     fontWeight: '600',
   },
   // Modal styles
   modalContainer: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: C.bg,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: C.border,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: C.textPrimary,
   },
   closeButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: C.chipFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   closeButtonText: {
     fontSize: 18,
-    color: '#666',
+    color: C.textSecondary,
   },
   loadingContainer: {
     flex: 1,
@@ -1256,34 +1303,34 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 18,
-    color: '#333',
+    color: C.textBody,
     marginTop: 20,
     fontWeight: '500',
   },
   loadingSubtext: {
     fontSize: 14,
-    color: '#666',
+    color: C.textSecondary,
     marginTop: 8,
   },
   searchInfo: {
-    backgroundColor: '#e8f4ff',
+    backgroundColor: C.accentContainer,
     padding: 12,
     alignItems: 'center',
   },
   searchInfoText: {
     fontSize: 14,
-    color: '#007AFF',
+    color: C.accent,
     fontWeight: '500',
   },
   providersList: {
     padding: 16,
   },
   providerCard: {
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: C.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -1298,14 +1345,14 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#007AFF',
+    backgroundColor: C.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
   providerInitial: {
     fontSize: 22,
     fontWeight: '600',
-    color: '#fff',
+    color: C.onAccent,
   },
   providerInfo: {
     marginLeft: 12,
@@ -1314,11 +1361,11 @@ const styles = StyleSheet.create({
   providerName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: C.textPrimary,
   },
   providerService: {
     fontSize: 14,
-    color: '#666',
+    color: C.textSecondary,
     marginTop: 2,
   },
   providerStats: {
@@ -1337,17 +1384,17 @@ const styles = StyleSheet.create({
   },
   statText: {
     fontSize: 14,
-    color: '#666',
+    color: C.textSecondary,
   },
   contactButton: {
-    backgroundColor: '#f0f7ff',
+    backgroundColor: C.accentContainer,
     borderRadius: 10,
     padding: 12,
     alignItems: 'center',
     marginTop: 8,
   },
   contactButtonText: {
-    color: '#007AFF',
+    color: C.accent,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -1355,7 +1402,7 @@ const styles = StyleSheet.create({
   phoneContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: C.surfaceSunken,
     borderRadius: 8,
     padding: 10,
     marginBottom: 12,
@@ -1366,7 +1413,7 @@ const styles = StyleSheet.create({
   },
   phoneNumber: {
     fontSize: 16,
-    color: '#333',
+    color: C.textBody,
     fontWeight: '500',
     letterSpacing: 0.5,
   },
@@ -1378,36 +1425,36 @@ const styles = StyleSheet.create({
   },
   callButton: {
     flex: 1,
-    backgroundColor: '#28a745',
+    backgroundColor: C.success,
     borderRadius: 10,
     padding: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   callButtonText: {
-    color: '#fff',
+    color: C.onSuccess,
     fontSize: 16,
     fontWeight: '600',
   },
   bookButton: {
     flex: 2,
-    backgroundColor: '#007AFF',
+    backgroundColor: C.accent,
     borderRadius: 10,
     padding: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   bookButtonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: C.disabledFill,
   },
   bookButtonText: {
-    color: '#fff',
+    color: C.onAccent,
     fontSize: 16,
     fontWeight: '600',
   },
   providerInstructions: {
     fontSize: 12,
-    color: '#888',
+    color: C.textMuted,
     textAlign: 'center',
     marginTop: 4,
     fontStyle: 'italic',
@@ -1424,12 +1471,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
+    color: C.textBody,
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#666',
+    color: C.textSecondary,
     textAlign: 'center',
   },
   
@@ -1441,11 +1488,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
+    borderColor: C.borderNeutral,
+    shadowColor: C.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -1455,7 +1502,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: C.surfaceSunken,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -1466,11 +1513,11 @@ const styles = StyleSheet.create({
   addressTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1F2937',
+    color: C.textStrongNeutral,
   },
   addressSubtitle: {
     fontSize: 13,
-    color: '#6B7280',
+    color: C.textSecondary,
     marginTop: 2,
   },
   addressActions: {
@@ -1484,14 +1531,15 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: C.accentContainer,
     borderRadius: 20,
   },
   addressActionText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#3B82F6',
+    color: C.accentSky,
   },
-});
+  });
+};
 
 export default CreateServiceRequestScreen;

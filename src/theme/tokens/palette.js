@@ -384,6 +384,7 @@ export const semanticLightBorder = {
   danger: '#FECACA',
   info: '#BFDBFE',
   brandOrange: '#FDBA74',
+  accentViolet: '#DDD6FE',
 };
 
 // The dark-surface counterparts — the status hue at ~70% over the card. The TEXT
@@ -395,6 +396,7 @@ export const semanticDarkBorder = {
   danger: '#B3565B',
   info: '#487DAE',
   brandOrange: '#B0662C',
+  accentViolet: '#6B5BA5',
 };
 
 export const overlay = {

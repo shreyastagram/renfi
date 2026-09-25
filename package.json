@@ -14,8 +14,9 @@
     "check:hex": "node scripts/check-hex.js",
     "check:i18n": "NODE_NO_WARNINGS=1 node scripts/check-i18n-parity.js",
     "check:types": "tsc --noEmit -p tsconfig.json",
-    "verify": "npm run check:i18n && npm run check:hex && npm run check:contrast && npm run check:light && npm run check:types && npm run test:unit && npm run test:app",
-    "check:light": "NODE_NO_WARNINGS=1 node scripts/check-light-fidelity.js"
+    "verify": "npm run check:i18n && npm run check:hex && npm run check:contrast && npm run check:light && npm run check:collapse && npm run check:types && npm run test:unit && npm run test:app",
+    "check:light": "NODE_NO_WARNINGS=1 node scripts/check-light-fidelity.js",
+    "check:collapse": "node scripts/check-collapse.js"
   },
   "dependencies": {
     "@invertase/react-native-apple-authentication": "^2.5.1",
