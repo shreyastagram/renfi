@@ -43,6 +43,12 @@ import {
 } from '../services/appleAuthService';
 import AppleEmailCollectionModal from '../components/AppleEmailCollectionModal';
 import RegisterChoice from '../components/RegisterChoice';
+import {
+  useThemedStyles,
+  useThemeColors,
+  brandTint,
+  vendor,
+} from '../theme';
 
 /**
  * RegisterScreen Component
@@ -50,6 +56,8 @@ import RegisterChoice from '../components/RegisterChoice';
  * @param {Object} props - Navigation props
  */
 const RegisterScreen = ({ navigation, onSwitchToPhoneSignup }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { handleAuthSuccess } = useApp();
   const { t } = useLanguage();
 
@@ -760,7 +768,7 @@ const RegisterScreen = ({ navigation, onSwitchToPhoneSignup }) => {
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={handleBack} style={styles.backButton} accessibilityLabel="Go back" accessibilityRole="button" activeOpacity={0.7}>
-              <Ionicons name="arrow-back" size={20} color="#1E293B" />
+              <Ionicons name="arrow-back" size={20} color={C.text} />
             </TouchableOpacity>
             <View style={styles.logoContainer}>
               <FixhomiLogo size={44} />
@@ -854,7 +862,7 @@ const RegisterScreen = ({ navigation, onSwitchToPhoneSignup }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalIconCircle}>
-              <MaterialIcons name="person" size={28} color="#f67c16" />
+              <MaterialIcons name="person" size={28} color={C.warning} />
             </View>
             <Text style={styles.modalTitle}>{t('auth.accountAlreadyExists')}</Text>
             <Text style={styles.modalEmail}>{existingEmail}</Text>
@@ -920,7 +928,7 @@ const RegisterScreen = ({ navigation, onSwitchToPhoneSignup }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalIconCircle}>
-              <MaterialIcons name="phone-android" size={28} color="#f67c16" />
+              <MaterialIcons name="phone-android" size={28} color={C.warning} />
             </View>
             <Text style={styles.modalTitle}>{t('auth.numberAlreadyRegistered')}</Text>
             <Text style={styles.modalEmail}>+91 {existingPhone}</Text>
@@ -981,9 +989,47 @@ const RegisterScreen = ({ navigation, onSwitchToPhoneSignup }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, and a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  line: c.border,
+  borderMedium: c.borderMedium,
+  text: c.textStrong,
+  textDark: c.textPrimary,
+  textBody: c.textBody,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
+
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   // ── Layout ──
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: C.white },
   keyboardView: { flex: 1 },
   scrollView: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 },
@@ -991,20 +1037,20 @@ const styles = StyleSheet.create({
   // ── Header ──
   header: { marginBottom: 28, alignItems: 'center' },
   backButton: {
-    width: 38, height: 38, borderRadius: 12, backgroundColor: '#F1F5F9',
+    width: 38, height: 38, borderRadius: 12, backgroundColor: C.hairline,
     justifyContent: 'center', alignItems: 'center', alignSelf: 'flex-start', marginBottom: 18,
   },
   logoContainer: {
-    width: 64, height: 64, borderRadius: 16, backgroundColor: '#FFFFFF',
+    width: 64, height: 64, borderRadius: 16, backgroundColor: C.white,
     justifyContent: 'center', alignItems: 'center', overflow: 'hidden',
     ...Platform.select({
-      ios: { shadowColor: '#f67c16', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
+      ios: { shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
       android: { elevation: 5 },
     }),
   },
-  brandName: { fontSize: 18, fontWeight: '800', color: '#f67c16', marginTop: 10, letterSpacing: 0.3 },
-  title: { fontSize: 24, fontWeight: '800', color: '#1E293B', marginTop: 10, marginBottom: 6 },
-  subtitle: { fontSize: 14, color: '#64748B', lineHeight: 21, textAlign: 'center', paddingHorizontal: 8 },
+  brandName: { fontSize: 18, fontWeight: '800', color: C.warning, marginTop: 10, letterSpacing: 0.3 },
+  title: { fontSize: 24, fontWeight: '800', color: C.text, marginTop: 10, marginBottom: 6 },
+  subtitle: { fontSize: 14, color: C.textSecondary, lineHeight: 21, textAlign: 'center', paddingHorizontal: 8 },
 
   // ── Form ──
   form: { flex: 1 },
@@ -1012,80 +1058,81 @@ const styles = StyleSheet.create({
 
   // ── Divider ──
   divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 20 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#E2E8F0' },
-  dividerText: { marginHorizontal: 14, color: '#94A3B8', fontSize: 13, fontWeight: '500' },
+  dividerLine: { flex: 1, height: 1, backgroundColor: C.line },
+  dividerText: { marginHorizontal: 14, color: C.muted, fontSize: 13, fontWeight: '500' },
 
   // ── Google Button ──
   googleButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0',
+    backgroundColor: C.white, borderWidth: 1, borderColor: C.line,
     borderRadius: 14, paddingVertical: 14, paddingHorizontal: 20, marginBottom: 10,
   },
   googleButtonDisabled: { opacity: 0.5 },
   googleIconContainer: {
     width: 22, height: 22, borderRadius: 11,
-    backgroundColor: '#4285F4', alignItems: 'center', justifyContent: 'center', marginRight: 10,
+    backgroundColor: vendor.googleBlue, alignItems: 'center', justifyContent: 'center', marginRight: 10,
   },
-  googleIcon: { color: '#FFF', fontSize: 13, fontWeight: 'bold' },
-  googleButtonText: { fontSize: 15, fontWeight: '600', color: '#1E293B' },
+  googleIcon: { color: C.onPrimary, fontSize: 13, fontWeight: 'bold' },
+  googleButtonText: { fontSize: 15, fontWeight: '600', color: C.text },
 
   // ── Apple Button ──
   appleButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#000000', borderRadius: 14,
+    backgroundColor: vendor.appleBlack, borderRadius: 14,
     paddingVertical: 14, paddingHorizontal: 24, marginBottom: 12,
   },
   appleButtonDisabled: { opacity: 0.5 },
-  appleIcon: { fontSize: 18, color: '#FFF', marginRight: 10 },
-  appleButtonText: { fontSize: 15, fontWeight: '600', color: '#FFF' },
+  appleIcon: { fontSize: 18, color: C.onPrimary, marginRight: 10 },
+  appleButtonText: { fontSize: 15, fontWeight: '600', color: C.onPrimary },
 
   // ── Terms ──
   termsRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16, marginTop: 8, gap: 10 },
   checkbox: {
-    width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#CBD5E1',
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: C.borderMedium,
     alignItems: 'center', justifyContent: 'center', marginTop: 1,
   },
-  checkboxChecked: { backgroundColor: '#f67c16', borderColor: '#f67c16' },
-  checkmark: { color: '#FFF', fontSize: 14, fontWeight: '700' },
-  termsText: { flex: 1, fontSize: 13, color: '#64748B', lineHeight: 20 },
-  termsLink: { color: '#2b76bc', fontWeight: '600' },
+  checkboxChecked: { backgroundColor: C.primary, borderColor: C.primary },
+  checkmark: { color: C.onPrimary, fontSize: 14, fontWeight: '700' },
+  termsText: { flex: 1, fontSize: 13, color: C.textSecondary, lineHeight: 20 },
+  termsLink: { color: C.info, fontWeight: '600' },
 
   // ── Footer ──
   footer: { paddingVertical: 20 },
-  footerText: { fontSize: 12, color: '#94A3B8', textAlign: 'center', lineHeight: 18 },
-  link: { color: '#2b76bc', fontWeight: '500' },
+  footerText: { fontSize: 12, color: C.muted, textAlign: 'center', lineHeight: 18 },
+  link: { color: C.info, fontWeight: '500' },
 
   // ── Modals ──
   modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    flex: 1, backgroundColor: C.overlay,
     justifyContent: 'center', alignItems: 'center', padding: 24,
   },
   modalContent: {
-    backgroundColor: '#FFF', borderRadius: 20, padding: 28, width: '100%', maxWidth: 340,
+    backgroundColor: C.white, borderRadius: 20, padding: 28, width: '100%', maxWidth: 340,
     ...Platform.select({
-      ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 24 },
+      ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 24 },
       android: { elevation: 10 },
     }),
   },
   modalIconCircle: {
-    width: 56, height: 56, borderRadius: 16, backgroundColor: 'rgba(246,124,22,0.08)',
+    width: 56, height: 56, borderRadius: 16, backgroundColor: brandTint.orange10,
     justifyContent: 'center', alignItems: 'center', alignSelf: 'center', marginBottom: 16,
   },
-  modalTitle: { fontSize: 19, fontWeight: '700', color: '#1E293B', textAlign: 'center', marginBottom: 8 },
-  modalEmail: { fontSize: 14, color: '#64748B', textAlign: 'center', marginBottom: 8, fontStyle: 'italic' },
-  modalMessage: { fontSize: 14, color: '#64748B', textAlign: 'center', marginBottom: 24, lineHeight: 21 },
+  modalTitle: { fontSize: 19, fontWeight: '700', color: C.text, textAlign: 'center', marginBottom: 8 },
+  modalEmail: { fontSize: 14, color: C.textSecondary, textAlign: 'center', marginBottom: 8, fontStyle: 'italic' },
+  modalMessage: { fontSize: 14, color: C.textSecondary, textAlign: 'center', marginBottom: 24, lineHeight: 21 },
   modalButtons: { gap: 10 },
-  modalPrimaryButton: { backgroundColor: '#f67c16', borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
-  modalPrimaryButtonText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
-  modalSecondaryButton: { backgroundColor: '#F1F5F9', borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
-  modalSecondaryButtonText: { color: '#1E293B', fontSize: 15, fontWeight: '600' },
+  modalPrimaryButton: { backgroundColor: C.primary, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
+  modalPrimaryButtonText: { color: C.onPrimary, fontSize: 15, fontWeight: '700' },
+  modalSecondaryButton: { backgroundColor: C.hairline, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
+  modalSecondaryButtonText: { color: C.text, fontSize: 15, fontWeight: '600' },
   modalDismissButton: { paddingVertical: 10, alignItems: 'center', marginTop: 4 },
-  modalDismissText: { color: '#94A3B8', fontSize: 14, fontWeight: '500' },
+  modalDismissText: { color: C.muted, fontSize: 14, fontWeight: '500' },
   accountTypeBadge: {
-    alignSelf: 'center', backgroundColor: 'rgba(43,118,188,0.08)',
+    alignSelf: 'center', backgroundColor: brandTint.blue08,
     borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, marginBottom: 16,
   },
-  accountTypeBadgeText: { fontSize: 12, fontWeight: '600', color: '#2b76bc' },
-});
+  accountTypeBadgeText: { fontSize: 12, fontWeight: '600', color: C.info },
+  });
+};
 
 export default RegisterScreen;

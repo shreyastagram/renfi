@@ -37,8 +37,14 @@ import { Button, Input, PhoneInput, Alert, FixhomiLogo } from '../components';
 import { sendPhoneSignupOtp, getErrorMessage, AUTH_CODES } from '../services/authService';
 import { validatePhone } from '../utils/validation';
 import { useLanguage } from '../context/LanguageContext';
+import {
+  useThemedStyles,
+  useThemeColors,
+} from '../theme';
 
 const PhoneSignupScreen = ({ onOtpSent, onBack, signupExtras = {} }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
 
   const [fullName, setFullName] = useState('');
@@ -165,7 +171,7 @@ const PhoneSignupScreen = ({ onOtpSent, onBack, signupExtras = {} }) => {
                 accessibilityRole="button"
                 activeOpacity={0.7}
               >
-                <Ionicons name="arrow-back" size={20} color="#1E293B" />
+                <Ionicons name="arrow-back" size={20} color={C.text} />
               </TouchableOpacity>
             )}
             <View style={styles.logoContainer}>
@@ -242,8 +248,46 @@ const PhoneSignupScreen = ({ onOtpSent, onBack, signupExtras = {} }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, and a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  line: c.border,
+  borderMedium: c.borderMedium,
+  text: c.textStrong,
+  textDark: c.textPrimary,
+  textBody: c.textBody,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
+
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.white },
   keyboardView: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24 },
 
@@ -256,24 +300,25 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   logoContainer: {
-    width: 64, height: 64, borderRadius: 16, backgroundColor: '#FFFFFF',
+    width: 64, height: 64, borderRadius: 16, backgroundColor: C.white,
     justifyContent: 'center', alignItems: 'center', overflow: 'hidden',
     ...Platform.select({
-      ios: { shadowColor: '#f67c16', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
+      ios: { shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
       android: { elevation: 5 },
     }),
   },
-  brandName: { fontSize: 18, fontWeight: '800', color: '#f67c16', marginTop: 10, marginBottom: 14, letterSpacing: 0.3 },
-  title: { fontSize: 24, fontWeight: '800', color: '#1E293B', marginBottom: 6 },
-  subtitle: { fontSize: 14, color: '#64748B', lineHeight: 21, textAlign: 'center', paddingHorizontal: 8 },
+  brandName: { fontSize: 18, fontWeight: '800', color: C.warning, marginTop: 10, marginBottom: 14, letterSpacing: 0.3 },
+  title: { fontSize: 24, fontWeight: '800', color: C.text, marginBottom: 6 },
+  subtitle: { fontSize: 14, color: C.textSecondary, lineHeight: 21, textAlign: 'center', paddingHorizontal: 8 },
 
   alert: { marginBottom: 16 },
 
   form: { gap: 16 },
   submitButton: { marginTop: 8 },
 
-  info: { marginTop: 28, padding: 14, backgroundColor: '#F8FAFC', borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0' },
-  infoText: { fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 20 },
-});
+  info: { marginTop: 28, padding: 14, backgroundColor: C.sunken, borderRadius: 12, borderWidth: 1, borderColor: C.line },
+  infoText: { fontSize: 13, color: C.textSecondary, textAlign: 'center', lineHeight: 20 },
+  });
+};
 
 export default PhoneSignupScreen;

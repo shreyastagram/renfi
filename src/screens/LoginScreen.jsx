@@ -44,6 +44,13 @@ import {
 import { validateEmail, validatePassword } from '../utils/validation';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
+import {
+  useThemedStyles,
+  useThemeColors,
+  stableDark,
+  brandTint,
+  vendor,
+} from '../theme';
 
 /**
  * LoginScreen Component
@@ -51,6 +58,8 @@ import { useLanguage } from '../context/LanguageContext';
  * @param {Object} props - Navigation props
  */
 const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType = 'user' }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { handleAuthSuccess } = useApp();
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
@@ -59,8 +68,8 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
   // Used by the OTP pill, Register CTA, and Forgot-password link so each flow
   // reads visually distinct (matches the cards on UserTypeScreen).
   const isProvider = userType === 'provider';
-  const themeColor = isProvider ? '#2b76bc' : '#f67c16';
-  const themeColorTint = isProvider ? '#EFF6FF' : '#FFF7ED';
+  const themeColor = isProvider ? C.info : C.warning;
+  const themeColorTint = isProvider ? C.infoBg : C.warningBg;
 
   // Form state
   const [formData, setFormData] = useState({
@@ -566,7 +575,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
                 accessibilityRole="button"
               >
                 <LinearGradient
-                  colors={['#EA4335', '#FBBC05', '#34A853', '#4285F4']}
+                  colors={[vendor.googleRed, vendor.googleYellow, vendor.googleGreen, vendor.googleBlue]}
                   start={{ x: 0, y: 0.5 }}
                   end={{ x: 1, y: 0.5 }}
                   style={styles.googleGradientBorder}
@@ -574,14 +583,14 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
                   <View style={styles.googleWhiteInner}>
                     {/* Subtle glare — soft white highlight at the top */}
                     <LinearGradient
-                      colors={['rgba(255,255,255,0.55)', 'rgba(255,255,255,0)']}
+                      colors={[stableDark.inkSoft, stableDark.inkSoftFade]}
                       start={{ x: 0.5, y: 0 }}
                       end={{ x: 0.5, y: 1 }}
                       style={styles.googleGlare}
                       pointerEvents="none"
                     />
                     {googleLoading ? (
-                      <ActivityIndicator size="small" color="#4285F4" />
+                      <ActivityIndicator size="small" color={vendor.googleBlue} />
                     ) : (
                       <GoogleLogo size={26} />
                     )}
@@ -602,8 +611,8 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
                 accessibilityLabel="OTP Login"
                 accessibilityRole="button"
               >
-                <MaterialIcons name="sms" size={18} color="#1E293B" />
-                <Text style={[styles.otpPillText, { color: '#1E293B' }]} numberOfLines={1}>
+                <MaterialIcons name="sms" size={18} color={C.text} />
+                <Text style={[styles.otpPillText, { color: C.text }]} numberOfLines={1}>
                   {t('auth.otpLogin') || 'OTP Login'}
                 </Text>
               </TouchableOpacity>
@@ -620,7 +629,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
                 accessibilityRole="button"
               >
                 {appleLoading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={C.onPrimary} />
                 ) : (
                   <>
                     <Text style={styles.appleGlyph}>{'\uF8FF'}</Text>
@@ -662,7 +671,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalIconCircle}>
-              <MaterialIcons name="swap-horiz" size={28} color="#f67c16" />
+              <MaterialIcons name="swap-horiz" size={28} color={C.warning} />
             </View>
             <Text style={styles.modalTitle}>{t('auth.differentAccountType')}</Text>
             <Text style={styles.modalMessage}>
@@ -703,27 +712,65 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
   );
 };
 
-const styles = StyleSheet.create({
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, and a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  line: c.border,
+  borderMedium: c.borderMedium,
+  text: c.textStrong,
+  textDark: c.textPrimary,
+  textBody: c.textBody,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
+
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   // ── Layout (full-height flex, no scroll) ──
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: C.white },
   keyboardView: { flex: 1 },
   content: { flex: 1, paddingHorizontal: 24, paddingTop: 8 },
   flexSpacer: { flex: 1, minHeight: 12 },
-  breakLine: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 14 },
+  breakLine: { height: 1, backgroundColor: C.line, marginVertical: 14 },
 
   // ── Header (compact) ──
   header: { marginBottom: 20, alignItems: 'center' },
   logoContainer: {
-    width: 56, height: 56, borderRadius: 14, backgroundColor: '#FFFFFF',
+    width: 56, height: 56, borderRadius: 14, backgroundColor: C.white,
     justifyContent: 'center', alignItems: 'center', overflow: 'hidden',
     ...Platform.select({
-      ios: { shadowColor: '#f67c16', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
+      ios: { shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
       android: { elevation: 5 },
     }),
   },
-  brandName: { fontSize: 16, fontWeight: '800', color: '#f67c16', marginTop: 8, marginBottom: 10, letterSpacing: 0.3 },
-  title: { fontSize: 22, fontWeight: '800', color: '#1E293B', marginBottom: 4 },
-  subtitle: { fontSize: 13, color: '#64748B', lineHeight: 19, textAlign: 'center', paddingHorizontal: 8 },
+  brandName: { fontSize: 16, fontWeight: '800', color: C.warning, marginTop: 8, marginBottom: 10, letterSpacing: 0.3 },
+  title: { fontSize: 22, fontWeight: '800', color: C.text, marginBottom: 4 },
+  subtitle: { fontSize: 13, color: C.textSecondary, lineHeight: 19, textAlign: 'center', paddingHorizontal: 8 },
 
   // ── Alert ──
   alert: { marginBottom: 12 },
@@ -731,7 +778,7 @@ const styles = StyleSheet.create({
   // ── Form ──
   form: { gap: 14 },
   forgotPassword: { alignSelf: 'flex-end', marginTop: -6 },
-  forgotPasswordText: { fontSize: 13, color: '#1E293B', fontWeight: '600' },
+  forgotPasswordText: { fontSize: 13, color: C.text, fontWeight: '600' },
   submitButton: { marginTop: 6 },
 
   // ── Social row: Google + OTP, half width each ──
@@ -741,7 +788,7 @@ const styles = StyleSheet.create({
   // OTP pill — white bg, themed border (border color set inline)
   halfPill: {
     flex: 1, height: 52, borderRadius: 14,
-    backgroundColor: '#FFFFFF', borderWidth: 1.5,
+    backgroundColor: C.white, borderWidth: 1.5,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     paddingHorizontal: 10,
   },
@@ -754,7 +801,7 @@ const styles = StyleSheet.create({
   },
   googleWhiteInner: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderRadius: 12.5,
     alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',
@@ -769,47 +816,48 @@ const styles = StyleSheet.create({
   applePill: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     height: 52, borderRadius: 14,
-    backgroundColor: '#000000', marginTop: 12,
+    backgroundColor: vendor.appleBlack, marginTop: 12,
   },
-  applePillText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
-  appleGlyph: { fontSize: 22, color: '#FFFFFF', marginTop: -2 },
+  applePillText: { fontSize: 14, fontWeight: '700', color: C.onPrimary },
+  appleGlyph: { fontSize: 22, color: C.onPrimary, marginTop: -2 },
 
   disabled: { opacity: 0.5 },
 
   // ── Register CTA (visible without scrolling, prominent) ──
   registerCtaWrap: { alignItems: 'center', paddingTop: 0 },
-  registerHint: { fontSize: 13, color: '#64748B', marginBottom: 8 },
+  registerHint: { fontSize: 13, color: C.textSecondary, marginBottom: 8 },
   registerCtaBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     width: '100%', paddingVertical: 14, borderRadius: 14,
-    backgroundColor: '#FFF7ED', borderWidth: 1.5, borderColor: '#f67c16',
+    backgroundColor: C.warningBg, borderWidth: 1.5, borderColor: C.primary,
     gap: 6,
   },
-  registerCtaText: { fontSize: 15, fontWeight: '700', color: '#f67c16' },
+  registerCtaText: { fontSize: 15, fontWeight: '700', color: C.warning },
 
   // ── Modal ──
   modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    flex: 1, backgroundColor: C.overlay,
     justifyContent: 'center', alignItems: 'center', padding: 24,
   },
   modalContent: {
-    backgroundColor: '#FFF', borderRadius: 20, padding: 28, width: '100%', maxWidth: 340,
+    backgroundColor: C.white, borderRadius: 20, padding: 28, width: '100%', maxWidth: 340,
     ...Platform.select({
-      ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 24 },
+      ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 24 },
       android: { elevation: 10 },
     }),
   },
   modalIconCircle: {
-    width: 56, height: 56, borderRadius: 16, backgroundColor: 'rgba(246,124,22,0.08)',
+    width: 56, height: 56, borderRadius: 16, backgroundColor: brandTint.orange10,
     justifyContent: 'center', alignItems: 'center', alignSelf: 'center', marginBottom: 16,
   },
-  modalTitle: { fontSize: 19, fontWeight: '700', color: '#1E293B', textAlign: 'center', marginBottom: 12 },
-  modalMessage: { fontSize: 14, color: '#64748B', textAlign: 'center', marginBottom: 24, lineHeight: 21 },
+  modalTitle: { fontSize: 19, fontWeight: '700', color: C.text, textAlign: 'center', marginBottom: 12 },
+  modalMessage: { fontSize: 14, color: C.textSecondary, textAlign: 'center', marginBottom: 24, lineHeight: 21 },
   modalButtons: { gap: 10 },
-  modalPrimaryButton: { backgroundColor: '#f67c16', borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
-  modalPrimaryButtonText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+  modalPrimaryButton: { backgroundColor: C.primary, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
+  modalPrimaryButtonText: { color: C.onPrimary, fontSize: 15, fontWeight: '700' },
   modalDismissButton: { paddingVertical: 10, alignItems: 'center', marginTop: 4 },
-  modalDismissText: { color: '#94A3B8', fontSize: 14, fontWeight: '500' },
-});
+  modalDismissText: { color: C.muted, fontSize: 14, fontWeight: '500' },
+  });
+};
 
 export default LoginScreen;

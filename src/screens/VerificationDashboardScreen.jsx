@@ -31,47 +31,76 @@ import { useLanguage } from '../context/LanguageContext';
 import { Icon, AadhaarVerificationModal } from '../components';
 import ScreenShimmer from '../components/ShimmerLoader';
 import { getVerificationDashboard, syncVerificationStatus } from '../services/verificationService';
+import {
+  useThemedStyles,
+  useThemeColors,
+  stableDark,
+} from '../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Premium design-language tokens
-const BRAND = {
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  hero: '#0F172A',
-  background: '#F1F5F9',
-  white: '#FFFFFF',
-  success: '#10B981',
-  warning: '#F59E0B',
-  danger: '#EF4444',
-  muted: '#94A3B8',
-  textPrimary: '#1E293B',
-  grayLight: '#F1F5F9',
-};
-
-const CARD_SHADOW = Platform.select({
-  ios: {
-    shadowColor: BRAND.hero,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-  },
-  android: {
-    elevation: 5,
-  },
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, and a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  line: c.border,
+  borderMedium: c.borderMedium,
+  text: c.textStrong,
+  textDark: c.textPrimary,
+  textBody: c.textBody,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  overlay: c.overlay,
+  shadow: c.shadow,
 });
 
-const CARD_SHADOW_LIGHT = Platform.select({
-  ios: {
-    shadowColor: BRAND.hero,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-  },
-  android: {
-    elevation: 3,
-  },
-});
+const makeCardShadow = (C) =>
+  Platform.select({
+    ios: {
+      shadowColor: C.hero,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.08,
+      shadowRadius: 20,
+    },
+    android: {
+      elevation: 5,
+    },
+  });
+
+const makeCardShadowLight = (C) =>
+  Platform.select({
+    ios: {
+      shadowColor: C.hero,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.05,
+      shadowRadius: 12,
+    },
+    android: {
+      elevation: 3,
+    },
+  });
 
 // Step configuration for icons and actions
 const STEP_CONFIG = {
@@ -162,6 +191,7 @@ const AnimatedPressable = ({ children, onPress, disabled, style }) => {
  * Circular progress indicator — premium style
  */
 const ProgressCircle = ({ completed, total }) => {
+  const styles = useThemedStyles(makeStyles);
   const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
   const isComplete = completed === total;
 
@@ -182,25 +212,30 @@ const ProgressCircle = ({ completed, total }) => {
 /**
  * Section header with left accent bar
  */
-const SectionHeader = ({ title, subtitle }) => (
-  <View style={styles.sectionHeaderRow}>
-    <View style={styles.sectionAccentBar} />
-    <View style={styles.sectionHeaderContent}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
+const SectionHeader = ({ title, subtitle }) => {
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <View style={styles.sectionHeaderRow}>
+      <View style={styles.sectionAccentBar} />
+      <View style={styles.sectionHeaderContent}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 /**
  * Verification step card — premium card style
  */
 const StepCard = ({ step, config, onAction, isLast, t }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const isCompleted = step.completed;
   const hasWarning = step.phoneChanged;
   const statusColor = isCompleted
-    ? (hasWarning ? BRAND.warning : BRAND.success)
-    : BRAND.primary;
+    ? (hasWarning ? C.warning : C.success)
+    : C.primary;
 
   return (
     <View style={[styles.stepCard, !isLast && styles.stepCardWithConnector]}>
@@ -210,7 +245,7 @@ const StepCard = ({ step, config, onAction, isLast, t }) => {
           <Icon
             name={isCompleted && !hasWarning ? 'check' : hasWarning ? 'warning' : config.icon}
             size={isCompleted ? 14 : 16}
-            color="#FFFFFF"
+            color={C.onPrimary}
           />
         </View>
         {!isLast && (
@@ -241,7 +276,7 @@ const StepCard = ({ step, config, onAction, isLast, t }) => {
         {/* Phone changed warning */}
         {step.phoneChanged && (
           <View style={styles.stepWarning}>
-            <Icon name="warning" size={12} color="#92400E" />
+            <Icon name="warning" size={12} color={C.warning} />
             <Text style={styles.stepWarningText}>
               {t('verificationDashboard.phoneChanged')}
             </Text>
@@ -251,7 +286,7 @@ const StepCard = ({ step, config, onAction, isLast, t }) => {
         {/* Aadhaar name + lock info */}
         {step.id === 'aadhaar' && step.completed && step.aadhaarName && (
           <View style={styles.stepVerifiedInfo}>
-            <Icon name="verified_user" size={12} color={BRAND.success} />
+            <Icon name="verified_user" size={12} color={C.success} />
             <Text style={styles.stepVerifiedInfoText}>
               {t('verificationDashboard.verifiedAs', { name: step.aadhaarName })}
             </Text>
@@ -259,7 +294,7 @@ const StepCard = ({ step, config, onAction, isLast, t }) => {
         )}
         {step.id === 'aadhaar' && step.isNameLocked && (
           <View style={styles.stepLockInfo}>
-            <Icon name="lock" size={11} color={BRAND.muted} />
+            <Icon name="lock" size={11} color={C.muted} />
             <Text style={styles.stepLockInfoText}>
               {t('verificationDashboard.nameLocked')}
             </Text>
@@ -312,7 +347,7 @@ const StepCard = ({ step, config, onAction, isLast, t }) => {
             <Text style={styles.stepActionText}>
               {step.phoneChanged ? t('verificationDashboard.reVerifyPhone') : (config.actionLabelKey ? t(config.actionLabelKey) : config.actionLabel)}
             </Text>
-            <Icon name="chevron-right" size={16} color={BRAND.white} />
+            <Icon name="chevron-right" size={16} color={C.white} />
           </AnimatedPressable>
         )}
       </View>
@@ -323,31 +358,37 @@ const StepCard = ({ step, config, onAction, isLast, t }) => {
 /**
  * Capability card showing search visibility — premium style
  */
-const CapabilityCard = ({ iconName, title, enabled, description }) => (
-  <View style={[styles.capabilityCard, enabled && styles.capabilityCardEnabled]}>
-    <View style={[styles.capabilityIcon, { backgroundColor: enabled ? BRAND.success + '12' : BRAND.grayLight }]}>
-      <Icon name={iconName} size={20} color={enabled ? BRAND.success : BRAND.muted} />
+const CapabilityCard = ({ iconName, title, enabled, description }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  return (
+    <View style={[styles.capabilityCard, enabled && styles.capabilityCardEnabled]}>
+      <View style={[styles.capabilityIcon, { backgroundColor: enabled ? C.success + '12' : C.grayLight }]}>
+        <Icon name={iconName} size={20} color={enabled ? C.success : C.muted} />
+      </View>
+      <View style={styles.capabilityContent}>
+        <Text style={[styles.capabilityTitle, enabled && styles.capabilityTitleEnabled]}>
+          {title}
+        </Text>
+        <Text style={styles.capabilityDescription}>{description}</Text>
+      </View>
+      <View style={[styles.capabilityStatus, { backgroundColor: enabled ? C.success + '12' : C.danger + '10' }]}>
+        <Icon
+          name={enabled ? 'check-circle' : 'close'}
+          size={16}
+          color={enabled ? C.success : C.danger}
+        />
+      </View>
     </View>
-    <View style={styles.capabilityContent}>
-      <Text style={[styles.capabilityTitle, enabled && styles.capabilityTitleEnabled]}>
-        {title}
-      </Text>
-      <Text style={styles.capabilityDescription}>{description}</Text>
-    </View>
-    <View style={[styles.capabilityStatus, { backgroundColor: enabled ? BRAND.success + '12' : BRAND.danger + '10' }]}>
-      <Icon
-        name={enabled ? 'check-circle' : 'close'}
-        size={16}
-        color={enabled ? BRAND.success : BRAND.danger}
-      />
-    </View>
-  </View>
-);
+  );
+};
 
 /**
  * Verification Dashboard Screen Component
  */
 const VerificationDashboardScreen = ({ navigation }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const { user, profile, refreshProfile } = useApp();
   const { dialog } = useDialog();
@@ -545,7 +586,7 @@ const VerificationDashboardScreen = ({ navigation }) => {
       <View style={[styles.container, styles.centered]}>
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <View style={styles.errorIconContainer}>
-          <Icon name="error" size={36} color={BRAND.danger} />
+          <Icon name="error" size={36} color={C.danger} />
         </View>
         <Text style={styles.errorTitle}>{t('verificationDashboard.somethingWentWrong')}</Text>
         <Text style={styles.errorText}>{error}</Text>
@@ -563,7 +604,7 @@ const VerificationDashboardScreen = ({ navigation }) => {
       <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
         <View style={styles.headerContent}>
           <AnimatedPressable onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Icon name="arrow_back" size={22} color={BRAND.white} />
+            <Icon name="arrow_back" size={22} color={C.white} />
           </AnimatedPressable>
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>{t('verificationDashboard.title')}</Text>
@@ -578,10 +619,10 @@ const VerificationDashboardScreen = ({ navigation }) => {
           >
             {syncing ? (
               <Animated.View style={{ transform: [{ rotate: spinRotation }] }}>
-                <Icon name="refresh" size={20} color={BRAND.white} />
+                <Icon name="refresh" size={20} color={C.white} />
               </Animated.View>
             ) : (
-              <Icon name="refresh" size={20} color={BRAND.white} />
+              <Icon name="refresh" size={20} color={C.white} />
             )}
           </AnimatedPressable>
         </View>
@@ -594,8 +635,8 @@ const VerificationDashboardScreen = ({ navigation }) => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={BRAND.primary}
-            colors={[BRAND.primary]}
+            tintColor={C.primary}
+            colors={[C.primary]}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -626,7 +667,7 @@ const VerificationDashboardScreen = ({ navigation }) => {
                       styles.progressBarFill,
                       {
                         width: totalSteps > 0 ? `${(completedSteps / totalSteps) * 100}%` : '0%',
-                        backgroundColor: isFullyVerified ? BRAND.success : BRAND.primary,
+                        backgroundColor: isFullyVerified ? C.success : C.primary,
                       },
                     ]}
                   />
@@ -638,7 +679,7 @@ const VerificationDashboardScreen = ({ navigation }) => {
           {/* Premium status indicator */}
           {isPremium && (
             <View style={styles.premiumBadge}>
-              <Icon name="star" size={14} color="#F59E0B" />
+              <Icon name="star" size={14} color={C.warning} />
               <Text style={styles.premiumBadgeText}>{t('verificationDashboard.premiumActive')}</Text>
             </View>
           )}
@@ -700,7 +741,7 @@ const VerificationDashboardScreen = ({ navigation }) => {
         {/* Info note */}
         <View style={styles.infoCard}>
           <View style={styles.infoIconContainer}>
-            <Icon name="info" size={18} color={BRAND.secondary} />
+            <Icon name="info" size={18} color={C.secondary} />
           </View>
           <View style={styles.infoContent}>
             <Text style={styles.infoTitle}>{t('verificationDashboard.howItWorks')}</Text>
@@ -731,10 +772,12 @@ const VerificationDashboardScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BRAND.background,
+    backgroundColor: C.background,
   },
   centered: {
     justifyContent: 'center',
@@ -744,14 +787,14 @@ const styles = StyleSheet.create({
 
   // ─── Premium Header ────────────────────────────────────────
   header: {
-    backgroundColor: BRAND.hero,
+    backgroundColor: C.hero,
     paddingBottom: 18,
     paddingHorizontal: 20,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
     ...Platform.select({
       ios: {
-        shadowColor: BRAND.hero,
+        shadowColor: C.hero,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.25,
         shadowRadius: 16,
@@ -769,7 +812,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: stableDark.fillChip,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -780,20 +823,20 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: BRAND.white,
+    color: C.white,
     letterSpacing: 0.2,
   },
   headerSubtitle: {
     fontSize: 13,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.6)',
+    color: stableDark.inkDim,
     marginTop: 2,
   },
   syncButton: {
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: stableDark.fillChip,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -812,7 +855,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: BRAND.primary + '10',
+    backgroundColor: C.primary + '10',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 4,
@@ -821,13 +864,13 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 15,
     fontWeight: '600',
-    color: BRAND.muted,
+    color: C.muted,
   },
   errorIconContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: BRAND.danger + '10',
+    backgroundColor: C.danger + '10',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 4,
@@ -836,40 +879,40 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 18,
     fontWeight: '800',
-    color: BRAND.textPrimary,
+    color: C.textPrimary,
   },
   errorText: {
     marginTop: 6,
     fontSize: 14,
-    color: BRAND.muted,
+    color: C.muted,
     textAlign: 'center',
     lineHeight: 20,
   },
   retryButton: {
     marginTop: 20,
-    backgroundColor: BRAND.primary,
+    backgroundColor: C.primary,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 16,
-    ...CARD_SHADOW_LIGHT,
+    ...makeCardShadowLight(C),
   },
   retryButtonText: {
-    color: BRAND.white,
+    color: C.white,
     fontSize: 15,
     fontWeight: '700',
   },
 
   // ─── Overview Card ─────────────────────────────────────────
   overviewCard: {
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     borderRadius: 22,
     padding: 22,
     marginBottom: 28,
-    ...CARD_SHADOW,
+    ...makeCardShadow(C),
   },
   overviewCardComplete: {
     borderWidth: 1.5,
-    borderColor: BRAND.success + '30',
+    borderColor: C.success + '30',
   },
   overviewContent: {
     flexDirection: 'row',
@@ -882,13 +925,13 @@ const styles = StyleSheet.create({
   overviewTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: BRAND.textPrimary,
+    color: C.textPrimary,
     marginBottom: 4,
   },
   overviewSubtitle: {
     fontSize: 13,
     fontWeight: '500',
-    color: BRAND.muted,
+    color: C.muted,
     lineHeight: 18,
   },
   progressBarContainer: {
@@ -897,7 +940,7 @@ const styles = StyleSheet.create({
   progressBarTrack: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: BRAND.grayLight,
+    backgroundColor: C.grayLight,
     overflow: 'hidden',
   },
   progressBarFill: {
@@ -908,7 +951,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: '#FEF3C7',
+    backgroundColor: C.warningBg,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
@@ -918,7 +961,7 @@ const styles = StyleSheet.create({
   premiumBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#92400E',
+    color: C.warning,
   },
 
   // ─── Progress Circle ───────────────────────────────────────
@@ -926,26 +969,26 @@ const styles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: 38,
-    backgroundColor: BRAND.primary + '12',
+    backgroundColor: C.primary + '12',
     borderWidth: 3,
-    borderColor: BRAND.primary + '25',
+    borderColor: C.primary + '25',
     justifyContent: 'center',
     alignItems: 'center',
   },
   progressCircleComplete: {
-    backgroundColor: BRAND.success + '12',
-    borderColor: BRAND.success + '25',
+    backgroundColor: C.success + '12',
+    borderColor: C.success + '25',
   },
   progressCircleInner: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: BRAND.primary,
+        shadowColor: C.primary,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 8,
@@ -958,7 +1001,7 @@ const styles = StyleSheet.create({
   progressCircleInnerComplete: {
     ...Platform.select({
       ios: {
-        shadowColor: BRAND.success,
+        shadowColor: C.success,
       },
       android: {},
     }),
@@ -966,19 +1009,19 @@ const styles = StyleSheet.create({
   progressPercentage: {
     fontSize: 20,
     fontWeight: '800',
-    color: BRAND.primary,
+    color: C.primary,
   },
   progressPercentageComplete: {
-    color: BRAND.success,
+    color: C.success,
   },
   progressLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: BRAND.muted,
+    color: C.muted,
     marginTop: -2,
   },
   progressLabelComplete: {
-    color: BRAND.success,
+    color: C.success,
   },
 
   // ─── Section Header ────────────────────────────────────────
@@ -991,7 +1034,7 @@ const styles = StyleSheet.create({
     width: 4,
     height: 22,
     borderRadius: 2,
-    backgroundColor: BRAND.primary,
+    backgroundColor: C.primary,
     marginRight: 10,
     marginTop: 1,
   },
@@ -1001,13 +1044,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: BRAND.textPrimary,
+    color: C.textPrimary,
     letterSpacing: 0.1,
   },
   sectionSubtitle: {
     fontSize: 13,
     fontWeight: '500',
-    color: BRAND.muted,
+    color: C.muted,
     marginTop: 3,
     lineHeight: 18,
   },
@@ -1037,7 +1080,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.15,
         shadowRadius: 4,
@@ -1050,27 +1093,27 @@ const styles = StyleSheet.create({
   stepConnector: {
     width: 2.5,
     flex: 1,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: C.line,
     minHeight: 20,
     borderRadius: 1.25,
   },
   stepConnectorComplete: {
-    backgroundColor: BRAND.success + '40',
+    backgroundColor: C.success + '40',
   },
 
   // Step Content
   stepContent: {
     flex: 1,
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     borderRadius: 18,
     padding: 16,
     marginLeft: 10,
     marginBottom: 10,
-    ...CARD_SHADOW_LIGHT,
+    ...makeCardShadowLight(C),
   },
   stepContentComplete: {
     borderWidth: 1,
-    borderColor: BRAND.success + '20',
+    borderColor: C.success + '20',
   },
   stepHeader: {
     flexDirection: 'row',
@@ -1088,11 +1131,11 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: BRAND.textPrimary,
+    color: C.textPrimary,
     flex: 1,
   },
   stepTitleComplete: {
-    color: BRAND.success,
+    color: C.success,
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -1106,14 +1149,14 @@ const styles = StyleSheet.create({
   },
   stepDescription: {
     fontSize: 13,
-    color: BRAND.muted,
+    color: C.muted,
     lineHeight: 18,
     marginBottom: 6,
     marginLeft: 44,
   },
   stepDetails: {
     fontSize: 12,
-    color: BRAND.muted,
+    color: C.muted,
     fontStyle: 'italic',
     marginBottom: 4,
     marginLeft: 44,
@@ -1121,7 +1164,7 @@ const styles = StyleSheet.create({
   stepWarning: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF3C7',
+    backgroundColor: C.warningBg,
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 10,
@@ -1132,7 +1175,7 @@ const styles = StyleSheet.create({
   stepWarningText: {
     flex: 1,
     fontSize: 11,
-    color: '#92400E',
+    color: C.warning,
     fontWeight: '600',
   },
   stepVerifiedInfo: {
@@ -1144,7 +1187,7 @@ const styles = StyleSheet.create({
   },
   stepVerifiedInfoText: {
     fontSize: 12,
-    color: BRAND.success,
+    color: C.success,
     fontWeight: '600',
   },
   stepLockInfo: {
@@ -1157,7 +1200,7 @@ const styles = StyleSheet.create({
   },
   stepLockInfoText: {
     fontSize: 11,
-    color: BRAND.muted,
+    color: C.muted,
     fontStyle: 'italic',
   },
   stepActionButton: {
@@ -1166,14 +1209,14 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginTop: 8,
     marginLeft: 44,
-    backgroundColor: BRAND.primary,
+    backgroundColor: C.primary,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,
     gap: 4,
     ...Platform.select({
       ios: {
-        shadowColor: BRAND.primary,
+        shadowColor: C.primary,
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.25,
         shadowRadius: 6,
@@ -1186,22 +1229,22 @@ const styles = StyleSheet.create({
   stepActionText: {
     fontSize: 13,
     fontWeight: '700',
-    color: BRAND.white,
+    color: C.white,
   },
 
   // ─── Capability Card ───────────────────────────────────────
   capabilityCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     borderRadius: 18,
     padding: 16,
     marginBottom: 12,
-    ...CARD_SHADOW_LIGHT,
+    ...makeCardShadowLight(C),
   },
   capabilityCardEnabled: {
     borderWidth: 1,
-    borderColor: BRAND.success + '25',
+    borderColor: C.success + '25',
   },
   capabilityIcon: {
     width: 42,
@@ -1217,15 +1260,15 @@ const styles = StyleSheet.create({
   capabilityTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: BRAND.textPrimary,
+    color: C.textPrimary,
   },
   capabilityTitleEnabled: {
-    color: BRAND.success,
+    color: C.success,
   },
   capabilityDescription: {
     fontSize: 12,
     fontWeight: '500',
-    color: BRAND.muted,
+    color: C.muted,
     marginTop: 2,
   },
   capabilityStatus: {
@@ -1240,18 +1283,18 @@ const styles = StyleSheet.create({
   // ─── Info Card ─────────────────────────────────────────────
   infoCard: {
     flexDirection: 'row',
-    backgroundColor: BRAND.secondary + '08',
+    backgroundColor: C.secondary + '08',
     borderRadius: 18,
     padding: 18,
     marginTop: 16,
     borderWidth: 1,
-    borderColor: BRAND.secondary + '12',
+    borderColor: C.secondary + '12',
   },
   infoIconContainer: {
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: BRAND.secondary + '12',
+    backgroundColor: C.secondary + '12',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1262,15 +1305,16 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: BRAND.secondary,
+    color: C.secondary,
     marginBottom: 8,
   },
   infoText: {
     fontSize: 12,
     fontWeight: '500',
-    color: BRAND.muted,
+    color: C.muted,
     lineHeight: 21,
   },
-});
+  });
+};
 
 export default VerificationDashboardScreen;

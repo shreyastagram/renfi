@@ -53,11 +53,19 @@ import {
 import { NODE_BASE_URL } from '../config/api';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
+import {
+  useThemedStyles,
+  useThemeColors,
+  stableDark,
+  vendor,
+} from '../theme';
 
 const TERMS_URL = 'https://fixhomi.com/terms';
 const PRIVACY_URL = 'https://fixhomi.com/privacy';
 
 const UnifiedUserAuthScreen = ({ navigation, onPickPhone, onNewUserAuth }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { handleAuthSuccess } = useApp();
   const { t } = useLanguage();
 
@@ -119,7 +127,9 @@ const UnifiedUserAuthScreen = ({ navigation, onPickPhone, onNewUserAuth }) => {
       }
       return <Text key={`x-${i}`}>{part}</Text>;
     });
-  }, [t]);
+  // `styles` belongs here: it is a per-theme object now, so without it this memo would
+  // keep serving the previous theme's link style after a switch.
+  }, [t, styles.termsLink]);
 
   /**
    * Best-effort legal-acceptance record (terms are accepted implicitly by
@@ -345,7 +355,7 @@ const UnifiedUserAuthScreen = ({ navigation, onPickPhone, onNewUserAuth }) => {
           accessibilityRole="button"
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={20} color="#1E293B" />
+          <Ionicons name="arrow-back" size={20} color={C.text} />
         </TouchableOpacity>
 
         {/* Header */}
@@ -385,14 +395,14 @@ const UnifiedUserAuthScreen = ({ navigation, onPickPhone, onNewUserAuth }) => {
             disabled={anyLoading}
           >
             <LinearGradient
-              colors={['#EA4335', '#FBBC05', '#34A853', '#4285F4']}
+              colors={[vendor.googleRed, vendor.googleYellow, vendor.googleGreen, vendor.googleBlue]}
               start={{ x: 0, y: 0.5 }}
               end={{ x: 1, y: 0.5 }}
               style={styles.googleGradientBorderCard}
             >
               <View style={styles.googleCardInner}>
                 <LinearGradient
-                  colors={['rgba(255,255,255,0.55)', 'rgba(255,255,255,0)']}
+                  colors={[stableDark.inkSoft, stableDark.inkSoftFade]}
                   start={{ x: 0.5, y: 0 }}
                   end={{ x: 0.5, y: 1 }}
                   style={styles.googleCardGlare}
@@ -400,7 +410,7 @@ const UnifiedUserAuthScreen = ({ navigation, onPickPhone, onNewUserAuth }) => {
                 />
                 <View style={[styles.optionIconCircle, styles.googleIconCircleWhite]}>
                   {googleLoading ? (
-                    <ActivityIndicator size="small" color="#4285F4" />
+                    <ActivityIndicator size="small" color={vendor.googleBlue} />
                   ) : (
                     <GoogleLogo size={24} />
                   )}
@@ -413,7 +423,7 @@ const UnifiedUserAuthScreen = ({ navigation, onPickPhone, onNewUserAuth }) => {
                     {t('auth.unifiedGoogleSub') || 'Use your Google account'}
                   </Text>
                 </View>
-                <MaterialIcons name="arrow-forward" size={20} color="#475569" />
+                <MaterialIcons name="arrow-forward" size={20} color={C.textBody} />
               </View>
             </LinearGradient>
           </TouchableOpacity>
@@ -430,7 +440,7 @@ const UnifiedUserAuthScreen = ({ navigation, onPickPhone, onNewUserAuth }) => {
             >
               <View style={[styles.optionIconCircle, styles.appleIconCircle]}>
                 {appleLoading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={C.onPrimary} />
                 ) : (
                   <Text style={styles.appleGlyph}>{''}</Text>
                 )}
@@ -443,7 +453,7 @@ const UnifiedUserAuthScreen = ({ navigation, onPickPhone, onNewUserAuth }) => {
                   {t('auth.unifiedAppleSub') || 'Use your Apple ID'}
                 </Text>
               </View>
-              <MaterialIcons name="arrow-forward" size={20} color="#FFFFFF" />
+              <MaterialIcons name="arrow-forward" size={20} color={C.onPrimary} />
             </TouchableOpacity>
           )}
 
@@ -457,7 +467,7 @@ const UnifiedUserAuthScreen = ({ navigation, onPickPhone, onNewUserAuth }) => {
             disabled={anyLoading}
           >
             <View style={[styles.optionIconCircle, styles.phoneIconCircle]}>
-              <MaterialIcons name="phone-iphone" size={22} color="#2563EB" />
+              <MaterialIcons name="phone-iphone" size={22} color={C.indigo} />
             </View>
             <View style={styles.optionTextWrap}>
               <Text style={styles.optionTitle}>
@@ -467,7 +477,7 @@ const UnifiedUserAuthScreen = ({ navigation, onPickPhone, onNewUserAuth }) => {
                 {t('auth.unifiedPhoneSub') || "We'll text you a one-time code"}
               </Text>
             </View>
-            <MaterialIcons name="arrow-forward" size={20} color="#2563EB" />
+            <MaterialIcons name="arrow-forward" size={20} color={C.indigo} />
           </TouchableOpacity>
         </View>
 
@@ -489,29 +499,67 @@ const UnifiedUserAuthScreen = ({ navigation, onPickPhone, onNewUserAuth }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, and a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  line: c.border,
+  borderMedium: c.borderMedium,
+  text: c.textStrong,
+  textDark: c.textPrimary,
+  textBody: c.textBody,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
+
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.white },
   scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 28 },
 
   // ── Back Button ──
   backButton: {
-    width: 38, height: 38, borderRadius: 12, backgroundColor: '#F1F5F9',
+    width: 38, height: 38, borderRadius: 12, backgroundColor: C.hairline,
     justifyContent: 'center', alignItems: 'center', alignSelf: 'flex-start', marginBottom: 12,
   },
 
   // ── Header ──
   header: { alignItems: 'center', marginBottom: 32, marginTop: 4 },
   logoContainer: {
-    width: 64, height: 64, borderRadius: 16, backgroundColor: '#FFFFFF',
+    width: 64, height: 64, borderRadius: 16, backgroundColor: C.white,
     justifyContent: 'center', alignItems: 'center', overflow: 'hidden',
     ...Platform.select({
-      ios: { shadowColor: '#f67c16', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
+      ios: { shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
       android: { elevation: 5 },
     }),
   },
-  brandName: { fontSize: 18, fontWeight: '800', color: '#f67c16', marginTop: 10, marginBottom: 14, letterSpacing: 0.3 },
-  title: { fontSize: 24, fontWeight: '800', color: '#1E293B', marginBottom: 6 },
-  subtitle: { fontSize: 14, color: '#64748B', lineHeight: 21, textAlign: 'center', paddingHorizontal: 8 },
+  brandName: { fontSize: 18, fontWeight: '800', color: C.warning, marginTop: 10, marginBottom: 14, letterSpacing: 0.3 },
+  title: { fontSize: 24, fontWeight: '800', color: C.text, marginBottom: 6 },
+  subtitle: { fontSize: 14, color: C.textSecondary, lineHeight: 21, textAlign: 'center', paddingHorizontal: 8 },
 
   // ── Alert ──
   alert: { marginBottom: 16 },
@@ -520,22 +568,22 @@ const styles = StyleSheet.create({
   cards: { gap: 18, marginBottom: 20 },
   optionCard: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5, borderColor: '#E2E8F0',
+    backgroundColor: C.white,
+    borderWidth: 1.5, borderColor: C.line,
     borderRadius: 14,
     paddingVertical: 14, paddingHorizontal: 14,
     gap: 12,
     overflow: 'hidden',
   },
-  phoneCard: { borderColor: '#2563EB', backgroundColor: '#FFFFFF' },
-  appleCard: { borderColor: '#000000', backgroundColor: '#000000' },
+  phoneCard: { borderColor: C.indigo, backgroundColor: C.white },
+  appleCard: { borderColor: vendor.appleBlack, backgroundColor: vendor.appleBlack },
 
   // Google card — gradient border + white inside + subtle top glare
   googleCardOuter: {},
   googleGradientBorderCard: { borderRadius: 14, padding: 1.5 },
   googleCardInner: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderRadius: 12.5,
     paddingVertical: 13, paddingHorizontal: 13,
     gap: 12,
@@ -551,22 +599,23 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 20,
     alignItems: 'center', justifyContent: 'center',
   },
-  googleIconCircleWhite: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0' },
-  phoneIconCircle: { backgroundColor: '#EFF6FF' },
-  appleIconCircle: { backgroundColor: 'rgba(255,255,255,0.15)' },
-  appleGlyph: { fontSize: 22, color: '#FFFFFF', marginTop: -2 },
+  googleIconCircleWhite: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line },
+  phoneIconCircle: { backgroundColor: C.infoBg },
+  appleIconCircle: { backgroundColor: stableDark.fill },
+  appleGlyph: { fontSize: 22, color: C.onPrimary, marginTop: -2 },
   optionTextWrap: { flex: 1 },
-  optionTitle: { fontSize: 15, fontWeight: '700', color: '#1E293B' },
-  optionSub: { fontSize: 12, color: '#64748B', marginTop: 2 },
-  appleOptionTitle: { color: '#FFFFFF' },
-  appleOptionSub: { color: 'rgba(255,255,255,0.7)' },
+  optionTitle: { fontSize: 15, fontWeight: '700', color: C.text },
+  optionSub: { fontSize: 12, color: C.textSecondary, marginTop: 2 },
+  appleOptionTitle: { color: C.onPrimary },
+  appleOptionSub: { color: stableDark.inkMuted },
 
   // ── Terms sentence ──
   termsText: {
-    fontSize: 12, color: '#64748B', lineHeight: 18,
+    fontSize: 12, color: C.textSecondary, lineHeight: 18,
     textAlign: 'center', paddingHorizontal: 12,
   },
-  termsLink: { color: '#2b76bc', fontWeight: '700', textDecorationLine: 'underline' },
-});
+  termsLink: { color: C.info, fontWeight: '700', textDecorationLine: 'underline' },
+  });
+};
 
 export default UnifiedUserAuthScreen;

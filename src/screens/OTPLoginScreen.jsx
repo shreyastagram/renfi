@@ -27,6 +27,10 @@ import {
 import { validateEmail, validatePhone } from '../utils/validation';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
+import {
+  useThemedStyles,
+  useThemeColors,
+} from '../theme';
 
 /**
  * OTPLoginScreen Component
@@ -34,6 +38,8 @@ import { useLanguage } from '../context/LanguageContext';
  * @param {Object} props - Navigation props
  */
 const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 'user' }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
   // Method: 'phone' or 'email'
   const [method, setMethod] = useState('phone');
@@ -235,7 +241,7 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
 
           {/* Method Tabs */}
           {(() => {
-            const accent = userType === 'provider' ? '#2b76bc' : '#f67c16';
+            const accent = userType === 'provider' ? C.info : C.warning;
             return (
               <View style={styles.tabs}>
                 <TouchableOpacity
@@ -334,39 +340,77 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
   );
 };
 
-const styles = StyleSheet.create({
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, and a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  line: c.border,
+  borderMedium: c.borderMedium,
+  text: c.textStrong,
+  textDark: c.textPrimary,
+  textBody: c.textBody,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
+
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   // ── Layout ──
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: C.white },
   keyboardView: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24 },
 
   // ── Header ──
   header: { marginBottom: 28, alignItems: 'center' },
   logoContainer: {
-    width: 64, height: 64, borderRadius: 16, backgroundColor: '#FFFFFF',
+    width: 64, height: 64, borderRadius: 16, backgroundColor: C.white,
     justifyContent: 'center', alignItems: 'center', overflow: 'hidden',
     ...Platform.select({
-      ios: { shadowColor: '#f67c16', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
+      ios: { shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
       android: { elevation: 5 },
     }),
   },
-  brandName: { fontSize: 18, fontWeight: '800', color: '#f67c16', marginTop: 10, marginBottom: 14, letterSpacing: 0.3 },
-  title: { fontSize: 24, fontWeight: '800', color: '#1E293B', marginBottom: 6 },
-  subtitle: { fontSize: 14, color: '#64748B', lineHeight: 21, textAlign: 'center', paddingHorizontal: 8 },
+  brandName: { fontSize: 18, fontWeight: '800', color: C.warning, marginTop: 10, marginBottom: 14, letterSpacing: 0.3 },
+  title: { fontSize: 24, fontWeight: '800', color: C.text, marginBottom: 6 },
+  subtitle: { fontSize: 14, color: C.textSecondary, lineHeight: 21, textAlign: 'center', paddingHorizontal: 8 },
 
   // ── Tabs ──
   tabs: {
-    flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 14, padding: 4, marginBottom: 24,
+    flexDirection: 'row', backgroundColor: C.hairline, borderRadius: 14, padding: 4, marginBottom: 24,
   },
   tab: { flex: 1, paddingVertical: 11, alignItems: 'center', borderRadius: 10 },
   tabActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     ...Platform.select({
-      ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4 },
+      ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4 },
       android: { elevation: 2 },
     }),
   },
-  tabText: { fontSize: 14, fontWeight: '500', color: '#94A3B8' },
+  tabText: { fontSize: 14, fontWeight: '500', color: C.muted },
   // tabTextActive is now inline — color changes based on userType (orange for user, blue for provider)
 
   // ── Alert ──
@@ -378,12 +422,13 @@ const styles = StyleSheet.create({
 
   // ── Divider ──
   divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 16 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#E2E8F0' },
-  dividerText: { marginHorizontal: 14, color: '#94A3B8', fontSize: 13, fontWeight: '500' },
+  dividerLine: { flex: 1, height: 1, backgroundColor: C.line },
+  dividerText: { marginHorizontal: 14, color: C.muted, fontSize: 13, fontWeight: '500' },
 
   // ── Info ──
-  info: { marginTop: 28, padding: 14, backgroundColor: '#F8FAFC', borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0' },
-  infoText: { fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 20 },
-});
+  info: { marginTop: 28, padding: 14, backgroundColor: C.sunken, borderRadius: 12, borderWidth: 1, borderColor: C.line },
+  infoText: { fontSize: 13, color: C.textSecondary, textAlign: 'center', lineHeight: 20 },
+  });
+};
 
 export default OTPLoginScreen;

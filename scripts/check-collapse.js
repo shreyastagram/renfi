@@ -52,6 +52,10 @@ const INTENTIONAL = new Set([
   // change its size. Both were already backgroundColor === borderColor at v1.0.9.
   'src/components/RegisterChoice.jsx:appleCard',
   'src/components/RegisterChoice.jsx:checkboxChecked',
+  // Same two patterns on the auth screens: a checked checkbox filled with the brand
+  // orange, and Apple's black-on-black sign-in card. Both identical at v1.0.9.
+  'src/screens/RegisterScreen.jsx:checkboxChecked',
+  'src/screens/UnifiedUserAuthScreen.jsx:appleCard',
 ]);
 
 // The captured expression must be the WHOLE value, so a trailing terminator is

@@ -71,6 +71,20 @@
     "src/components/DayHoursSheet.jsx",
     "src/components/PhoneInput.jsx",
     "src/components/LocationTrackingBanner.jsx",
-    "src/components/RegisterChoice.jsx"
+    "src/components/RegisterChoice.jsx",
+    "src/screens/RegisterScreen.jsx",
+    "src/screens/LoginScreen.jsx",
+    "src/screens/InsuranceScreen.jsx",
+    "src/screens/VerificationScreen.jsx",
+    "src/screens/UnifiedUserAuthScreen.jsx",
+    "src/screens/OTPVerifyScreen.jsx",
+    "src/screens/UserTypeScreen.jsx",
+    "src/screens/VerificationDashboardScreen.jsx",
+    "src/screens/ForgotPasswordScreen.jsx",
+    "src/screens/OTPLoginScreen.jsx",
+    "src/screens/PhoneSignupScreen.jsx",
+    "src/screens/PhoneNumberScreen.jsx",
+    "src/screens/UserAuthScreen.jsx",
+    "src/screens/ProviderAuthScreen.jsx"
   ]
 }

@@ -46,23 +46,48 @@ import {
 } from '../services/insuranceService';
 
 import { uploadDocument } from '../services/cloudinaryService';
+import {
+  useThemedStyles,
+  useThemeColors,
+  stableDark,
+} from '../theme';
 
 // ─── Design Tokens ─────────────────────────────────────────────
-const C = {
-  dark: '#0F172A',
-  bg: '#F1F5F9',
-  card: '#FFFFFF',
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  success: '#10B981',
-  danger: '#EF4444',
-  warning: '#F59E0B',
-  muted: '#94A3B8',
-  text: '#1E293B',
-  textSec: '#64748B',
-  border: '#E2E8F0',
-  iconBg: '#F1F5F9',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, and a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  line: c.border,
+  borderMedium: c.borderMedium,
+  text: c.textStrong,
+  textDark: c.textPrimary,
+  textBody: c.textBody,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
 
 // ─── Insurance Document Config ─────────────────────────────────
 const INSURANCE_DOCS = [
@@ -115,18 +140,22 @@ const INSURANCE_DOCS = [
 ];
 
 // ─── Status Config ─────────────────────────────────────────────
-const STATUS_MAP = {
-  not_started: { color: C.muted, icon: 'help-outline', label: 'Not Submitted', bg: '#F1F5F9' },
-  pending: { color: C.warning, icon: 'schedule', label: 'Pending Review', bg: '#FEF3C7' },
-  under_review: { color: C.secondary, icon: 'visibility', label: 'Under Review', bg: '#DBEAFE' },
-  approved: { color: C.success, icon: 'check-circle', label: 'Approved', bg: '#D1FAE5' },
-  rejected: { color: C.danger, icon: 'cancel', label: 'Rejected', bg: '#FEE2E2' },
-};
+const makeStatusMap = (C) => ({
+  not_started: { color: C.muted, icon: 'help-outline', label: 'Not Submitted', bg: C.hairline },
+  pending: { color: C.warning, icon: 'schedule', label: 'Pending Review', bg: C.warningBg },
+  under_review: { color: C.secondary, icon: 'visibility', label: 'Under Review', bg: C.infoFill },
+  approved: { color: C.success, icon: 'check-circle', label: 'Approved', bg: C.successFill },
+  rejected: { color: C.danger, icon: 'cancel', label: 'Rejected', bg: C.dangerFill },
+});
 
 /* ═══════════════════════════════════════════════════════════════
    PulsingDot
    ═══════════════════════════════════════════════════════════════ */
-const PulsingDot = ({ color = C.success, size = 8 }) => {
+const PulsingDot = ({ color, size = 8 }) => {
+  const C = makeC(useThemeColors());
+  // Resolved in the body: `C` is declared here, and a default parameter evaluated
+  // before it would throw on every defaulted render.
+  const dotColor = color || C.success;
   const anim = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     const loop = Animated.loop(
@@ -140,8 +169,8 @@ const PulsingDot = ({ color = C.success, size = 8 }) => {
   }, []);
   return (
     <View style={{ width: size * 2.5, height: size * 2.5, alignItems: 'center', justifyContent: 'center' }}>
-      <Animated.View style={{ position: 'absolute', width: size * 2.5, height: size * 2.5, borderRadius: size * 1.25, backgroundColor: color + '30', transform: [{ scale: anim }] }} />
-      <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color }} />
+      <Animated.View style={{ position: 'absolute', width: size * 2.5, height: size * 2.5, borderRadius: size * 1.25, backgroundColor: dotColor + '30', transform: [{ scale: anim }] }} />
+      <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: dotColor }} />
     </View>
   );
 };
@@ -150,6 +179,8 @@ const PulsingDot = ({ color = C.success, size = 8 }) => {
    DocumentCard — individual document upload/status card
    ═══════════════════════════════════════════════════════════════ */
 const DocumentCard = ({ config, document, onUpload, onRemove, onView, isRejected, isLocked }) => {
+  const s = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const hasDoc = !!(document?.localUri || document?.fileUrl);
   const isStaged = document?.isStaged && !document?.fileUrl;
   const docStatus = document?.status || (hasDoc ? (isStaged ? 'staged' : 'pending') : 'none');
@@ -205,22 +236,22 @@ const DocumentCard = ({ config, document, onUpload, onRemove, onView, isRejected
           </TouchableOpacity>
           <View style={s.docPreviewMeta}>
             {isStaged ? (
-              <View style={[s.statusPill, { backgroundColor: '#FEF3C7' }]}>
+              <View style={[s.statusPill, { backgroundColor: C.warningBg }]}>
                 <MaterialIcon name="cloud-upload" size={13} color={C.warning} />
                 <Text style={[s.statusPillText, { color: C.warning }]}>Ready to submit</Text>
               </View>
             ) : document?.status === 'approved' ? (
-              <View style={[s.statusPill, { backgroundColor: '#D1FAE5' }]}>
+              <View style={[s.statusPill, { backgroundColor: C.successFill }]}>
                 <MaterialIcon name="check-circle" size={13} color={C.success} />
                 <Text style={[s.statusPillText, { color: C.success }]}>Approved</Text>
               </View>
             ) : document?.status === 'rejected' ? (
-              <View style={[s.statusPill, { backgroundColor: '#FEE2E2' }]}>
+              <View style={[s.statusPill, { backgroundColor: C.dangerFill }]}>
                 <MaterialIcon name="cancel" size={13} color={C.danger} />
                 <Text style={[s.statusPillText, { color: C.danger }]}>Rejected</Text>
               </View>
             ) : (
-              <View style={[s.statusPill, { backgroundColor: '#FEF3C7' }]}>
+              <View style={[s.statusPill, { backgroundColor: C.warningBg }]}>
                 <MaterialIcon name="schedule" size={13} color={C.warning} />
                 <Text style={[s.statusPillText, { color: C.warning }]}>Pending Review</Text>
               </View>
@@ -263,6 +294,9 @@ const DocumentCard = ({ config, document, onUpload, onRemove, onView, isRejected
    MAIN SCREEN
    ═══════════════════════════════════════════════════════════════ */
 const InsuranceScreen = ({ navigation }) => {
+  const STATUS_MAP = makeStatusMap(C);
+  const s = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const { user, profile } = useApp();
   const { dialog } = useDialog();
@@ -732,10 +766,10 @@ const InsuranceScreen = ({ navigation }) => {
             activeOpacity={0.8}
           >
             {submitting ? (
-              <ActivityIndicator color="#fff" size="small" />
+              <ActivityIndicator color={C.onPrimary} size="small" />
             ) : (
               <>
-                <MaterialIcon name="cloud-upload" size={20} color="#fff" />
+                <MaterialIcon name="cloud-upload" size={20} color={C.onPrimary} />
                 <Text style={s.submitBtnText}>
                   {isRejected ? t('insurance.resubmitDocuments') : t('insurance.submitForVerification')}
                 </Text>
@@ -775,7 +809,9 @@ const InsuranceScreen = ({ navigation }) => {
 /* ═══════════════════════════════════════════════════════════════
    STYLES
    ═══════════════════════════════════════════════════════════════ */
-const s = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
 
   // Hero Header
@@ -787,7 +823,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: stableDark.heroDivider, alignItems: 'center', justifyContent: 'center' },
   heroTitle: { fontSize: 18, fontWeight: '800', color: C.card, letterSpacing: -0.3 },
 
   // Loading
@@ -806,7 +842,7 @@ const s = StyleSheet.create({
   statusSubtitle: { fontSize: 13, color: C.textSec, lineHeight: 19 },
 
   // Info Banner
-  infoBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#EFF6FF', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: C.secondary + '15' },
+  infoBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: C.infoBg, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: C.secondary + '15' },
   infoBannerText: { flex: 1, fontSize: 12, color: C.secondary, lineHeight: 17 },
 
   // Address Proof Note
@@ -816,37 +852,37 @@ const s = StyleSheet.create({
   addressProofNoteText: { fontSize: 12, color: C.textSec, lineHeight: 19 },
 
   // Document Card
-  docCard: { backgroundColor: C.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.border, ...Platform.select({ ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 }, android: { elevation: 2 } }) },
+  docCard: { backgroundColor: C.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.border, ...Platform.select({ ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 }, android: { elevation: 2 } }) },
   docCardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 },
   docIconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.iconBg, alignItems: 'center', justifyContent: 'center' },
-  docIconCircleActive: { backgroundColor: '#D1FAE5' },
+  docIconCircleActive: { backgroundColor: C.successFill },
   docTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   docTitle: { fontSize: 15, fontWeight: '700', color: C.text },
   docDesc: { fontSize: 12, color: C.muted, marginTop: 2, lineHeight: 17 },
 
   // Badges
-  requiredBadge: { backgroundColor: '#FEE2E2', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  requiredBadge: { backgroundColor: C.dangerFill, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
   requiredBadgeText: { fontSize: 10, fontWeight: '700', color: C.danger },
-  optionalBadge: { backgroundColor: '#EFF6FF', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  optionalBadge: { backgroundColor: C.infoBg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
   optionalBadgeText: { fontSize: 10, fontWeight: '700', color: C.secondary },
 
   // Rejection
-  rejectionStrip: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: '#FEF2F2', borderRadius: 8, padding: 10, marginBottom: 10, borderWidth: 1, borderColor: '#FECACA' },
-  rejectionText: { flex: 1, fontSize: 12, color: '#991B1B', lineHeight: 17 },
+  rejectionStrip: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: C.dangerBg, borderRadius: 8, padding: 10, marginBottom: 10, borderWidth: 1, borderColor: C.dangerLine },
+  rejectionText: { flex: 1, fontSize: 12, color: C.danger, lineHeight: 17 },
 
   // Document Preview
   docPreview: { backgroundColor: C.bg, borderRadius: 12, overflow: 'hidden' },
   docPreviewImage: { width: '100%', height: 160, borderTopLeftRadius: 12, borderTopRightRadius: 12, overflow: 'hidden' },
   docThumb: { width: '100%', height: '100%', resizeMode: 'cover' },
-  pdfThumb: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FEF2F2', gap: 6 },
+  pdfThumb: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', backgroundColor: C.dangerBg, gap: 6 },
   pdfName: { fontSize: 12, color: C.textSec, maxWidth: '80%' },
   docPreviewMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 10 },
   statusPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   statusPillText: { fontSize: 12, fontWeight: '600' },
-  removeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center' },
+  removeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.dangerFill, alignItems: 'center', justifyContent: 'center' },
 
   // Upload Button
-  uploadBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#EFF6FF', borderRadius: 12, padding: 14, borderWidth: 1.5, borderColor: C.secondary + '25', borderStyle: 'dashed' },
+  uploadBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.infoBg, borderRadius: 12, padding: 14, borderWidth: 1.5, borderColor: C.secondary + '25', borderStyle: 'dashed' },
   uploadBtnText: { fontSize: 14, fontWeight: '700', color: C.secondary },
   uploadBtnHint: { fontSize: 11, color: C.muted, marginTop: 1 },
 
@@ -864,17 +900,18 @@ const s = StyleSheet.create({
   learnMoreText: { fontSize: 13, fontWeight: '700', color: C.secondary },
 
   // Sticky Footer
-  stickyFooter: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.card, borderTopWidth: 1, borderTopColor: C.border, paddingHorizontal: 16, paddingTop: 12, ...Platform.select({ ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12 }, android: { elevation: 8 } }) },
+  stickyFooter: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.card, borderTopWidth: 1, borderTopColor: C.border, paddingHorizontal: 16, paddingTop: 12, ...Platform.select({ ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12 }, android: { elevation: 8 } }) },
   submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: C.secondary, borderRadius: 14, paddingVertical: 15, minHeight: 52 },
   submitBtnDisabled: { backgroundColor: C.muted, opacity: 0.6 },
-  submitBtnText: { fontSize: 16, fontWeight: '800', color: '#fff', letterSpacing: -0.2 },
+  submitBtnText: { fontSize: 16, fontWeight: '800', color: C.onPrimary, letterSpacing: -0.2 },
   submitHint: { fontSize: 11, color: C.muted, textAlign: 'center', marginTop: 6 },
 
   // Submission overlay
-  submittingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15,23,42,0.6)', zIndex: 100, alignItems: 'center', justifyContent: 'center' },
-  submittingCard: { backgroundColor: C.card, borderRadius: 20, padding: 32, alignItems: 'center', marginHorizontal: 40, gap: 14, ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 20 }, android: { elevation: 12 } }) },
+  submittingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: C.overlay, zIndex: 100, alignItems: 'center', justifyContent: 'center' },
+  submittingCard: { backgroundColor: C.card, borderRadius: 20, padding: 32, alignItems: 'center', marginHorizontal: 40, gap: 14, ...Platform.select({ ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 20 }, android: { elevation: 12 } }) },
   submittingTitle: { fontSize: 17, fontWeight: '800', color: C.text, letterSpacing: -0.3 },
   submittingSubtitle: { fontSize: 13, color: C.textSec, textAlign: 'center', lineHeight: 19 },
-});
+  });
+};
 
 export default InsuranceScreen;

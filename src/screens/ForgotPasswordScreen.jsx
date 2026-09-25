@@ -34,26 +34,54 @@ import {
 } from '../services/authService';
 import { validatePhone, validatePassword, validateEmail } from '../utils/validation';
 import { useLanguage } from '../context/LanguageContext';
+import {
+  useThemedStyles,
+  useThemeColors,
+} from '../theme';
 
-const COLORS = {
-  primary: '#f67c16',
-  primaryLight: 'rgba(246,124,22,0.06)',
-  background: '#FFFFFF',
-  surface: '#F8FAFC',
-  text: '#1E293B',
-  textSecondary: '#64748B',
-  textLight: '#94A3B8',
-  border: '#E2E8F0',
-  error: '#EF4444',
-  success: '#10B981',
-  white: '#FFFFFF',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, and a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  line: c.border,
+  borderMedium: c.borderMedium,
+  text: c.textStrong,
+  textDark: c.textPrimary,
+  textBody: c.textBody,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
 
 const OTP_LENGTH = 6;
 const OTP_EXPIRY_MINUTES = 5;
 const RESEND_COOLDOWN_SECONDS = 30;
 
 const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
 
   // Method state: 'phone' or 'email'
@@ -369,7 +397,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
   const renderSuccessState = () => (
     <View style={styles.successContainer}>
       <View style={styles.successIconContainer}>
-        <MaterialIcons name="check-circle" size={48} color="#10B981" />
+        <MaterialIcons name="check-circle" size={48} color={C.success} />
       </View>
       <Text style={styles.successTitle}>{t('auth.passwordResetDone')}</Text>
       <Text style={styles.successMessage}>
@@ -455,7 +483,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
         style={styles.backLink}
         onPress={onGoBack || (() => navigation?.goBack())}
       >
-        <View style={styles.backLinkRow}><Ionicons name="arrow-back" size={16} color={COLORS.primary} /><Text style={styles.backLinkText}>{t('auth.backToLogin')}</Text></View>
+        <View style={styles.backLinkRow}><Ionicons name="arrow-back" size={16} color={C.primary} /><Text style={styles.backLinkText}>{t('auth.backToLogin')}</Text></View>
       </TouchableOpacity>
     </View>
   );
@@ -602,7 +630,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
 
       {/* Back */}
       <TouchableOpacity style={styles.backLink} onPress={handleGoBack}>
-        <View style={styles.backLinkRow}><Ionicons name="arrow-back" size={16} color={COLORS.primary} /><Text style={styles.backLinkText}>{t('common.back')}</Text></View>
+        <View style={styles.backLinkRow}><Ionicons name="arrow-back" size={16} color={C.primary} /><Text style={styles.backLinkText}>{t('common.back')}</Text></View>
       </TouchableOpacity>
     </View>
   );
@@ -647,90 +675,93 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   // ── Layout ──
-  container: { flex: 1, backgroundColor: COLORS.background },
+  container: { flex: 1, backgroundColor: C.background },
   keyboardAvoid: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24 },
   alert: { marginBottom: 16 },
 
   // ── Logo ──
   logoContainer: {
-    width: 64, height: 64, borderRadius: 16, backgroundColor: '#FFFFFF',
+    width: 64, height: 64, borderRadius: 16, backgroundColor: C.white,
     justifyContent: 'center', alignItems: 'center', alignSelf: 'center',
     overflow: 'hidden', marginTop: 16, marginBottom: 6,
     ...Platform.select({
-      ios: { shadowColor: '#f67c16', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
+      ios: { shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
       android: { elevation: 5 },
     }),
   },
-  brandName: { fontSize: 18, fontWeight: '800', color: '#f67c16', textAlign: 'center', marginBottom: 20, letterSpacing: 0.3 },
+  brandName: { fontSize: 18, fontWeight: '800', color: C.warning, textAlign: 'center', marginBottom: 20, letterSpacing: 0.3 },
 
   // ── Form ──
   formContainer: { flex: 1 },
 
   // ── Method Toggle ──
-  methodToggle: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 14, padding: 4, marginBottom: 20 },
+  methodToggle: { flexDirection: 'row', backgroundColor: C.hairline, borderRadius: 14, padding: 4, marginBottom: 20 },
   methodTab: { flex: 1, paddingVertical: 11, borderRadius: 10, alignItems: 'center' },
   methodTabActive: {
-    backgroundColor: COLORS.white,
+    backgroundColor: C.white,
     ...Platform.select({
-      ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4 },
+      ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4 },
       android: { elevation: 2 },
     }),
   },
-  methodTabText: { fontSize: 14, fontWeight: '500', color: COLORS.textLight },
-  methodTabTextActive: { color: COLORS.primary, fontWeight: '700' },
+  methodTabText: { fontSize: 14, fontWeight: '500', color: C.textLight },
+  methodTabTextActive: { color: C.primary, fontWeight: '700' },
 
   // ── Header ──
   header: { marginBottom: 28 },
-  title: { fontSize: 24, fontWeight: '800', color: COLORS.text, marginBottom: 8 },
-  subtitle: { fontSize: 14, color: COLORS.textSecondary, lineHeight: 22 },
-  maskedValue: { fontWeight: '700', color: COLORS.text },
-  inputLabel: { fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8 },
+  title: { fontSize: 24, fontWeight: '800', color: C.text, marginBottom: 8 },
+  subtitle: { fontSize: 14, color: C.textSecondary, lineHeight: 22 },
+  maskedValue: { fontWeight: '700', color: C.text },
+  inputLabel: { fontSize: 14, fontWeight: '600', color: C.text, marginBottom: 8 },
   actionButton: { marginTop: 24 },
 
   // ── Back Link ──
   backLink: { alignItems: 'center', marginTop: 20, paddingVertical: 10 },
   backLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  backLinkText: { fontSize: 14, color: COLORS.primary, fontWeight: '600' },
+  backLinkText: { fontSize: 14, color: C.primary, fontWeight: '600' },
 
   // ── Timer ──
   timerContainer: { alignItems: 'center', marginBottom: 20 },
-  timerBadge: { backgroundColor: COLORS.primaryLight, paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20 },
-  timerBadgeText: { fontSize: 17, fontWeight: '700', color: COLORS.primary, fontVariant: ['tabular-nums'] },
-  timerBadgeExpired: { backgroundColor: '#FEF2F2' },
-  timerExpiredText: { fontSize: 14, color: COLORS.error, fontWeight: '600' },
+  timerBadge: { backgroundColor: C.primaryLight, paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20 },
+  timerBadgeText: { fontSize: 17, fontWeight: '700', color: C.primary, fontVariant: ['tabular-nums'] },
+  timerBadgeExpired: { backgroundColor: C.dangerBg },
+  timerExpiredText: { fontSize: 14, color: C.error, fontWeight: '600' },
 
   // ── OTP ──
   otpContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, paddingHorizontal: 4 },
   otpInput: {
-    width: 48, height: 56, borderWidth: 1.5, borderColor: COLORS.border, borderRadius: 14,
-    fontSize: 22, fontWeight: '800', color: COLORS.text, backgroundColor: COLORS.surface, textAlign: 'center',
+    width: 48, height: 56, borderWidth: 1.5, borderColor: C.border, borderRadius: 14,
+    fontSize: 22, fontWeight: '800', color: C.text, backgroundColor: C.surface, textAlign: 'center',
   },
-  otpInputFilled: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
-  otpInputExpired: { borderColor: '#FCA5A5', backgroundColor: '#FEF2F2', color: '#94A3B8' },
+  otpInputFilled: { borderColor: C.primary, backgroundColor: C.primaryLight },
+  otpInputExpired: { borderColor: C.dangerLine, backgroundColor: C.dangerBg, color: C.muted },
 
   // ── Resend ──
   resendRow: { alignItems: 'center', marginBottom: 24 },
-  resendText: { fontSize: 14, color: COLORS.primary, fontWeight: '500' },
-  resendTextDisabled: { color: COLORS.textLight },
-  resendProminentText: { fontSize: 15, color: COLORS.primary, fontWeight: '600' },
+  resendText: { fontSize: 14, color: C.primary, fontWeight: '500' },
+  resendTextDisabled: { color: C.textLight },
+  resendProminentText: { fontSize: 15, color: C.primary, fontWeight: '600' },
 
   // ── Password Hints ──
-  passwordHints: { backgroundColor: COLORS.surface, borderRadius: 12, padding: 12, marginTop: 8, borderWidth: 1, borderColor: COLORS.border },
-  hintTitle: { fontSize: 12, fontWeight: '600', color: COLORS.text, marginBottom: 4 },
-  hintText: { fontSize: 11, color: COLORS.textSecondary, marginBottom: 2 },
-  hintMet: { color: COLORS.success },
+  passwordHints: { backgroundColor: C.surface, borderRadius: 12, padding: 12, marginTop: 8, borderWidth: 1, borderColor: C.border },
+  hintTitle: { fontSize: 12, fontWeight: '600', color: C.text, marginBottom: 4 },
+  hintText: { fontSize: 11, color: C.textSecondary, marginBottom: 2 },
+  hintMet: { color: C.success },
 
   // ── Success ──
   successContainer: { flex: 1, alignItems: 'center', paddingTop: 24 },
   successIconContainer: {
-    width: 88, height: 88, borderRadius: 22, backgroundColor: 'rgba(16,185,129,0.08)',
+    width: 88, height: 88, borderRadius: 22, backgroundColor: C.successFill,
     alignItems: 'center', justifyContent: 'center', marginBottom: 24,
   },
-  successTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text, marginBottom: 12 },
-  successMessage: { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 32, paddingHorizontal: 16 },
-});
+  successTitle: { fontSize: 22, fontWeight: '800', color: C.text, marginBottom: 12 },
+  successMessage: { fontSize: 14, color: C.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 32, paddingHorizontal: 16 },
+  });
+};
 
 export default ForgotPasswordScreen;

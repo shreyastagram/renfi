@@ -26,18 +26,48 @@ import { FixhomiLogo } from '../components';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
 import useExitConfirmation from '../hooks/useExitConfirmation';
+import {
+  useThemedStyles,
+  useThemeColors,
+  stableDark,
+  brandTint,
+} from '../theme';
 
-const COLORS = {
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  background: '#FFFFFF',
-  cardBg: '#FAFBFC',
-  white: '#FFFFFF',
-  textPrimary: '#1E293B',
-  textSecondary: '#64748B',
-  muted: '#94A3B8',
-  border: '#E2E8F0',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, and a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  line: c.border,
+  borderMedium: c.borderMedium,
+  text: c.textStrong,
+  textDark: c.textPrimary,
+  textBody: c.textBody,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
 
 /**
  * UserTypeScreen Component
@@ -45,6 +75,8 @@ const COLORS = {
  * @param {Object} props - Navigation props
  */
 const UserTypeScreen = ({ navigation }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { selectUserType } = useApp();
   const { t, language, setLanguage, languages } = useLanguage();
   const [showLangPicker, setShowLangPicker] = React.useState(false);
@@ -74,7 +106,7 @@ const UserTypeScreen = ({ navigation }) => {
 
   return (
     <LinearGradient
-      colors={['#FFF1E5', '#FFFFFF', '#E9F1FA']}
+      colors={[C.warningBg, C.onPrimary, C.infoBg]}
       locations={[0, 0.52, 1]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
@@ -91,9 +123,9 @@ const UserTypeScreen = ({ navigation }) => {
         onPress={() => setShowLangPicker(true)}
         activeOpacity={0.7}
       >
-        <MaterialIcon name="language" size={20} color={COLORS.primary} />
+        <MaterialIcon name="language" size={20} color={C.primary} />
         <Text style={styles.langButtonText}>{currentLang?.nativeLabel || 'English'}</Text>
-        <MaterialIcon name="arrow-drop-down" size={20} color={COLORS.primary} />
+        <MaterialIcon name="arrow-drop-down" size={20} color={C.primary} />
       </TouchableOpacity>
 
       <View style={styles.content}>
@@ -126,7 +158,7 @@ const UserTypeScreen = ({ navigation }) => {
             activeOpacity={0.7}
           >
             <View style={styles.iconContainer}>
-              <MaterialIcon name="person-outline" size={30} color={COLORS.primary} />
+              <MaterialIcon name="person-outline" size={30} color={C.primary} />
             </View>
             <View style={styles.cardContent}>
               <Text style={styles.cardTitle}>{t('userType.needServices')}</Text>
@@ -135,7 +167,7 @@ const UserTypeScreen = ({ navigation }) => {
               </Text>
             </View>
             <View style={styles.chevron}>
-              <Ionicons name="chevron-forward" size={18} color={COLORS.primary} />
+              <Ionicons name="chevron-forward" size={18} color={C.primary} />
             </View>
           </TouchableOpacity>
 
@@ -146,7 +178,7 @@ const UserTypeScreen = ({ navigation }) => {
             activeOpacity={0.7}
           >
             <View style={[styles.iconContainer, styles.iconContainerSecondary]}>
-              <MaterialIcon name="handyman" size={30} color={COLORS.secondary} />
+              <MaterialIcon name="handyman" size={30} color={C.secondary} />
             </View>
             <View style={styles.cardContent}>
               <Text style={styles.cardTitle}>{t('userType.provideServices')}</Text>
@@ -155,7 +187,7 @@ const UserTypeScreen = ({ navigation }) => {
               </Text>
             </View>
             <View style={[styles.chevron, styles.chevronSecondary]}>
-              <Ionicons name="chevron-forward" size={18} color={COLORS.secondary} />
+              <Ionicons name="chevron-forward" size={18} color={C.secondary} />
             </View>
           </TouchableOpacity>
         </View>
@@ -197,7 +229,7 @@ const UserTypeScreen = ({ navigation }) => {
                 </Text>
                 <Text style={styles.langOptionSub}>{lang.label}</Text>
                 {language === lang.code && (
-                  <MaterialIcon name="check" size={20} color={COLORS.primary} />
+                  <MaterialIcon name="check" size={20} color={C.primary} />
                 )}
               </TouchableOpacity>
             ))}
@@ -209,7 +241,9 @@ const UserTypeScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   // ── Layout ──
   gradient: { flex: 1 },
   container: { flex: 1, backgroundColor: 'transparent' },
@@ -219,28 +253,28 @@ const styles = StyleSheet.create({
   glowPrimary: {
     position: 'absolute', top: -70, right: -70,
     width: 240, height: 240, borderRadius: 120,
-    backgroundColor: 'rgba(246,124,22,0.07)',
+    backgroundColor: brandTint.orange06,
   },
   glowSecondary: {
     position: 'absolute', bottom: -80, left: -80,
     width: 260, height: 260, borderRadius: 130,
-    backgroundColor: 'rgba(43,118,188,0.07)',
+    backgroundColor: brandTint.blue06,
   },
 
   // ── Header ──
   header: { alignItems: 'center', marginBottom: 12 },
   logoContainer: {
-    width: 80, height: 80, borderRadius: 22, backgroundColor: COLORS.white,
+    width: 80, height: 80, borderRadius: 22, backgroundColor: C.white,
     justifyContent: 'center', alignItems: 'center', marginBottom: 14,
     overflow: 'hidden',
     ...Platform.select({
-      ios: { shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.14, shadowRadius: 18 },
+      ios: { shadowColor: C.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.14, shadowRadius: 18 },
       android: { elevation: 6 },
     }),
   },
-  logo: { fontSize: 24, fontWeight: '800', color: COLORS.primary, marginBottom: 6, letterSpacing: 0.3 },
-  title: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 6 },
-  subtitle: { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 21, paddingHorizontal: 12 },
+  logo: { fontSize: 24, fontWeight: '800', color: C.primary, marginBottom: 6, letterSpacing: 0.3 },
+  title: { fontSize: 22, fontWeight: '800', color: C.textPrimary, marginBottom: 6 },
+  subtitle: { fontSize: 14, color: C.textSecondary, textAlign: 'center', lineHeight: 21, paddingHorizontal: 12 },
 
   // ── Hero Illustration ──
   // Edges are alpha-feathered in the asset itself so it melts into the gradient
@@ -252,68 +286,69 @@ const styles = StyleSheet.create({
   // ── Cards ──
   cardsContainer: { gap: 14 },
   card: {
-    backgroundColor: COLORS.white, borderRadius: 18, padding: 18,
-    borderWidth: 1.5, borderColor: 'rgba(246,124,22,0.2)',
+    backgroundColor: C.white, borderRadius: 18, padding: 18,
+    borderWidth: 1.5, borderColor: stableDark.brandOrangeLine,
     flexDirection: 'row', alignItems: 'center',
     ...Platform.select({
-      ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.06, shadowRadius: 10 },
+      ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.06, shadowRadius: 10 },
       android: { elevation: 2 },
     }),
   },
-  cardSecondary: { borderColor: 'rgba(43,118,188,0.2)' },
+  cardSecondary: { borderColor: stableDark.brandBlueLine },
   iconContainer: {
     width: 52, height: 52, borderRadius: 16,
-    backgroundColor: 'rgba(246,124,22,0.08)',
+    backgroundColor: brandTint.orange10,
     justifyContent: 'center', alignItems: 'center', marginRight: 14,
   },
-  iconContainerSecondary: { backgroundColor: 'rgba(43,118,188,0.08)' },
+  iconContainerSecondary: { backgroundColor: brandTint.blue08 },
   cardContent: { flex: 1 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 3 },
-  cardDescription: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 19 },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: C.textPrimary, marginBottom: 3 },
+  cardDescription: { fontSize: 13, color: C.textSecondary, lineHeight: 19 },
   chevron: {
     width: 32, height: 32, borderRadius: 10,
-    backgroundColor: 'rgba(246,124,22,0.06)',
+    backgroundColor: brandTint.orange06,
     justifyContent: 'center', alignItems: 'center', marginLeft: 8,
   },
-  chevronSecondary: { backgroundColor: 'rgba(43,118,188,0.06)' },
+  chevronSecondary: { backgroundColor: brandTint.blue06 },
 
   // ── Footer ──
   footer: { marginTop: 24, alignItems: 'center' },
-  footerText: { fontSize: 13, color: COLORS.muted, textAlign: 'center', lineHeight: 19 },
+  footerText: { fontSize: 13, color: C.muted, textAlign: 'center', lineHeight: 19 },
 
   // ── Language Button ──
   langButton: {
     flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end',
     marginTop: 6, marginRight: 16,
     paddingHorizontal: 12, paddingVertical: 7, borderRadius: 12,
-    backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: C.sunken, borderWidth: 1, borderColor: C.border,
   },
-  langButtonText: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary, marginHorizontal: 4 },
+  langButtonText: { fontSize: 13, fontWeight: '600', color: C.textPrimary, marginHorizontal: 4 },
 
   // ── Language Modal ──
   modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    flex: 1, backgroundColor: C.overlay,
     justifyContent: 'center', alignItems: 'center', padding: 24,
   },
   langModal: {
-    backgroundColor: COLORS.white, borderRadius: 20, padding: 24, width: '82%', maxWidth: 320,
+    backgroundColor: C.white, borderRadius: 20, padding: 24, width: '82%', maxWidth: 320,
     ...Platform.select({
-      ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 24 },
+      ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 24 },
       android: { elevation: 10 },
     }),
   },
-  langModalTitle: { fontSize: 17, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 16, textAlign: 'center' },
+  langModalTitle: { fontSize: 17, fontWeight: '700', color: C.textPrimary, marginBottom: 16, textAlign: 'center' },
   langOption: {
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 13, paddingHorizontal: 14, borderRadius: 12, marginBottom: 6,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.sunken,
   },
   langOptionActive: {
-    backgroundColor: 'rgba(246,124,22,0.06)', borderWidth: 1, borderColor: 'rgba(246,124,22,0.3)',
+    backgroundColor: brandTint.orange06, borderWidth: 1, borderColor: stableDark.brandOrangeLine,
   },
-  langOptionText: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary, flex: 1 },
-  langOptionTextActive: { color: COLORS.primary },
-  langOptionSub: { fontSize: 12, color: COLORS.muted, marginRight: 8 },
-});
+  langOptionText: { fontSize: 15, fontWeight: '600', color: C.textPrimary, flex: 1 },
+  langOptionTextActive: { color: C.primary },
+  langOptionSub: { fontSize: 12, color: C.muted, marginRight: 8 },
+  });
+};
 
 export default UserTypeScreen;

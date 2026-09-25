@@ -35,6 +35,12 @@ import {
 } from '../services/authService';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
+import {
+  useThemedStyles,
+  useThemeColors,
+  stableDark,
+  brandTint,
+} from '../theme';
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN_SECONDS = 30;
@@ -60,6 +66,8 @@ const OTPVerifyScreen = ({
   onNewUserAuth,
   onBack,
 }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { handleAuthSuccess } = useApp();
   const { t } = useLanguage();
 
@@ -422,7 +430,7 @@ const OTPVerifyScreen = ({
             disabled={loading}
             activeOpacity={0.7}
           >
-            <Ionicons name="arrow-back" size={20} color="#1E293B" />
+            <Ionicons name="arrow-back" size={20} color={C.text} />
           </TouchableOpacity>
 
           {/* Logo */}
@@ -555,45 +563,83 @@ const OTPVerifyScreen = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, and a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  line: c.border,
+  borderMedium: c.borderMedium,
+  text: c.textStrong,
+  textDark: c.textPrimary,
+  textBody: c.textBody,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
+
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   // ── Layout ──
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: C.white },
   keyboardView: { flex: 1 },
   scrollContent: { flexGrow: 1 },
   content: { flex: 1, padding: 24 },
 
   // ── Back Button ──
   backButton: {
-    width: 38, height: 38, borderRadius: 12, backgroundColor: '#F1F5F9',
+    width: 38, height: 38, borderRadius: 12, backgroundColor: C.hairline,
     justifyContent: 'center', alignItems: 'center', alignSelf: 'flex-start', marginBottom: 18,
   },
 
   // ── Logo ──
   logoContainer: {
-    width: 64, height: 64, borderRadius: 16, backgroundColor: '#FFFFFF',
+    width: 64, height: 64, borderRadius: 16, backgroundColor: C.white,
     justifyContent: 'center', alignItems: 'center', alignSelf: 'center',
     overflow: 'hidden', marginBottom: 6,
     ...Platform.select({
-      ios: { shadowColor: '#f67c16', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
+      ios: { shadowColor: C.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14 },
       android: { elevation: 5 },
     }),
   },
-  brandName: { fontSize: 18, fontWeight: '800', color: '#f67c16', textAlign: 'center', marginBottom: 18, letterSpacing: 0.3 },
+  brandName: { fontSize: 18, fontWeight: '800', color: C.warning, textAlign: 'center', marginBottom: 18, letterSpacing: 0.3 },
 
   // ── Header ──
   header: { marginBottom: 24 },
-  title: { fontSize: 24, fontWeight: '800', color: '#1E293B', marginBottom: 8 },
-  subtitle: { fontSize: 14, color: '#64748B', lineHeight: 22, flexWrap: 'wrap' },
-  maskedValue: { fontSize: 15, fontWeight: '700', color: '#1E293B', lineHeight: 22, marginTop: 4, flexWrap: 'wrap' },
+  title: { fontSize: 24, fontWeight: '800', color: C.text, marginBottom: 8 },
+  subtitle: { fontSize: 14, color: C.textSecondary, lineHeight: 22, flexWrap: 'wrap' },
+  maskedValue: { fontSize: 15, fontWeight: '700', color: C.text, lineHeight: 22, marginTop: 4, flexWrap: 'wrap' },
 
   // ── Timer ──
   timerContainer: { alignItems: 'center', marginBottom: 24 },
   timerBadge: {
-    backgroundColor: 'rgba(246,124,22,0.06)', paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20,
+    backgroundColor: brandTint.orange06, paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20,
   },
-  timerBadgeText: { fontSize: 17, fontWeight: '700', color: '#f67c16', fontVariant: ['tabular-nums'] },
-  timerBadgeExpired: { backgroundColor: '#FEF2F2' },
-  timerExpiredText: { fontSize: 14, color: '#EF4444', fontWeight: '600' },
+  timerBadgeText: { fontSize: 17, fontWeight: '700', color: C.warning, fontVariant: ['tabular-nums'] },
+  timerBadgeExpired: { backgroundColor: C.dangerBg },
+  timerExpiredText: { fontSize: 14, color: C.danger, fontWeight: '600' },
 
   // ── Alert ──
   alert: { marginBottom: 16 },
@@ -601,31 +647,32 @@ const styles = StyleSheet.create({
   // ── OTP Boxes ──
   otpContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 28, paddingHorizontal: 4 },
   otpInput: {
-    width: 48, height: 56, borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 14,
-    fontSize: 22, fontWeight: '800', textAlign: 'center', color: '#1E293B', backgroundColor: '#FAFBFC',
+    width: 48, height: 56, borderWidth: 1.5, borderColor: C.line, borderRadius: 14,
+    fontSize: 22, fontWeight: '800', textAlign: 'center', color: C.text, backgroundColor: C.sunken,
   },
-  otpInputFilled: { borderColor: '#f67c16', backgroundColor: 'rgba(246,124,22,0.04)' },
-  otpInputFocused: { borderColor: '#f67c16', borderWidth: 2, backgroundColor: '#FFFFFF' },
-  otpInputExpired: { borderColor: '#FCA5A5', backgroundColor: '#FEF2F2', color: '#94A3B8' },
-  otpInputDisabled: { backgroundColor: '#F8FAFC', color: '#94A3B8' },
+  otpInputFilled: { borderColor: C.primary, backgroundColor: brandTint.orange04 },
+  otpInputFocused: { borderColor: C.primary, borderWidth: 2, backgroundColor: C.white },
+  otpInputExpired: { borderColor: C.dangerLine, backgroundColor: C.dangerBg, color: C.muted },
+  otpInputDisabled: { backgroundColor: C.sunken, color: C.muted },
 
   // ── Verify Button ──
   verifyButton: { marginBottom: 24 },
 
   // ── Resend ──
   resendContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 4, marginBottom: 28 },
-  resendText: { fontSize: 14, color: '#64748B' },
-  resendLink: { fontSize: 14, color: '#f67c16', fontWeight: '600' },
-  resendLinkDisabled: { color: '#94A3B8' },
+  resendText: { fontSize: 14, color: C.textSecondary },
+  resendLink: { fontSize: 14, color: C.warning, fontWeight: '600' },
+  resendLinkDisabled: { color: C.muted },
   resendProminent: {
-    backgroundColor: 'rgba(246,124,22,0.06)', paddingHorizontal: 24, paddingVertical: 12,
-    borderRadius: 12, borderWidth: 1, borderColor: 'rgba(246,124,22,0.25)',
+    backgroundColor: brandTint.orange06, paddingHorizontal: 24, paddingVertical: 12,
+    borderRadius: 12, borderWidth: 1, borderColor: stableDark.brandOrangeLine,
   },
-  resendProminentText: { fontSize: 15, color: '#f67c16', fontWeight: '600' },
+  resendProminentText: { fontSize: 15, color: C.warning, fontWeight: '600' },
 
   // ── Info ──
-  info: { padding: 14, backgroundColor: '#F8FAFC', borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0' },
-  infoText: { fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 20 },
-});
+  info: { padding: 14, backgroundColor: C.sunken, borderRadius: 12, borderWidth: 1, borderColor: C.line },
+  infoText: { fontSize: 13, color: C.textSecondary, textAlign: 'center', lineHeight: 20 },
+  });
+};
 
 export default OTPVerifyScreen;

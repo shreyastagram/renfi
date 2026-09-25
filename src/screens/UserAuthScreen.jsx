@@ -32,6 +32,9 @@ import { applyReferralCode } from '../services/referralService';
 import { NODE_BASE_URL, JAVA_BASE_URL, ENDPOINTS } from '../config/api';
 import { useApp } from '../context/AppContext';
 import { Analytics, EV, onceEver } from '../services/analytics';
+import {
+  useThemedStyles,
+} from '../theme';
 
 /**
  * Update the new user's name in BOTH databases with an explicit token.
@@ -75,6 +78,7 @@ const updateNameWithToken = async (userId, fullName, accessToken) => {
  * @param {Object} props - Navigation props
  */
 const UserAuthScreen = ({ navigation }) => {
+  const styles = useThemedStyles(makeStyles);
   const { t } = useLanguage();
   const { handleAuthSuccess } = useApp();
   // OTP step persists across an OS process kill (Issue 2) so a user who leaves
@@ -319,11 +323,50 @@ const UserAuthScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, and a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  line: c.border,
+  borderMedium: c.borderMedium,
+  text: c.textStrong,
+  textDark: c.textPrimary,
+  textBody: c.textBody,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
+
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
   },
-});
+  });
+};
 
 export default UserAuthScreen;

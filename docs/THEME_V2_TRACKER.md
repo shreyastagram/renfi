@@ -31,20 +31,20 @@
 
 ### Next action
 
-**Phase 8 is done — every user screen and every provider screen is themed.**
+**Every screen is themed. Phase 5b's verification screens and `InsuranceScreen` came with
+Phase 9, since they shared the same slate ramp.**
 
-Next: the **~10 modals reachable from themed screens**, which is the thing blocking a
-useful device test (see the table below). In rough order of impact:
-`LocationPicker` (71), `ProviderDetailsModal` (60), `CancellationReasonModal` (34),
-`MapPickerModal` (28), `RatingModal` (26), `AadhaarVerificationModal` (26),
-`AddressAutocomplete` (25), `PhoneChangeModal` (24), `DateTimePicker` (22),
-`SavedAddresses` (20). That is ~336 of the 674 component literals.
+Remaining, in the order I would take it:
 
-Then Phase 9 (auth screens, 242) and Phase 10 (sweep + device checklist). Phase 5b
-stays open for BEHAVIOUR: verification defects V1–V6 and `profile.emailPending`.
-
-Still outstanding regardless of phase: **17 `SafeAreaView` call sites across 15 files**
-to swap for `<Screen>`, which is what makes edge-to-edge correct under `targetSdk 36`.
+1. **22 components, ~520 literals** — none reachable from a themed screen, so none block a
+   device test. Mostly leaf pieces and a few unused-looking files worth checking before
+   theming (see Phase 4's method: prove unused, then delete).
+2. **17 `SafeAreaView` call sites across 15 files** → `<Screen>`. This is the one with
+   real user impact left: `targetSdk 36` enforces edge-to-edge, and the tester build may
+   already show it on 3-button navigation.
+3. **Phase 5b, behaviour only** — verification defects V1–V6 and `profile.emailPending`.
+   Zero colour work; it is the only functional item left in the whole plan.
+4. **Phase 10** — full sweep + the device checklist above.
 
 ---
 
@@ -83,7 +83,7 @@ contract.
   - [x] `PortfolioEditScreen`, `ProviderHomeScreen`
   - [x] `ProviderRegisterScreen`, `ProviderServiceHistoryScreen`
   - [x] `ServiceApprovalsScreen`
-- [ ] **Phase 9** — Auth screens
+- [x] **Phase 9** — Auth screens (and the verification + insurance screens, which shared the same ramp)
 - [ ] **Phase 10** — Full sweep + device-test checklist
 
 ---
@@ -92,10 +92,10 @@ contract.
 
 | Measure | Value |
 |---|---|
-| Colour literals remaining | **880** (3,329 at v1.0.9) — measured, see note |
-| Files on the hex allowlist | **68** |
+| Colour literals remaining | **552** (3,329 at v1.0.9) — measured, see note |
+| Files on the hex allowlist | **82** |
 | Components fully themed | **8** — CustomDialog, Button, Alert, ShimmerLoader, Input, Icon, GlobalBanner, DrawerMenu (+ RootNavigator surgically) |
-| Screens fully themed | **24** — the entire user side AND the entire provider side |
+| Screens fully themed | **ALL OF THEM** — 38 screens, zero colour literals left in `src/screens` |
 | Theme unit tests | 30 across 6 suites |
 | Owner's Working Hours tests | 86 — **must never regress** |
 | i18n | **2074** × en/hi/mr (2067 baseline + 7 theme keys) |

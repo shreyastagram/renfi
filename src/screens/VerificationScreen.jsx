@@ -34,48 +34,76 @@ import { updateJavaAuthProfile, addUserEmail } from '../services/profileService'
 import { syncVerificationStatus } from '../services/verificationService';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
+import {
+  useThemedStyles,
+  useThemeColors,
+} from '../theme';
 
 const OTP_LENGTH = 6;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const BRAND = {
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  bg: '#F1F5F9',
-  white: '#FFFFFF',
-  text: '#0F172A',
-  textSecondary: '#64748B',
-  textMuted: '#94A3B8',
-  border: '#E2E8F0',
-  successGreen: '#10B981',
-  amber: '#F59E0B',
-  red: '#DC2626',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  white: c.surface,
+  bg: c.bg,
+  sunken: c.surfaceSunken,
+  // The shipped neutral hairline was #F1F5F9 -- exactly `bg` in light, and a recessed
+  // seam on a dark surface.
+  hairline: c.bg,
+  line: c.border,
+  borderMedium: c.borderMedium,
+  text: c.textStrong,
+  textDark: c.textPrimary,
+  textBody: c.textBody,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  indigo: c.altBlueIndigo,
+  success: c.success,
+  successBg: c.successContainer,
+  successFill: c.successFill,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  dangerLine: c.dangerBorder,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
 
 /* ─── Premium card shadow helper ─────────────────────────────────── */
-const cardShadow = Platform.select({
-  ios: {
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-  },
-  android: {
-    elevation: 4,
-  },
-});
+const makeCardShadow = (C) =>
+  Platform.select({
+    ios: {
+      shadowColor: C.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 16,
+    },
+    android: {
+      elevation: 4,
+    },
+  });
 
-const glowShadow = Platform.select({
-  ios: {
-    shadowColor: '#f67c16',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-  },
-  android: {
-    elevation: 8,
-  },
-});
+const makeGlowShadow = (C) =>
+  Platform.select({
+    ios: {
+      shadowColor: C.primary,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.35,
+      shadowRadius: 14,
+    },
+    android: {
+      elevation: 8,
+    },
+  });
 
 /**
  * VerificationScreen Component
@@ -88,6 +116,8 @@ const VerificationScreen = ({
   onVerificationComplete,
   onSkip,
 }) => {
+  const s = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { user, profile, userType, refreshVerificationStatus, refreshProfile, updateProfileWithAutoSync } = useApp();
   const { t } = useLanguage();
 
@@ -380,8 +410,8 @@ const VerificationScreen = ({
 
           if (retrySec && retrySec > 0) {
             const m = Math.floor(retrySec / 60);
-            const s = retrySec % 60;
-            const timeStr = m > 0 ? `${m}m ${s}s` : `${s}s`;
+            const sec = retrySec % 60;
+            const timeStr = m > 0 ? `${m}m ${sec}s` : `${sec}s`;
             showAlert(t('verificationScreen.rateLimitedWithTime', { time: timeStr }), 'warning');
           } else {
             showAlert(t('verificationScreen.rateLimitedGeneric'), 'warning');
@@ -536,13 +566,13 @@ const VerificationScreen = ({
     let bg, color, label, icon;
     switch (status) {
       case 'verified':
-        bg = '#ECFDF5'; color = '#059669'; label = t('common.verified'); icon = 'verified';
+        bg = C.successBg; color = C.success; label = t('common.verified'); icon = 'verified';
         break;
       case 'pending':
-        bg = '#FFFBEB'; color = '#D97706'; label = t('common.pending'); icon = 'schedule';
+        bg = C.warningBg; color = C.warning; label = t('common.pending'); icon = 'schedule';
         break;
       default:
-        bg = '#F1F5F9'; color = '#94A3B8'; label = t('common.notStarted'); icon = 'circle';
+        bg = C.hairline; color = C.muted; label = t('common.notStarted'); icon = 'circle';
     }
     return (
       <View style={[s.badge, { backgroundColor: bg }]}>
@@ -564,7 +594,7 @@ const VerificationScreen = ({
             <MaterialIcon
               name={expired ? 'error-outline' : 'timer'}
               size={18}
-              color={expired ? BRAND.red : BRAND.secondary}
+              color={expired ? C.red : C.secondary}
             />
           </View>
         </View>
@@ -589,7 +619,7 @@ const VerificationScreen = ({
         <View style={s.successContainer}>
           <View style={s.successIconOuter}>
             <View style={s.successIconCircle}>
-              <MaterialIcon name="check" size={44} color={BRAND.white} />
+              <MaterialIcon name="check" size={44} color={C.white} />
             </View>
             <View style={s.successRing} />
             <View style={s.successRingOuter} />
@@ -605,7 +635,7 @@ const VerificationScreen = ({
             onPress={handleGoBack}
             activeOpacity={0.8}
           >
-            <MaterialIcon name="arrow-back" size={20} color={BRAND.white} />
+            <MaterialIcon name="arrow-back" size={20} color={C.white} />
             <Text style={s.successBackBtnText}>{t('verificationScreen.backToProfile')}</Text>
           </TouchableOpacity>
         </View>
@@ -623,7 +653,7 @@ const VerificationScreen = ({
           onPress={() => navigation?.goBack?.()}
           activeOpacity={0.7}
         >
-          <MaterialIcon name="arrow-back" size={22} color={BRAND.text} />
+          <MaterialIcon name="arrow-back" size={22} color={C.text} />
         </TouchableOpacity>
         <Text style={s.headerTitle} numberOfLines={1} ellipsizeMode="tail">
           {isEmailVerification ? t('verificationScreen.verifyEmail') : t('verificationScreen.verifyPhone')}
@@ -659,10 +689,10 @@ const VerificationScreen = ({
         {isEmailVerification && (
           <View style={s.sectionWrap}>
             {/* Email Info Card */}
-            <View style={[s.card, cardShadow]}>
+            <View style={[s.card, makeCardShadow(C)]}>
               <View style={s.cardHeaderRow}>
                 <View style={s.cardIconCircle}>
-                  <MaterialIcon name="email" size={22} color={BRAND.secondary} />
+                  <MaterialIcon name="email" size={22} color={C.secondary} />
                 </View>
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={s.sectionLabel}>{t('verificationScreen.emailVerification')}</Text>
@@ -684,7 +714,7 @@ const VerificationScreen = ({
                     value={editValue}
                     onChangeText={setEditValue}
                     placeholder={t('verificationScreen.emailPlaceholder')}
-                    placeholderTextColor={BRAND.textMuted}
+                    placeholderTextColor={C.textMuted}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -698,7 +728,7 @@ const VerificationScreen = ({
                       activeOpacity={0.8}
                     >
                       {savingValue ? (
-                        <ActivityIndicator size="small" color={BRAND.white} />
+                        <ActivityIndicator size="small" color={C.white} />
                       ) : (
                         <Text style={s.ctaButtonText}>{t('verificationScreen.saveEmail')}</Text>
                       )}
@@ -731,7 +761,7 @@ const VerificationScreen = ({
                       setIsEditing(true);
                     }}
                   >
-                    <MaterialIcon name="edit" size={16} color={BRAND.secondary} />
+                    <MaterialIcon name="edit" size={16} color={C.secondary} />
                     <Text style={s.editPillText}>{t('common.edit')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -741,19 +771,19 @@ const VerificationScreen = ({
             {/* Send Button */}
             {!isEditing && (
               <TouchableOpacity
-                style={[s.ctaButton, glowShadow, (!currentEmail || sendLoading) && s.ctaButtonDisabled]}
+                style={[s.ctaButton, makeGlowShadow(C), (!currentEmail || sendLoading) && s.ctaButtonDisabled]}
                 onPress={handleSendVerification}
                 disabled={sendLoading || !currentEmail}
                 activeOpacity={0.8}
               >
                 {sendLoading ? (
                   <View style={s.ctaRow}>
-                    <ActivityIndicator size="small" color={BRAND.white} />
+                    <ActivityIndicator size="small" color={C.white} />
                     <Text style={s.ctaButtonText}>{t('verificationScreen.sendingBtn')}</Text>
                   </View>
                 ) : (
                   <View style={s.ctaRow}>
-                    <MaterialIcon name="send" size={20} color={BRAND.white} />
+                    <MaterialIcon name="send" size={20} color={C.white} />
                     <Text style={s.ctaButtonText}>{t('verificationScreen.sendVerificationEmail')}</Text>
                   </View>
                 )}
@@ -763,7 +793,7 @@ const VerificationScreen = ({
             {/* Sent confirmation */}
             {maskedValue ? (
               <View style={s.sentCard}>
-                <MaterialIcon name="mark-email-read" size={20} color={BRAND.successGreen} />
+                <MaterialIcon name="mark-email-read" size={20} color={C.successGreen} />
                 <Text style={s.sentText} numberOfLines={2} ellipsizeMode="tail">
                   {t('verificationScreen.emailSentTo', { value: maskedValue })}
                 </Text>
@@ -778,10 +808,10 @@ const VerificationScreen = ({
             {!otpSent ? (
               <>
                 {/* Phone Info Card */}
-                <View style={[s.card, cardShadow]}>
+                <View style={[s.card, makeCardShadow(C)]}>
                   <View style={s.cardHeaderRow}>
-                    <View style={[s.cardIconCircle, { backgroundColor: '#FFF7ED' }]}>
-                      <MaterialIcon name="phone-android" size={22} color={BRAND.primary} />
+                    <View style={[s.cardIconCircle, { backgroundColor: C.warningBg }]}>
+                      <MaterialIcon name="phone-android" size={22} color={C.primary} />
                     </View>
                     <View style={{ flex: 1, marginLeft: 12 }}>
                       <Text style={s.sectionLabel}>{t('verificationScreen.phoneVerification')}</Text>
@@ -813,7 +843,7 @@ const VerificationScreen = ({
                             setEditValue(digits.slice(0, 10));
                           }}
                           placeholder={t('verificationScreen.phonePlaceholder')}
-                          placeholderTextColor={BRAND.textMuted}
+                          placeholderTextColor={C.textMuted}
                           keyboardType="number-pad"
                           maxLength={10}
                           editable={!savingValue}
@@ -828,7 +858,7 @@ const VerificationScreen = ({
                           activeOpacity={0.8}
                         >
                           {savingValue ? (
-                            <ActivityIndicator size="small" color={BRAND.white} />
+                            <ActivityIndicator size="small" color={C.white} />
                           ) : (
                             <Text style={s.ctaButtonText}>{t('verificationScreen.savePhone')}</Text>
                           )}
@@ -861,7 +891,7 @@ const VerificationScreen = ({
                           setIsEditing(true);
                         }}
                       >
-                        <MaterialIcon name="edit" size={16} color={BRAND.secondary} />
+                        <MaterialIcon name="edit" size={16} color={C.secondary} />
                         <Text style={s.editPillText}>{t('common.edit')}</Text>
                       </TouchableOpacity>
                     </View>
@@ -871,19 +901,19 @@ const VerificationScreen = ({
                 {/* Send OTP Button */}
                 {!isEditing && (
                   <TouchableOpacity
-                    style={[s.ctaButton, glowShadow, (!currentPhone || sendLoading) && s.ctaButtonDisabled]}
+                    style={[s.ctaButton, makeGlowShadow(C), (!currentPhone || sendLoading) && s.ctaButtonDisabled]}
                     onPress={handleSendVerification}
                     disabled={sendLoading || !currentPhone}
                     activeOpacity={0.8}
                   >
                     {sendLoading ? (
                       <View style={s.ctaRow}>
-                        <ActivityIndicator size="small" color={BRAND.white} />
+                        <ActivityIndicator size="small" color={C.white} />
                         <Text style={s.ctaButtonText}>{t('verificationScreen.sendingOtp')}</Text>
                       </View>
                     ) : (
                       <View style={s.ctaRow}>
-                        <MaterialIcon name="sms" size={20} color={BRAND.white} />
+                        <MaterialIcon name="sms" size={20} color={C.white} />
                         <Text style={s.ctaButtonText}>{t('verificationScreen.sendOtp')}</Text>
                       </View>
                     )}
@@ -893,7 +923,7 @@ const VerificationScreen = ({
             ) : (
               <>
                 {/* OTP Entry Card */}
-                <View style={[s.card, cardShadow]}>
+                <View style={[s.card, makeCardShadow(C)]}>
                   {/* Countdown */}
                   <CountdownCircle />
 
@@ -970,7 +1000,7 @@ const VerificationScreen = ({
                 <TouchableOpacity
                   style={[
                     s.ctaButton,
-                    glowShadow,
+                    makeGlowShadow(C),
                     (loading || otp.join('').length !== OTP_LENGTH) && s.ctaButtonDisabled,
                   ]}
                   onPress={() => {
@@ -991,12 +1021,12 @@ const VerificationScreen = ({
                 >
                   {loading ? (
                     <View style={s.ctaRow}>
-                      <ActivityIndicator size="small" color={BRAND.white} />
+                      <ActivityIndicator size="small" color={C.white} />
                       <Text style={s.ctaButtonText}>{t('verificationScreen.verifyingBtn')}</Text>
                     </View>
                   ) : (
                     <View style={s.ctaRow}>
-                      <MaterialIcon name="verified" size={20} color={BRAND.white} />
+                      <MaterialIcon name="verified" size={20} color={C.white} />
                       <Text style={s.ctaButtonText}>{t('verificationScreen.verifyOtp')}</Text>
                     </View>
                   )}
@@ -1015,10 +1045,10 @@ const VerificationScreen = ({
                     activeOpacity={0.7}
                   >
                     {sendLoading ? (
-                      <ActivityIndicator size="small" color={BRAND.primary} />
+                      <ActivityIndicator size="small" color={C.primary} />
                     ) : (
                       <>
-                        <MaterialIcon name="refresh" size={16} color={(!canResend || sendLoading) ? BRAND.textMuted : BRAND.primary} />
+                        <MaterialIcon name="refresh" size={16} color={(!canResend || sendLoading) ? C.textMuted : C.primary} />
                         <Text style={[
                           s.resendBtnText,
                           (!canResend || sendLoading) && s.resendBtnTextDisabled,
@@ -1042,12 +1072,12 @@ const VerificationScreen = ({
           activeOpacity={0.7}
         >
           <Text style={s.skipBtnText}>{t('verificationScreen.skipForNow')}</Text>
-          <MaterialIcon name="chevron-right" size={18} color={BRAND.textMuted} />
+          <MaterialIcon name="chevron-right" size={18} color={C.textMuted} />
         </TouchableOpacity>
 
         {/* Footer Tip */}
-        <View style={[s.footerCard, cardShadow]}>
-          <MaterialIcon name="info-outline" size={18} color={BRAND.textMuted} />
+        <View style={[s.footerCard, makeCardShadow(C)]}>
+          <MaterialIcon name="info-outline" size={18} color={C.textMuted} />
           <Text style={s.footerText}>
             {isEmailVerification
               ? t('verificationScreen.emailTip')
@@ -1063,11 +1093,13 @@ const VerificationScreen = ({
 /* ═══════════════════════════════════════════════════════════════════
    STYLES
    ═══════════════════════════════════════════════════════════════════ */
-const s = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   /* ─── Layout ───────────────────────────────────────────────────── */
   safeArea: {
     flex: 1,
-    backgroundColor: BRAND.bg,
+    backgroundColor: C.bg,
   },
   scrollContent: {
     flexGrow: 1,
@@ -1085,18 +1117,18 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 14,
-    backgroundColor: BRAND.bg,
+    backgroundColor: C.bg,
   },
   backCircle: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.06,
         shadowRadius: 8,
@@ -1107,13 +1139,13 @@ const s = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: BRAND.text,
+    color: C.text,
     textAlign: 'center',
     flex: 1,
   },
   headerSubtitle: {
     fontSize: 15,
-    color: BRAND.textSecondary,
+    color: C.textSecondary,
     lineHeight: 22,
     marginBottom: 20,
     paddingHorizontal: 4,
@@ -1127,7 +1159,7 @@ const s = StyleSheet.create({
 
   /* ─── Card ─────────────────────────────────────────────────────── */
   card: {
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     borderRadius: 22,
     padding: 20,
     marginBottom: 16,
@@ -1141,26 +1173,26 @@ const s = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: C.infoBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sectionLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: BRAND.textMuted,
+    color: C.textMuted,
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     marginBottom: 4,
   },
   cardDescription: {
     fontSize: 14,
-    color: BRAND.textSecondary,
+    color: C.textSecondary,
     lineHeight: 20,
   },
   separator: {
     height: 1,
-    backgroundColor: BRAND.border,
+    backgroundColor: C.border,
     marginVertical: 16,
   },
 
@@ -1183,11 +1215,11 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.sunken,
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: BRAND.border,
+    borderColor: C.border,
   },
   valueLabelCol: {
     flex: 1,
@@ -1196,7 +1228,7 @@ const s = StyleSheet.create({
   valueLabelSmall: {
     fontSize: 10,
     fontWeight: '700',
-    color: BRAND.textMuted,
+    color: C.textMuted,
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     marginBottom: 3,
@@ -1204,7 +1236,7 @@ const s = StyleSheet.create({
   valueText: {
     fontSize: 16,
     fontWeight: '600',
-    color: BRAND.text,
+    color: C.text,
   },
   editPill: {
     flexDirection: 'row',
@@ -1213,12 +1245,12 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 12,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: C.infoBg,
   },
   editPillText: {
     fontSize: 13,
     fontWeight: '600',
-    color: BRAND.secondary,
+    color: C.secondary,
   },
 
   /* ─── Edit Mode ────────────────────────────────────────────────── */
@@ -1228,22 +1260,22 @@ const s = StyleSheet.create({
   editLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: BRAND.text,
+    color: C.text,
     marginBottom: 8,
   },
   editInput: {
     borderWidth: 1.5,
-    borderColor: BRAND.border,
+    borderColor: C.border,
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: BRAND.text,
-    backgroundColor: '#F8FAFC',
+    color: C.text,
+    backgroundColor: C.sunken,
   },
   editHint: {
     fontSize: 12,
-    color: BRAND.textMuted,
+    color: C.textMuted,
     marginTop: 6,
     marginBottom: 12,
   },
@@ -1261,22 +1293,22 @@ const s = StyleSheet.create({
     height: 52,
     paddingHorizontal: 16,
     borderRadius: 14,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.sunken,
     borderWidth: 1.5,
-    borderColor: BRAND.border,
+    borderColor: C.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   countryCodeText: {
     fontSize: 16,
     fontWeight: '700',
-    color: BRAND.text,
+    color: C.text,
   },
 
   /* ─── CTA Button ───────────────────────────────────────────────── */
   ctaButton: {
     flex: 1,
-    backgroundColor: BRAND.primary,
+    backgroundColor: C.primary,
     height: 56,
     borderRadius: 16,
     alignItems: 'center',
@@ -1284,12 +1316,12 @@ const s = StyleSheet.create({
     marginBottom: 12,
   },
   ctaButtonDisabled: {
-    backgroundColor: '#CBD5E1',
+    backgroundColor: C.borderMedium,
     shadowOpacity: 0,
     elevation: 0,
   },
   ctaButtonText: {
-    color: BRAND.white,
+    color: C.white,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -1302,12 +1334,12 @@ const s = StyleSheet.create({
     flex: 1,
     height: 56,
     borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: C.hairline,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelBtnText: {
-    color: BRAND.textSecondary,
+    color: C.textSecondary,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -1317,7 +1349,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#ECFDF5',
+    backgroundColor: C.successBg,
     borderRadius: 14,
     padding: 14,
     marginBottom: 8,
@@ -1326,7 +1358,7 @@ const s = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '500',
-    color: '#065F46',
+    color: C.success,
     lineHeight: 20,
   },
 
@@ -1339,15 +1371,15 @@ const s = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: C.infoBg,
     borderWidth: 3,
-    borderColor: BRAND.secondary,
+    borderColor: C.secondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   countdownCircleExpired: {
-    borderColor: BRAND.red,
-    backgroundColor: '#FEF2F2',
+    borderColor: C.red,
+    backgroundColor: C.dangerBg,
   },
   countdownInner: {
     alignItems: 'center',
@@ -1355,24 +1387,24 @@ const s = StyleSheet.create({
   },
   countdownLabel: {
     fontSize: 12,
-    color: BRAND.textMuted,
+    color: C.textMuted,
     fontWeight: '500',
   },
   countdownValue: {
     fontSize: 20,
     fontWeight: '800',
-    color: BRAND.secondary,
+    color: C.secondary,
   },
   countdownExpiredText: {
     fontSize: 15,
     fontWeight: '700',
-    color: BRAND.red,
+    color: C.red,
   },
 
   /* ─── OTP Input ────────────────────────────────────────────────── */
   otpInstruction: {
     fontSize: 14,
-    color: BRAND.textSecondary,
+    color: C.textSecondary,
     textAlign: 'center',
     marginBottom: 20,
     fontWeight: '500',
@@ -1389,13 +1421,13 @@ const s = StyleSheet.create({
     height: 60,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: BRAND.border,
-    backgroundColor: '#F8FAFC',
+    borderColor: C.border,
+    backgroundColor: C.sunken,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.04,
         shadowRadius: 4,
@@ -1404,11 +1436,11 @@ const s = StyleSheet.create({
     }),
   },
   otpBoxFilled: {
-    borderColor: BRAND.secondary,
-    backgroundColor: '#EFF6FF',
+    borderColor: C.secondary,
+    backgroundColor: C.infoBg,
     ...Platform.select({
       ios: {
-        shadowColor: BRAND.secondary,
+        shadowColor: C.secondary,
         shadowOpacity: 0.12,
         shadowRadius: 8,
       },
@@ -1416,11 +1448,11 @@ const s = StyleSheet.create({
     }),
   },
   otpBoxFocused: {
-    borderColor: BRAND.primary,
-    backgroundColor: '#FFFBF5',
+    borderColor: C.primary,
+    backgroundColor: C.warningBg,
     ...Platform.select({
       ios: {
-        shadowColor: BRAND.primary,
+        shadowColor: C.primary,
         shadowOpacity: 0.18,
         shadowRadius: 10,
       },
@@ -1433,23 +1465,23 @@ const s = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
     textAlign: 'center',
-    color: BRAND.text,
+    color: C.text,
     padding: 0,
   },
   otpDigitFilled: {
-    color: BRAND.secondary,
+    color: C.secondary,
   },
   otpDigitFocused: {
-    color: BRAND.primary,
+    color: C.primary,
   },
   otpDigitDisabled: {
-    color: BRAND.textMuted,
+    color: C.textMuted,
   },
   otpCursor: {
     position: 'absolute',
     width: 2,
     height: 26,
-    backgroundColor: BRAND.primary,
+    backgroundColor: C.primary,
     borderRadius: 1,
   },
 
@@ -1462,7 +1494,7 @@ const s = StyleSheet.create({
   },
   resendLabel: {
     fontSize: 14,
-    color: BRAND.textMuted,
+    color: C.textMuted,
     fontWeight: '500',
   },
   resendBtn: {
@@ -1472,18 +1504,18 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 11,
     borderRadius: 12,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: C.warningBg,
   },
   resendBtnDisabled: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: C.hairline,
   },
   resendBtnText: {
     fontSize: 14,
-    color: BRAND.primary,
+    color: C.primary,
     fontWeight: '700',
   },
   resendBtnTextDisabled: {
-    color: BRAND.textMuted,
+    color: C.textMuted,
   },
 
   /* ─── Skip ─────────────────────────────────────────────────────── */
@@ -1497,7 +1529,7 @@ const s = StyleSheet.create({
   },
   skipBtnText: {
     fontSize: 14,
-    color: BRAND.textMuted,
+    color: C.textMuted,
     fontWeight: '500',
   },
 
@@ -1506,7 +1538,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     borderRadius: 16,
     padding: 16,
     marginBottom: 20,
@@ -1514,7 +1546,7 @@ const s = StyleSheet.create({
   footerText: {
     flex: 1,
     fontSize: 13,
-    color: BRAND.textMuted,
+    color: C.textMuted,
     lineHeight: 20,
   },
 
@@ -1524,7 +1556,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
-    backgroundColor: BRAND.bg,
+    backgroundColor: C.bg,
   },
   successIconOuter: {
     width: 120,
@@ -1537,12 +1569,12 @@ const s = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: BRAND.successGreen,
+    backgroundColor: C.successGreen,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: BRAND.successGreen,
+        shadowColor: C.successGreen,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.35,
         shadowRadius: 16,
@@ -1556,7 +1588,7 @@ const s = StyleSheet.create({
     height: 108,
     borderRadius: 54,
     borderWidth: 2,
-    borderColor: BRAND.successGreen,
+    borderColor: C.successGreen,
     opacity: 0.25,
   },
   successRingOuter: {
@@ -1565,19 +1597,19 @@ const s = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 1.5,
-    borderColor: BRAND.successGreen,
+    borderColor: C.successGreen,
     opacity: 0.12,
   },
   successTitle: {
     fontSize: 28,
     fontWeight: '800',
-    color: BRAND.text,
+    color: C.text,
     marginBottom: 12,
     textAlign: 'center',
   },
   successSubtitle: {
     fontSize: 16,
-    color: BRAND.textSecondary,
+    color: C.textSecondary,
     textAlign: 'center',
     marginBottom: 40,
     lineHeight: 24,
@@ -1587,13 +1619,13 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: BRAND.secondary,
+    backgroundColor: C.secondary,
     paddingHorizontal: 32,
     height: 56,
     borderRadius: 16,
     ...Platform.select({
       ios: {
-        shadowColor: BRAND.secondary,
+        shadowColor: C.secondary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 10,
@@ -1604,8 +1636,9 @@ const s = StyleSheet.create({
   successBackBtnText: {
     fontSize: 16,
     fontWeight: '700',
-    color: BRAND.white,
+    color: C.white,
   },
-});
+  });
+};
 
 export default VerificationScreen;
