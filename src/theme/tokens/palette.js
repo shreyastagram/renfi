@@ -143,6 +143,27 @@ export const stableDark = {
   successLine: 'rgba(16, 185, 129, 0.3)',
   infoFill: 'rgba(59, 130, 246, 0.15)',
   infoLine: 'rgba(59, 130, 246, 0.3)',
+
+  // The drawer hero. A brand-dark panel above a light menu body, so the panel
+  // and everything on it stays put while the body below flips with the theme.
+  heroSurface: '#0F172A',
+  heroBackdrop: 'rgba(15, 23, 42, 0.6)',
+  heroDivider: 'rgba(255, 255, 255, 0.1)',
+  heroRowFill: 'rgba(255, 255, 255, 0.03)',
+  brandBlueFill: 'rgba(43, 118, 188, 0.08)',
+  brandBlueLine: 'rgba(43, 118, 188, 0.25)',
+  brandBlueLineStrong: 'rgba(43, 118, 188, 0.6)',
+  brandBlueChip: 'rgba(43, 118, 188, 0.25)',
+  brandOrangeFill: 'rgba(246, 124, 22, 0.08)',
+  brandOrangeLine: 'rgba(246, 124, 22, 0.25)',
+  brandOrangeLineStrong: 'rgba(246, 124, 22, 0.6)',
+  brandOrangeChip: 'rgba(246, 124, 22, 0.25)',
+  onlineDot: '#22C55E',
+  onlineChip: 'rgba(34, 197, 94, 0.18)',
+  onlineInk: '#DCFCE7',
+  verifiedInk: '#86EFAC',
+  inkSoft: 'rgba(255, 255, 255, 0.55)',
+  inkDim: 'rgba(255, 255, 255, 0.6)',
 };
 
 // Apple system colours, light and dark, exactly as the HIG defines them.

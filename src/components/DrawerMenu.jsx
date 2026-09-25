@@ -23,6 +23,7 @@ import {  View,
   StatusBar
 } from 'react-native';
 import TouchableOpacity from './TouchableOpacity';
+import { useThemeColors, useThemedStyles, stableDark } from '../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -37,25 +38,27 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DRAWER_WIDTH = Math.min(SCREEN_WIDTH * 0.82, 330);
 
 // Brand colors
-const BRAND = {
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  heroBg: '#0F172A',
-  white: '#FFFFFF',
-  surface: '#FBFCFE',
-  backdrop: 'rgba(15,23,42,0.6)',
-  danger: '#EF4444',
-  dangerBg: 'rgba(239,68,68,0.08)',
-  dangerBorder: 'rgba(239,68,68,0.15)',
-  textPrimary: '#1E293B',
-  textSecondary: '#64748B',
-  textMuted: '#94A3B8',
-  divider: '#E2E8F0',
-  iconBg: '#F1F5F9',
-};
-
-// Unified icon color — all menu icons use the same brand secondary
-const MENU_ICON_COLOR = BRAND.secondary;
+// This drawer is a MIXED surface: a brand-dark hero above a light menu body.
+// The hero and everything on it uses stableDark, because that panel stays dark
+// in both themes — a flipping token there would vanish in light mode. The body
+// below uses ordinary theme tokens and does flip. Keeping the two straight is
+// the whole reason stableDark exists; see the note in palette.js.
+const makeBrand = (c) => ({
+  primary: c.brandOrange,
+  secondary: c.brandBlue,
+  heroBg: stableDark.heroSurface,
+  white: stableDark.ink,
+  surface: c.surface,
+  backdrop: stableDark.heroBackdrop,
+  danger: c.danger,
+  dangerBg: c.dangerContainer,
+  dangerBorder: c.dangerBorder,
+  textPrimary: c.textStrong,
+  textSecondary: c.textSecondary,
+  textMuted: c.textMuted,
+  divider: c.border,
+  iconBg: c.surfaceSunken,
+});
 
 /**
  * Get user initials from name
@@ -80,6 +83,8 @@ const getProfilePicUrl = (profilePicture) => {
 // ─── Animated Hamburger Menu Button ────────────────────────────────────────────
 
 export const MenuButton = ({ onPress, style, isOpen }) => {
+  const styles = useThemedStyles(makeStyles);
+
   const animValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -110,6 +115,8 @@ export const MenuButton = ({ onPress, style, isOpen }) => {
 // ─── Avatar Button ─────────────────────────────────────────────────────────────
 
 export const AvatarButton = ({ name, onPress, style, isProvider, profilePicture }) => {
+  const styles = useThemedStyles(makeStyles);
+
   const profileUrl = getProfilePicUrl(profilePicture);
   return (
     <TouchableOpacity
@@ -129,6 +136,9 @@ export const AvatarButton = ({ name, onPress, style, isProvider, profilePicture 
 // ─── Animated Menu Item ────────────────────────────────────────────────────────
 
 const AnimatedMenuItem = React.memo(({ item, index, onPress, isReady, isActive }) => {
+  const themeColors = useThemeColors();
+  const BRAND = React.useMemo(() => makeBrand(themeColors), [themeColors]);
+  const styles = useThemedStyles(makeStyles);
   const anim = useRef(new Animated.Value(0)).current;
   const pressAnim = useRef(new Animated.Value(1)).current;
 
@@ -172,12 +182,12 @@ const AnimatedMenuItem = React.memo(({ item, index, onPress, isReady, isActive }
     return <Animated.View key={item.id} style={[styles.divider, { opacity }]} />;
   }
 
-  const accentColor = item.accent ? '#DC2626' : null;
+  const accentColor = item.accent ? themeColors.danger : null;
   const iconColor = item.danger ? BRAND.danger : accentColor || (isActive ? BRAND.secondary : BRAND.textSecondary);
   const iconBgColor = item.danger
     ? BRAND.dangerBg
     : item.accent
-      ? 'rgba(220,38,38,0.08)'
+      ? themeColors.dangerContainer
       : isActive
         ? `${BRAND.secondary}15`
         : BRAND.iconBg;
@@ -222,6 +232,9 @@ export const DrawerMenu = ({
   const { dialog } = useDialog();
   const { openSupport } = useSupport();
   const { t, language, setLanguage, languages } = useLanguage();
+  const themeColors = useThemeColors();
+  const styles = useThemedStyles(makeStyles);
+  const BRAND = React.useMemo(() => makeBrand(themeColors), [themeColors]);
 
   // StatusBar.currentHeight is reliable on Android even inside Modals.
   // insets.top returns 0 inside statusBarTranslucent Modals on Android.
@@ -474,7 +487,7 @@ export const DrawerMenu = ({
                 </View>
                 {isVerified && (
                   <View style={styles.verifiedBadge}>
-                    <Icon name="check-circle" size={10} color="#86EFAC" style={{ marginRight: 3 }} />
+                    <Icon name="check-circle" size={10} color={stableDark.verifiedInk} style={{ marginRight: 3 }} />
                     <Text style={styles.verifiedText}>{t('drawer.verified')}</Text>
                   </View>
                 )}
@@ -483,7 +496,7 @@ export const DrawerMenu = ({
               {/* View Profile link */}
               <View style={styles.viewProfileRow}>
                 <Text style={styles.viewProfileText}>{t('drawer.viewProfile')}</Text>
-                <Icon name="chevron-right" size={14} color="rgba(255,255,255,0.55)" />
+                <Icon name="chevron-right" size={14} color={stableDark.inkSoft} />
               </View>
             </TouchableOpacity>
           </Animated.View>
@@ -557,7 +570,9 @@ export const DrawerMenu = ({
 
 // ─── Styles ────────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const BRAND = makeBrand(theme.colors);
+  return StyleSheet.create({
   // ─── Menu Button ───
   menuButton: {
     width: 48,
@@ -568,7 +583,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: theme.colors.shadow,
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.14,
         shadowRadius: 10,
@@ -598,7 +613,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2.5,
-    borderColor: 'rgba(43,118,188,0.25)',
+    borderColor: stableDark.brandBlueLine,
     overflow: 'hidden',
     ...Platform.select({
       ios: {
@@ -614,7 +629,7 @@ const styles = StyleSheet.create({
   },
   avatarButtonProvider: {
     backgroundColor: BRAND.primary,
-    borderColor: 'rgba(246,124,22,0.25)',
+    borderColor: stableDark.brandOrangeLine,
   },
   avatarText: { color: BRAND.white, fontSize: 16, fontWeight: '700' },
   avatarImage: { width: 42, height: 42, borderRadius: 21 },
@@ -646,7 +661,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: stableDark.shadowBase,
         shadowOffset: { width: 10, height: 0 },
         shadowOpacity: 0.22,
         shadowRadius: 44,
@@ -674,7 +689,7 @@ const styles = StyleSheet.create({
     width: 160,
     height: 160,
     borderRadius: 80,
-    backgroundColor: 'rgba(246,124,22,0.08)',
+    backgroundColor: stableDark.brandOrangeFill,
   },
   decorCircle2: {
     position: 'absolute',
@@ -683,7 +698,7 @@ const styles = StyleSheet.create({
     width: 110,
     height: 110,
     borderRadius: 55,
-    backgroundColor: 'rgba(43,118,188,0.08)',
+    backgroundColor: stableDark.brandBlueFill,
   },
   decorCircle3: {
     position: 'absolute',
@@ -692,7 +707,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: stableDark.heroRowFill,
   },
 
   avatarCenter: {
@@ -708,7 +723,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
   },
   glowRingUser: {
-    borderColor: 'rgba(43,118,188,0.6)',
+    borderColor: stableDark.brandBlueLineStrong,
     ...Platform.select({
       ios: {
         shadowColor: BRAND.secondary,
@@ -722,7 +737,7 @@ const styles = StyleSheet.create({
     }),
   },
   glowRingProvider: {
-    borderColor: 'rgba(246,124,22,0.6)',
+    borderColor: stableDark.brandOrangeLineStrong,
     ...Platform.select({
       ios: {
         shadowColor: BRAND.primary,
@@ -764,7 +779,7 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: '#22C55E',
+    backgroundColor: stableDark.onlineDot,
     borderWidth: 2.5,
     borderColor: BRAND.heroBg,
   },
@@ -778,7 +793,7 @@ const styles = StyleSheet.create({
     maxWidth: '90%',
   },
   userEmail: {
-    color: 'rgba(255,255,255,0.55)',
+    color: stableDark.inkSoft,
     fontSize: 13,
     marginTop: 4,
     textAlign: 'center',
@@ -794,13 +809,13 @@ const styles = StyleSheet.create({
   typeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(43,118,188,0.25)',
+    backgroundColor: stableDark.brandBlueChip,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
   typeBadgeProv: {
-    backgroundColor: 'rgba(246,124,22,0.25)',
+    backgroundColor: stableDark.brandOrangeChip,
   },
   typeBadgeText: {
     color: BRAND.white,
@@ -810,13 +825,13 @@ const styles = StyleSheet.create({
   verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(34,197,94,0.18)',
+    backgroundColor: stableDark.onlineChip,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
   verifiedText: {
-    color: '#DCFCE7',
+    color: stableDark.onlineInk,
     fontSize: 10.5,
     fontWeight: '700',
   },
@@ -827,10 +842,10 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 14,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.1)',
+    borderTopColor: stableDark.heroDivider,
   },
   viewProfileText: {
-    color: 'rgba(255,255,255,0.6)',
+    color: stableDark.inkDim,
     fontSize: 12.5,
     fontWeight: '500',
     marginRight: 4,
@@ -853,7 +868,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   menuItemActive: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: theme.colors.infoContainer,
     position: 'relative',
   },
   activeIndicator: {
@@ -895,12 +910,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   menuItemAccent: {
-    backgroundColor: 'rgba(220,38,38,0.05)',
+    backgroundColor: theme.colors.dangerContainer,
     borderWidth: 1,
-    borderColor: 'rgba(220,38,38,0.12)',
+    borderColor: theme.colors.dangerBorder,
   },
   menuLabelAccent: {
-    color: '#991B1B',
+    color: theme.colors.danger,
     fontWeight: '700',
   },
   divider: {
@@ -949,6 +964,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     letterSpacing: 0.3,
   },
-});
+  });
+};
 
 export default DrawerMenu;

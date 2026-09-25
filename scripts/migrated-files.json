@@ -18,6 +18,7 @@
     "src/components/ShimmerLoader.jsx",
     "src/components/Input.jsx",
     "src/components/Icon.jsx",
-    "src/components/GlobalBanner.jsx"
+    "src/components/GlobalBanner.jsx",
+    "src/components/DrawerMenu.jsx"
   ]
 }

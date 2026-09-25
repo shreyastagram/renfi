@@ -15,7 +15,7 @@
 
 ## ▶ 1. WHERE WE ARE RIGHT NOW
 
-**Phases 0–5a and 6a done. Phase 6b is 2 of 4 batches done.**
+**Phases 0–5a and 6a done. Phase 6b is 3 of 4 batches done.**
 
 - The theme engine is live and **7 components consume it**. The Appearance control ships.
 - Switching to Dark currently changes: the status bar, dialogs, alerts, inputs, icons,
@@ -26,9 +26,9 @@
 
 ### Next action
 
-**Phase 6b batch 3** — `DrawerMenu` then `RootNavigator`. These are the two highest
-security-exposure files in the chrome (12 and 15 security-adjacent lines), so: colour only,
-and run the diff audit in §6 afterwards.
+**Phase 6b batch 4** — a `<Screen>` primitive to standardise the 18 `SafeAreaView`
+usages (15 declare no `edges`). After that, Phase 7 (user screens) is where the app
+visibly goes dark.
 
 ---
 
@@ -48,7 +48,7 @@ contract.
 - [ ] **Phase 6b** — Rest of shared chrome
   - [x] batch 1 — `Button`, `Alert`, `ShimmerLoader` (zero security exposure)
   - [x] batch 2 — `Input`, `Icon`, `GlobalBanner` (+ category-map dedupe)
-  - [ ] batch 3 — `DrawerMenu`, `RootNavigator` (highest security exposure — audit hard)
+  - [x] batch 3 — `DrawerMenu` (full), `RootNavigator` (surgical — see §15)
   - [ ] batch 4 — a `<Screen>` primitive to standardise the 18 `SafeAreaView` usages
 - [ ] **Phase 7** — User screens + Mapbox theme following (`TrafficNight`)
 - [ ] **Phase 8** — Provider screens incl. Working Hours (5 files, 126 colours)
@@ -62,8 +62,8 @@ contract.
 | Measure | Value |
 |---|---|
 | Colour literals remaining | **~3,150** (was 3,329 at v1.0.9) |
-| Files on the hex allowlist | **15** |
-| Components fully themed | **7** — CustomDialog, Button, Alert, ShimmerLoader, Input, Icon, GlobalBanner |
+| Files on the hex allowlist | **16** |
+| Components fully themed | **8** — CustomDialog, Button, Alert, ShimmerLoader, Input, Icon, GlobalBanner, DrawerMenu (+ RootNavigator surgically) |
 | Theme unit tests | 21 across 4 suites |
 | Owner's Working Hours tests | 86 — **must never regress** |
 | i18n | **2074** × en/hi/mr (2067 baseline + 7 theme keys) |
@@ -173,8 +173,8 @@ Exposure ranking for the chrome:
 | Icon | 1 | a `logout` icon **name** in a map | ✅ done |
 | GlobalBanner | 2 | reads `userType` to branch display | ✅ done |
 | Input | 3 | password **visibility** toggle (UI only) | ✅ done |
-| DrawerMenu | 12 | contains logout | ⬜ batch 3 |
-| RootNavigator | 15 | auth-state branching | ⬜ batch 3 |
+| DrawerMenu | 12 | contains logout | ✅ done — logout wiring provably untouched |
+| RootNavigator | 15 | auth-state branching | ✅ surgical — auth/deep-links provably untouched |
 
 ---
 
@@ -317,6 +317,24 @@ expiry; `PhoneChangeModal` has a reentry guard, mirror-sync retry and process-de
 - Push only when the owner says.
 - Providers run low-end Android — no per-render allocation, no new blur or gradients.
 - Commit `-m` bodies: no backticks.
+
+## 15. RootNavigator — deliberately only PARTIALLY migrated
+
+The floating tab bar carries **two independent light/dark systems** and they must not be
+conflated:
+
+1. **Scroll-adaptive tone** (`tabBarTone.js`) — the bar crossfades to a dark material when a
+   dark surface slides under it. **Left completely alone.** In app-dark mode the content
+   beneath the bar is dark, so this system already picks the dark tone by itself. Touching
+   it would break scroll behaviour, and it is a module-level singleton precisely to avoid
+   re-rendering the navigator on every scroll tick.
+2. **App theme** — only ONE value here actually needed it: `glass.fallback`, used solely
+   when `SUPPORTS_BLUR` is false, i.e. **low-end Android**. Without the fix a provider on a
+   cheap phone in dark mode would have seen a LIGHT pill floating on a dark screen.
+
+Everything else in that file (`tint`, `lensBg`, `lensBorder`, `DARK_*`) belongs to system 1
+and is intentionally still literal. **Do not "finish" this file without re-reading the
+above** — RootNavigator is therefore NOT on the hex allowlist, on purpose.
 
 ## 14. MOCKUPS (approved)
 

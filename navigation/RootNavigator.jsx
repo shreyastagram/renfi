@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView, DEVICE_SUPPORTS_BLUR } from '../src/components/SafeBlurView';
 import { House, History, Wrench, Settings, CircleUserRound } from 'lucide-react-native';
 import { setBarRect, subscribeTone } from '../src/components/tabBarTone';
+import { useThemeColors } from '../src/theme';
 import { useApp } from '../src/context/AppContext';
 import { useLanguage } from '../src/context/LanguageContext';
 import { LocationSharingProvider } from '../src/context/LocationSharingContext';
@@ -214,20 +215,31 @@ const TabIcon = React.memo(({ focused, icon, label, accent = VERIFIED_BLUE, prof
 // carries the surface on Android — same edges, no blur.
 const SUPPORTS_BLUR = DEVICE_SUPPORTS_BLUR;
 
-const GLASS = {
+// NOTE ON THE TWO LIGHT/DARK SYSTEMS ON THIS COMPONENT.
+//
+// The bar already has a SCROLL-ADAPTIVE tone (tabBarTone.js): it crossfades to a
+// dark material when a dark surface slides underneath it. That is independent of
+// the app theme, and it is left completely alone here — in app-dark mode the
+// content beneath the bar is dark, so the adaptive system already picks the dark
+// tone by itself. Conflating the two would break scroll behaviour.
+//
+// What DOES need the theme is `fallback`: it is only used when SUPPORTS_BLUR is
+// false, which is precisely low-end Android. Without this, a provider on a cheap
+// phone in dark mode would see a LIGHT pill floating on a dark screen.
+const makeGlass = (c) => ({
   user: {
     tint: SUPPORTS_BLUR ? 'rgba(235, 243, 250, 0.16)' : 'rgba(237, 244, 251, 0.88)',
     lensBg: 'rgba(43, 118, 188, 0.12)',
     lensBorder: 'rgba(43, 118, 188, 0.20)',
-    fallback: '#EDF4FB',
+    fallback: c.surfaceElevated,
   },
   provider: {
     tint: SUPPORTS_BLUR ? 'rgba(253, 242, 232, 0.18)' : 'rgba(252, 242, 233, 0.88)',
     lensBg: 'rgba(246, 124, 22, 0.13)',
     lensBorder: 'rgba(246, 124, 22, 0.22)',
-    fallback: '#FCF2E9',
+    fallback: c.surfaceElevated,
   },
-};
+});
 
 // Dark variant — strong enough (0.55) that white text is guaranteed
 // readable even when the bar half-overlaps a dark surface.
@@ -243,6 +255,8 @@ const FloatingTabBar = ({ state, descriptors, navigation }) => {
   const routeCount = state.routes.length;
 
   // Role from route shape (JobsTab exists only in the provider navigator)
+  const tabColors = useThemeColors();
+  const GLASS = React.useMemo(() => makeGlass(tabColors), [tabColors]);
   const glass = state.routes.some((r) => r.name === 'JobsTab') ? GLASS.provider : GLASS.user;
 
   // ── Gliding glass lens ──
@@ -921,7 +935,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#64748B',
+    color: BRAND.gray,
     fontWeight: '500',
   },
   
