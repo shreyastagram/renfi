@@ -9,6 +9,10 @@ description: Use for any frontend work in renfi/renfi during the verification re
 
 1. Read `docs/THEME_V2_TRACKER.md` in full. It is the source of truth for what
    phase we are in and what is already done.
+1a. **After every commit, update that tracker** — phase board, decisions log, progress
+   numbers. It once drifted four commits behind, which is the failure it exists to
+   prevent. If a decision turns out wrong, change it and record WHY in the
+   "Changed our mind" section rather than quietly dropping it.
 1b. Read `FIXORA_APP/WORK_AVAILABILITY_TRACKER.md` — the Working Hours feature is
    live in production and its surfaces are in theming scope.
 2. Read the spec it references for the current phase's requirements.

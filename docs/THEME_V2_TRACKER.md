@@ -1,46 +1,90 @@
-# Dark/Light Theme v2 — Tracker (SOURCE OF TRUTH)
+# Dark/Light Theme v2 — TRACKER (SOURCE OF TRUTH)
 
 **Branch:** `feature/theme-v2` (off tag **`v1.0.9`** = `b74f862`)
 **Colour contract:** `docs/COLOUR_MAP.md`
-**Also read:** `FIXORA_APP/WORK_AVAILABILITY_TRACKER.md` — Working Hours is live in prod and
-its surfaces are in theming scope.
-**Created:** 2026-09-24.
+**Also read:** `FIXORA_APP/WORK_AVAILABILITY_TRACKER.md` — Working Hours is live in prod.
+**Last updated:** 2026-09-25, after batch 6b-2.
 
-> Read this BEFORE touching code. If anything here contradicts the code, **STOP and flag it.**
-> Do not proceed on a false premise.
+> **Read this file BEFORE touching code.** If it contradicts the code, **STOP and flag it** —
+> do not proceed on a false premise.
+>
+> **UPDATE THIS FILE AFTER EVERY COMMIT**, not at phase boundaries. It drifted four commits
+> behind once already; that is the exact failure this file exists to prevent.
 
 ---
 
-## ▶ START HERE — current state
+## ▶ 1. WHERE WE ARE RIGHT NOW
 
-**Phases 0-2 DONE. Next action is Phase 3: re-confirm the verification mockup and redo the
-home-screen mockup on the near-black ramp.**
+**Phases 0–5a and 6a done. Phase 6b is 2 of 4 batches done.**
 
-No screen is themed yet. The only rendering changes so far are the ThemedStatusBar in
-App.tsx and the two accessibility fixes below — the app is otherwise visually unchanged.
+- The theme engine is live and **7 components consume it**. The Appearance control ships.
+- Switching to Dark currently changes: the status bar, dialogs, alerts, inputs, icons,
+  skeleton loaders and the notification banner. **Screens themselves are not themed yet.**
+- `npm run verify` exits 0. Working tree clean apart from the owner's `.vscode/settings.json`
+  and `android/clean.log`.
+- **Nothing is device-verified.** This environment cannot run the app.
 
-- Base is the `v1.0.9` tag, which is the first git point that matches what is live in both
-  stores. The 1.0.9 build previously existed only as 3 uncommitted files.
-- `npm run verify` exits 0 — and now includes the owner's 5 Working Hours suites.
-- The previous attempt (`feature/verification-ui-darkmode`, 19 commits, paused 2026-07-31)
-  is **superseded**. Its engine was ported; its analysis was discarded and redone.
+### Next action
 
-## Status
+**Phase 6b batch 3** — `DrawerMenu` then `RootNavigator`. These are the two highest
+security-exposure files in the chrome (12 and 15 security-adjacent lines), so: colour only,
+and run the diff audit in §6 afterwards.
 
-- [x] **Phase 0** — Branch off `v1.0.9`; inventory of the old branch; this tracker
-- [x] **Phase 1** — Theme engine ported + gates wired + fresh colour census
-- [x] **Phase 2** — Mockup: **Working Hours** surfaces, light + dark — APPROVED on the
-      near-black ramp. Two shipped a11y failures found and fixed while measuring.
-- [x] **Phase 3** — Mockup: verification re-confirmed + home screen rebuilt on near-black
-- [x] **Phase 4** — Dead-file removal (2,105 lines, 115 colours) + DRY audit
-- [ ] **Phase 5** — Verification module + defects V1–V6 + Settings theme control
-- [ ] **Phase 6** — Shared chrome + `<Screen>` primitive
-- [ ] **Phase 7** — User screens + Mapbox theme following
-- [ ] **Phase 8** — Provider screens incl. Working Hours
+---
+
+## 2. PHASE BOARD
+
+Tick sub-items as they land. Add or remove items freely — this is a working plan, not a
+contract.
+
+- [x] **Phase 0** — Branch off `v1.0.9`, inventory the old branch, write this tracker
+- [x] **Phase 1** — Theme engine ported, gates wired, fresh colour census
+- [x] **Phase 2** — Working Hours mockup, light + dark → approved
+- [x] **Phase 3** — Verification mockup re-confirmed, home mockup rebuilt on near-black
+- [x] **Phase 4** — Dead-file removal (2,105 lines) + DRY audit
+- [x] **Phase 5a** — Settings Appearance control (Light / Dark / System), 7 i18n keys
+- [ ] **Phase 5b** — Verification module + defects V1–V6 + `profile.emailPending`
+- [x] **Phase 6a** — Pilot: `CustomDialog` (proved the `useThemedStyles` pattern)
+- [ ] **Phase 6b** — Rest of shared chrome
+  - [x] batch 1 — `Button`, `Alert`, `ShimmerLoader` (zero security exposure)
+  - [x] batch 2 — `Input`, `Icon`, `GlobalBanner` (+ category-map dedupe)
+  - [ ] batch 3 — `DrawerMenu`, `RootNavigator` (highest security exposure — audit hard)
+  - [ ] batch 4 — a `<Screen>` primitive to standardise the 18 `SafeAreaView` usages
+- [ ] **Phase 7** — User screens + Mapbox theme following (`TrafficNight`)
+- [ ] **Phase 8** — Provider screens incl. Working Hours (5 files, 126 colours)
 - [ ] **Phase 9** — Auth screens
-- [ ] **Phase 10** — Full sweep + device checklist
+- [ ] **Phase 10** — Full sweep + device-test checklist
 
-## Gates — run before every commit
+---
+
+## 3. MIGRATION PROGRESS
+
+| Measure | Value |
+|---|---|
+| Colour literals remaining | **~3,150** (was 3,329 at v1.0.9) |
+| Files on the hex allowlist | **15** |
+| Components fully themed | **7** — CustomDialog, Button, Alert, ShimmerLoader, Input, Icon, GlobalBanner |
+| Theme unit tests | 21 across 4 suites |
+| Owner's Working Hours tests | 86 — **must never regress** |
+| i18n | **2074** × en/hi/mr (2067 baseline + 7 theme keys) |
+
+**Honest split:** by "can a user see the app go dark" ≈ **10%**. By total project effort
+≈ **45%** — architecture, palette, design language, census and gates are done, and the
+pattern is proven. The remaining literals are mechanical.
+
+### Remaining by area
+
+| Area | Colours | Phase |
+|---|---|---|
+| Everything else (screens) | ~2,400 | 7–9 |
+| Verification surfaces | 395 | 5b |
+| Working Hours | 126 | 8 |
+| Settings screen | 47 | 6b/7 |
+| `DrawerMenu` + `RootNavigator` | ~68 | 6b-3 |
+
+---
+
+## 4. GATES — run before EVERY commit
 
 ```
 npm run verify
@@ -48,186 +92,237 @@ npm run verify
 
 | Gate | Proves |
 |---|---|
-| `check:i18n` | en/hi/mr key-identical, **baseline 2067** |
-| `check:hex` | no raw hex in files listed in `scripts/migrated-files.json` |
+| `check:i18n` | en/hi/mr key-identical, **baseline 2074** |
+| `check:hex` | no raw colour literal in any allowlisted file (comments excluded) |
 | `check:contrast` | 35 semantic pairs × 2 themes meet WCAG AA |
-| `check:types` | `tsc --noEmit` — the only working check for `.tsx` |
-| `test:unit` | 19 theme tests |
-| `test:app` | **the owner's 86 Working Hours tests — never let these regress** |
+| `check:contrast` | dark device-safety: surface steps + border separation |
+| `check:types` | `tsc --noEmit` |
+| `test:unit` | 21 theme tests |
+| `test:app` | the owner's 86 Working Hours tests |
 
-Lint: compare per-file against the `v1.0.9` baseline, never absolute counts.
+**Plus, per file touched:** lint against the v1.0.9 baseline for that *specific* file.
+Never a global count. This caught a real crash-on-render regression in `Input`.
 
-### ⚠️ Syntax-checking: the babel CLI only works on plain `.js`
-
-Corrected 2026-09-25 after it was found to fail on **unmodified** v1.0.9 files:
+### Syntax checking — the babel CLI only works on plain `.js`
 
 | File type | Use | Do NOT use |
 |---|---|---|
 | `.js` | `npx babel --presets module:@react-native/babel-preset <f> -o /dev/null` | — |
-| `.jsx` | **`npx eslint <f>`** — reports `Parsing error` on bad syntax (verified) | babel CLI: fails on pristine files |
+| `.jsx` | **`npx eslint <f>`** — reports `Parsing error` | babel CLI: fails on pristine files |
 | `.tsx` | **`npm run check:types`** | babel CLI: chokes on `(global as any)` |
 
-Jest is **not** a substitute — a file with a syntax error still shows PASS if no
-running test imports it. Verified both ways on 2026-09-25.
+Jest is **not** a substitute — a file with a syntax error still shows PASS if no running
+test imports it.
 
-## Accessibility fixes shipped on this branch (2026-09-25)
+---
 
-Found while measuring the Working Hours surfaces. Both are defects in the **shipped 1.0.9
-build**, not caused by theming, and both are on **live controls** so WCAG's exemption for
-disabled elements does not apply.
+## 5. DECISIONS LOG
 
-| Control | Was | Now | File |
-|---|---|---|---|
-| ONLINE pad label + spinner | white on `#22C55E`, **2.28** | `#0F172A` on the same green, **7.83** | `ProviderHomeTopRow.jsx` |
-| Day chip, off state | `#94A3B8` on `#F8FAFC`, **2.45** | `#5B6878`, **5.43** | `WeeklyScheduleCard.jsx` |
+Including the ones that were reversed. If something stops making sense, change it and add
+a row here.
 
-The brand green is unchanged — only what sits on it, which is the same rule the orange
-fills follow. `#5B6878` is the value `textMuted` already uses; both become tokens in the
-provider-screen phase. The owner's 86 tests still pass; they assert order and text, not
-colour. Lint on the two files went 4 problems to 3.
-
-## Phase 1 result (2026-09-24)
-
-Ported from the old branch, conflict-free: `src/theme/` (9 files + 4 test suites),
-`scripts/` (4 gates), `android/.../values-night/` (2), the agent spec.
-
-Hand-applied to existing files:
-- `App.tsx` — `ThemeProvider` between `SafeAreaProvider` and `LanguageProvider`;
-  `StatusBar` → `<ThemedStatusBar />`. **+19/−1. The only rendering change so far.**
-- `package.json` — scripts only, **zero dependency changes**.
-
-**Deliberately NOT ported:**
-- `jest.config.js` — v1.0.9 already has a **byte-identical** transform block (the other
-  agent hit the same `.jsx` gap independently). Only the comment differed.
-- The old spec/plan/phases docs — superseded; analysis redone from scratch.
-- The dead-screen deletion — deferred to Phase 4 so non-use is re-verified on the new base.
-
-Verified: i18n 2067×3 · hex clean · 35 contrast pairs · 19 + 86 tests pass ·
-`App.tsx` lint **8 problems at v1.0.9 and 8 now** (unchanged) · 0 lint problems in new files.
-
-## Census summary (full detail in COLOUR_MAP.md)
-
-| | vs old base `5cfcd56` | **v1.0.9** |
+| Date | Decision | Status |
 |---|---|---|
-| Occurrences | 3,080 | **3,329** |
-| Distinct | 364 | **373** |
-| Files | 77 | **88** |
-| Multi-role | 64 | **65** |
-| One-off | 175 | **179** |
+| 07-27 | Redesign verification first, then theme everything | active |
+| 07-27 | Security = app-side fixes + read-only backend audit | active |
+| 07-27 | Harness = an agent spec that flags rather than complies | active |
+| 07-27 | Theme engine pure JS; Unistyles deferred (issue #1160) | active |
+| 07-27 | Neutrals: model both ramps, unify only in dark | active |
+| 07-27 | Non-brand blues kept distinct (light unchanged) | active |
+| 07-27 | Violet gets a token but stays scoped | active |
+| 07-27 | No progress bar on the verification card | active |
+| 07-27 | Dedicated i18n key for the email pending state | active |
+| 09-24 | Restart from `v1.0.9`, discard the old analysis | active |
+| 09-24 | Do NOT port `jest.config.js` — v1.0.9 already identical | active |
+| **09-25** | **Dark ramp REVERSED: slate-tinted → near-black neutral** | **supersedes 07-27** |
+| 09-25 | Dark surface steps sized by code-value gap, not contrast ratio | active |
+| 09-25 | Mapbox dark = `TrafficNight`, not `dark-v10` | active |
+| 09-25 | Fix shipped a11y failures as found, not deferred | active |
+| 09-25 | Apple system colours preserved as a documented AA exception | active |
+| 09-25 | Category/icon accents are THEME-INDEPENDENT | active |
+| 09-25 | Permanently-dark surfaces use `stableDark`, never flipping tokens | active |
+| 09-25 | Alert's parallel palette converged onto the semantic tokens | active |
 
-Tiers: T1 verification+settings 468 · **T2 Working Hours 121 (new)** · T3 user 1,001 ·
-T4 provider 551 · T5 auth 319 · T6 shared+rest 749 · dead files 120 (exclude).
+### Changed our mind — and why
 
-## i18n budget — exactly 8 new keys, 2067 → 2075
+- **The dark ramp.** Originally derived from the light theme's slate palette. The owner saw
+  it read as navy; measured at 39% saturation with blue 22 points above red. Replaced with a
+  near-black neutral at ~5%. **Lesson: I presented an aesthetic choice as a default. Always
+  say which parts are choices.**
+- **Raw near-black was worse than the old ramp on cheap panels** (surface→elevated 1.10 vs
+  1.21). Fixed by sizing steps on code-value gap and leaning on the card border.
+- **The hex linter flagged its own comments.** Fixed the linter, not the comments.
 
-- **7** Settings theme control: section title, 3 option labels (Light / Dark / System
-  Default), 3 explanatory lines.
-- **1** `profile.emailPending` = "Check inbox" — HI "इनबॉक्स देखें", MR "इनबॉक्स पाहा".
+---
 
-Everything else reuses existing keys. A missing key renders as `[missing …]`, so parity is
-enforced at every commit. If a state genuinely needs new copy, **flag it — do not invent.**
+## 6. SECURITY DISCIPLINE (owner instruction, 2026-09-25)
 
-## DRY audit (2026-09-25) — findings, and what was deliberately NOT merged
+**Theming must not touch security logic.** Method, applied per batch:
 
-The single biggest duplication in this codebase is **46 files each defining their own
-local `BRAND` / `COLORS` / `C` palette object**. Collapsing those onto one token source is
-precisely what this project is doing, so it is not a separate task.
+1. **Rank files by exposure first:**
+   `grep -cE "token|auth|logout|isAuthenticated|password|secret|Keychain|credential|userType"`
+2. Migrate lowest-exposure first so the pattern is proven before the risky files.
+3. **Audit the diff afterwards** — filter out colour/style lines and confirm nothing
+   remains. Anything left must be an object-literal → factory conversion, nothing else.
 
-Two other candidates were examined and **both were left alone on purpose**:
+Exposure ranking for the chrome:
 
-| Candidate | Verdict |
-|---|---|
-| `formatServiceName` in ProfileScreen, ProviderHomeScreen, ProviderDetailsModal | **Do not merge blindly.** The three are NOT identical: ProfileScreen falls back through `SERVICE_CATEGORIES`, the other two do not; ProviderDetailsModal is null-safe (`service?.`) while the other two would throw on undefined. Merging changes behaviour at 2 of 3 call sites, so it belongs in its own reviewed change, not bundled into theming. |
-| `getErrorMessage` in ProfileScreen and authService | **Not a duplicate at all.** Different functions sharing a name: authService maps an auth CODE to a user message; ProfileScreen stringifies an arbitrary error object. Merging them would be a real bug. Verified ProfileScreen does not import the other, so there is no shadowing. |
+| File | Security-ish lines | What they actually are | Status |
+|---|---|---|---|
+| Button, Alert, ShimmerLoader | 0 | — | ✅ done |
+| Icon | 1 | a `logout` icon **name** in a map | ✅ done |
+| GlobalBanner | 2 | reads `userType` to branch display | ✅ done |
+| Input | 3 | password **visibility** toggle (UI only) | ✅ done |
+| DrawerMenu | 12 | contains logout | ⬜ batch 3 |
+| RootNavigator | 15 | auth-state branching | ⬜ batch 3 |
 
-Principle applied: DRY only where the duplicated code is genuinely identical. Where copies
-have diverged, consolidating them is a behaviour change and needs its own review.
+---
 
-## Decisions taken 2026-09-25
+## 7. TOKEN ARCHITECTURE
 
-**Dark ramp = near-black neutral, hardened.** Sunken `#000000`, base `#0A0A0C`, surface
-`#17171B`, elevated `#26262B`. ~5% saturation, replacing a slate-derived ramp that read
-navy at 39%. Steps sized by 8-bit code-value gap (10/13/15) because contrast ratio is
-meaningless this close to black and budget 6-bit LCD panels crush dark values together.
-The 1px card border is the fallback that keeps cards visible if fills crush anyway —
-which makes "border not shadow" a device-robustness rule, not only an aesthetic one.
-Enforced by the dark device-safety audit in `check:contrast`.
+`src/theme/tokens/palette.js` is the only file allowed colour literals. Groups:
 
-**Two shipped a11y failures fixed** (done, not deferred — see below).
+| Group | Flips with theme? | Purpose |
+|---|---|---|
+| `brand` | orange no, blue yes | Fixhomi identity. Orange is a **fill only**. |
+| `slate` / `gray` | n/a (light source) | Two neutral ramps; unify in dark |
+| `dark` | n/a (dark source) | Near-black ramp, device-hardened |
+| `semanticLight` / `semanticDark` | yes | success / warning / danger / info |
+| `semanticDarkBorder` | dark only | status chips need a border on near-black |
+| `violet` | yes | categorical accent, scoped |
+| `altBlue` | yes | non-brand blues, preserved |
+| `iosSystem` | yes | Apple HIG light + dark |
+| `categoryAccent` | **NO** | identifies a trade — must stay recognisable |
+| `iconAccent` | **NO** | icon-map fallbacks (identity/status) |
+| `stableDark` | **NO** | surfaces that are dark in BOTH themes |
+| `vendor` | **NO** | Google brand blue — never themed |
 
-**Mapbox dark style = `StyleURL.TrafficNight`** (`navigation-preview-night-v4`), not
-`dark-v10`. Fixhomi is a dispatch app: a customer watches a provider travel to their
-address, so roads are the content, and `dark-v10` is a data-viz basemap that de-emphasises
-exactly that. Light mode keeps `StyleURL.Street` unchanged. Implementation at all 6 map
-sites is one derived value:
+**The `stableDark` rule matters most.** A flipping token on a permanently dark surface goes
+invisible in light mode. The Fixhomi website hit this exact bug. `GlobalBanner` is the first
+in-app case; there will be more (dark heroes).
+
+### Usage
 
 ```js
-styleURL={isDark ? Mapbox.StyleURL.TrafficNight : Mapbox.StyleURL.Street}
+import { useThemedStyles, useThemeColors } from '../theme';
+
+const makeStyles = (theme) => StyleSheet.create({   // MUST be module scope
+  card: { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+});
+
+const MyScreen = () => {
+  const styles = useThemedStyles(makeStyles);
+  const c = useThemeColors();  // for inline JSX props like icon color
+};
 ```
 
-A manual Light/Dark override is respected for free since it derives from the resolved
-theme. Caveat: changing `styleURL` at runtime forces a full style reload, so a mounted map
-flickers on theme switch. Lands in Phase 7. **The Standard style's `lightPreset` day/night
-is V11-only and this project is on Mapbox SDK v10 — not undertaken.**
+---
 
-## Design language (approved from the v1 mockups, still binding)
+## 8. DESIGN LANGUAGE (approved, binding)
 
 1. **Orange is a fill, never text or an icon on a light ground.** White on `#f67c16` is
-   2.69:1; orange as text on white is also 2.69:1. Only works as a ground under dark text
-   (`onBrandOrange` `#0F172A`, 6.64:1).
-2. **One state, one colour, app-wide.** Green = done, amber = waiting, orange = act.
-3. **Cards carry a 1px token border, not a heavy shadow** — shadows read as noise on dark.
+   2.69:1; orange as text on white is also 2.69:1. Only works under dark text
+   (`onBrandOrange`, 6.64:1).
+2. **One state, one colour, app-wide.** Green done, amber waiting, orange act.
+3. **Cards carry a 1px token border, not a heavy shadow** — also a device-robustness rule.
 4. **A resolved state removes chrome**, it does not add a success banner.
 5. **Restraint** — roughly one orange and one blue per screen.
 6. **Every pair meets AA in both themes**, proven by script.
 
-Approved mockups (v1, verification surface + home density test) remain valid as design
-references: the verification surface mockup is revision 2, with the progress bar removed.
+---
 
-## Defects to fix in Phase 5 — all RE-CONFIRMED present at v1.0.9
+## 9. ACCESSIBILITY FIXES SHIPPED
 
-| ID | Defect | Location at v1.0.9 |
+All were defects in the **shipped 1.0.9 build**, all on **live controls** (so no WCAG
+disabled-element exemption), all the same root cause: a mid-saturation fill carrying white.
+
+| Control | Was | Now | File |
+|---|---|---|---|
+| ONLINE pad + spinner | 2.28 | 7.83 | `ProviderHomeTopRow` |
+| Day chip, off state | 2.45 | 5.43 | `WeeklyScheduleCard` |
+| Dialog primary button | 2.69 | 6.64 | `CustomDialog` |
+| Alert success badge | 3.30 | 5.42 | `Alert` |
+| Alert warning badge | 3.19 | 5.60 | `Alert` |
+
+### Still awaiting an owner decision
+
+| Control | Ratio | Where |
 |---|---|---|
-| V1 | No in-flight reentry guard; gates only on async state, so a double tap fires two OTP sends. `PhoneChangeModal` has an `inFlight` ref; ProfileScreen does not. | `ProfileScreen.jsx:996`, `:1026` |
-| V2 | **Verified-flag downgrade** — `?? false` marks a verified user unverified on a partial response. | `AppContext.js:488-489` |
-| V3 | Concurrent `refreshVerificationStatus` calls race `setIsProfileLoading` | `AppContext.js` |
-| V4 | No cancellation — unmounted screen still writes state | all verification call sites |
-| V5 | Email has no persistent pending state (`otpSent` is phone-only) | `ProfileScreen.jsx:2329`, `:2452` |
-| V6 | Three presentations of the same two booleans; verified is blue in one, green in another | `ProfileScreen.jsx` |
+| Provider rating "4.8" as orange **text** | **2.69** | `UserHomeScreen` — every provider card |
+| Help & support icon (lone orange glyph) | **2.69** | `HelpSupportButton` |
 
-**Already correct — do NOT "fix":** `otpPhoneRef`/`otpExpiryRef` handle wall-clock OTP expiry
-and invalidate on phone change; `PhoneChangeModal` has a reentry guard, mirror-sync retry,
-and mid-flow process-death resume.
+Both shown in the Phase 3 mockup. Fixes proposed: rating in body ink, help icon as an
+orange fill. Light-mode changes, so the owner's call.
 
-Backend PR **noefix #36** (2026-09-14) changed token validation to jauth `/api/users/me` and
-unblocked change-phone / account deletion. **Re-read it before touching `PhoneChangeModal`** —
-it may already cover part of the planned Phase-4-era audit.
+---
 
-## Gotchas — do not rediscover
+## 10. i18n BUDGET
 
-1. **The RN jest preset omits `.jsx`** from its transform. Already fixed at v1.0.9 by the
-   other agent; do not re-add.
-2. **The babel CLI parse-check does NOT work on `.tsx` OR `.jsx`** — it fails on
-   `(global as any)` in an unmodified `App.tsx`, and on an unmodified
-   `ProviderHomeTopRow.jsx` too. Only plain `.js` is checkable that way. Use eslint for
-   `.jsx` and `npm run check:types` for `.tsx`. See the gates section.
-3. **Node ESM needs explicit `.js` extensions** in `src/theme/tokens/` and `themes.js`; the
-   gate scripts load them via `require(esm)`. Never add `"type": "module"` — it breaks RN.
-4. **`npm test` is red at baseline** — `App.test.tsx` needs native mocks nobody built. Use
+Baseline 2067 → **2074 now** → 2075 when 5b lands.
+
+- [x] 7 keys — `settings.theme*` (Appearance control)
+- [ ] 1 key — `profile.emailPending` = "Check inbox" (HI इनबॉक्स देखें, MR इनबॉक्स पाहा)
+
+Nothing else. A missing key renders `[missing …]`, so parity is gated every commit. If a
+state genuinely needs new copy, **flag it — do not invent.**
+
+---
+
+## 11. PHASE 5b — verification defects, all RE-CONFIRMED at v1.0.9
+
+| ID | Defect | Location |
+|---|---|---|
+| V1 | No in-flight reentry guard; double tap fires two OTP sends | `ProfileScreen.jsx:996`, `:1026` |
+| V2 | **`?? false` downgrades a verified flag** on a partial response | `AppContext.js:488-489` |
+| V3 | Concurrent `refreshVerificationStatus` race `setIsProfileLoading` | `AppContext.js` |
+| V4 | No cancellation — unmounted screen still writes state | all call sites |
+| V5 | Email has no persistent pending state | `ProfileScreen.jsx:2329`, `:2452` |
+| V6 | Three presentations of the same two booleans | `ProfileScreen.jsx` |
+
+**Already correct — do NOT "fix":** `otpPhoneRef`/`otpExpiryRef` handle wall-clock OTP
+expiry; `PhoneChangeModal` has a reentry guard, mirror-sync retry and process-death resume.
+
+**Read backend PR noefix #36 first** (2026-09-14, token validation moved to jauth
+`/api/users/me`) — it may already cover part of the planned audit.
+
+---
+
+## 12. GOTCHAS — do not rediscover
+
+1. **The RN jest preset omits `.jsx`** from its transform. Already fixed at v1.0.9 by
+   another agent; do not re-add.
+2. **The babel CLI parse-check fails on `.tsx` AND `.jsx`** even on pristine files. See §4.
+3. **Node ESM needs explicit `.js` extensions** in `src/theme/tokens/` and `themes.js`.
+   Never add `"type": "module"` — it breaks RN.
+4. **`npm test` is red at baseline** (`App.test.tsx` needs native mocks). Use
    `test:unit` + `test:app`.
-5. **Unistyles v3 was evaluated and deferred** — still valid: RN is still 0.84.1, no dep
-   changes, and `freezeOnBlur` is still set on both navigators, which is the code path in
-   the unresolved release-only iOS crash (issue #1160). The `src/theme` interface keeps the
-   swap open.
-6. **Releases were cut directly from working branches**, so `main` is a year-stale artefact.
-   `v1.0.9` is the only reliable reference point.
+5. **Unistyles v3 deferred** — still valid: RN 0.84.1, no dep changes, `freezeOnBlur` still
+   set on both navigators, which is the unresolved crash path in issue #1160.
+6. **Releases were cut from working branches**; `main` is a year-stale artefact. `v1.0.9` is
+   the only reliable reference.
+7. **Contrast ratio is meaningless near black** — it compresses toward 1.0. Judge dark
+   surface separation by 8-bit code-value gap instead.
+8. **`formatServiceName` ×3 have DIVERGED** — do not merge. `getErrorMessage` ×2 are
+   different functions sharing a name — do not merge.
 
-## Rules
+---
 
-- Never stage the owner's local files: `.vscode/settings.json`, `android/clean.log`.
+## 13. RULES
+
+- Never stage the owner's files: `.vscode/settings.json`, `android/clean.log`.
 - Do not commit `environment.js` / `build.gradle` / `project.pbxproj` unless asked.
-- `USE_DEV_STAGING` must be **false** for store builds, **true** only for Firebase dev builds.
+- `USE_DEV_STAGING` **false** for store builds, **true** only for Firebase dev builds.
 - Owner ships without local testing → **every UI change needs an HTML mockup (light + dark)
   approved before building.**
 - Push only when the owner says.
 - Providers run low-end Android — no per-render allocation, no new blur or gradients.
+- Commit `-m` bodies: no backticks.
+
+## 14. MOCKUPS (approved)
+
+| What | URL |
+|---|---|
+| Verification surface (rev 2) | https://claude.ai/code/artifact/f5961c34-2e16-4418-9c08-7f9bac4ba605 |
+| Working Hours, light + dark | https://claude.ai/code/artifact/4c095340-50d6-4cf7-be3d-3aeb083cbab1 |
+| Home + verification, near-black | https://claude.ai/code/artifact/98258b2b-958d-4a9f-b55e-2a8b1b76ecfb |
+| Dark ramp options (decision record) | https://claude.ai/code/artifact/35b84bee-5966-4e05-8533-2ea20ad5a079 |
