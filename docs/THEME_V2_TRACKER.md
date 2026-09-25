@@ -3,7 +3,7 @@
 **Branch:** `feature/theme-v2` (off tag **`v1.0.9`** = `b74f862`)
 **Colour contract:** `docs/COLOUR_MAP.md`
 **Also read:** `FIXORA_APP/WORK_AVAILABILITY_TRACKER.md` — Working Hours is live in prod.
-**Last updated:** 2026-09-25, after batch 6b-2.
+**Last updated:** 2026-09-25, after batch 6b-3.
 
 > **Read this file BEFORE touching code.** If it contradicts the code, **STOP and flag it** —
 > do not proceed on a false premise.
@@ -17,9 +17,10 @@
 
 **Phases 0–5a and 6a done. Phase 6b is 3 of 4 batches done.**
 
-- The theme engine is live and **7 components consume it**. The Appearance control ships.
+- The theme engine is live and **9 components consume it**. The Appearance control ships.
 - Switching to Dark currently changes: the status bar, dialogs, alerts, inputs, icons,
-  skeleton loaders and the notification banner. **Screens themselves are not themed yet.**
+  skeleton loaders, the notification banner, the drawer menu, and the tab-bar pill on
+  low-end devices. **Screens themselves are not themed yet.**
 - `npm run verify` exits 0. Working tree clean apart from the owner's `.vscode/settings.json`
   and `android/clean.log`.
 - **Nothing is device-verified.** This environment cannot run the app.
@@ -80,7 +81,7 @@ pattern is proven. The remaining literals are mechanical.
 | Verification surfaces | 395 | 5b |
 | Working Hours | 126 | 8 |
 | Settings screen | 47 | 6b/7 |
-| `DrawerMenu` + `RootNavigator` | ~68 | 6b-3 |
+| `RootNavigator` (adaptive-tone values, intentionally literal) | ~24 | n/a — see §15 |
 
 ---
 
