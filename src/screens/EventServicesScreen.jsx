@@ -47,55 +47,69 @@ import { addToFavorites, checkIsFavorite } from '../services/favoritesService';
 import MapPickerModal from '../components/MapPickerModal';
 import ImageViewerModal from '../components/ImageViewerModal';
 import ScreenShimmer from '../components/ShimmerLoader';
+import {
+  useThemedStyles,
+  useThemeColors,
+  stableDark,
+  iconAccent,
+} from '../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Premium design tokens
-const COLORS = {
-  darkHero: '#0F172A',
-  background: '#F1F5F9',
-  cardWhite: '#FFFFFF',
-  primary: '#f67c16',
-  primaryLight: '#FFF7ED',
-  secondary: '#2b76bc',
-  secondaryLight: '#EFF6FF',
-  muted: '#94A3B8',
-  textPrimary: '#1E293B',
-  textSecondary: '#64748B',
-  success: '#10B981',
-  successLight: '#ECFDF5',
-  divider: '#E2E8F0',
-  iconBg: '#F1F5F9',
-  white: '#FFFFFF',
-  star: '#F59E0B',
-  verified: '#2563EB',
-  purple: '#7C3AED',
-  purpleLight: '#F5F3FF',
-};
-
-const SHADOWS = Platform.select({
-  ios: {
-    shadowColor: COLORS.darkHero,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-  },
-  android: {
-    elevation: 5,
-  },
+const makeC = (c) => ({
+  background: c.bg,
+  cardWhite: c.surface,
+  primary: c.brandOrange,
+  primaryLight: c.warningContainer,
+  secondary: c.brandBlue,
+  secondaryLight: c.infoContainer,
+  muted: c.textMuted,
+  textPrimary: c.textStrong,
+  textSecondary: c.textSecondary,
+  success: c.success,
+  successLight: c.successContainer,
+  successBorder: c.successBorder,
+  divider: c.border,
+  iconBg: c.bg,
+  verified: c.altBlueIndigo,
+  purple: c.accentViolet,
+  purpleLight: c.accentVioletContainer,
+  infoBorder: c.infoBorder,
+  brandOrangeBorder: c.brandOrangeBorder,
+  // Ink for text and icons sitting ON a filled brand button rather than on a
+  // surface. White failed AA on the orange fill at 2.69:1, so it is dark ink now.
+  onPrimary: c.onBrandOrange,
+  onSecondary: c.onBrandBlue,
+  overlay: c.overlay,
+  shadow: c.shadow,
 });
 
-const SHADOW_LIGHT = Platform.select({
-  ios: {
-    shadowColor: COLORS.darkHero,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-  },
-  android: {
-    elevation: 3,
-  },
-});
+const makeShadows = (C) =>
+  Platform.select({
+    ios: {
+      shadowColor: C.shadow,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.08,
+      shadowRadius: 20,
+    },
+    android: {
+      elevation: 5,
+    },
+  });
+
+const makeShadowLight = (C) =>
+  Platform.select({
+    ios: {
+      shadowColor: C.shadow,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
+    },
+    android: {
+      elevation: 3,
+    },
+  });
 
 // Event service types - using MaterialIcon names
 const EVENT_SERVICES = [
@@ -155,12 +169,15 @@ const AnimatedPressable = ({ children, onPress, style, disabled }) => {
 /**
  * Section Header with left accent bar
  */
-const SectionHeader = ({ title, style: customStyle }) => (
-  <View style={[styles.sectionHeaderRow, customStyle]}>
-    <View style={styles.sectionAccentBar} />
-    <Text style={styles.sectionHeaderText}>{title}</Text>
-  </View>
-);
+const SectionHeader = ({ title, style: customStyle }) => {
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <View style={[styles.sectionHeaderRow, customStyle]}>
+      <View style={styles.sectionAccentBar} />
+      <Text style={styles.sectionHeaderText}>{title}</Text>
+    </View>
+  );
+};
 
 /**
  * Service Card Component - Premium design
@@ -171,6 +188,8 @@ const EVENT_3D_ICONS = {
 };
 
 const ServiceCard = ({ service, onPress, comingSoon = false }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
   const icon3d = EVENT_3D_ICONS[service.id];
 
@@ -188,7 +207,7 @@ const ServiceCard = ({ service, onPress, comingSoon = false }) => {
         />
       ) : (
         <View style={[styles.serviceIconContainer, comingSoon && { opacity: 0.35 }]}>
-          <MaterialIcon name={service.icon} size={24} color={COLORS.secondary} />
+          <MaterialIcon name={service.icon} size={24} color={C.secondary} />
         </View>
       )}
       <View style={styles.serviceInfo}>
@@ -201,7 +220,7 @@ const ServiceCard = ({ service, onPress, comingSoon = false }) => {
             <Text style={styles.comingSoonBadgeText}>{t('userHome.comingSoon') || 'Coming Soon'}</Text>
           </View>
         ) : (
-          <MaterialIcon name="chevron-right" size={22} color={COLORS.muted} />
+          <MaterialIcon name="chevron-right" size={22} color={C.muted} />
         )}
       </View>
     </AnimatedPressable>
@@ -211,27 +230,33 @@ const ServiceCard = ({ service, onPress, comingSoon = false }) => {
 /**
  * Portfolio Link Button
  */
-const PortfolioLink = ({ platform, url, onPress }) => (
-  <TouchableOpacity
-    style={styles.portfolioLink}
-    onPress={() => onPress(url)}
-    activeOpacity={0.7}
-  >
-    <MaterialIcon
-      name={PLATFORM_ICONS[platform] || 'link'}
-      size={18}
-      color={COLORS.secondary}
-    />
-    <Text style={styles.portfolioLinkText}>
-      {platform.charAt(0).toUpperCase() + platform.slice(1)}
-    </Text>
-  </TouchableOpacity>
-);
+const PortfolioLink = ({ platform, url, onPress }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  return (
+    <TouchableOpacity
+      style={styles.portfolioLink}
+      onPress={() => onPress(url)}
+      activeOpacity={0.7}
+    >
+      <MaterialIcon
+        name={PLATFORM_ICONS[platform] || 'link'}
+        size={18}
+        color={C.secondary}
+      />
+      <Text style={styles.portfolioLinkText}>
+        {platform.charAt(0).toUpperCase() + platform.slice(1)}
+      </Text>
+    </TouchableOpacity>
+  );
+};
 
 /**
  * Provider Card for Event Services - Premium with animated press
  */
 const EventProviderCard = ({ provider, onViewDetails, onContact }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
   // Get profile picture URL - backend returns profilePicture as string or profilePicture.url
   const profilePictureUrl = typeof provider.profilePicture === 'string'
@@ -257,7 +282,7 @@ const EventProviderCard = ({ provider, onViewDetails, onContact }) => {
           )}
           {provider.isFavorite && (
             <View style={styles.favoriteBadge}>
-              <MaterialIcon name="star" size={10} color={COLORS.star} />
+              <MaterialIcon name="star" size={10} color={iconAccent.star} />
             </View>
           )}
         </View>
@@ -266,7 +291,7 @@ const EventProviderCard = ({ provider, onViewDetails, onContact }) => {
           <View style={styles.providerNameRow}>
             <Text style={styles.providerName}>{provider.name}</Text>
             {provider.verified && (
-              <MaterialIcon name="verified" size={16} color={COLORS.verified} />
+              <MaterialIcon name="verified" size={16} color={C.verified} />
             )}
           </View>
 
@@ -278,7 +303,7 @@ const EventProviderCard = ({ provider, onViewDetails, onContact }) => {
 
           {(provider.rating > 0 || provider.ratings?.average > 0) && (
             <View style={styles.ratingRow}>
-              <MaterialIcon name="star" size={14} color={COLORS.star} />
+              <MaterialIcon name="star" size={14} color={iconAccent.star} />
               <Text style={styles.ratingText}>
                 {(provider.ratings?.average || provider.rating || 0).toFixed(1)}
               </Text>
@@ -317,7 +342,7 @@ const EventProviderCard = ({ provider, onViewDetails, onContact }) => {
                 <MaterialIcon
                   name={PLATFORM_ICONS[platform] || 'link'}
                   size={16}
-                  color={COLORS.secondary}
+                  color={C.secondary}
                 />
               </View>
             )
@@ -338,7 +363,7 @@ const EventProviderCard = ({ provider, onViewDetails, onContact }) => {
           onPress={() => onContact(provider)}
           activeOpacity={0.7}
         >
-          <MaterialIcon name="phone" size={18} color={COLORS.white} />
+          <MaterialIcon name="phone" size={18} color={C.onPrimary} />
           <Text style={styles.contactButtonText}>{t('common.call')}</Text>
         </TouchableOpacity>
       </View>
@@ -351,6 +376,8 @@ const EventProviderCard = ({ provider, onViewDetails, onContact }) => {
  * Shows comprehensive provider information for event services
  */
 const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContactProvider, sending, hasContacted }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { dialog } = useDialog();
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
@@ -423,7 +450,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
             {/* Header with Close Button */}
             <View style={styles.detailsHeaderBar}>
               <TouchableOpacity style={styles.closeDetailButton} onPress={onClose}>
-                <MaterialIcon name="close" size={24} color={COLORS.muted} />
+                <MaterialIcon name="close" size={24} color={C.muted} />
               </TouchableOpacity>
               <Text style={styles.detailsHeaderTitle}>{t('eventServices.providerDetails')}</Text>
               <View style={{ width: 40 }} />
@@ -446,7 +473,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                 )}
                 {provider.isVerified && (
                   <View style={styles.verifiedBadge}>
-                    <MaterialIcon name="verified" size={20} color={COLORS.success} />
+                    <MaterialIcon name="verified" size={20} color={C.success} />
                   </View>
                 )}
               </View>
@@ -457,7 +484,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                 {/* Rating Row */}
                 {(provider.rating > 0 || provider.ratings?.average > 0) && (
                   <View style={styles.detailsRating}>
-                    <MaterialIcon name="star" size={18} color={COLORS.star} />
+                    <MaterialIcon name="star" size={18} color={iconAccent.star} />
                     <Text style={styles.detailsRatingText}>
                       {(provider.ratings?.average || provider.rating || 0).toFixed(1)}
                     </Text>
@@ -474,7 +501,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                   const expText = formatExperience(provider.experienceStartDate, provider.experience, t);
                   return expText ? (
                     <View style={styles.infoRow}>
-                      <MaterialIcon name="work" size={14} color={COLORS.muted} />
+                      <MaterialIcon name="work" size={14} color={C.muted} />
                       <Text style={styles.infoText}>{expText}</Text>
                     </View>
                   ) : null;
@@ -483,7 +510,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                 {/* Member Since */}
                 {memberSince && (
                   <View style={styles.infoRow}>
-                    <MaterialIcon name="calendar-today" size={14} color={COLORS.muted} />
+                    <MaterialIcon name="calendar-today" size={14} color={C.muted} />
                     <Text style={styles.infoText}>{t('detail.memberSince', { date: memberSince })}</Text>
                   </View>
                 )}
@@ -491,7 +518,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                 {/* Location */}
                 {(provider.city || provider.address) && (
                   <View style={styles.infoRow}>
-                    <MaterialIcon name="location-on" size={14} color={COLORS.muted} />
+                    <MaterialIcon name="location-on" size={14} color={C.muted} />
                     <Text style={styles.infoText}>
                       {provider.city || provider.address}
                     </Text>
@@ -516,7 +543,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
                 <Text style={[styles.statValue, {
-                  color: provider.isOnline || provider.isAvailable ? COLORS.success : COLORS.muted
+                  color: provider.isOnline || provider.isAvailable ? C.success : C.muted
                 }]}>
                   {provider.isOnline || provider.isAvailable ? t('common.online') : t('common.offline')}
                 </Text>
@@ -541,7 +568,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                 <View style={styles.specializationsGrid}>
                   {provider.specializations.map((spec, index) => (
                     <View key={index} style={styles.specTagLarge}>
-                      <MaterialIcon name="auto-awesome" size={14} color={COLORS.purple} />
+                      <MaterialIcon name="auto-awesome" size={14} color={C.purple} />
                       <Text style={styles.specTagText}>{spec}</Text>
                     </View>
                   ))}
@@ -599,7 +626,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                       />
                       {item.type === 'video' && (
                         <View style={styles.videoOverlay}>
-                          <MaterialIcon name="play-circle-filled" size={32} color="#FFFFFF" />
+                          <MaterialIcon name="play-circle-filled" size={32} color={stableDark.ink} />
                         </View>
                       )}
                     </TouchableOpacity>
@@ -626,10 +653,10 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
                   activeOpacity={0.7}
                 >
                   <View style={styles.phoneIconWrap}>
-                    <MaterialIcon name="phone" size={18} color={COLORS.success} />
+                    <MaterialIcon name="phone" size={18} color={C.success} />
                   </View>
                   <Text style={styles.phoneText}>{t('tracking.callProviderBtn')}</Text>
-                  <MaterialIcon name="chevron-right" size={20} color={COLORS.muted} />
+                  <MaterialIcon name="chevron-right" size={20} color={C.muted} />
                 </TouchableOpacity>
               </View>
             )}
@@ -642,7 +669,7 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
               onPress={() => provider && onContactProvider(provider)}
               activeOpacity={0.7}
             >
-              <MaterialIcon name="phone" size={22} color={COLORS.success} />
+              <MaterialIcon name="phone" size={22} color={C.success} />
               <Text style={styles.callProviderText}>{t('common.call')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -652,10 +679,10 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
               activeOpacity={0.7}
             >
               {sending ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={C.onPrimary} />
               ) : (
                 <>
-                  <MaterialIcon name="event" size={20} color="#FFFFFF" />
+                  <MaterialIcon name="event" size={20} color={C.onPrimary} />
                   <Text style={styles.sendRequestText}>{t('eventServices.bookNow')}</Text>
                 </>
               )}
@@ -668,6 +695,8 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
 };
 
 const EventServicesScreen = ({ navigation }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const { user, profile, isAuthLoading, isProfileLoading } = useApp();
   const { dialog } = useDialog();
@@ -1088,7 +1117,7 @@ const EventServicesScreen = ({ navigation }) => {
         }}
         activeOpacity={0.7}
       >
-        <MaterialIcon name="arrow-back" size={24} color={COLORS.white} />
+        <MaterialIcon name="arrow-back" size={24} color={stableDark.ink} />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>
         {step === 'select' ? t('eventServices.title') : selectedService?.name || t('eventServices.providers')}
@@ -1134,7 +1163,7 @@ const EventServicesScreen = ({ navigation }) => {
       ) : providers.length === 0 ? (
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIconWrap}>
-            <MaterialIcon name="search-off" size={48} color={COLORS.muted} />
+            <MaterialIcon name="search-off" size={48} color={C.muted} />
           </View>
           <Text style={styles.emptyText}>{t('eventServices.noProvidersFound', { service: selectedService?.name })}</Text>
           <Text style={styles.emptySubtext}>
@@ -1158,8 +1187,8 @@ const EventServicesScreen = ({ navigation }) => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => fetchProviders(selectedService.id, true)}
-              colors={[COLORS.primary]}
-              tintColor={COLORS.primary}
+              colors={[C.primary]}
+              tintColor={C.primary}
             />
           }
         />
@@ -1204,7 +1233,7 @@ const EventServicesScreen = ({ navigation }) => {
                 onPress={() => setShowBookingModal(false)}
                 activeOpacity={0.7}
               >
-                <MaterialIcon name="close" size={22} color={COLORS.muted} />
+                <MaterialIcon name="close" size={22} color={C.muted} />
               </TouchableOpacity>
               <Text style={styles.bookingModalTitle}>{t('eventServices.bookService', { service: selectedService?.name })}</Text>
               <View style={{ width: 40 }} />
@@ -1234,7 +1263,7 @@ const EventServicesScreen = ({ navigation }) => {
                     <Text style={styles.bookingProviderName}>{selectedProvider.name}</Text>
                     {selectedProvider.ratings?.average > 0 && (
                       <View style={styles.bookingRatingRow}>
-                        <MaterialIcon name="star" size={14} color={COLORS.star} />
+                        <MaterialIcon name="star" size={14} color={iconAccent.star} />
                         <Text style={styles.bookingRatingText}>
                           {selectedProvider.ratings.average.toFixed(1)} ({selectedProvider.ratings.total} {t('eventServices.reviews')})
                         </Text>
@@ -1248,7 +1277,7 @@ const EventServicesScreen = ({ navigation }) => {
               <View style={styles.bookingSection}>
                 <View style={styles.bookingSectionTitleRow}>
                   <View style={styles.bookingSectionIconWrap}>
-                    <MaterialIcon name="event" size={18} color={COLORS.primary} />
+                    <MaterialIcon name="event" size={18} color={C.primary} />
                   </View>
                   <Text style={styles.bookingSectionTitle}>{t('eventServices.eventDate')}</Text>
                 </View>
@@ -1257,7 +1286,7 @@ const EventServicesScreen = ({ navigation }) => {
                   onPress={() => setShowDatePicker(true)}
                   activeOpacity={0.7}
                 >
-                  <MaterialIcon name="calendar-today" size={20} color={COLORS.secondary} />
+                  <MaterialIcon name="calendar-today" size={20} color={C.secondary} />
                   <Text style={styles.datePickerText}>
                     {eventDate.toLocaleDateString('en-IN', {
                       weekday: 'long',
@@ -1266,7 +1295,7 @@ const EventServicesScreen = ({ navigation }) => {
                       year: 'numeric'
                     })}
                   </Text>
-                  <MaterialIcon name="edit" size={18} color={COLORS.muted} />
+                  <MaterialIcon name="edit" size={18} color={C.muted} />
                 </TouchableOpacity>
               </View>
 
@@ -1274,14 +1303,14 @@ const EventServicesScreen = ({ navigation }) => {
               <View style={styles.bookingSection}>
                 <View style={styles.bookingSectionTitleRow}>
                   <View style={styles.bookingSectionIconWrap}>
-                    <MaterialIcon name="description" size={18} color={COLORS.primary} />
+                    <MaterialIcon name="description" size={18} color={C.primary} />
                   </View>
                   <Text style={styles.bookingSectionTitle}>{t('eventServices.eventDetails')}</Text>
                 </View>
                 <TextInput
                   style={styles.eventDescriptionInput}
                   placeholder={t('eventServices.eventDetailsPlaceholder')}
-                  placeholderTextColor={COLORS.muted}
+                  placeholderTextColor={C.muted}
                   value={eventDescription}
                   onChangeText={setEventDescription}
                   multiline
@@ -1294,7 +1323,7 @@ const EventServicesScreen = ({ navigation }) => {
               <View style={styles.bookingSection}>
                 <View style={styles.bookingSectionTitleRow}>
                   <View style={styles.bookingSectionIconWrap}>
-                    <MaterialIcon name="location-on" size={18} color={COLORS.primary} />
+                    <MaterialIcon name="location-on" size={18} color={C.primary} />
                   </View>
                   <Text style={styles.bookingSectionTitle}>{t('eventServices.eventVenue')}</Text>
                 </View>
@@ -1308,7 +1337,7 @@ const EventServicesScreen = ({ navigation }) => {
                   >
                     <View style={styles.venueSelectedRow}>
                       <View style={styles.venueIconWrap}>
-                        <MaterialIcon name="place" size={22} color={COLORS.primary} />
+                        <MaterialIcon name="place" size={22} color={C.primary} />
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.venueSelectedAddress} numberOfLines={2}>
@@ -1320,7 +1349,7 @@ const EventServicesScreen = ({ navigation }) => {
                           </Text>
                         )}
                       </View>
-                      <MaterialIcon name="edit" size={18} color={COLORS.muted} />
+                      <MaterialIcon name="edit" size={18} color={C.muted} />
                     </View>
                   </TouchableOpacity>
                 ) : (
@@ -1331,7 +1360,7 @@ const EventServicesScreen = ({ navigation }) => {
                       onPress={() => setShowMapPicker(true)}
                       activeOpacity={0.7}
                     >
-                      <MaterialIcon name="map" size={20} color={COLORS.white} />
+                      <MaterialIcon name="map" size={20} color={C.onPrimary} />
                       <Text style={styles.venueMapButtonText}>{t('eventServices.pickOnMap')}</Text>
                     </TouchableOpacity>
 
@@ -1348,7 +1377,7 @@ const EventServicesScreen = ({ navigation }) => {
                         }}
                         activeOpacity={0.7}
                       >
-                        <MaterialIcon name="my-location" size={20} color={COLORS.secondary} />
+                        <MaterialIcon name="my-location" size={20} color={C.secondary} />
                         <Text style={styles.venueCurrentButtonText}>{t('eventServices.currentLocation')}</Text>
                       </TouchableOpacity>
                     )}
@@ -1404,10 +1433,10 @@ const EventServicesScreen = ({ navigation }) => {
                 activeOpacity={0.7}
               >
                 {sendingRequest ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={C.onPrimary} />
                 ) : (
                   <>
-                    <MaterialIcon name="send" size={20} color="#FFFFFF" />
+                    <MaterialIcon name="send" size={20} color={C.onPrimary} />
                     <Text style={styles.confirmBookingText}>{t('eventServices.sendBookingRequest')}</Text>
                   </>
                 )}
@@ -1439,11 +1468,15 @@ const EventServicesScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  const SHADOWS = makeShadows(C);
+  const SHADOW_LIGHT = makeShadowLight(C);
+  return StyleSheet.create({
   // ─── Container ───
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: C.background,
   },
 
   // ─── Premium Header (dark hero) ───
@@ -1452,13 +1485,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 16,
-    backgroundColor: COLORS.darkHero,
+    backgroundColor: stableDark.heroSurface,
   },
   backButton: {
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: stableDark.fillChip,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1466,7 +1499,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 20,
     fontWeight: '800',
-    color: COLORS.white,
+    color: stableDark.ink,
     textAlign: 'center',
     marginHorizontal: 8,
   },
@@ -1488,12 +1521,12 @@ const styles = StyleSheet.create({
   introTitle: {
     fontSize: 26,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     marginBottom: 8,
   },
   introSubtitle: {
     fontSize: 15,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     lineHeight: 22,
   },
 
@@ -1507,20 +1540,20 @@ const styles = StyleSheet.create({
     width: 4,
     height: 20,
     borderRadius: 2,
-    backgroundColor: COLORS.primary,
+    backgroundColor: C.primary,
     marginRight: 10,
   },
   sectionHeaderText: {
     fontSize: 16,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
   },
 
   // ─── Service Card (premium) ───
   serviceCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     borderRadius: 22,
     paddingVertical: 13,
     paddingHorizontal: 20,
@@ -1531,7 +1564,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -1542,31 +1575,31 @@ const styles = StyleSheet.create({
   serviceName: {
     fontSize: 17,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     marginBottom: 4,
   },
   serviceDescription: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     lineHeight: 18,
   },
   serviceChevronWrap: {
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   comingSoonBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: '#0F172A',
+    backgroundColor: stableDark.heroSurface,
     borderRadius: 10,
   },
   comingSoonBadgeText: {
     fontSize: 9,
-    color: '#FFFFFF',
+    color: stableDark.ink,
     fontWeight: '700',
     letterSpacing: 0.2,
   },
@@ -1580,7 +1613,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   providerCard: {
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     borderRadius: 22,
     padding: 18,
     marginBottom: 16,
@@ -1594,7 +1627,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: COLORS.secondary,
+    backgroundColor: C.secondary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -1607,7 +1640,7 @@ const styles = StyleSheet.create({
   providerInitial: {
     fontSize: 24,
     fontWeight: '800',
-    color: COLORS.white,
+    color: C.onSecondary,
   },
   favoriteBadge: {
     position: 'absolute',
@@ -1616,11 +1649,11 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: COLORS.white,
+    backgroundColor: C.cardWhite,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: COLORS.star,
+    borderColor: iconAccent.star,
   },
   providerInfo: {
     flex: 1,
@@ -1633,12 +1666,12 @@ const styles = StyleSheet.create({
   providerName: {
     fontSize: 17,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     marginRight: 6,
   },
   providerBio: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     lineHeight: 18,
     marginBottom: 6,
   },
@@ -1649,12 +1682,12 @@ const styles = StyleSheet.create({
   ratingText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     marginLeft: 4,
   },
   ratingCount: {
     fontSize: 12,
-    color: COLORS.muted,
+    color: C.muted,
     marginLeft: 4,
   },
 
@@ -1665,7 +1698,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   specializationTag: {
-    backgroundColor: COLORS.secondaryLight,
+    backgroundColor: C.secondaryLight,
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 12,
@@ -1674,7 +1707,7 @@ const styles = StyleSheet.create({
   },
   specializationText: {
     fontSize: 12,
-    color: COLORS.secondary,
+    color: C.secondary,
     fontWeight: '600',
   },
 
@@ -1687,7 +1720,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 12,
-    backgroundColor: COLORS.secondaryLight,
+    backgroundColor: C.secondaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
@@ -1703,20 +1736,20 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: COLORS.secondary,
+    borderColor: C.secondary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   viewButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.secondary,
+    color: C.secondary,
   },
   contactButton: {
     flex: 1,
     height: 44,
     borderRadius: 14,
-    backgroundColor: COLORS.primary,
+    backgroundColor: C.primary,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1725,7 +1758,7 @@ const styles = StyleSheet.create({
   contactButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.white,
+    color: C.onPrimary,
   },
 
   // ─── Loading & Empty ───
@@ -1738,7 +1771,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 22,
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     justifyContent: 'center',
     alignItems: 'center',
     ...SHADOWS,
@@ -1747,7 +1780,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
   },
   emptyContainer: {
     flex: 1,
@@ -1759,7 +1792,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 28,
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     justifyContent: 'center',
     alignItems: 'center',
     ...SHADOWS,
@@ -1767,12 +1800,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     marginTop: 20,
   },
   emptySubtext: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 20,
@@ -1781,11 +1814,11 @@ const styles = StyleSheet.create({
   // ─── Details Modal ───
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    backgroundColor: C.overlay,
     justifyContent: 'flex-end',
   },
   detailsModalContent: {
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     maxHeight: '92%',
@@ -1797,20 +1830,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+    borderBottomColor: C.divider,
   },
   closeDetailButton: {
     width: 40,
     height: 40,
     borderRadius: 14,
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   detailsHeaderTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
   },
   detailsProfileSection: {
     flexDirection: 'row',
@@ -1824,7 +1857,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 28,
-    backgroundColor: COLORS.secondary,
+    backgroundColor: C.secondary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1836,13 +1869,13 @@ const styles = StyleSheet.create({
   detailsAvatarInitial: {
     fontSize: 32,
     fontWeight: '800',
-    color: COLORS.white,
+    color: C.onSecondary,
   },
   verifiedBadge: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: COLORS.white,
+    backgroundColor: C.cardWhite,
     borderRadius: 12,
     padding: 2,
     ...SHADOW_LIGHT,
@@ -1854,7 +1887,7 @@ const styles = StyleSheet.create({
   detailsName: {
     fontSize: 22,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     marginBottom: 6,
   },
   detailsRating: {
@@ -1865,12 +1898,12 @@ const styles = StyleSheet.create({
   detailsRatingText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     marginLeft: 4,
   },
   detailsRatingCount: {
     fontSize: 13,
-    color: COLORS.muted,
+    color: C.muted,
     marginLeft: 4,
   },
   infoRow: {
@@ -1881,13 +1914,13 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
   },
 
   // ─── Stats Row ───
   statsRow: {
     flexDirection: 'row',
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     borderRadius: 18,
     marginHorizontal: 20,
     marginBottom: 16,
@@ -1900,17 +1933,17 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
   },
   statLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.muted,
+    color: C.muted,
     marginTop: 4,
   },
   statDivider: {
     width: 1,
-    backgroundColor: COLORS.divider,
+    backgroundColor: C.divider,
   },
 
   // ─── Details Sections ───
@@ -1918,16 +1951,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+    borderBottomColor: C.divider,
   },
   bioContainer: {
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     borderRadius: 16,
     padding: 14,
   },
   detailsBio: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     lineHeight: 22,
   },
   specializationsGrid: {
@@ -1937,7 +1970,7 @@ const styles = StyleSheet.create({
   specTagLarge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.purpleLight,
+    backgroundColor: C.purpleLight,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 14,
@@ -1947,7 +1980,7 @@ const styles = StyleSheet.create({
   },
   specTagText: {
     fontSize: 13,
-    color: COLORS.purple,
+    color: C.purple,
     fontWeight: '600',
   },
 
@@ -1959,7 +1992,7 @@ const styles = StyleSheet.create({
   portfolioLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.secondaryLight,
+    backgroundColor: C.secondaryLight,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 14,
@@ -1970,7 +2003,7 @@ const styles = StyleSheet.create({
   portfolioLinkText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.secondary,
+    color: C.secondary,
   },
 
   // ─── Gallery ───
@@ -1990,7 +2023,7 @@ const styles = StyleSheet.create({
   },
   videoOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    backgroundColor: C.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1999,7 +2032,7 @@ const styles = StyleSheet.create({
   phoneButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.successLight,
+    backgroundColor: C.successLight,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderRadius: 16,
@@ -2009,7 +2042,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: COLORS.white,
+    backgroundColor: C.cardWhite,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -2017,7 +2050,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.success,
+    color: C.success,
   },
 
   // ─── Detail Actions (bottom bar) ───
@@ -2027,7 +2060,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingBottom: 28,
     borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
+    borderTopColor: C.divider,
     gap: 12,
   },
   callProviderBtn: {
@@ -2035,24 +2068,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     height: 52,
     borderRadius: 16,
-    backgroundColor: COLORS.successLight,
+    backgroundColor: C.successLight,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
     borderWidth: 1.5,
-    borderColor: COLORS.success,
+    borderColor: C.success,
   },
   callProviderText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.success,
+    color: C.success,
   },
   sendRequestButton: {
     flex: 2,
     flexDirection: 'row',
     height: 52,
     borderRadius: 16,
-    backgroundColor: COLORS.primary,
+    backgroundColor: C.primary,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
@@ -2061,17 +2094,17 @@ const styles = StyleSheet.create({
   sendRequestText: {
     fontSize: 16,
     fontWeight: '800',
-    color: COLORS.white,
+    color: C.onPrimary,
   },
 
   // ─── Booking Modal ───
   bookingModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    backgroundColor: C.overlay,
     justifyContent: 'flex-end',
   },
   bookingModalContent: {
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     maxHeight: '92%',
@@ -2083,20 +2116,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+    borderBottomColor: C.divider,
   },
   bookingCloseButton: {
     width: 40,
     height: 40,
     borderRadius: 14,
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   bookingModalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
   },
   bookingModalScroll: {
     paddingHorizontal: 20,
@@ -2105,7 +2138,7 @@ const styles = StyleSheet.create({
   bookingProviderCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     borderRadius: 22,
     padding: 16,
     marginBottom: 24,
@@ -2114,7 +2147,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 18,
-    backgroundColor: COLORS.secondary,
+    backgroundColor: C.secondary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -2127,7 +2160,7 @@ const styles = StyleSheet.create({
   bookingProviderInitial: {
     fontSize: 22,
     fontWeight: '800',
-    color: COLORS.white,
+    color: C.onSecondary,
   },
   bookingProviderInfo: {
     flex: 1,
@@ -2135,7 +2168,7 @@ const styles = StyleSheet.create({
   bookingProviderName: {
     fontSize: 17,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
   },
   bookingRatingRow: {
     flexDirection: 'row',
@@ -2144,7 +2177,7 @@ const styles = StyleSheet.create({
   },
   bookingRatingText: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     marginLeft: 4,
   },
 
@@ -2162,39 +2195,39 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 10,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: C.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   bookingSectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
   },
   datePickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1.5,
-    borderColor: COLORS.divider,
+    borderColor: C.divider,
     gap: 12,
   },
   datePickerText: {
     flex: 1,
     fontSize: 15,
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     fontWeight: '600',
   },
   eventDescriptionInput: {
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1.5,
-    borderColor: COLORS.divider,
+    borderColor: C.divider,
     fontSize: 15,
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     minHeight: 90,
     lineHeight: 22,
   },
@@ -2209,7 +2242,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.primary,
+    backgroundColor: C.primary,
     borderRadius: 16,
     paddingVertical: 14,
     gap: 8,
@@ -2218,31 +2251,31 @@ const styles = StyleSheet.create({
   venueMapButtonText: {
     fontSize: 15,
     fontWeight: '800',
-    color: COLORS.white,
+    color: C.onPrimary,
   },
   venueCurrentButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.secondaryLight,
+    backgroundColor: C.secondaryLight,
     borderRadius: 16,
     paddingVertical: 14,
     gap: 8,
     borderWidth: 1.5,
-    borderColor: '#BFDBFE',
+    borderColor: C.infoBorder,
   },
   venueCurrentButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.secondary,
+    color: C.secondary,
   },
   venueSelectedCard: {
-    backgroundColor: COLORS.successLight,
+    backgroundColor: C.successLight,
     borderRadius: 18,
     padding: 14,
     borderWidth: 1.5,
-    borderColor: '#A7F3D0',
+    borderColor: C.successBorder,
   },
   venueSelectedRow: {
     flexDirection: 'row',
@@ -2253,35 +2286,35 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: C.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   venueSelectedAddress: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
     lineHeight: 20,
   },
   venueCoordsText: {
     fontSize: 11,
-    color: COLORS.muted,
+    color: C.muted,
     marginTop: 2,
   },
 
   // ─── Booking Summary ───
   bookingSummary: {
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: C.primaryLight,
     borderRadius: 22,
     padding: 18,
     marginBottom: 24,
     borderWidth: 1.5,
-    borderColor: '#FDBA74',
+    borderColor: C.brandOrangeBorder,
   },
   bookingSummaryTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: C.primary,
     marginBottom: 14,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
@@ -2291,17 +2324,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#FDBA74',
+    borderBottomColor: C.brandOrangeBorder,
   },
   summaryLabel: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     fontWeight: '600',
   },
   summaryValue: {
     fontSize: 14,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: C.textPrimary,
   },
 
   // ─── Booking Actions ───
@@ -2310,13 +2343,13 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingBottom: 32,
     borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
+    borderTopColor: C.divider,
   },
   confirmBookingButton: {
     flexDirection: 'row',
     height: 56,
     borderRadius: 18,
-    backgroundColor: COLORS.primary,
+    backgroundColor: C.primary,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 10,
@@ -2325,8 +2358,9 @@ const styles = StyleSheet.create({
   confirmBookingText: {
     fontSize: 17,
     fontWeight: '800',
-    color: COLORS.white,
+    color: C.onPrimary,
   },
-});
+  });
+};
 
 export default EventServicesScreen;

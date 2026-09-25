@@ -51,39 +51,50 @@ import {
 } from '../services/emergencyServicesService';
 import { NODE_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
+import {
+  useTheme,
+  useThemedStyles,
+  useThemeColors,
+  iconAccent,
+} from '../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Premium Design Tokens
-const COLORS = {
-  darkHero: '#0F172A',
-  background: '#F1F5F9',
-  cardWhite: '#FFFFFF',
-  primary: '#f67c16',
-  primaryLight: '#FFF7ED',
-  secondary: '#2b76bc',
-  secondaryLight: '#EFF6FF',
-  muted: '#94A3B8',
-  textPrimary: '#1E293B',
-  textSecondary: '#64748B',
-  textTertiary: '#94A3B8',
-  border: '#E2E8F0',
-  borderLight: '#F1F5F9',
-  iconBg: '#F1F5F9',
-  success: '#0D9488',
-  successLight: '#CCFBF1',
-  danger: '#EF4444',
-  dangerLight: '#FEF2F2',
-  warning: '#F59E0B',
-  warningLight: '#FFFBEB',
-  purple: '#7C3AED',
-  purpleLight: '#EDE9FE',
-};
+const makeC = (c) => ({
+  darkHero: c.textPrimary,
+  background: c.bg,
+  cardWhite: c.surface,
+  primary: c.brandOrange,
+  primaryLight: c.warningContainer,
+  secondary: c.brandBlue,
+  secondaryLight: c.infoContainer,
+  muted: c.textMuted,
+  textPrimary: c.textStrong,
+  textSecondary: c.textSecondary,
+  textTertiary: c.textMuted,
+  border: c.border,
+  // The shipped hairline was #F1F5F9 on white -- barely there by design. `bg`
+  // keeps that exact value in light and reads as a recessed seam on a dark
+  // surface, so the divider stays visible without getting heavier in light.
+  borderLight: c.bg,
+  iconBg: c.bg,
+  success: c.success,
+  successLight: c.successContainer,
+  danger: c.danger,
+  dangerLight: c.dangerContainer,
+  warning: c.warning,
+  warningLight: c.warningContainer,
+  purple: c.accentViolet,
+  purpleLight: c.accentVioletContainer,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
 
-const SHADOWS = {
+const makeShadows = (C) => ({
   card: Platform.select({
     ios: {
-      shadowColor: '#0F172A',
+      shadowColor: C.shadow,
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.08,
       shadowRadius: 20,
@@ -92,7 +103,7 @@ const SHADOWS = {
   }),
   sm: Platform.select({
     ios: {
-      shadowColor: '#0F172A',
+      shadowColor: C.shadow,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.04,
       shadowRadius: 8,
@@ -101,7 +112,7 @@ const SHADOWS = {
   }),
   header: Platform.select({
     ios: {
-      shadowColor: '#0F172A',
+      shadowColor: C.shadow,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.06,
       shadowRadius: 12,
@@ -110,26 +121,26 @@ const SHADOWS = {
   }),
   xl: Platform.select({
     ios: {
-      shadowColor: '#0F172A',
+      shadowColor: C.shadow,
       shadowOffset: { width: 0, height: 10 },
       shadowOpacity: 0.14,
       shadowRadius: 28,
     },
     android: { elevation: 12 },
   }),
-};
+});
 
-const FONTS = {
-  h1: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5, color: COLORS.darkHero },
-  h2: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3, color: COLORS.darkHero },
-  h3: { fontSize: 17, fontWeight: '600', letterSpacing: -0.2, color: COLORS.textPrimary },
-  body: { fontSize: 15, fontWeight: '400', lineHeight: 22, color: COLORS.textPrimary },
-  bodyMedium: { fontSize: 15, fontWeight: '500', color: COLORS.textPrimary },
-  caption: { fontSize: 13, fontWeight: '400', color: COLORS.textSecondary },
-  captionMedium: { fontSize: 13, fontWeight: '500', color: COLORS.textSecondary },
-  small: { fontSize: 11, fontWeight: '500', letterSpacing: 0.2, color: COLORS.textTertiary },
+const makeFonts = (C) => ({
+  h1: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5, color: C.darkHero },
+  h2: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3, color: C.darkHero },
+  h3: { fontSize: 17, fontWeight: '600', letterSpacing: -0.2, color: C.textPrimary },
+  body: { fontSize: 15, fontWeight: '400', lineHeight: 22, color: C.textPrimary },
+  bodyMedium: { fontSize: 15, fontWeight: '500', color: C.textPrimary },
+  caption: { fontSize: 13, fontWeight: '400', color: C.textSecondary },
+  captionMedium: { fontSize: 13, fontWeight: '500', color: C.textSecondary },
+  small: { fontSize: 11, fontWeight: '500', letterSpacing: 0.2, color: C.textTertiary },
   button: { fontSize: 15, fontWeight: '600', letterSpacing: 0.3 },
-};
+});
 
 // Service Type Routing
 // These MUST match the backend model enums exactly
@@ -190,11 +201,11 @@ const SERVICE_ICONS = {
   mortuary_van: 'airport-shuttle',
 };
 
-const SERVICE_FLOW_COLORS = {
-  traditional: COLORS.secondary,
-  event: COLORS.purple,
-  emergency: COLORS.danger,
-};
+const makeFlowColors = (C) => ({
+  traditional: C.secondary,
+  event: C.purple,
+  emergency: C.danger,
+});
 
 const SERVICE_FLOW_LABELS = {
   traditional: 'Standard',
@@ -206,6 +217,8 @@ const SERVICE_FLOW_LABELS = {
 // Provider Card Component
 // =============================================================================
 const ProviderCard = ({ provider, onCall, onRemove, onBook, onViewProfile, t }) => {
+  const cardStyles = useThemedStyles(makeCardStyles);
+  const C = makeC(useThemeColors());
   const verifiedCount = (provider.verifiedServices || []).length;
   // Handle both string URL and object { url } from backend
   const profilePicUrl = typeof provider.profilePicture === 'string'
@@ -240,7 +253,7 @@ const ProviderCard = ({ provider, onCall, onRemove, onBook, onViewProfile, t }) 
               </View>
             )}
             <View style={cardStyles.avatarBadge}>
-              <MaterialIcon name="open-in-new" size={10} color={COLORS.cardWhite} />
+              <MaterialIcon name="open-in-new" size={10} color={C.cardWhite} />
             </View>
           </TouchableOpacity>
 
@@ -255,7 +268,7 @@ const ProviderCard = ({ provider, onCall, onRemove, onBook, onViewProfile, t }) 
               </Text>
               {verifiedCount > 0 && (
                 <View style={cardStyles.proBadge}>
-                  <MaterialIcon name="verified" size={11} color={COLORS.cardWhite} />
+                  <MaterialIcon name="verified" size={11} color={C.cardWhite} />
                   <Text style={cardStyles.proBadgeText}>{t('favoritesScreen.proBadge')}</Text>
                 </View>
               )}
@@ -264,7 +277,7 @@ const ProviderCard = ({ provider, onCall, onRemove, onBook, onViewProfile, t }) 
             <View style={cardStyles.metaRow}>
               {(provider.rating > 0 || (provider.ratings && provider.ratings.average > 0)) && (
                 <View style={cardStyles.ratingChip}>
-                  <MaterialIcon name="star" size={13} color="#F59E0B" />
+                  <MaterialIcon name="star" size={13} color={iconAccent.star} />
                   <Text style={cardStyles.ratingValue}>
                     {((provider.ratings && provider.ratings.average) || provider.rating || 0).toFixed(1)}
                   </Text>
@@ -277,7 +290,7 @@ const ProviderCard = ({ provider, onCall, onRemove, onBook, onViewProfile, t }) 
               )}
               {verifiedCount > 0 && (
                 <View style={cardStyles.serviceCountChip}>
-                  <MaterialIcon name="build" size={11} color={COLORS.textTertiary} />
+                  <MaterialIcon name="build" size={11} color={C.textTertiary} />
                   <Text style={cardStyles.serviceCountText}>{t('favoritesScreen.verified', { n: verifiedCount })}</Text>
                 </View>
               )}
@@ -300,13 +313,13 @@ const ProviderCard = ({ provider, onCall, onRemove, onBook, onViewProfile, t }) 
             onPress={() => onRemove(provider)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <MaterialIcon name="favorite" size={20} color={COLORS.danger} />
+            <MaterialIcon name="favorite" size={20} color={C.danger} />
           </TouchableOpacity>
         </View>
 
         {provider.notes ? (
           <View style={cardStyles.notesRow}>
-            <MaterialIcon name="sticky-note-2" size={14} color={COLORS.textTertiary} />
+            <MaterialIcon name="sticky-note-2" size={14} color={C.textTertiary} />
             <Text style={cardStyles.notesText} numberOfLines={2}>
               {provider.notes}
             </Text>
@@ -315,12 +328,12 @@ const ProviderCard = ({ provider, onCall, onRemove, onBook, onViewProfile, t }) 
 
         <View style={cardStyles.actions}>
           <TouchableOpacity style={cardStyles.callBtn} onPress={() => onCall(provider)} activeOpacity={0.8}>
-            <MaterialIcon name="phone" size={18} color={COLORS.success} />
+            <MaterialIcon name="phone" size={18} color={C.success} />
             <Text style={cardStyles.callBtnText}>{t('common.call')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={cardStyles.bookBtn} onPress={() => onBook(provider)} activeOpacity={0.8}>
-            <MaterialIcon name="bolt" size={18} color={COLORS.cardWhite} />
+            <MaterialIcon name="bolt" size={18} color={C.cardWhite} />
             <Text style={cardStyles.bookBtnText}>{t('favoritesScreen.bookNow')}</Text>
           </TouchableOpacity>
         </View>
@@ -333,13 +346,16 @@ const ProviderCard = ({ provider, onCall, onRemove, onBook, onViewProfile, t }) 
 // Section Header with accent bar
 // =============================================================================
 const SectionHeader = ({ category, count }) => {
+  const sectionStyles = useThemedStyles(makeSectionStyles);
+  const C = makeC(useThemeColors());
+  const SERVICE_FLOW_COLORS = makeFlowColors(C);
   const flow = getServiceFlow(category);
   const iconBg =
     flow === 'event'
-      ? COLORS.purpleLight
+      ? C.purpleLight
       : flow === 'emergency'
-        ? COLORS.dangerLight
-        : COLORS.secondaryLight;
+        ? C.dangerLight
+        : C.secondaryLight;
   const iconColor = SERVICE_FLOW_COLORS[flow];
 
   return (
@@ -369,6 +385,12 @@ const SectionHeader = ({ category, count }) => {
 // Main Screen
 // =============================================================================
 const FavoritesScreen = ({ navigation }) => {
+  const { isDark } = useTheme();
+  const screenStyles = useThemedStyles(makeScreenStyles);
+  const modalStyles = useThemedStyles(makeModalStyles);
+  const C = makeC(useThemeColors());
+  const FONTS = makeFonts(C);
+  const SERVICE_FLOW_COLORS = makeFlowColors(C);
   const insets = useSafeAreaInsets();
   const { user, profile } = useApp();
   const { dialog } = useDialog();
@@ -964,7 +986,10 @@ const FavoritesScreen = ({ navigation }) => {
   // =================================================================
   return (
     <View style={screenStyles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.cardWhite} />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={C.cardWhite}
+      />
 
       {/* Header */}
       <View style={[screenStyles.header, { paddingTop: insets.top + 8 }]}>
@@ -972,7 +997,7 @@ const FavoritesScreen = ({ navigation }) => {
           style={screenStyles.backBtn}
           onPress={() => navigation.goBack()}
         >
-          <MaterialIcon name="arrow-back-ios" size={20} color={COLORS.textPrimary} />
+          <MaterialIcon name="arrow-back-ios" size={20} color={C.textPrimary} />
         </TouchableOpacity>
         <View style={screenStyles.headerCenter}>
           <Text style={screenStyles.headerTitle}>{t('favoritesScreen.title')}</Text>
@@ -990,7 +1015,7 @@ const FavoritesScreen = ({ navigation }) => {
         <View style={screenStyles.overlay}>
           <View style={screenStyles.overlayCard}>
             <View style={screenStyles.overlayIconWrap}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
+              <ActivityIndicator size="large" color={C.primary} />
             </View>
             <Text style={screenStyles.overlayTitle}>{t('favoritesScreen.sendingRequest')}</Text>
             <Text style={screenStyles.overlaySubtitle}>
@@ -1004,7 +1029,7 @@ const FavoritesScreen = ({ navigation }) => {
       {isLoading ? (
         <View style={screenStyles.center}>
           <View style={screenStyles.loadingCard}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+            <ActivityIndicator size="large" color={C.primary} />
             <Text style={screenStyles.loadingText}>
               {t('favoritesScreen.loadingFavorites')}
             </Text>
@@ -1017,7 +1042,7 @@ const FavoritesScreen = ({ navigation }) => {
               <MaterialIcon
                 name="favorite-border"
                 size={48}
-                color={COLORS.muted}
+                color={C.muted}
               />
             </View>
           </View>
@@ -1030,7 +1055,7 @@ const FavoritesScreen = ({ navigation }) => {
             onPress={() => navigation.goBack()}
             activeOpacity={0.8}
           >
-            <MaterialIcon name="search" size={18} color={COLORS.cardWhite} />
+            <MaterialIcon name="search" size={18} color={C.cardWhite} />
             <Text style={screenStyles.emptyBtnText}>{t('favoritesScreen.findServices')}</Text>
           </TouchableOpacity>
         </View>
@@ -1063,8 +1088,8 @@ const FavoritesScreen = ({ navigation }) => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => fetchFavorites(true)}
-              colors={[COLORS.primary]}
-              tintColor={COLORS.primary}
+              colors={[C.primary]}
+              tintColor={C.primary}
             />
           }
         />
@@ -1109,7 +1134,7 @@ const FavoritesScreen = ({ navigation }) => {
                   <MaterialIcon
                     name="handyman"
                     size={22}
-                    color={COLORS.primary}
+                    color={C.primary}
                   />
                 </View>
                 <View>
@@ -1131,7 +1156,7 @@ const FavoritesScreen = ({ navigation }) => {
                 <MaterialIcon
                   name="close"
                   size={22}
-                  color={COLORS.textSecondary}
+                  color={C.textSecondary}
                 />
               </TouchableOpacity>
             </View>
@@ -1145,10 +1170,10 @@ const FavoritesScreen = ({ navigation }) => {
                 var flowColor = SERVICE_FLOW_COLORS[svc.flow];
                 var iconBgColor =
                   svc.flow === 'event'
-                    ? COLORS.purpleLight
+                    ? C.purpleLight
                     : svc.flow === 'emergency'
-                      ? COLORS.dangerLight
-                      : COLORS.secondaryLight;
+                      ? C.dangerLight
+                      : C.secondaryLight;
                 return (
                   <TouchableOpacity
                     key={svc.id + '-modal-' + idx}
@@ -1176,7 +1201,7 @@ const FavoritesScreen = ({ navigation }) => {
                             <MaterialIcon
                               name="verified"
                               size={11}
-                              color={COLORS.success}
+                              color={C.success}
                             />
                             <Text style={modalStyles.verifiedTagText}>
                               {t('favoritesScreen.verifiedTag')}
@@ -1187,7 +1212,7 @@ const FavoritesScreen = ({ navigation }) => {
                             <MaterialIcon
                               name="schedule"
                               size={11}
-                              color={COLORS.warning}
+                              color={C.warning}
                             />
                             <Text style={modalStyles.pendingTagText}>{t('favoritesScreen.pendingTag')}</Text>
                           </View>
@@ -1214,7 +1239,7 @@ const FavoritesScreen = ({ navigation }) => {
                     <MaterialIcon
                       name="arrow-forward-ios"
                       size={16}
-                      color={COLORS.border}
+                      color={C.border}
                     />
                   </TouchableOpacity>
                 );
@@ -1225,7 +1250,7 @@ const FavoritesScreen = ({ navigation }) => {
               <MaterialIcon
                 name="info-outline"
                 size={15}
-                color={COLORS.secondary}
+                color={C.secondary}
               />
               <Text style={modalStyles.modalHintText}>
                 {t('favoritesScreen.selectServiceHint')}
@@ -1292,8 +1317,12 @@ const FavoritesScreen = ({ navigation }) => {
 // =============================================================================
 
 // Screen styles
-const screenStyles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeScreenStyles = (theme) => {
+  const C = makeC(theme.colors);
+  const SHADOWS = makeShadows(C);
+  const FONTS = makeFonts(C);
+  return StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   header: {
@@ -1301,14 +1330,14 @@ const screenStyles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     ...SHADOWS.header,
   },
   backBtn: {
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1326,17 +1355,17 @@ const screenStyles = StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 3,
     borderRadius: 10,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: C.primaryLight,
   },
   headerBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: C.primary,
   },
   headerRight: { width: 42 },
 
   loadingCard: {
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     borderRadius: 22,
     paddingHorizontal: 40,
     paddingVertical: 32,
@@ -1347,18 +1376,18 @@ const screenStyles = StyleSheet.create({
     ...FONTS.caption,
     fontWeight: '600',
     marginTop: 16,
-    color: COLORS.muted,
+    color: C.muted,
   },
 
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15,23,42,0.45)',
+    backgroundColor: C.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 200,
   },
   overlayCard: {
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     borderRadius: 22,
     padding: 36,
     alignItems: 'center',
@@ -1379,7 +1408,7 @@ const screenStyles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
@@ -1389,14 +1418,14 @@ const screenStyles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   emptyTitle: { ...FONTS.h2, marginBottom: 12, textAlign: 'center' },
   emptyBody: {
     ...FONTS.body,
-    color: COLORS.textSecondary,
+    color: C.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 28,
@@ -1404,14 +1433,14 @@ const screenStyles = StyleSheet.create({
   emptyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary,
+    backgroundColor: C.primary,
     paddingHorizontal: 28,
     paddingVertical: 14,
     borderRadius: 16,
     gap: 8,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.primary,
+        shadowColor: C.primary,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.3,
         shadowRadius: 12,
@@ -1419,15 +1448,20 @@ const screenStyles = StyleSheet.create({
       android: { elevation: 6 },
     }),
   },
-  emptyBtnText: { ...FONTS.button, color: COLORS.cardWhite },
+  emptyBtnText: { ...FONTS.button, color: C.cardWhite },
 
   listContent: { padding: 20, paddingBottom: 40 },
-});
+  });
+};
 
 // Card styles
-const cardStyles = StyleSheet.create({
+const makeCardStyles = (theme) => {
+  const C = makeC(theme.colors);
+  const SHADOWS = makeShadows(C);
+  const FONTS = makeFonts(C);
+  return StyleSheet.create({
   card: {
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     borderRadius: 22,
     padding: 18,
     marginBottom: 14,
@@ -1445,20 +1479,20 @@ const cardStyles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 16,
-    backgroundColor: COLORS.borderLight,
+    backgroundColor: C.borderLight,
   },
   avatarFallback: {
     width: 52,
     height: 52,
     borderRadius: 16,
-    backgroundColor: COLORS.secondary,
+    backgroundColor: C.secondary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarInitial: {
     fontSize: 21,
     fontWeight: '700',
-    color: COLORS.cardWhite,
+    color: C.cardWhite,
   },
   avatarBadge: {
     position: 'absolute',
@@ -1467,11 +1501,11 @@ const cardStyles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: COLORS.primary,
+    backgroundColor: C.primary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: COLORS.cardWhite,
+    borderColor: C.cardWhite,
   },
   cardInfo: { flex: 1, paddingTop: 2 },
   nameRow: {
@@ -1485,7 +1519,7 @@ const cardStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: COLORS.secondary,
+    backgroundColor: C.secondary,
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 8,
@@ -1493,7 +1527,7 @@ const cardStyles = StyleSheet.create({
   proBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: COLORS.cardWhite,
+    color: C.cardWhite,
     letterSpacing: 0.5,
   },
   metaRow: {
@@ -1503,8 +1537,8 @@ const cardStyles = StyleSheet.create({
     marginBottom: 2,
   },
   ratingChip: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  ratingValue: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
-  ratingCount: { fontSize: 11, color: COLORS.textTertiary },
+  ratingValue: { fontSize: 13, fontWeight: '600', color: C.textPrimary },
+  ratingCount: { fontSize: 11, color: C.textTertiary },
   serviceCountChip: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   serviceCountText: { ...FONTS.small },
   lastServiceText: { ...FONTS.small, marginTop: 2 },
@@ -1512,7 +1546,7 @@ const cardStyles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 14,
-    backgroundColor: COLORS.dangerLight,
+    backgroundColor: C.dangerLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 6,
@@ -1521,7 +1555,7 @@ const cardStyles = StyleSheet.create({
   notesRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     padding: 12,
     borderRadius: 14,
     marginTop: 12,
@@ -1539,26 +1573,26 @@ const cardStyles = StyleSheet.create({
     flexDirection: 'row',
     height: 46,
     borderRadius: 14,
-    backgroundColor: COLORS.successLight,
+    backgroundColor: C.successLight,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
-    borderColor: COLORS.success + '25',
+    borderColor: C.success + '25',
   },
-  callBtnText: { ...FONTS.button, color: COLORS.success },
+  callBtnText: { ...FONTS.button, color: C.success },
   bookBtn: {
     flex: 2,
     flexDirection: 'row',
     height: 46,
     borderRadius: 14,
-    backgroundColor: COLORS.primary,
+    backgroundColor: C.primary,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.primary,
+        shadowColor: C.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
         shadowRadius: 10,
@@ -1566,11 +1600,15 @@ const cardStyles = StyleSheet.create({
       android: { elevation: 4 },
     }),
   },
-  bookBtnText: { ...FONTS.button, color: COLORS.cardWhite },
-});
+  bookBtnText: { ...FONTS.button, color: C.cardWhite },
+  });
+};
 
 // Section styles
-const sectionStyles = StyleSheet.create({
+const makeSectionStyles = (theme) => {
+  const C = makeC(theme.colors);
+  const FONTS = makeFonts(C);
+  return StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1582,7 +1620,7 @@ const sectionStyles = StyleSheet.create({
     width: 4,
     height: 24,
     borderRadius: 2,
-    backgroundColor: COLORS.secondary,
+    backgroundColor: C.secondary,
     marginRight: 10,
   },
   sectionIcon: {
@@ -1594,29 +1632,33 @@ const sectionStyles = StyleSheet.create({
     marginRight: 12,
   },
   sectionTitleCol: { flex: 1 },
-  sectionTitle: { fontSize: 17, fontWeight: '800', color: COLORS.darkHero, letterSpacing: -0.2 },
+  sectionTitle: { fontSize: 17, fontWeight: '800', color: C.darkHero, letterSpacing: -0.2 },
   sectionFlowLabel: { ...FONTS.small, marginTop: 1 },
   sectionCount: {
     minWidth: 30,
     height: 30,
     borderRadius: 10,
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 10,
   },
-  sectionCountText: { ...FONTS.captionMedium, fontWeight: '600', color: COLORS.textPrimary },
-});
+  sectionCountText: { ...FONTS.captionMedium, fontWeight: '600', color: C.textPrimary },
+  });
+};
 
 // Modal styles
-const modalStyles = StyleSheet.create({
+const makeModalStyles = (theme) => {
+  const C = makeC(theme.colors);
+  const FONTS = makeFonts(C);
+  return StyleSheet.create({
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15,23,42,0.5)',
+    backgroundColor: C.overlay,
   },
   modalDismiss: { flex: 1 },
   modalSheet: {
-    backgroundColor: COLORS.cardWhite,
+    backgroundColor: C.cardWhite,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 20,
@@ -1632,7 +1674,7 @@ const modalStyles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: COLORS.border,
+    backgroundColor: C.border,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1640,7 +1682,7 @@ const modalStyles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.borderLight,
+    borderBottomColor: C.borderLight,
   },
   modalHeaderLeft: {
     flexDirection: 'row',
@@ -1652,7 +1694,7 @@ const modalStyles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: C.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1660,7 +1702,7 @@ const modalStyles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 14,
-    backgroundColor: COLORS.iconBg,
+    backgroundColor: C.iconBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 12,
@@ -1672,7 +1714,7 @@ const modalStyles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.borderLight,
+    borderBottomColor: C.borderLight,
   },
   modalItemIcon: {
     width: 42,
@@ -1686,15 +1728,15 @@ const modalStyles = StyleSheet.create({
   modalItemName: { ...FONTS.bodyMedium, fontWeight: '600', marginBottom: 4 },
   modalItemMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   verifiedTag: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  verifiedTagText: { ...FONTS.small, color: COLORS.success },
+  verifiedTagText: { ...FONTS.small, color: C.success },
   pendingTag: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  pendingTagText: { ...FONTS.small, color: COLORS.warning },
+  pendingTagText: { ...FONTS.small, color: C.warning },
   flowTag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   flowTagText: { fontSize: 10, fontWeight: '600', letterSpacing: 0.3 },
   modalHint: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.secondaryLight,
+    backgroundColor: C.secondaryLight,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
@@ -1706,8 +1748,9 @@ const modalStyles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.secondary,
+    color: C.secondary,
   },
-});
+  });
+};
 
 export default FavoritesScreen;

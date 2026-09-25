@@ -41,21 +41,31 @@ import {
   subscribeToRequest,
   unsubscribeFromRequest,
 } from '../services/socketService';
+import {
+  useTheme,
+  useThemedStyles,
+  useThemeColors,
+  mapRoute,
+} from '../theme';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
-const C = {
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  bg: '#F8FAFC',
-  white: '#FFFFFF',
-  text: '#0F172A',
-  textSec: '#64748B',
-  muted: '#94A3B8',
-  success: '#10B981',
-  danger: '#EF4444',
-  purple: '#8B5CF6',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  secondary: c.brandBlue,
+  bg: c.surfaceSunken,
+  white: c.surface,
+  text: c.textPrimary,
+  textSec: c.textSecondary,
+  muted: c.textMuted,
+  success: c.success,
+  danger: c.danger,
+  purple: c.accentViolet,
+  dangerContainer: c.dangerContainer,
+  warningContainer: c.warningContainer,
+  successContainer: c.successContainer,
+  violetContainer: c.accentVioletContainer,
+});
 
 // Fast initial polling: 2s for first 30s, then 15s steady state
 const FAST_POLL_INTERVAL = 2000;
@@ -106,6 +116,9 @@ const extractCoords = (loc) => {
 };
 
 const LiveTrackingScreen = ({ navigation, route }) => {
+  const { isDark } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
   const { t } = useLanguage();
@@ -446,15 +459,15 @@ const LiveTrackingScreen = ({ navigation, route }) => {
       )}
 
       {/* Map */}
-      <Mapbox.MapView style={styles.map} styleURL={Mapbox.StyleURL.Street} logoEnabled={false} attributionEnabled={false} compassEnabled scaleBarEnabled={false} onDidFinishLoadingMap={handleMapReady}>
+      <Mapbox.MapView style={styles.map} styleURL={isDark ? Mapbox.StyleURL.TrafficNight : Mapbox.StyleURL.Street} logoEnabled={false} attributionEnabled={false} compassEnabled scaleBarEnabled={false} onDidFinishLoadingMap={handleMapReady}>
         <Mapbox.Camera ref={cameraRef} defaultSettings={{ centerCoordinate: initialCenter, zoomLevel: 14 }} animationMode="flyTo" animationDuration={0} />
 
         {/* Route line — rendered FIRST so all markers appear on top */}
         {destinationLocation && providerLocation && (
           <Mapbox.ShapeSource id="route" shape={{ type: 'Feature', geometry: { type: 'LineString', coordinates: routeCoordinates || [[providerLocation.longitude, providerLocation.latitude], [destinationLocation.longitude, destinationLocation.latitude]] } }}>
-            <Mapbox.LineLayer id="routeOutline" style={{ lineColor: '#c45a00', lineWidth: 8, lineCap: 'round', lineJoin: 'round', lineOpacity: 0.4 }} />
+            <Mapbox.LineLayer id="routeOutline" style={{ lineColor: mapRoute.outline, lineWidth: 8, lineCap: 'round', lineJoin: 'round', lineOpacity: 0.4 }} />
             <Mapbox.LineLayer id="routeLine" style={{ lineColor: C.primary, lineWidth: 5, lineCap: 'round', lineJoin: 'round', lineOpacity: 1 }} />
-            <Mapbox.LineLayer id="routeShimmer" style={{ lineColor: '#FFD580', lineWidth: 3, lineCap: 'round', lineJoin: 'round', lineOpacity: 0.6, lineDasharray: [2, 4] }} />
+            <Mapbox.LineLayer id="routeShimmer" style={{ lineColor: mapRoute.shimmer, lineWidth: 3, lineCap: 'round', lineJoin: 'round', lineOpacity: 0.6, lineDasharray: [2, 4] }} />
           </Mapbox.ShapeSource>
         )}
 
@@ -527,7 +540,7 @@ const LiveTrackingScreen = ({ navigation, route }) => {
           </View>
         ) : locationSharingStopped ? (
           <View style={styles.sheetCenter}>
-            <View style={[styles.errorIcon, { backgroundColor: '#FEF2F2' }]}><MaterialIcon name="location-off" size={28} color={C.danger} /></View>
+            <View style={[styles.errorIcon, { backgroundColor: C.dangerContainer }]}><MaterialIcon name="location-off" size={28} color={C.danger} /></View>
             <Text style={styles.errorTitle}>{t('tracking.stoppedSharing')}</Text>
             <Text style={styles.errorSubText}>{t('tracking.lastKnown')}</Text>
             <TouchableOpacity style={[styles.retryBtn, { backgroundColor: C.secondary }]} onPress={() => navigation.goBack()} activeOpacity={0.7}>
@@ -579,7 +592,7 @@ const LiveTrackingScreen = ({ navigation, route }) => {
             {displayDist != null && (
               <View style={styles.statsRow}>
                 <View style={styles.statItem}>
-                  <View style={[styles.statIconWrap, { backgroundColor: '#FFF7ED' }]}>
+                  <View style={[styles.statIconWrap, { backgroundColor: C.warningContainer }]}>
                     <MaterialIcon name="directions-car" size={18} color={C.primary} />
                   </View>
                   <Text style={styles.statVal}>{formatDistance(Number(displayDist), useKm)}</Text>
@@ -587,7 +600,7 @@ const LiveTrackingScreen = ({ navigation, route }) => {
                 </View>
                 {displayEta != null && (
                   <View style={styles.statItem}>
-                    <View style={[styles.statIconWrap, { backgroundColor: '#EDE9FE' }]}>
+                    <View style={[styles.statIconWrap, { backgroundColor: C.violetContainer }]}>
                       <MaterialIcon name="schedule" size={18} color={C.purple} />
                     </View>
                     <Text style={styles.statVal}>{displayEta < 60 ? `${displayEta} min` : `${Math.floor(displayEta / 60)}h ${displayEta % 60}m`}</Text>
@@ -595,7 +608,7 @@ const LiveTrackingScreen = ({ navigation, route }) => {
                   </View>
                 )}
                 <TouchableOpacity style={styles.statItem} onPress={() => { setIsRefreshing(true); fetchProviderLocation(); }} activeOpacity={0.6}>
-                  <View style={[styles.statIconWrap, { backgroundColor: '#ECFDF5' }]}>
+                  <View style={[styles.statIconWrap, { backgroundColor: C.successContainer }]}>
                     {isRefreshing ? <ActivityIndicator size={16} color={C.success} /> : <MaterialIcon name="refresh" size={18} color={C.success} />}
                   </View>
                   <Text style={styles.statVal}>{formatTimeAgo(lastFetchedAt)}</Text>
@@ -622,37 +635,39 @@ const LiveTrackingScreen = ({ navigation, route }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   map: { flex: 1 },
 
   // Map overlay
-  mapOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(248,250,252,0.95)', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
+  mapOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', zIndex: 100 },
   mapOverlayInner: { alignItems: 'center', gap: 12 },
   mapOverlayText: { fontSize: 14, fontWeight: '600', color: C.textSec },
 
   // Header
-  header: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12, backgroundColor: 'rgba(255,255,255,0.96)', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 5 },
-  headerBtn: { width: 42, height: 42, borderRadius: 14, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
+  header: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12, backgroundColor: C.white, shadowColor: theme.colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 5 },
+  headerBtn: { width: 42, height: 42, borderRadius: 14, backgroundColor: theme.colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' },
   headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   headerTitle: { fontSize: 18, fontWeight: '800', color: C.text, letterSpacing: -0.3 },
-  liveBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEE2E2', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, gap: 5 },
+  liveBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.dangerContainer, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, gap: 5 },
   liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.danger },
   liveText: { fontSize: 10, fontWeight: '800', color: C.danger, letterSpacing: 0.5 },
 
   // Markers
-  userMarker: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.secondary, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: C.white, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
-  destMarker: { width: 38, height: 38, borderRadius: 19, backgroundColor: C.secondary, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: C.white, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
+  userMarker: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.secondary, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: C.white, shadowColor: theme.colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
+  destMarker: { width: 38, height: 38, borderRadius: 19, backgroundColor: C.secondary, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: C.white, shadowColor: theme.colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
   providerMarker: { width: 46, height: 46, borderRadius: 23, backgroundColor: C.white, alignItems: 'center', justifyContent: 'center', borderWidth: 2.5, borderColor: C.primary, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.4, shadowRadius: 6, elevation: 8, overflow: 'hidden' },
 
   // Bottom sheet
-  sheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.white, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 20, shadowColor: '#0F172A', shadowOffset: { width: 0, height: -6 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 12 },
+  sheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.white, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 20, shadowColor: theme.colors.shadow, shadowOffset: { width: 0, height: -6 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 12 },
 
   // Loading/Error in sheet
   sheetCenter: { alignItems: 'center', paddingVertical: 20 },
   sheetLoadingText: { marginTop: 14, fontSize: 16, fontWeight: '700', color: C.text },
   sheetSubText: { marginTop: 4, fontSize: 13, fontWeight: '500', color: C.muted },
-  errorIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#FFF7ED', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  errorIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: C.warningContainer, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   errorTitle: { fontSize: 15, fontWeight: '700', color: C.text, textAlign: 'center' },
   errorSubText: { fontSize: 12, fontWeight: '500', color: C.muted, marginTop: 4 },
   retryBtn: { marginTop: 16, backgroundColor: C.primary, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 14, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
@@ -665,21 +680,21 @@ const styles = StyleSheet.create({
   avatarInitial: { fontSize: 20, fontWeight: '800', color: C.white },
   providerName: { fontSize: 16, fontWeight: '700', color: C.text },
   providerSvc: { fontSize: 12, fontWeight: '500', color: C.muted, marginTop: 2, textTransform: 'capitalize' },
-  statusChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, gap: 6 },
-  statusChipOnline: { backgroundColor: '#ECFDF5' },
+  statusChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.surfaceSunken, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, gap: 6 },
+  statusChipOnline: { backgroundColor: C.successContainer },
   statusChipDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.muted },
   statusChipDotOn: { backgroundColor: C.success },
   statusChipText: { fontSize: 11, fontWeight: '700', color: C.muted },
-  statusChipTextOn: { color: '#059669' },
+  statusChipTextOn: { color: theme.colors.success },
 
   // Address bar
-  addressBar: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#F0FDF4', borderRadius: 14, padding: 12, marginBottom: 14, gap: 10, borderWidth: 1, borderColor: '#BBF7D0' },
+  addressBar: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: theme.colors.successContainer, borderRadius: 14, padding: 12, marginBottom: 14, gap: 10, borderWidth: 1, borderColor: theme.colors.successBorder },
   addressDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.success, marginTop: 4 },
   addressLabel: { fontSize: 9, fontWeight: '800', color: C.success, letterSpacing: 0.8, marginBottom: 2 },
   addressText: { fontSize: 13, fontWeight: '500', color: C.text, lineHeight: 18 },
 
   // Stats row
-  statsRow: { flexDirection: 'row', backgroundColor: '#F8FAFC', borderRadius: 16, padding: 14, marginBottom: 14, gap: 8, borderWidth: 1, borderColor: '#F1F5F9' },
+  statsRow: { flexDirection: 'row', backgroundColor: theme.colors.surfaceSunken, borderRadius: 16, padding: 14, marginBottom: 14, gap: 8, borderWidth: 1, borderColor: theme.colors.border },
   statItem: { flex: 1, alignItems: 'center' },
   statIconWrap: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   statVal: { fontSize: 14, fontWeight: '700', color: C.text },
@@ -689,8 +704,9 @@ const styles = StyleSheet.create({
   actionsRow: { flexDirection: 'row', gap: 10 },
   callBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.success, paddingVertical: 14, borderRadius: 16, gap: 8, shadowColor: C.success, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
   callBtnText: { fontSize: 15, fontWeight: '700', color: C.white },
-  dirBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF7ED', paddingVertical: 14, borderRadius: 16, gap: 8, borderWidth: 1.5, borderColor: C.primary },
+  dirBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.warningContainer, paddingVertical: 14, borderRadius: 16, gap: 8, borderWidth: 1.5, borderColor: C.primary },
   dirBtnText: { fontSize: 15, fontWeight: '700', color: C.primary },
-});
+  });
+};
 
 export default LiveTrackingScreen;

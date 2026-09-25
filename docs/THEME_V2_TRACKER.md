@@ -15,7 +15,7 @@
 
 ## ▶ 1. WHERE WE ARE RIGHT NOW
 
-**Phases 0–5a, 6a and ALL of 6b done. Shared chrome is complete.**
+**Phases 0–5a, 6a, ALL of 6b, and Phase 7 batches 1–2 done.**
 
 - The theme engine is live and **11 components consume it**. The Appearance control ships.
 - Switching to Dark currently changes: the status bar, dialogs, alerts, inputs, icons,
@@ -23,13 +23,17 @@
   low-end devices. **Screens themselves are not themed yet.**
 - `npm run verify` exits 0. Working tree clean apart from the owner's `.vscode/settings.json`
   and `android/clean.log`.
+- **Six user screens are now themed** (`PSATriggerScreen`, `PSAContactsScreen`,
+  `ReferralScreen`, `FavoritesScreen`, `LiveTrackingScreen`, `EventServicesScreen`), and the
+  live-tracking map follows the theme via `StyleURL.TrafficNight`.
 - **Nothing is device-verified.** This environment cannot run the app.
 
 ### Next action
 
-**Phase 7 — user screens.** This is where the app visibly goes dark. Start with the
-smaller surfaces before `UserHomeScreen` (146 colours, a map, and the tab bar over it).
-Swap `SafeAreaView` → `<Screen>` in each file as it is themed.
+**Phase 7 batch 3** — `CreateServiceRequestScreen`, `UserServiceHistoryScreen`. Then
+batch 4 (`UserHomeScreen` + Mapbox, `SubscriptionScreen`, `ServiceRequestDetailScreen`) and
+batch 5 last, because `AccountSecurityScreen` / `ChangePasswordScreen` carry 33 security
+lines. Swap `SafeAreaView` → `<Screen>` in each file as it is themed.
 
 ---
 
@@ -55,7 +59,7 @@ contract.
         (auth screens in 9, verification in 5b), not as a big-bang change.
 - [ ] **Phase 7** — User screens + Mapbox theme following (`TrafficNight`)
   - [x] batch 1 — `PSATriggerScreen`, `PSAContactsScreen`, `ReferralScreen` (zero-security)
-  - [ ] batch 2 — `FavoritesScreen`, `LiveTrackingScreen`, `EventServicesScreen`
+  - [x] batch 2 — `FavoritesScreen`, `LiveTrackingScreen`, `EventServicesScreen`
   - [ ] batch 3 — `CreateServiceRequestScreen`, `UserServiceHistoryScreen`
   - [ ] batch 4 — `UserHomeScreen` + Mapbox, `SubscriptionScreen`, `ServiceRequestDetailScreen`
   - [ ] batch 5 — `AccountSecurityScreen`, `ChangePasswordScreen` (33 security lines — last)
@@ -69,22 +73,29 @@ contract.
 
 | Measure | Value |
 |---|---|
-| Colour literals remaining | **~3,150** (was 3,329 at v1.0.9) |
-| Files on the hex allowlist | **22** |
+| Colour literals remaining | **3,021** (3,329 at v1.0.9) — measured, see note |
+| Files on the hex allowlist | **25** |
 | Components fully themed | **8** — CustomDialog, Button, Alert, ShimmerLoader, Input, Icon, GlobalBanner, DrawerMenu (+ RootNavigator surgically) |
-| Theme unit tests | 23 across 5 suites |
+| Screens fully themed | **7** — EmailVerifyHandler, PSATrigger, PSAContacts, Referral, Favorites, LiveTracking, EventServices |
+| Theme unit tests | 24 across 5 suites |
 | Owner's Working Hours tests | 86 — **must never regress** |
 | i18n | **2074** × en/hi/mr (2067 baseline + 7 theme keys) |
 
-**Honest split:** by "can a user see the app go dark" ≈ **10%**. By total project effort
-≈ **45%** — architecture, palette, design language, census and gates are done, and the
+**On the literal count.** 3,329 was v1.0.9 counted over its own 164 source files. Today's
+3,021 covers the 173 that exist now. The 308 difference splits into **120 removed with the
+dead files in Phase 4** and **188 genuinely migrated onto tokens**. Recount with:
+`git ls-files | grep -E '\.(jsx?|tsx?)$'` filtered to exclude `scripts/` and tests, matching
+`#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)`. Quoting a smaller number than that is overclaiming.
+
+**Honest split:** by "can a user see the app go dark" ≈ **20%**. By total project effort
+≈ **52%** — architecture, palette, design language, census and gates are done, and the
 pattern is proven. The remaining literals are mechanical.
 
 ### Remaining by area
 
 | Area | Colours | Phase |
 |---|---|---|
-| Everything else (screens) | ~2,400 | 7–9 |
+| Everything else (screens) | ~2,271 | 7–9 |
 | Verification surfaces | 395 | 5b |
 | Working Hours | 126 | 8 |
 | Settings screen | 47 | 6b/7 |
@@ -178,6 +189,19 @@ a row here.
   token is `transparent` in light mode, so the logout item's red border had disappeared.
   Fixed with new `dangerLine` / `dangerFill` tokens. **Lesson: a gate that cannot fail is
   not a gate — prove each one fails before trusting it.**
+- **The `transparent`-in-light border family was wrong, and the `dangerLine` fix had treated
+  the symptom.** The four `*Border` tokens were `transparent` in light mode on the theory
+  that a light chip reads fine on its fill alone. Migrating `EventServicesScreen` showed the
+  premise was false for **every** consumer: at v1.0.9 `Alert` drew `borderWidth: 1` in all
+  four hues, the tracking screen's address bar had `#BBF7D0`, and the event screen's venue
+  buttons had `#BFDBFE` / `#A7F3D0`. So the token being transparent had silently erased
+  hairlines in `Alert` (4) and `LiveTrackingScreen` (1) — a light-mode regression already on
+  the branch. Gave the family its shipped light values via a new `semanticLightBorder` group
+  (plus `brandOrangeBorder` for the `#FDBA74` summary card), which is both the fix and exact
+  light fidelity. `semanticLine` now means only "row hairline", which is what it was for.
+  Added a unit test asserting **no `*Border` / `*Line` token ever resolves to transparent**,
+  proven to fail on the old value first. **Lesson: when a fix is scoped to the one file that
+  exposed a bug, check every other consumer of the same token before calling it done.**
 
 ---
 

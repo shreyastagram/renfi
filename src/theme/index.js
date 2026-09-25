@@ -33,5 +33,6 @@ export {
   stableEmergency,
   medal,
   brandTint,
+  mapRoute,
   brand,
 } from './tokens/palette.js';

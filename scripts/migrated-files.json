@@ -25,6 +25,9 @@
     "src/components/screenEdges.js",
     "src/screens/PSATriggerScreen.jsx",
     "src/screens/ReferralScreen.jsx",
-    "src/screens/PSAContactsScreen.jsx"
+    "src/screens/PSAContactsScreen.jsx",
+    "src/screens/LiveTrackingScreen.jsx",
+    "src/screens/FavoritesScreen.jsx",
+    "src/screens/EventServicesScreen.jsx"
   ]
 }

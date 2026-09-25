@@ -47,17 +47,14 @@ const EXPECTED_CHANGES = {
     'rgba(15,23,42,0.55)': 'modal scrims unified onto theme.colors.overlay; slightly lighter',
   },
   'src/components/Alert.jsx': {
+    '#FECDD3': 'rose-200 border converged onto dangerBorder (#FECACA) — one red family',
     '#FFF1F2': 'converged onto dangerContainer (dE 0.90, imperceptible)',
     '#BE123C': 'converged onto the danger token — one semantic system',
-    '#FECDD3': 'border now comes from dangerBorder',
     '#FFFBEB': 'converged onto warningContainer',
     '#92400E': 'converged onto the warning token',
-    '#FDE68A': 'border now comes from warningBorder',
-    '#BBF7D0': 'border now comes from successBorder',
     '#16A34A': 'a11y: white on this badge was 3.30:1 -> success + onSuccess',
     '#E11D48': 'converged onto the danger token',
     '#D97706': 'a11y: white on this badge was 3.19:1 -> warning + onWarning',
-    '#BFDBFE': 'border now comes from infoBorder',
     '#1E40AF': 'converged onto the info token',
     '#2563EB': 'converged onto the info token',
     '#FFFFFF': 'badge/action ink is now per-hue (onSuccess/onWarning/onDanger/onInfo)',
@@ -119,12 +116,34 @@ const EXPECTED_CHANGES = {
   'src/screens/PSAContactsScreen.jsx': {
     // This screen carried its own warning family (amber-600/50) alongside the
     // semantic one (amber-700/orange-50). Converged, same call as Alert.
-    '#FECACA': 'danger hairline now dangerLine, visible in both themes',
     '#D97706': 'converged onto the warning token (#B45309), which also passes AA',
     '#FFFBEB': 'converged onto warningContainer',
-    '#FDE68A': 'warning hairline now warningLine',
     '#78350F': 'disclaimer body converged onto the warning token',
     'rgba(241,245,249,0.95)': 'sheet background now the bg token; the 0.95 alpha was imperceptible',
+  },
+  'src/screens/LiveTrackingScreen.jsx': {
+    '#EDE9FE': 'violet stat chip converged onto accentVioletContainer',
+    '#ECFDF5': 'converged onto successContainer — one green family',
+    '#FEE2E2': 'live badge converged onto dangerContainer',
+    '#059669': 'a11y: emerald-600 on its tint was 3.32:1 -> the success token',
+    'rgba(248,250,252,0.95)': 'map-loading scrim now surfaceSunken; the 0.95 alpha over a map read as opaque anyway',
+    'rgba(255,255,255,0.96)': 'floating header now surface; same reason',
+  },
+  'src/screens/FavoritesScreen.jsx': {
+    '#0D9488': 'a11y: teal-600 on white was 3.41:1 -> the success token',
+    '#CCFBF1': 'teal tint converged onto successContainer',
+    '#FFFBEB': 'converged onto warningContainer, as in Alert and PSAContacts',
+    '#EDE9FE': 'converged onto accentVioletContainer',
+    'rgba(15,23,42,0.5)': 'both modal scrims unified onto theme.colors.overlay (0.45)',
+  },
+  'src/screens/EventServicesScreen.jsx': {
+    '#ECFDF5': 'converged onto successContainer — one green family',
+    '#F5F3FF': 'converged onto accentVioletContainer',
+    '#A7F3D0': 'converged onto successBorder (#BBF7D0), the shared container hairline',
+    'rgba(15,23,42,0.5)': 'both modal scrims unified onto theme.colors.overlay (0.45)',
+    // Not flagged by this gate — #10B981 stays reachable via iconAccent.completed —
+    // but the change is real and belongs on the record.
+    '#10B981': 'a11y: emerald-500 on white was 2.46:1 -> the success token (#15803D)',
   },
   'src/screens/EmailVerifyHandlerScreen.jsx': {
     '#2563EB': 'altBlueIndigo', '#FFFFFF': 'surface',
@@ -166,6 +185,7 @@ for (const group of [
   'stableEmergency',
   'medal',
   'brandTint',
+  'mapRoute',
   'vendor',
 ]) {
   const g = palette[group];

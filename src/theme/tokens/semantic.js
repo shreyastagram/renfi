@@ -16,6 +16,7 @@ import {
   violet,
   iosSystem,
   semanticLine,
+  semanticLightBorder,
   semanticDarkBorder,
   slate,
   gray,
@@ -87,13 +88,13 @@ export const lightColors = {
   onDanger: slate[0],
   onInfo: slate[0],
 
-  // Status-chip borders. Light chips read fine on a tinted fill alone, so these
-  // are transparent here; they exist so the key sets match and so a component
-  // can set borderColor unconditionally instead of branching on theme.
-  successBorder: 'transparent',
-  warningBorder: 'transparent',
-  dangerBorder: 'transparent',
-  infoBorder: 'transparent',
+  // Status-container borders — the hairline that gives a filled card its edge.
+  // See semanticLightBorder for why these are no longer transparent.
+  successBorder: semanticLightBorder.success,
+  warningBorder: semanticLightBorder.warning,
+  dangerBorder: semanticLightBorder.danger,
+  infoBorder: semanticLightBorder.info,
+  brandOrangeBorder: semanticLightBorder.brandOrange,
 
   // Visible danger hairline + fill, for rows rather than chips. See semanticLine.
   dangerLine: semanticLine.dangerLight,
@@ -180,6 +181,7 @@ export const darkColors = {
   warningBorder: semanticDarkBorder.warning,
   dangerBorder: semanticDarkBorder.danger,
   infoBorder: semanticDarkBorder.info,
+  brandOrangeBorder: semanticDarkBorder.brandOrange,
   dangerLine: semanticDarkBorder.danger,
   dangerFill: semanticDark.dangerContainer,
   warningLine: semanticDarkBorder.warning,

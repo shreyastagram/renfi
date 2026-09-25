@@ -138,6 +138,7 @@ export const stableDark = {
   inkFaint: 'rgba(255, 255, 255, 0.45)',
   fill: 'rgba(255, 255, 255, 0.2)',
   fillSubtle: 'rgba(255, 255, 255, 0.08)',
+  fillChip: 'rgba(255, 255, 255, 0.12)',
   shadowBase: '#000000',
   successFill: 'rgba(16, 185, 129, 0.15)',
   successLine: 'rgba(16, 185, 129, 0.3)',
@@ -206,6 +207,14 @@ export const brandTint = {
   blue10: 'rgba(43, 118, 188, 0.1)',
   violet04: 'rgba(124, 58, 237, 0.04)',
   violet10: 'rgba(124, 58, 237, 0.1)',
+};
+
+// Route overlay drawn ON the Mapbox canvas. THEME-INDEPENDENT: the line sits on
+// a map, not a themed surface, and a warm orange route reads clearly against both
+// the light Streets style and the dark navigation-night style.
+export const mapRoute = {
+  outline: '#c45a00',
+  shimmer: '#FFD580',
 };
 
 // Referral leaderboard medals. THEME-INDEPENDENT: gold, silver and bronze are
@@ -350,11 +359,9 @@ export const semanticDark = {
   infoContainer: '#102639',
 };
 
-// Borders for the status containers above — the status hue at ~70% over the card.
-// Visible hairlines for danger-styled rows (the drawer's logout item). Distinct
-// from the semantic *Border tokens, which are TRANSPARENT in light mode because
-// Alert's chips deliberately have no border there. Using those here made the
-// drawer's red border disappear in light mode — caught by check:light.
+// Visible hairlines for danger- and warning-styled ROWS — a tinted seam across a
+// plain card, as in the drawer's logout item. Deliberately fainter than the
+// container borders below, because a row has no fill to sit against.
 export const semanticLine = {
   dangerLight: 'rgba(239, 68, 68, 0.15)',
   dangerFillLight: 'rgba(239, 68, 68, 0.08)',
@@ -362,11 +369,32 @@ export const semanticLine = {
   warningFillLight: 'rgba(217, 119, 6, 0.12)',
 };
 
+// Borders for the status CONTAINERS — a tint-200 hairline that gives a filled
+// card its edge.
+//
+// These were once `transparent` in light mode, on the theory that a light chip
+// reads fine on its fill alone. That was wrong: at v1.0.9 every consumer —
+// Alert's four variants, the tracking screen's address bar, the event screen's
+// venue buttons — drew `borderWidth: 1` in one of these hues, so making the
+// token transparent silently erased a hairline the design relied on. Restored to
+// the shipped values, which is both the bug fix and exact light fidelity.
+export const semanticLightBorder = {
+  success: '#BBF7D0',
+  warning: '#FDE68A',
+  danger: '#FECACA',
+  info: '#BFDBFE',
+  brandOrange: '#FDBA74',
+};
+
+// The dark-surface counterparts — the status hue at ~70% over the card. The TEXT
+// and DOT do the semantic work at 6:1+; the border only supplies definition,
+// which is why it is not held to 3.0.
 export const semanticDarkBorder = {
   success: '#2A9B77',
   warning: '#B58D25',
   danger: '#B3565B',
   info: '#487DAE',
+  brandOrange: '#B0662C',
 };
 
 export const overlay = {
