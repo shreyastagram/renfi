@@ -298,6 +298,15 @@ export const semanticDark = {
 };
 
 // Borders for the status containers above — the status hue at ~70% over the card.
+// Visible hairlines for danger-styled rows (the drawer's logout item). Distinct
+// from the semantic *Border tokens, which are TRANSPARENT in light mode because
+// Alert's chips deliberately have no border there. Using those here made the
+// drawer's red border disappear in light mode — caught by check:light.
+export const semanticLine = {
+  dangerLight: 'rgba(239, 68, 68, 0.15)',
+  dangerFillLight: 'rgba(239, 68, 68, 0.08)',
+};
+
 export const semanticDarkBorder = {
   success: '#2A9B77',
   warning: '#B58D25',

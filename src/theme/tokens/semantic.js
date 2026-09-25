@@ -15,6 +15,7 @@ import {
   altBlue,
   violet,
   iosSystem,
+  semanticLine,
   semanticDarkBorder,
   slate,
   gray,
@@ -93,6 +94,10 @@ export const lightColors = {
   warningBorder: 'transparent',
   dangerBorder: 'transparent',
   infoBorder: 'transparent',
+
+  // Visible danger hairline + fill, for rows rather than chips. See semanticLine.
+  dangerLine: semanticLine.dangerLight,
+  dangerFill: semanticLine.dangerFillLight,
 
   // Apple system colours — only for surfaces meant to read as native iOS.
   iosBlue: iosSystem.light.blue,
@@ -173,6 +178,8 @@ export const darkColors = {
   warningBorder: semanticDarkBorder.warning,
   dangerBorder: semanticDarkBorder.danger,
   infoBorder: semanticDarkBorder.info,
+  dangerLine: semanticDarkBorder.danger,
+  dangerFill: semanticDark.dangerContainer,
 
   // Apple system colours — only for surfaces meant to read as native iOS.
   iosBlue: iosSystem.dark.blue,

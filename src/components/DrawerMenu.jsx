@@ -51,8 +51,8 @@ const makeBrand = (c) => ({
   surface: c.surface,
   backdrop: stableDark.heroBackdrop,
   danger: c.danger,
-  dangerBg: c.dangerContainer,
-  dangerBorder: c.dangerBorder,
+  dangerBg: c.dangerFill,
+  dangerBorder: c.dangerLine,
   textPrimary: c.textStrong,
   textSecondary: c.textSecondary,
   textMuted: c.textMuted,
@@ -187,7 +187,7 @@ const AnimatedMenuItem = React.memo(({ item, index, onPress, isReady, isActive }
   const iconBgColor = item.danger
     ? BRAND.dangerBg
     : item.accent
-      ? themeColors.dangerContainer
+      ? themeColors.dangerFill
       : isActive
         ? `${BRAND.secondary}15`
         : BRAND.iconBg;
@@ -910,9 +910,9 @@ const makeStyles = (theme) => {
     fontWeight: '700',
   },
   menuItemAccent: {
-    backgroundColor: theme.colors.dangerContainer,
+    backgroundColor: theme.colors.dangerFill,
     borderWidth: 1,
-    borderColor: theme.colors.dangerBorder,
+    borderColor: theme.colors.dangerLine,
   },
   menuLabelAccent: {
     color: theme.colors.danger,

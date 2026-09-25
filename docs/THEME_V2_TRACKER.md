@@ -101,6 +101,7 @@ npm run verify
 | `check:contrast` | dark device-safety: surface steps + border separation |
 | `check:types` | `tsc --noEmit` |
 | `test:unit` | 21 theme tests |
+| `check:light` | **every migrated file still resolves its ORIGINAL light-mode colours**, or the change is declared with a reason |
 | `test:app` | the owner's 86 Working Hours tests |
 
 **Plus, per file touched:** lint against the v1.0.9 baseline for that *specific* file.
@@ -155,6 +156,13 @@ a row here.
 - **Raw near-black was worse than the old ramp on cheap panels** (surface→elevated 1.10 vs
   1.21). Fixed by sizing steps on code-value gap and leaning on the card border.
 - **The hex linter flagged its own comments.** Fixed the linter, not the comments.
+- **No gate verified light-mode fidelity.** Every check passed even if a colour was mapped
+  to the WRONG token — hex lint only wants no literal, contrast only checks token pairs,
+  tests and lint never look at values. Added `check:light`, which immediately found a
+  **shipped regression**: `DrawerMenu` used `dangerBorder` for a visible hairline, but that
+  token is `transparent` in light mode, so the logout item's red border had disappeared.
+  Fixed with new `dangerLine` / `dangerFill` tokens. **Lesson: a gate that cannot fail is
+  not a gate — prove each one fails before trusting it.**
 
 ---
 
