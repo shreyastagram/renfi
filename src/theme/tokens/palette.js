@@ -128,6 +128,7 @@ export const iconAccent = {
   'website': '#0284C7',
   'facebook': '#2563EB',
   'tiktok': '#7C3AED',
+  'twitter': '#0EA5E9',
 };
 
 // Surfaces that stay DARK in BOTH themes, and the ink that sits on them.

@@ -36,16 +36,30 @@ import { NODE_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
 
 import { uploadPortfolioImage } from '../services/cloudinaryService';
+import {
+  useThemedStyles,
+  useThemeColors,
+  iconAccent,
+  mapOverlay,
+} from '../theme';
 
 // Brand colors
-const BRAND = {
-  primary: '#f67c16',
-  secondary: '#2b76bc',
-  purple: '#7C3AED',
-  background: '#F9FAFB',
-  white: '#FFFFFF',
-  success: '#10B981',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  secondary: c.brandBlue,
+  purple: c.accentViolet,
+  background: c.surfaceSunken,
+  white: c.surface,
+  success: c.success,
+  line: c.borderNeutral,
+  sunken: c.surfaceSunken,
+  text: c.textStrongNeutral,
+  textBody: c.textBodyNeutral,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  violetFill: c.accentVioletFill,
+  shadow: c.shadow,
+});
 
 // Social media platforms configuration
 const PLATFORMS = [
@@ -53,48 +67,48 @@ const PLATFORMS = [
     id: 'website', 
     label: 'Website', 
     icon: 'language', 
-    color: '#0284C7',
-    bgColor: '#E0F2FE',
+    color: iconAccent.website,
+    bgColor: iconAccent.website + '1A',
     placeholder: 'https://yourwebsite.com',
   },
   { 
     id: 'instagram', 
     label: 'Instagram', 
     icon: 'camera-alt', 
-    color: '#DB2777',
-    bgColor: '#FCE7F3',
+    color: iconAccent.instagram,
+    bgColor: iconAccent.instagram + '1A',
     placeholder: 'https://instagram.com/yourusername',
   },
   { 
     id: 'youtube', 
     label: 'YouTube', 
     icon: 'play-circle-filled', 
-    color: '#DC2626',
-    bgColor: '#FEE2E2',
+    color: iconAccent.youtube,
+    bgColor: iconAccent.youtube + '1A',
     placeholder: 'https://youtube.com/c/yourchannel',
   },
   { 
     id: 'facebook', 
     label: 'Facebook', 
     icon: 'facebook', 
-    color: '#2563EB',
-    bgColor: '#DBEAFE',
+    color: iconAccent.facebook,
+    bgColor: iconAccent.facebook + '1A',
     placeholder: 'https://facebook.com/yourpage',
   },
   { 
     id: 'tiktok', 
     label: 'TikTok', 
     icon: 'music-note', 
-    color: '#7C3AED',
-    bgColor: '#F3E8FF',
+    color: iconAccent.tiktok,
+    bgColor: iconAccent.tiktok + '1A',
     placeholder: 'https://tiktok.com/@yourusername',
   },
   { 
     id: 'twitter', 
     label: 'Twitter/X', 
     icon: 'alternate-email', 
-    color: '#0EA5E9',
-    bgColor: '#E0F7FA',
+    color: iconAccent.twitter,
+    bgColor: iconAccent.twitter + '1A',
     placeholder: 'https://twitter.com/yourusername',
   },
 ];
@@ -135,6 +149,8 @@ const SUGGESTED_SPECIALIZATIONS = {
  * Link Input Component
  */
 const LinkInput = ({ platform, value, onChange, t }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { dialog } = useDialog();
   return (
   <View style={styles.linkInputContainer}>
@@ -148,7 +164,7 @@ const LinkInput = ({ platform, value, onChange, t }) => {
         value={value}
         onChangeText={onChange}
         placeholder={platform.placeholder}
-        placeholderTextColor="#9CA3AF"
+        placeholderTextColor={C.muted}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="url"
@@ -177,38 +193,48 @@ const LinkInput = ({ platform, value, onChange, t }) => {
 /**
  * Specialization Chip Component
  */
-const SpecializationChip = ({ label, selected, onToggle }) => (
-  <TouchableOpacity
-    style={[styles.specChip, selected && styles.specChipSelected]}
-    onPress={onToggle}
-    activeOpacity={0.7}
-  >
-    <Text style={[styles.specChipText, selected && styles.specChipTextSelected]}>
-      {label}
-    </Text>
-    {selected && (
-      <MaterialIcon name="check" size={14} color={BRAND.white} />
-    )}
-  </TouchableOpacity>
-);
+const SpecializationChip = ({ label, selected, onToggle }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  return (
+    <TouchableOpacity
+      style={[styles.specChip, selected && styles.specChipSelected]}
+      onPress={onToggle}
+      activeOpacity={0.7}
+    >
+      <Text style={[styles.specChipText, selected && styles.specChipTextSelected]}>
+        {label}
+      </Text>
+      {selected && (
+        <MaterialIcon name="check" size={14} color={C.white} />
+      )}
+    </TouchableOpacity>
+  );
+};
 
 /**
  * Gallery Image Component
  */
-const GalleryImage = ({ image, onRemove }) => (
-  <View style={styles.galleryImageWrapper}>
-    <Image 
-      source={{ uri: image.url || image }} 
-      style={styles.galleryImage}
-      resizeMode="cover"
-    />
-    <TouchableOpacity style={styles.removeImageButton} onPress={onRemove}>
-      <MaterialIcon name="close" size={16} color={BRAND.white} />
-    </TouchableOpacity>
-  </View>
-);
+const GalleryImage = ({ image, onRemove }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  return (
+    <View style={styles.galleryImageWrapper}>
+      <Image 
+        source={{ uri: image.url || image }} 
+        style={styles.galleryImage}
+        resizeMode="cover"
+      />
+      <TouchableOpacity style={styles.removeImageButton} onPress={onRemove}>
+        <MaterialIcon name="close" size={16} color={C.white} />
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 const PortfolioEditScreen = ({ navigation }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const { profile, refreshProfile } = useApp();
   const { dialog } = useDialog();
@@ -366,7 +392,7 @@ const PortfolioEditScreen = ({ navigation }) => {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <MaterialIcon name="arrow-back" size={24} color="#1F2937" />
+          <MaterialIcon name="arrow-back" size={24} color={C.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('portfolio.title')}</Text>
         <TouchableOpacity 
@@ -375,7 +401,7 @@ const PortfolioEditScreen = ({ navigation }) => {
           disabled={saving}
         >
           {saving ? (
-            <ActivityIndicator size="small" color={BRAND.white} />
+            <ActivityIndicator size="small" color={C.white} />
           ) : (
             <Text style={styles.saveButtonText}>{t('common.save')}</Text>
           )}
@@ -394,7 +420,7 @@ const PortfolioEditScreen = ({ navigation }) => {
           {/* Bio Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <MaterialIcon name="person" size={20} color={BRAND.purple} />
+              <MaterialIcon name="person" size={20} color={C.purple} />
               <Text style={styles.sectionTitle}>{t('portfolio.aboutYou')}</Text>
             </View>
             <TextInput
@@ -402,7 +428,7 @@ const PortfolioEditScreen = ({ navigation }) => {
               value={bio}
               onChangeText={setBio}
               placeholder={t('portfolio.bioPlaceholder')}
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={C.muted}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
@@ -414,7 +440,7 @@ const PortfolioEditScreen = ({ navigation }) => {
           {/* Portfolio Links Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <MaterialIcon name="link" size={20} color={BRAND.purple} />
+              <MaterialIcon name="link" size={20} color={C.purple} />
               <Text style={styles.sectionTitle}>{t('portfolio.portfolioLinks')}</Text>
             </View>
             <Text style={styles.sectionSubtitle}>
@@ -436,7 +462,7 @@ const PortfolioEditScreen = ({ navigation }) => {
           {/* Specializations Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <MaterialIcon name="auto-awesome" size={20} color={BRAND.purple} />
+              <MaterialIcon name="auto-awesome" size={20} color={C.purple} />
               <Text style={styles.sectionTitle}>{t('portfolio.specializationsTitle')}</Text>
             </View>
             <Text style={styles.sectionSubtitle}>
@@ -484,7 +510,7 @@ const PortfolioEditScreen = ({ navigation }) => {
                 value={customSpecialization}
                 onChangeText={setCustomSpecialization}
                 placeholder={t('portfolio.customSpecPlaceholder')}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={C.muted}
                 onSubmitEditing={addCustomSpecialization}
               />
               <TouchableOpacity 
@@ -495,7 +521,7 @@ const PortfolioEditScreen = ({ navigation }) => {
                 <MaterialIcon 
                   name="add" 
                   size={20} 
-                  color={customSpecialization.trim() ? BRAND.purple : '#9CA3AF'} 
+                  color={customSpecialization.trim() ? C.purple : C.muted} 
                 />
               </TouchableOpacity>
             </View>
@@ -504,7 +530,7 @@ const PortfolioEditScreen = ({ navigation }) => {
           {/* Portfolio Gallery Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <MaterialIcon name="collections" size={20} color={BRAND.purple} />
+              <MaterialIcon name="collections" size={20} color={C.purple} />
               <Text style={styles.sectionTitle}>{t('portfolio.portfolioGallery')}</Text>
             </View>
             <Text style={styles.sectionSubtitle}>
@@ -527,10 +553,10 @@ const PortfolioEditScreen = ({ navigation }) => {
                   disabled={uploadingImage}
                 >
                   {uploadingImage ? (
-                    <ActivityIndicator size="small" color={BRAND.purple} />
+                    <ActivityIndicator size="small" color={C.purple} />
                   ) : (
                     <>
-                      <MaterialIcon name="add-photo-alternate" size={28} color={BRAND.purple} />
+                      <MaterialIcon name="add-photo-alternate" size={28} color={C.purple} />
                       <Text style={styles.addImageText}>{t('portfolio.addPhoto')}</Text>
                     </>
                   )}
@@ -544,10 +570,12 @@ const PortfolioEditScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BRAND.background,
+    backgroundColor: C.background,
   },
   flex1: {
     flex: 1,
@@ -558,9 +586,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: C.line,
   },
   backButton: {
     width: 40,
@@ -568,17 +596,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: C.sunken,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1F2937',
+    color: C.text,
   },
   saveButton: {
     paddingHorizontal: 20,
     paddingVertical: 10,
-    backgroundColor: BRAND.purple,
+    backgroundColor: C.purple,
     borderRadius: 20,
   },
   saveButtonDisabled: {
@@ -587,7 +615,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 14,
     fontWeight: '700',
-    color: BRAND.white,
+    color: C.white,
   },
   scrollView: {
     flex: 1,
@@ -596,11 +624,11 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   section: {
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: C.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
@@ -615,28 +643,28 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1F2937',
+    color: C.text,
   },
   sectionSubtitle: {
     fontSize: 13,
-    color: '#6B7280',
+    color: C.textSecondary,
     marginBottom: 16,
     lineHeight: 18,
   },
   // Bio styles
   bioInput: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: C.sunken,
     borderRadius: 12,
     padding: 14,
     fontSize: 14,
-    color: '#1F2937',
+    color: C.text,
     minHeight: 100,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: C.line,
   },
   charCount: {
     fontSize: 11,
-    color: '#9CA3AF',
+    color: C.muted,
     textAlign: 'right',
     marginTop: 6,
   },
@@ -647,10 +675,10 @@ const styles = StyleSheet.create({
   linkInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: C.sunken,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: C.line,
     padding: 12,
   },
   linkIconContainer: {
@@ -667,12 +695,12 @@ const styles = StyleSheet.create({
   linkLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6B7280',
+    color: C.textSecondary,
     marginBottom: 4,
   },
   linkInput: {
     fontSize: 14,
-    color: '#1F2937',
+    color: C.text,
     padding: 0,
   },
   linkTestButton: {
@@ -685,7 +713,7 @@ const styles = StyleSheet.create({
   selectedSpecsLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1F2937',
+    color: C.text,
     marginBottom: 10,
   },
   suggestedSpecsContainer: {
@@ -694,7 +722,7 @@ const styles = StyleSheet.create({
   suggestedSpecsLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6B7280',
+    color: C.textSecondary,
     marginBottom: 10,
   },
   specsGrid: {
@@ -705,37 +733,37 @@ const styles = StyleSheet.create({
   specChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: C.sunken,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
     gap: 6,
   },
   specChipSelected: {
-    backgroundColor: BRAND.purple,
+    backgroundColor: C.purple,
   },
   specChipText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#374151',
+    color: C.textBody,
   },
   specChipTextSelected: {
-    color: BRAND.white,
+    color: C.white,
   },
   customSpecContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: C.sunken,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: C.line,
     paddingLeft: 14,
     paddingRight: 4,
   },
   customSpecInput: {
     flex: 1,
     fontSize: 14,
-    color: '#1F2937',
+    color: C.text,
     paddingVertical: 12,
   },
   addSpecButton: {
@@ -744,7 +772,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 18,
-    backgroundColor: '#F3E8FF',
+    backgroundColor: C.violetFill,
   },
   // Gallery styles
   galleryGrid: {
@@ -770,7 +798,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: mapOverlay.hint,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -779,18 +807,19 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: C.line,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: C.sunken,
   },
   addImageText: {
     fontSize: 11,
     fontWeight: '600',
-    color: BRAND.purple,
+    color: C.purple,
     marginTop: 4,
   },
-});
+  });
+};
 
 export default PortfolioEditScreen;

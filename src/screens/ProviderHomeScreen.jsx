@@ -65,19 +65,46 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NODE_BASE_URL } from '../config/api';
 import { getTokens } from '../utils/storage';
 import authFetch from '../utils/authFetch';
+import {
+  useThemedStyles,
+  useThemeColors,
+  stableDark,
+  iconAccent,
+} from '../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Brand colors
-const BRAND = {
-  primary: '#f67c16', // Orange
-  secondary: '#2b76bc', // Blue
-  background: '#F1F5F9',
-  white: '#FFFFFF',
-  dark: '#0F172A',
-  muted: '#94A3B8',
-  darkText: '#0F172A',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  background: c.bg,
+  white: c.surface,
+  dark: c.textPrimary,
+  darkText: c.textPrimary,
+  muted: c.textMuted,
+  textStrong: c.textStrong,
+  textSecondary: c.textSecondary,
+  borderMedium: c.borderMedium,
+  // The shipped hairline was #F1F5F9 -- exactly  in light, a recessed seam on a
+  // dark surface.
+  hairline: c.bg,
+  line: c.border,
+  sunken: c.surfaceSunken,
+  success: c.success,
+  successBg: c.successContainer,
+  online: c.online,
+  info: c.info,
+  infoBg: c.infoContainer,
+  warningBg: c.warningContainer,
+  danger: c.danger,
+  dangerBg: c.dangerContainer,
+  dangerLine: c.dangerBorder,
+  dangerFill: c.dangerFill,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
 
 // Service category labels
 const SERVICE_LABELS = {
@@ -161,21 +188,23 @@ const usePressAnimation = () => {
  * Home Screen Skeleton Loader — uses shared ShimmerLoader with Amazon-style shimmer sweep
  */
 const HomeSkeletonLoader = ({ insets }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const shimmerAnim = useShimmerAnimation();
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 96 }]} scrollEnabled={false}>
         {/* Hero Header skeleton */}
         <View style={[styles.heroHeader, { paddingTop: insets.top + 16 }]}>
-          <SvgArt color="rgba(255,255,255,1)" height={110} />
+          <SvgArt color={stableDark.ink} height={110} />
           <View style={styles.headerRow}>
-            <ShimmerBlock width={40} height={40} borderRadius={20} shimmerAnim={shimmerAnim} style={{ backgroundColor: 'rgba(255,255,255,0.15)' }} />
-            <ShimmerBlock width={40} height={40} borderRadius={20} shimmerAnim={shimmerAnim} style={{ backgroundColor: 'rgba(255,255,255,0.15)' }} />
+            <ShimmerBlock width={40} height={40} borderRadius={20} shimmerAnim={shimmerAnim} style={{ backgroundColor: stableDark.fill }} />
+            <ShimmerBlock width={40} height={40} borderRadius={20} shimmerAnim={shimmerAnim} style={{ backgroundColor: stableDark.fill }} />
           </View>
           <View style={styles.heroTextBlock}>
-            <ShimmerBlock width={100} height={14} borderRadius={6} shimmerAnim={shimmerAnim} style={{ backgroundColor: 'rgba(255,255,255,0.12)', marginBottom: 8 }} />
-            <ShimmerBlock width={160} height={26} borderRadius={8} shimmerAnim={shimmerAnim} style={{ backgroundColor: 'rgba(255,255,255,0.18)', marginBottom: 6 }} />
-            <ShimmerBlock width={200} height={12} borderRadius={6} shimmerAnim={shimmerAnim} style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
+            <ShimmerBlock width={100} height={14} borderRadius={6} shimmerAnim={shimmerAnim} style={{ backgroundColor: stableDark.fillChip, marginBottom: 8 }} />
+            <ShimmerBlock width={160} height={26} borderRadius={8} shimmerAnim={shimmerAnim} style={{ backgroundColor: stableDark.fill, marginBottom: 6 }} />
+            <ShimmerBlock width={200} height={12} borderRadius={6} shimmerAnim={shimmerAnim} style={{ backgroundColor: stableDark.heroDivider }} />
           </View>
         </View>
 
@@ -193,7 +222,7 @@ const HomeSkeletonLoader = ({ insets }) => {
           </View>
 
           {/* Verification card skeleton */}
-          <View style={{ backgroundColor: BRAND.white, borderRadius: 16, padding: 16, gap: 10 }}>
+          <View style={{ backgroundColor: C.white, borderRadius: 16, padding: 16, gap: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <ShimmerBlock width={40} height={40} borderRadius={20} shimmerAnim={shimmerAnim} />
               <View style={{ gap: 6, flex: 1 }}>
@@ -208,7 +237,7 @@ const HomeSkeletonLoader = ({ insets }) => {
           <ShimmerBlock width={80} height={12} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginTop: 20, marginBottom: 10 }} />
           <View style={{ flexDirection: 'row', gap: 10 }}>
             {[1, 2, 3, 4].map(i => (
-              <View key={i} style={{ flex: 1, backgroundColor: BRAND.white, borderRadius: 16, padding: 14, alignItems: 'center', gap: 8 }}>
+              <View key={i} style={{ flex: 1, backgroundColor: C.white, borderRadius: 16, padding: 14, alignItems: 'center', gap: 8 }}>
                 <ShimmerBlock width={36} height={36} borderRadius={18} shimmerAnim={shimmerAnim} />
                 <ShimmerBlock width={30} height={18} borderRadius={6} shimmerAnim={shimmerAnim} />
                 <ShimmerBlock width={50} height={10} borderRadius={5} shimmerAnim={shimmerAnim} />
@@ -219,7 +248,7 @@ const HomeSkeletonLoader = ({ insets }) => {
           {/* Quick actions skeleton */}
           <ShimmerBlock width={110} height={12} borderRadius={6} shimmerAnim={shimmerAnim} style={{ marginTop: 20, marginBottom: 10 }} />
           {[1, 2, 3].map(i => (
-            <View key={i} style={{ backgroundColor: BRAND.white, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+            <View key={i} style={{ backgroundColor: C.white, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 }}>
               <ShimmerBlock width={44} height={44} borderRadius={12} shimmerAnim={shimmerAnim} />
               <View style={{ gap: 6, flex: 1 }}>
                 <ShimmerBlock width={120} height={14} borderRadius={6} shimmerAnim={shimmerAnim} />
@@ -237,6 +266,8 @@ const HomeSkeletonLoader = ({ insets }) => {
  * Stats Card Component
  */
 const StatsCard = ({ iconName, value, label, color, bgColor, materialIconName }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { scaleAnim, onPressIn, onPressOut } = usePressAnimation();
 
   return (
@@ -257,7 +288,7 @@ const StatsCard = ({ iconName, value, label, color, bgColor, materialIconName })
           </View>
           <Text style={styles.statsLabel}>{label}</Text>
         </View>
-        <Text style={[styles.statsValue, { color: BRAND.darkText }]}>{value}</Text>
+        <Text style={[styles.statsValue, { color: C.darkText }]}>{value}</Text>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -267,6 +298,8 @@ const StatsCard = ({ iconName, value, label, color, bgColor, materialIconName })
  * Quick Action Card
  */
 const ActionCard = ({ iconName, title, subtitle, onPress, color }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { scaleAnim, onPressIn, onPressOut } = usePressAnimation();
 
   return (
@@ -286,7 +319,7 @@ const ActionCard = ({ iconName, title, subtitle, onPress, color }) => {
           <Text style={styles.actionSubtitle}>{subtitle}</Text>
         </View>
         <View style={styles.actionArrowCircle}>
-          <Icon name="chevron-right" size={16} color={BRAND.muted} />
+          <Icon name="chevron-right" size={16} color={C.muted} />
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -297,6 +330,8 @@ const ActionCard = ({ iconName, title, subtitle, onPress, color }) => {
  * Verification Status Card -- shows progress on ProviderHomeScreen
  */
 const VerificationStatusCard = ({ dashboard, onPress, isLoading = false, t }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { scaleAnim, onPressIn, onPressOut } = usePressAnimation();
 
   // Show loading skeleton while dashboard is being fetched
@@ -305,21 +340,21 @@ const VerificationStatusCard = ({ dashboard, onPress, isLoading = false, t }) =>
     return (
       <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
         <TouchableOpacity
-          style={[styles.verificationCard, { backgroundColor: '#FFF7ED', borderColor: BRAND.primary + '30' }]}
+          style={[styles.verificationCard, { backgroundColor: C.warningBg, borderColor: C.primary + '30' }]}
           onPress={onPress}
           onPressIn={onPressIn}
           onPressOut={onPressOut}
           activeOpacity={1}
         >
           <View style={styles.verificationCardContent}>
-            <View style={[styles.verificationProgress, { borderColor: BRAND.primary + '40' }]}>
-              <ActivityIndicator size="small" color={BRAND.primary} />
+            <View style={[styles.verificationProgress, { borderColor: C.primary + '40' }]}>
+              <ActivityIndicator size="small" color={C.primary} />
             </View>
             <View style={styles.verificationTextContent}>
               <ShimmerBlock width={180} height={14} borderRadius={6} />
               <ShimmerBlock width={140} height={11} borderRadius={6} style={{ marginTop: 6 }} />
             </View>
-            <Icon name="chevron-right" size={20} color={BRAND.primary} />
+            <Icon name="chevron-right" size={20} color={C.primary} />
           </View>
           <View style={styles.verificationStepDots}>
             {[1, 2, 3, 4, 5].map(i => (
@@ -354,9 +389,9 @@ const VerificationStatusCard = ({ dashboard, onPress, isLoading = false, t }) =>
   const isFullyReady = identityDone && isPremium;
 
   // Determine card color and messaging based on actual search visibility
-  const cardBg = isFullyReady ? '#ECFDF5' : identityDone ? (hasEmergencyCategory ? '#EFF6FF' : '#FFF7ED') : '#FFF7ED';
-  const cardBorder = isFullyReady ? '#10B98130' : identityDone ? (hasEmergencyCategory ? BRAND.secondary + '30' : BRAND.primary + '30') : BRAND.primary + '30';
-  const accentColor = isFullyReady ? '#10B981' : identityDone ? (hasEmergencyCategory ? BRAND.secondary : BRAND.primary) : BRAND.primary;
+  const cardBg = isFullyReady ? C.successBg : identityDone ? (hasEmergencyCategory ? C.infoBg : C.warningBg) : C.warningBg;
+  const cardBorder = isFullyReady ? C.success + '30' : identityDone ? (hasEmergencyCategory ? C.secondary + '30' : C.primary + '30') : C.primary + '30';
+  const accentColor = isFullyReady ? C.success : identityDone ? (hasEmergencyCategory ? C.secondary : C.primary) : C.primary;
 
   // Build title and subtitle based on actual status
   let title, subtitle;
@@ -395,14 +430,14 @@ const VerificationStatusCard = ({ dashboard, onPress, isLoading = false, t }) =>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               {isFullyReady && (
                 <View style={styles.verifiedBadgeSmall}>
-                  <Icon name="check-circle" size={14} color="#10B981" />
+                  <Icon name="check-circle" size={14} color={C.success} />
                 </View>
               )}
               <Text style={styles.verificationCardTitle}>
                 {title}
               </Text>
             </View>
-            <Text style={[styles.verificationCardSubtitle, identityDone && !isPremium && hasEmergencyCategory && { color: BRAND.secondary }, identityDone && !isPremium && !hasEmergencyCategory && { color: BRAND.primary }]}>
+            <Text style={[styles.verificationCardSubtitle, identityDone && !isPremium && hasEmergencyCategory && { color: C.secondary }, identityDone && !isPremium && !hasEmergencyCategory && { color: C.primary }]}>
               {subtitle}
             </Text>
           </View>
@@ -434,6 +469,8 @@ const VerificationStatusCard = ({ dashboard, onPress, isLoading = false, t }) =>
  * Provider Home Screen Component
  */
 const ProviderHomeScreen = ({ navigation }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const { user, profile, logout, updateProviderAvailability, isProfileLoading, refreshProfile, userType, setPremiumStatus } = useApp();
@@ -981,12 +1018,12 @@ const ProviderHomeScreen = ({ navigation }) => {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent} // brand footer image is the tail — it provides the tab-bar clearance
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFFFFF" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={stableDark.ink} />}
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Header */}
         <View style={[styles.heroHeader, { paddingTop: insets.top + 16 }]}>
-          <SvgArt color="rgba(255,255,255,1)" height={110} />
+          <SvgArt color={stableDark.ink} height={110} />
 
           <View style={styles.headerRow}>
             <TouchableOpacity onPress={() => setIsDrawerOpen(true)} activeOpacity={0.7} style={styles.headerLogoBtn}>
@@ -998,7 +1035,7 @@ const ProviderHomeScreen = ({ navigation }) => {
               <Text style={styles.heroSubtextInline} numberOfLines={1}>{t('providerHome.manageServices')}</Text>
             </View>
 
-            <HelpSupportButton size={26} color="#FFFFFF" />
+            <HelpSupportButton size={26} color={stableDark.ink} />
             <AvatarButton
               name={displayData?.fullName}
               profilePicture={displayData?.profilePicture}
@@ -1046,7 +1083,7 @@ const ProviderHomeScreen = ({ navigation }) => {
           </View>
 
           {/* Recent Active Services */}
-          <Text style={styles.sectionTitle}>{t('providerHome.activeJobs')} <Text style={{ color: '#CBD5E1', fontSize: 11, fontWeight: '500', textTransform: 'none' }}>{t('providerHome.recentThree')}</Text></Text>
+          <Text style={styles.sectionTitle}>{t('providerHome.activeJobs')} <Text style={{ color: C.borderMedium, fontSize: 11, fontWeight: '500', textTransform: 'none' }}>{t('providerHome.recentThree')}</Text></Text>
 
           {!statsLoaded ? (
             /* Shimmer placeholders while stats are loading */
@@ -1115,7 +1152,7 @@ const ProviderHomeScreen = ({ navigation }) => {
                           Linking.openURL(url).catch(() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`));
                         }}
                       >
-                        <MaterialIcon name="directions" size={16} color={BRAND.secondary} />
+                        <MaterialIcon name="directions" size={16} color={C.secondary} />
                         <Text style={styles.recentActionText}>{t('detail.directions')}</Text>
                       </TouchableOpacity>
                     )}
@@ -1127,13 +1164,13 @@ const ProviderHomeScreen = ({ navigation }) => {
                           Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => {});
                         }}
                       >
-                        <MaterialIcon name="phone" size={16} color="#10B981" />
-                        <Text style={[styles.recentActionText, { color: '#10B981' }]}>{t('common.call')}</Text>
+                        <MaterialIcon name="phone" size={16} color={C.success} />
+                        <Text style={[styles.recentActionText, { color: C.success }]}>{t('common.call')}</Text>
                       </TouchableOpacity>
                     )}
                     <View style={styles.recentActionBtn}>
-                      <MaterialIcon name="chevron-right" size={16} color={BRAND.muted} />
-                      <Text style={[styles.recentActionText, { color: BRAND.muted }]}>{t('providerHome.details')}</Text>
+                      <MaterialIcon name="chevron-right" size={16} color={C.muted} />
+                      <Text style={[styles.recentActionText, { color: C.muted }]}>{t('providerHome.details')}</Text>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -1141,7 +1178,7 @@ const ProviderHomeScreen = ({ navigation }) => {
             })
           ) : (
             <View style={styles.noRecentCard}>
-              <MaterialIcon name="inbox" size={28} color={BRAND.muted} />
+              <MaterialIcon name="inbox" size={28} color={C.muted} />
               <Text style={styles.noRecentText}>{t('providerHome.noActiveServices')}</Text>
             </View>
           )}
@@ -1182,22 +1219,22 @@ const ProviderHomeScreen = ({ navigation }) => {
               materialIconName="play-circle-filled"
               value={stats.active}
               label={t('providerHome.statsActive')}
-              color="#10B981"
-              bgColor="#10B98118"
+              color={C.success}
+              bgColor={C.success + '18'}
             />
             <StatsCard
               iconName="check-circle"
               value={stats.completed}
               label={t('providerHome.statsCompleted')}
-              color={BRAND.secondary}
-              bgColor={BRAND.secondary + '18'}
+              color={C.secondary}
+              bgColor={C.secondary + '18'}
             />
             <StatsCard
               materialIconName="star"
               value={stats.rating.toFixed(1)}
               label={t('providerHome.statsRating')}
-              color="#EAB308"
-              bgColor="#EAB30818"
+              color={iconAccent.star}
+              bgColor={iconAccent.star + '18'}
             />
           </View>
           )}
@@ -1220,7 +1257,7 @@ const ProviderHomeScreen = ({ navigation }) => {
               displayData.verifiedServiceCategories.map((cat, index) => (
                 <View key={`verified-${index}`} style={styles.serviceTag}>
                   <View style={styles.serviceTagIconCircle}>
-                    <Icon name="verified" size={11} color={BRAND.secondary} />
+                    <Icon name="verified" size={11} color={C.secondary} />
                   </View>
                   <Text style={styles.serviceTagText}>{formatServiceName(cat)}</Text>
                 </View>
@@ -1233,7 +1270,7 @@ const ProviderHomeScreen = ({ navigation }) => {
                 .map((cat, index) => (
                   <View key={`pending-${index}`} style={[styles.serviceTag, styles.serviceTagPending]}>
                     <View style={[styles.serviceTagIconCircle, styles.serviceTagIconCirclePending]}>
-                      <Icon name="clock" size={11} color={BRAND.primary} />
+                      <Icon name="clock" size={11} color={C.primary} />
                     </View>
                     <Text style={[styles.serviceTagText, styles.serviceTagTextPending]}>{formatServiceName(cat)}</Text>
                     <View style={styles.pendingBadge}>
@@ -1250,7 +1287,7 @@ const ProviderHomeScreen = ({ navigation }) => {
                 activeOpacity={0.8}
               >
                 <View style={styles.noServicesIconCircle}>
-                  <Icon name="add-circle" size={22} color={BRAND.primary} />
+                  <Icon name="add-circle" size={22} color={C.primary} />
                 </View>
                 <View>
                   <Text style={styles.noServicesTitle}>{t('providerHome.getVerified')}</Text>
@@ -1271,7 +1308,7 @@ const ProviderHomeScreen = ({ navigation }) => {
               <View style={styles.tipsDecorCircle1} />
               <View style={styles.tipsDecorCircle2} />
               <View style={styles.tipsIconCircle}>
-                <Icon name="lightbulb" size={22} color="#FFFFFF" />
+                <Icon name="lightbulb" size={22} color={stableDark.ink} />
               </View>
               <View style={styles.tipsContent}>
                 <Text style={styles.tipsBadge}>{t('providerHome.proTip')}</Text>
@@ -1289,13 +1326,13 @@ const ProviderHomeScreen = ({ navigation }) => {
             activeOpacity={0.85}
           >
             <View style={styles.emergencyNumbersIconCircle}>
-              <MaterialIcon name="phone-in-talk" size={22} color="#DC2626" />
+              <MaterialIcon name="phone-in-talk" size={22} color={C.danger} />
             </View>
             <View style={styles.emergencyNumbersTextWrap}>
               <Text style={styles.emergencyNumbersTitle}>{t('providerHome.emergencyNumbers') || 'Emergency Numbers'}</Text>
               <Text style={styles.emergencyNumbersSub}>{t('providerHome.emergencyNumbersSub') || 'Police, Ambulance, Fire & more helplines'}</Text>
             </View>
-            <MaterialIcon name="chevron-right" size={22} color="#94A3B8" />
+            <MaterialIcon name="chevron-right" size={22} color={C.muted} />
           </TouchableOpacity>
         </View>
 
@@ -1305,7 +1342,7 @@ const ProviderHomeScreen = ({ navigation }) => {
             sky, ending above the headline. Provides tab-bar clearance. */}
         <BrandFooter
           source={require('../assets/brand_footer_provider.jpg')}
-          fadeColor="#0F172A"
+          fadeColor={C.dark}
           style={styles.brandFooterWrap}
         />
       </ScrollView>
@@ -1382,13 +1419,13 @@ const ProviderHomeScreen = ({ navigation }) => {
                       {Platform.OS === 'ios' ? (
                         <Mapbox.MarkerView id="provider-loc" coordinate={[providerLocation.longitude, providerLocation.latitude]}>
                           <View style={styles.locationPinOuter}>
-                            <MaterialIcon name="person-pin-circle" size={36} color={BRAND.primary} />
+                            <MaterialIcon name="person-pin-circle" size={36} color={C.primary} />
                           </View>
                         </Mapbox.MarkerView>
                       ) : (
                         <Mapbox.PointAnnotation id="provider-loc" coordinate={[providerLocation.longitude, providerLocation.latitude]}>
                           <View style={styles.locationPinOuter}>
-                            <MaterialIcon name="person-pin-circle" size={36} color={BRAND.primary} />
+                            <MaterialIcon name="person-pin-circle" size={36} color={C.primary} />
                           </View>
                         </Mapbox.PointAnnotation>
                       )}
@@ -1399,12 +1436,12 @@ const ProviderHomeScreen = ({ navigation }) => {
                       onPress={closeLocationModal}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <MaterialIcon name="close" size={18} color="#1F2937" />
+                      <MaterialIcon name="close" size={18} color={C.textStrong} />
                     </TouchableOpacity>
                   </View>
 
                   <View style={styles.locationModalAddress}>
-                    <MaterialIcon name="place" size={16} color={BRAND.primary} />
+                    <MaterialIcon name="place" size={16} color={C.primary} />
                     <Text style={styles.locationModalAddressMain} numberOfLines={1}>
                       {locationAddress?.shortAddress || locationAddress?.city || displayAddress || 'Your current location'}
                     </Text>
@@ -1415,7 +1452,7 @@ const ProviderHomeScreen = ({ navigation }) => {
                   <MaterialIcon
                     name={locationStatus === 'acquiring' ? 'my-location' : 'location-off'}
                     size={36}
-                    color="#94A3B8"
+                    color={C.muted}
                   />
                   <Text style={styles.locationModalNoText}>
                     {locationStatus === 'acquiring' ? 'Getting your location…' : 'Location unavailable'}
@@ -1458,10 +1495,12 @@ const ProviderHomeScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BRAND.dark,
+    backgroundColor: C.dark,
   },
   scrollView: {
     flex: 1,
@@ -1475,7 +1514,7 @@ const styles = StyleSheet.create({
 
   // ===== Hero Header =====
   heroHeader: {
-    backgroundColor: BRAND.dark,
+    backgroundColor: C.dark,
     paddingHorizontal: 20,
     paddingBottom: 18,
     overflow: 'hidden',
@@ -1487,21 +1526,21 @@ const styles = StyleSheet.create({
   decorCircle1: {
     width: 200,
     height: 200,
-    backgroundColor: BRAND.primary + '12',
+    backgroundColor: C.primary + '12',
     top: -60,
     right: -40,
   },
   decorCircle2: {
     width: 140,
     height: 140,
-    backgroundColor: BRAND.secondary + '10',
+    backgroundColor: C.secondary + '10',
     bottom: -30,
     left: -30,
   },
   decorCircle3: {
     width: 80,
     height: 80,
-    backgroundColor: BRAND.primary + '08',
+    backgroundColor: C.primary + '08',
     top: 40,
     left: SCREEN_WIDTH * 0.4,
   },
@@ -1515,11 +1554,11 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: stableDark.fillChip,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: stableDark.heroDivider,
   },
   headerLogoImg: {
     width: 32,
@@ -1532,13 +1571,13 @@ const styles = StyleSheet.create({
   heroNameInline: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: C.onPrimary,
     letterSpacing: -0.3,
   },
   heroSubtextInline: {
     fontSize: 12,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.5)',
+    color: stableDark.inkSoft,
     marginTop: 2,
     letterSpacing: 0.1,
   },
@@ -1559,15 +1598,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     borderRadius: 22,
     padding: 18,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: C.hairline,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.08,
         shadowRadius: 20,
@@ -1578,8 +1617,8 @@ const styles = StyleSheet.create({
     }),
   },
   availabilityCardOnline: {
-    borderColor: '#22C55E20',
-    backgroundColor: '#F7FEF9',
+    borderColor: C.online + '20',
+    backgroundColor: C.successBg,
   },
   availabilityContent: {
     flexDirection: 'row',
@@ -1592,12 +1631,12 @@ const styles = StyleSheet.create({
   availabilityTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: BRAND.darkText,
+    color: C.darkText,
     letterSpacing: -0.2,
   },
   availabilitySubtitle: {
     fontSize: 13,
-    color: BRAND.muted,
+    color: C.muted,
     marginTop: 2,
     fontWeight: '500',
   },
@@ -1614,7 +1653,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.06,
         shadowRadius: 16,
@@ -1635,7 +1674,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: C.white,
     marginRight: 14,
   },
   verificationPercent: {
@@ -1650,19 +1689,19 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#ECFDF5',
+    backgroundColor: C.successBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   verificationCardTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: BRAND.darkText,
+    color: C.darkText,
     letterSpacing: -0.2,
   },
   verificationCardSubtitle: {
     fontSize: 12,
-    color: '#64748B',
+    color: C.textSecondary,
     marginTop: 3,
     lineHeight: 17,
     fontWeight: '500',
@@ -1685,20 +1724,20 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   verificationDotComplete: {
-    backgroundColor: '#10B981',
+    backgroundColor: C.success,
   },
   verificationDotPending: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: C.line,
   },
   verificationDotPremium: {
-    backgroundColor: BRAND.secondary + '60',
+    backgroundColor: C.secondary + '60',
   },
 
   // ===== Section Title =====
   sectionTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: BRAND.muted,
+    color: C.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 10,
@@ -1714,13 +1753,13 @@ const styles = StyleSheet.create({
   statsCard: {
     overflow: 'hidden',
     flex: 1,
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: C.hairline,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.06,
         shadowRadius: 12,
@@ -1754,7 +1793,7 @@ const styles = StyleSheet.create({
   },
   statsLabel: {
     fontSize: 11,
-    color: BRAND.muted,
+    color: C.muted,
     fontWeight: '600',
     letterSpacing: 0.1,
   },
@@ -1764,15 +1803,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     borderRadius: 22,
     padding: 18,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: C.hairline,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: C.shadow,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.08,
         shadowRadius: 20,
@@ -1796,12 +1835,12 @@ const styles = StyleSheet.create({
   actionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: BRAND.darkText,
+    color: C.darkText,
     letterSpacing: -0.2,
   },
   actionSubtitle: {
     fontSize: 13,
-    color: BRAND.muted,
+    color: C.muted,
     marginTop: 3,
     fontWeight: '500',
   },
@@ -1809,7 +1848,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: C.hairline,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1825,39 +1864,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: C.infoBg,
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: BRAND.secondary + '20',
+    borderColor: C.secondary + '20',
   },
   serviceTagIconCircle: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: BRAND.secondary + '15',
+    backgroundColor: C.secondary + '15',
     alignItems: 'center',
     justifyContent: 'center',
   },
   serviceTagIconCirclePending: {
-    backgroundColor: BRAND.primary + '15',
+    backgroundColor: C.primary + '15',
   },
   serviceTagPending: {
-    backgroundColor: '#FFF7ED',
-    borderColor: BRAND.primary + '20',
+    backgroundColor: C.warningBg,
+    borderColor: C.primary + '20',
   },
   serviceTagText: {
     fontSize: 12,
-    color: BRAND.secondary,
+    color: C.secondary,
     fontWeight: '700',
     letterSpacing: -0.1,
   },
   serviceTagTextPending: {
-    color: BRAND.primary,
+    color: C.primary,
   },
   pendingBadge: {
-    backgroundColor: BRAND.primary,
+    backgroundColor: C.primary,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
@@ -1865,7 +1904,7 @@ const styles = StyleSheet.create({
   },
   pendingBadgeText: {
     fontSize: 8,
-    color: '#FFFFFF',
+    color: C.onPrimary,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
@@ -1873,12 +1912,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     paddingHorizontal: 20,
     paddingVertical: 18,
     borderRadius: 22,
     borderWidth: 1.5,
-    borderColor: BRAND.primary + '30',
+    borderColor: C.primary + '30',
     borderStyle: 'dashed',
     width: '100%',
   },
@@ -1886,19 +1925,19 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: BRAND.primary + '12',
+    backgroundColor: C.primary + '12',
     alignItems: 'center',
     justifyContent: 'center',
   },
   noServicesTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: BRAND.darkText,
+    color: C.darkText,
     letterSpacing: -0.2,
   },
   noServicesText: {
     fontSize: 13,
-    color: BRAND.muted,
+    color: C.muted,
     fontWeight: '500',
     marginTop: 2,
   },
@@ -1907,16 +1946,16 @@ const styles = StyleSheet.create({
   emergencyNumbersCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#FEE2E2',
+    borderColor: C.dangerLine,
     paddingVertical: 14,
     paddingHorizontal: 16,
     marginBottom: 8,
     gap: 12,
     ...Platform.select({
-      ios: { shadowColor: '#9A3412', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.06, shadowRadius: 10 },
+      ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.06, shadowRadius: 10 },
       android: { elevation: 2 },
     }),
   },
@@ -1924,16 +1963,16 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: C.dangerFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emergencyNumbersTextWrap: { flex: 1 },
-  emergencyNumbersTitle: { fontSize: 15, fontWeight: '700', color: '#1E293B' },
-  emergencyNumbersSub: { fontSize: 12, color: '#64748B', marginTop: 2 },
+  emergencyNumbersTitle: { fontSize: 15, fontWeight: '700', color: C.textStrong },
+  emergencyNumbersSub: { fontSize: 12, color: C.textSecondary, marginTop: 2 },
   tipsCard: {
     flexDirection: 'row',
-    backgroundColor: BRAND.primary,
+    backgroundColor: C.primary,
     borderRadius: 22,
     padding: 20,
     marginBottom: 16,
@@ -1941,7 +1980,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: BRAND.primary,
+        shadowColor: C.primary,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.3,
         shadowRadius: 16,
@@ -1956,7 +1995,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: stableDark.heroDivider,
     top: -40,
     right: -20,
   },
@@ -1965,7 +2004,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: stableDark.fillSubtle,
     bottom: -20,
     left: 30,
   },
@@ -1973,7 +2012,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: stableDark.fill,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -1984,13 +2023,13 @@ const styles = StyleSheet.create({
   tipsBadge: {
     fontSize: 10,
     fontWeight: '800',
-    color: 'rgba(255,255,255,0.7)',
+    color: stableDark.inkMuted,
     letterSpacing: 1,
     marginBottom: 4,
   },
   tipsText: {
     fontSize: 14,
-    color: '#FFFFFF',
+    color: C.onPrimary,
     lineHeight: 20,
     fontWeight: '600',
     letterSpacing: -0.1,
@@ -1999,7 +2038,7 @@ const styles = StyleSheet.create({
   // ===== Drawer styles (same as UserHomeScreen) =====
   drawerBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: C.overlay,
   },
   drawer: {
     position: 'absolute',
@@ -2007,7 +2046,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: SCREEN_WIDTH * 0.8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
   },
   drawerHeader: {
     padding: 24,
@@ -2018,29 +2057,29 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: stableDark.fill,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
   drawerAvatarText: {
     fontSize: 28,
-    color: '#FFFFFF',
+    color: C.onPrimary,
     fontWeight: '700',
   },
   drawerUserName: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: C.onPrimary,
     marginBottom: 4,
   },
   drawerUserEmail: {
     fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: stableDark.inkDim,
     marginBottom: 12,
   },
   drawerUserBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: stableDark.fill,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
@@ -2048,7 +2087,7 @@ const styles = StyleSheet.create({
   },
   drawerUserBadgeText: {
     fontSize: 12,
-    color: '#FFFFFF',
+    color: C.onPrimary,
     fontWeight: '500',
   },
   drawerContent: {
@@ -2067,21 +2106,21 @@ const styles = StyleSheet.create({
   },
   drawerMenuLabel: {
     fontSize: 15,
-    color: '#374151',
+    color: C.textSecondary,
     fontWeight: '500',
   },
   drawerMenuDanger: {
-    color: '#EF4444',
+    color: C.danger,
   },
   drawerDivider: {
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: C.line,
     marginVertical: 8,
     marginHorizontal: 24,
   },
   drawerVersion: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: C.muted,
     textAlign: 'center',
     paddingBottom: 24,
   },
@@ -2090,14 +2129,14 @@ const styles = StyleSheet.create({
   // ===== Recent Service Cards =====
   recentServiceCard: {
     overflow: 'hidden',
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     borderRadius: 16,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: C.hairline,
     ...Platform.select({
-      ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12 },
+      ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12 },
       android: { elevation: 4 },
     }),
   },
@@ -2114,12 +2153,12 @@ const styles = StyleSheet.create({
   recentServiceName: {
     fontSize: 15,
     fontWeight: '700',
-    color: BRAND.darkText,
+    color: C.darkText,
     letterSpacing: -0.2,
   },
   recentServiceType: {
     fontSize: 12,
-    color: BRAND.muted,
+    color: C.muted,
     fontWeight: '500',
     marginTop: 2,
     textTransform: 'capitalize',
@@ -2130,18 +2169,18 @@ const styles = StyleSheet.create({
   recentServiceDateText: {
     fontSize: 12,
     fontWeight: '600',
-    color: BRAND.darkText,
+    color: C.darkText,
   },
   recentServiceTimeText: {
     fontSize: 11,
-    color: BRAND.muted,
+    color: C.muted,
     marginTop: 1,
   },
   recentServiceActions: {
     flexDirection: 'row',
     gap: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: C.hairline,
     paddingTop: 10,
   },
   recentActionBtn: {
@@ -2150,27 +2189,27 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: C.sunken,
     borderRadius: 10,
   },
   recentActionText: {
     fontSize: 12,
     fontWeight: '600',
-    color: BRAND.secondary,
+    color: C.secondary,
   },
   noRecentCard: {
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
     gap: 8,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: C.hairline,
   },
   noRecentText: {
     fontSize: 13,
-    color: BRAND.muted,
+    color: C.muted,
     fontWeight: '500',
   },
 
@@ -2178,7 +2217,7 @@ const styles = StyleSheet.create({
   // ===== Location Modal — animated floating card =====
   locationModalOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: C.overlay,
   },
   locationModalCardWrap: {
     ...StyleSheet.absoluteFillObject,
@@ -2191,10 +2230,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.08)',
-    backgroundColor: BRAND.white,
+    borderColor: C.line,
+    backgroundColor: C.white,
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.35, shadowRadius: 30 },
+      ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.35, shadowRadius: 30 },
       android: { elevation: 24 },
     }),
   },
@@ -2205,12 +2244,12 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: C.white,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4 },
+      ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4 },
       android: { elevation: 4 },
     }),
   },
@@ -2229,16 +2268,16 @@ const styles = StyleSheet.create({
   locationModalNoText: {
     fontSize: 15,
     fontWeight: '600',
-    color: BRAND.darkText,
+    color: C.darkText,
   },
   locationModalNoSub: {
     fontSize: 12,
-    color: BRAND.muted,
+    color: C.muted,
   },
   locationModalAddress: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: BRAND.white,
+    backgroundColor: C.white,
     paddingHorizontal: 14,
     paddingVertical: 11,
     gap: 8,
@@ -2247,9 +2286,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: '600',
-    color: BRAND.darkText,
+    color: C.darkText,
     letterSpacing: -0.1,
   },
-});
+  });
+};
 
 export default ProviderHomeScreen;

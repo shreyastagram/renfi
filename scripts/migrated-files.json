@@ -42,6 +42,8 @@
     "src/components/TimePickerField.jsx",
     "src/screens/WorkAvailabilityScreen.jsx",
     "src/components/ProviderHomeTopRow.jsx",
-    "src/components/WeeklyScheduleCard.jsx"
+    "src/components/WeeklyScheduleCard.jsx",
+    "src/screens/PortfolioEditScreen.jsx",
+    "src/screens/ProviderHomeScreen.jsx"
   ]
 }

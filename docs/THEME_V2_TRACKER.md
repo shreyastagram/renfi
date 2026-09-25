@@ -78,9 +78,9 @@ contract.
 - [~] **Phase 8** — provider screens
   - [x] Working Hours cluster — `TimePickerField` (incl. the `themeVariant="light"` fix),
         `WorkAvailabilityScreen`, `ProviderHomeTopRow`, `WeeklyScheduleCard`
-  - [ ] `ServiceApprovalsScreen` (179), `ProviderHomeScreen` (92),
-        `ProviderServiceHistoryScreen` (91), `ProviderRegisterScreen` (77),
-        `PortfolioEditScreen` (48)
+  - [x] `PortfolioEditScreen`, `ProviderHomeScreen`
+  - [ ] `ServiceApprovalsScreen` (179), `ProviderServiceHistoryScreen` (91),
+        `ProviderRegisterScreen` (77) — the last three of Phase 8
 - [ ] **Phase 9** — Auth screens
 - [ ] **Phase 10** — Full sweep + device-test checklist
 
@@ -90,8 +90,8 @@ contract.
 
 | Measure | Value |
 |---|---|
-| Colour literals remaining | **1,857** (3,329 at v1.0.9) — measured, see note |
-| Files on the hex allowlist | **39** |
+| Colour literals remaining | **1,719** (3,329 at v1.0.9) — measured, see note |
+| Files on the hex allowlist | **41** |
 | Components fully themed | **8** — CustomDialog, Button, Alert, ShimmerLoader, Input, Icon, GlobalBanner, DrawerMenu (+ RootNavigator surgically) |
 | Screens fully themed | **17** — the whole user side, Settings, AccountSecurity, ChangePassword, EmergencyServices, and **ProfileScreen** (the largest single file, 324 literals) |
 | Theme unit tests | 30 across 6 suites |
@@ -143,6 +143,29 @@ pattern is proven. The remaining literals are mechanical.
 | `RootNavigator` (adaptive-tone values, intentionally literal) | ~24 | n/a — see §15 |
 
 ---
+
+### `scripts/migration/migrate.py` — the shared migration mechanics
+
+Written after hand-rolling the same steps nine times. Every function in it encodes a
+mistake that actually happened and had to be backed out:
+
+| Function | The mistake it prevents |
+|---|---|
+| `insert_theme_import` | inserting by line index split a multi-line import — twice |
+| `to_factory` | closing a sheet with `}));` instead of `});` broke a `React.memo` file |
+| `wire` | a multi-line destructured parameter list ends in `({`, so hooks landed inside the params |
+| `to_block_body` | `React.memo(arrow)` closes with `});`, a plain arrow with `};` |
+| `drop_unused` | hooks a component turned out not to need show up as new `no-unused-vars` |
+
+It decides no colours — the caller supplies the mapping. Every step asserts its anchor,
+so a wrong guess fails loudly instead of corrupting the file.
+
+**Also fixed the lint comparator** (`/tmp/cmpdiag.py` pattern, worth keeping): eslint
+pretty-prints an inline-style object across MULTIPLE lines when it holds a literal and
+on ONE line when it holds an identifier. A line-based reader reports the same warning
+as both removed and added. It now reassembles each record before normalising — which is
+why three "new diagnostics" on `ProviderHomeScreen` turned out to be the same warnings
+reformatted.
 
 ## 4. GATES — run before EVERY commit
 

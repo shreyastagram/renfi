@@ -375,6 +375,37 @@ const EXPECTED_CHANGES = {
     '#C2410C': 'chip letter converged onto the warning token',
     '#9A3412': 'chip hours converged onto the warning token',
   },
+  'src/screens/PortfolioEditScreen.jsx': {
+    // Platform identity colours are UNCHANGED (they moved to iconAccent). Their tints
+    // are now the same colour at 10% alpha, which reproduces the shipped values
+    // closely -- #DB2777 at 10% over white is #FBE9F1 against a shipped #FCE7F3 --
+    // and, unlike a fixed pale tint, composites correctly on a dark card.
+    '#E0F2FE': 'website tint -> iconAccent.website at 10%',
+    '#FCE7F3': 'instagram tint -> iconAccent.instagram at 10%',
+    '#FEE2E2': 'youtube tint -> iconAccent.youtube at 10%',
+    '#DBEAFE': 'facebook tint -> iconAccent.facebook at 10%',
+    '#E0F7FA': 'twitter tint -> iconAccent.twitter at 10%',
+    '#F9FAFB': 'the gray-ramp sunken surface -> surfaceSunken',
+    '#F3F4F6': 'chips and the back button -> surfaceSunken',
+    '#FAFAFA': 'the add-image tile -> surfaceSunken',
+    'rgba(0, 0, 0, 0.6)': 'the remove-image chip sits on a PHOTO, so it takes mapOverlay.hint (0.55) -- theme-independent, like the map chips',
+  },
+  'src/screens/ProviderHomeScreen.jsx': {
+    // The dark hero, its skeleton and the brand-orange tips card are UNCHANGED --
+    // they moved to stableDark, whose values are the shipped ones.
+    'rgba(255,255,255,0.5)': 'hero subtext -> stableDark.inkSoft (0.55)',
+    'rgba(255,255,255,0.8)': 'drawer email -> stableDark.inkDim (0.6)',
+    'rgba(255,255,255,0.9)': 'two near-opaque white fills -> surface; the 0.9 alpha was imperceptible',
+    '#ECFDF5': 'converged onto successContainer',
+    '#F7FEF9': 'the online availability card -> successContainer',
+    '#10B98130': "alpha-concatenated green hairlines now follow the token: C.success + '30'",
+    '#10B98118': "same, at 18",
+    '#EAB30818': "the star tint now follows iconAccent.star + '18'",
+    '#22C55E20': "the online card border now follows C.online + '20'",
+    '#FEE2E2': 'the emergency card hairline -> dangerBorder',
+    '#9A3412': 'a brown drop shadow -> theme.colors.shadow',
+    'rgba(0,0,0,0.08)': 'the location modal hairline -> border',
+  },
   'src/screens/EmailVerifyHandlerScreen.jsx': {
     '#2563EB': 'altBlueIndigo', '#FFFFFF': 'surface',
     '#6B7280': 'textSecondary is now the accessible #475569',
