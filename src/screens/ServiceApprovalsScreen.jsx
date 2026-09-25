@@ -49,6 +49,12 @@ import ScreenShimmer from '../components/ShimmerLoader';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 import { uploadDocument } from '../services/cloudinaryService';
+import {
+  useThemedStyles,
+  useThemeColors,
+  stableDark,
+  mapOverlay,
+} from '../theme';
 
 /**
  * Document type labels
@@ -116,61 +122,90 @@ const SERVICE_LABELS = {
  * Status configuration with colors, icons, and labels
  * UNIFIED COLOR PALETTE: Brand Orange, Grey tones
  */
-const STATUS_CONFIG = {
+const makeStatusConfig = (C) => ({
   not_submitted: {
-    color: '#9CA3AF',
-    bgColor: '#F5F5F7',
+    color: C.muted,
+    bgColor: C.sunken,
     icon: 'add-circle-outline',
     label: 'Not Applied',
     description: 'Apply for this service',
   },
   pending: {
-    color: '#f67c16',
-    bgColor: '#FFF7ED',
+    color: C.warning,
+    bgColor: C.warningBg,
     icon: 'hourglass-empty',
     label: 'Pending',
     description: 'Awaiting admin review',
   },
   under_review: {
-    color: '#2b76bc',
-    bgColor: '#EFF6FF',
+    color: C.info,
+    bgColor: C.infoBg,
     icon: 'visibility',
     label: 'Under Review',
     description: 'Documents being verified',
   },
   approved: {
-    color: '#2b76bc',
-    bgColor: '#EFF6FF',
+    color: C.info,
+    bgColor: C.infoBg,
     icon: 'verified',
     label: 'Approved',
     description: 'You can receive requests',
   },
   rejected: {
-    color: '#6B7280',
-    bgColor: '#F5F5F7',
+    color: C.textSecondary,
+    bgColor: C.sunken,
     icon: 'error',
     label: 'Rejected',
     description: 'Please resubmit documents',
   },
-};
+});
 
 /**
  * Filter tabs for status - Brand colors only
  */
-const FILTER_TABS = [
-  { key: 'all', label: 'All', color: '#374151' },
-  { key: 'approved', label: 'Approved', color: '#2b76bc' },
-  { key: 'pending', label: 'Pending', color: '#f67c16' },
-  { key: 'rejected', label: 'Rejected', color: '#6B7280' },
-];
+const makeFilterTabs = (C) => ([
+  { key: 'all', label: 'All', color: C.textBody },
+  { key: 'approved', label: 'Approved', color: C.info },
+  { key: 'pending', label: 'Pending', color: C.warning },
+  { key: 'rejected', label: 'Rejected', color: C.textSecondary },
+]);
 
 // Brand colors
-const BRAND = {
-  primary: '#f67c16', // Orange
-  secondary: '#2b76bc', // Blue
-  background: '#faf7f7',
-  white: '#FFFFFF',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  background: c.bg,
+  white: c.surface,
+  text: c.textStrongNeutral,
+  textBody: c.textBodyNeutral,
+  textSecondary: c.textSecondary,
+  muted: c.textMuted,
+  line: c.borderNeutral,
+  lineFaint: c.border,
+  borderMedium: c.borderMediumNeutral,
+  // This screen used #F5F5F7 (an iOS-ish grey) and #F1F5F9 as two neutral fills, and
+  // #F0F0F0 / rgba(0,0,0,0.04) as two hairline weights.
+  sunken: c.surfaceSunken,
+  hairline: c.bg,
+  success: c.success,
+  successBg: c.successContainer,
+  successLine: c.successBorder,
+  danger: c.danger,
+  onDanger: c.onDanger,
+  dangerBg: c.dangerContainer,
+  dangerFill: c.dangerFill,
+  warning: c.warning,
+  warningBg: c.warningContainer,
+  info: c.info,
+  infoBg: c.infoContainer,
+  infoFill: c.infoFill,
+  brandOrangeLine: c.brandOrangeBorder,
+  lightbox: c.overlayPhoto,
+  overlay: c.overlay,
+  shadow: c.shadow,
+});
 
 // ============================================
 // COMPONENTS
@@ -179,27 +214,30 @@ const BRAND = {
 /**
  * Filter Tab Component - Compact chip style
  */
-const FilterTab = ({ tab, isActive, onPress, count }) => (
-  <TouchableOpacity
-    style={[
-      styles.filterTab,
-      isActive && { backgroundColor: tab.color, borderColor: tab.color },
-    ]}
-    onPress={onPress}
-    activeOpacity={0.8}
-  >
-    <Text style={[styles.filterTabText, isActive && styles.filterTabTextActive]}>
-      {tab.label}
-    </Text>
-    {count > 0 && (
-      <View style={[styles.filterCount, isActive && styles.filterCountActive]}>
-        <Text style={[styles.filterCountText, isActive && styles.filterCountTextActive]}>
-          {count}
-        </Text>
-      </View>
-    )}
-  </TouchableOpacity>
-);
+const FilterTab = ({ tab, isActive, onPress, count }) => {
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <TouchableOpacity
+      style={[
+        styles.filterTab,
+        isActive && { backgroundColor: tab.color, borderColor: tab.color },
+      ]}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <Text style={[styles.filterTabText, isActive && styles.filterTabTextActive]}>
+        {tab.label}
+      </Text>
+      {count > 0 && (
+        <View style={[styles.filterCount, isActive && styles.filterCountActive]}>
+          <Text style={[styles.filterCountText, isActive && styles.filterCountTextActive]}>
+            {count}
+          </Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+};
 
 /**
  * Service Request Card - Expandable
@@ -215,6 +253,9 @@ const ServiceRequestCard = ({
   onResubmit,
   onCancel,
 }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  const STATUS_CONFIG = makeStatusConfig(C);
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.not_submitted;
   const hasDocuments = documents && documents.length > 0;
 
@@ -263,14 +304,14 @@ const ServiceRequestCard = ({
               </View>
             </View>
           </View>
-          <MaterialIcon name="chevron-right" size={24} color="#9CA3AF" />
+          <MaterialIcon name="chevron-right" size={24} color={C.muted} />
         </View>
 
         {/* Rejection Reason Alert */}
         {status === 'rejected' && rejectionReason && (
           <View style={styles.rejectionAlert}>
             <View style={styles.rejectionAlertHeader}>
-              <MaterialIcon name="info" size={18} color="#DC2626" />
+              <MaterialIcon name="info" size={18} color={C.danger} />
               <Text style={styles.rejectionAlertTitle}>Rejection Reason</Text>
             </View>
             <Text style={styles.rejectionAlertText}>{rejectionReason}</Text>
@@ -285,11 +326,11 @@ const ServiceRequestCard = ({
         {/* Document Count */}
         {hasDocuments && (
           <View style={styles.documentCountRow}>
-            <MaterialIcon name="folder" size={16} color="#6B7280" />
+            <MaterialIcon name="folder" size={16} color={C.textSecondary} />
             <Text style={styles.documentCountText}>
               {documents.length} document{documents.length > 1 ? 's' : ''} uploaded
             </Text>
-            <MaterialIcon name="visibility" size={16} color={BRAND.secondary} />
+            <MaterialIcon name="visibility" size={16} color={C.secondary} />
             <Text style={styles.viewDocsText}>View</Text>
           </View>
         )}
@@ -302,7 +343,7 @@ const ServiceRequestCard = ({
                 style={styles.resubmitButton}
                 onPress={onResubmit}
               >
-                <MaterialIcon name="refresh" size={18} color="#FFFFFF" />
+                <MaterialIcon name="refresh" size={18} color={C.onSecondary} />
                 <Text style={styles.resubmitButtonText}>Resubmit</Text>
               </TouchableOpacity>
             )}
@@ -311,7 +352,7 @@ const ServiceRequestCard = ({
                 style={styles.cancelRequestButton}
                 onPress={onCancel}
               >
-                <MaterialIcon name="close" size={16} color="#EF4444" />
+                <MaterialIcon name="close" size={16} color={C.danger} />
                 <Text style={styles.cancelRequestButtonText}>Cancel Request</Text>
               </TouchableOpacity>
             )}
@@ -326,6 +367,7 @@ const ServiceRequestCard = ({
  * Zoomable Image Component with pinch-to-zoom and pan gestures
  */
 const ZoomableImage = ({ uri, onClose }) => {
+  const styles = useThemedStyles(makeStyles);
   const scale = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
@@ -466,6 +508,9 @@ const ZoomableImage = ({ uri, onClose }) => {
  * Document Preview Modal - Full Gallery Experience
  */
 const DocumentPreviewModal = ({ visible, service, documents, status, rejectionReason, onClose }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  const STATUS_CONFIG = makeStatusConfig(C);
   const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
   const [selectedDocIndex, setSelectedDocIndex] = useState(0);
@@ -519,7 +564,7 @@ const DocumentPreviewModal = ({ visible, service, documents, status, rejectionRe
             style={[styles.fullscreenCloseButton, { top: insets.top + 10 }]}
             onPress={() => setIsFullscreen(false)}
           >
-            <MaterialIcon name="close" size={28} color="#FFFFFF" />
+            <MaterialIcon name="close" size={28} color={stableDark.ink} />
           </TouchableOpacity>
 
           {/* Image Counter */}
@@ -540,7 +585,7 @@ const DocumentPreviewModal = ({ visible, service, documents, status, rejectionRe
                   style={[styles.navArrow, styles.navArrowLeft]}
                   onPress={goToPrevious}
                 >
-                  <MaterialIcon name="chevron-left" size={40} color="#FFFFFF" />
+                  <MaterialIcon name="chevron-left" size={40} color={stableDark.ink} />
                 </TouchableOpacity>
               )}
               {selectedDocIndex < documents.length - 1 && (
@@ -548,7 +593,7 @@ const DocumentPreviewModal = ({ visible, service, documents, status, rejectionRe
                   style={[styles.navArrow, styles.navArrowRight]}
                   onPress={goToNext}
                 >
-                  <MaterialIcon name="chevron-right" size={40} color="#FFFFFF" />
+                  <MaterialIcon name="chevron-right" size={40} color={stableDark.ink} />
                 </TouchableOpacity>
               )}
             </>
@@ -577,7 +622,7 @@ const DocumentPreviewModal = ({ visible, service, documents, status, rejectionRe
         {/* Modal Header */}
         <View style={styles.modalHeader}>
           <TouchableOpacity style={styles.modalCloseButton} onPress={onClose}>
-            <MaterialIcon name="close" size={24} color="#1F2937" />
+            <MaterialIcon name="close" size={24} color={C.text} />
           </TouchableOpacity>
           <View style={styles.modalHeaderCenter}>
             <Text style={styles.modalTitle} numberOfLines={1}>
@@ -596,7 +641,7 @@ const DocumentPreviewModal = ({ visible, service, documents, status, rejectionRe
         {/* Rejection Banner */}
         {status === 'rejected' && rejectionReason && (
           <View style={styles.modalRejectionBanner}>
-            <MaterialIcon name="warning" size={20} color="#FFFFFF" />
+            <MaterialIcon name="warning" size={20} color={C.onDanger} />
             <View style={styles.modalRejectionContent}>
               <Text style={styles.modalRejectionTitle}>Application Rejected</Text>
               <Text style={styles.modalRejectionText}>{rejectionReason}</Text>
@@ -626,7 +671,7 @@ const DocumentPreviewModal = ({ visible, service, documents, status, rejectionRe
               <MaterialIcon
                 name={doc.fileType?.includes('pdf') ? 'picture-as-pdf' : 'image'}
                 size={16}
-                color={selectedDocIndex === index ? BRAND.secondary : '#6B7280'}
+                color={selectedDocIndex === index ? C.secondary : C.textSecondary}
               />
               <Text
                 style={[
@@ -651,7 +696,7 @@ const DocumentPreviewModal = ({ visible, service, documents, status, rejectionRe
             <>
               {imageLoading && (
                 <View style={styles.imageLoadingContainer}>
-                  <ActivityIndicator size="large" color={BRAND.primary} />
+                  <ActivityIndicator size="large" color={C.primary} />
                   <Text style={styles.imageLoadingText}>Loading image...</Text>
                 </View>
               )}
@@ -664,18 +709,18 @@ const DocumentPreviewModal = ({ visible, service, documents, status, rejectionRe
               />
               {!imageLoading && (
                 <View style={styles.tapToZoomHint}>
-                  <MaterialIcon name="zoom-in" size={18} color="#FFFFFF" />
+                  <MaterialIcon name="zoom-in" size={18} color={stableDark.ink} />
                   <Text style={styles.tapToZoomText}>Tap to view full size</Text>
                 </View>
               )}
             </>
           ) : (
             <View style={styles.pdfPreviewContainer}>
-              <MaterialIcon name="picture-as-pdf" size={64} color="#EF4444" />
+              <MaterialIcon name="picture-as-pdf" size={64} color={C.danger} />
               <Text style={styles.pdfFileName}>{currentDoc.fileName}</Text>
               <Text style={styles.pdfHint}>PDF Preview not available in-app</Text>
               <TouchableOpacity style={styles.openPdfButton} onPress={openPdfExternally}>
-                <MaterialIcon name="open-in-new" size={16} color={BRAND.secondary} />
+                <MaterialIcon name="open-in-new" size={16} color={C.secondary} />
                 <Text style={styles.openPdfButtonText}>Open PDF Externally</Text>
               </TouchableOpacity>
             </View>
@@ -685,11 +730,11 @@ const DocumentPreviewModal = ({ visible, service, documents, status, rejectionRe
         {/* Document Info */}
         <View style={[styles.documentInfoBar, { paddingBottom: insets.bottom + 16 }]}>
           <View style={styles.documentInfoItem}>
-            <MaterialIcon name="insert-drive-file" size={16} color="#6B7280" />
+            <MaterialIcon name="insert-drive-file" size={16} color={C.textSecondary} />
             <Text style={styles.documentInfoText} numberOfLines={1}>{currentDoc.fileName}</Text>
           </View>
           <View style={styles.documentInfoItem}>
-            <MaterialIcon name="cloud-done" size={16} color="#22C55E" />
+            <MaterialIcon name="cloud-done" size={16} color={C.success} />
             <Text style={styles.documentInfoText}>
               {new Date(currentDoc.uploadedAt).toLocaleDateString()}
             </Text>
@@ -704,6 +749,8 @@ const DocumentPreviewModal = ({ visible, service, documents, status, rejectionRe
  * Empty State Component
  */
 const EmptyState = ({ filter, onAddService }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const messages = {
     all: {
       title: 'No Service Requests Yet',
@@ -732,13 +779,13 @@ const EmptyState = ({ filter, onAddService }) => {
   return (
     <View style={styles.emptyState}>
       <View style={styles.emptyStateIconContainer}>
-        <MaterialIcon name="assignment" size={48} color="#9CA3AF" />
+        <MaterialIcon name="assignment" size={48} color={C.muted} />
       </View>
       <Text style={styles.emptyStateTitle}>{content.title}</Text>
       <Text style={styles.emptyStateDescription}>{content.description}</Text>
       {content.buttonText && (
         <TouchableOpacity style={styles.emptyStateButton} onPress={onAddService}>
-          <MaterialIcon name="add" size={20} color="#FFFFFF" />
+          <MaterialIcon name="add" size={20} color={C.onPrimary} />
           <Text style={styles.emptyStateButtonText}>{content.buttonText}</Text>
         </TouchableOpacity>
       )}
@@ -749,45 +796,53 @@ const EmptyState = ({ filter, onAddService }) => {
 /**
  * Statistics Banner - Unified brand colors
  */
-const StatsBanner = ({ approved, pending, rejected }) => (
-  <View style={styles.statsBanner}>
-    <View style={styles.statItem}>
-      <View style={[styles.statIconContainer, { backgroundColor: '#EFF6FF' }]}>
-        <MaterialIcon name="verified" size={14} color={BRAND.secondary} />
+const StatsBanner = ({ approved, pending, rejected }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  return (
+    <View style={styles.statsBanner}>
+      <View style={styles.statItem}>
+        <View style={[styles.statIconContainer, { backgroundColor: C.infoFill }]}>
+          <MaterialIcon name="verified" size={14} color={C.secondary} />
+        </View>
+        <View>
+          <Text style={styles.statValue}>{approved}</Text>
+          <Text style={styles.statLabel}>Approved</Text>
+        </View>
       </View>
-      <View>
-        <Text style={styles.statValue}>{approved}</Text>
-        <Text style={styles.statLabel}>Approved</Text>
+      <View style={styles.statDivider} />
+      <View style={styles.statItem}>
+        <View style={[styles.statIconContainer, { backgroundColor: C.warningBg }]}>
+          <MaterialIcon name="schedule" size={14} color={C.primary} />
+        </View>
+        <View>
+          <Text style={styles.statValue}>{pending}</Text>
+          <Text style={styles.statLabel}>Pending</Text>
+        </View>
+      </View>
+      <View style={styles.statDivider} />
+      <View style={styles.statItem}>
+        <View style={[styles.statIconContainer, { backgroundColor: C.sunken }]}>
+          <MaterialIcon name="cancel" size={14} color={C.textSecondary} />
+        </View>
+        <View>
+          <Text style={styles.statValue}>{rejected}</Text>
+          <Text style={styles.statLabel}>Rejected</Text>
+        </View>
       </View>
     </View>
-    <View style={styles.statDivider} />
-    <View style={styles.statItem}>
-      <View style={[styles.statIconContainer, { backgroundColor: '#FFF7ED' }]}>
-        <MaterialIcon name="schedule" size={14} color={BRAND.primary} />
-      </View>
-      <View>
-        <Text style={styles.statValue}>{pending}</Text>
-        <Text style={styles.statLabel}>Pending</Text>
-      </View>
-    </View>
-    <View style={styles.statDivider} />
-    <View style={styles.statItem}>
-      <View style={[styles.statIconContainer, { backgroundColor: '#F5F5F7' }]}>
-        <MaterialIcon name="cancel" size={14} color="#6B7280" />
-      </View>
-      <View>
-        <Text style={styles.statValue}>{rejected}</Text>
-        <Text style={styles.statLabel}>Rejected</Text>
-      </View>
-    </View>
-  </View>
-);
+  );
+};
 
 // ============================================
 // MAIN SCREEN
 // ============================================
 
 const ServiceApprovalsScreen = ({ navigation }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  const STATUS_CONFIG = makeStatusConfig(C);
+  const FILTER_TABS = makeFilterTabs(C);
   const insets = useSafeAreaInsets();
   const { user, profile, userType, refreshProfile } = useApp();
   const { dialog } = useDialog();
@@ -1464,14 +1519,14 @@ const ServiceApprovalsScreen = ({ navigation }) => {
         {/* Header */}
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <MaterialIcon name="arrow-back" size={24} color="#1F2937" />
+            <MaterialIcon name="arrow-back" size={24} color={C.text} />
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>Service Approvals</Text>
             <Text style={styles.headerSubtitle}>RSAS</Text>
           </View>
           <TouchableOpacity style={styles.addButton} onPress={startNewRequest}>
-            <MaterialIcon name="add" size={22} color={BRAND.primary} />
+            <MaterialIcon name="add" size={22} color={C.primary} />
           </TouchableOpacity>
         </View>
 
@@ -1536,7 +1591,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
             style={[styles.fab, { bottom: insets.bottom + 20 }]}
             onPress={startNewRequest}
           >
-            <MaterialIcon name="add" size={28} color="#FFFFFF" />
+            <MaterialIcon name="add" size={28} color={C.onPrimary} />
           </TouchableOpacity>
         )}
 
@@ -1567,7 +1622,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity style={styles.backButton} onPress={() => setStep('list')}>
-            <MaterialIcon name="arrow-back" size={24} color="#1F2937" />
+            <MaterialIcon name="arrow-back" size={24} color={C.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Select Services</Text>
           <View style={{ width: 40 }} />
@@ -1575,7 +1630,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
 
         <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
           <View style={styles.instructionCard}>
-            <MaterialIcon name="info" size={24} color={BRAND.secondary} />
+            <MaterialIcon name="info" size={24} color={C.secondary} />
             <View style={styles.instructionContent}>
               <Text style={styles.instructionTitle}>How it works</Text>
               <Text style={styles.instructionText}>
@@ -1605,7 +1660,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
               >
                 <View style={styles.selectServiceLeft}>
                   <View style={[styles.selectCheckbox, isSelected && styles.selectCheckboxSelected]}>
-                    {isSelected && <MaterialIcon name="check" size={16} color="#FFFFFF" />}
+                    {isSelected && <MaterialIcon name="check" size={16} color={C.onSecondary} />}
                   </View>
                   <View>
                     <Text style={styles.selectServiceText}>
@@ -1656,7 +1711,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
             <Text style={styles.primaryButtonText}>
               Continue ({selectedServices.length} selected)
             </Text>
-            <MaterialIcon name="arrow-forward" size={20} color="#FFFFFF" />
+            <MaterialIcon name="arrow-forward" size={20} color={C.onPrimary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -1682,7 +1737,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
             }
           }}
         >
-          <MaterialIcon name="arrow-back" size={24} color="#1F2937" />
+          <MaterialIcon name="arrow-back" size={24} color={C.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Upload Documents</Text>
         <View style={styles.stepBadge}>
@@ -1715,9 +1770,9 @@ const ServiceApprovalsScreen = ({ navigation }) => {
                   activeOpacity={0.7}
                 >
                   {submittedServices.has(svc) ? (
-                    <MaterialIcon name="lock" size={14} color="#16A34A" style={{ marginRight: 5 }} />
+                    <MaterialIcon name="lock" size={14} color={C.success} style={{ marginRight: 5 }} />
                   ) : complete && !isActive ? (
-                    <MaterialIcon name="check-circle" size={14} color="#22C55E" style={{ marginRight: 5 }} />
+                    <MaterialIcon name="check-circle" size={14} color={C.success} style={{ marginRight: 5 }} />
                   ) : null}
                   <Text style={[styles.servicePillText, isActive && styles.servicePillTextActive]} numberOfLines={1}>
                     {SERVICE_LABELS[svc] || svc}
@@ -1740,7 +1795,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
         {/* Service Header */}
         <View style={styles.uploadServiceHeader}>
           <View style={styles.uploadServiceIcon}>
-            <MaterialIcon name="build" size={24} color={BRAND.secondary} />
+            <MaterialIcon name="build" size={24} color={C.secondary} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.uploadServiceTitle}>
@@ -1797,7 +1852,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
             : rule === 'required' ? 'Required'
             : rule === 'anyOneOf' ? (anyOneOfSatisfied && !hasDoc ? 'Upload any one (satisfied)' : 'Upload at least one')
             : 'Optional';
-          const ruleColor = rule === 'optional' ? '#94A3B8' : rule === 'anyOneOf' ? '#F59E0B' : undefined;
+          const ruleColor = rule === 'optional' ? C.muted : rule === 'anyOneOf' ? C.warning : undefined;
 
           return (
             <View key={docType} style={[styles.uploadDocCard, isLocked && { opacity: 0.7 }]}>
@@ -1806,7 +1861,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
                   <MaterialIcon
                     name={isLocked ? 'lock' : hasDoc ? 'check-circle' : 'upload-file'}
                     size={24}
-                    color={isLocked ? '#16A34A' : hasDoc ? '#22C55E' : '#9CA3AF'}
+                    color={isLocked ? C.success : hasDoc ? C.success : C.muted}
                   />
                   <View>
                     <Text style={styles.uploadDocTitle}>
@@ -1820,7 +1875,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
                     style={styles.uploadDocRemove}
                     onPress={() => removeDocument(currentService, docType)}
                   >
-                    <MaterialIcon name="delete" size={20} color="#EF4444" />
+                    <MaterialIcon name="delete" size={20} color={C.danger} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -1834,7 +1889,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
                     />
                   ) : (
                     <View style={styles.uploadDocPdf}>
-                      <MaterialIcon name="picture-as-pdf" size={40} color="#EF4444" />
+                      <MaterialIcon name="picture-as-pdf" size={40} color={C.danger} />
                       <Text style={styles.uploadDocPdfName} numberOfLines={1}>
                         {doc.fileName}
                       </Text>
@@ -1844,12 +1899,12 @@ const ServiceApprovalsScreen = ({ navigation }) => {
                     <MaterialIcon
                       name={doc.isStaged ? 'hourglass-empty' : 'cloud-done'}
                       size={14}
-                      color={doc.isStaged ? '#F59E0B' : '#22C55E'}
+                      color={doc.isStaged ? C.warning : C.success}
                     />
                     <Text
                       style={[
                         styles.uploadDocStatusText,
-                        { color: doc.isStaged ? '#F59E0B' : '#22C55E' },
+                        { color: doc.isStaged ? C.warning : C.success },
                       ]}
                     >
                       {doc.isStaged ? 'Ready to upload' : 'Uploaded'}
@@ -1861,7 +1916,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
                   style={styles.uploadDocButton}
                   onPress={() => pickDocument(currentService, docType)}
                 >
-                  <MaterialIcon name="cloud-upload" size={28} color={BRAND.secondary} />
+                  <MaterialIcon name="cloud-upload" size={28} color={C.secondary} />
                   <Text style={styles.uploadDocButtonText}>Tap to Upload</Text>
                   <Text style={styles.uploadDocButtonHint}>PDF, JPG, PNG (Max 5MB)</Text>
                 </TouchableOpacity>
@@ -1875,7 +1930,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
       {/* Uploading/Submitting Overlay */}
       {(uploading || submitting) && (
         <View style={styles.uploadingOverlay}>
-          <ActivityIndicator size="large" color="#FFFFFF" />
+          <ActivityIndicator size="large" color={stableDark.ink} />
           <Text style={styles.uploadingText}>{submitProgress || 'Processing...'}</Text>
           <Text style={styles.uploadingHint}>Please don't close the app</Text>
         </View>
@@ -1885,7 +1940,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
         {submittedServices.has(currentService) ? (
           // This service is already submitted — show locked state
           <View style={styles.lockedServiceBanner}>
-            <MaterialIcon name="lock" size={18} color="#16A34A" />
+            <MaterialIcon name="lock" size={18} color={C.success} />
             <Text style={styles.lockedServiceText}>Submitted successfully</Text>
           </View>
         ) : (
@@ -1898,7 +1953,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
             disabled={!isCurrentServiceComplete() || submitting}
           >
             {submitting ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={C.onPrimary} />
             ) : (
               <>
                 <Text style={styles.primaryButtonText}>
@@ -1906,7 +1961,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
                     ? 'Next Service'
                     : 'Submit for Approval'}
                 </Text>
-                <MaterialIcon name="arrow-forward" size={20} color="#FFFFFF" />
+                <MaterialIcon name="arrow-forward" size={20} color={C.onPrimary} />
               </>
             )}
           </TouchableOpacity>
@@ -1920,10 +1975,12 @@ const ServiceApprovalsScreen = ({ navigation }) => {
 // STYLES
 // ============================================
 
-const styles = StyleSheet.create({
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BRAND.background,
+    backgroundColor: C.background,
   },
   centered: {
     justifyContent: 'center',
@@ -1932,7 +1989,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#6B7280',
+    color: C.textSecondary,
   },
 
   // Header - Refined with gradient-like effect
@@ -1942,10 +1999,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(0,0,0,0.08)',
-    shadowColor: '#000',
+    borderBottomColor: C.lineFaint,
+    shadowColor: C.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 3,
@@ -1955,7 +2012,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#F5F5F7',
+    backgroundColor: C.sunken,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1967,14 +2024,14 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1F2937',
+    color: C.text,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
     fontSize: 8,
     fontWeight: '700',
-    color: BRAND.primary,
-    backgroundColor: '#FFF7ED',
+    color: C.primary,
+    backgroundColor: C.warningBg,
     paddingHorizontal: 5,
     paddingVertical: 2,
     borderRadius: 4,
@@ -1985,11 +2042,11 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: C.warningBg,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(246, 124, 22, 0.15)',
+    borderColor: C.brandOrangeLine,
   },
 
   // Stats Banner - Ultra-compact elegant design
@@ -1997,14 +2054,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     paddingVertical: 6,
     paddingHorizontal: 10,
     marginHorizontal: 14,
     marginTop: 6,
     borderRadius: 8,
     borderWidth: 0.5,
-    borderColor: 'rgba(0,0,0,0.04)',
+    borderColor: C.lineFaint,
   },
   statItem: {
     flexDirection: 'row',
@@ -2022,11 +2079,11 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1F2937',
+    color: C.text,
   },
   statLabel: {
     fontSize: 8,
-    color: '#9CA3AF',
+    color: C.muted,
     marginTop: -1,
     textTransform: 'uppercase',
     letterSpacing: 0.2,
@@ -2034,7 +2091,7 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: 16,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: C.lineFaint,
   },
 
   // Filter Tabs - Ultra-compact sleek pills
@@ -2056,20 +2113,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderWidth: 0.5,
-    borderColor: 'rgba(0,0,0,0.08)',
+    borderColor: C.lineFaint,
   },
   filterTabText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#6B7280',
+    color: C.textSecondary,
   },
   filterTabTextActive: {
-    color: '#FFFFFF',
+    color: C.onPrimary,
   },
   filterCount: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: C.sunken,
     paddingHorizontal: 4,
     paddingVertical: 0,
     borderRadius: 6,
@@ -2079,15 +2136,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   filterCountActive: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: stableDark.fill,
   },
   filterCountText: {
     fontSize: 9,
     fontWeight: '700',
-    color: '#6B7280',
+    color: C.textSecondary,
   },
   filterCountTextActive: {
-    color: '#FFFFFF',
+    color: C.onPrimary,
   },
 
   // Content
@@ -2102,13 +2159,13 @@ const styles = StyleSheet.create({
 
   // Service Request Card - Refined with subtle depth
   serviceRequestCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderRadius: 10,
     marginBottom: 10,
     overflow: 'hidden',
     borderWidth: 0.5,
-    borderColor: 'rgba(0,0,0,0.04)',
-    shadowColor: '#000',
+    borderColor: C.lineFaint,
+    shadowColor: C.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 8,
@@ -2144,7 +2201,7 @@ const styles = StyleSheet.create({
   serviceRequestTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1F2937',
+    color: C.text,
     letterSpacing: -0.2,
   },
   statusRow: {
@@ -2168,17 +2225,17 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 10,
-    color: '#9CA3AF',
+    color: C.muted,
   },
 
   // Rejection Alert - Refined
   rejectionAlert: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: C.dangerBg,
     borderRadius: 6,
     padding: 10,
     marginTop: 10,
     borderLeftWidth: 2,
-    borderLeftColor: '#EF4444',
+    borderLeftColor: C.danger,
   },
   rejectionAlertHeader: {
     flexDirection: 'row',
@@ -2189,16 +2246,16 @@ const styles = StyleSheet.create({
   rejectionAlertTitle: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#DC2626',
+    color: C.danger,
   },
   rejectionAlertText: {
     fontSize: 11,
-    color: '#7F1D1D',
+    color: C.danger,
     lineHeight: 16,
   },
   reviewedAtText: {
     fontSize: 9,
-    color: '#9CA3AF',
+    color: C.muted,
     marginTop: 4,
   },
 
@@ -2210,17 +2267,17 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 0.5,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: C.lineFaint,
   },
   documentCountText: {
     fontSize: 11,
-    color: '#6B7280',
+    color: C.textSecondary,
     flex: 1,
   },
   viewDocsText: {
     fontSize: 11,
     fontWeight: '600',
-    color: BRAND.secondary,
+    color: C.secondary,
   },
 
   // Action Buttons - Refined
@@ -2233,7 +2290,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: BRAND.secondary,
+    backgroundColor: C.secondary,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 6,
@@ -2243,13 +2300,13 @@ const styles = StyleSheet.create({
   resubmitButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: C.onPrimary,
   },
   cancelRequestButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: C.dangerFill,
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 6,
@@ -2257,7 +2314,7 @@ const styles = StyleSheet.create({
   cancelRequestButtonText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#EF4444',
+    color: C.danger,
   },
 
   // Empty State - Refined
@@ -2270,7 +2327,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 16,
-    backgroundColor: '#F5F5F7',
+    backgroundColor: C.sunken,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
@@ -2278,13 +2335,13 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1F2937',
+    color: C.text,
     marginBottom: 6,
     letterSpacing: -0.3,
   },
   emptyStateDescription: {
     fontSize: 13,
-    color: '#6B7280',
+    color: C.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
     marginBottom: 20,
@@ -2293,11 +2350,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: BRAND.primary,
+    backgroundColor: C.primary,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 8,
-    shadowColor: BRAND.primary,
+    shadowColor: C.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -2306,7 +2363,7 @@ const styles = StyleSheet.create({
   emptyStateButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: C.onPrimary,
   },
 
   // FAB - Sleek brand button
@@ -2316,10 +2373,10 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 14,
-    backgroundColor: BRAND.primary,
+    backgroundColor: C.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: C.shadow,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
@@ -2329,7 +2386,7 @@ const styles = StyleSheet.create({
   // Modal
   modalContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -2338,13 +2395,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(0,0,0,0.06)',
+    borderBottomColor: C.lineFaint,
   },
   modalCloseButton: {
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#F5F5F7',
+    backgroundColor: C.sunken,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2354,7 +2411,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1F2937',
+    color: C.text,
     letterSpacing: -0.3,
   },
   modalStatusBadge: {
@@ -2374,7 +2431,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
-    backgroundColor: '#DC2626',
+    backgroundColor: C.danger,
     padding: 16,
   },
   modalRejectionContent: {
@@ -2383,17 +2440,17 @@ const styles = StyleSheet.create({
   modalRejectionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: C.onPrimary,
     marginBottom: 4,
   },
   modalRejectionText: {
     fontSize: 13,
-    color: '#FEE2E2',
+    color: C.dangerFill,
     lineHeight: 18,
   },
   documentTabs: {
     borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(0,0,0,0.06)',
+    borderBottomColor: C.lineFaint,
     maxHeight: 42,
   },
   documentTabsContent: {
@@ -2409,25 +2466,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 6,
-    backgroundColor: '#F5F5F7',
+    backgroundColor: C.sunken,
     marginRight: 4,
   },
   documentTabActive: {
-    backgroundColor: BRAND.secondary,
+    backgroundColor: C.secondary,
   },
   documentTabText: {
     fontSize: 10,
     fontWeight: '500',
-    color: '#6B7280',
+    color: C.textSecondary,
     maxWidth: 80,
   },
   documentTabTextActive: {
-    color: '#FFFFFF',
+    color: C.onPrimary,
     fontWeight: '600',
   },
   documentPreviewContainer: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: C.sunken,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 12,
@@ -2444,13 +2501,13 @@ const styles = StyleSheet.create({
   pdfFileName: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1F2937',
+    color: C.text,
     marginTop: 14,
     textAlign: 'center',
   },
   pdfHint: {
     fontSize: 11,
-    color: '#9CA3AF',
+    color: C.muted,
     marginTop: 3,
   },
   openPdfButton: {
@@ -2460,22 +2517,22 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingHorizontal: 14,
     paddingVertical: 7,
-    backgroundColor: '#F0F7FF',
+    backgroundColor: C.infoFill,
     borderRadius: 6,
   },
   openPdfButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: BRAND.secondary,
+    color: C.secondary,
   },
   documentInfoBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
     paddingTop: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderTopWidth: 0.5,
-    borderTopColor: 'rgba(0,0,0,0.06)',
+    borderTopColor: C.lineFaint,
   },
   documentInfoItem: {
     flexDirection: 'row',
@@ -2484,19 +2541,19 @@ const styles = StyleSheet.create({
   },
   documentInfoText: {
     fontSize: 11,
-    color: '#6B7280',
+    color: C.textSecondary,
   },
 
   // Select Services - Refined
   instructionCard: {
     flexDirection: 'row',
     gap: 8,
-    backgroundColor: '#F0F7FF',
+    backgroundColor: C.infoFill,
     padding: 12,
     borderRadius: 8,
     marginBottom: 14,
     borderLeftWidth: 2,
-    borderLeftColor: BRAND.secondary,
+    borderLeftColor: C.secondary,
   },
   instructionContent: {
     flex: 1,
@@ -2504,29 +2561,29 @@ const styles = StyleSheet.create({
   instructionTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1F2937',
+    color: C.text,
     marginBottom: 2,
     letterSpacing: -0.2,
   },
   instructionText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: C.textSecondary,
     lineHeight: 16,
   },
   selectServiceCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     padding: 12,
     borderRadius: 10,
     marginBottom: 8,
     borderWidth: 1.5,
-    borderColor: 'rgba(0,0,0,0.04)',
+    borderColor: C.lineFaint,
   },
   selectServiceCardSelected: {
-    borderColor: BRAND.secondary,
-    backgroundColor: '#F7FAFF',
+    borderColor: C.secondary,
+    backgroundColor: C.infoFill,
   },
   selectServiceCardDisabled: {
     opacity: 0.5,
@@ -2542,23 +2599,23 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 5,
     borderWidth: 1.5,
-    borderColor: '#D1D5DB',
+    borderColor: C.borderMedium,
     alignItems: 'center',
     justifyContent: 'center',
   },
   selectCheckboxSelected: {
-    backgroundColor: BRAND.secondary,
-    borderColor: BRAND.secondary,
+    backgroundColor: C.secondary,
+    borderColor: C.secondary,
   },
   selectServiceText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1F2937',
+    color: C.text,
     letterSpacing: -0.2,
   },
   selectServiceDocs: {
     fontSize: 10,
-    color: '#9CA3AF',
+    color: C.muted,
     marginTop: 1,
   },
   selectServiceStatus: {
@@ -2576,7 +2633,7 @@ const styles = StyleSheet.create({
 
   // Upload - Refined
   stepBadge: {
-    backgroundColor: '#F0F7FF',
+    backgroundColor: C.infoFill,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -2584,7 +2641,7 @@ const styles = StyleSheet.create({
   stepBadgeText: {
     fontSize: 10,
     fontWeight: '600',
-    color: BRAND.secondary,
+    color: C.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
@@ -2598,19 +2655,19 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: '#F0F7FF',
+    backgroundColor: C.infoFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   uploadServiceTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#1F2937',
+    color: C.text,
     letterSpacing: -0.3,
   },
   uploadServiceSubtitle: {
     fontSize: 12,
-    color: '#6B7280',
+    color: C.textSecondary,
     marginTop: 1,
   },
   progressContainer: {
@@ -2618,28 +2675,28 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: 4,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: C.line,
     borderRadius: 2,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#22C55E',
+    backgroundColor: C.success,
     borderRadius: 2,
   },
   progressText: {
     fontSize: 10,
-    color: '#6B7280',
+    color: C.textSecondary,
     marginTop: 4,
     textAlign: 'right',
   },
   uploadDocCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderRadius: 10,
     padding: 12,
     marginBottom: 10,
     borderWidth: 0.5,
-    borderColor: 'rgba(0,0,0,0.04)',
+    borderColor: C.lineFaint,
   },
   uploadDocHeader: {
     flexDirection: 'row',
@@ -2656,12 +2713,12 @@ const styles = StyleSheet.create({
   uploadDocTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1F2937',
+    color: C.text,
     letterSpacing: -0.2,
   },
   uploadDocRequired: {
     fontSize: 9,
-    color: '#EF4444',
+    color: C.danger,
     marginTop: 1,
   },
   uploadDocRemove: {
@@ -2681,7 +2738,7 @@ const styles = StyleSheet.create({
   },
   uploadDocPdfName: {
     fontSize: 11,
-    color: '#6B7280',
+    color: C.textSecondary,
     marginTop: 6,
     maxWidth: 180,
   },
@@ -2700,47 +2757,47 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
     borderWidth: 1.5,
-    borderColor: 'rgba(0,0,0,0.1)',
+    borderColor: C.lineFaint,
     borderStyle: 'dashed',
     borderRadius: 10,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: C.sunken,
   },
   uploadDocButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: BRAND.secondary,
+    color: C.secondary,
     marginTop: 6,
   },
   uploadDocButtonHint: {
     fontSize: 10,
-    color: '#9CA3AF',
+    color: C.muted,
     marginTop: 2,
   },
 
   // Uploading Overlay
   uploadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: C.lightbox,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 100,
   },
   uploadingText: {
     fontSize: 15,
-    color: '#FFFFFF',
+    color: C.onPrimary,
     marginTop: 16,
     fontWeight: '600',
   },
   uploadingHint: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
+    color: stableDark.inkMuted,
     marginTop: 6,
   },
   // Service navigation pills
   servicePillsBar: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: C.hairline,
   },
   servicePillsContainer: {
     paddingHorizontal: 14,
@@ -2753,30 +2810,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: C.hairline,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: C.lineFaint,
   },
   servicePillActive: {
-    backgroundColor: '#EFF6FF',
-    borderColor: BRAND.secondary,
+    backgroundColor: C.infoBg,
+    borderColor: C.secondary,
   },
   servicePillComplete: {
-    borderColor: '#BBF7D0',
-    backgroundColor: '#F0FDF4',
+    borderColor: C.successLine,
+    backgroundColor: C.successBg,
   },
   servicePillText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748B',
+    color: C.textSecondary,
     lineHeight: 18,
   },
   servicePillTextActive: {
-    color: BRAND.secondary,
+    color: C.secondary,
   },
   servicePillBadge: {
     marginLeft: 6,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: C.lineFaint,
     borderRadius: 8,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -2784,16 +2841,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   servicePillBadgeActive: {
-    backgroundColor: '#DBEAFE',
+    backgroundColor: C.infoFill,
   },
   servicePillCount: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: C.muted,
     lineHeight: 14,
   },
   servicePillCountActive: {
-    color: BRAND.secondary,
+    color: C.secondary,
   },
 
   // Zoomable Image Viewer
@@ -2810,7 +2867,7 @@ const styles = StyleSheet.create({
   // Fullscreen Image Gallery - Sleek
   fullscreenContainer: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: C.lightbox,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -2820,7 +2877,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: stableDark.fill,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 100,
@@ -2828,14 +2885,14 @@ const styles = StyleSheet.create({
   imageCounter: {
     position: 'absolute',
     alignSelf: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: stableDark.fill,
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 12,
     zIndex: 100,
   },
   imageCounterText: {
-    color: '#FFFFFF',
+    color: C.onPrimary,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -2846,7 +2903,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: stableDark.fill,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 100,
@@ -2862,13 +2919,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: C.lightbox,
     paddingHorizontal: 16,
     paddingTop: 12,
     alignItems: 'center',
   },
   fullscreenDocName: {
-    color: '#FFFFFF',
+    color: C.onPrimary,
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
@@ -2876,7 +2933,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   fullscreenHint: {
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: stableDark.inkMuted,
     fontSize: 11,
   },
 
@@ -2890,7 +2947,7 @@ const styles = StyleSheet.create({
   imageLoadingText: {
     marginTop: 8,
     fontSize: 11,
-    color: '#6B7280',
+    color: C.textSecondary,
   },
   tapToZoomHint: {
     position: 'absolute',
@@ -2898,13 +2955,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: mapOverlay.hint,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
   },
   tapToZoomText: {
-    color: '#FFFFFF',
+    color: C.onPrimary,
     fontSize: 11,
     fontWeight: '500',
   },
@@ -2916,51 +2973,52 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
     borderTopWidth: 0.5,
-    borderTopColor: 'rgba(0,0,0,0.06)',
+    borderTopColor: C.lineFaint,
   },
   lockedServiceBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#F0FDF4',
+    backgroundColor: C.successBg,
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: C.successLine,
   },
   lockedServiceText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#16A34A',
+    color: C.success,
   },
   primaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: BRAND.primary,
+    backgroundColor: C.primary,
     paddingVertical: 12,
     borderRadius: 8,
-    shadowColor: '#000',
+    shadowColor: C.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
   },
   buttonDisabled: {
-    backgroundColor: '#D1D5DB',
+    backgroundColor: C.borderMedium,
     shadowOpacity: 0,
     elevation: 0,
   },
   primaryButtonText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: C.onPrimary,
     letterSpacing: -0.2,
   },
-});
+  });
+};
 
 export default ServiceApprovalsScreen;

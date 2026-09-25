@@ -43,6 +43,10 @@ const INTENTIONAL = new Set([
   'src/screens/ProviderRegisterScreen.jsx:checkboxChecked',
   'src/screens/ProviderServiceHistoryScreen.jsx:filterPillActive',
   'src/screens/ProviderServiceHistoryScreen.jsx:dateChipOn',
+  // An active filter tab, filled with the tab's own colour and given a matching
+  // border so switching state does not change its size. Inline, and identical at
+  // v1.0.9. Line-keyed, so re-check this entry if the file shifts.
+  'src/screens/ServiceApprovalsScreen.jsx:inline@L223',
 ]);
 
 // The captured expression must be the WHOLE value, so a trailing terminator is
@@ -65,10 +69,18 @@ for (const rel of config.migrated) {
   const lines = fs.readFileSync(full, 'utf8').split('\n');
 
   // Track the nearest enclosing style key so a failure names something findable.
+  // Inside a StyleSheet that key is the style name; an INLINE style in JSX has no
+  // such key, and walking up would grab whatever unrelated object literal came
+  // last — it once reported an inline filter tab as `rejected`, a STATUS_CONFIG
+  // entry forty lines above. Those are keyed by line instead.
   let key = '?';
+  let inSheet = false;
   lines.forEach((line, i) => {
-    const k = line.match(/^\s{2,4}([A-Za-z0-9_]+):\s*\{/);
+    if (/StyleSheet\.create\(\{/.test(line)) inSheet = true;
+    else if (inSheet && /^\}\);/.test(line)) inSheet = false;
+    const k = inSheet && line.match(/^\s{2,4}([A-Za-z0-9_]+):\s*\{/);
     if (k) key = k[1];
+    else if (!inSheet) key = `inline@L${i + 1}`;
 
     const fills = [...line.matchAll(FILL)].map((m) => m[1]);
     const borders = [...line.matchAll(BORDER)].map((m) => m[1]);

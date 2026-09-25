@@ -429,6 +429,28 @@ const EXPECTED_CHANGES = {
     '#10B981': 'a11y: emerald-500 was 2.46:1 -> the success token',
     '#8B5CF6': 'converged onto accentViolet',
   },
+  'src/screens/ServiceApprovalsScreen.jsx': {
+    // The fullscreen document viewer is a lightbox, so its ground stays near-black in
+    // either theme and its chrome stays stableDark.
+    'rgba(0,0,0,0.75)': 'the uploading scrim -> overlayPhoto (0.92); both read as opaque',
+    'rgba(0,0,0,0.6)': 'the tap-to-zoom chip sits on an IMAGE, so it takes mapOverlay.hint',
+    'rgba(255,255,255,0.25)': 'the active filter count -> stableDark.fill (0.2)',
+    // Four near-white neutrals and four hairline weights converge.
+    '#F5F5F7': 'the iOS-ish grey -> surfaceSunken', '#faf7f7': 'the warm page background -> bg',
+    '#F3F4F6': 'chips -> surfaceSunken', '#FAFAFA': 'the upload tile -> surfaceSunken',
+    '#F0F0F0': 'a hairline weight -> border',
+    'rgba(0,0,0,0.04)': 'card hairline -> border', 'rgba(0,0,0,0.06)': 'modal hairline -> border',
+    'rgba(0,0,0,0.08)': 'header hairline -> border', 'rgba(0,0,0,0.1)': 'upload hairline -> border',
+    '#F0F7FF': 'the blue instruction tint -> infoFill',
+    '#F7FAFF': 'the selected-card tint -> infoFill',
+    '#DBEAFE': 'the badge tint -> infoFill',
+    '#FEE2E2': 'the cancel chip -> dangerFill',
+    'rgba(246, 124, 22, 0.15)': 'the add-button hairline -> brandOrangeBorder',
+    // Not flagged but changed for real:
+    '#9CA3AF': 'a11y: 2.54:1 on white -> textMuted',
+    '#22C55E': 'the document-present green converged onto the success token',
+    '#F59E0B': 'the staged-document amber converged onto the warning token',
+  },
   'src/screens/EmailVerifyHandlerScreen.jsx': {
     '#2563EB': 'altBlueIndigo', '#FFFFFF': 'surface',
     '#6B7280': 'textSecondary is now the accessible #475569',

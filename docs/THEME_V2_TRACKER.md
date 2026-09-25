@@ -31,18 +31,20 @@
 
 ### Next action
 
-**Phase 8 — provider screens.** `ServiceApprovalsScreen` (179), `ProviderHomeScreen` (92),
-`ProviderServiceHistoryScreen` (91), `ProviderRegisterScreen` (77), `PortfolioEditScreen`
-(48), `WorkAvailabilityScreen` (20). Note the tracker's old "Working Hours = 126 colours"
-is spread across FILES, not one screen: `WeeklyScheduleCard` (50) and `ProviderHomeTopRow`
-(32) carry most of it. `TimePickerField.jsx:94` still hard-codes `themeVariant="light"`.
-`ProviderHomeScreen:1001` passes a white `HelpSupportButton` colour — check its header, the
-detail screen had the same line and it was invisible.
+**Phase 8 is done — every user screen and every provider screen is themed.**
 
-Then Phase 9 (auth screens, ~250 literals) and the 40 remaining components (767).
+Next: the **~10 modals reachable from themed screens**, which is the thing blocking a
+useful device test (see the table below). In rough order of impact:
+`LocationPicker` (71), `ProviderDetailsModal` (60), `CancellationReasonModal` (34),
+`MapPickerModal` (28), `RatingModal` (26), `AadhaarVerificationModal` (26),
+`AddressAutocomplete` (25), `PhoneChangeModal` (24), `DateTimePicker` (22),
+`SavedAddresses` (20). That is ~336 of the 674 component literals.
 
-**Phase 5b is still open** and is now about BEHAVIOUR only: the verification defects V1–V6
-and `profile.emailPending`. ProfileScreen's *theming* is done.
+Then Phase 9 (auth screens, 242) and Phase 10 (sweep + device checklist). Phase 5b
+stays open for BEHAVIOUR: verification defects V1–V6 and `profile.emailPending`.
+
+Still outstanding regardless of phase: **17 `SafeAreaView` call sites across 15 files**
+to swap for `<Screen>`, which is what makes edge-to-edge correct under `targetSdk 36`.
 
 ---
 
@@ -75,14 +77,12 @@ contract.
   - [x] batch 5 — `EmergencyServicesScreen`, `AccountSecurityScreen`, `SettingsScreen`,
         `ChangePasswordScreen` — migrated in ascending order of security exposure
         (2 / 68 / 117 / 255 sensitive lines), auth screens last
-- [~] **Phase 8** — provider screens
+- [x] **Phase 8** — provider screens
   - [x] Working Hours cluster — `TimePickerField` (incl. the `themeVariant="light"` fix),
         `WorkAvailabilityScreen`, `ProviderHomeTopRow`, `WeeklyScheduleCard`
   - [x] `PortfolioEditScreen`, `ProviderHomeScreen`
   - [x] `ProviderRegisterScreen`, `ProviderServiceHistoryScreen`
-  - [ ] `ServiceApprovalsScreen` (179) — the last of Phase 8, and the largest
-        remaining file with 114 security-sensitive lines. Deliberately left for a
-        fresh pass rather than rushed at the end of a long session.
+  - [x] `ServiceApprovalsScreen`
 - [ ] **Phase 9** — Auth screens
 - [ ] **Phase 10** — Full sweep + device-test checklist
 
@@ -92,10 +92,10 @@ contract.
 
 | Measure | Value |
 |---|---|
-| Colour literals remaining | **1,554** (3,329 at v1.0.9) — measured, see note |
-| Files on the hex allowlist | **43** |
+| Colour literals remaining | **1,379** (3,329 at v1.0.9) — measured, see note |
+| Files on the hex allowlist | **44** |
 | Components fully themed | **8** — CustomDialog, Button, Alert, ShimmerLoader, Input, Icon, GlobalBanner, DrawerMenu (+ RootNavigator surgically) |
-| Screens fully themed | **17** — the whole user side, Settings, AccountSecurity, ChangePassword, EmergencyServices, and **ProfileScreen** (the largest single file, 324 literals) |
+| Screens fully themed | **24** — the entire user side AND the entire provider side |
 | Theme unit tests | 30 across 6 suites |
 | Owner's Working Hours tests | 86 — **must never regress** |
 | i18n | **2074** × en/hi/mr (2067 baseline + 7 theme keys) |
