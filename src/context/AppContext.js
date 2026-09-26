@@ -32,6 +32,7 @@ import { checkAuthHealth, addAuthStateListener, getDeviceInfo, AUTH_HEALTH } fro
 import { initializeSocket, disconnectSocket } from '../services/socketService';
 import { Analytics, EV, onceEver } from '../services/analytics';
 import { reportSilentLogout, reportStringifyProbeFailure, checkPriorSessionMarkers } from '../utils/storageTelemetry';
+import { mergeVerificationFields } from './mergeVerificationFields';
 
 /**
  * App Context
@@ -98,6 +99,12 @@ export const AppProvider = ({ children }) => {
   }, [user, profile, userType]);
   const isInitialLoadRef = useRef(true); // True during first launch, false after splash completes
   const profileFetchInFlight = useRef(false); // Prevent concurrent profile fetches
+  // How many verification refreshes are currently showing the loading flag. NOT a
+  // dedupe: the requests themselves must stay independent, because the post-OTP
+  // caller needs data fetched AFTER the OTP was accepted. Joining it to a refresh
+  // that started earlier would hand it pre-verification data and leave the badge
+  // stale — the exact bug the post-OTP refresh exists to prevent.
+  const verificationLoadingCount = useRef(0);
   const availabilityUpdateInFlight = useRef(false); // Prevent profile refresh from overwriting optimistic availability
 
   /**
@@ -468,43 +475,26 @@ export const AppProvider = ({ children }) => {
     const flipLoading = !profileStateRef.current;
     try {
       console.log('🔄 [AppContext] Refreshing verification status...');
-      if (flipLoading) setIsProfileLoading(true);
+      if (flipLoading) {
+        verificationLoadingCount.current += 1;
+        setIsProfileLoading(true);
+      }
 
       const result = await getCurrentUser();
 
       if (result.success) {
         const data = result.data;
 
-        // Merge helper that KEEPS OBJECT IDENTITY when nothing changed —
-        // otherwise every foreground rebuilt user+profile, and every
-        // consumer/effect keyed on those objects re-ran (jobs-screen reload
-        // loop, dashboard churn on low-end devices).
-        const mergeVerificationFields = (prev) => {
-          const next = {
-            ...prev,
-            email: data.email || prev?.email,
-            fullName: data.fullName || prev?.fullName,
-            phone: data.phoneNumber || prev?.phone, // Map phoneNumber to phone
-            isEmailVerified: data.isEmailVerified ?? false,
-            isPhoneVerified: data.isPhoneVerified ?? false,
-            isActive: data.isActive ?? true,
-            role: data.role || prev?.role,
-            hasPassword: data.hasPassword ?? prev?.hasPassword,
-          };
-          const unchanged = prev &&
-            next.email === prev.email &&
-            next.fullName === prev.fullName &&
-            next.phone === prev.phone &&
-            next.isEmailVerified === prev.isEmailVerified &&
-            next.isPhoneVerified === prev.isPhoneVerified &&
-            next.isActive === prev.isActive &&
-            next.role === prev.role &&
-            next.hasPassword === prev.hasPassword;
-          return unchanged ? prev : next;
-        };
+        // Extracted to a pure module so it can be tested directly — it decides
+        // whether a user counts as verified and runs on every foreground. It keeps
+        // object identity when nothing changed (otherwise every foreground rebuilt
+        // user+profile and re-ran every consumer keyed on them: the jobs-screen
+        // reload loop, the dashboard churn on low-end devices), and an omitted
+        // field no longer downgrades a verified flag. See the module header.
+        const merge = (prev) => mergeVerificationFields(prev, data);
 
-        setUser(mergeVerificationFields);
-        setProfile(mergeVerificationFields);
+        setUser(merge);
+        setProfile(merge);
 
         // === SYNC PHONE TO MONGODB ===
         // After OTP verification, Java Auth has the latest phone data
@@ -539,7 +529,20 @@ export const AppProvider = ({ children }) => {
       console.error('❌ [AppContext] Verification status refresh error:', error);
       return null;
     } finally {
-      if (flipLoading) setIsProfileLoading(false);
+      // V3 — release the loading flag only when the LAST concurrent refresh ends.
+      //
+      // Two of these can overlap: the AppState listener fires one when the user
+      // returns from their SMS app, and the post-OTP path fires another moments
+      // later. Each used to own the flag outright, so whichever finished first
+      // cleared it while the other was still fetching and the spinner vanished
+      // mid-load. Counting means the flag tracks "any refresh in flight".
+      if (flipLoading) {
+        verificationLoadingCount.current -= 1;
+        if (verificationLoadingCount.current <= 0) {
+          verificationLoadingCount.current = 0;
+          setIsProfileLoading(false);
+        }
+      }
     }
   }, []);
 

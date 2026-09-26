@@ -8,7 +8,7 @@
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
-    "test:unit": "jest src/theme src/features",
+    "test:unit": "jest src/theme src/features src/context",
     "test:app": "jest __tests__/workSchedule.test.js __tests__/workScheduleReducer.test.js __tests__/locationThrottle.test.js __tests__/homeTopRowLayout.test.js __tests__/providerHomeTopRow.test.js",
     "check:contrast": "NODE_NO_WARNINGS=1 node scripts/check-contrast.js",
     "check:hex": "node scripts/check-hex.js",

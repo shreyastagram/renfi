@@ -3,7 +3,7 @@
 **Branch:** `feature/theme-v2` (off tag **`v1.0.9`** = `b74f862`)
 **Colour contract:** `docs/COLOUR_MAP.md`
 **Also read:** `FIXORA_APP/WORK_AVAILABILITY_TRACKER.md` — Working Hours is live in prod.
-**Last updated:** 2026-09-26, after the `<Screen>` swap — every screen root is the primitive.
+**Last updated:** 2026-09-26, after Phase 5b V1–V4. V5/V6 need an owner decision.
 
 > **Read this file BEFORE touching code.** If it contradicts the code, **STOP and flag it** —
 > do not proceed on a false premise.
@@ -32,8 +32,9 @@
 
 Remaining, in the order I would take it:
 
-1. **Phase 5b, behaviour only** — verification defects V1–V6 and `profile.emailPending`
-   (i18n 2074 → 2075). Zero colour work; **the only functional item left in the plan.**
+1. **V5 and V6 need the owner's call** — both change the verification UI, and the
+   standing rules are "no new UI elements" and "mockup before building". V1–V4 shipped
+   because they are pure logic with no visual change. See §11.
 2. **Phase 10** — full sweep + the device checklist above.
 
 Open, awaiting the owner's word: deepen `surfaceElevated` from `#26262B` to `#1A1A1F`
@@ -52,7 +53,8 @@ contract.
 - [x] **Phase 3** — Verification mockup re-confirmed, home mockup rebuilt on near-black
 - [x] **Phase 4** — Dead-file removal (2,105 lines) + DRY audit
 - [x] **Phase 5a** — Settings Appearance control (Light / Dark / System), 7 i18n keys
-- [ ] **Phase 5b** — Verification module + defects V1–V6 + `profile.emailPending`
+- [~] **Phase 5b** — V1–V4 done (pure logic). V5/V6 + `profile.emailPending` blocked on
+      an owner decision, because both change the verification UI.
 - [x] **Phase 6a** — Pilot: `CustomDialog` (proved the `useThemedStyles` pattern)
 - [x] **Phase 6b** — Rest of shared chrome
   - [x] batch 1 — `Button`, `Alert`, `ShimmerLoader` (zero security exposure)
@@ -492,14 +494,56 @@ state genuinely needs new copy, **flag it — do not invent.**
 
 ## 11. PHASE 5b — verification defects, all RE-CONFIRMED at v1.0.9
 
-| ID | Defect | Location |
+| ID | Defect | Status |
 |---|---|---|
-| V1 | No in-flight reentry guard; double tap fires two OTP sends | `ProfileScreen.jsx:996`, `:1026` |
-| V2 | **`?? false` downgrades a verified flag** on a partial response | `AppContext.js:488-489` |
-| V3 | Concurrent `refreshVerificationStatus` race `setIsProfileLoading` | `AppContext.js` |
-| V4 | No cancellation — unmounted screen still writes state | all call sites |
-| V5 | Email has no persistent pending state | `ProfileScreen.jsx:2329`, `:2452` |
-| V6 | Three presentations of the same two booleans | `ProfileScreen.jsx` |
+| V1 | No in-flight reentry guard; double tap fires two OTP sends | **fixed** |
+| V2 | **`?? false` downgrades a verified flag** on a partial response | **fixed + 12 tests** |
+| V3 | Concurrent `refreshVerificationStatus` race `setIsProfileLoading` | **fixed** |
+| V4 | No cancellation — unmounted screen still writes state | **fixed, dialogs only** |
+| V5 | Email has no persistent pending state | **blocked — needs a UI decision** |
+| V6 | Three presentations of the same two booleans | **blocked — needs a UI decision** |
+
+**V1.** `disabled={verifyingPhone}` is state-driven, so it only applies on the NEXT
+render; a fast double tap on a slow device lands both presses inside that window. Two
+SMS charged, and the second OTP invalidates the first, so the code the user is reading
+stops working. Fixed with synchronous `useRef` guards in `handlePhoneVerify`,
+`handleVerifyPhoneOtp` and `handleEmailVerify` — the same pattern as AppContext's
+`profileFetchInFlight` and the guard already in `PhoneChangeModal`.
+
+**V2.** The merge is now `src/context/mergeVerificationFields.js`, pure and directly
+tested. `?? false` became `?? prev ?? false`, so an omitted field keeps what we already
+knew while an explicit `false` from the server still un-verifies. `getCurrentUser`
+returns `response.data` verbatim with no schema check, so a backend shape change was all
+it would have taken to re-prompt every verified user — and, for providers, to re-trigger
+the "verify all" gate on Add Services. `isActive` had the mirror-image bug: `?? true`
+would have silently reactivated a deactivated account. **5 of the 12 tests fail against
+the old behaviour**, so the defect was real, not theoretical.
+
+**V3 — and why the obvious fix was wrong.** First attempt shared one in-flight promise
+between concurrent callers. That is unsafe *here*: ProfileScreen calls
+`refreshVerificationStatus()` immediately after a successful OTP, and the AppState
+listener fires one when the user returns from their SMS app — a very plausible overlap.
+Joining them would hand the post-OTP caller data fetched BEFORE the OTP was accepted and
+leave the badge stale, which is the exact bug that call exists to prevent. Replaced with
+a reference count on `isProfileLoading`: the requests stay independent, only the flag is
+shared, and it clears when the LAST one finishes. **Not unit-tested** — it lives inside
+the provider, which needs AsyncStorage, Keychain and axios mocks to mount; noted here
+rather than covered by a test that would only assert the mocks.
+
+**V4.** Gated the dialogs, not the state. ProfileScreen is a bottom-tab screen (stays
+mounted) but ALSO a stack screen, so it can unmount mid-request; `DialogProvider` is at
+the app root, so its dialog outlives the screen and would surface "OTP sent" over
+wherever the user landed. `safeDialog` suppresses that. The 11 post-`await` dialogs in
+the three verification handlers use it; the 2 pre-`await` ones do not need it. Every
+state write after an `await` is deliberately left alone — `refreshVerificationStatus`,
+`syncVerificationStatus` and `refreshProfile` write to AppContext and Mongo, and skipping
+them would leave a provider's verified flag unsynced.
+
+**V5 / V6 — deliberately not done.** V5 adds a persistent "pending" indicator (plus the
+`profile.emailPending` key, 2074 → 2075) and V6 collapses three presentations of the same
+two booleans into one. Both change what the verification section looks like, and the
+standing rules are "no new UI elements/tags/text/sections" and "mockup, light + dark,
+before building". They need the owner's call, not a unilateral edit.
 
 **Already correct — do NOT "fix":** `otpPhoneRef`/`otpExpiryRef` handle wall-clock OTP
 expiry; `PhoneChangeModal` has a reentry guard, mirror-sync retry and process-death resume.

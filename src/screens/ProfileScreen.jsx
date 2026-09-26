@@ -536,6 +536,36 @@ const ProfileScreen = ({ navigation, route }) => {
   const otpExpiryRef = useRef(0); // absolute timestamp when OTP expires
   const otpPhoneRef = useRef(''); // tracks which phone the OTP was sent to
 
+  // V1 — synchronous reentry guards for the three verification actions.
+  //
+  // `disabled={verifyingPhone}` is driven by state, so it only takes effect on the
+  // NEXT render. On a slow device a fast double tap lands both presses inside that
+  // window and sends two OTPs — two SMS charged, and the second invalidates the
+  // first, so the code the user is reading stops working. A ref closes the window
+  // because it updates synchronously. Same pattern as AppContext's
+  // `profileFetchInFlight` and the guard already in PhoneChangeModal.
+  const phoneVerifyInFlight = useRef(false);
+  const otpVerifyInFlight = useRef(false);
+  const emailVerifyInFlight = useRef(false);
+
+  // V4 — a dialog must not appear on a screen the user has already left.
+  //
+  // ProfileScreen is a bottom-tab screen (stays mounted) but ALSO a stack screen
+  // (RootNavigator's 'Profile'), so it CAN unmount mid-request when the user pops
+  // it. DialogProvider lives at the app root, so its dialog outlives this screen
+  // and would surface "OTP sent" over whatever screen they landed on — with no OTP
+  // box there to use it in.
+  //
+  // This gates ONLY the dialog. Every state write after an `await` is deliberately
+  // left alone: refreshVerificationStatus / syncVerificationStatus / refreshProfile
+  // write to AppContext and Mongo, and skipping them would leave a provider's
+  // verified flag unsynced — exactly the bug the post-OTP sync exists to prevent.
+  const isMountedRef = useRef(true);
+  useEffect(() => () => { isMountedRef.current = false; }, []);
+  const safeDialog = useCallback((...args) => {
+    if (isMountedRef.current) dialog(...args);
+  }, [dialog]);
+
   // OTP input refs & animations
   const otpInputRefs = useRef([]);
   const otpScaleAnims = useRef(Array(6).fill(null).map(() => new Animated.Value(1))).current;
@@ -1096,7 +1126,9 @@ const ProfileScreen = ({ navigation, route }) => {
       dialog(t('common.error'), t('profile.addPhoneFirst'));
       return;
     }
+    if (phoneVerifyInFlight.current) return;
 
+    phoneVerifyInFlight.current = true;
     setVerifyingPhone(true);
     try {
       const result = await sendPhoneVerificationOtp(displayData.phone);
@@ -1107,13 +1139,14 @@ const ProfileScreen = ({ navigation, route }) => {
         setOtpCountdown(300);
         setPhoneOtp(Array(6).fill(''));
         otpPhoneRef.current = formData.phone; // track which phone the OTP was sent to (raw 10 digits)
-        dialog(t('profile.otpSent'), t('profile.otpSentMsg', { phone: displayData.phone }));
+        safeDialog(t('profile.otpSent'), t('profile.otpSentMsg', { phone: displayData.phone }));
       } else {
-        dialog(t('common.error'), getErrorMessage(result.error, t('profile.otpSendFail')));
+        safeDialog(t('common.error'), getErrorMessage(result.error, t('profile.otpSendFail')));
       }
     } catch (error) {
-      dialog(t('common.error'), t('profile.otpSendFail'));
+      safeDialog(t('common.error'), t('profile.otpSendFail'));
     } finally {
+      phoneVerifyInFlight.current = false;
       setVerifyingPhone(false);
     }
   };
@@ -1134,14 +1167,16 @@ const ProfileScreen = ({ navigation, route }) => {
       dialog(t('common.error'), t('profile.invalidOtp'));
       return;
     }
+    if (otpVerifyInFlight.current) return;
 
+    otpVerifyInFlight.current = true;
     setVerifyingPhone(true);
     try {
       // Java Auth only needs OTP - phone is extracted from JWT token
       const result = await verifyPhoneOtp(otpCode);
 
       if (result.success) {
-        dialog(t('common.success'), t('profile.phoneVerifiedSuccess'));
+        safeDialog(t('common.success'), t('profile.phoneVerifiedSuccess'));
         setPhoneOtpSent(false);
         setPhoneOtp(Array(6).fill(''));
         setOtpCountdown(0);
@@ -1172,11 +1207,12 @@ const ProfileScreen = ({ navigation, route }) => {
         ]).start();
         setPhoneOtp(Array(6).fill(''));
         otpInputRefs.current[0]?.focus();
-        dialog(t('common.error'), getErrorMessage(result.error, t('profile.invalidOtp')));
+        safeDialog(t('common.error'), getErrorMessage(result.error, t('profile.invalidOtp')));
       }
     } catch (error) {
-      dialog(t('common.error'), t('profile.verificationFailed'));
+      safeDialog(t('common.error'), t('profile.verificationFailed'));
     } finally {
+      otpVerifyInFlight.current = false;
       setVerifyingPhone(false);
     }
   };
@@ -1234,13 +1270,15 @@ const ProfileScreen = ({ navigation, route }) => {
       navigation.navigate('Verification', { verificationType: 'email' });
       return;
     }
+    if (emailVerifyInFlight.current) return;
 
+    emailVerifyInFlight.current = true;
     setVerifyingEmail(true);
     try {
       const result = await sendEmailVerification();
 
       if (result.success) {
-        dialog(
+        safeDialog(
           t('profile.emailSent'),
           t('profile.emailSentMsg', { email: displayData.email })
         );
@@ -1261,23 +1299,24 @@ const ProfileScreen = ({ navigation, route }) => {
             const mins = Math.floor(retrySeconds / 60);
             const secs = retrySeconds % 60;
             const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-            dialog(
+            safeDialog(
               t('profile.emailAlreadySent'),
               `A verification email was recently sent to ${displayData.email}.\n\nPlease check your inbox (and spam folder). You can request another in ${timeStr}.`
             );
           } else {
-            dialog(
+            safeDialog(
               t('profile.emailAlreadySent'),
               `A verification email was recently sent to ${displayData.email}.\n\nPlease check your inbox (and spam folder) and wait a couple of minutes before requesting another.`
             );
           }
         } else {
-          dialog(t('common.error'), getErrorMessage(result.error, t('profile.emailSendFail')));
+          safeDialog(t('common.error'), getErrorMessage(result.error, t('profile.emailSendFail')));
         }
       }
     } catch (error) {
-      dialog(t('common.error'), t('profile.emailSendFail'));
+      safeDialog(t('common.error'), t('profile.emailSendFail'));
     } finally {
+      emailVerifyInFlight.current = false;
       setVerifyingEmail(false);
     }
   };
