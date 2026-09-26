@@ -877,6 +877,37 @@ cognitive load and figure-ground.
 
 ---
 
+## 22. Service icons — twenty opaque white PNGs (owner report)
+
+Owner, 2026-09-26: *"they are looking very weird with black around them and they are
+white bg ... make a foggy black white aesthetic behind them and round their corners"*.
+
+**All 20** 3D service icons are 240×240 PNGs with an **opaque pure-white background**
+baked in. Nothing in the theme can reach inside an image, so on black they rendered as
+twenty hard white squares.
+
+Every one of them goes through `ServiceIcon` in `Icon.jsx`, so this was a single change:
+
+- **clip to a squircle** — `borderRadius = 0.26 × size`, so it reads as an app tile
+  rather than artwork pasted down
+- **a fog plate behind it** — `icon3dPlate`, which is `stableDark.fillSubtle`
+  (rgba white 0.08) in dark and **`transparent` in light**, where the icons already sit
+  on white cards and need no help
+- **footprint unchanged at `size`**; the artwork insets to 88% so the halo is visible.
+  No layout moves.
+
+`overflow: 'hidden'` on the wrapper because Android will not clip a child's corner radius
+without it.
+
+⚠️ **The component's comment claimed these tiles had "rounded-squircle corners baked in
+(transparent corners)". They do not** — measured, all 20 opaque. That is the second false
+comment to cost real time this week, after §15's tab-bar claim. Both are now replaced
+with what was measured.
+
+Mockup: <https://claude.ai/code/artifact/d04d1ed1-14c9-4ee9-b368-8c6c4a6f7437>
+
+---
+
 ## 21. Opaque image assets — the logo was a white square on black
 
 Audited the image assets after the elevation work, on the theory that a themed surface

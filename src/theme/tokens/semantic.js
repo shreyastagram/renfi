@@ -139,6 +139,11 @@ export const lightColors = {
 
   // Misc
   overlay: overlay.light,
+  // The haze behind a 3D service icon. Those PNGs ship an OPAQUE WHITE
+  // background — all 20 of them — so on black they were 20 white squares.
+  // A soft plate gives the tile something to sit on. Transparent in light,
+  // where the icons already sit on white cards and need no help.
+  icon3dPlate: 'transparent',
   overlayStrong: overlay.strongLight,
   overlayPhoto: overlay.photo,
   overlayPhotoSoft: overlay.photoSoft,
@@ -243,6 +248,11 @@ export const darkColors = {
 
   // Misc
   overlay: overlay.dark,
+  // The haze behind a 3D service icon. Those PNGs ship an OPAQUE WHITE
+  // background — all 20 of them — so on black they were 20 white squares.
+  // A soft plate gives the tile something to sit on. Transparent in light,
+  // where the icons already sit on white cards and need no help.
+  icon3dPlate: stableDark.fillSubtle,
   overlayStrong: overlay.strongDark,
   overlayPhoto: overlay.photo,
   overlayPhotoSoft: overlay.photoSoft,

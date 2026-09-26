@@ -261,16 +261,42 @@ const ICON_3D = {
 
 export const ServiceIcon = ({ type, serviceType, size = 24, color, backgroundColor, style, useSvg }) => {
   // Same reasoning as Icon: the no-match fallback sits on a themed surface.
-  const { textSecondary: fallbackInk } = useThemeColors();
+  const { textSecondary: fallbackInk, icon3dPlate: plate3d } = useThemeColors();
   const iconType = type || serviceType;
 
   // Prefer the 3D rendered icon (unless explicitly disabled)
   if (useSvg !== false) {
     const icon3d = ICON_3D[iconType];
     if (icon3d) {
-      // Exported tiles have the rounded-squircle corners baked in (transparent
-      // corners), so a plain Image at the requested size fits any container.
-      return <Image source={icon3d} style={[{ width: size, height: size }, style]} resizeMode="contain" />;
+      // These tiles do NOT have transparent corners — a comment here used to claim
+      // they did. All 20 are 240x240 with an OPAQUE PURE-WHITE background baked in,
+      // which on a black page rendered as twenty white squares. Nothing in the theme
+      // can reach inside an image, so the container has to do the work:
+      //
+      //   - clip the baked-in corners to a squircle, so it reads as an app tile
+      //     rather than a photo that has been pasted down
+      //   - sit it on a soft plate, which is transparent in light (the icons are
+      //     already on white cards there) and a faint haze in dark, so the white
+      //     tile has something to meet instead of hard black
+      //
+      // The outer footprint stays exactly `size`, so no layout moves; the artwork
+      // insets slightly to leave the halo visible.
+      const r = size * 0.26;
+      return (
+        <View
+          style={[
+            styles.tile3d,
+            { width: size, height: size, borderRadius: r, backgroundColor: plate3d },
+            style,
+          ]}
+        >
+          <Image
+            source={icon3d}
+            style={{ width: size * 0.88, height: size * 0.88, borderRadius: r * 0.88 }}
+            resizeMode="contain"
+          />
+        </View>
+      );
     }
   }
 
@@ -297,6 +323,11 @@ const styles = StyleSheet.create({
   serviceIconContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  tile3d: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden', // Android needs this for the child's corner radius to clip
   },
 });
 
