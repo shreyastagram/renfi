@@ -630,7 +630,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
                 accessibilityRole="button"
               >
                 {appleLoading ? (
-                  <ActivityIndicator size="small" color={C.onPrimary} />
+                  <ActivityIndicator size="small" color={vendor.onVendor} />
                 ) : (
                   <>
                     <Text style={styles.appleGlyph}>{'\uF8FF'}</Text>

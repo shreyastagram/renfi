@@ -877,6 +877,37 @@ cognitive load and figure-ground.
 
 ---
 
+## 23. Apple sign-in spinners — near-black on Apple black
+
+Audited every `<ActivityIndicator>` colour: 48 use an ink that is dark in BOTH themes,
+which is correct on a bright button and invisible anywhere else. Almost all sit on
+`C.primary` / `C.secondary` / `C.success` and are fine. Three were not:
+
+| site | ground | was | now |
+|---|---|---|---|
+| `LoginScreen` apple pill | `vendor.appleBlack` | **1.18** | 21 |
+| `UnifiedUserAuthScreen` apple circle | white 20% over appleBlack = `#333333` | **1.41** | 12.63 |
+| `RegisterChoice` apple circle | same | **1.41** | 12.63 |
+
+Also fixed an inconsistency between two copies of the same row: `RegisterChoice`'s
+`appleGlyph` correctly used `vendor.onVendor`, `UnifiedUserAuthScreen`'s used
+`C.onPrimary`. Both are now white, which is Apple's spec for their black button.
+
+**Two near-misses worth recording**, because the method matters more than the fix:
+
+1. The `providerOtpInput` spinner measured 1.00:1 and looked like the worst bug of the
+   set. It is **not a bug** — my container-finder had walked up to the wrong style. The
+   spinner's real ground is `providerOtpBtnEnabled` (`C.success`, 5.02 / 9.29), and the
+   disabled fill is only reachable when no spinner is showing. I nearly "fixed" working
+   code.
+2. I then computed the Apple circle against `optionCard` (white) and concluded my own
+   fix was a light-mode regression. Wrong again: the row is
+   `[optionCard, appleCard]`, and `appleCard` is `vendor.appleBlack`. **A composite is
+   only as good as its base — resolve the base from the JSX, not from the first style
+   whose name looks right.**
+
+---
+
 ## 22. Service icons — twenty opaque white PNGs (owner report)
 
 Owner, 2026-09-26: *"they are looking very weird with black around them and they are

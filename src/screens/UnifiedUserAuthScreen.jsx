@@ -440,7 +440,7 @@ const UnifiedUserAuthScreen = ({ navigation, onPickPhone, onNewUserAuth }) => {
             >
               <View style={[styles.optionIconCircle, styles.appleIconCircle]}>
                 {appleLoading ? (
-                  <ActivityIndicator size="small" color={C.onPrimary} />
+                  <ActivityIndicator size="small" color={vendor.onVendor} />
                 ) : (
                   <Text style={styles.appleGlyph}>{''}</Text>
                 )}
