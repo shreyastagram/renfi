@@ -43,7 +43,6 @@ import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
 import SvgArt from '../components/SvgArt';
-import GraphBackground from '../components/GraphBackground';
 import { Icon, ServiceIcon, StatusIcon, RatingModal, FixhomiLogo, CancellationReasonModal } from '../components';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import ScreenShimmer, { useShimmerAnimation, ShimmerBlock } from '../components/ShimmerLoader';
@@ -72,6 +71,12 @@ import {
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const makeC = (c) => ({
+  successDeep: c.successDeep,
+  successBorder: c.successBorder,
+  infoBorder: c.infoBorder,
+  infoFill: c.infoFill,
+  successFill: c.successFill,
+  pageSolid: c.pageSolid,
   // Deeper than brandBlue: the View-details affordance now sits on the
   // pending tint, where #2b76bc measures 4.35 against a 4.5 floor.
   infoDeep: c.info,
@@ -982,7 +987,6 @@ const UserServiceHistoryScreen = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <GraphBackground />
       {/* Header row — fades between title and compact stats */}
       <View style={[styles.header, { overflow: 'hidden' }]}>
         <SvgArt color={C.primary} height={60} />
@@ -1003,25 +1007,25 @@ const UserServiceHistoryScreen = ({ navigation }) => {
             opacity: scrollY.interpolate({ inputRange: [30, 70], outputRange: [0, 1], extrapolate: 'clamp' }),
             position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, justifyContent: 'center',
           }]}>
-            <View style={[styles.headerInlinePill, { backgroundColor: C.successBg }]}>
+            <View style={[styles.headerInlinePill, { backgroundColor: C.successFill, borderColor: C.successBorder }]}>
               <View style={styles.headerInlineSvg}>
                 <Svg width="100%" height="100%" viewBox="0 0 120 36" preserveAspectRatio="xMidYMid slice">
                   <Circle cx="100" cy="0" r="18" fill={C.success} opacity={0.07} />
                   <Path d="M0 28 Q30 14 60 24 T120 18" stroke={C.success} strokeWidth="0.8" fill="none" opacity={0.1} />
                 </Svg>
               </View>
-              <Text style={[styles.headerInlineLabel, { color: C.success }]}>{t('userHistory.active')}</Text>
-              <Text style={[styles.headerInlineValue, { color: C.success }]}>{stats.active}</Text>
+              <Text style={[styles.headerInlineLabel, { color: C.successDeep }]}>{t('userHistory.active')}</Text>
+              <Text style={[styles.headerInlineValue, { color: C.successDeep }]}>{stats.active}</Text>
             </View>
-            <View style={[styles.headerInlinePill, { backgroundColor: C.blueBg }]}>
+            <View style={[styles.headerInlinePill, { backgroundColor: C.infoFill, borderColor: C.infoBorder }]}>
               <View style={styles.headerInlineSvg}>
                 <Svg width="100%" height="100%" viewBox="0 0 120 36" preserveAspectRatio="xMidYMid slice">
                   <Circle cx="100" cy="0" r="18" fill={C.secondary} opacity={0.07} />
                   <Path d="M0 28 Q30 14 60 24 T120 18" stroke={C.secondary} strokeWidth="0.8" fill="none" opacity={0.1} />
                 </Svg>
               </View>
-              <Text style={[styles.headerInlineLabel, { color: C.secondary }]}>{t('userHistory.done')}</Text>
-              <Text style={[styles.headerInlineValue, { color: C.secondary }]}>{stats.completed}</Text>
+              <Text style={[styles.headerInlineLabel, { color: C.infoDeep }]}>{t('userHistory.done')}</Text>
+              <Text style={[styles.headerInlineValue, { color: C.infoDeep }]}>{stats.completed}</Text>
             </View>
           </Animated.View>
         </View>
@@ -1167,7 +1171,11 @@ const makeStyles = (theme) => {
   headerCenter: { flex: 1, minHeight: 36, justifyContent: 'center' },
   headerTitle: { fontSize: 20, fontWeight: '800', color: C.text, letterSpacing: -0.3, textAlign: 'center' },
   headerCompactStats: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  headerInlinePill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, overflow: 'hidden' },
+  headerInlinePill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, overflow: 'hidden',
+    // Tinted like the pro tip, not filled. A solid dark green or blue block
+    // on a black bar is the same saturated-slab problem; a soft fill with a
+    // visible edge and coloured ink says it at a fraction of the volume.
+    borderWidth: StyleSheet.hairlineWidth },
   headerInlineSvg: { ...StyleSheet.absoluteFillObject },
   headerInlineLabel: { fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3 },
   headerInlineValue: { fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
@@ -1249,7 +1257,10 @@ const makeStyles = (theme) => {
   resultCount: { fontSize: 12, fontWeight: '600', color: C.muted, marginBottom: 6 },
 
   // List
-  listPad: { paddingTop: 2, paddingBottom: 40 },
+  // No extra tail. The screen already adds insets.bottom + 104 for the
+  // floating bar; another 40 on top of that was sized for 200pt cards and
+  // leaves a screenful of nothing under a short list of 90pt rows.
+  listPad: { paddingTop: 2 },
 
   // Card
   // A LIST ROW, not a card. History is a long scroll of mostly-finished
@@ -1259,7 +1270,13 @@ const makeStyles = (theme) => {
   // separated by a hairline that starts past the icon so the eye follows
   // one column. Unlike a transaction list these rows carry actions, so the
   // padding stays generous enough for a 44pt target.
-  card: { backgroundColor: C.white, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line, overflow: 'hidden' },
+  //
+  // pageSolid, NOT surface. As cards these were #191716 islands on a black
+  // page; full-bleed, that same fill becomes one continuous grey sheet down
+  // the whole screen — the owner's "it's looking grey and I want it black".
+  // pageSolid is #FFFFFF in light and #000000 in dark, so the list reads as
+  // a white sheet where that is right and as the page where it is not.
+  card: { backgroundColor: C.pageSolid, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line, overflow: 'hidden' },
   // Actionable rows are the exception and earn a tint, so a new job is
   // findable in a long list without a border around every sibling.
   cardPending: { backgroundColor: C.brandOrangeFill },

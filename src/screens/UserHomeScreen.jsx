@@ -99,6 +99,7 @@ const SHEET_MID_HEIGHT = SCREEN_HEIGHT * 0.40; // 40% for initial state - shows 
 // the base flips to the dark-mode blue, so the tint flips with it instead of
 // staying a light-blue wash that would be invisible on a near-black card.
 const makeC = (c) => ({
+  pageSolid: c.pageSolid,
   textMuted: c.textMuted,
   brandOrangeInk: c.brandOrangeInk,
   info: c.info,
@@ -1412,7 +1413,11 @@ const UserHomeScreen = ({ navigation, route }) => {
   // changes, eliminating the ~1s delay caused by remounting the SVG icons.
   const renderSheetContent = () => {
     return (
-      <View style={{ flex: 1, backgroundColor: C.white, overflow: 'hidden' }}>
+      // pageSolid, not surface: this is the sheet AREA. At C.surface it is a
+      // #191716 slab filling the lower half of a black screen; the cards inside
+      // it keep C.surface, so elevation still reads — the ground goes black and
+      // the things ON it stay raised.
+      <View style={{ flex: 1, backgroundColor: C.pageSolid, overflow: 'hidden' }}>
         {/* SELECT STEP — always mounted, base layer */}
         <View style={{ flex: 1 }}>
           {renderSelectStep()}
@@ -1979,7 +1984,9 @@ const makeStyles = (theme) => {
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: C.white,
+    // The ground behind the map and under the sheet steps. C.surface made it a
+    // grey field wherever the map had not painted yet.
+    backgroundColor: C.pageSolid,
   },
 
   // ─── Top Bar ───────────────────────────────────────────────

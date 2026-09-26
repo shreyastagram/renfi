@@ -54,7 +54,6 @@ import {
 import { startLocationTracking, stopLocationTracking } from '../services/socketService';
 import { Icon } from '../components';
 import SvgArt from '../components/SvgArt';
-import GraphBackground from '../components/GraphBackground';
 import { useShimmerAnimation, ShimmerBlock } from '../components/ShimmerLoader';
 import { NODE_BASE_URL, JAVA_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
@@ -1042,7 +1041,6 @@ const SettingsScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <GraphBackground />
       {/* Premium Header */}
       <View style={[styles.header, { paddingTop: insets.top + 8, overflow: 'hidden' }]}>
         <SvgArt color={stableDark.ink} height={80} />

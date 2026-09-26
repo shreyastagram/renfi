@@ -40,7 +40,6 @@ import { Icon, ServiceIcon, StatusIcon, RatingModal, CancellationReasonModal } f
 import HelpSupportButton from '../components/HelpSupportButton';
 import Svg, { Circle, Path } from 'react-native-svg';
 import SvgArt from '../components/SvgArt';
-import GraphBackground from '../components/GraphBackground';
 import ScreenShimmer, { useShimmerAnimation, ShimmerBlock } from '../components/ShimmerLoader';
 import { NODE_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
@@ -1426,7 +1425,6 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
 
   return (
     <View style={s.screenContainer}>
-      <GraphBackground />
       <StatusBar
         barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor="transparent"

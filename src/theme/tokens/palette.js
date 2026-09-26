@@ -549,6 +549,10 @@ export const dark = {
 // Semantic hues, light-surface variants (all >= 4.5:1 on white and on slate.50).
 export const semanticLight = {
   success: '#15803D',
+  // Deeper than `success`, for text sitting ON successFill. The shipped
+  // #15803D measures 4.38 against that tint — under the 4.5 floor — so a
+  // success chip could never label itself in its own colour.
+  successDeep: '#11602E',
   warning: '#B45309',
   danger: '#B91C1C',
   successContainer: '#F0FDF4',

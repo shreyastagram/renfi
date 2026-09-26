@@ -67,7 +67,6 @@ import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import { requestCameraPermission, requestGalleryPermission } from '../utils/permissions';
 import { launchCameraGuarded, useCameraRecovery } from '../hooks/useCameraRecovery';
 import SavedAddresses from '../components/SavedAddresses';
-import GraphBackground from '../components/GraphBackground';
 import AddressAutocomplete from '../components/AddressAutocomplete';
 import CityAutocomplete from '../components/CityAutocomplete';
 import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
@@ -1573,7 +1572,6 @@ const ProfileScreen = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      <GraphBackground />
 
       <KeyboardAvoidingView
         style={styles.flex1}

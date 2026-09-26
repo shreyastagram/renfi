@@ -43,7 +43,6 @@ import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { Icon } from '../components';
 import ScreenShimmer from '../components/ShimmerLoader';
-import GraphBackground from '../components/GraphBackground';
 import SvgArt from '../components/SvgArt';
 import { useThemedStyles, useThemeColors } from '../theme';
 
@@ -292,7 +291,6 @@ const AccountSecurityScreen = () => {
 
   return (
     <View style={s.container}>
-      <GraphBackground />
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
       {/* Header */}

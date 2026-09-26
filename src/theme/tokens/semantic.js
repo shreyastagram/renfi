@@ -97,6 +97,7 @@ export const lightColors = {
 
   // Semantic
   success: semanticLight.success,
+  successDeep: semanticLight.successDeep,
   warning: semanticLight.warning,
   danger: semanticLight.danger,
   successContainer: semanticLight.successContainer,
@@ -239,6 +240,7 @@ export const darkColors = {
 
   // Semantic
   success: semanticDark.success,
+  successDeep: semanticDark.success,
   warning: semanticDark.warning,
   danger: semanticDark.danger,
   successContainer: semanticDark.successContainer,

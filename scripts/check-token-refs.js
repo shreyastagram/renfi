@@ -46,8 +46,17 @@ for (const file of walk(SRC)) {
   scanned += 1;
 
   const defined = new Set([...m[1].matchAll(/^\s*(\w+):/gm)].map((x) => x[1]));
+
+  // Strip comments first. A comment explaining WHY a style no longer uses
+  // C.surface is not a reference to C.surface, and reporting it as undefined
+  // sends you hunting for a bug that is a sentence. Prose about the tokens is
+  // exactly what the well-commented parts of this codebase are full of.
+  const code = src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+
   const used = new Map();
-  for (const r of src.matchAll(/\bC\.(\w+)\b/g)) {
+  for (const r of code.matchAll(/\bC\.(\w+)\b/g)) {
     used.set(r[1], (used.get(r[1]) || 0) + 1);
   }
   for (const [k, n] of used) {

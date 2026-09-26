@@ -22,7 +22,6 @@
     "src/components/FixhomiLogo.jsx",
     "src/components/GlobalBanner.jsx",
     "src/components/GoogleLogo.jsx",
-    "src/components/GraphBackground.jsx",
     "src/components/HelpSupportButton.jsx",
     "src/components/Icon.jsx",
     "src/components/ImageViewerModal.jsx",
