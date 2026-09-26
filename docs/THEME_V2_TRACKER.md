@@ -1798,3 +1798,8 @@ the expensive failure is the quiet regression on input forty-three.
 Twelve gates now. All pass; 90 unit tests pass.
 
 | beta.14 — premium, pulse, caret | https://claude.ai/code/artifact/43be436b-db80-4216-ac31-2ea69fb10e09 |
+
+| build | versionCode | notes |
+|---|---|---|
+| 1.1.0-beta.14 | 50 | §38 — warning-hue sweep (15 controls), the invisible online pulse, premium amplified (not re-hued), iOS/Android caret drift on 40 inputs. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/7pusoa58eelrg) |
+
