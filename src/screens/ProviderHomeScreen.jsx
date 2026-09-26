@@ -1322,7 +1322,7 @@ const ProviderHomeScreen = ({ navigation }) => {
               <View style={styles.tipsDecorCircle1} />
               <View style={styles.tipsDecorCircle2} />
               <View style={styles.tipsIconCircle}>
-                <Icon name="lightbulb" size={22} color={isDark ? C.brandOrangeInk : C.onPrimary} />
+                <Icon name="lightbulb" size={22} color={C.onPrimary} />
               </View>
               <View style={styles.tipsContent}>
                 <Text style={styles.tipsBadge}>{t('providerHome.proTip')}</Text>
@@ -1996,39 +1996,28 @@ const makeStyles = (theme) => {
   emergencyNumbersSub: { fontSize: 12, color: C.textSecondary, marginTop: 2 },
   tipsCard: {
     flexDirection: 'row',
-    // Light keeps the solid brand block exactly as v1.0.9 shipped it — on a
-    // pale page it reads as a highlight. On a black page the same fill is a
-    // saturated slab with an orange glow under it, which is what the owner
-    // means by "picking the eyes". Dark gets the tinted-card treatment used
-    // everywhere else: brand fill, brand edge, brand ink.
-    backgroundColor: theme.name === 'dark' ? C.brandOrangeFill : C.primary,
-    borderWidth: theme.name === 'dark' ? 1 : 0,
+    // Tinted in BOTH themes now. The solid brand block was a saturated slab
+    // wherever it landed — the owner's "picking the eyes" in dark, and the
+    // same weight in light. A tinted card with a brand edge and brand ink says
+    // the same thing at a fraction of the volume, and it is the treatment
+    // every other advisory surface in the app already uses.
+    backgroundColor: C.brandOrangeFill,
+    borderWidth: 1,
     borderColor: C.brandOrangeLine,
     borderRadius: 22,
     padding: 20,
     marginBottom: 16,
     overflow: 'hidden',
     alignItems: 'center',
-    // No glow in dark. A coloured shadow on black is pure bloom — it spreads
-    // the very saturation we are trying to pull back.
-    ...(theme.name === 'dark' ? {} : Platform.select({
-      ios: {
-        shadowColor: C.primary,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 16,
-      },
-      android: {
-        elevation: 8,
-      },
-    })),
+    // No coloured glow in either theme. On black it is bloom; on white it was
+    // a heavy orange halo under an already-orange block.
   },
   tipsDecorCircle1: {
     position: 'absolute',
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: theme.name === 'dark' ? 'transparent' : stableDark.heroDivider,
+    backgroundColor: 'transparent',
     top: -40,
     right: -20,
   },
@@ -2037,7 +2026,7 @@ const makeStyles = (theme) => {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: theme.name === 'dark' ? 'transparent' : stableDark.fillSubtle,
+    backgroundColor: 'transparent',
     bottom: -20,
     left: 30,
   },
@@ -2045,9 +2034,10 @@ const makeStyles = (theme) => {
     width: 44,
     height: 44,
     borderRadius: 22,
-    // white-12% reads as a plate on the solid orange; on the dark tinted card
-    // it is nearly invisible, so dark uses a brand-tinted plate instead.
-    backgroundColor: theme.name === 'dark' ? C.brandOrangeLine : stableDark.fill,
+    // A small SOLID brand chip on the tinted card. A tinted plate on a tinted
+    // card puts brand ink on brand line at 1.63:1 — the one strong element is
+    // the right place to spend the saturation the card no longer uses.
+    backgroundColor: C.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -2060,13 +2050,13 @@ const makeStyles = (theme) => {
     fontWeight: '800',
     // The tips card is brand orange, so its ink is the on-colour.
     // stableDark.inkMuted is white-70%, which on orange was 2.00:1.
-    color: theme.name === 'dark' ? C.brandOrangeInk : C.onPrimary,
+    color: C.brandOrangeInk,
     letterSpacing: 1,
     marginBottom: 4,
   },
   tipsText: {
     fontSize: 14,
-    color: theme.name === 'dark' ? C.brandOrangeInk : C.onPrimary,
+    color: C.brandOrangeInk,
     lineHeight: 20,
     fontWeight: '600',
     letterSpacing: -0.1,

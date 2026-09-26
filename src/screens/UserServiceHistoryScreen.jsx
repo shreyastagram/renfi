@@ -72,6 +72,10 @@ import {
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const makeC = (c) => ({
+  // Deeper than brandBlue: the View-details affordance now sits on the
+  // pending tint, where #2b76bc measures 4.35 against a 4.5 floor.
+  infoDeep: c.info,
+  brandOrangeFill: c.brandOrangeFill,
   surface: c.surface,
   onPrimary: c.onBrandOrange,
   brandOrangeInk: c.brandOrangeInk,
@@ -500,7 +504,7 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
             {/* View details */}
             <TouchableOpacity style={styles.detailsRow} onPress={onPress} activeOpacity={0.6}>
               <Text style={styles.detailsText}>{t('common.viewDetails')}</Text>
-              <Icon name="chevron-right" size={15} color={C.secondary} />
+              <Icon name="chevron-right" size={15} color={C.infoDeep} />
             </TouchableOpacity>
           </>
         )}
@@ -1245,22 +1249,31 @@ const makeStyles = (theme) => {
   resultCount: { fontSize: 12, fontWeight: '600', color: C.muted, marginBottom: 6 },
 
   // List
-  listPad: { padding: 14, paddingBottom: 40 },
+  listPad: { paddingTop: 2, paddingBottom: 40 },
 
   // Card
-  card: { backgroundColor: C.white, borderRadius: 20, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: C.line, shadowColor: C.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 6, overflow: 'hidden' },
-  cardPending: { borderColor: C.primary + '35', borderWidth: 1.5 },
-  cardCompact: { padding: 14, marginBottom: 12 },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  // A LIST ROW, not a card. History is a long scroll of mostly-finished
+  // jobs, and twenty rounded, bordered, elevated cards stacked down a page
+  // read as twenty objects competing rather than one list you can scan.
+  // This is the transaction-history pattern: flat rows on the surface,
+  // separated by a hairline that starts past the icon so the eye follows
+  // one column. Unlike a transaction list these rows carry actions, so the
+  // padding stays generous enough for a 44pt target.
+  card: { backgroundColor: C.white, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line, overflow: 'hidden' },
+  // Actionable rows are the exception and earn a tint, so a new job is
+  // findable in a long list without a border around every sibling.
+  cardPending: { backgroundColor: C.brandOrangeFill },
+  cardCompact: { paddingVertical: 12 },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   cardTopLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 },
-  svcIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.warningBg, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  svcIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.warningBg, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   svcNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
   svcName: { fontSize: 15, fontWeight: '700', color: C.text, textTransform: 'capitalize', flexShrink: 1 },
   typeBadge: { backgroundColor: C.purpleBg, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   typeBadgeText: { fontSize: 8, fontWeight: '800', color: C.purple, letterSpacing: 0.5 },
-  statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, gap: 5 },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, gap: 5 },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
-  statusText: { fontSize: 11, fontWeight: '700' },
+  statusText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.3, textTransform: 'uppercase' },
 
   // Cancel strip
   cancelStrip: { backgroundColor: C.warningBg, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: C.warningLine },
@@ -1330,7 +1343,7 @@ const makeStyles = (theme) => {
 
   // Details row
   detailsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border },
-  detailsText: { fontSize: 13, fontWeight: '600', color: C.secondary },
+  detailsText: { fontSize: 13, fontWeight: '600', color: C.infoDeep },
 
   // Footer
   footerLoader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, gap: 8 },
