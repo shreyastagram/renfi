@@ -929,6 +929,48 @@ Both dark-only. Light is byte-identical: `navInk` on the light stop still measur
 
 ---
 
+## 32. beta.8 feedback — the whole ramp was blue, and the profile analysed
+
+### "The home screen bg is bluish"
+
+Not the home screen. **The entire dark ramp carried a blue bias** — every surface in
+the app:
+
+| token | was | bias | now | bias |
+|---|---|---|---|---|
+| `surface` | `#16161C` | +6 | `#191716` | −2 |
+| `surfaceSunken` | `#22222A` | +8 | `#252321` | −3 |
+| `surfaceElevated` | `#2C2C35` | +9 | `#2F2D2B` | −3 |
+| `border` | `#627896` | **+41** | `#84827E` | −5 |
+
+The page was always `#000000`, so the cast only showed on cards and chips — which is
+most of the home screen, hence "the home screen". **The luma ladder is unchanged
+(0 / 23 / 35 / 45)**, so every contrast ratio and the elevation steps survive the swap
+untouched. Barely warm rather than dead neutral, because the brand is orange.
+
+This is the second time the owner has reported "bluish" — the first led to the
+true-black page, which fixed the page and left the cast on every surface above it.
+
+### The profile screen, analysed
+
+| symptom | cause | fix |
+|---|---|---|
+| "bg is grey" | `profileSection` = `surface`, and there are **11 full-bleed sections** — they cover the page | `pageSolid`: `#FFFFFF` in light exactly as v1.0.9, the page in dark |
+| "icons dark bg looks weird" | `infoIconContainer` = `C.hairline` → **`bg` = `#000000`** — black holes punched through a card | new `wellFill`: `#F1F5F9` in light exactly as v1.0.9, a LIFTED `#252321` in dark |
+| "cover svg cut off half way" | `viewBox="0 0 400 70"` with `slice`, inside a **56pt** band — it scaled to cover and cropped 14 units, cutting the wave tails | viewBox retargeted to `0 0 400 56` and all five paths rescaled ×0.8 |
+| rows looked inconsistent | `infoRow`'s rule resolved to `#000000` (invisible on a dark section) while `detailRow`'s used the CARD border at 5.48:1 (far too loud for a row) | new `rowRule`, quiet in both: 1.10 in light, exactly v1.0.9's `#F1F5F9`; 1.34 in dark |
+
+Section gaps widened 14 → 20 in dark, since sections no longer have a fill to group
+them — the rhythm now comes from the gap and the section title, which is the standard
+grouped-list treatment on black.
+
+**A token named for a colour will eventually lie.** `hairline`, `white`, `darkHero`
+were all named after what they looked like in light, and each broke the moment dark
+needed something different. `pageSolid`, `wellFill`, `rowRule` and `bandFill` are named
+for their JOB, which is why they can hold two values without becoming wrong.
+
+---
+
 ## 30. Builds
 
 | build | code | what it carried |

@@ -477,6 +477,13 @@ export const dark = {
   // costs nothing: page->card separation actually improves (13 -> 14 code values) and
   // every text and border ratio against the card goes UP.
   base: '#000000',
+  // NEUTRAL, NOT BLUE. Every value here used to carry a blue bias — surface +6,
+  // sunken +8, elevated +9, and the border a full +41 — so the whole app read as
+  // bluish even though the page is pure black. The owner reported it twice. These
+  // are barely warm instead, which sits better under an orange brand, and the LUMA
+  // LADDER IS UNCHANGED (0 / 23 / 35 / 45) so every contrast ratio and the elevation
+  // steps survive the swap untouched.
+  //
   // TONAL ELEVATION. In dark, depth cannot come from a shadow: the shadow token is
   // #000000 and the page is #000000, so it contributes exactly 0 code values. In
   // light the same shadow is worth 221 against the page and is doing most of the
@@ -488,14 +495,14 @@ export const dark = {
   // iOS both do on dark. The page stays true black. Ladder, in code values above
   // the page: 0 -> 23 -> 35 -> 45. Every adjacent step clears MIN_SURFACE_GAP, and
   // 23 is wide enough to survive a 6-bit panel where the old 14 might not.
-  surface: '#16161C',
+  surface: '#191716',
   // A filled well — an input, a chip — INSIDE a card. On dark this is LIGHTER than
   // the card it sits in, which is the inverse of light mode and the standard dark
   // convention: light comes from elevation, so recessed controls are lifted, not sunk.
   // It can no longer double as a page background; the three screens that used it that
   // way now say `bg`, which is what they meant.
-  sunken: '#22222A',
-  elevated: '#2C2C35', // topped out here: any lighter and the border drops under 3:1
+  sunken: '#252321',
+  elevated: '#2F2D2B', // topped out here: any lighter and the border drops under 3:1
   // CRYSTAL EDGES. The owner's call, and it removes a dependency on hardware.
   //
   // On true black the card is only 14 code values off the page, so separation was
@@ -510,9 +517,9 @@ export const dark = {
   // Sized to clear 3:1 against the LIGHTEST surface it can be drawn on
   // (surfaceElevated), not just against a card — #5C7089 looked right on a card at
   // 3.79 but landed on 2.96 there, and the gate caught it.
-  border: '#627896', // 4.65 on the page, 4.26 on a card, 3.33 on elevated
-  borderMedium: '#7C93AC', // one clear step up
-  borderStrong: '#9DB2C7', // inputs and focus rings
+  border: '#84827E', // 4.65 on the page, 4.26 on a card, 3.33 on elevated
+  borderMedium: '#9C9A95', // one clear step up
+  borderStrong: '#B8B5AF', // inputs and focus rings
   textPrimary: '#F1F5F9',
   textSecondary: '#A9B4C4',
   textMuted: '#8B96A8',

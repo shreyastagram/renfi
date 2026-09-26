@@ -43,6 +43,16 @@ export const lightColors = {
   // 11 bands x 2 hairlines was 22 lit 4.26:1 rules, which reads as ruling
   // rather than rhythm. The breakers stay; only how they separate changes.
   bandFill: slate[50],
+  // A recessed well INSIDE a card — an icon disc, a chip. #F1F5F9 in light,
+  // exactly v1.0.9. These were mapped to `bg`, which is right in light and
+  // #000000 in dark: the profile's icon circles became black holes punched
+  // through a card. In dark a well is LIGHTER than its card, as everywhere else.
+  wellFill: slate[50],
+  // A rule BETWEEN ROWS, which is a quieter thing than a card's border. Both
+  // row rules were #F1F5F9-ish at v1.0.9. After the migration one resolved to
+  // `bg` (#000000 in dark — invisible on a dark section) and the other to the
+  // card border (5.48:1 on black — far too loud for a row). Same token now.
+  rowRule: slate[50],
 
   // Lines — the *Neutral variants exist so files built on the gray ramp stay
   // pixel-identical in light mode. They collapse onto one value in dark.
@@ -176,6 +186,16 @@ export const darkColors = {
   // 11 bands x 2 hairlines was 22 lit 4.26:1 rules, which reads as ruling
   // rather than rhythm. The breakers stay; only how they separate changes.
   bandFill: dark.base,
+  // A recessed well INSIDE a card — an icon disc, a chip. #F1F5F9 in light,
+  // exactly v1.0.9. These were mapped to `bg`, which is right in light and
+  // #000000 in dark: the profile's icon circles became black holes punched
+  // through a card. In dark a well is LIGHTER than its card, as everywhere else.
+  wellFill: dark.sunken,
+  // A rule BETWEEN ROWS, which is a quieter thing than a card's border. Both
+  // row rules were #F1F5F9-ish at v1.0.9. After the migration one resolved to
+  // `bg` (#000000 in dark — invisible on a dark section) and the other to the
+  // card border (5.48:1 on black — far too loud for a row). Same token now.
+  rowRule: dark.sunken,
 
   // Lines — both light-mode ramps UNIFY here. Dark mode gets one clean scale.
   border: dark.border,

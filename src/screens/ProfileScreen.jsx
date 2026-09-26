@@ -95,6 +95,9 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Service labels for proper display
 const makeC = (c) => ({
+  rowRule: c.rowRule,
+  pageSolid: c.pageSolid,
+  wellFill: c.wellFill,
   surface: c.surface,
   primary: c.brandOrange,
   secondary: c.brandBlue,
@@ -1588,12 +1591,12 @@ const ProfileScreen = ({ navigation, route }) => {
             </View>
             <View style={styles.gBand}>
               <View style={StyleSheet.absoluteFill}>
-                <Svg width="100%" height="100%" viewBox="0 0 400 70" preserveAspectRatio="xMidYMid slice">
-                  <Path d="M0 55 Q60 25 130 45 T260 32 T400 48" stroke={hg.decorStroke} strokeWidth="1.5" fill="none" />
-                  <Path d="M0 64 Q80 36 170 54 T340 40 T400 60" stroke={hg.decorStrokeSoft} strokeWidth="1" fill="none" />
-                  <Circle cx="342" cy="12" r="40" fill={hg.decorBlob} />
-                  <Circle cx="60" cy="8" r="26" fill={hg.decorBlobSoft} />
-                  <Circle cx="278" cy="42" r="3" fill={hg.decorDot} />
+                <Svg width="100%" height="100%" viewBox="0 0 400 56" preserveAspectRatio="xMidYMid slice">
+                  <Path d="M0 44 Q60 20 130 36 T260 26 T400 38" stroke={hg.decorStroke} strokeWidth="1.5" fill="none" />
+                  <Path d="M0 51 Q80 29 170 43 T340 32 T400 48" stroke={hg.decorStrokeSoft} strokeWidth="1" fill="none" />
+                  <Circle cx="342" cy="10" r="32" fill={hg.decorBlob} />
+                  <Circle cx="60" cy="6" r="21" fill={hg.decorBlobSoft} />
+                  <Circle cx="278" cy="34" r="2.4" fill={hg.decorDot} />
                 </Svg>
               </View>
               {/* Type badge — icon + label inline-aligned */}
@@ -3083,14 +3086,16 @@ const makeStyles = (theme) => {
   sectionBand: {
     // In dark this is the page showing between raised cards, so it needs no rules —
     // 11 bands x 2 hairlines was 22 lit edges. Light keeps the v1.0.9 ruled band.
-    height: theme.name === 'dark' ? 14 : 9,
+    height: theme.name === 'dark' ? 20 : 9,
     backgroundColor: C.bandFill,
     borderTopWidth: theme.name === 'dark' ? 0 : StyleSheet.hairlineWidth,
     borderBottomWidth: theme.name === 'dark' ? 0 : StyleSheet.hairlineWidth,
     borderColor: C.line,
   },
   profileSection: {
-    backgroundColor: C.white,
+    // pageSolid: #FFFFFF in light exactly as v1.0.9; in dark the section IS the
+    // page, so eleven full-bleed sections stop covering the screen in grey.
+    backgroundColor: C.pageSolid,
     paddingHorizontal: 18,
     paddingTop: 18,
     paddingBottom: 12,
@@ -3131,7 +3136,7 @@ const makeStyles = (theme) => {
     gap: 13,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: C.line,
+    borderTopColor: C.rowRule,
   },
   detailRowFirst: {
     borderTopWidth: 0,
@@ -3653,13 +3658,15 @@ const makeStyles = (theme) => {
     alignItems: 'center',
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: C.hairline,
+    borderBottomColor: C.rowRule,
   },
   infoIconContainer: {
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: C.hairline,
+    // wellFill, not bg. C.hairline maps to the page, which is #000000 in dark —
+    // these discs were black holes punched through the card.
+    backgroundColor: C.wellFill,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
