@@ -319,7 +319,7 @@ const PSATriggerScreen = ({ navigation, route }) => {
       {state === STATE.ERROR && (
         <View style={styles.errorContainer}>
           <View style={styles.errorCircle}>
-            <MaterialIcon name="error-outline" size={48} color={COLORS.danger} />
+            <MaterialIcon name="error-outline" size={48} color={COLORS.ink} />
           </View>
           <Text style={styles.errorTitle}>Alert Failed</Text>
           <Text style={styles.errorSubtitle}>{result?.error || 'Something went wrong.'}</Text>
@@ -395,7 +395,8 @@ const styles = StyleSheet.create({
       android: { elevation: 6 },
     }),
   },
-  sliderText: { textAlign: 'center', fontSize: 16, fontWeight: '700', color: COLORS.textMuted, letterSpacing: 1 },
+  sliderText: { textAlign: 'center', fontSize: 16, fontWeight: '700', // on a translucent track over the deep red surface; muted white was 4.31.
+    color: COLORS.ink, letterSpacing: 1 },
 
   countdownContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
   countdownLabel: { fontSize: 18, color: COLORS.textMuted, fontWeight: '600', marginBottom: 12 },

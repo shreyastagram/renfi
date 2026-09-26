@@ -91,11 +91,22 @@ const build = (src) => {
   const alias = {};
   const m = /const makeC = \(c\) => \(\{([\s\S]*?)\n\}\);/.exec(src);
   if (m) for (const x of m[1].matchAll(/^\s*(\w+):\s*([^,\n]+),/gm)) alias[x[1]] = x[2].trim();
+  // Legacy local palettes. Several files still say `const COLORS = {...}` or
+  // `const BRAND = {...}` instead of makeC, and ~130 pairs were unreadable purely
+  // because this did not look for them — leaving exactly the least-migrated files
+  // as the checker's blind spot.
+  for (const name of ['COLORS', 'BRAND']) {
+    const lm = new RegExp(`const ${name} = \\{([\\s\\S]*?)\\n\\};`).exec(src);
+    if (!lm) continue;
+    for (const x of lm[1].matchAll(/^\s*(\w+):\s*([^,\n]+),/gm)) alias[`${name}.${x[1]}`] = x[2].trim();
+  }
   return alias;
 };
 
 const resolveExpr = (expr, alias, theme, depth = 0) => {
   if (!expr || depth > 4) return null;
+  // a legacy palette reference resolves through the same alias map
+  if (alias[expr]) return resolveExpr(alias[expr], alias, theme, depth + 1);
   let m = /^C\.(\w+)$/.exec(expr);
   if (m) {
     const rhs = alias[m[1]];
@@ -139,6 +150,31 @@ const styleBlocks = (src) => {
 
 const exprOf = (node, code) => code.slice(node.start, node.end);
 
+/**
+ * An absolutely-positioned filled sibling IS the background.
+ *
+ * SplashScreen paints its ground with `<View style={styles.bgBase} />`, where bgBase
+ * is `{...StyleSheet.absoluteFillObject, backgroundColor: splash.dark}`. That is a
+ * sibling, not an ancestor, so an ancestor-only walk saw no fill at all and graded
+ * the footer against the page — reporting 2.02:1 on a screen that is actually fine.
+ * Modelling the layer is the honest fix; exempting the screen would not be.
+ */
+const absoluteLayerFill = (el, code, blocks) => {
+  for (const child of el.children || []) {
+    if (child.type !== 'JSXElement') continue;
+    const sp = child.openingElement.attributes.find((a) => a.name && a.name.name === 'style');
+    if (!sp) continue;
+    const txt = exprOf(sp.value, code);
+    let body = '';
+    for (const r of txt.matchAll(/(?:styles|s|detailStyles)\.(\w+)/g)) body += (blocks[r[1]] || '');
+    body += txt;
+    if (!/absoluteFill|position:\s*'absolute'/.test(body)) continue;
+    const g = /backgroundColor:\s*([^,\n}]+)/.exec(body);
+    if (g) return g[1].trim();
+  }
+  return null;
+};
+
 const fillFromStyleProp = (attr, code, blocks) => {
   // Last declared backgroundColor wins, mirroring how RN flattens a style array.
   if (!attr) return null;
@@ -171,6 +207,8 @@ const run = () => {
 
   const failures = [];
   const unparsed = [];
+  const reasons = {};
+  const why = (k) => { reasons[k] = (reasons[k]||0)+1; };
   let checked = 0, unresolved = 0;
 
   for (const file of files) {
@@ -232,9 +270,18 @@ const run = () => {
             // on layout). Falling through to the page reported a back arrow on the
             // profile hero as 1.18:1 when it is deliberately the gradient's light
             // end. Mark it unresolvable instead of guessing.
-            if (op.name.name === 'LinearGradient') { onGradient = true; break; }
+            if (op.name.name === 'LinearGradient') {
+              // Read the stops. If ink clears the WORST stop it clears the whole
+              // gradient, so grading against that is rigorous rather than a guess.
+              const cp = op.attributes.find((a) => a.name && a.name.name === 'colors');
+              const stops = cp ? [...exprOf(cp.value, code).matchAll(/(?:'([^']+)'|([A-Za-z][\w.]*))/g)]
+                .map((x) => x[1] || x[2]).filter((x) => x && x !== 'colors') : [];
+              if (stops.length) { chain.push(...stops); if (!groundTag) groundTag = 'LinearGradient'; }
+              else onGradient = true;
+              break;
+            }
             const sp = op.attributes.find((a) => a.name && a.name.name === 'style');
-            const f = fillFromStyleProp(sp, code, blocks);
+            const f = fillFromStyleProp(sp, code, blocks) || absoluteLayerFill(cur.node, code, blocks);
             if (f) {
               if (!groundTag) groundTag = op.name.name;
               chain.push(f);
@@ -242,7 +289,12 @@ const run = () => {
           }
           cur = cur.parentPath;
         }
-        if (onGradient || !chain.length) { unresolved += 1; return; }
+        if (onGradient) { unresolved += 1; why('ground is a LinearGradient'); return; }
+        // Nothing above it paints a fill, so what the user sees behind this ink IS
+        // the page. Assuming that rather than skipping recovers 184 pairs — the
+        // single largest blind spot — and it errs toward reporting in dark, where
+        // the page is darker than a card.
+        if (!chain.length) chain.push('theme.colors.bg');
         // An inline disabled fill — `[styles.btn, { backgroundColor: C.disabledFill }]`
         // — never gets a style NAME, so the name-based skip above cannot see it.
         // WCAG 1.4.3/1.4.11 exempt inactive controls either way.
@@ -271,14 +323,19 @@ const run = () => {
             failures.push({ rel, line: p.node.loc.start.line, tag, ink: inkExpr, ground: `${groundTag}:${groundExpr}`, theme: tn, ratio: r.toFixed(2), min });
           }
         }
-        if (!counted) unresolved += 1;
+        if (!counted) { unresolved += 1; why(/^C\./.test(inkExpr) ? 'ink token not in makeC / not a colour' : 'ink is a prop, ternary or runtime value: '+inkExpr.slice(0,28)); }
       },
     });
   }
-  return { failures, checked, unresolved, unparsed };
+  return { failures, checked, unresolved, unparsed, reasons };
 };
 
-const { failures, checked, unresolved, unparsed } = run();
+const { failures, checked, unresolved, unparsed, reasons } = run();
+if (process.env.INK_WHY) {
+  console.log('unresolvable, by cause:');
+  Object.entries(reasons).sort((a,b)=>b[1]-a[1]).slice(0,14).forEach(([k,v])=>console.log(String(v).padStart(6), k));
+  process.exit(0);
+}
 
 // A file this cannot parse is a file it cannot check. Skipping quietly once hid two
 // screens behind a duplicate-import error and made the light baseline read 94 when it
@@ -293,7 +350,7 @@ if (unparsed.length) {
 // design language (brand orange on white is 2.69 and has been since v1.0.9), so it is
 // reported and ratcheted rather than failed in one go — the owner has to see those
 // changes, and 94 of them at once is not a review anyone can do.
-const LIGHT_BASELINE = 98;
+const LIGHT_BASELINE = 124;
 const dark = failures.filter((f) => f.theme === 'dark');
 const light = failures.filter((f) => f.theme === 'light');
 

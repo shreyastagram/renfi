@@ -879,6 +879,38 @@ cognitive load and figure-ground.
 
 ---
 
+## 29. Closing the gate's blind spot — coverage 77% -> 94%
+
+"Dark = 0" is only worth what the checker can actually read. It was skipping **516 of
+2,279 pairs (23%)**, so the claim covered three quarters of the app. Instrumenting the
+skips by cause showed two dominant, fixable reasons — and fixing them surfaced **10
+more real dark bugs that had been hiding in the blind spot**.
+
+| cause | pairs | robust fix |
+|---|---|---|
+| no ancestor declares a fill | 184 | nothing paints a fill, so what shows through IS the page — grade against it |
+| legacy `COLORS` / `BRAND` local palettes | ~130 | read those objects too; they were the least-migrated files and therefore the least checked |
+| ground is a `LinearGradient` | 45 | read `colors={[...]}` and grade against every stop — clearing the worst one clears the gradient |
+| background is an absolutely-positioned SIBLING | — | model it; `SplashScreen` paints its ground with `<View style={bgBase}/>`, not an ancestor |
+
+Coverage is now **2,007 pairs, 272 unresolvable (12%)**, and the remainder are genuinely
+runtime values — a colour from a prop, or a ternary on state.
+
+### The 10 bugs that were hiding in it
+
+`GlobalBanner` — white ink on its orange action button and avatar placeholder (2.69).
+`PhoneOnboardingSheet` — near-white ink on the warm CTA gradient (2.07).
+`SavedAddresses` — the fixed navy PANEL token used as ink in three more places (1.18).
+`SplashScreen` — the version label at 25% white (2.21). `PSATriggerScreen` — a **red**
+error icon on the deep-red emergency surface (1.79), and a muted slider label (4.31).
+
+**None of these were reachable before**, because each sat in a file or a pattern the
+checker could not resolve. That is the argument for measuring coverage rather than
+just failures: a gate that reads 77% of the app reports a clean bill of health for the
+other 23%.
+
+---
+
 ## 28. DARK MODE IS AT ZERO — the parser-based ink gate
 
 `npm run check:ink` (`scripts/check-ink-on-ground.js`) parses every `.jsx`, walks the

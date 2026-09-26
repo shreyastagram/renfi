@@ -20,6 +20,10 @@ export const brand = {
   // Fixhomi orange rather than brown. Only for light: on a dark surface the
   // ordinary brand orange is already 7.17:1 and this would be muddy.
   orangeDeep: '#A85408',
+  // The ink that sits ON brand orange, identical in both themes — the semantic
+  // onBrandOrange resolves here either way. Needed by files that still carry a
+  // legacy local BRAND palette and cannot reach the theme. 6.64:1 on #f67c16.
+  onOrange: '#0F172A',
   // The plate a brand mark sits on. fixhomi_logo.jpg is a JPEG — no alpha — with a
   // pure-white background, and the mark inside it is orange and blue specified
   // against white. So its container must stay light in BOTH themes: on a themed

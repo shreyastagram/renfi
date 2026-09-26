@@ -660,7 +660,8 @@ const SHADOWS = makeShadows(C);
     flex: 1,
     fontSize: 17,
     fontWeight: '800',
-    color: C.darkHero,
+    // darkHero is a fixed navy PANEL token; as ink it was 1.18:1 in dark.
+    color: C.text,
     letterSpacing: -0.2,
   },
   sectionCountBadge: {
@@ -785,7 +786,8 @@ const SHADOWS = makeShadows(C);
   emptyTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: C.darkHero,
+    // darkHero is a fixed navy PANEL token; as ink it was 1.18:1 in dark.
+    color: C.text,
     marginTop: 20,
     letterSpacing: -0.3,
   },

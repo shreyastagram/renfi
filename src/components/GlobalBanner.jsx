@@ -402,7 +402,7 @@ const GlobalBanner = () => {
           }}
         >
           <Text style={styles.viewText}>View Details</Text>
-          <Icon name="chevron-right" size={16} color={stableDark.ink} />
+          <Icon name="chevron-right" size={16} color={brand.onOrange} />
         </TouchableOpacity>
       </View>
     </Animated.View>
@@ -513,7 +513,8 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 18,
     fontWeight: '700',
-    color: stableDark.ink,
+    // the placeholder is BRAND.primary, so the initial takes the on-colour.
+    color: brand.onOrange,
   },
   personDetails: {
     flex: 1,
@@ -592,7 +593,8 @@ const styles = StyleSheet.create({
   viewText: {
     fontSize: 14,
     fontWeight: '700',
-    color: stableDark.ink,
+    // on BRAND.primary, so the ink is the on-colour; white was 2.69:1.
+    color: brand.onOrange,
   },
 });
 

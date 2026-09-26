@@ -584,7 +584,7 @@ const styles = StyleSheet.create({
   },
   footerVersion: {
     fontSize: 11,
-    color: splash.inkFaintest,
+    color: splash.inkFaint,
     fontWeight: '500',
   },
 });
