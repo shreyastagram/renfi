@@ -1920,3 +1920,8 @@ current handset and matters on the older devices most providers carry.
 - **`screenOptions={{...}}` inline objects** in the tab navigators allocate a new
   object per render. React Navigation tolerates it and these components render
   rarely; worth hoisting during a quieter pass.
+
+| build | versionCode | notes |
+|---|---|---|
+| 1.1.0-beta.15 | 51 | §39 — Insurance crash, check:tdz + check:palette, offline detection, RootNavigator/TabBarDarkZone perf, visual batch. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/2rq1vfqae6dfg) |
+
