@@ -1747,20 +1747,35 @@ The ring also escaped its container into the label. The dot's 2pt white border
 was doing all the visual work, which is why it looked like a ring rather than a
 dot; it now takes the pad colour so the dot reads as a disc.
 
-### 38.3 Manage Subscription — premium, colours only
+### 38.3 Manage Subscription — richer, NOT re-hued
 
-Fixed navy+gold identity, does not theme. Two things made it read cheap:
+**I got this wrong the first time and the owner corrected it.** Asked to make
+the page "more premium", I re-hued the whole identity: navy → warm brown, gold →
+champagne, `#FFD700` → `#E4C67E`. The owner: *"keep the premium as it is… I
+didn't say to change the colours of it, just make it more rich… make it pop out
+so the page stands out because it's a premium page."*
 
-- **`crown: #FFD700`** — pure spectrum yellow, the single cheapest-looking gold
-  there is. → `#E4C67E` champagne.
-- **the ground was mid blue-slate** (`#0D1220` … `#1E293B`), which reads like a
-  dashboard rather than a material. → deeper warm neutral (`#100E0D` … `#2A2523`),
-  the same family as the app's own dark ramp.
+Reverted. **The gold is exactly as it shipped** — `gold #E8B54D`, `goldSoft
+#F2CE8A`, `crown #FFD700`. The richness comes from two places that do not touch
+the identity:
 
-Plus `gold` off brassy onto champagne, and the cool blue-grey inks warmed. 19
-values, **zero keys renamed** — so `navy` and `slate*` now name a warm dark
-rather than a hue, which is the cost of the owner's naming constraint and worth
-knowing when reading those styles.
+| | was | now |
+|---|---|---|
+| `navy` | `#0D1220` | `#070C1A` — deeper, more blue |
+| `slateCard` | `#1E293B` | `#1B2947` — more saturated |
+| `borderGold` | alpha .30 | .42 |
+| `glowGold` | alpha .16 | .26 |
+| `crownLine` | alpha .35 | .45 |
+| `keyline` | alpha .14 | .22 |
+
+Deepening the ground takes the gold-to-ground luminance gap from 166 to 172, and
+the keylines carry ~40% more presence, so gold elements read as lit metal rather
+than as hairlines. One gold did move: `goldInk #B98A2F → #BE9138`, same hue,
+because the original measures **4.42** on the info panel against a 4.5 floor.
+
+> **The lesson:** "make it more premium" is not "change the palette". The owner
+> had a working identity and wanted it amplified. I replaced it instead, which is
+> a redesign wearing a recolour's clothes. Amplify before you substitute.
 
 `check:ink` caught a real regression here: darkening `goldInk` to `#A8842E` put
 it at **4.42** on the dark info container, under the 4.5 floor. Solved to
