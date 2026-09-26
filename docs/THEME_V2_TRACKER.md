@@ -1925,3 +1925,58 @@ current handset and matters on the older devices most providers carry.
 |---|---|---|
 | 1.1.0-beta.15 | 51 | §39 — Insurance crash, check:tdz + check:palette, offline detection, RootNavigator/TabBarDarkZone perf, visual batch. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/2rq1vfqae6dfg) |
 
+
+---
+
+## §40 — the count row becomes the filter
+
+The four stat pills were a saturated hue at **10% alpha over the page** —
+`rgba(124,58,237,0.1)` on `#F1F5F9`. A strong colour at 10% over a blue-grey
+does not make a tint, it makes a grey with a hint of something; four side by
+side read as four shades of mud. Each also carried decorative SVG circles and
+curves at 3–10%, which is the faint lighter box visible inside them.
+
+`StatSegments` replaces them in both history screens: one container, colour
+reduced to a 3pt rule under each figure at full strength, top corners 18 against
+10 at the bottom so the row reads as a strip the list hangs from.
+
+**It is the filter now.** Tap to filter, tap the same segment again to clear.
+The owner asked for double-tap-to-clear; implemented as a toggle because a real
+double-tap needs a ~300ms window during which a single tap cannot be acted on,
+which would make every filter change feel slow. It drives the existing
+`activeFilter`, so the pills and the result count are unaffected.
+
+**Built for older phones.** Every animation is transform or opacity, so all run
+on the native driver and never touch JS mid-gesture; no LayoutAnimation, no
+animated colours (colour cannot be native-driven and forces a JS frame loop), no
+animated shadows; one `Animated.Value` per segment; each segment its own memo
+boundary, so a filter change re-renders two segments rather than the list header.
+
+**ACTIVE was `#7C3AED`.** Violet, asked for removal three times, surviving
+because the local alias is named `purple` — no violet sweep would ever match it.
+A reminder that these sweeps find *names*, not colours.
+
+### 40.1 The "all light mode looks different" report
+
+Measured rather than assumed: diffing the resolved themes against beta.11 shows
+**0 of 76 light tokens changed**, and 0 dark. The only palette movement anywhere
+is two category hues, the rating star, and the premium group (Subscription
+alone). The muddy tone was this screen's own construction, unchanged for its
+whole life — not a regression from the theme work.
+
+### 40.2 Open
+
+- **Job card layout.** Owner rejected the status rail and the "Pays" row (no
+  such data exists). The rest of the proposal stands: status tag instead of a
+  dotted pill, id and time merged onto one muted line, details as labelled
+  columns, no SVG, 14pt radius.
+- **Pro tip in light mode** — still a solid brand block.
+- **Pro tips are English only.** 50 × 3 languages of hand-written trade advice
+  is a translation job; machine-translated safety guidance is worse than
+  English. The "PRO TIP" label stays localised.
+
+| build | versionCode | notes |
+|---|---|---|
+| 1.1.0-beta.16 | 52 | §40 — StatSegments filter row, tab icon role colour in dark, 50 rotating pro tips. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/1g3a9f1dif9hg) |
+| — | — | [Job card ideas mockup](https://claude.ai/code/artifact/5bb56116-c458-4eda-9534-865a1da8b3c7) |
+
