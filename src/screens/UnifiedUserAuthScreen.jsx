@@ -602,11 +602,11 @@ const makeStyles = (theme) => {
   googleIconCircleWhite: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line },
   phoneIconCircle: { backgroundColor: C.infoBg },
   appleIconCircle: { backgroundColor: stableDark.fill },
-  appleGlyph: { fontSize: 22, color: C.onPrimary, marginTop: -2 },
+  appleGlyph: { fontSize: 22, color: stableDark.ink, marginTop: -2 },
   optionTextWrap: { flex: 1 },
   optionTitle: { fontSize: 15, fontWeight: '700', color: C.text },
   optionSub: { fontSize: 12, color: C.textSecondary, marginTop: 2 },
-  appleOptionTitle: { color: C.onPrimary },
+  appleOptionTitle: { color: vendor.onVendor },
   appleOptionSub: { color: stableDark.inkMuted },
 
   // ── Terms sentence ──

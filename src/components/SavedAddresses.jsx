@@ -588,7 +588,9 @@ const SHADOWS = makeShadows(C);
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: C.darkHero,
+    // darkHero is the fixed navy PANEL token; as ink on a themed
+    // surface it resolved to #0F172A on #16161C — 1.01:1 in dark.
+    color: C.text,
     letterSpacing: -0.3,
   },
   headerBadge: {
@@ -818,7 +820,7 @@ const SHADOWS = makeShadows(C);
   addButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: C.onPrimary,
+    color: C.onSecondary,
   },
   floatingButton: {
     position: 'absolute',

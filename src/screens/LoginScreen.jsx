@@ -819,8 +819,8 @@ const makeStyles = (theme) => {
     height: 52, borderRadius: 14,
     backgroundColor: vendor.appleBlack, marginTop: 12,
   },
-  applePillText: { fontSize: 14, fontWeight: '700', color: C.onPrimary },
-  appleGlyph: { fontSize: 22, color: C.onPrimary, marginTop: -2 },
+  applePillText: { fontSize: 14, fontWeight: '700', color: vendor.onVendor },
+  appleGlyph: { fontSize: 22, color: vendor.onVendor, marginTop: -2 },
 
   disabled: { opacity: 0.5 },
 

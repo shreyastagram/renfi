@@ -1312,7 +1312,7 @@ const ProviderHomeScreen = ({ navigation }) => {
               <View style={styles.tipsDecorCircle1} />
               <View style={styles.tipsDecorCircle2} />
               <View style={styles.tipsIconCircle}>
-                <Icon name="lightbulb" size={22} color={stableDark.ink} />
+                <Icon name="lightbulb" size={22} color={C.onPrimary} />
               </View>
               <View style={styles.tipsContent}>
                 <Text style={styles.tipsBadge}>{t('providerHome.proTip')}</Text>
@@ -1755,7 +1755,7 @@ const makeStyles = (theme) => {
   sectionTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: C.muted,
+    color: stableDark.ink,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 10,
@@ -2041,7 +2041,9 @@ const makeStyles = (theme) => {
   tipsBadge: {
     fontSize: 10,
     fontWeight: '800',
-    color: stableDark.inkMuted,
+    // The tips card is brand orange, so its ink is the on-colour.
+    // stableDark.inkMuted is white-70%, which on orange was 2.00:1.
+    color: C.onPrimary,
     letterSpacing: 1,
     marginBottom: 4,
   },

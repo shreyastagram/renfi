@@ -2145,7 +2145,7 @@ const makeStyles = (theme) => {
     color: C.textSecondary,
   },
   filterCountTextActive: {
-    color: C.onPrimary,
+    color: stableDark.ink,
   },
 
   // Content
@@ -2301,7 +2301,7 @@ const makeStyles = (theme) => {
   resubmitButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: C.onPrimary,
+    color: C.onSecondary,
   },
   cancelRequestButton: {
     flexDirection: 'row',
@@ -2620,7 +2620,8 @@ const makeStyles = (theme) => {
   },
   selectServiceDocs: {
     fontSize: 10,
-    color: C.muted,
+    // 4.41 on infoFill, a hair under 4.5; textSecondary clears it.
+    color: C.textSecondary,
     marginTop: 1,
   },
   selectServiceStatus: {

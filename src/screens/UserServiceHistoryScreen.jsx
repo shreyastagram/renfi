@@ -322,7 +322,9 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
               </View>
             ) : (
               <TouchableOpacity style={styles.rateBtn} onPress={() => onRate(request)} activeOpacity={0.7}>
-                <Icon name="star" size={14} color={C.white} />
+                {/* onGold, not white: the rate button is filled with medal.gold, where white
+                      is 2.15:1 — under the 3:1 a glyph needs. Near-black is 8.31. */}
+                  <Icon name="star" size={14} color={C.onGold} />
                 <Text style={styles.rateBtnText}>{t('userHistory.rate')}</Text>
               </TouchableOpacity>
             )}

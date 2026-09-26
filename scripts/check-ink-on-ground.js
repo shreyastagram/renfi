@@ -40,6 +40,16 @@ const ROOT = path.resolve(__dirname, '..');
 const { lightTheme, darkTheme } = require('../src/theme/themes.js');
 const palette = require('../src/theme/tokens/palette.js');
 
+/**
+ * Genuine exceptions, each with a reason. Kept tiny on purpose: an allowlist is how
+ * a gate stops meaning anything, so nothing goes in here that could be fixed instead.
+ */
+const EXEMPT = [
+  // Apple's own system colours. white-on-systemBlue is 4.02 by Apple's spec and
+  // systemRed is lower still; matching the platform matters more here than clearing
+  // a bar Apple itself does not. Already recorded as an accepted exception.
+  { ink: /onIosAccent|iosPlaceholder/, ground: /iosBlue|iosRed|overlay/ },
+];
 const TEXT_MIN = 4.5;
 const UI_MIN = 3.0;
 
@@ -72,16 +82,29 @@ const ratio = (a, b) => {
 
 // ── resolving a source expression to a colour, per theme ──────────────────
 const build = (src) => {
+  // Capture the WHOLE right-hand side, not just `c.*`. A makeC key can point at a
+  // theme token (`c.surface`), a palette group (`stableDark.heroSurface`,
+  // `medal.gold`) or a literal. Only reading `c.*` left the rest unresolvable, so
+  // those layers were skipped and their ink got graded against the page instead —
+  // which reported a white title on a navy header as 1.10:1. False, and it would
+  // have sent me "fixing" a dozen things that were correct.
   const alias = {};
   const m = /const makeC = \(c\) => \(\{([\s\S]*?)\n\}\);/.exec(src);
-  if (m) for (const x of m[1].matchAll(/(\w+):\s*c\.(\w+)/g)) alias[x[1]] = x[2];
+  if (m) for (const x of m[1].matchAll(/^\s*(\w+):\s*([^,\n]+),/gm)) alias[x[1]] = x[2].trim();
   return alias;
 };
 
-const resolveExpr = (expr, alias, theme) => {
-  if (!expr) return null;
+const resolveExpr = (expr, alias, theme, depth = 0) => {
+  if (!expr || depth > 4) return null;
   let m = /^C\.(\w+)$/.exec(expr);
-  if (m) { const t = alias[m[1]]; return t ? theme.colors[t] ?? null : null; }
+  if (m) {
+    const rhs = alias[m[1]];
+    if (!rhs) return null;
+    const c = /^c\.(\w+)$/.exec(rhs);
+    if (c) return theme.colors[c[1]] ?? null;
+    // a palette group, a literal, or another expression — resolve it the same way
+    return resolveExpr(rhs, alias, theme, depth + 1);
+  }
   m = /^theme\.colors\.(\w+)$/.exec(expr);
   if (m) return theme.colors[m[1]] ?? null;
   m = /^(\w+)\.(\w+)$/.exec(expr);
@@ -92,22 +115,27 @@ const resolveExpr = (expr, alias, theme) => {
 
 // ── the walk ──────────────────────────────────────────────────────────────
 const styleBlocks = (src) => {
-  // name -> body text, for both multi-line and single-line style entries
+  // Brace-counted, not line-matched. A style can be one line AND contain a nested
+  // object — `acceptBtn: { ..., shadowOffset: { width: 0, height: 3 }, ... },` — and
+  // a line-based reader silently dropped every one of those. That made the checker
+  // walk past the BUTTON to the card behind it and report correct ink as broken.
   const out = {};
-  let st = null, buf = [];
-  for (const l of src.split('\n')) {
-    const open = /^\s{2,8}(\w+): \{\s*$/.exec(l);
-    const one = /^\s{2,8}(\w+): \{(.*)\},?\s*$/.exec(l);
-    if (open) { if (st) out[st] = buf.join('\n'); st = open[1]; buf = []; }
-    else if (one && st === null) out[one[1]] = one[2];
-    else if (st !== null) {
-      if (/^\s{2,8}\},?\s*$/.test(l)) { out[st] = buf.join('\n'); st = null; buf = []; }
-      else buf.push(l);
+  const re = /^[ \t]{2,8}(\w+):\s*\{/gm;
+  let m;
+  while ((m = re.exec(src))) {
+    let depth = 0;
+    let k = m.index + m[0].length - 1; // at the opening brace
+    const start = k + 1;
+    for (; k < src.length; k += 1) {
+      if (src[k] === '{') depth += 1;
+      else if (src[k] === '}') { depth -= 1; if (depth === 0) break; }
     }
+    out[m[1]] = src.slice(start, k);
+    re.lastIndex = k;
   }
-  if (st) out[st] = buf.join('\n');
   return out;
 };
+
 
 const exprOf = (node, code) => code.slice(node.start, node.end);
 
@@ -142,6 +170,7 @@ const run = () => {
   })(path.join(ROOT, 'src'));
 
   const failures = [];
+  const unparsed = [];
   let checked = 0, unresolved = 0;
 
   for (const file of files) {
@@ -149,7 +178,7 @@ const run = () => {
     let ast;
     try {
       ast = parser.parse(code, { sourceType: 'module', plugins: ['jsx', 'classProperties', 'optionalChaining', 'nullishCoalescingOperator'] });
-    } catch { continue; }
+    } catch { unparsed.push(path.relative(ROOT, file)); continue; }
     const alias = build(code);
     const blocks = styleBlocks(code);
     const rel = path.relative(ROOT, file);
@@ -166,6 +195,11 @@ const run = () => {
           const sp = p.node.attributes.find((a) => a.name && a.name.name === 'style');
           if (!sp) return;
           const txt = exprOf(sp.value, code);
+          // The INK can belong to a disabled state even when the ground resolves to
+          // the enabled fill (disabled fills are skipped above). WCAG exempts
+          // inactive controls, and "fixing" one makes it look enabled — which is
+          // exactly what this checker talked me into doing before I caught it.
+          if (/\b(?:styles|s|detailStyles)\.\w*(?:Disabled|Inactive)\b/.test(txt)) return;
           for (const r of txt.matchAll(/(?:styles|s|detailStyles)\.(\w+)/g)) {
             const b = blocks[r[1]];
             if (!b) continue;
@@ -188,10 +222,17 @@ const run = () => {
         // flatten them bottom-up.
         const chain = [];
         let groundTag = null;
+        let onGradient = false;
         let cur = p.parentPath;
         while (cur) {
           if (cur.isJSXElement()) {
             const op = cur.node.openingElement;
+            // A LinearGradient paints a ground this checker cannot read (its colours
+            // are a `colors={[...]}` prop, and which stop sits under the ink depends
+            // on layout). Falling through to the page reported a back arrow on the
+            // profile hero as 1.18:1 when it is deliberately the gradient's light
+            // end. Mark it unresolvable instead of guessing.
+            if (op.name.name === 'LinearGradient') { onGradient = true; break; }
             const sp = op.attributes.find((a) => a.name && a.name.name === 'style');
             const f = fillFromStyleProp(sp, code, blocks);
             if (f) {
@@ -201,9 +242,14 @@ const run = () => {
           }
           cur = cur.parentPath;
         }
-        if (!chain.length) { unresolved += 1; return; }
+        if (onGradient || !chain.length) { unresolved += 1; return; }
+        // An inline disabled fill — `[styles.btn, { backgroundColor: C.disabledFill }]`
+        // — never gets a style NAME, so the name-based skip above cannot see it.
+        // WCAG 1.4.3/1.4.11 exempt inactive controls either way.
+        if (chain.some((c) => /disabled|inactive|readonly/i.test(c))) return;
         const groundExpr = chain[0];
 
+        if (EXEMPT.some((e) => e.ink.test(inkExpr) && chain.some((c) => e.ground.test(c)))) return;
         const min = TEXTS.has(tag) ? TEXT_MIN : UI_MIN;
         let counted = false;
         for (const [tn, theme] of [['light', lightTheme], ['dark', darkTheme]]) {
@@ -229,11 +275,53 @@ const run = () => {
       },
     });
   }
-  return { failures, checked, unresolved };
+  return { failures, checked, unresolved, unparsed };
 };
 
-const { failures, checked, unresolved } = run();
+const { failures, checked, unresolved, unparsed } = run();
 
+// A file this cannot parse is a file it cannot check. Skipping quietly once hid two
+// screens behind a duplicate-import error and made the light baseline read 94 when it
+// was really 101 — a lower number that looked like progress.
+if (unparsed.length) {
+  console.error(`check:ink — ${unparsed.length} file(s) failed to parse and were NOT checked:`);
+  unparsed.forEach((f) => console.error(`    ${f}`));
+  process.exit(1);
+}
+
+// DARK must be zero. LIGHT carries a declining baseline: it is the app's pre-existing
+// design language (brand orange on white is 2.69 and has been since v1.0.9), so it is
+// reported and ratcheted rather than failed in one go — the owner has to see those
+// changes, and 94 of them at once is not a review anyone can do.
+const LIGHT_BASELINE = 98;
+const dark = failures.filter((f) => f.theme === 'dark');
+const light = failures.filter((f) => f.theme === 'light');
+
+if (light.length > LIGHT_BASELINE) {
+  console.error(
+    `check:ink — light-mode failures rose from ${LIGHT_BASELINE} to ${light.length}.\n` +
+    'The baseline only ever goes down. Fix the new one, or lower LIGHT_BASELINE if you\n' +
+    'genuinely reduced it.',
+  );
+  process.exit(1);
+}
+
+if (dark.length) {
+  console.error('check:ink — DARK ink painted on a ground it cannot be read against:\n');
+  for (const f of dark) {
+    console.error(`  ${f.rel}:${f.line}  <${f.tag}>`);
+    console.error(`      ${f.ink}  on  ${f.ground}  = ${f.ratio} (needs ${f.min})`);
+  }
+  console.error(`\n${dark.length} dark failure(s). Dark mode is held at ZERO.`);
+  process.exit(1);
+}
+console.log(
+  `check:ink OK — dark 0, light ${light.length}/${LIGHT_BASELINE} baseline; ` +
+  `${checked} pairs x 2 themes, ${unresolved} unresolvable and skipped.`,
+);
+process.exit(0);
+
+// eslint-disable-next-line no-unreachable
 if (failures.length) {
   console.error('check:ink — ink painted on a ground it cannot be read against:\n');
   for (const f of failures) {

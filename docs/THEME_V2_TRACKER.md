@@ -879,6 +879,54 @@ cognitive load and figure-ground.
 
 ---
 
+## 28. DARK MODE IS AT ZERO — the parser-based ink gate
+
+`npm run check:ink` (`scripts/check-ink-on-ground.js`) parses every `.jsx`, walks the
+real JSX tree, resolves each `<Text>` / icon / spinner colour against the **flattened
+stack of ancestor fills**, and grades the pair in both themes. Text needs 4.5, a
+control needs 3.
+
+**Dark: 0 failures, and the gate holds it there.** Light: 98, ratcheted — the baseline
+may only go down.
+
+### Why a parser, after three regex attempts
+
+Regex walkers mis-attributed the ground **five** separate times: a footer instead of
+the button inside it, props split over lines, the wrong member of a style array, a
+translucent chip graded as if opaque, and a single-line style containing a nested
+object silently dropped (that last one lost **60 of 191 style blocks per file** and
+made correct ink look broken). Every wrong answer was confident and plausible.
+
+### What the gate had to learn to be trustworthy
+
+| It reported | Why that was wrong | Fix |
+|---|---|---|
+| red icon on a pale red chip, 1.72 | the chip is `rgba(...,0.08)`; graded it as opaque | flatten the whole ancestor stack |
+| every button in its disabled state | `cond && styles.xDisabled` is last in the array | skip disabled layers; WCAG exempts inactive controls |
+| white title on a navy header, 1.10 | `makeC` values that are not `c.*` resolved to null | resolve through palette groups too |
+| a hero back arrow, 1.18 | it sits on a `LinearGradient` this cannot read | mark unresolvable, never guess |
+| light baseline 94 | two files had a parse error and were **skipped silently** | unparsed files now fail the gate |
+
+That last one is the sharpest lesson: **a checker that skips what it cannot read
+reports progress it has not made.** 94 looked better than the true 101.
+
+### Real bugs it found, after all that
+
+Provider tips card — white ink on its own orange fill (2.00 and 2.22). `SavedAddresses`
+header title using the fixed navy panel token as **ink** (1.01 in dark). The rate
+button's star, white on gold (2.15). Map service pins, white on orange (2.69). Every
+Apple-black spinner and label. And the whole `C.white`-as-ink family, which resolves to
+`c.surface` — near-black in dark — on headers and chips that are dark in both themes.
+
+### The 98 light failures that remain, and why they are not a bug list
+
+They are overwhelmingly brand orange at 2.69:1 and brand blue at ~4.4 — **the app's
+design language since v1.0.9**, which this whole project has spent 464 declared changes
+protecting. Converting them is a brand decision, not a correctness one, and 98 at once
+is not a review anyone can do. The gate reports and ratchets them instead.
+
+---
+
 ## 27. THE BIG ONE — 60 `C.*` references that resolved to `undefined`
 
 Found while building a parser-based ink auditor. **This is the worst defect in the

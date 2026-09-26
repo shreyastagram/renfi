@@ -375,7 +375,7 @@ const LocationMap = forwardRef(({
             >
               <View style={styles.serviceLocationMarker}>
                 <View style={styles.serviceLocationPin}>
-                  <MaterialIcon name="place" size={32} color={mapPin.ink} />
+                  <MaterialIcon name="place" size={32} color={mapPin.onServicePin} />
                 </View>
                 <View style={styles.serviceLocationPinTail} />
               </View>
@@ -388,7 +388,7 @@ const LocationMap = forwardRef(({
             >
               <View style={styles.serviceLocationMarker}>
                 <View style={styles.serviceLocationPin}>
-                  <MaterialIcon name="place" size={32} color={mapPin.ink} />
+                  <MaterialIcon name="place" size={32} color={mapPin.onServicePin} />
                 </View>
                 <View style={styles.serviceLocationPinTail} />
               </View>

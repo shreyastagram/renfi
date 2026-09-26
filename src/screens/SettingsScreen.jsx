@@ -292,7 +292,7 @@ const SettingsSkeletonLoader = ({ insets, onBack }) => {
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Icon name="arrow_back" size={22} color={C.cardWhite} />
+          <Icon name="arrow_back" size={22} color={stableDark.ink} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Settings</Text>
         <View style={{ width: 44 }} />
@@ -1047,7 +1047,7 @@ const SettingsScreen = ({ navigation }) => {
       <View style={[styles.header, { paddingTop: insets.top + 8, overflow: 'hidden' }]}>
         <SvgArt color={stableDark.ink} height={80} />
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Icon name="arrow_back" size={22} color={C.cardWhite} />
+          <Icon name="arrow_back" size={22} color={stableDark.ink} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Settings</Text>
         <View style={{ width: 44 }} />
@@ -1777,7 +1777,7 @@ const makeStyles = (theme) => {
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: C.cardWhite,
+    color: stableDark.ink,
     letterSpacing: 0.3,
   },
 

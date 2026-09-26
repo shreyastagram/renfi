@@ -2841,7 +2841,7 @@ const ProfileScreen = ({ navigation, route }) => {
                     </Text>
                     <View style={styles.premiumInactiveBtn}>
                       <Text style={styles.premiumInactiveBtnText}>{t('profile.premiumOfferBtn')}</Text>
-                      <MaterialIcon name="arrow-forward" size={18} color={C.onPrimary} />
+                      <MaterialIcon name="arrow-forward" size={18} color={C.text} />
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -4494,7 +4494,7 @@ const makeStyles = (theme) => {
   premiumInactiveBtnText: {
     fontSize: Platform.OS === 'ios' ? 15 : 16,
     fontWeight: Platform.OS === 'ios' ? '600' : '700',
-    color: C.onPrimary,
+    color: C.text,
     letterSpacing: Platform.OS === 'ios' ? -0.24 : 0,
   },
   });

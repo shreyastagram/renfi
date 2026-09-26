@@ -605,7 +605,7 @@ const VerificationDashboardScreen = ({ navigation }) => {
       <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
         <View style={styles.headerContent}>
           <AnimatedPressable onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Icon name="arrow_back" size={22} color={C.white} />
+            <Icon name="arrow_back" size={22} color={stableDark.ink} />
           </AnimatedPressable>
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>{t('verificationDashboard.title')}</Text>
@@ -620,10 +620,10 @@ const VerificationDashboardScreen = ({ navigation }) => {
           >
             {syncing ? (
               <Animated.View style={{ transform: [{ rotate: spinRotation }] }}>
-                <Icon name="refresh" size={20} color={C.white} />
+                <Icon name="refresh" size={20} color={stableDark.ink} />
               </Animated.View>
             ) : (
-              <Icon name="refresh" size={20} color={C.white} />
+              <Icon name="refresh" size={20} color={stableDark.ink} />
             )}
           </AnimatedPressable>
         </View>
@@ -824,7 +824,7 @@ const makeStyles = (theme) => {
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: C.white,
+    color: stableDark.ink,
     letterSpacing: 0.2,
   },
   headerSubtitle: {

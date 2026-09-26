@@ -52,6 +52,7 @@ import { getMapStyleURL } from '../config/mapbox';
 const { width: SCREEN_W } = Dimensions.get('window');
 
 const makeC = (c) => ({
+  onSecondary: c.onBrandBlue,
   onPrimary: c.onBrandOrange,
   brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
@@ -674,7 +675,7 @@ const makeStyles = (theme) => {
   errorTitle: { fontSize: 15, fontWeight: '700', color: C.text, textAlign: 'center' },
   errorSubText: { fontSize: 12, fontWeight: '500', color: C.muted, marginTop: 4 },
   retryBtn: { marginTop: 16, backgroundColor: C.primary, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 14, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
-  retryBtnText: { fontSize: 14, fontWeight: '700', color: C.onPrimary },
+  retryBtnText: { fontSize: 14, fontWeight: '700', color: C.onSecondary },
 
   // Provider row
   providerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },

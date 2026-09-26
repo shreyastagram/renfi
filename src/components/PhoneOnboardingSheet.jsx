@@ -150,7 +150,7 @@ const PhoneOnboardingSheet = ({ visible, onDismiss, bottomInset = 0 }) => {
                 end={{ x: 1, y: 1 }}
                 style={styles.cta}
               >
-                <MaterialIcon name="verified" size={18} color={C.onPrimary} style={styles.ctaIcon} />
+                <MaterialIcon name="verified" size={18} color={C.text} style={styles.ctaIcon} />
                 <Text style={styles.ctaText}>{t('phoneOnboarding.verifyNow')}</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -287,7 +287,7 @@ const makeStyles = (theme) => {
     borderRadius: 16,
   },
   ctaIcon: { marginRight: 8 },
-  ctaText: { color: C.onPrimary, fontSize: 16, fontWeight: '800', letterSpacing: 0.2 },
+  ctaText: { color: C.text, fontSize: 16, fontWeight: '800', letterSpacing: 0.2 },
   laterBtn: { paddingVertical: 14, paddingHorizontal: 20 },
   laterText: { color: C.muted, fontSize: 14.5, fontWeight: '700' },
   });

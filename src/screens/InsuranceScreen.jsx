@@ -615,7 +615,7 @@ const InsuranceScreen = ({ navigation }) => {
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <View style={s.heroHeader}>
           <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-            <Icon name="back" size={22} color={C.white} />
+            <Icon name="back" size={22} color={stableDark.ink} />
           </TouchableOpacity>
           <Text style={s.heroTitle}>{t('insurance.title')}</Text>
           <View style={{ width: 40 }} />
@@ -635,7 +635,7 @@ const InsuranceScreen = ({ navigation }) => {
       {/* ── Dark Hero Header ──────────────────────────────────── */}
       <View style={s.heroHeader}>
         <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-          <Icon name="back" size={22} color={C.white} />
+          <Icon name="back" size={22} color={stableDark.ink} />
         </TouchableOpacity>
         <Text style={s.heroTitle}>{t('insurance.title')}</Text>
         <View style={{ width: 40 }} />
@@ -830,7 +830,7 @@ const makeStyles = (theme) => {
     paddingVertical: 14,
   },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: stableDark.heroDivider, alignItems: 'center', justifyContent: 'center' },
-  heroTitle: { fontSize: 18, fontWeight: '800', color: C.white, letterSpacing: -0.3 },
+  heroTitle: { fontSize: 18, fontWeight: '800', color: stableDark.ink, letterSpacing: -0.3 },
 
   // Loading
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
@@ -909,7 +909,7 @@ const makeStyles = (theme) => {
   stickyFooter: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.white, borderTopWidth: 1, borderTopColor: C.line, paddingHorizontal: 16, paddingTop: 12, ...Platform.select({ ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12 }, android: { elevation: 8 } }) },
   submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: C.secondary, borderRadius: 14, paddingVertical: 15, minHeight: 52 },
   submitBtnDisabled: { backgroundColor: C.muted, opacity: 0.6 },
-  submitBtnText: { fontSize: 16, fontWeight: '800', color: C.onPrimary, letterSpacing: -0.2 },
+  submitBtnText: { fontSize: 16, fontWeight: '800', color: C.onSecondary, letterSpacing: -0.2 },
   submitHint: { fontSize: 11, color: C.muted, textAlign: 'center', marginTop: 6 },
 
   // Submission overlay

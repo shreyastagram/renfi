@@ -298,7 +298,7 @@ const ProviderHomeTopRow = ({
         <MiniMap latitude={latitude} longitude={longitude} />
       ) : (
         <View style={styles.miniMapPlaceholder}>
-          <MaterialIcon name={locationIcon} size={20} color={C.muted} />
+          <MaterialIcon name={locationIcon} size={20} color={stableDark.ink} />
         </View>
       )}
       <Text style={styles.miniLocationLabel} numberOfLines={1} maxFontSizeMultiplier={TOP_ROW_FONT_SCALE}>

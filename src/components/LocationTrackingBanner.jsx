@@ -21,6 +21,7 @@ import {
 import {
   brand,
 } from '../theme';
+import { stableDark } from '../theme';
 
 const BRAND_ORANGE = brand.orange;
 const TOAST_DURATION = 3000;
@@ -232,7 +233,7 @@ const makeStyles = (theme) => {
   toastText: {
     fontSize: 12,
     fontWeight: '500',
-    color: C.onPrimary,
+    color: stableDark.ink,
   },
   });
 };

@@ -2096,7 +2096,8 @@ const makeStyles = (theme) => {
   timelineCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.sunken, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: C.line },
   timelineCircleCompleted: { backgroundColor: C.success, borderColor: C.success, shadowColor: C.success, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 3, elevation: 2 },
   timelineCircleCurrent: { backgroundColor: C.primary, borderColor: C.primary, shadowColor: C.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 6, elevation: 4 },
-  timelineNumber: { fontSize: 12, color: C.muted, fontWeight: '700', letterSpacing: -0.2 },
+  timelineNumber: { fontSize: 12, // on C.primary, so the ink must be its on-colour; C.muted was 1.1-1.6:1 in dark
+    color: C.onPrimary, fontWeight: '700', letterSpacing: -0.2 },
   timelineLabel: { marginTop: 8, fontSize: 11, color: C.textMuted, textAlign: 'center', fontWeight: '500', letterSpacing: 0.1 },
   timelineLabelActive: { color: C.text, fontWeight: '600' },
   timelineLabelCurrent: { color: C.primary, fontWeight: '700' },
@@ -2201,7 +2202,8 @@ const makeStyles = (theme) => {
   providerOtpBtnEnabled: { backgroundColor: C.success, shadowColor: C.success, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4 },
   providerOtpBtnDisabled: { backgroundColor: C.disabledFill },
   providerOtpBtnText: { fontSize: 14, fontWeight: '700', color: C.onSuccess },
-  providerOtpBtnTextDisabled: { color: C.muted },
+  providerOtpBtnTextDisabled: {
+    color: C.muted },
 
   // Accept/Reject
   acceptRejectCard: { backgroundColor: C.white, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1.5, borderColor: C.primary + '25', shadowColor: C.shadow, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8, overflow: 'hidden' },
@@ -2283,7 +2285,7 @@ const makeStyles = (theme) => {
 
   // Help
   helpBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.blueBg, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 14 },
-  helpBtnText: { fontSize: 13, color: C.secondary, fontWeight: '600' },
+  helpBtnText: { fontSize: 13, color: C.info, fontWeight: '600' },
   });
 };
 

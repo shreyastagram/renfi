@@ -613,7 +613,11 @@ export const mapPin = {
   geofenceLine: 'rgba(37, 99, 235, 0.5)',
   servicePin: brand.orange,
   ring: '#FFFFFF', // the white collar that separates a pin from the tiles behind it
-  ink: '#FFFFFF',
+  ink: '#FFFFFF', // on the blue user dot
+  // The service pin is brand orange; white on it is 2.69:1, under the 3:1 a glyph
+  // needs. Near-black reads on orange at 6.64 and matches onBrandOrange, which is
+  // what every orange control in the app already uses.
+  onServicePin: '#0F172A',
   shadow: '#000000',
 };
 

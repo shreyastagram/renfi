@@ -42,6 +42,7 @@ import {
   iconAccent,
   mapOverlay,
 } from '../theme';
+import { stableDark } from '../theme';
 
 // Brand colors
 const makeC = (c) => ({
@@ -217,7 +218,6 @@ const SpecializationChip = ({ label, selected, onToggle }) => {
  */
 const GalleryImage = ({ image, onRemove }) => {
   const styles = useThemedStyles(makeStyles);
-  const C = makeC(useThemeColors());
   return (
     <View style={styles.galleryImageWrapper}>
       <Image 
@@ -226,7 +226,7 @@ const GalleryImage = ({ image, onRemove }) => {
         resizeMode="cover"
       />
       <TouchableOpacity style={styles.removeImageButton} onPress={onRemove}>
-        <MaterialIcon name="close" size={16} color={C.white} />
+        <MaterialIcon name="close" size={16} color={stableDark.ink} />
       </TouchableOpacity>
     </View>
   );

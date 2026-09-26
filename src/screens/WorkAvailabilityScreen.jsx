@@ -96,7 +96,7 @@ const WorkAvailabilityScreen = ({ navigation }) => {
     <Screen style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel={t('common.back')}>
-          <Icon name="back" size={20} color={C.white} />
+          <Icon name="back" size={20} color={stableDark.ink} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1} maxFontSizeMultiplier={1.3}>{t('workHours.title')}</Text>
         <View style={styles.back} />

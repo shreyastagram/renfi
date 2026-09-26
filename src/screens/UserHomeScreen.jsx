@@ -2841,7 +2841,7 @@ const makeStyles = (theme) => {
   retryButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: C.onPrimary,
+    color: C.onSecondary,
     letterSpacing: -0.2,
   },
 

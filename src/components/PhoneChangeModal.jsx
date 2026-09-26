@@ -411,7 +411,7 @@ const makeStyles = (theme) => {
   subtitle: { fontSize: 13.5, color: C.textSecondary, lineHeight: 20, marginTop: 6, marginBottom: 16 },
   primaryBtn: { backgroundColor: C.secondary, borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center', marginTop: 18 },
   primaryBtnDisabled: { backgroundColor: C.infoFill },
-  primaryBtnText: { color: C.onPrimary, fontSize: 15.5, fontWeight: '700' },
+  primaryBtnText: { color: C.onSecondary, fontSize: 15.5, fontWeight: '700' },
   otpInput: {
     borderWidth: 2, borderColor: C.line, borderRadius: 14, height: 60, textAlign: 'center',
     fontSize: 26, fontWeight: '700', letterSpacing: 8, color: C.text, backgroundColor: C.sunken,

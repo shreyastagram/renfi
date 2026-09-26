@@ -1466,7 +1466,8 @@ const makeStyles = (theme) => {
   iosVerifyBtn: { backgroundColor: C.success, borderRadius: 14, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
   iosVerifyBtnDisabled: { backgroundColor: C.iosDisabled },
   iosVerifyBtnText: { fontSize: 17, fontWeight: '600', color: C.onIosAccent, letterSpacing: -0.41 },
-  iosVerifyBtnTextDisabled: { color: C.muted },
+  iosVerifyBtnTextDisabled: {
+    color: C.muted },
   iosCancelOuter: { borderRadius: 20, overflow: 'hidden', marginTop: 10 },
   iosCancelBtn: { paddingVertical: 16, alignItems: 'center', justifyContent: 'center' },
   iosCancelBtnText: { fontSize: 17, fontWeight: '600', color: C.iosBlue, letterSpacing: -0.41 },
