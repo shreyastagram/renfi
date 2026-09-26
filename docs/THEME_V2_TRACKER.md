@@ -1803,3 +1803,120 @@ Twelve gates now. All pass; 90 unit tests pass.
 |---|---|---|
 | 1.1.0-beta.14 | 50 | §38 — warning-hue sweep (15 controls), the invisible online pulse, premium amplified (not re-hued), iOS/Android caret drift on 40 inputs. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/7pusoa58eelrg) |
 
+
+---
+
+## §39 — the Insurance crash, offline detection, and a navigator audit
+
+### 39.1 Insurance documents: "Something went wrong"
+
+```js
+const InsuranceScreen = ({ navigation }) => {
+  const STATUS_MAP = makeStatusMap(C);      // C read here
+  const s = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());        // C declared here
+```
+
+Metro transpiles block scoping, so this is **not** a TDZ `ReferenceError` — it
+resolves to `undefined`. `makeStatusMap` then dereferences `C.muted` and the
+screen dies on a TypeError, which the error boundary reports as a generic
+"unexpected error". The screen could never open, on any build.
+
+Sweeping for the same shape found two more, both silent rather than fatal
+because they use optional chaining:
+
+| where | read | declared | effect |
+|---|---|---|---|
+| InsuranceScreen | `C` line 300 | line 302 | **crash** |
+| ProfileScreen | `displayData` line 602, in a **dep array** | line 848 | deps permanently `[undefined, undefined]` — the V5 email-pending effect never re-ran |
+| PhoneChangeModal | `resumeCountdown` in a dep array | 13 lines below | that effect only re-ran on `visible` |
+
+**`check:tdz`.** eslint's `no-use-before-define` is the obvious tool and the
+wrong one: it flags every `onPress={() => handleThing()}` whose handler is
+declared lower, which is the dominant React idiom and safe, because the closure
+runs after initialisation. Enabled, it produced 10 reports in InsuranceScreen of
+which one was real. The gate instead walks each statement list with babel and
+reports only **same-tick** reads, skipping anything inside a nested function.
+169 files, 3 findings, all genuine.
+
+**`check:palette`.** `check:tokens` covers `C.*` but is blind to palette groups
+imported directly. `brandTint.orange08` was live in WelcomeModal and there is no
+`orange08` — the group has 04, 06, 10, 12 — so that fill has been rendering
+transparent. The gate resolves all 26 groups and suggests near-matches.
+
+### 39.2 Offline detection without the probe that caused the old bug
+
+The owner's constraint was explicit: this regressed before, with working phones
+reporting no connection. That failure is characteristic of
+`NetInfo.isInternetReachable`, which is a **probe on a timer** — on a slow or
+memory-pressured device it times out while the connection is fine. Adding that
+library would re-introduce the bug, so it is not added.
+
+The app's own traffic is the probe instead. Four rules, each guarding one false
+positive:
+
+1. Only failures with **no response** count. A 404 or 500 travelled to the
+   server and back — those report *reachable*.
+2. One failure is never enough; Render cold starts produce isolated timeouts.
+3. A failure within 8s of a success is ignored. Requests fly in parallel; if one
+   just returned, the device is online and the rest are slow. **This is the rule
+   that protects low-RAM phones.**
+4. Any success clears offline instantly. Being stuck offline on a working phone
+   is the expensive direction, so entry is conservative and exit is immediate.
+
+12 tests, each named for the shape it prevents, against a fixed clock. One found
+a real gap while being written: `subscribeToNetwork` calls its listener
+immediately, outside the try/catch `emit()` uses.
+
+### 39.3 RootNavigator audit
+
+**`setBarRect` was called during render.** A render must be pure; under
+StrictMode's double invoke or a Suspense retry it runs twice per commit. Moved
+into an effect.
+
+**The height came from `Dimensions.get('window')`** — read once per render, and
+this component only re-renders on navigation state. After a rotation, a fold, or
+entering split screen the published rect kept the old height until the user
+happened to switch tabs. Now `useWindowDimensions`.
+
+**The publish sat below two early returns,** so hiding the bar (keyboard, or a
+screen setting `tabBarStyle: display none`) left the last rect in place and every
+dark zone went on computing coverage against a bar that was not on screen. It
+now publishes `null` when hidden.
+
+**TabBarDarkZone polled `measureInWindow` every 150ms, forever.** Seven screens
+use a zone; that is a native round trip about seven times a second, per zone,
+for the whole session — including while the screen sits behind another one and
+while the app is backgrounded. Now gated on `useIsFocused` **and** `AppState`,
+reports 0 when it goes off screen, and takes its first reading immediately
+rather than 150ms late. This is the kind of idle cost that is invisible on a
+current handset and matters on the older devices most providers carry.
+
+8 structural tests cover all of it.
+
+### 39.4 Visual batch
+
+- **Pro tip** was `C.primary` — a solid `#f67c16` slab with an orange shadow. On
+  black that is the loudest thing on the screen. Light keeps the v1.0.9 block;
+  dark gets brand fill + brand edge + brand ink, and no shadow, because a
+  coloured shadow on black is bloom.
+- **Stat strip** value and label now share a baseline: ~39pt → ~19pt per cell for
+  the same two words. The border the owner asked to keep is kept.
+- **Member-since card** gets one brand colour fading in from each edge, orange
+  left and blue right, at a percentage width so the fade holds its proportion
+  across screen sizes.
+- **Drawer's Professional Tools** used `diamond-stone` while Settings used the
+  shared registry's `star`. The drawer already falls back to that registry, so it
+  now passes `iconName:'star'` — same component, cannot drift again.
+- **"Electrician" still looked yellow** because the profession label is
+  `heroHeadlineProvider: { color: C.warning }`, not `categoryAccent`. See §38.1.
+
+### 39.5 Tracked, not fixed
+
+- **23 pressables under 44pt.** Only the sub-36pt ones were given `hitSlop`; the
+  rest are 40–42pt where the gain is marginal. Two automated sweeps broke JSX —
+  the second because the regex matched the `>` in an arrow function — and a
+  cosmetic a11y gain does not justify that risk.
+- **`screenOptions={{...}}` inline objects** in the tab navigators allocate a new
+  object per render. React Navigation tolerates it and these components render
+  rarely; worth hoisting during a quieter pass.

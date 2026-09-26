@@ -13,7 +13,7 @@
  */
 
 import React, { useMemo, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Platform, Pressable, Image, Animated, Keyboard, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Platform, Pressable, Image, Animated, Keyboard, useWindowDimensions } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -363,6 +363,9 @@ const FloatingTabBar = ({ state, descriptors, navigation }) => {
     Animated.spring(energy, { toValue: 1, useNativeDriver: true, stiffness: 300, damping: 18 }).start();
   };
 
+  // Reactive, so a rotation or split-screen resize re-renders the bar.
+  const { height: windowH } = useWindowDimensions();
+
   // Hide while the keyboard is open (custom bars must handle this themselves)
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   useEffect(() => {
@@ -376,27 +379,45 @@ const FloatingTabBar = ({ state, descriptors, navigation }) => {
     };
   }, []);
 
-  if (keyboardVisible) {
-    return null;
-  }
-
   // Standard React Navigation contract: a screen can hide the bar with
   // navigation.setOptions({ tabBarStyle: { display: 'none' } }) — used by
   // flows with their own bottom CTA (e.g. UserHome booking sheet, whose
   // Create Request button the floating pill would otherwise cover).
   const focusedOptions = descriptors[state.routes[state.index].key]?.options;
   // flatten() so array-form or registered styles hide the bar too, matching the stock tab bar
-  if (StyleSheet.flatten(focusedOptions?.tabBarStyle)?.display === 'none') {
-    return null;
-  }
+  const hiddenByScreen = StyleSheet.flatten(focusedOptions?.tabBarStyle)?.display === 'none';
+  const hidden = keyboardVisible || hiddenByScreen;
 
   // Gesture nav (inset 0) → 16px float; home indicator / 3-button nav →
   // sit 6px above the system area.
   const bottomOffset = Math.max(insets.bottom + 6, 16);
 
-  // Publish the bar's window rect so TabBarDarkZone can compute coverage
-  const windowH = Dimensions.get('window').height;
-  setBarRect({ top: windowH - bottomOffset - BAR_HEIGHT, bottom: windowH - bottomOffset });
+  // Publish the bar's window rect so TabBarDarkZone can compute coverage.
+  //
+  // In an EFFECT, not during render. This is a write to module state, and a
+  // render must be pure — under StrictMode's double invoke or a Suspense retry
+  // it would run twice for one commit.
+  //
+  // It also publishes null while the bar is hidden. The old code sat below two
+  // early returns, so hiding the bar left the last rect in place and every
+  // dark zone kept computing coverage against a bar that was not on screen.
+  //
+  // windowH comes from useWindowDimensions, not Dimensions.get. The latter is
+  // read once per render, and this component only re-renders on navigation
+  // state — so after a rotation, a fold, or entering split screen the rect
+  // stayed at the old height until the user happened to change tabs.
+  useEffect(() => {
+    if (hidden) {
+      setBarRect(null);
+      return undefined;
+    }
+    setBarRect({ top: windowH - bottomOffset - BAR_HEIGHT, bottom: windowH - bottomOffset });
+    return () => setBarRect(null);
+  }, [hidden, windowH, bottomOffset]);
+
+  if (hidden) {
+    return null;
+  }
 
   // Lens geometry — items span the full bar width (no side padding), so the
   // lens for tab i sits at i*itemW + LENS_INSET_X and is itemW − 2*inset wide.
