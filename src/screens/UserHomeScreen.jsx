@@ -1828,6 +1828,24 @@ const UserHomeScreen = ({ navigation, route }) => {
       {/* Bottom Sheet */}
       <Animated.View style={[styles.bottomSheet, { height: safeMaxHeight, paddingBottom: 8, transform: [{ translateY: sheetTranslateY }] }]}>
         <View style={styles.sheetHandle} {...panResponder.panHandlers}>
+          {/* One brand colour fading in from each edge, as on the member-since card —
+              but at roughly a third of that strength, because this sits under a drag
+              handle rather than around a logo. Behind the handle, pointerEvents off so
+              the drag gesture is untouched. */}
+          <LinearGradient
+            pointerEvents="none"
+            colors={[brandTint.orange04, 'transparent']}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={styles.sheetTopEdgeLeft}
+          />
+          <LinearGradient
+            pointerEvents="none"
+            colors={['transparent', brandTint.blue05]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={styles.sheetTopEdgeRight}
+          />
           <View style={styles.sheetHandleBar} />
         </View>
         {renderSheetContent()}
@@ -2084,7 +2102,11 @@ const makeStyles = (theme) => {
     paddingTop: 12,
     paddingBottom: 10,
     minHeight: 44,
+    overflow: 'hidden',
   },
+  // Percentage widths so the fade holds its proportion across screen sizes.
+  sheetTopEdgeLeft: { position: 'absolute', left: 0, top: 0, bottom: 0, width: '42%' },
+  sheetTopEdgeRight: { position: 'absolute', right: 0, top: 0, bottom: 0, width: '42%' },
   sheetHandleBar: {
     width: 40,
     height: 4,

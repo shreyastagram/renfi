@@ -127,11 +127,11 @@ const makeC = (c) => ({
 });
 
 const makeStatusConfig = (C) => ({
-  pending: { label: 'Pending', color: C.warning, bgColor: C.warningBg, dotColor: C.warning },
-  awaiting_confirmation: { label: 'Awaiting', color: C.warning, bgColor: C.warningBg, dotColor: C.warning },
+  pending: { label: 'Pending', color: C.brandOrangeInk, bgColor: C.brandOrangeFill, dotColor: C.brandOrangeInk },
+  awaiting_confirmation: { label: 'Awaiting', color: C.brandOrangeInk, bgColor: C.brandOrangeFill, dotColor: C.brandOrangeInk },
   accepted: { label: 'Accepted', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
-  'in-progress': { label: 'In Progress', color: C.purple, bgColor: C.purpleBg, dotColor: C.purple },
-  in_transit: { label: 'On the Way', color: C.purple, bgColor: C.purpleBg, dotColor: C.purple },
+  'in-progress': { label: 'In Progress', color: C.infoDeep, bgColor: C.infoFill, dotColor: C.infoDeep },
+  in_transit: { label: 'On the Way', color: C.infoDeep, bgColor: C.infoFill, dotColor: C.infoDeep },
   arrived: { label: 'Arrived', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
   completed: { label: 'Completed', color: C.success, bgColor: C.successBg, dotColor: C.success },
   cancelled: { label: 'Cancelled', color: C.danger, bgColor: C.dangerBg, dotColor: C.danger },
@@ -275,8 +275,8 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
           const isRejected = request.status === 'rejected';
           return (
             <View style={[styles.cancelStrip, isRejected && styles.cancelStripDanger]}>
-              <Icon name="info" size={13} color={isRejected ? C.danger : C.warning} />
-              <Text style={[styles.cancelStripText, { color: isRejected ? C.danger : C.warning }]} numberOfLines={2}>{label}</Text>
+              <Icon name="info" size={13} color={isRejected ? C.danger : C.brandOrangeInk} />
+              <Text style={[styles.cancelStripText, { color: isRejected ? C.danger : C.brandOrangeInk }]} numberOfLines={2}>{label}</Text>
             </View>
           );
         })()}
@@ -294,7 +294,7 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
           <View style={styles.ratingRow}>
             {hasRated ? (
               <View style={styles.ratedStrip}>
-                <Icon name="star" size={13} color={C.warning} />
+                <Icon name="star" size={13} color={C.brandOrangeInk} />
                 <Text style={styles.ratedText}>{ratedStars ? t('userHistory.ratedStars', { stars: ratedStars }) : ''}</Text>
               </View>
             ) : ratingChecking ? (
@@ -382,7 +382,7 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
                     <Text style={styles.providerName} numberOfLines={1}>{request.providerDetails.name}</Text>
                     {request.providerDetails.rating > 0 && (
                       <View style={styles.ratingChip}>
-                        <Icon name="star" size={10} color={C.warning} />
+                        <Icon name="star" size={10} color={C.brandOrangeInk} />
                         <Text style={styles.ratingChipText}>{Number(request.providerDetails.rating).toFixed(1)}</Text>
                       </View>
                     )}
@@ -395,7 +395,7 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
                     </TouchableOpacity>
                     {isActive && (
                       <TouchableOpacity style={styles.btnTrack} onPress={() => onTrackProvider(request)} activeOpacity={0.7}>
-                        <Icon name="location" size={15} color={C.onPrimary} />
+                        <Icon name="location" size={15} color={C.brandOrangeInk} />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -440,7 +440,7 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
               const isWithin30Min = ageMs < 30 * 60 * 1000;
               return (
                 <View style={styles.noProviderStrip}>
-                  <Icon name="clock" size={11} color={isWithin30Min ? C.warning : C.muted} />
+                  <Icon name="clock" size={11} color={isWithin30Min ? C.brandOrangeInk : C.muted} />
                   <Text style={styles.noProviderStripText}>
                     {isWithin30Min ? t('userHistory.noProviderSelected') : t('userHistory.autoCancelWarning')}
                   </Text>
@@ -463,7 +463,7 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
               isResendingThis ? (
                 <View style={styles.otpBar}>
                   <View style={styles.otpLeft}>
-                    <Icon name="lock" size={14} color={C.purple} />
+                    <Icon name="lock" size={14} color={C.infoDeep} />
                     <Text style={styles.otpLabel}>{t('userHistory.generatingOtp')}</Text>
                   </View>
                   <View style={styles.otpRight}>
@@ -488,12 +488,12 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
               ) : (
                 <TouchableOpacity style={styles.otpBar} onPress={handleCopyOtp} activeOpacity={0.7}>
                   <View style={styles.otpLeft}>
-                    <Icon name="lock" size={14} color={C.purple} />
+                    <Icon name="lock" size={14} color={C.infoDeep} />
                     <Text style={styles.otpLabel}>{t('userHistory.completionOtp')}</Text>
                   </View>
                   <View style={styles.otpRight}>
                     <Text style={styles.otpDigits}>{request.completionOtp}</Text>
-                    <Icon name="copy" size={13} color={C.purple} />
+                    <Icon name="copy" size={13} color={C.infoDeep} />
                   </View>
                 </TouchableOpacity>
               )
@@ -1300,17 +1300,17 @@ const makeStyles = (theme) => {
   cardCompact: { paddingVertical: 11, marginBottom: 8 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   cardTopLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 },
-  svcIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.warningBg, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  svcIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.brandOrangeFill, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   svcNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
   svcName: { fontSize: 15, fontWeight: '700', color: C.text, textTransform: 'capitalize', flexShrink: 1 },
-  typeBadge: { backgroundColor: C.purpleBg, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  typeBadgeText: { fontSize: 8, fontWeight: '800', color: C.purple, letterSpacing: 0.5 },
+  typeBadge: { backgroundColor: C.infoFill, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  typeBadgeText: { fontSize: 8, fontWeight: '800', color: C.infoDeep, letterSpacing: 0.5 },
   statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, gap: 5 },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.3, textTransform: 'uppercase' },
 
   // Cancel strip
-  cancelStrip: { backgroundColor: C.warningBg, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: C.warningLine },
+  cancelStrip: { backgroundColor: C.brandOrangeFill, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: C.brandOrangeLine },
   cancelStripDanger: { backgroundColor: C.dangerBg, borderColor: C.dangerLine },
   cancelStripText: { fontSize: 11, fontWeight: '500', flex: 1, lineHeight: 16 },
 
@@ -1321,8 +1321,8 @@ const makeStyles = (theme) => {
 
   // Rating row (for compact done cards)
   ratingRow: { marginTop: 8 },
-  ratedStrip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.warningBg, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: C.warningLine },
-  ratedText: { fontSize: 12, fontWeight: '600', color: C.warning },
+  ratedStrip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.brandOrangeFill, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: C.brandOrangeLine },
+  ratedText: { fontSize: 12, fontWeight: '600', color: C.brandOrangeInk },
   rateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.gold, paddingVertical: 10, borderRadius: 12, shadowColor: C.gold, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
   rateBtnText: { fontSize: 13, fontWeight: '700', color: C.onGold },
 
@@ -1345,16 +1345,16 @@ const makeStyles = (theme) => {
   providerInitial: { fontSize: 15, fontWeight: '700', color: C.white },
   verifiedBadge: { position: 'absolute', bottom: -1, right: -1, width: 14, height: 14, borderRadius: 7, backgroundColor: C.success, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.white },
   providerName: { fontSize: 14, fontWeight: '600', color: C.text },
-  ratingChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: C.warningBg, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, alignSelf: 'flex-start', marginTop: 2 },
-  ratingChipText: { fontSize: 10, fontWeight: '700', color: C.warning },
+  ratingChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: C.brandOrangeFill, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, alignSelf: 'flex-start', marginTop: 2 },
+  ratingChipText: { fontSize: 10, fontWeight: '700', color: C.brandOrangeInk },
   quickActions: { flexDirection: 'row', gap: 7 },
   btnCall: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.successFill, borderWidth: 1, borderColor: C.successBorder, alignItems: 'center', justifyContent: 'center' },
-  btnTrack: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center', shadowColor: C.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
+  btnTrack: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.brandOrangeFill, borderWidth: 1, borderColor: C.brandOrangeLine, alignItems: 'center', justifyContent: 'center' },
 
   // OTP
-  otpBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.purpleBg, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 10, borderWidth: 1, borderColor: C.purpleLine },
+  otpBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.infoFill, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 10, borderWidth: 1, borderColor: C.infoBorder },
   otpLeft: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  otpLabel: { fontSize: 12, fontWeight: '600', color: C.purple },
+  otpLabel: { fontSize: 12, fontWeight: '600', color: C.infoDeep },
   otpRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   otpDigits: { fontSize: 20, fontWeight: '800', color: C.text, letterSpacing: 6 },
   otpResendBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: C.danger, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
@@ -1381,8 +1381,8 @@ const makeStyles = (theme) => {
   sentToStripText: { fontSize: 11, fontWeight: '600', color: C.info },
   cancelSentStripBtn: { backgroundColor: C.dangerBg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: C.dangerLine, marginLeft: 8 },
   cancelSentStripBtnText: { fontSize: 11, fontWeight: '700', color: C.danger },
-  noProviderStrip: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, backgroundColor: C.warningBg, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: C.warningLine },
-  noProviderStripText: { fontSize: 11, fontWeight: '600', color: C.warning, flex: 1 },
+  noProviderStrip: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, backgroundColor: C.brandOrangeFill, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: C.brandOrangeLine },
+  noProviderStripText: { fontSize: 11, fontWeight: '600', color: C.brandOrangeInk, flex: 1 },
   findProvidersBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.secondary, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
   findProvidersBtnText: { fontSize: 11, fontWeight: '700', color: C.white },
   });

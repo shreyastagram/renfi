@@ -362,19 +362,26 @@ const StatusTimeline = ({ currentStatus, isProvider = false, cancelledBy = null 
           return (
             <React.Fragment key={step.key}>
               <View style={s.timelineStep}>
-                <View style={[
-                  s.timelineCircle,
-                  isCompleted && s.timelineCircleCompleted,
-                  isCurrent && s.timelineCircleCurrent,
-                ]}>
+                  {/* Each state renders its OWN complete circle. Sharing one
+                      container and switching only the child meant the ink and the
+                      ground came from different branches: the check sits on green,
+                      the dot on orange, the number on the sunken base — but nothing
+                      in the markup said so, and the contrast checker graded all
+                      three against whichever fill it happened to flatten to. This
+                      way each pairing is stated once and is checkable. */}
                   {isCompleted ? (
-                    <Icon name="check" size={14} color={C.onPrimary} />
+                    <View style={[s.timelineCircle, s.timelineCircleCompleted]}>
+                      <Icon name="check" size={14} color={C.onSuccess} />
+                    </View>
                   ) : isCurrent ? (
-                    <PulsingDot color={C.white} size={5} />
+                    <View style={[s.timelineCircle, s.timelineCircleCurrent]}>
+                      <PulsingDot color={C.onPrimary} size={5} />
+                    </View>
                   ) : (
-                    <Text style={s.timelineNumber}>{step.step}</Text>
+                    <View style={s.timelineCircle}>
+                      <Text style={s.timelineNumber}>{step.step}</Text>
+                    </View>
                   )}
-                </View>
                 <Text
                   style={[
                     s.timelineLabel,
@@ -2103,8 +2110,11 @@ const makeStyles = (theme) => {
   timelineCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.sunken, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: C.line },
   timelineCircleCompleted: { backgroundColor: C.success, borderColor: C.success, shadowColor: C.success, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 3, elevation: 2 },
   timelineCircleCurrent: { backgroundColor: C.primary, borderColor: C.primary, shadowColor: C.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 6, elevation: 4 },
-  timelineNumber: { fontSize: 12, // on C.primary, so the ink must be its on-colour; C.muted was 1.1-1.6:1 in dark
-    color: C.onPrimary, fontWeight: '700', letterSpacing: -0.2 },
+  // The number renders ONLY when the step is neither completed nor current,
+  // so its circle is timelineCircle (C.sunken) — never C.primary. An earlier
+  // fix read the wrong branch and set the on-primary ink, which is near-black:
+  // 1.1:1 on #252321. The owner's "2 3 4 look black in dark mode".
+  timelineNumber: { fontSize: 12, color: C.textSecondary, fontWeight: '700', letterSpacing: -0.2 },
   timelineLabel: { marginTop: 8, fontSize: 11, color: C.textMuted, textAlign: 'center', fontWeight: '500', letterSpacing: 0.1 },
   timelineLabelActive: { color: C.text, fontWeight: '600' },
   timelineLabelCurrent: { color: C.primary, fontWeight: '700' },

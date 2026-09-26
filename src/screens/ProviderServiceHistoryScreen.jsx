@@ -74,6 +74,7 @@ import { brand } from '../theme';
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   brandOrangeLine: c.brandOrangeBorder,
   successDeep: c.successDeep,
   successBorder: c.successBorder,
@@ -133,10 +134,10 @@ const makeC = (c) => ({
 });
 
 const makeStatusConfig = (C) => ({
-  pending: { labelKey: 'providerHistory.statusPending', color: C.primary, bgColor: C.warningBg, dotColor: C.primary },
-  awaiting_confirmation: { labelKey: 'providerHistory.statusAwaiting', color: C.primary, bgColor: C.warningBg, dotColor: C.primary },
+  pending: { labelKey: 'providerHistory.statusPending', color: C.primary, bgColor: C.brandOrangeFill, dotColor: C.primary },
+  awaiting_confirmation: { labelKey: 'providerHistory.statusAwaiting', color: C.primary, bgColor: C.brandOrangeFill, dotColor: C.primary },
   accepted: { labelKey: 'providerHistory.statusAccepted', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
-  'in-progress': { labelKey: 'providerHistory.statusInProgress', color: C.purple, bgColor: C.purpleBg, dotColor: C.purple },
+  'in-progress': { labelKey: 'providerHistory.statusInProgress', color: C.infoDeep, bgColor: C.infoFill, dotColor: C.infoDeep },
   in_transit: { labelKey: 'providerHistory.statusOnTheWay', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
   arrived: { labelKey: 'providerHistory.statusArrived', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
   completed: { labelKey: 'providerHistory.statusCompleted', color: C.success, bgColor: C.successBg, dotColor: C.success },
@@ -1098,8 +1099,8 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
             <View style={[styles.headerInlinePill, { backgroundColor: C.infoFill, borderColor: C.infoBorder }]}>
               <View style={styles.headerInlineSvg}>
                 <Svg width="100%" height="100%" viewBox="0 0 120 36" preserveAspectRatio="xMidYMid slice">
-                  <Circle cx="100" cy="0" r="18" fill={C.purple} opacity={0.07} />
-                  <Path d="M0 28 Q30 14 60 24 T120 18" stroke={C.purple} strokeWidth="0.8" fill="none" opacity={0.1} />
+                  <Circle cx="100" cy="0" r="18" fill={C.infoDeep} opacity={0.07} />
+                  <Path d="M0 28 Q30 14 60 24 T120 18" stroke={C.infoDeep} strokeWidth="0.8" fill="none" opacity={0.1} />
                 </Svg>
               </View>
               <Text style={[styles.headerInlineLabel, { color: C.infoDeep }]}>{t('providerHistory.active')}</Text>
@@ -1168,7 +1169,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
                 items={[
                   { key: 'all', label: t('providerHistory.statTotal'), value: liveStats.total, color: C.muted },
                   { key: 'pending', label: t('providerHistory.statNew'), value: liveStats.pending, color: C.primary },
-                  // was C.purple (#7C3AED). Violet is not a brand colour and the owner has
+                  // was C.infoDeep (#7C3AED). Violet is not a brand colour and the owner has
                   // asked for it out three times; it survived here only because the local
                   // alias is named `purple` rather than anything a violet sweep would match.
                   { key: 'active', label: t('providerHistory.filterActive'), value: liveStats.active, color: C.secondary },
@@ -1347,11 +1348,11 @@ const makeStyles = (theme) => {
   cardCompact: { paddingVertical: 11, marginBottom: 8 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   cardTopLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 },
-  svcIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.warningBg, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  svcIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.brandOrangeFill, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   svcNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
   svcName: { fontSize: 15, fontWeight: '700', color: C.text, textTransform: 'capitalize', flexShrink: 1 },
-  typeBadge: { backgroundColor: C.purpleBg, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  typeBadgeText: { fontSize: 8, fontWeight: '800', color: C.purple, letterSpacing: 0.5 },
+  typeBadge: { backgroundColor: C.infoFill, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  typeBadgeText: { fontSize: 8, fontWeight: '800', color: C.infoDeep, letterSpacing: 0.5 },
   svcId: { fontSize: 11, fontWeight: '500', color: C.muted, marginTop: 1 },
   statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, gap: 5 },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
