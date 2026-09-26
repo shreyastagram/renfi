@@ -2040,3 +2040,62 @@ real. Worth doing whenever a change moves lines.
 | build | versionCode | notes |
 |---|---|---|
 | 1.1.0-beta.17 | 53 | §41 — history rows, pro tip tinted in both themes. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/2nas2qel26t90) |
+
+---
+
+## §42 — the grey sheet, and a booking that filled a screen
+
+### 42.1 Full-bleed rows turned `surface` into a sheet
+
+Making the cards full-bleed in §41 changed what `C.surface` *means*. As cards
+they were `#191716` islands on a black page; full-bleed, the same fill is one
+continuous grey field down the whole screen — the owner's *"it's looking grey
+and I want it black"*.
+
+Rows are `C.pageSolid` now: `#FFFFFF` light, `#000000` dark.
+
+> **The lesson:** a token can be correct and still be wrong after a layout
+> change. `surface` was right for an island and wrong for a sheet, and nothing
+> flagged it because the token never changed — its *area* did.
+
+Same fix on UserHomeScreen, where the owner asked for the map and service
+selection to be blacker: the ground behind the map and the sheet's step layers
+go to `pageSolid`, while the cards **inside** the sheet keep `C.surface` so
+elevation still reads. Ground black, things on it raised.
+
+### 42.2 One pending booking ≈ one screen
+
+| | before | after |
+|---|---|---|
+| date + time | bordered, padded box, two centred columns, stacked labels | one baseline line |
+| cancel | **three** affordances, all `onCancel(request)` | the contextual one |
+| view details | a bordered row firing the same `onPress` as the row | removed |
+| pending row | ~full viewport | ~190pt shorter |
+| finished row | | ~110pt shorter |
+
+**No action was removed** — only a duplicate and a label for a tap target that
+already existed. The card root is a `TouchableOpacity` calling
+`onPress(request)`; "View Details" called the same thing.
+
+Dropping the full-width Cancel also puts the destructive action next to what it
+cancels rather than making it the largest control on the row.
+
+Provider screen got the same treatment. Its Complete and Cancel are distinct
+actions, not duplicates, so both stay.
+
+### 42.3 GraphBackground deleted
+
+Removed from all six screens and the component deleted. `check:hex` caught the
+dangling entry in `migrated-files.json` the moment the file vanished.
+
+### 42.4 Gate fix — `check:tokens` was reading comments
+
+It counted `C.*` inside comments, so a comment explaining *why* a style no
+longer uses `C.surface` was reported as an undefined reference. In a codebase
+this heavily commented that will keep happening. It strips comments first now,
+and the fix was verified by injecting a real bad reference and confirming the
+gate still fails — a weakened gate is worse than no gate.
+
+| build | versionCode | notes |
+|---|---|---|
+| 1.1.0-beta.18 | 54 | §42 — rows/map/sheet to pageSolid, booking compaction, GraphBackground deleted. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/6pfcl345dmtjg) |
