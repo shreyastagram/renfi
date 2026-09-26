@@ -2099,3 +2099,74 @@ gate still fails — a weakened gate is worse than no gate.
 | build | versionCode | notes |
 |---|---|---|
 | 1.1.0-beta.18 | 54 | §42 — rows/map/sheet to pageSolid, booking compaction, GraphBackground deleted. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/6pfcl345dmtjg) |
+
+---
+
+## §43 — the Active bug, and separation that actually separates
+
+### 43.1 "One active service, Active shows 0" — two bugs
+
+**Mine.** The two history screens use different filter vocabularies. The
+provider's switch has `case 'active'`; the user's has `case 'accepted'` and no
+`'active'` at all. Wiring the count row to the filter (§40) I passed `'active'`
+to both, so on the user screen it fell to `default: r.status === activeFilter`
+— and no record has status `'active'`. **Tapping Active emptied the list.**
+
+Nothing could catch it: it parses, the key is a valid string, and the failure
+is an *empty list*, which is indistinguishable from "you have no active
+bookings". `statSegmentKeys.test.js` now asserts every segment key is either an
+explicit `case` in that screen's own switch or a real status the default branch
+can match. **The bug was reintroduced to confirm the test fails on it** rather
+than assuming.
+
+**Pre-existing.** `stats` was separate state written only inside the fetch, so
+it refreshed on fetch and not otherwise — create or cancel a booking in-session
+and `allRequests` moved while `stats` did not. Both screens now derive the
+counts with `useMemo` from `allRequests`, so the number and the list cannot
+disagree. `total` still prefers the backend count (it spans unloaded pages);
+`active` and `completed` describe what the list can show, so they come from it.
+
+> Two independent bugs produced one symptom. Fixing either alone would have left
+> the owner still seeing a wrong number.
+
+### 43.2 Separation: the third attempt
+
+| attempt | result |
+|---|---|
+| §41 bordered elevated cards | twenty objects competing — "immature" |
+| §42 full-bleed at `C.surface` | one continuous grey field — "I want it black" |
+| §42 full-bleed at `pageSolid` | black, but the gap is *also* black — "hard to distinguish" |
+| §43 raised record, page as the gap | dark 23 code values apart, light 11 |
+
+**A hairline cannot separate two things when the divider's surroundings are the
+same colour as both of them.** Separation had to come from tonal elevation —
+the record raised, the page showing between — which is the rule the rest of the
+app already follows. Not a revert: the compact interior from §41–42 stays, and
+the container is lighter than the original (radius 14 not 20, no border, no
+elevation, 13pt padding not 16).
+
+### 43.3 "0 bookings" over "No Bookings Found"
+
+The count line rendered whenever a filter was active, including at zero. Not a
+data leak, which is what it looked like — the number was accurate, the filter
+under it was broken. A truthful `0` beside an empty-state illustration reads as
+a glitch even when it is correct. Now hidden at zero.
+
+Its left-edge clipping was the list header sitting at x=0 after full-bleed rows
+removed the list's horizontal padding — restored with the record gutter.
+
+### 43.4 Yellow, the fifth time
+
+The Favorites tile on UserHomeScreen was `warningLine`/`warningBg`/
+`warningFill`; Events was violet. Both brand now.
+
+> Five separate rounds of "remove the yellow", each finding a site the previous
+> sweep could not have matched — `C.warning` on a profession label, an alias
+> called `purple`, a tile passing `warningFill` as a prop. **Name-based sweeps
+> find names.** A colour-based audit — resolve every prop to its final value and
+> flag hues outside the brand — is the only thing that would have found all five
+> at once. Worth building before the next report.
+
+| build | versionCode | notes |
+|---|---|---|
+| 1.1.0-beta.19 | 55 | §43 — Active filter/count bugs, record separation, redundant count, tile colours. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/0inh0lao94ea8) |
