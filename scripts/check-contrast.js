@@ -96,6 +96,14 @@ const REQUIRED_PAIRS = [
  * hardware, so this is enforced rather than trusted to review.
  */
 const MIN_SURFACE_GAP = 10; // code values between adjacent surfaces
+// The page -> card step is held to a higher bar than the rest of the ladder. In
+// light, a card is only 11 code values off the page and gets away with it because
+// its shadow is worth 221 more. In dark the shadow is #000000 on a #000000 page —
+// exactly 0 — so this step is the ONLY thing separating a card from the background
+// for the 48 of 65 elevated surfaces that carry no border. Tonal elevation is what
+// Material 3 and iOS use on dark for the same reason. Dropping this back toward 14
+// is what made the owner report that dark mode "looks weird".
+const MIN_CARD_STEP_DARK = 20;
 // Raised from 1.45 to 3.0 when the dark border became a crystal edge. 1.45 was the
 // floor for a border that merely HELPED; now the border IS how a card separates, so
 // it has to clear the 3:1 WCAG asks of a meaningful boundary on its own. Dropping
@@ -128,6 +136,17 @@ const auditDarkDeviceSafety = (theme) => {
         label: `surface step ${lo.k} -> ${hi.k}`,
         detail: `gap ${gap} code values, needs ${MIN_SURFACE_GAP}`,
         why: 'may crush together on 6-bit budget LCD panels',
+      });
+    }
+  }
+  if (theme.name === 'dark') {
+    const step = green(c.surface) - green(c.bg);
+    if (step < MIN_CARD_STEP_DARK) {
+      failures.push({
+        theme: theme.name,
+        label: 'page -> card tonal step',
+        detail: `${step} code values, needs ${MIN_CARD_STEP_DARK}`,
+        why: 'a shadow contributes 0 on a black page, so tone is the only cue left',
       });
     }
   }

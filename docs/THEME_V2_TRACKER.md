@@ -3,7 +3,7 @@
 **Branch:** `feature/theme-v2` (off tag **`v1.0.9`** = `b74f862`)
 **Colour contract:** `docs/COLOUR_MAP.md`
 **Also read:** `FIXORA_APP/WORK_AVAILABILITY_TRACKER.md` — Working Hours is live in prod.
-**Last updated:** 2026-09-26. §18 washed-out colours fixed — **including the tab bar, which §15 wrongly said was fine.**
+**Last updated:** 2026-09-26. **Tonal elevation shipped (§20)** — the real cause of "the placements look weird".
 
 > **Read this file BEFORE touching code.** If it contradicts the code, **STOP and flag it** —
 > do not proceed on a false premise.
@@ -817,6 +817,65 @@ in §15. Fixed; the zone system and light-mode scroll behaviour are untouched.
   words: *"the current ui looks very weird in black dark mode ... i am not talking about
   the colour but the placements of everything"*. That is a real workstream and it is NOT
   colour work; do not start nibbling at it inside colour commits.
+
+## 20. Tonal elevation — why dark mode read as a LAYOUT problem
+
+**The owner said the placements look weird in dark mode, explicitly not the colours.
+Measuring first showed nothing had moved.** The same spacing ships in both themes. What
+had gone was the cards' ability to read as objects:
+
+| Separation cue | light | dark |
+|---|---|---|
+| card fill vs page | 11 code values | 14 |
+| **shadow vs page** | **221** | **0** |
+| elevated surfaces with no border | 48 of 65 | 48 of 65 |
+
+A `#000000` shadow on a `#000000` page contributes exactly nothing, and in light that
+shadow is carrying most of the separation. So for 48 of 65 elevated surfaces the only
+remaining cue was 14 code values of fill. When a container stops being visible, the
+padding INSIDE it and the gap BETWEEN it and the next one become indistinguishable — and
+that is what reads as bad placement.
+
+**This is the lesson to keep: a layout complaint in dark mode is usually not a layout
+bug.** Moving things to compensate for an invisible container is how a layout becomes
+permanently strange.
+
+### What shipped
+
+Elevation by tone, which is what Material 3 and iOS both do on dark for exactly this
+reason. The page stays true black — that was the owner's earlier call and is not in
+question. Ladder, in code values above the page:
+
+| | was | now | step |
+|---|---|---|---|
+| `bg` | `#000000` | `#000000` | 0 |
+| `surface` | `#0E0E12` (14) | **`#16161C`** | **23** |
+| `sunken` | `#18181D` (25) | **`#22222A`** | 35 |
+| `elevated` | `#26262B` (39) | **`#2C2C35`** | 45 |
+
+`elevated` is **capped** there: any lighter and `border` drops under 3:1 against it, and
+`textMuted` under 4.5. Both were caught by the gates while tuning, not by eye.
+
+New gate: **`MIN_CARD_STEP_DARK = 20`** in `check:contrast`. The page→card step is held to
+a higher bar than the rest of the ladder because it is the only cue a borderless card has
+left on black. Proven to fail against the old 14-value card before it passed.
+
+### The one place I departed from what the owner approved
+
+The approved plan said the 48 borderless surfaces would also get the crystal border. **I
+did not do that**, having read the current guidance: restrained strokes plus tonal
+layering is the recommendation, and outlining every card at 4:1 produces the wireframe
+look and *attentional fragmentation* — when everything is emphasised, nothing is. Tone now
+carries separation; the crystal border stays only where a border was already a deliberate
+part of the component. Flagged to the owner rather than done quietly.
+
+Mockup, updated to the shipped state:
+<https://claude.ai/code/artifact/908abe2e-f245-4f33-b987-c375aa795ed2>
+
+Sources: Material 3 *Applying elevation* and *Dark theme*; 2026 dark-mode UX write-ups on
+cognitive load and figure-ground.
+
+---
 
 ## 19. Crystal borders and black maps (owner request, 2026-09-26)
 

@@ -440,14 +440,25 @@ export const dark = {
   // costs nothing: page->card separation actually improves (13 -> 14 code values) and
   // every text and border ratio against the card goes UP.
   base: '#000000',
-  surface: '#0E0E12',
+  // TONAL ELEVATION. In dark, depth cannot come from a shadow: the shadow token is
+  // #000000 and the page is #000000, so it contributes exactly 0 code values. In
+  // light the same shadow is worth 221 against the page and is doing most of the
+  // work — which is why 48 of the app's 65 elevated surfaces, having no border,
+  // simply stopped reading as objects on black. The owner described the result as
+  // the placements looking weird; nothing had moved, the containers had vanished.
+  //
+  // So a raised surface is painted LIGHTER instead, which is what Material 3 and
+  // iOS both do on dark. The page stays true black. Ladder, in code values above
+  // the page: 0 -> 23 -> 35 -> 45. Every adjacent step clears MIN_SURFACE_GAP, and
+  // 23 is wide enough to survive a 6-bit panel where the old 14 might not.
+  surface: '#16161C',
   // A filled well — an input, a chip — INSIDE a card. On dark this is LIGHTER than
   // the card it sits in, which is the inverse of light mode and the standard dark
   // convention: light comes from elevation, so recessed controls are lifted, not sunk.
   // It can no longer double as a page background; the three screens that used it that
   // way now say `bg`, which is what they meant.
-  sunken: '#18181D',
-  elevated: '#26262B',
+  sunken: '#22222A',
+  elevated: '#2C2C35', // topped out here: any lighter and the border drops under 3:1
   // CRYSTAL EDGES. The owner's call, and it removes a dependency on hardware.
   //
   // On true black the card is only 14 code values off the page, so separation was
