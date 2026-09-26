@@ -47,6 +47,7 @@ import {
   useThemeColors,
   mapRoute,
 } from '../theme';
+import { getMapStyleURL } from '../config/mapbox';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -459,7 +460,7 @@ const LiveTrackingScreen = ({ navigation, route }) => {
       )}
 
       {/* Map */}
-      <Mapbox.MapView style={styles.map} styleURL={isDark ? Mapbox.StyleURL.TrafficNight : Mapbox.StyleURL.Street} logoEnabled={false} attributionEnabled={false} compassEnabled scaleBarEnabled={false} onDidFinishLoadingMap={handleMapReady}>
+      <Mapbox.MapView style={styles.map} styleURL={getMapStyleURL(isDark)} logoEnabled={false} attributionEnabled={false} compassEnabled scaleBarEnabled={false} onDidFinishLoadingMap={handleMapReady}>
         <Mapbox.Camera ref={cameraRef} defaultSettings={{ centerCoordinate: initialCenter, zoomLevel: 14 }} animationMode="flyTo" animationDuration={0} />
 
         {/* Route line — rendered FIRST so all markers appear on top */}

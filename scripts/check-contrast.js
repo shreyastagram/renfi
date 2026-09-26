@@ -96,7 +96,12 @@ const REQUIRED_PAIRS = [
  * hardware, so this is enforced rather than trusted to review.
  */
 const MIN_SURFACE_GAP = 10; // code values between adjacent surfaces
-const MIN_BORDER_SEP = 1.45; // border must still define a card if fills crush
+// Raised from 1.45 to 3.0 when the dark border became a crystal edge. 1.45 was the
+// floor for a border that merely HELPED; now the border IS how a card separates, so
+// it has to clear the 3:1 WCAG asks of a meaningful boundary on its own. Dropping
+// back below this would quietly restore the "does it separate on cheap hardware?"
+// question that the crystal ramp exists to remove.
+const MIN_BORDER_SEP = 3.0;
 
 const green = (hex) => parseInt(hex.replace('#', '').slice(2, 4), 16);
 

@@ -35,6 +35,8 @@ import {
   useThemedStyles,
   useThemeColors,
 } from '../theme';
+import { getMapStyleURL } from '../config/mapbox';
+import { useIsDark } from '../theme';
 
 // Brand colors
 const makeC = (c) => ({
@@ -166,6 +168,7 @@ const MapPickerModal = ({
   title = 'Select Location',
 }) => {
   const styles = useThemedStyles(makeStyles);
+  const isDark = useIsDark();
   const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const mapRef = useRef(null);
@@ -599,7 +602,7 @@ const MapPickerModal = ({
           <Mapbox.MapView
             ref={mapRef}
             style={styles.map}
-            styleURL={Mapbox.StyleURL.Street}
+            styleURL={getMapStyleURL(isDark)}
             zoomEnabled
             scrollEnabled
             pitchEnabled={false}

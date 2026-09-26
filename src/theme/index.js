@@ -20,6 +20,7 @@ export {
   useTheme,
   useThemeColors,
   useThemeContextOrDefault,
+  useIsDark,
 } from './ThemeContext';
 
 // Sourced from the pure module rather than through ThemeContext so that callers

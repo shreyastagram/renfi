@@ -114,6 +114,11 @@ const FALLBACK_CONTEXT = {
   mode: 'system',
   setMode: () => {},
   themeName: lightTheme.name,
+  // The provider's value carries `isDark`; this did not, so anything reading it
+  // through the read-only hook got `undefined` outside a provider instead of
+  // `false`. Silent, because `undefined` is falsy and the light branch is usually
+  // the right answer anyway — until someone writes `isDark === false`.
+  isDark: false,
   isReady: false,
 };
 
@@ -148,5 +153,16 @@ export const useThemeContextOrDefault = () => {
 };
 
 export const useThemeColors = () => useThemeContextOrDefault().theme.colors;
+
+/**
+ * Is the dark theme active? Read-only, so it never throws — a component that only
+ * needs to pick an asset or a map style should not be the thing that crashes a tree
+ * when it is rendered outside a provider, which is exactly how the owner's
+ * ProviderHomeTopRow tests render it.
+ *
+ * Derived from the theme rather than read off the context value, so it cannot go
+ * `undefined` if the two shapes ever drift again.
+ */
+export const useIsDark = () => useThemeContextOrDefault().theme.name === 'dark';
 
 export default ThemeContext;

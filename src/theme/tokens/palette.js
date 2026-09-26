@@ -448,9 +448,23 @@ export const dark = {
   // way now say `bg`, which is what they meant.
   sunken: '#18181D',
   elevated: '#26262B',
-  border: '#42424A', // decorative, but the low-end safety net
-  borderMedium: '#52525C',
-  borderStrong: '#757581', // >= 3.0 everywhere — inputs and focus rings
+  // CRYSTAL EDGES. The owner's call, and it removes a dependency on hardware.
+  //
+  // On true black the card is only 14 code values off the page, so separation was
+  // resting on a fill difference a cheap 6-bit panel may simply not resolve — which
+  // is why "do cards separate?" was the one question no gate could answer and every
+  // build had to ask a human. A lit edge answers it in software instead: the border
+  // now carries the boundary and the fill difference is a bonus, not the mechanism.
+  //
+  // Cool and slightly blue, not grey. A neutral line at this brightness reads as a
+  // wireframe; biasing it toward the light end of the slate ramp reads as glass
+  // catching light, which is the look these near-black surfaces already suggest.
+  // Sized to clear 3:1 against the LIGHTEST surface it can be drawn on
+  // (surfaceElevated), not just against a card — #5C7089 looked right on a card at
+  // 3.79 but landed on 2.96 there, and the gate caught it.
+  border: '#627896', // 4.65 on the page, 4.26 on a card, 3.33 on elevated
+  borderMedium: '#7C93AC', // one clear step up
+  borderStrong: '#9DB2C7', // inputs and focus rings
   textPrimary: '#F1F5F9',
   textSecondary: '#A9B4C4',
   textMuted: '#8B96A8',

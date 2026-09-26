@@ -14,6 +14,8 @@ import Mapbox from '@rnmapbox/maps';
 import TouchableOpacity from './TouchableOpacity';
 import { computeTopRowLayout, TOP_ROW_FONT_SCALE } from '../utils/homeTopRowLayout';
 import { useThemedStyles, useThemeColors, stableDark } from '../theme';
+import { getMapStyleURL } from '../config/mapbox';
+import { useIsDark } from '../theme';
 
 const makeC = (c) => ({
   primary: c.brandOrange,
@@ -193,13 +195,14 @@ const StatusTogglePad = React.memo(({ known, isAvailable, isUpdating, onToggle, 
  */
 const MiniMap = React.memo(({ latitude, longitude }) => {
   const styles = useThemedStyles(makeStyles);
+  const isDark = useIsDark();
   const C = makeC(useThemeColors());
   const center = useMemo(() => [longitude, latitude], [latitude, longitude]);
   return (
     <View style={styles.miniMapWrap}>
       <Mapbox.MapView
         style={styles.miniMapView}
-        styleURL={Mapbox.StyleURL.Street}
+        styleURL={getMapStyleURL(isDark)}
         scrollEnabled={false}
         pitchEnabled={false}
         rotateEnabled={false}

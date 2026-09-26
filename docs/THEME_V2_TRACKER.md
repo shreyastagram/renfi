@@ -3,7 +3,7 @@
 **Branch:** `feature/theme-v2` (off tag **`v1.0.9`** = `b74f862`)
 **Colour contract:** `docs/COLOUR_MAP.md`
 **Also read:** `FIXORA_APP/WORK_AVAILABILITY_TRACKER.md` — Working Hours is live in prod.
-**Last updated:** 2026-09-26. Mockup approved, **1.1.0-beta.3 (39) distributed**. Awaiting the device pass.
+**Last updated:** 2026-09-26. Crystal borders + black maps. **Washed-out colours are the open bug — see §18.**
 
 > **Read this file BEFORE touching code.** If it contradicts the code, **STOP and flag it** —
 > do not proceed on a false premise.
@@ -42,8 +42,15 @@ so it hits PRODUCTION — same as beta.1 and beta.2, real data. The release note
 checklist below. Console:
 <https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/5r02mc4csrcoo>
 
-The only thing now standing between this work and done is **eyes on a cheap Android
-panel**. Nothing else is blocked.
+**Owner feedback on beta.3, 2026-09-26** — "liked the work", and two directions:
+
+1. *"dont wait for cards to separate on dark mode, give it a crystal coloured border"* —
+   done. The dark border is now a lit cool edge (§19), so separation no longer depends on
+   whether a panel can resolve a 14-code-value fill difference. This deliberately removes
+   the one question every build had to ask a human.
+2. *"change the map also to black"* — done, all six MapViews (§19).
+3. *"washed out colours like black text in black bg or dark blue in black grey ... lets
+   look at it later"* — **NOT fixed. This is now the top open item: §18.**
 
 **The build is the owner's step.** No fastlane / App Distribution automation, and
 `USE_DEV_STAGING` lives in a do-not-commit file.
@@ -712,6 +719,75 @@ conflated:
 Everything else in that file (`tint`, `lensBg`, `lensBorder`, `DARK_*`) belongs to system 1
 and is intentionally still literal. **Do not "finish" this file without re-reading the
 above** — RootNavigator is therefore NOT on the hex allowlist, on purpose.
+
+## 18. OPEN BUG — washed-out / invisible colours in dark mode
+
+**Reported by the owner on 1.1.0-beta.3, 2026-09-26. Deferred by them to "later", but this
+is the highest-value thing left in the whole project — everything else is done.**
+
+Their words: *"there are some issues with washed out colours like black text in black bg
+or dark blue in black grey"*.
+
+Two distinct failures, and they need separating before anyone starts fixing:
+
+| Symptom | Likely cause |
+|---|---|
+| **Black text on a black background** | A near-black ink token surviving into dark — most likely `onBrandOrange` / `onSuccess` / `onWarning`, which are deliberately `slate[900]` because they sit on a bright fill. Somewhere one of them is being painted on a SURFACE instead of on its fill. |
+| **Dark blue on black/grey** | A brand-blue token that was only ever checked against a light surface. `brandBlue` flips to `#5FA8E8` in dark, but any place still resolving `#2b76bc` — a literal in `RootNavigator`, a `stableDark` value, or an `on*` pairing — stays dark navy on near-black. |
+
+**Why no gate caught it.** `check:contrast` only grades the 43 pairs it is TOLD about, and
+it grades ink against the fill it is *declared* to sit on. Neither failure is a wrong token
+value — both are a correct token used in the wrong place. That is a usage bug, and nothing
+in the suite reads usage.
+
+**How to approach it** — do not start by adjusting palette values:
+
+1. Get the exact screens from the owner. "Black text on black" is 2–3 specific places, not
+   a systemic ramp problem; guessing will churn the palette for nothing.
+2. Then consider a usage-aware gate: for each `color:` in a themed sheet, resolve the
+   nearest enclosing `backgroundColor:` and grade the pair in BOTH themes. That is the gap
+   §4 does not cover, and it would have caught both of these.
+3. `RootNavigator` is the most likely home for the dark-blue case: it is intentionally
+   NOT on the hex allowlist (§15) and still holds `VERIFIED_BLUE = '#2b76bc'` plus a
+   `BRAND` block, none of which flip.
+
+---
+
+## 19. Crystal borders and black maps (owner request, 2026-09-26)
+
+**Borders.** The dark border ramp is now a lit, cool edge instead of a dull grey:
+
+| Token | Was | Now | vs card | vs page | vs elevated |
+|---|---|---|---|---|---|
+| `border` | `#42424A` | `#627896` | 4.26 | 4.65 | 3.33 |
+| `borderMedium` | `#52525C` | `#7C93AC` | 6.08 | 6.63 | 4.75 |
+| `borderStrong` | `#757581` | `#9DB2C7` | 8.83 | 9.63 | 6.90 |
+
+Cool and slightly blue, not grey — a neutral line at this brightness reads as a wireframe;
+biasing it toward the light end of the slate ramp reads as glass catching light.
+
+`MIN_BORDER_SEP` in `check:contrast` went **1.45 → 3.0** to match: the border is now *how*
+a card separates, not merely a help, so it must clear the 3:1 a meaningful boundary needs
+on its own. **The raised floor immediately earned itself** — the first candidate (`#5C7089`)
+looked right at 3.79 on a card but was 2.96 against `surfaceElevated`, and the gate caught
+it. Reverting to the old dull border now fails the build; proven.
+
+**Maps.** All six `MapView` sites now take their style from `getMapStyleURL(isDark)` in
+`src/config/mapbox.js`. Before: two flipped to `TrafficNight`, and **four were hardcoded to
+`Street`, so a dark-mode user got a glaring white map on four of six screens**.
+
+`StyleURL.Dark` (`dark-v10`), not `TrafficNight` — the latter is
+`navigation-preview-night`, a NAVY basemap built to sit under turn-by-turn directions, and
+against a true-black app it reads as a blue panel.
+
+**`useIsDark()` came out of this.** Wiring the four hardcoded maps with `useTheme()` broke
+6 of the owner's `providerHomeTopRow` tests, which render the component bare — `useTheme`
+throws without a provider, by design. Fixed at the root, not in the owner's test: a
+read-only `useIsDark()` that falls back to light. It also surfaced a real latent bug —
+`FALLBACK_CONTEXT` had no `isDark` at all, so every read-only consumer got `undefined`
+rather than `false`. Both are now regression-tested.
+
+---
 
 ## 17. The crash screen reads the theme WITHOUT context
 

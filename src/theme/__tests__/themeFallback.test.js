@@ -25,6 +25,7 @@ const {
   useTheme,
   useThemeColors,
   useThemeContextOrDefault,
+  useIsDark,
 } = require('../ThemeContext');
 const useThemedStyles = require('../useThemedStyles').default;
 const { lightTheme } = require('../themes');
@@ -68,6 +69,30 @@ describe('theme hooks without a provider', () => {
     render(React.createElement(Probe));
     expect(seen.isReady).toBe(false);
     expect(seen.theme).toBe(lightTheme);
+  });
+
+  it('useIsDark answers false outside a provider instead of throwing', () => {
+    // ProviderHomeTopRow picks its map style from this, and the owner's tests
+    // render it bare. `useTheme()` there threw and took 6 of those tests with it.
+    let seen;
+    const Probe = () => {
+      seen = useIsDark();
+      return React.createElement(Text, null, 'x');
+    };
+    expect(() => render(React.createElement(Probe))).not.toThrow();
+    expect(seen).toBe(false);
+  });
+
+  it('the fallback carries isDark, matching the provider value shape', () => {
+    // It did not, so a read-only consumer got `undefined` rather than false —
+    // silent, because undefined is falsy, until someone writes `isDark === false`.
+    let seen;
+    const Probe = () => {
+      seen = useThemeContextOrDefault();
+      return React.createElement(Text, null, 'x');
+    };
+    render(React.createElement(Probe));
+    expect(seen.isDark).toBe(false);
   });
 
   it('useTheme still throws, because changing the theme needs a real provider', () => {

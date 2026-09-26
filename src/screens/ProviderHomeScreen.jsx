@@ -71,6 +71,8 @@ import {
   stableDark,
   iconAccent,
 } from '../theme';
+import { getMapStyleURL } from '../config/mapbox';
+import { useIsDark } from '../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -470,6 +472,7 @@ const VerificationStatusCard = ({ dashboard, onPress, isLoading = false, t }) =>
  */
 const ProviderHomeScreen = ({ navigation }) => {
   const styles = useThemedStyles(makeStyles);
+  const isDark = useIsDark();
   const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
@@ -1405,7 +1408,7 @@ const ProviderHomeScreen = ({ navigation }) => {
                   <View style={styles.locationModalMap}>
                     <Mapbox.MapView
                       style={{ flex: 1 }}
-                      styleURL={Mapbox.StyleURL.Street}
+                      styleURL={getMapStyleURL(isDark)}
                       scrollEnabled
                       pitchEnabled={false}
                       rotateEnabled={false}

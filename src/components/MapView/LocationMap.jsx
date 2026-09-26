@@ -25,6 +25,8 @@ import {
   useThemedStyles,
   mapPin,
 } from '../../theme';
+import { getMapStyleURL } from '../../config/mapbox';
+import { useIsDark } from '../../theme';
 
 // Initialize Mapbox at module level — BEFORE any MapView renders.
 // In release builds, useEffect runs after first render, by which time
@@ -139,6 +141,7 @@ const LocationMap = forwardRef(({
   children,
 }, ref) => {
   const styles = useThemedStyles(makeStyles);
+  const isDark = useIsDark();
   const cameraRef = useRef(null);
   const [isMapReady, setIsMapReady] = useState(false);
   const [userLocation, setUserLocation] = useState(externalLocation || null);
@@ -311,7 +314,7 @@ const LocationMap = forwardRef(({
     <View style={[styles.container, mapStyle]}>
       <Mapbox.MapView
         style={styles.map}
-        styleURL={Mapbox.StyleURL.Street}
+        styleURL={getMapStyleURL(isDark)}
         onDidFinishLoadingMap={handleMapReady}
         onPress={handleMapPress}
         logoEnabled={false}

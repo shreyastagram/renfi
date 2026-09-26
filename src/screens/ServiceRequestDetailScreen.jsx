@@ -80,6 +80,7 @@ import {
   medal,
   mapOverlay,
 } from '../theme';
+import { getMapStyleURL } from '../config/mapbox';
 
 // Premium Design Language
 // `primary` / `secondary` are also used with hex-alpha concatenation, so they must
@@ -612,7 +613,7 @@ const LocationMapPreview = ({ location, address }) => {
       <Text style={[s.sectionLabel, { marginBottom: 10 }]}>{t('detail.serviceLocation')}</Text>
       <View style={s.mapPreviewWrap}>
         {mapLoading && (<View style={s.mapLoadingOverlay}><ActivityIndicator size="small" color={C.secondary} /></View>)}
-        <Mapbox.MapView style={s.mapPreview} styleURL={isDark ? Mapbox.StyleURL.TrafficNight : Mapbox.StyleURL.Street} scrollEnabled={false} pitchEnabled={false} rotateEnabled={false} zoomEnabled={false} onDidFinishLoadingMap={() => setMapLoading(false)}>
+        <Mapbox.MapView style={s.mapPreview} styleURL={getMapStyleURL(isDark)} scrollEnabled={false} pitchEnabled={false} rotateEnabled={false} zoomEnabled={false} onDidFinishLoadingMap={() => setMapLoading(false)}>
           <Mapbox.Camera centerCoordinate={[lng, lat]} zoomLevel={15} animationDuration={0} />
           {Platform.OS === 'ios' ? (
             <Mapbox.MarkerView id="service-location" coordinate={[lng, lat]}>

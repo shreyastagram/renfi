@@ -63,9 +63,26 @@ export const initializeMapbox = () => {
 };
 
 /**
+ * The basemap style for the current appearance.
+ *
+ * WHY THIS IS CENTRAL
+ *
+ * Six MapView sites each picked their own style. Two flipped to TrafficNight in
+ * dark and four were hardcoded to Street, so a dark-mode user got a glaring white
+ * map on four of six screens. A shared helper means a map cannot be added in the
+ * wrong appearance by omission.
+ *
+ * Dark, not TrafficNight. TrafficNight is `navigation-preview-night`, a NAVY
+ * basemap built to sit under turn-by-turn; against a true-black app it reads as a
+ * blue panel. `dark-v10` is near-black and actually belongs next to these surfaces.
+ */
+export const getMapStyleURL = (isDark) =>
+  (isDark ? Mapbox.StyleURL.Dark : Mapbox.StyleURL.Street);
+
+/**
  * Get the Mapbox access token (for API calls like geocoding)
  */
 export const getMapboxAccessToken = () => MAPBOX_ACCESS_TOKEN;
 
 export { MAPBOX_ACCESS_TOKEN };
-export default { initializeMapbox, getMapboxAccessToken, MAPBOX_ACCESS_TOKEN };
+export default { initializeMapbox, getMapboxAccessToken, getMapStyleURL, MAPBOX_ACCESS_TOKEN };
