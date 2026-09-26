@@ -4,6 +4,15 @@
  * Screens and components import from here and NOWHERE else inside src/theme.
  * That indirection is what allows the engine to be swapped later (for example to
  * react-native-unistyles) without touching consumers.
+ *
+ * ONE DOCUMENTED EXCEPTION
+ *
+ * `ErrorBoundary` imports `./lastResolvedTheme.js` directly rather than through here,
+ * and must keep doing so. This barrel re-exports `ThemeContext`, which pulls in
+ * AsyncStorage at module load; the crash screen is the last thing standing when the
+ * app fails, so it must not gain a native-module dependency that could itself fail to
+ * load. Same reasoning as the `resolveThemeName` note below. Enforced by
+ * `themeEngineUsage.test.js`, which allows that one pair and nothing else.
  */
 
 export {

@@ -3,7 +3,7 @@
 **Branch:** `feature/theme-v2` (off tag **`v1.0.9`** = `b74f862`)
 **Colour contract:** `docs/COLOUR_MAP.md`
 **Also read:** `FIXORA_APP/WORK_AVAILABILITY_TRACKER.md` — Working Hours is live in prod.
-**Last updated:** 2026-09-26, after Phase 5b V1–V4. V5/V6 need an owner decision.
+**Last updated:** 2026-09-26, after the Phase 10 sweep. Code-complete; the device test is the owner's step.
 
 > **Read this file BEFORE touching code.** If it contradicts the code, **STOP and flag it** —
 > do not proceed on a false premise.
@@ -32,10 +32,16 @@
 
 Remaining, in the order I would take it:
 
-1. **V5 and V6 need the owner's call** — both change the verification UI, and the
-   standing rules are "no new UI elements" and "mockup before building". V1–V4 shipped
-   because they are pure logic with no visual change. See §11.
-2. **Phase 10** — full sweep + the device checklist above.
+Everything in the plan is done except two items that are the owner's to decide:
+
+1. **V5 and V6** — both change the verification UI, and the standing rules are "no new
+   UI elements" and "mockup before building". V1–V4 shipped because they are pure logic
+   with no visual change. See §11.
+2. **The two AA exceptions** in §9 ("Still awaiting an owner decision") — both are
+   light-mode changes on shipped screens.
+
+**The build is the owner's step.** No fastlane / App Distribution automation, and
+`USE_DEV_STAGING` lives in a do-not-commit file.
 
 Open, awaiting the owner's word: deepen `surfaceElevated` from `#26262B` to `#1A1A1F`
 (one usage in the whole app).
@@ -89,7 +95,8 @@ contract.
     - [x] `SplashScreen` → new `splash` group; `LocationMap` → new `mapPin` group
     - [x] `AddressForm` (37 literals, 3 components to wire — the largest single file)
     - [x] `subscriptionService.js` — the Razorpay checkout accent
-- [ ] **Phase 10** — Full sweep + device-test checklist
+- [x] **Phase 10** — Full sweep + device-test checklist (see below; the device test
+      itself is the owner's manual step — this environment cannot run the app)
 
 ---
 
@@ -197,14 +204,43 @@ with no automated check — it needs eyes on a cheap Android device.
 2. Settings → Appearance: Light / Dark / System, and confirm System follows the OS.
 3. Open a modal from a dark screen (Book, Rate, Cancel, Change phone, a date field).
 4. The premium and profile heroes — they stay dark/navy in BOTH themes by design.
-5. Android 3-button navigation and gesture bar: `targetSdk 36` enforces edge-to-edge,
-   and **17 `SafeAreaView` call sites across 15 files are still to become `<Screen>`**.
-6. Light mode as a regression check: it should look like 1.0.9. 400 declared changes, all
-   justified in `scripts/check-light-fidelity.js`.
+5. Android 3-button navigation and gesture bar: `targetSdk 36` enforces edge-to-edge.
+   All roots are now `<Screen>`, and the survey found no screen mishandling insets, so
+   this is a confirmation pass, not a suspected fault.
+6. Light mode as a regression check: it should look like 1.0.9. **464** declared changes,
+   all justified in `scripts/check-light-fidelity.js`.
+7. The crash screen in dark mode. No way to trigger it deliberately in a release build,
+   so this one is opportunistic — but it is the only surface whose theme comes from a
+   module singleton rather than context (§17).
 
-Recompute reachability before trusting this (the snippet is in the commit for
-`de6a23b`). Still **no fastlane / App Distribution automation**, and `USE_DEV_STAGING` is
-`false` in a do-not-commit file, so the build is the owner's manual step.
+### Phase 10 sweep — what was actually checked, 2026-09-26
+
+Not a rubber stamp. Each check below is a failure the other gates CANNOT see, and each
+was found by hand at least once during the migration. All four are now locked in
+`src/theme/__tests__/themeEngineUsage.test.js`, **every one proven to fail on a canary
+file before it passed**:
+
+| Check | Why the other gates miss it | Result |
+|---|---|---|
+| `makeStyles` at module scope | A factory redeclared per render is a new cache key every render, so `useThemedStyles` rebuilds the whole sheet each time | clean |
+| No module-scope `StyleSheet.create` reading a fixed theme | Resolves once at import and never repaints on switch — renders correctly in light, so it stays invisible until dark | clean |
+| The barrel is the only entry point | A deep import bypasses the indirection the engine swap depends on | clean; 1 documented exception (`ErrorBoundary`, which must not pull AsyncStorage in) |
+| `useMemo` reading `styles.*` lists `styles` | Serves the PREVIOUS theme's sheet after a switch — one stale card on a repainted screen | clean |
+
+Also confirmed directly:
+
+- **0 parsing errors** across `src`, `navigation`, `App.tsx` — the "a lint DROP is a red
+  flag" trap in §4.
+- **`check:types` exits 0.**
+- **0 files** have a `StyleSheet.create` without consuming the theme. That is a stronger
+  statement than "no literals left": every sheet in the app is reactive.
+- **§15 re-verified rather than assumed.** `accent` in `TabIcon` is painted only on the
+  light tone (`dark ? '#FFFFFF' : accent`), so the scroll-tone literals genuinely are not
+  app-theme values and are correctly left alone. `BRAND` in that file is live (10
+  references), not dead — an earlier grep with the wrong pattern suggested otherwise.
+
+Still **no fastlane / App Distribution automation**, and `USE_DEV_STAGING` is `false` in
+a do-not-commit file, so the build is the owner's manual step.
 
 ## 4. GATES — run before EVERY commit
 
