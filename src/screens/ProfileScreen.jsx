@@ -95,6 +95,8 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Service labels for proper display
 const makeC = (c) => ({
+  brandOrangeFill: c.brandOrangeFill,
+  brandOrangeLine: c.brandOrangeBorder,
   textMuted: c.textMuted,
   brandOrangeInk: c.brandOrangeInk,
   rowRule: c.rowRule,
@@ -1673,7 +1675,7 @@ const ProfileScreen = ({ navigation, route }) => {
                 )}
                 {isProvider && premiumLoaded && isPremiumActive && (
                   <View style={styles.proBadge}>
-                    <MaterialIcon name="workspace-premium" size={13} color={C.warning} />
+                    <MaterialIcon name="workspace-premium" size={13} color={C.brandOrangeInk} />
                     <Text style={styles.proBadgeText}>{t('profile.proBadge')}</Text>
                   </View>
                 )}
@@ -1960,7 +1962,7 @@ const ProfileScreen = ({ navigation, route }) => {
                     activeOpacity={0.7}
                   >
                     <View style={styles.aboutEmptyPlus}>
-                      <MaterialIcon name="add" size={18} color={C.warning} />
+                      <MaterialIcon name="add" size={18} color={C.brandOrangeInk} />
                     </View>
                     <Text style={styles.aboutEmptyText}>{t('profile.aboutEmptyPrompt')}</Text>
                   </TouchableOpacity>
@@ -3279,7 +3281,7 @@ const makeStyles = (theme) => {
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: C.warningBg,
+    backgroundColor: C.brandOrangeFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3314,7 +3316,7 @@ const makeStyles = (theme) => {
     backgroundColor: C.cyanFill,
   },
   expIconStar: {
-    backgroundColor: C.warningBg,
+    backgroundColor: C.brandOrangeFill,
   },
   expTitle: {
     fontSize: 15,
@@ -3466,16 +3468,16 @@ const makeStyles = (theme) => {
   proBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.warningFill,
+    backgroundColor: C.brandOrangeFill,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 14,
     flexShrink: 0,
     borderWidth: 1,
-    borderColor: C.warningLine,
+    borderColor: C.brandOrangeLine,
     ...Platform.select({
       ios: {
-        shadowColor: C.warning,
+        shadowColor: C.brandOrangeInk,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.2,
         shadowRadius: 4,
@@ -3488,7 +3490,7 @@ const makeStyles = (theme) => {
   proBadgeText: {
     fontSize: 11.5,
     fontWeight: '800',
-    color: C.warning,
+    color: C.brandOrangeInk,
     marginLeft: 3,
     letterSpacing: 0.5,
   },

@@ -95,12 +95,18 @@ export const vendor = {
 // copy of this map. They were byte-identical across all twelve entries, so they
 // now both read from here.
 export const categoryAccent = {
-  electrician: '#F59E0B',
+  // Values only — these keys are looked up by service name
+  // (categoryAccent[service]), so renaming one silently drops its colour.
+  // electrician was #F59E0B amber: it is the profession label on the provider
+  // profile, so it reads as the app using yellow, not as a category hue.
+  electrician: '#f67c16',
   plumber: '#3B82F6',
   electronics_technician: '#6366F1',
   carpenter: '#8B5CF6',
   painter: '#EC4899',
-  solar_repairing: '#EAB308',
+  // was #EAB308, the most saturated yellow in the app. Green rather than another
+  // orange so it stays distinguishable from electrician above.
+  solar_repairing: '#16A34A',
   welder: '#EF4444',
   salon: '#F472B6',
   vehicle_cleaning: '#0EA5E9',

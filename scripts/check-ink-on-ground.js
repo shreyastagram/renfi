@@ -350,7 +350,7 @@ if (unparsed.length) {
 // design language (brand orange on white is 2.69 and has been since v1.0.9), so it is
 // reported and ratcheted rather than failed in one go — the owner has to see those
 // changes, and 94 of them at once is not a review anyone can do.
-const LIGHT_BASELINE = 113;
+const LIGHT_BASELINE = 112;
 const dark = failures.filter((f) => f.theme === 'dark');
 const light = failures.filter((f) => f.theme === 'light');
 

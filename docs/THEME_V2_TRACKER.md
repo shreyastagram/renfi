@@ -1632,3 +1632,70 @@ that a new one cannot appear.
   months. Whole years drop the `.0`. Nine tests pin the boundaries; they use a
   fixed `now` so they cannot drift with the calendar. The long form still appears
   in the Experience section below.
+
+---
+
+## §37 — branding the last visible yellows, without touching a single key
+
+Owner: *"Brand it. Make sure every variable name and everything is consistent
+with what it was earlier — like if it was pro.elec it should stay as it is, so
+the functionality doesn't break."*
+
+That constraint is the important half. Some palette keys are not variable names,
+they are a **contract with the backend**:
+
+```js
+const SERVICE_COLORS = categoryAccent;
+const accent = SERVICE_COLORS[service.id] || C.secondary;   // UserHomeScreen:190
+```
+
+Rename `electrician` and nothing throws. The lookup returns `undefined`, falls
+through to the default, and every electrician in the app quietly turns the wrong
+colour. No gate sees it: `check:hex` finds a valid literal, `check:tokens` only
+inspects `makeC`, eslint sees a property access on a defined object.
+
+So: **values changed, zero keys touched.** Verified by diffing the whole palette
+object against `HEAD` — two value changes, no key added, removed or renamed.
+
+| key (unchanged) | was | now | why |
+|---|---|---|---|
+| `categoryAccent.electrician` | `#F59E0B` | `#f67c16` | it is the profession label on the provider profile, so it reads as the app using yellow, not as a category hue |
+| `categoryAccent.solar_repairing` | `#EAB308` | `#16A34A` | the most saturated yellow left. Green, not another orange, so it stays distinguishable from electrician |
+
+Plus eight sites in ProfileScreen off `C.warning*` → brand: the PRO badge (fill,
+border, glyph, label, iOS shadow), the About empty-state `+` and its plate, and
+the plate behind the rating star.
+
+### 37.1 New test — `paletteKeyStability`
+
+Pins the runtime-indexed key sets: the twelve backend service ids, the
+bracket-indexed `iconAccent['in-progress' | 'close-circle' | 'check-circle']`,
+and the six request-status keys. It asserts **keys only, never values** —
+recolouring is expected; renaming is the thing that breaks. Adding a key passes,
+since a new service can appear.
+
+It also asserts the twelve service colours are **mutually distinct**. That is
+what makes a recolour safe: had `solar_repairing` been given brand orange to
+match electrician, two services would share a hue and the per-category colour
+would stop doing its job. The test fails on that.
+
+### 37.2 `check:light` earned its keep
+
+The gate caught `#eab308` vanishing from **three** files — `UserHomeScreen`,
+`Icon.jsx` and `ProviderHomeScreen` — when I had only thought about the palette.
+Declared in all three rather than silenced. This is the counterpart to §35.1,
+where the same gate was blind to a surface changing role: it tracks whether a
+v1.0.9 colour is still *reachable*, which makes it strong on recolours and weak
+on re-assignments.
+
+### 37.3 Still amber, still deliberate
+
+- `iconAccent.pending / unverified / warning` — a caution colour that reads as
+  brand orange stops signalling. Unchanged.
+- `premium.gold / goldSoft / crown` — the Subscription screen's whole visual
+  identity is gold. Rebranding it is a screen redesign, not a recolour, and
+  should be seen before it is shipped.
+- `medal.gold / silver / bronze` — the referral podium is a medal metaphor.
+
+`check:ink` light baseline ratcheted **113 → 112**. Dark 0. Eleven gates pass;
+90 unit tests pass.

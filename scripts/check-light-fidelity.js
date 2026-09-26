@@ -113,6 +113,7 @@ const EXPECTED_CHANGES = {
     '#FFFFFF': 'skeleton card now surface',
   },
   'src/components/Icon.jsx': {
+    '#eab308': "categoryAccent.solar_repairing, the app's most saturated yellow. The owner's rule is that yellow is not a Fixhomi colour; green rather than another orange so it stays distinguishable from electrician, which took brand orange in the same pass.",
     '#374151': 'the no-match fallback is now textBodyNeutral',
     '#6B7280': 'ServiceIcon fallback is now textSecondary',
   },
@@ -212,6 +213,7 @@ const EXPECTED_CHANGES = {
     '#EF4444': 'a11y: red-500 was 3.76:1 on white -> the danger token',
   },
   'src/screens/UserHomeScreen.jsx': {
+    '#eab308': "categoryAccent.solar_repairing, the app's most saturated yellow. The owner's rule is that yellow is not a Fixhomi colour; green rather than another orange so it stays distinguishable from electrician, which took brand orange in the same pass.",
     '#faf7f7': 'the warm off-white screen background -> bg (#F1F5F9); imperceptible, and it unifies the app background',
     '#F5F7FA': 'BRAND.cardBg was dead at v1.0.9 -- removed rather than mapped',
     '#6B7280': 'BRAND.neutral was dead at v1.0.9 -- removed rather than mapped',
@@ -419,6 +421,7 @@ const EXPECTED_CHANGES = {
     'rgba(0, 0, 0, 0.6)': 'the remove-image chip sits on a PHOTO, so it takes mapOverlay.hint (0.55) -- theme-independent, like the map chips',
   },
   'src/screens/ProviderHomeScreen.jsx': {
+    '#eab308': "categoryAccent.solar_repairing, the app's most saturated yellow. The owner's rule is that yellow is not a Fixhomi colour; green rather than another orange so it stays distinguishable from electrician, which took brand orange in the same pass.",
     // The dark hero, its skeleton and the brand-orange tips card are UNCHANGED --
     // they moved to stableDark, whose values are the shipped ones.
     'rgba(255,255,255,0.5)': 'hero subtext -> stableDark.inkSoft (0.55)',
