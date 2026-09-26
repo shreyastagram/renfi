@@ -103,7 +103,7 @@ const WorkAvailabilityScreen = ({ navigation }) => {
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={loading && !!days} onRefresh={() => refresh({ force: true })} tintColor={C.primary} />}
+        refreshControl={<RefreshControl refreshing={loading && !!days} onRefresh={() => refresh({ force: true })} tintColor={C.primary} colors={[C.primary]} />}
       >
         <Text style={styles.intro}>{t('workHours.screenIntro')}</Text>
 

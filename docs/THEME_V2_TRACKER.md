@@ -877,6 +877,32 @@ cognitive load and figure-ground.
 
 ---
 
+## 25. Native component colour props — RefreshControl
+
+The last class the gates cannot reach: props on NATIVE components. They are not in a
+StyleSheet, so `check:hex`, `check:contrast` and `check:collapse` never see them, and a
+missing one silently falls back to a platform default.
+
+All 18 `<RefreshControl>` were inconsistent three ways:
+
+- **3 declared no colour at all** — `CreateServiceRequestScreen`, `ServiceApprovalsScreen`,
+  `SubscriptionScreen`. They got the platform default, which is a mid-grey on iOS: dim on
+  a black page, and nothing like the brand orange the other 15 use.
+- **6 set only ONE platform.** `tintColor` is iOS, `colors` is Android; setting one leaves
+  the other on its default, so the two platforms disagreed on the same screen.
+- The remaining 9 were already correct.
+
+All 18 now set both props to the same value, each screen keeping its own accent —
+`C.primary` on most, `C.secondary` on the blue ones, `C.accent` on
+`CreateServiceRequestScreen`, and `stableDark.ink` on the provider hero, where the
+spinner sits on the navy panel and must stay white in both themes.
+
+**`tintColor` and `colors` are one setting wearing two names.** Worth remembering for any
+future native prop: `placeholderTextColor`, `Switch`'s `trackColor`/`thumbColor`,
+`selectionColor`. None of them are reachable by the colour gates.
+
+---
+
 ## 24. Icon and skeleton audit — mostly a clean negative
 
 Audited all **674** icon colour props. 59 use an ink that is dark in both themes;

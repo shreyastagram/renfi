@@ -1459,7 +1459,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
       <ScrollView
         style={s.scrollView}
         contentContainerStyle={s.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[C.primary]} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[C.primary]} tintColor={C.primary} />}
         showsVerticalScrollIndicator={false}
       >
         {/* Status Description Pill — only show for terminal states */}

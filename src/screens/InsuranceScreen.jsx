@@ -643,7 +643,7 @@ const InsuranceScreen = ({ navigation }) => {
         style={s.scroll}
         contentContainerStyle={[s.scrollContent, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.secondary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.secondary} colors={[C.secondary]} />}
       >
         {/* ── Status Banner ─────────────────────────────────── */}
         <View style={[s.statusBanner, { backgroundColor: statusConfig.bg }]}>

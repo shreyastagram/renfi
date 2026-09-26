@@ -1562,7 +1562,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
           style={styles.content}
           contentContainerStyle={styles.contentContainer}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} />
           }
         >
           {filteredServices.length === 0 ? (

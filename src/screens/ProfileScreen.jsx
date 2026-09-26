@@ -1556,7 +1556,7 @@ const ProfileScreen = ({ navigation, route }) => {
           style={styles.content}
           contentContainerStyle={[styles.contentContainerFlat, { paddingBottom: insets.bottom + 94 }]}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} />
           }
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"

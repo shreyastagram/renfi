@@ -1021,7 +1021,7 @@ const ProviderHomeScreen = ({ navigation }) => {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent} // brand footer image is the tail — it provides the tab-bar clearance
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={stableDark.ink} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={stableDark.ink} colors={[stableDark.ink]} />}
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Header */}
