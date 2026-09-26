@@ -1609,7 +1609,10 @@ const UserHomeScreen = ({ navigation, route }) => {
                           style={[styles.retryButton, { backgroundColor: C.primary }]}
                           onPress={handleRetrySearch}
                         >
-                          <Icon name="refresh" size={20} color={C.onSecondary} />
+                          {/* onPrimary, because this instance overrides retryButton's blue fill with
+                              orange. onSecondary is WHITE in light, so on orange it was 2.69:1. The
+                              sibling below keeps the blue fill and correctly keeps onSecondary. */}
+                          <Icon name="refresh" size={20} color={C.onPrimary} />
                           <Text style={styles.retryButtonText}>{t('userHome.startFreshSearch')}</Text>
                         </TouchableOpacity>
                       </>

@@ -877,6 +877,39 @@ cognitive load and figure-ground.
 
 ---
 
+## 24. Icon and skeleton audit — mostly a clean negative
+
+Audited all **674** icon colour props. 59 use an ink that is dark in both themes;
+resolving each one's real ground showed all but one sit correctly on a bright fill.
+Skeletons are fine too: `ShimmerLoader` goes through `useSkeletonSurface()`, and the
+provider-hero skeletons use `stableDark.*` on the navy hero, which is right in both
+themes. **A clean negative is worth recording** — it stops the next person re-running it.
+
+### The one real find, and why I nearly dismissed it
+
+`UserHomeScreen` has two identical-looking retry buttons:
+
+```
+L1615  style={[styles.retryButton, { backgroundColor: C.primary }]}   <- orange override
+L1627  style={styles.retryButton}                                      <- base blue fill
+```
+
+Both painted their icon `C.onSecondary`. I first called this "a harmless semantic slip,
+since both inks resolve to the same near-black" — **that was wrong**. `onBrandBlue` is
+**`#FFFFFF`** in light; only `onBrandOrange` is near-black. So the overridden button was
+**white on orange, 2.69:1**. The unoverridden one is correct and stays as it is.
+
+### On the tooling
+
+The ground-resolver mis-attributed three times across this and §23 — it read a footer
+instead of the button, missed multi-line JSX props, and picked the wrong member of a
+style array. I patched it twice and it still only went from 22 to 24 correct out of 59,
+so I stopped and finished by hand. **Resolving a JSX ancestor chain properly needs a real
+parser, not a regex walker**; that is worth building only if this class recurs. What
+carried the audits was measuring a specific pair, not trusting the tool's grouping.
+
+---
+
 ## 23. Apple sign-in spinners — near-black on Apple black
 
 Audited every `<ActivityIndicator>` colour: 48 use an ink that is dark in BOTH themes,
