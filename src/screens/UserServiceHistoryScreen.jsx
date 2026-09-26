@@ -71,6 +71,7 @@ import {
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const makeC = (c) => ({
+  brandOrangeLine: c.brandOrangeBorder,
   successDeep: c.successDeep,
   successBorder: c.successBorder,
   infoBorder: c.infoBorder,
@@ -1244,30 +1245,26 @@ const makeStyles = (theme) => {
   resultCount: { fontSize: 12, fontWeight: '600', color: C.muted, marginBottom: 6 },
 
   // List
-  // No extra tail. The screen already adds insets.bottom + 104 for the
-  // floating bar; another 40 on top of that was sized for 200pt cards and
-  // leaves a screenful of nothing under a short list of 90pt rows.
-  listPad: { paddingTop: 2 },
+  listPad: { paddingHorizontal: 14, paddingTop: 4 },
 
   // Card
-  // A LIST ROW, not a card. History is a long scroll of mostly-finished
-  // jobs, and twenty rounded, bordered, elevated cards stacked down a page
-  // read as twenty objects competing rather than one list you can scan.
-  // This is the transaction-history pattern: flat rows on the surface,
-  // separated by a hairline that starts past the icon so the eye follows
-  // one column. Unlike a transaction list these rows carry actions, so the
-  // padding stays generous enough for a 44pt target.
+  // Separated records, not a continuous sheet.
   //
-  // pageSolid, NOT surface. As cards these were #191716 islands on a black
-  // page; full-bleed, that same fill becomes one continuous grey sheet down
-  // the whole screen — the owner's "it's looking grey and I want it black".
-  // pageSolid is #FFFFFF in light and #000000 in dark, so the list reads as
-  // a white sheet where that is right and as the page where it is not.
-  card: { backgroundColor: C.pageSolid, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.line, overflow: 'hidden' },
-  // Actionable rows are the exception and earn a tint, so a new job is
-  // findable in a long list without a border around every sibling.
-  cardPending: { backgroundColor: C.brandOrangeFill },
-  cardCompact: { paddingVertical: 12 },
+  // Three attempts got here. Bordered elevated cards read as twenty objects
+  // competing (§41). Full-bleed rows at C.surface became one grey field down
+  // the screen (§42). Full-bleed rows at pageSolid are black — but then the
+  // gap between two records is ALSO black, so nothing separates them, which
+  // is the owner's "hard to distinguish".
+  //
+  // So: the record is a raised surface and the GAP is the page. That is the
+  // tonal-elevation rule the rest of the app already follows — separation
+  // comes from the page showing through, not from a border. The compact
+  // interior from §41-42 is unchanged; only the container came back.
+  card: { backgroundColor: C.surface, paddingHorizontal: 14, paddingVertical: 13, borderRadius: 14, marginBottom: 10, overflow: 'hidden' },
+  // Actionable records earn a tint AND an edge — the gap already separates
+  // every record, so a fill alone no longer distinguishes this one.
+  cardPending: { backgroundColor: C.brandOrangeFill, borderWidth: 1, borderColor: C.brandOrangeLine },
+  cardCompact: { paddingVertical: 11, marginBottom: 8 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   cardTopLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 },
   svcIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.warningBg, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
