@@ -20,7 +20,7 @@ import {  View,
   AppState
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Screen from '../components/Screen';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { Button, Input, PhoneInput, Alert, FixhomiLogo } from '../components';
@@ -636,7 +636,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -671,7 +671,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
               : renderOtpStep()}
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 };
 

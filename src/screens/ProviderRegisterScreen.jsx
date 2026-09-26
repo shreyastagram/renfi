@@ -24,7 +24,7 @@ import {  View,
   Linking
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Screen from '../components/Screen';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Geolocation from '@react-native-community/geolocation';
@@ -945,7 +945,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
 
   // Step 2 — manual form (only fields, since referral + T&C were captured in step 1).
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -1330,7 +1330,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
           setPendingAppleAuth(null);
         }}
       />
-    </SafeAreaView>
+    </Screen>
   );
 };
 

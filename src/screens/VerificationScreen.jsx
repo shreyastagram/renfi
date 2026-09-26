@@ -20,7 +20,7 @@ import {  View,
   Dimensions
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Screen from '../components/Screen';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { Button, Alert } from '../components';
 import {
@@ -615,7 +615,7 @@ const VerificationScreen = ({
   // ──── Success Screen ────────────────────────────────────────────
   if (verified) {
     return (
-      <SafeAreaView style={s.safeArea}>
+      <Screen style={s.safeArea}>
         <View style={s.successContainer}>
           <View style={s.successIconOuter}>
             <View style={s.successIconCircle}>
@@ -639,13 +639,13 @@ const VerificationScreen = ({
             <Text style={s.successBackBtnText}>{t('verificationScreen.backToProfile')}</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   // ──── Main Screen ───────────────────────────────────────────────
   return (
-    <SafeAreaView style={s.safeArea}>
+    <Screen style={s.safeArea}>
       {/* Fixed Header */}
       <View style={s.headerBar}>
         <TouchableOpacity
@@ -1086,7 +1086,7 @@ const VerificationScreen = ({
           </Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 };
 

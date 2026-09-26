@@ -3,7 +3,7 @@
 **Branch:** `feature/theme-v2` (off tag **`v1.0.9`** = `b74f862`)
 **Colour contract:** `docs/COLOUR_MAP.md`
 **Also read:** `FIXORA_APP/WORK_AVAILABILITY_TRACKER.md` — Working Hours is live in prod.
-**Last updated:** 2026-09-26, after the components sweep — `src/` is now literal-free.
+**Last updated:** 2026-09-26, after the `<Screen>` swap — every screen root is the primitive.
 
 > **Read this file BEFORE touching code.** If it contradicts the code, **STOP and flag it** —
 > do not proceed on a false premise.
@@ -32,12 +32,9 @@
 
 Remaining, in the order I would take it:
 
-1. **17 `SafeAreaView` call sites across 15 files** → `<Screen>`. **The only item left with
-   real user impact:** `targetSdk 36` enforces edge-to-edge, and the tester build may
-   already show it on 3-button navigation.
-2. **Phase 5b, behaviour only** — verification defects V1–V6 and `profile.emailPending`
-   (i18n 2074 → 2075). Zero colour work; the only functional item left in the plan.
-3. **Phase 10** — full sweep + the device checklist above.
+1. **Phase 5b, behaviour only** — verification defects V1–V6 and `profile.emailPending`
+   (i18n 2074 → 2075). Zero colour work; **the only functional item left in the plan.**
+2. **Phase 10** — full sweep + the device checklist above.
 
 Open, awaiting the owner's word: deepen `surfaceElevated` from `#26262B` to `#1A1A1F`
 (one usage in the whole app).
@@ -80,6 +77,7 @@ contract.
   - [x] `ProviderRegisterScreen`, `ProviderServiceHistoryScreen`
   - [x] `ServiceApprovalsScreen`
 - [x] **Phase 9** — Auth screens (and the verification + insurance screens, which shared the same ramp)
+- [x] **Phase 9c** — `<Screen>` swap: all 15 remaining `SafeAreaView` roots, + a gate
 - [x] **Phase 9b** — Components sweep: the last 13 files
     - [x] Proved-unused then deleted: `ThreadBackground`, `SVGFixhomi` (unreferenced at
           `v1.0.9` too — dead before this work started)
@@ -572,8 +570,20 @@ reaches AsyncStorage through the theme context, so importing it in a test needs 
 mocks. Third time this pattern was needed — see also `resolveThemeName` and
 `createStyleCache`.
 
-**17 call sites still to swap.** They land with their own phases rather than as a big-bang
-change: auth screens in Phase 9, verification surfaces in 5b.
+**Done — all 15 call sites swapped** (the "17 across 15 files" this section used to claim
+was stale; the real figure was 15 sites across 14 files). `screenRoots.test.js` now fails
+the build if any file outside `Screen.jsx` renders or imports `SafeAreaView`.
+
+**This fixed no live bug, and the tracker previously overstated it.** A survey of all 37
+screens found every one already handled insets: 14 via `SafeAreaView`, 21 via
+`useSafeAreaInsets`, and `UserAuthScreen` / `ProviderAuthScreen` are pure routers whose
+children own their own. Every swapped root also already had a themed background. The swap
+buys one primitive, `edges` explicit at 9 call sites that relied on the implicit default,
+and a gate — not a repaired screen.
+
+`useSafeAreaInsets` is deliberately NOT restricted by the gate. Padding where it is needed
+— a sticky footer, a floating button — is a different and often better pattern than
+wrapping the whole tree, and 21 screens legitimately use it.
 
 ## 15. RootNavigator — deliberately only PARTIALLY migrated
 

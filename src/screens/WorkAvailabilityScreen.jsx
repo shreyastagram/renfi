@@ -10,7 +10,7 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Switch, ActivityIndicator, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Screen from '../components/Screen';
 import { useIsFocused } from '@react-navigation/native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { Icon } from '../components';
@@ -91,7 +91,7 @@ const WorkAvailabilityScreen = ({ navigation }) => {
   }, [dialog, resetToDefault, t]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <Screen style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel={t('common.back')}>
           <Icon name="back" size={20} color={C.white} />
@@ -190,7 +190,7 @@ const WorkAvailabilityScreen = ({ navigation }) => {
         onClose={() => setEditingDay(null)}
         onSave={handleSaveDay}
       />
-    </SafeAreaView>
+    </Screen>
   );
 };
 

@@ -19,7 +19,7 @@ import {  View,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import TouchableOpacity from '../components/TouchableOpacity';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Screen from '../components/Screen';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { FixhomiLogo } from '../components';
@@ -116,7 +116,7 @@ const UserTypeScreen = ({ navigation }) => {
       <View pointerEvents="none" style={styles.glowPrimary} />
       <View pointerEvents="none" style={styles.glowSecondary} />
 
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       {/* Language Selector - Top Right */}
       <TouchableOpacity
         style={styles.langButton}
@@ -236,7 +236,7 @@ const UserTypeScreen = ({ navigation }) => {
           </View>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+    </Screen>
     </LinearGradient>
   );
 };

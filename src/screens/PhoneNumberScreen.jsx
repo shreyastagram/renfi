@@ -22,7 +22,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Screen from '../components/Screen';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { Button, PhoneInput, Alert, FixhomiLogo } from '../components';
@@ -124,7 +124,7 @@ const PhoneNumberScreen = ({ onOtpSent, onBack }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -201,7 +201,7 @@ const PhoneNumberScreen = ({ onOtpSent, onBack }) => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 };
 

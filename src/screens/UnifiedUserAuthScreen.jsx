@@ -29,7 +29,7 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Screen from '../components/Screen';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';
@@ -340,7 +340,7 @@ const UnifiedUserAuthScreen = ({ navigation, onPickPhone, onNewUserAuth }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
+    <Screen style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -495,7 +495,7 @@ const UnifiedUserAuthScreen = ({ navigation, onPickPhone, onNewUserAuth }) => {
           setPendingAppleAuth(null);
         }}
       />
-    </SafeAreaView>
+    </Screen>
   );
 };
 

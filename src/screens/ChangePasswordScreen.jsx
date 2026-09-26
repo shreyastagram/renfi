@@ -23,7 +23,7 @@ import {  View,
   TextInput
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Screen from '../components/Screen';
 import { Button, Input, Alert } from '../components';
 import { 
   changePassword, 
@@ -688,7 +688,7 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       <KeyboardAvoidingView 
         style={styles.keyboardAvoid}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -729,7 +729,7 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
 
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 };
 

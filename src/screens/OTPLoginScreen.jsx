@@ -16,7 +16,7 @@ import {  View,
   Platform
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Screen from '../components/Screen';
 import { Button, Input, PhoneInput, Alert, FixhomiLogo } from '../components';
 import { 
   sendPhoneLoginOtp, 
@@ -217,7 +217,7 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -336,7 +336,7 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 };
 

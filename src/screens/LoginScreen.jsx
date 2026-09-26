@@ -19,7 +19,8 @@ import {  View,
   ActivityIndicator,
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Screen from '../components/Screen';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { Button, Input, Alert, FixhomiLogo } from '../components';
 import GoogleLogo from '../components/GoogleLogo';
@@ -486,7 +487,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
   const anyLoading = loading || googleLoading || appleLoading;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <Screen style={styles.container} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -708,7 +709,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </Screen>
   );
 };
 

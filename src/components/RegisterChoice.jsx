@@ -26,7 +26,8 @@ import {
   Linking,
   ScrollView,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Screen from './Screen';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import TouchableOpacity from './TouchableOpacity';
 import FixhomiLogo from './FixhomiLogo';
@@ -126,7 +127,7 @@ const RegisterChoice = ({
   }, [t, styles.termsLink]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <Screen style={styles.container} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -324,7 +325,7 @@ const RegisterChoice = ({
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 };
 

@@ -18,7 +18,7 @@ import {  View,
   ScrollView
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Screen from '../components/Screen';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Button, Alert, FixhomiLogo } from '../components';
 import {
@@ -412,7 +412,7 @@ const OTPVerifyScreen = ({
   const otpComplete = otp.join('').length === OTP_LENGTH;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen style={styles.container}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -559,7 +559,7 @@ const OTPVerifyScreen = ({
         </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 };
 
