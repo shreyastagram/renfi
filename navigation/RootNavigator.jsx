@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView, DEVICE_SUPPORTS_BLUR } from '../src/components/SafeBlurView';
 import { House, History, Wrench, Settings, CircleUserRound } from 'lucide-react-native';
 import { setBarRect, subscribeTone } from '../src/components/tabBarTone';
-import { useThemeColors } from '../src/theme';
+import { useThemeColors, useIsDark } from '../src/theme';
 import { useApp } from '../src/context/AppContext';
 import { useLanguage } from '../src/context/LanguageContext';
 import { LocationSharingProvider } from '../src/context/LocationSharingContext';
@@ -217,11 +217,20 @@ const SUPPORTS_BLUR = DEVICE_SUPPORTS_BLUR;
 
 // NOTE ON THE TWO LIGHT/DARK SYSTEMS ON THIS COMPONENT.
 //
-// The bar already has a SCROLL-ADAPTIVE tone (tabBarTone.js): it crossfades to a
-// dark material when a dark surface slides underneath it. That is independent of
-// the app theme, and it is left completely alone here — in app-dark mode the
-// content beneath the bar is dark, so the adaptive system already picks the dark
-// tone by itself. Conflating the two would break scroll behaviour.
+// The bar has a SCROLL-ADAPTIVE tone (tabBarTone.js): it crossfades to a dark
+// material when a dark surface slides underneath it. Its mechanics are left alone
+// here, because conflating them with the theme would break scroll behaviour.
+//
+// This note used to claim that in app-dark mode "the adaptive system already picks
+// the dark tone by itself". THAT WAS WRONG, and it is why the owner saw a pale
+// blue-grey bar floating on a black app. The system does not sample what is under
+// the bar — it reads explicit <TabBarDarkZone> markers, and exactly two screens
+// place one, each around a single dark CARD. In app-dark mode every page is
+// #000000 and none of them registers, so the bar stayed in its LIGHT material: a
+// near-white pill with a blue lens, on pure black.
+//
+// So the theme has to set the FLOOR. It does not replace the zone system; it
+// decides where that system rests when the whole app is dark. See `appDark`.
 //
 // What DOES need the theme is `fallback`: it is only used when SUPPORTS_BLUR is
 // false, which is precisely low-end Android. Without this, a provider on a cheap
@@ -256,6 +265,8 @@ const FloatingTabBar = ({ state, descriptors, navigation }) => {
 
   // Role from route shape (JobsTab exists only in the provider navigator)
   const tabColors = useThemeColors();
+  // Not for a colour — for the tone floor. See the note above makeGlass.
+  const appDark = useIsDark();
   const GLASS = React.useMemo(() => makeGlass(tabColors), [tabColors]);
   const glass = state.routes.some((r) => r.name === 'JobsTab') ? GLASS.provider : GLASS.user;
 
@@ -309,6 +320,15 @@ const FloatingTabBar = ({ state, descriptors, navigation }) => {
   const toneAnim = useRef(new Animated.Value(0)).current;
   const toneDarkRef = useRef(false);
   useEffect(() => {
+    // App-dark: the page under the bar is #000000 everywhere, so dark IS the
+    // resting tone and zone coverage has nothing left to say. Set it directly
+    // rather than animating — this is the state the bar mounts in, and a
+    // crossfade on each mount would read as a flicker.
+    if (appDark) {
+      toneDarkRef.current = true;
+      toneAnim.setValue(1);
+      return undefined;
+    }
     const unsub = subscribeTone((frac) => {
       const isDark = toneDarkRef.current;
       if (!isDark && frac >= 0.3) {
@@ -320,7 +340,7 @@ const FloatingTabBar = ({ state, descriptors, navigation }) => {
       }
     });
     return unsub;
-  }, [toneAnim]);
+  }, [toneAnim, appDark]);
 
   // Touch-down energy — the lens swells instantly under the finger
   const onItemPressIn = () => {

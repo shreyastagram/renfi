@@ -3,7 +3,7 @@
 **Branch:** `feature/theme-v2` (off tag **`v1.0.9`** = `b74f862`)
 **Colour contract:** `docs/COLOUR_MAP.md`
 **Also read:** `FIXORA_APP/WORK_AVAILABILITY_TRACKER.md` — Working Hours is live in prod.
-**Last updated:** 2026-09-26. **§18 washed-out colours: root cause found and fixed.** 10 places, 2 clusters.
+**Last updated:** 2026-09-26. §18 washed-out colours fixed — **including the tab bar, which §15 wrongly said was fine.**
 
 > **Read this file BEFORE touching code.** If it contradicts the code, **STOP and flag it** —
 > do not proceed on a false premise.
@@ -708,11 +708,27 @@ wrapping the whole tree, and 21 screens legitimately use it.
 The floating tab bar carries **two independent light/dark systems** and they must not be
 conflated:
 
-1. **Scroll-adaptive tone** (`tabBarTone.js`) — the bar crossfades to a dark material when a
-   dark surface slides under it. **Left completely alone.** In app-dark mode the content
-   beneath the bar is dark, so this system already picks the dark tone by itself. Touching
-   it would break scroll behaviour, and it is a module-level singleton precisely to avoid
-   re-rendering the navigator on every scroll tick.
+1. **Scroll-adaptive tone** (`tabBarTone.js`) — the bar crossfades to a dark material when
+   a dark surface slides under it. Its mechanics are still left alone: it is a module-level
+   singleton precisely to avoid re-rendering the navigator on every scroll tick.
+
+   ⚠️ **This section used to say "in app-dark mode the content beneath the bar is dark, so
+   this system already picks the dark tone by itself". That was FALSE**, and it is the
+   reason the owner saw a pale bar on a black app across three builds. The system does not
+   sample anything — it reads explicit `<TabBarDarkZone>` markers, and **exactly two
+   screens place one** (`ProfileScreen`'s premium cards, `ProviderHomeScreen`'s tips card),
+   each around a single dark CARD. In app-dark mode every page is `#000000` and none of
+   them registers, so the bar stayed in its LIGHT material — a near-white pill with a blue
+   lens — on pure black. That is the "dark blue in black grey" half of the report.
+
+   Fixed by giving the theme the **floor**, not the mechanism: when the app theme is dark
+   the tone rests dark and the zone system is not consulted; in light mode the scroll
+   behaviour is byte-for-byte what it was. Guarded by `tabBarTone.test.js`, proven to fail
+   when the floor is removed.
+
+   **The lesson worth keeping:** this survived because a comment asserted it was fine and
+   this tracker repeated the claim, so every later pass trusted the prose instead of
+   reading `tabBarTone.js`. When a doc says "this is already handled", check.
 2. **App theme** — only ONE value here actually needed it: `glass.fallback`, used solely
    when `SUPPORTS_BLUR` is false, i.e. **low-end Android**. Without the fix a provider on a
    cheap phone in dark mode would have seen a LIGHT pill floating on a dark screen.
@@ -787,12 +803,20 @@ I also tried a broader polarity detector — "did this ink flip light↔dark sin
 and **threw it away**: 312 hits, almost all of them correct dark-mode inversion. Recording
 that so nobody rebuilds it. The tractable rule was the narrow one.
 
-### Still open from that report
+### Cluster 3 — the floating tab bar (the "dark blue in black grey" half)
 
-The owner also said *"dark blue in black grey"*. Cluster 1 plausibly accounts for it (navy
-panel + navy ink), but if it persists, the prime suspect is `navigation/RootNavigator.jsx`
-— deliberately off the hex allowlist (§15) and still holding `VERIFIED_BLUE = '#2b76bc'`
-and a `BRAND` block, none of which flip. **Ask for the screen before touching it.**
+Found by checking §15's claim instead of trusting it. The bar never consulted the app
+theme, so in dark mode it was a near-white, blue-lensed pill on a black page. Full write-up
+in §15. Fixed; the zone system and light-mode scroll behaviour are untouched.
+
+### Owner instructions, 2026-09-26
+
+- **Stop shipping an APK per change.** Builds only when asked, or when a batch is worth
+  looking at. Everything still has to pass `npm run verify` before it is called done.
+- **Layout and placement in dark mode are a separate, deliberate pass** — the owner's
+  words: *"the current ui looks very weird in black dark mode ... i am not talking about
+  the colour but the placements of everything"*. That is a real workstream and it is NOT
+  colour work; do not start nibbling at it inside colour commits.
 
 ## 19. Crystal borders and black maps (owner request, 2026-09-26)
 
