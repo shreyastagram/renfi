@@ -1503,7 +1503,13 @@ const makeStyles = (theme) => {
   return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.dark,
+      // stableDark, NOT a themed ink token. This was BRAND.dark ('#0F172A') at
+      // v1.0.9 — a fixed brand panel — and the migration mapped it to C.dark, which
+      // is `textPrimary`. Ink tokens FLIP: in dark mode the panel turned near-white
+      // (#F1F5F9) with white text still on it, and in light the greeting resolved to
+      // #0F172A on #0F172A, 1.00:1. heroSurface is the token that exists for a panel
+      // that must stay dark in BOTH themes.
+    backgroundColor: stableDark.heroSurface,
   },
   scrollView: {
     flex: 1,
@@ -1517,7 +1523,13 @@ const makeStyles = (theme) => {
 
   // ===== Hero Header =====
   heroHeader: {
-    backgroundColor: C.dark,
+      // stableDark, NOT a themed ink token. This was BRAND.dark ('#0F172A') at
+      // v1.0.9 — a fixed brand panel — and the migration mapped it to C.dark, which
+      // is `textPrimary`. Ink tokens FLIP: in dark mode the panel turned near-white
+      // (#F1F5F9) with white text still on it, and in light the greeting resolved to
+      // #0F172A on #0F172A, 1.00:1. heroSurface is the token that exists for a panel
+      // that must stay dark in BOTH themes.
+    backgroundColor: stableDark.heroSurface,
     paddingHorizontal: 20,
     paddingBottom: 18,
     overflow: 'hidden',
@@ -1574,7 +1586,9 @@ const makeStyles = (theme) => {
   heroNameInline: {
     fontSize: 17,
     fontWeight: '700',
-    color: C.onPrimary,
+      // White, matching heroSubtextInline directly beneath it. Was '#FFFFFF' at
+      // v1.0.9; became onBrandOrange — near-black — on a near-black panel.
+    color: stableDark.ink,
     letterSpacing: -0.3,
   },
   heroSubtextInline: {

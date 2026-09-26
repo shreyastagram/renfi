@@ -2440,12 +2440,16 @@ const makeStyles = (theme) => {
   modalRejectionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: C.onPrimary,
+      // Sits on modalRejectionBanner (C.danger), and the icon beside it already
+      // uses onDanger. onBrandOrange here was 2.76:1 in light.
+    color: C.onDanger,
     marginBottom: 4,
   },
   modalRejectionText: {
     fontSize: 13,
-    color: C.dangerFill,
+      // The pale tint that reads as secondary on a danger banner, which is what
+      // v1.0.9 used. dangerFill is a BACKGROUND step and was only 3.09:1 as text.
+    color: C.dangerContainer,
     lineHeight: 18,
   },
   documentTabs: {
@@ -2784,7 +2788,9 @@ const makeStyles = (theme) => {
   },
   uploadingText: {
     fontSize: 15,
-    color: C.onPrimary,
+      // Sits on the full-screen uploading overlay, whose spinner is already
+      // stableDark.ink. Was white at v1.0.9; onBrandOrange made it 1.18:1.
+    color: stableDark.ink,
     marginTop: 16,
     fontWeight: '600',
   },
@@ -2892,7 +2898,8 @@ const makeStyles = (theme) => {
     zIndex: 100,
   },
   imageCounterText: {
-    color: C.onPrimary,
+      // Same lightbox. Was white; onBrandOrange on a white-alpha chip was 1.41:1.
+    color: stableDark.ink,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -2925,7 +2932,9 @@ const makeStyles = (theme) => {
     alignItems: 'center',
   },
   fullscreenDocName: {
-    color: C.onPrimary,
+      // A lightbox is near-black in BOTH themes, so its ink is white in both. It
+      // was white at v1.0.9 and became onBrandOrange, near-black: 1.18:1, invisible.
+    color: stableDark.ink,
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
@@ -2961,7 +2970,8 @@ const makeStyles = (theme) => {
     borderRadius: 16,
   },
   tapToZoomText: {
-    color: C.onPrimary,
+      // Same overlay, and its sibling icon already uses stableDark.ink.
+    color: stableDark.ink,
     fontSize: 11,
     fontWeight: '500',
   },

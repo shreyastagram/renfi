@@ -463,7 +463,13 @@ const makeStyles = (theme) => {
     marginTop: 4,
   },
   miniLocationCard: {
-    backgroundColor: C.dark,
+      // stableDark, NOT a themed ink token. This was BRAND.dark ('#0F172A') at
+      // v1.0.9 — a fixed brand panel — and the migration mapped it to C.dark, which
+      // is `textPrimary`. Ink tokens FLIP: in dark mode the panel turned near-white
+      // (#F1F5F9) with white text still on it, and in light the greeting resolved to
+      // #0F172A on #0F172A, 1.00:1. heroSurface is the token that exists for a panel
+      // that must stay dark in BOTH themes.
+    backgroundColor: stableDark.heroSurface,
     overflow: 'hidden',
     ...Platform.select({
       ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 14 },

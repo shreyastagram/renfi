@@ -42,6 +42,7 @@ import { useIsDark } from '../theme';
 const makeC = (c) => ({
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
+  borderStrong: c.borderStrong,
   secondary: c.brandBlue,
   onSecondary: c.onBrandBlue,
   white: c.surface,
@@ -886,12 +887,18 @@ const makeStyles = (theme) => {
     borderRadius: 14,
   },
   confirmButtonDisabled: {
-    backgroundColor: C.muted,
+    // borderStrong, not textMuted. A muted grey is the right LOOK for a disabled
+    // button, but textMuted is ink — the same mistake that turned the provider hero
+    // near-white. borderStrong is a real non-ink neutral and it lets the label clear
+    // AA on both states: 4.88 light, 8.18 dark.
+    backgroundColor: C.borderStrong,
   },
   confirmButtonText: {
     fontSize: 17,
     fontWeight: '700',
-    color: C.white,
+    // White on brand orange is 2.69:1 — the failure already fixed on every other
+    // orange button in the app and simply missed here. Pre-existing since v1.0.9.
+    color: C.onPrimary,
   },
   });
 };

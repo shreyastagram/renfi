@@ -3,7 +3,7 @@
 **Branch:** `feature/theme-v2` (off tag **`v1.0.9`** = `b74f862`)
 **Colour contract:** `docs/COLOUR_MAP.md`
 **Also read:** `FIXORA_APP/WORK_AVAILABILITY_TRACKER.md` — Working Hours is live in prod.
-**Last updated:** 2026-09-26. Crystal borders + black maps. **Washed-out colours are the open bug — see §18.**
+**Last updated:** 2026-09-26. **§18 washed-out colours: root cause found and fixed.** 10 places, 2 clusters.
 
 > **Read this file BEFORE touching code.** If it contradicts the code, **STOP and flag it** —
 > do not proceed on a false premise.
@@ -49,8 +49,9 @@ checklist below. Console:
    whether a panel can resolve a 14-code-value fill difference. This deliberately removes
    the one question every build had to ask a human.
 2. *"change the map also to black"* — done, all six MapViews (§19).
-3. *"washed out colours like black text in black bg or dark blue in black grey ... lets
-   look at it later"* — **NOT fixed. This is now the top open item: §18.**
+3. *"washed out colours like black text in black bg ... lets look at it later"* —
+   **found and fixed without waiting for screen names.** Root cause in §18. Ten places
+   across two clusters; the worst was the provider home greeting at exactly 1.00:1.
 
 **The build is the owner's step.** No fastlane / App Distribution automation, and
 `USE_DEV_STAGING` lives in a do-not-commit file.
@@ -720,38 +721,78 @@ Everything else in that file (`tint`, `lensBg`, `lensBorder`, `DARK_*`) belongs 
 and is intentionally still literal. **Do not "finish" this file without re-reading the
 above** — RootNavigator is therefore NOT on the hex allowlist, on purpose.
 
-## 18. OPEN BUG — washed-out / invisible colours in dark mode
+## 18. FIXED — washed-out / invisible colours (owner report, beta.3)
 
-**Reported by the owner on 1.1.0-beta.3, 2026-09-26. Deferred by them to "later", but this
-is the highest-value thing left in the whole project — everything else is done.**
+Their words: *"black text in black bg or dark blue in black grey"*. I went looking rather
+than waiting for screen names. **Both clusters were regressions I introduced during the
+migration**, not pre-existing.
 
-Their words: *"there are some issues with washed out colours like black text in black bg
-or dark blue in black grey"*.
+### Cluster 1 — an INK token used as a BACKGROUND (the serious one)
 
-Two distinct failures, and they need separating before anyone starts fixing:
+`ProviderHomeScreen` and `ProviderHomeTopRow` said `backgroundColor: C.dark`, and `C.dark`
+mapped to `textPrimary`. At v1.0.9 those styles said `BRAND.dark = '#0F172A'` — a **fixed
+navy brand panel**. `textPrimary` is ink, and ink flips.
 
-| Symptom | Likely cause |
-|---|---|
-| **Black text on a black background** | A near-black ink token surviving into dark — most likely `onBrandOrange` / `onSuccess` / `onWarning`, which are deliberately `slate[900]` because they sit on a bright fill. Somewhere one of them is being painted on a SURFACE instead of on its fill. |
-| **Dark blue on black/grey** | A brand-blue token that was only ever checked against a light surface. `brandBlue` flips to `#5FA8E8` in dark, but any place still resolving `#2b76bc` — a literal in `RootNavigator`, a `stableDark` value, or an `on*` pairing — stays dark navy on near-black. |
+| | light | dark |
+|---|---|---|
+| panel intended | fixed navy | fixed navy |
+| panel actual | navy (looked fine) | **near-white** |
+| `heroNameInline` on it | **1.00:1** — literally the same colour | fine |
+| white subtext on it | fine | **invisible on near-white** |
 
-**Why no gate caught it.** `check:contrast` only grades the 43 pairs it is TOLD about, and
-it grades ink against the fill it is *declared* to sit on. Neither failure is a wrong token
-value — both are a correct token used in the wrong place. That is a usage bug, and nothing
-in the suite reads usage.
+Three surfaces (the provider home page, its hero header, the mini map card) plus the
+greeting. In light the greeting was invisible; in dark the whole screen inverted. That is
+the "washed out" report.
 
-**How to approach it** — do not start by adjusting palette values:
+Fixed with `stableDark.heroSurface` — the token that exists for a panel that must stay
+dark in both themes — and `stableDark.ink` for the greeting, matching the subtext beside
+it. Greeting went **1.00 → 17.85:1**.
 
-1. Get the exact screens from the owner. "Black text on black" is 2–3 specific places, not
-   a systemic ramp problem; guessing will churn the palette for nothing.
-2. Then consider a usage-aware gate: for each `color:` in a themed sheet, resolve the
-   nearest enclosing `backgroundColor:` and grade the pair in BOTH themes. That is the gap
-   §4 does not cover, and it would have caught both of these.
-3. `RootNavigator` is the most likely home for the dark-blue case: it is intentionally
-   NOT on the hex allowlist (§15) and still holds `VERIFIED_BLUE = '#2b76bc'` plus a
-   `BRAND` block, none of which flip.
+### Cluster 2 — `on*` ink on a ground that is not its fill
 
----
+Six styles in `ServiceApprovalsScreen`. All were `'#FFFFFF'` at v1.0.9 and the batch
+mapped them to `C.onPrimary` (`onBrandOrange`, near-black in **both** themes):
+
+| style | ground | was | now |
+|---|---|---|---|
+| `fullscreenDocName` | photo lightbox | **1.18** | 17.6 |
+| `uploadingText` | uploading overlay | **1.18** | 17.6 |
+| `tapToZoomText` | photo lightbox | **1.18** | 17.6 |
+| `imageCounterText` | white-alpha chip | **1.41** | 9.6 |
+| `modalRejectionTitle` | danger banner | **2.76** light | 6.47 |
+| `modalRejectionText` | danger banner | 3.09 light | 5.91 |
+
+Plus `MapPickerModal`'s confirm button, found by the new gate: its disabled fill was
+`textMuted` (ink again) and its label was white on brand orange at **2.69** — the failure
+already fixed on every other orange button and simply missed here.
+
+### Why no gate saw any of it
+
+`check:hex` — they are tokens, not literals. `check:contrast` — it grades the 43 pairs it
+is *told* about, and nobody declared these. `check:light` — it asks "is this v1.0.9 colour
+still reachable from the light theme?", and `#FFFFFF` always is. `check:collapse` — border
+never matched fill. **Every one was a correct token used in the wrong place, and nothing
+in the suite read usage.**
+
+### The gate that now does
+
+`src/theme/__tests__/inkNotBackground.test.js` — an ink token may never be a
+`backgroundColor`. Narrow on purpose: a surface that must stay dark in both themes already
+has `stableDark.*` / `premium.*` / `heroGradient.*`, so reaching for ink is always a
+mistake and can be enforced rather than reviewed. **Proven to catch the real bug** by
+reverting `heroHeader` and watching it fail. Two inverted "selected" filter pills are
+allowlisted with reasons.
+
+I also tried a broader polarity detector — "did this ink flip light↔dark since v1.0.9?" —
+and **threw it away**: 312 hits, almost all of them correct dark-mode inversion. Recording
+that so nobody rebuilds it. The tractable rule was the narrow one.
+
+### Still open from that report
+
+The owner also said *"dark blue in black grey"*. Cluster 1 plausibly accounts for it (navy
+panel + navy ink), but if it persists, the prime suspect is `navigation/RootNavigator.jsx`
+— deliberately off the hex allowlist (§15) and still holding `VERIFIED_BLUE = '#2b76bc'`
+and a `BRAND` block, none of which flip. **Ask for the screen before touching it.**
 
 ## 19. Crystal borders and black maps (owner request, 2026-09-26)
 
