@@ -70,6 +70,8 @@ import {
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const makeC = (c) => ({
+  infoContainer: c.infoContainer,
+  successContainer: c.successContainer,
   brandOrangeLine: c.brandOrangeBorder,
   successDeep: c.successDeep,
   successBorder: c.successBorder,
@@ -130,8 +132,8 @@ const makeStatusConfig = (C) => ({
   pending: { label: 'Pending', color: C.brandOrangeInk, bgColor: C.brandOrangeFill, dotColor: C.brandOrangeInk },
   awaiting_confirmation: { label: 'Awaiting', color: C.brandOrangeInk, bgColor: C.brandOrangeFill, dotColor: C.brandOrangeInk },
   accepted: { label: 'Accepted', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
-  'in-progress': { label: 'In Progress', color: C.infoDeep, bgColor: C.infoFill, dotColor: C.infoDeep },
-  in_transit: { label: 'On the Way', color: C.infoDeep, bgColor: C.infoFill, dotColor: C.infoDeep },
+  'in-progress': { label: 'In Progress', color: C.infoDeep, bgColor: C.infoContainer, dotColor: C.infoDeep },
+  in_transit: { label: 'On the Way', color: C.infoDeep, bgColor: C.infoContainer, dotColor: C.infoDeep },
   arrived: { label: 'Arrived', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
   completed: { label: 'Completed', color: C.success, bgColor: C.successBg, dotColor: C.success },
   cancelled: { label: 'Cancelled', color: C.danger, bgColor: C.dangerBg, dotColor: C.danger },
@@ -1022,7 +1024,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
             opacity: scrollY.interpolate({ inputRange: [30, 70], outputRange: [0, 1], extrapolate: 'clamp' }),
             position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, justifyContent: 'center',
           }]}>
-            <View style={[styles.headerInlinePill, { backgroundColor: C.successFill, borderColor: C.successBorder }]}>
+            <View style={[styles.headerInlinePill, { backgroundColor: C.successContainer, borderColor: C.successBorder }]}>
               <View style={styles.headerInlineSvg}>
                 <Svg width="100%" height="100%" viewBox="0 0 120 36" preserveAspectRatio="xMidYMid slice">
                   <Circle cx="100" cy="0" r="18" fill={C.success} opacity={0.07} />
@@ -1032,7 +1034,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
               <Text style={[styles.headerInlineLabel, { color: C.successDeep }]}>{t('userHistory.active')}</Text>
               <Text style={[styles.headerInlineValue, { color: C.successDeep }]}>{stats.active}</Text>
             </View>
-            <View style={[styles.headerInlinePill, { backgroundColor: C.infoFill, borderColor: C.infoBorder }]}>
+            <View style={[styles.headerInlinePill, { backgroundColor: C.infoContainer, borderColor: C.infoBorder }]}>
               <View style={styles.headerInlineSvg}>
                 <Svg width="100%" height="100%" viewBox="0 0 120 36" preserveAspectRatio="xMidYMid slice">
                   <Circle cx="100" cy="0" r="18" fill={C.secondary} opacity={0.07} />
@@ -1303,7 +1305,7 @@ const makeStyles = (theme) => {
   svcIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.brandOrangeFill, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   svcNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
   svcName: { fontSize: 15, fontWeight: '700', color: C.text, textTransform: 'capitalize', flexShrink: 1 },
-  typeBadge: { backgroundColor: C.infoFill, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  typeBadge: { backgroundColor: C.infoContainer, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   typeBadgeText: { fontSize: 8, fontWeight: '800', color: C.infoDeep, letterSpacing: 0.5 },
   statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, gap: 5 },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
@@ -1348,11 +1350,11 @@ const makeStyles = (theme) => {
   ratingChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: C.brandOrangeFill, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, alignSelf: 'flex-start', marginTop: 2 },
   ratingChipText: { fontSize: 10, fontWeight: '700', color: C.brandOrangeInk },
   quickActions: { flexDirection: 'row', gap: 7 },
-  btnCall: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.successFill, borderWidth: 1, borderColor: C.successBorder, alignItems: 'center', justifyContent: 'center' },
+  btnCall: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.successContainer, borderWidth: 1, borderColor: C.successBorder, alignItems: 'center', justifyContent: 'center' },
   btnTrack: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.brandOrangeFill, borderWidth: 1, borderColor: C.brandOrangeLine, alignItems: 'center', justifyContent: 'center' },
 
   // OTP
-  otpBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.infoFill, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 10, borderWidth: 1, borderColor: C.infoBorder },
+  otpBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.infoContainer, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 10, borderWidth: 1, borderColor: C.infoBorder },
   otpLeft: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   otpLabel: { fontSize: 12, fontWeight: '600', color: C.infoDeep },
   otpRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },

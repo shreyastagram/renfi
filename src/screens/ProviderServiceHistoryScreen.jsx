@@ -74,6 +74,9 @@ import { brand } from '../theme';
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
 const makeC = (c) => ({
+  infoContainer: c.infoContainer,
+  successContainer: c.successContainer,
+  dangerContainer: c.dangerContainer,
   brandOrangeInk: c.brandOrangeInk,
   brandOrangeLine: c.brandOrangeBorder,
   successDeep: c.successDeep,
@@ -137,7 +140,7 @@ const makeStatusConfig = (C) => ({
   pending: { labelKey: 'providerHistory.statusPending', color: C.primary, bgColor: C.brandOrangeFill, dotColor: C.primary },
   awaiting_confirmation: { labelKey: 'providerHistory.statusAwaiting', color: C.primary, bgColor: C.brandOrangeFill, dotColor: C.primary },
   accepted: { labelKey: 'providerHistory.statusAccepted', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
-  'in-progress': { labelKey: 'providerHistory.statusInProgress', color: C.infoDeep, bgColor: C.infoFill, dotColor: C.infoDeep },
+  'in-progress': { labelKey: 'providerHistory.statusInProgress', color: C.infoDeep, bgColor: C.infoContainer, dotColor: C.infoDeep },
   in_transit: { labelKey: 'providerHistory.statusOnTheWay', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
   arrived: { labelKey: 'providerHistory.statusArrived', color: C.blue, bgColor: C.blueBg, dotColor: C.blue },
   completed: { labelKey: 'providerHistory.statusCompleted', color: C.success, bgColor: C.successBg, dotColor: C.success },
@@ -392,7 +395,7 @@ const RequestCard = React.memo(({ request, onPress, onCall, onDirections, onComp
             <View style={styles.svcNameRow}>
               <Text style={styles.svcName} numberOfLines={1}>{SERVICE_TYPE_LABELS[request.serviceType] || request.serviceType}</Text>
               {isEvent && <View style={styles.typeBadge}><Text style={styles.typeBadgeText}>{t('providerHistory.eventBadge')}</Text></View>}
-              {isEmergency && <View style={[styles.typeBadge, { backgroundColor: C.dangerFill }]}><Text style={[styles.typeBadgeText, { color: C.danger }]}>SOS</Text></View>}
+              {isEmergency && <View style={[styles.typeBadge, { backgroundColor: C.dangerContainer }]}><Text style={[styles.typeBadgeText, { color: C.danger }]}>SOS</Text></View>}
             </View>
             <Text style={styles.svcId}>#{shortId}</Text>
           </View>
@@ -1086,7 +1089,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
             opacity: scrollY.interpolate({ inputRange: [30, 70], outputRange: [0, 1], extrapolate: 'clamp' }),
             position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, justifyContent: 'center',
           }]}>
-            <View style={[styles.headerInlinePill, { backgroundColor: C.infoFill, borderColor: C.infoBorder }]}>
+            <View style={[styles.headerInlinePill, { backgroundColor: C.infoContainer, borderColor: C.infoBorder }]}>
               <View style={styles.headerInlineSvg}>
                 <Svg width="100%" height="100%" viewBox="0 0 120 36" preserveAspectRatio="xMidYMid slice">
                   <Circle cx="100" cy="0" r="18" fill={C.secondary} opacity={0.07} />
@@ -1096,7 +1099,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
               <Text style={[styles.headerInlineLabel, { color: C.infoDeep }]}>{t('providerHistory.total')}</Text>
               <Text style={[styles.headerInlineValue, { color: C.infoDeep }]}>{stats.total}</Text>
             </View>
-            <View style={[styles.headerInlinePill, { backgroundColor: C.infoFill, borderColor: C.infoBorder }]}>
+            <View style={[styles.headerInlinePill, { backgroundColor: C.infoContainer, borderColor: C.infoBorder }]}>
               <View style={styles.headerInlineSvg}>
                 <Svg width="100%" height="100%" viewBox="0 0 120 36" preserveAspectRatio="xMidYMid slice">
                   <Circle cx="100" cy="0" r="18" fill={C.infoDeep} opacity={0.07} />
@@ -1314,7 +1317,7 @@ const makeStyles = (theme) => {
   // Category chips
   categoryScroll: { paddingHorizontal: 16, paddingTop: 2, paddingBottom: 8, gap: 6 },
   categoryChip: { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: C.bg, borderRadius: 16, borderWidth: 1, borderColor: C.line },
-  categoryChipActive: { backgroundColor: C.infoFill, borderColor: C.secondary },
+  categoryChipActive: { backgroundColor: C.infoContainer, borderColor: C.secondary },
   categoryChipText: { fontSize: 12, fontWeight: '600', color: C.muted },
   categoryChipTextActive: { color: C.info },
 
@@ -1351,7 +1354,7 @@ const makeStyles = (theme) => {
   svcIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.brandOrangeFill, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   svcNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
   svcName: { fontSize: 15, fontWeight: '700', color: C.text, textTransform: 'capitalize', flexShrink: 1 },
-  typeBadge: { backgroundColor: C.infoFill, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  typeBadge: { backgroundColor: C.infoContainer, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   typeBadgeText: { fontSize: 8, fontWeight: '800', color: C.infoDeep, letterSpacing: 0.5 },
   svcId: { fontSize: 11, fontWeight: '500', color: C.muted, marginTop: 1 },
   statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, gap: 5 },
@@ -1375,8 +1378,8 @@ const makeStyles = (theme) => {
   customerName: { fontSize: 14, fontWeight: '600', color: C.text },
   customerPhone: { fontSize: 11, color: C.textSec, marginTop: 1 },
   quickActions: { flexDirection: 'row', gap: 7 },
-  btnCall: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.successFill, borderWidth: 1, borderColor: C.successBorder, alignItems: 'center', justifyContent: 'center' },
-  btnDir: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.infoFill, borderWidth: 1, borderColor: C.infoBorder, alignItems: 'center', justifyContent: 'center' },
+  btnCall: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.successContainer, borderWidth: 1, borderColor: C.successBorder, alignItems: 'center', justifyContent: 'center' },
+  btnDir: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.infoContainer, borderWidth: 1, borderColor: C.infoBorder, alignItems: 'center', justifyContent: 'center' },
 
   // Location
   locRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8, gap: 6 },

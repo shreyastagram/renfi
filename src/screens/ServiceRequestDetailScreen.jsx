@@ -84,6 +84,9 @@ import { getMapStyleURL } from '../config/mapbox';
 // `primary` / `secondary` are also used with hex-alpha concatenation, so they must
 // stay 6-digit hex in both themes -- asserted by the token tests.
 const makeC = (c) => ({
+  infoContainer: c.infoContainer,
+  successContainer: c.successContainer,
+  dangerContainer: c.dangerContainer,
   successBorder: c.successBorder,
   successDeep: c.successDeep,
   infoBorder: c.infoBorder,
@@ -127,10 +130,10 @@ const makeC = (c) => ({
   warning: c.warning,
   warningBg: c.warningContainer,
   warningFill: c.warningFill,
-  purple: c.accentViolet,
-  purpleBg: c.accentVioletContainer,
-  purpleLine: c.accentVioletBorder,
-  purpleFill: c.accentVioletFill,
+  purple: c.info,            // was accentViolet — the OTP card is informational, not violet
+  purpleBg: c.infoContainer,
+  purpleLine: c.infoBorder,
+  purpleFill: c.infoContainer,
   // The Rate button keeps its gold fill; its label is dark ink because white on
   // gold measured 2.15:1.
   onGold: c.onBrandOrange,
@@ -150,7 +153,7 @@ const makeStatusConfig = (C) => ({
   accepted: {
     label: 'Accepted',
     color: C.info,
-    bgColor: C.infoFill,
+    bgColor: C.infoContainer,
     iconName: 'check',
     userDescription: 'A provider has accepted your request',
     providerDescription: 'You have accepted this request',
@@ -159,7 +162,7 @@ const makeStatusConfig = (C) => ({
   'in-progress': {
     label: 'In Progress',
     color: C.info,
-    bgColor: C.infoFill,
+    bgColor: C.infoContainer,
     iconName: 'wrench',
     userDescription: 'The service is currently being performed',
     providerDescription: 'You are currently working on this service',
@@ -168,7 +171,7 @@ const makeStatusConfig = (C) => ({
   completed: {
     label: 'Completed',
     color: C.success,
-    bgColor: C.successFill,
+    bgColor: C.successContainer,
     iconName: 'check-circle',
     userDescription: 'The service has been successfully completed',
     providerDescription: 'You have completed this service',
@@ -177,7 +180,7 @@ const makeStatusConfig = (C) => ({
   cancelled: {
     label: 'Cancelled',
     color: C.danger,
-    bgColor: C.dangerFill,
+    bgColor: C.dangerContainer,
     iconName: 'close',
     userDescription: 'This request was cancelled',
     providerDescription: 'This request was cancelled',
@@ -204,7 +207,7 @@ const makeStatusConfig = (C) => ({
   in_transit: {
     label: 'On the Way',
     color: C.info,
-    bgColor: C.infoFill,
+    bgColor: C.infoContainer,
     iconName: 'directions-car',
     userDescription: 'The provider is on the way to you',
     providerDescription: 'You are on the way to the customer',
@@ -213,7 +216,7 @@ const makeStatusConfig = (C) => ({
   arrived: {
     label: 'Arrived',
     color: C.success,
-    bgColor: C.successFill,
+    bgColor: C.successContainer,
     iconName: 'location-on',
     userDescription: 'The provider has arrived at your location',
     providerDescription: 'You have arrived at the customer location',
@@ -710,6 +713,10 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
   const [providerLiveLocation, setProviderLiveLocation] = useState(null);
   const [lastLocationUpdate, setLastLocationUpdate] = useState(null);
   const [locationAcquireTimeout, setLocationAcquireTimeout] = useState(false);
+  // Has the sharing status been fetched even once? Without this,
+  // locationSharingEnabled's default of false is indistinguishable from a real
+  // "not sharing", and the card states the negative before it has asked.
+  const [locationStatusKnown, setLocationStatusKnown] = useState(false);
   const locationSharingRef = useRef(false);
   const [sentProviderDetails, setSentProviderDetails] = useState(null);
   // scrollY removed — header is now fixed (no collapsible animation)
@@ -745,6 +752,10 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
       }
     } catch (error) {
       console.warn('[LocationSharing] Fetch status error:', error);
+    } finally {
+      // Settled either way. A failed fetch is still an answer, and leaving this
+      // false would spin the loading card forever.
+      setLocationStatusKnown(true);
     }
   }, [request?._id, request?.status, serviceCategory]);
 
@@ -1545,14 +1556,14 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               <View style={s.compactActionRow}>
                 {hasCoords && (
                   <TouchableOpacity style={s.compactActionBtn} onPress={handleDirections} activeOpacity={0.7}>
-                    <View style={[s.compactActionIcon, { backgroundColor: C.infoFill }]}>
+                    <View style={[s.compactActionIcon, { backgroundColor: C.infoContainer }]}>
                       <Icon name="directions" size={18} color={C.secondary} />
                     </View>
                     <Text style={s.compactActionLabel}>{t('detail.directions')}</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity style={s.compactActionBtn} onPress={handleCall} activeOpacity={0.7}>
-                  <View style={[s.compactActionIcon, { backgroundColor: C.successFill }]}>
+                  <View style={[s.compactActionIcon, { backgroundColor: C.successContainer }]}>
                     <Icon name="phone" size={18} color={C.success} />
                   </View>
                   <Text style={s.compactActionLabel}>{t('common.call')}</Text>
@@ -1562,7 +1573,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                   onPress={() => !locationSharingLoading && handleToggleLocationSharing(!locationSharingEnabled)}
                   activeOpacity={0.7}
                 >
-                  <View style={[s.compactActionIcon, { backgroundColor: locationSharingEnabled ? C.successFill : C.hairline }]}>
+                  <View style={[s.compactActionIcon, { backgroundColor: locationSharingEnabled ? C.successContainer : C.hairline }]}>
                     {locationSharingLoading ? (
                       <ActivityIndicator size={16} color={C.secondary} />
                     ) : (
@@ -1650,7 +1661,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               </View>
             ) : (
               <View style={[s.rowCenter, { gap: 10, marginBottom: 14 }]}>
-                <View style={[s.noProviderIcon, { backgroundColor: C.infoFill, borderColor: C.secondary + '30' }]}>
+                <View style={[s.noProviderIcon, { backgroundColor: C.infoContainer, borderColor: C.secondary + '30' }]}>
                   <Icon name="send" size={20} color={C.secondary} />
                 </View>
                 <View style={s.noProviderInfo}>
@@ -1761,11 +1772,30 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             else if (diffMs < 3600000) lastUpdateLabel = `${Math.floor(diffMs / 60000)}m ago`;
             else lastUpdateLabel = `${Math.floor(diffMs / 3600000)}h ago`;
           }
+          if (!locationStatusKnown) {
+            // Unknown, not negative. locationSharingEnabled defaults to false, which
+            // is indistinguishable from a real "not sharing" — so this card asserted
+            // the provider was not sharing before it had asked, then flipped to LIVE
+            // two seconds later. That is a false statement about someone, briefly.
+            return (
+              <View style={s.card}>
+                <View style={[s.rowCenter, { gap: 10 }]}>
+                  <View style={[s.iconCircle, { backgroundColor: C.hairline }]}>
+                    <ActivityIndicator size="small" color={C.textMuted} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: C.text }}>{t('detail.providerLocation')}</Text>
+                    <Text style={{ fontSize: 11, color: C.textMuted }}>{t('common.loading')}</Text>
+                  </View>
+                </View>
+              </View>
+            );
+          }
           if (locationSharingEnabled && providerLiveLocation) {
             return (
               <View style={s.card}>
                 <View style={[s.rowCenter, { gap: 10, marginBottom: 12 }]}>
-                  <View style={[s.iconCircle, { backgroundColor: C.successFill }]}><Icon name="location" size={18} color={C.success} /></View>
+                  <View style={[s.iconCircle, { backgroundColor: C.successContainer }]}><Icon name="location" size={18} color={C.success} /></View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 14, fontWeight: '700', color: C.text }}>{t('detail.providerLocation')}</Text>
                     <View style={[s.rowCenter, { gap: 5, marginTop: 2 }]}><PulsingDot color={C.success} size={4} /><Text style={{ fontSize: 11, color: C.success, fontWeight: '600' }}>{t('detail.liveStatus')}</Text></View>
@@ -2076,7 +2106,7 @@ const makeStyles = (theme) => {
   headerRequestId: { fontSize: 12, color: C.textMuted, fontWeight: '500' },
   headerEventBadge: { backgroundColor: C.purpleFill, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
   headerEventBadgeText: { fontSize: 9, fontWeight: '700', color: C.purple },
-  headerEmergencyBadge: { backgroundColor: C.dangerFill, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
+  headerEmergencyBadge: { backgroundColor: C.dangerContainer, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
   headerEmergencyBadgeText: { fontSize: 9, fontWeight: '700', color: C.danger },
   headerStatusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14 },
   headerStatusText: { fontSize: 12, fontWeight: '700' },
@@ -2122,7 +2152,7 @@ const makeStyles = (theme) => {
   // Cancellation Card
   cancellationCard: { backgroundColor: C.dangerBg, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: C.dangerLine },
   cancellationHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  cancellationIconCircle: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.dangerFill, alignItems: 'center', justifyContent: 'center' },
+  cancellationIconCircle: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.dangerContainer, alignItems: 'center', justifyContent: 'center' },
   cancellationTitle: { fontSize: 15, fontWeight: '700', color: C.danger },
   cancellationRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5, paddingLeft: 44 },
   cancellationRowText: { fontSize: 13, color: C.danger },
@@ -2153,10 +2183,10 @@ const makeStyles = (theme) => {
   // OTP Expired
   otpExpiredCard: { backgroundColor: C.dangerBg, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: C.dangerLine, alignItems: 'center' },
   otpExpiredHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  otpExpiredIconCircle: { width: 38, height: 38, borderRadius: 19, backgroundColor: C.dangerFill, alignItems: 'center', justifyContent: 'center' },
+  otpExpiredIconCircle: { width: 38, height: 38, borderRadius: 19, backgroundColor: C.dangerContainer, alignItems: 'center', justifyContent: 'center' },
   otpExpiredTitle: { fontSize: 16, fontWeight: '700', color: C.danger },
   otpExpiredDesc: { fontSize: 13, color: C.danger, textAlign: 'center', marginBottom: 14, lineHeight: 18 },
-  otpResendBtn: { flexDirection: 'row', backgroundColor: C.dangerFill, paddingHorizontal: 20, paddingVertical: 11, borderRadius: 14, gap: 6, alignItems: 'center',
+  otpResendBtn: { flexDirection: 'row', backgroundColor: C.dangerContainer, paddingHorizontal: 20, paddingVertical: 11, borderRadius: 14, gap: 6, alignItems: 'center',
     borderWidth: 1,
     borderColor: C.dangerLine,
   },
@@ -2168,12 +2198,12 @@ const makeStyles = (theme) => {
   providerAvatarFallback: { width: 48, height: 48, borderRadius: 24, backgroundColor: C.secondary, justifyContent: 'center', alignItems: 'center' },
   providerAvatarChar: { fontSize: 18, fontWeight: '700', color: C.white },
   verifiedBadge: { position: 'absolute', bottom: -1, right: -2, width: 18, height: 18, borderRadius: 9, backgroundColor: C.success, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: C.white },
-  callBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.successFill, borderRadius: 14, paddingVertical: 11,
+  callBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.successContainer, borderRadius: 14, paddingVertical: 11,
     borderWidth: 1,
     borderColor: C.successBorder,
   },
   callBtnText: { color: C.successDeep, fontWeight: '700', fontSize: 14 },
-  trackBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.infoFill, borderRadius: 14, paddingVertical: 11,
+  trackBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.infoContainer, borderRadius: 14, paddingVertical: 11,
     borderWidth: 1,
     borderColor: C.infoBorder,
   },
@@ -2206,14 +2236,14 @@ const makeStyles = (theme) => {
   fullMapTitle: { fontSize: 17, fontWeight: '700', color: C.text },
   fullMapBottom: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.white, paddingTop: 18, paddingBottom: 34, paddingHorizontal: 18, borderTopLeftRadius: 24, borderTopRightRadius: 24, shadowColor: C.shadow, shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 8 },
   fullMapAddr: { flex: 1, fontSize: 14, color: C.text, lineHeight: 20 },
-  fullMapDirBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.infoFill, paddingVertical: 13, borderRadius: 14, gap: 8,
+  fullMapDirBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.infoContainer, paddingVertical: 13, borderRadius: 14, gap: 8,
     borderWidth: 1,
     borderColor: C.infoBorder,
   },
   fullMapDirText: { fontSize: 15, fontWeight: '700', color: C.onSecondary },
 
   // Directions
-  directionsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.infoFill, borderRadius: 14, paddingVertical: 12,
+  directionsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.infoContainer, borderRadius: 14, paddingVertical: 12,
     borderWidth: 1,
     borderColor: C.infoBorder,
   },
@@ -2234,7 +2264,7 @@ const makeStyles = (theme) => {
   providerOtpInputRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   providerOtpInput: { flex: 1, backgroundColor: C.white, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, fontSize: 18, fontWeight: '700', letterSpacing: 6, borderWidth: 1.5, borderColor: C.purpleLine, textAlign: 'center' },
   providerOtpBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, borderRadius: 14, paddingHorizontal: 16 },
-  providerOtpBtnEnabled: { backgroundColor: C.successFill, shadowColor: C.success, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4,
+  providerOtpBtnEnabled: { backgroundColor: C.successContainer, shadowColor: C.success, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4,
     borderWidth: 1,
     borderColor: C.successBorder,
   },
@@ -2265,11 +2295,11 @@ const makeStyles = (theme) => {
   noProviderRow: { gap: 12, marginBottom: 12 },
   noProviderIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
   noProviderIconActive: { backgroundColor: C.warningFill, borderColor: C.primary + '30' },
-  noProviderIconExpiring: { backgroundColor: C.dangerFill, borderColor: C.dangerLine },
+  noProviderIconExpiring: { backgroundColor: C.dangerContainer, borderColor: C.dangerLine },
   noProviderInfo: { flex: 1 },
   noProviderTitle: { fontSize: 15, fontWeight: '700', color: C.text },
   noProviderDesc: { fontSize: 12, color: C.textMuted, marginTop: 3 },
-  findProvidersBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.infoFill, borderRadius: 12, paddingVertical: 14,
+  findProvidersBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.infoContainer, borderRadius: 12, paddingVertical: 14,
     borderWidth: 1,
     borderColor: C.infoBorder,
   },
@@ -2294,14 +2324,14 @@ const makeStyles = (theme) => {
   serviceLocationLabel: { fontSize: 10, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 },
   openInMapsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.blueBg, borderRadius: 10, paddingVertical: 8, borderWidth: 1, borderColor: C.blueLine },
   openInMapsBtnText: { fontSize: 12, fontWeight: '600', color: C.info },
-  callCustomerBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.successFill, borderRadius: 14, paddingVertical: 12,
+  callCustomerBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.successContainer, borderRadius: 14, paddingVertical: 12,
     borderWidth: 1,
     borderColor: C.successBorder,
   },
   callCustomerBtnText: { color: C.successDeep, fontSize: 14, fontWeight: '700' },
 
   // Track provider
-  trackLiveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.infoFill, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 18, gap: 8,
+  trackLiveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.infoContainer, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 18, gap: 8,
     borderWidth: 1,
     borderColor: C.infoBorder,
   },

@@ -34,6 +34,7 @@ import {
 } from '../theme';
 
 const makeC = (c) => ({
+  pageSolid: c.pageSolid,
   brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
@@ -107,7 +108,11 @@ const UserTypeScreen = ({ navigation }) => {
 
   return (
     <LinearGradient
-      colors={[C.warningBg, C.onPrimary, C.infoBg]}
+      // The middle stop was C.onPrimary — #0F172A, an INK, not a surface. The
+      // welcome screen therefore faded pale-amber -> near-black -> pale-blue in
+      // LIGHT mode, which is the grey band swallowing the subtitle. Same class
+      // as §18: a token named for what it sits ON, used as the thing underneath.
+      colors={[C.warningBg, C.pageSolid, C.infoBg]}
       locations={[0, 0.52, 1]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}

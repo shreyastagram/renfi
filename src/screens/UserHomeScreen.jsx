@@ -98,6 +98,8 @@ const SHEET_MID_HEIGHT = SCREEN_HEIGHT * 0.40; // 40% for initial state - shows 
 // the base flips to the dark-mode blue, so the tint flips with it instead of
 // staying a light-blue wash that would be invisible on a near-black card.
 const makeC = (c) => ({
+  infoContainer: c.infoContainer,
+  dangerContainer: c.dangerContainer,
   brandOrangeLine: c.brandOrangeBorder,
   brandOrangeFill: c.brandOrangeFill,
   infoBorder: c.infoBorder,
@@ -1678,15 +1680,15 @@ const UserHomeScreen = ({ navigation, route }) => {
                 label={t('userHome.emergency')}
                 borderColor={C.dangerLine}
                 bgColor={C.dangerBg}
-                iconBg={C.dangerFill}
+                iconBg={C.dangerContainer}
                 onPress={() => navigation.navigate('EmergencyServices')}
               />
               <QuickAccessCard
                 imageSource={Events3D}
                 label={t('userHome.events')}
                 borderColor={C.infoBorder}
-                bgColor={C.infoFill}
-                iconBg={C.infoFill}
+                bgColor={C.infoContainer}
+                iconBg={C.infoContainer}
                 onPress={() => navigation.navigate('EventServices')}
               />
               <QuickAccessCard
@@ -1786,7 +1788,7 @@ const UserHomeScreen = ({ navigation, route }) => {
 
       {notificationPermission === 'blocked' && (
         <View style={[styles.permissionBar, styles.permissionBarDanger, { top: insets.top + ((locationPermission === 'denied' || locationPermission === 'blocked') || !locationServicesEnabled ? 110 : 60) }]}>
-          <View style={[styles.permissionBarIconWrap, { backgroundColor: C.dangerFill }]}>
+          <View style={[styles.permissionBarIconWrap, { backgroundColor: C.dangerContainer }]}>
             <Icon name="notification" size={18} color={C.danger} />
           </View>
           <Text style={[styles.permissionBarText, styles.permissionBarTextDanger]}>
@@ -2099,14 +2101,16 @@ const makeStyles = (theme) => {
   },
   sheetHandle: {
     alignItems: 'center',
-    paddingTop: 12,
-    paddingBottom: 10,
-    minHeight: 44,
+    paddingTop: 10,
+    // Shorter, and the fade now ends well above the greeting instead of
+    // running into it. paddingBottom carries the clear space.
+    paddingBottom: 16,
+    minHeight: 40,
     overflow: 'hidden',
   },
   // Percentage widths so the fade holds its proportion across screen sizes.
-  sheetTopEdgeLeft: { position: 'absolute', left: 0, top: 0, bottom: 0, width: '42%' },
-  sheetTopEdgeRight: { position: 'absolute', right: 0, top: 0, bottom: 0, width: '42%' },
+  sheetTopEdgeLeft: { position: 'absolute', left: 0, top: 0, bottom: 14, width: '38%' },
+  sheetTopEdgeRight: { position: 'absolute', right: 0, top: 0, bottom: 14, width: '38%' },
   sheetHandleBar: {
     width: 40,
     height: 4,
@@ -2991,7 +2995,7 @@ const makeStyles = (theme) => {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: C.dangerFill,
+    backgroundColor: C.dangerContainer,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
