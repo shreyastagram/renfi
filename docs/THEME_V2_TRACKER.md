@@ -1980,3 +1980,63 @@ whole life — not a regression from the theme work.
 | 1.1.0-beta.16 | 52 | §40 — StatSegments filter row, tab icon role colour in dark, 50 rotating pro tips. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/1g3a9f1dif9hg) |
 | — | — | [Job card ideas mockup](https://claude.ai/code/artifact/5bb56116-c458-4eda-9534-865a1da8b3c7) |
 
+
+---
+
+## §41 — history becomes a list; the pro tip stops shouting
+
+### 41.1 Cards → rows
+
+Owner: *"try not to make it like a card but more like a PhonePe history page —
+but PhonePe history doesn't have buttons which we have here, so it should be a
+mix of both."*
+
+History is a long scroll of mostly-finished jobs. Twenty rounded, bordered,
+elevated cards stacked down a page read as twenty objects competing rather than
+one list you can scan.
+
+| | was | now |
+|---|---|---|
+| container | radius 20, 1px border, elevation 5, 12pt gap | flat row, hairline divider |
+| service icon | 12pt rounded square | 20pt disc |
+| status | pill + dot, radius 16 | squared tag, uppercase, radius 6 |
+| pending | 1.5px brand border | brand tint fill |
+| list | 14pt side padding | full-bleed rows |
+
+**Where it departs from a transaction list, deliberately:** those rows carry no
+actions and these do. Padding stays generous enough for a 44pt target, every
+field and button is untouched, and only *actionable* rows take a tint — the one
+exception that earns a fill, so a new job is findable without a border around
+every sibling.
+
+### 41.2 Pro tip
+
+Tinted in **both** themes now. The solid brand block was a saturated slab
+wherever it landed — the owner's "picking the eyes" in dark, and the same weight
+in light. The coloured shadow is gone in light too; on white it was a heavy
+orange halo under an already-orange block.
+
+Its icon plate needed rethinking rather than copying: a tinted plate on a tinted
+card puts brand ink on brand line at **1.63:1**. It is a small SOLID brand chip
+instead — the one strong element, which is the right place to spend the
+saturation the card no longer uses.
+
+### 41.3 Two regressions the gate caught
+
+Both from text that used to sit on white and now sits on the pending tint:
+
+- "View details" and its chevron — **4.35** against a 4.5 floor
+- the customer avatar's initial — same ratio
+
+Both moved to `#1E5F9E` (6.04 on the tint) rather than being waived. Neither is
+visible as "wrong" to the eye; both would have shipped without `check:ink`.
+
+**A note on reading that gate:** the first diff after this change showed nine
+"new" failures. Eight were the same pre-existing failures at shifted line
+numbers, because rows were removed from the file. Comparing on
+`file|ink|ground|ratio` rather than on line numbers isolated the one that was
+real. Worth doing whenever a change moves lines.
+
+| build | versionCode | notes |
+|---|---|---|
+| 1.1.0-beta.17 | 53 | §41 — history rows, pro tip tinted in both themes. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/2nas2qel26t90) |
