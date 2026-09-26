@@ -43,7 +43,6 @@ import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { Icon } from '../components';
 import ScreenShimmer from '../components/ShimmerLoader';
-import SvgArt from '../components/SvgArt';
 import { useThemedStyles, useThemeColors } from '../theme';
 
 // ─── Design Tokens (matching Settings / Profile) ────────────────────
@@ -295,7 +294,6 @@ const AccountSecurityScreen = () => {
 
       {/* Header */}
       <View style={[s.header, { paddingTop: insets.top + 8, overflow: 'hidden' }]}>
-        <SvgArt color={C.primary} height={70} />
         <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
           <MaterialIcon name="arrow-back" size={22} color={C.text} />
         </TouchableOpacity>

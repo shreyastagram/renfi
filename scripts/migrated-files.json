@@ -45,7 +45,6 @@
     "src/components/ShimmerLoader.jsx",
     "src/components/SplashScreen.jsx",
     "src/components/SupportSheet.jsx",
-    "src/components/SvgArt.jsx",
     "src/components/TimePickerField.jsx",
     "src/components/WeeklyScheduleCard.jsx",
     "src/components/WelcomeModal.jsx",

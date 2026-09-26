@@ -42,7 +42,6 @@ import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
-import SvgArt from '../components/SvgArt';
 import { Icon, ServiceIcon, StatusIcon, RatingModal, FixhomiLogo, CancellationReasonModal } from '../components';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import ScreenShimmer, { useShimmerAnimation, ShimmerBlock } from '../components/ShimmerLoader';
@@ -392,7 +391,7 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
                 {(isActive || isPending) && (
                   <View style={styles.quickActions}>
                     <TouchableOpacity style={styles.btnCall} onPress={() => onCallProvider(request)} activeOpacity={0.7}>
-                      <Icon name="phone" size={15} color={C.white} />
+                      <Icon name="phone" size={15} color={C.successDeep} />
                     </TouchableOpacity>
                     {isActive && (
                       <TouchableOpacity style={styles.btnTrack} onPress={() => onTrackProvider(request)} activeOpacity={0.7}>
@@ -1006,7 +1005,6 @@ const UserServiceHistoryScreen = ({ navigation }) => {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header row — fades between title and compact stats */}
       <View style={[styles.header, { overflow: 'hidden' }]}>
-        <SvgArt color={C.primary} height={60} />
         <TouchableOpacity onPress={() => setIsDrawerOpen(true)} activeOpacity={0.7} style={styles.logoBtn}>
           <Image source={FIXHOMI_LOGO} style={styles.logoImg} />
         </TouchableOpacity>
@@ -1350,7 +1348,7 @@ const makeStyles = (theme) => {
   ratingChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: C.warningBg, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, alignSelf: 'flex-start', marginTop: 2 },
   ratingChipText: { fontSize: 10, fontWeight: '700', color: C.warning },
   quickActions: { flexDirection: 'row', gap: 7 },
-  btnCall: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.success, alignItems: 'center', justifyContent: 'center', shadowColor: C.success, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
+  btnCall: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.successFill, borderWidth: 1, borderColor: C.successBorder, alignItems: 'center', justifyContent: 'center' },
   btnTrack: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center', shadowColor: C.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
 
   // OTP

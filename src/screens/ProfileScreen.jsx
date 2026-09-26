@@ -3248,11 +3248,16 @@ const makeStyles = (theme) => {
     marginTop: 8,
     marginBottom: 4,
   },
+  // A secondary action is OUTLINED, never a near-invisible fill. C.hairline
+  // is a divider tone — on the dark page it reads as a black rectangle with
+  // no edge, which is the owner's "the cancel doesn't have a border".
   editorCancel: {
     flex: 1,
     paddingVertical: 13,
     borderRadius: 12,
-    backgroundColor: C.hairline,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: C.borderMedium,
     alignItems: 'center',
   },
   editorCancelText: {

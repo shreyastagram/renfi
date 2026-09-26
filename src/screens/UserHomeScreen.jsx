@@ -46,7 +46,6 @@ import { LocationMap, Icon, ServiceIcon, DateTimePicker, LocationPicker, Provide
 import PhoneOnboardingSheet from '../components/PhoneOnboardingSheet';
 import HelpSupportButton from '../components/HelpSupportButton';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
-import SvgArt from '../components/SvgArt';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 import { useApp } from '../context/AppContext';
@@ -1828,7 +1827,6 @@ const UserHomeScreen = ({ navigation, route }) => {
 
       {/* Bottom Sheet */}
       <Animated.View style={[styles.bottomSheet, { height: safeMaxHeight, paddingBottom: 8, transform: [{ translateY: sheetTranslateY }] }]}>
-        <SvgArt color={C.primary} height={100} />
         <View style={styles.sheetHandle} {...panResponder.panHandlers}>
           <View style={styles.sheetHandleBar} />
         </View>

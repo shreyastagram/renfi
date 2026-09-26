@@ -48,7 +48,6 @@ import { Analytics, EV, onceEver } from '../services/analytics';
 import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
-import SvgArt from '../components/SvgArt';
 import { Icon, ServiceIcon, CancellationReasonModal } from '../components';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import ScreenShimmer from '../components/ShimmerLoader';
@@ -445,9 +444,9 @@ const RequestCard = React.memo(({ request, onPress, onCall, onDirections, onComp
               </View>
               {(isActive || isPending) && (
                 <View style={styles.quickActions}>
-                  <TouchableOpacity style={styles.btnCall} onPress={() => onCall(request)}><Icon name="phone" size={15} color={C.white} /></TouchableOpacity>
+                  <TouchableOpacity style={styles.btnCall} onPress={() => onCall(request)}><Icon name="phone" size={15} color={C.successDeep} /></TouchableOpacity>
                   {isActive && hasLocation && isLocationTrackable && (
-                    <TouchableOpacity style={styles.btnDir} onPress={() => onDirections(request)}><Icon name="directions" size={15} color={C.white} /></TouchableOpacity>
+                    <TouchableOpacity style={styles.btnDir} onPress={() => onDirections(request)}><Icon name="directions" size={15} color={C.infoDeep} /></TouchableOpacity>
                   )}
                 </View>
               )}
@@ -1069,7 +1068,6 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header row — fades between title and compact stats */}
       <View style={[styles.header, { overflow: 'hidden' }]}>
-        <SvgArt color={C.primary} height={60} />
         <TouchableOpacity onPress={() => setIsDrawerOpen(true)} activeOpacity={0.7} style={styles.headerLogoBtn}>
           <Image source={FIXHOMI_LOGO} style={styles.headerLogoImg} />
         </TouchableOpacity>
@@ -1376,8 +1374,8 @@ const makeStyles = (theme) => {
   customerName: { fontSize: 14, fontWeight: '600', color: C.text },
   customerPhone: { fontSize: 11, color: C.textSec, marginTop: 1 },
   quickActions: { flexDirection: 'row', gap: 7 },
-  btnCall: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.success, alignItems: 'center', justifyContent: 'center', shadowColor: C.success, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
-  btnDir: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.secondary, alignItems: 'center', justifyContent: 'center', shadowColor: C.secondary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
+  btnCall: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.successFill, borderWidth: 1, borderColor: C.successBorder, alignItems: 'center', justifyContent: 'center' },
+  btnDir: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.infoFill, borderWidth: 1, borderColor: C.infoBorder, alignItems: 'center', justifyContent: 'center' },
 
   // Location
   locRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8, gap: 6 },

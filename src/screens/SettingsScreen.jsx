@@ -53,7 +53,6 @@ import {
 } from '../theme';
 import { startLocationTracking, stopLocationTracking } from '../services/socketService';
 import { Icon } from '../components';
-import SvgArt from '../components/SvgArt';
 import { useShimmerAnimation, ShimmerBlock } from '../components/ShimmerLoader';
 import { NODE_BASE_URL, JAVA_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
@@ -1043,7 +1042,6 @@ const SettingsScreen = ({ navigation }) => {
     <View style={styles.container}>
       {/* Premium Header */}
       <View style={[styles.header, { paddingTop: insets.top + 8, overflow: 'hidden' }]}>
-        <SvgArt color={stableDark.ink} height={80} />
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Icon name="arrow_back" size={22} color={stableDark.ink} />
         </TouchableOpacity>

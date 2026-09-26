@@ -40,7 +40,6 @@ import Mapbox from '@rnmapbox/maps';
 import useExitConfirmation from '../hooks/useExitConfirmation';
 import { MenuButton, AvatarButton, DrawerMenu } from '../components/DrawerMenu';
 import HelpSupportButton from '../components/HelpSupportButton';
-import SvgArt from '../components/SvgArt';
 import LocationTrackingBanner from '../components/LocationTrackingBanner';
 import WeeklyScheduleCard from '../components/WeeklyScheduleCard';
 import ProviderHomeTopRow from '../components/ProviderHomeTopRow';
@@ -205,7 +204,6 @@ const HomeSkeletonLoader = ({ insets }) => {
       <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 96 }]} scrollEnabled={false}>
         {/* Hero Header skeleton */}
         <View style={[styles.heroHeader, { paddingTop: insets.top + 16 }]}>
-          <SvgArt color={C.heroArt} height={110} />
           <View style={styles.headerRow}>
             <ShimmerBlock width={40} height={40} borderRadius={20} shimmerAnim={shimmerAnim} style={{ backgroundColor: C.wellFill }} />
             <ShimmerBlock width={40} height={40} borderRadius={20} shimmerAnim={shimmerAnim} style={{ backgroundColor: C.wellFill }} />
@@ -1037,7 +1035,6 @@ const ProviderHomeScreen = ({ navigation }) => {
       >
         {/* Hero Header */}
         <View style={[styles.heroHeader, { paddingTop: insets.top + 16 }]}>
-          <SvgArt color={C.heroArt} height={110} />
 
           <View style={styles.headerRow}>
             <TouchableOpacity onPress={() => setIsDrawerOpen(true)} activeOpacity={0.7} style={styles.headerLogoBtn}>

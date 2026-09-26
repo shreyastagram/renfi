@@ -39,7 +39,6 @@ import { useSupport } from '../context/SupportContext';
 import { Icon, ServiceIcon, StatusIcon, RatingModal, CancellationReasonModal } from '../components';
 import HelpSupportButton from '../components/HelpSupportButton';
 import Svg, { Circle, Path } from 'react-native-svg';
-import SvgArt from '../components/SvgArt';
 import ScreenShimmer, { useShimmerAnimation, ShimmerBlock } from '../components/ShimmerLoader';
 import { NODE_BASE_URL } from '../config/api';
 import { authFetch } from '../utils/authFetch';
@@ -85,6 +84,11 @@ import { getMapStyleURL } from '../config/mapbox';
 // `primary` / `secondary` are also used with hex-alpha concatenation, so they must
 // stay 6-digit hex in both themes -- asserted by the token tests.
 const makeC = (c) => ({
+  successBorder: c.successBorder,
+  successDeep: c.successDeep,
+  infoBorder: c.infoBorder,
+  infoDeep: c.info,
+  borderMedium: c.borderMedium,
   brandOrangeBorder: c.brandOrangeBorder,
   surface: c.surface,
   brandOrangeInk: c.brandOrangeInk,
@@ -437,7 +441,7 @@ const OtpDisplay = ({ otp, expiresAt, onResend, resending }) => {
         </View>
         <Text style={s.otpExpiredDesc}>{t('detail.otpExpiredDesc')}</Text>
         <TouchableOpacity style={[s.otpResendBtn, resendPressed && { opacity: 0.6 }]} onPress={() => { if (resendPressed) return; setResendPressed(true); onResend(); setTimeout(() => setResendPressed(false), 5000); }} disabled={resendPressed}>
-          <Icon name="refresh" size={15} color={C.onDanger} />
+          <Icon name="refresh" size={15} color={C.danger} />
           <Text style={s.otpResendBtnText}>{resendPressed ? t('detail.requesting') : t('detail.requestNewOtp')}</Text>
         </TouchableOpacity>
       </View>
@@ -556,12 +560,12 @@ const ProviderCard = ({ provider, onCall, onGetLocation, showActions }) => {
       {showActions && (
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <TouchableOpacity style={s.callBtn} onPress={onCall}>
-            <Icon name="phone" size={16} color={C.onSuccess} />
+            <Icon name="phone" size={16} color={C.successDeep} />
             <Text style={s.callBtnText}>Call</Text>
           </TouchableOpacity>
           {onGetLocation && (
             <TouchableOpacity style={s.trackBtn} onPress={onGetLocation}>
-              <Icon name="location" size={16} color={C.onPrimary} />
+              <Icon name="location" size={16} color={C.infoDeep} />
               <Text style={s.trackBtnText}>Track</Text>
             </TouchableOpacity>
           )}
@@ -639,7 +643,7 @@ const LocationMapPreview = ({ location, address }) => {
         <Text style={{ flex: 1, fontSize: 13, color: C.text, lineHeight: 19 }}>{address}</Text>
       </View>
       <TouchableOpacity style={s.directionsBtn} onPress={handleGetDirections} activeOpacity={0.7}>
-        <Icon name="directions" size={18} color={C.onSecondary} />
+        <Icon name="directions" size={18} color={C.infoDeep} />
         <Text style={s.directionsBtnText}>{t('detail.getDirections')}</Text>
       </TouchableOpacity>
     </View>
@@ -1432,7 +1436,6 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
       />
       {/* ─── Simple Fixed Header ────────────────────────────────── */}
       <View style={[s.headerOuter, { paddingTop: insets.top + 8, overflow: 'hidden' }]}>
-        <SvgArt color={C.primary} height={70} />
         <View style={s.headerTopRow}>
           <TouchableOpacity style={s.headerBackBtn} onPress={() => navigation.goBack()}>
             <Icon name="back" size={20} color={C.text} />
@@ -1587,7 +1590,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                 <TextInput
       selectionColor={C.primary} style={s.providerOtpInput} value={enteredOtp} onChangeText={setEnteredOtp} placeholder="000000" placeholderTextColor={C.muted} keyboardType="number-pad" maxLength={6} />
                 <TouchableOpacity style={[s.providerOtpBtn, enteredOtp.length === 6 ? s.providerOtpBtnEnabled : s.providerOtpBtnDisabled]} onPress={handleVerifyOtp} disabled={enteredOtp.length !== 6 || verifyingOtp}>
-                  {verifyingOtp ? <ActivityIndicator size="small" color={C.onSuccess} /> : (<><Icon name="check" size={15} color={enteredOtp.length === 6 ? C.onSuccess : C.muted} /><Text style={[s.providerOtpBtnText, enteredOtp.length !== 6 && s.providerOtpBtnTextDisabled]}>{t('providerHistory.complete')}</Text></>)}
+                  {verifyingOtp ? <ActivityIndicator size="small" color={C.successDeep} /> : (<><Icon name="check" size={15} color={enteredOtp.length === 6 ? C.successDeep : C.muted} /><Text style={[s.providerOtpBtnText, enteredOtp.length !== 6 && s.providerOtpBtnTextDisabled]}>{t('providerHistory.complete')}</Text></>)}
                 </TouchableOpacity>
               </View>
             </View>
@@ -1663,7 +1666,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                 onPress={() => navigation.navigate('UserTabs', { screen: 'HomeTab', params: { resumeRequest: request } })}
                 activeOpacity={0.7}
               >
-                <Icon name="search" size={16} color={C.onSecondary} />
+                <Icon name="search" size={16} color={C.infoDeep} />
                 <Text style={s.findProvidersBtnText}>{t('detail.findNewProvider')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -1714,7 +1717,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                   onPress={() => navigation.navigate('UserTabs', { screen: 'HomeTab', params: { resumeRequest: request } })}
                   activeOpacity={0.7}
                 >
-                  <Icon name="search" size={18} color={C.onSecondary} />
+                  <Icon name="search" size={18} color={C.infoDeep} />
                   <Text style={s.findProvidersBtnText}>{t('userHistory.findProviders')}</Text>
                 </TouchableOpacity>
               )}
@@ -1763,7 +1766,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                 </View>
                 {lastUpdateLabel ? (<View style={[s.rowCenter, { gap: 6, marginBottom: 10, paddingLeft: 44 }]}><Icon name="clock" size={11} color={C.textMuted} /><Text style={{ fontSize: 11, color: C.textMuted }}>{t('detail.updated', { time: lastUpdateLabel })}</Text></View>) : null}
                 <TouchableOpacity style={s.trackLiveBtn} onPress={handleGetProviderLocation} activeOpacity={0.7}>
-                  <Icon name="location" size={16} color={C.onSecondary} /><Text style={s.trackLiveBtnText}>{t('detail.trackLive')}</Text><Icon name="chevron-right" size={14} color={C.onSecondary} />
+                  <Icon name="location" size={16} color={C.infoDeep} /><Text style={s.trackLiveBtnText}>{t('detail.trackLive')}</Text><Icon name="chevron-right" size={14} color={C.infoDeep} />
                 </TouchableOpacity>
               </View>
             );
@@ -1886,7 +1889,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             })()}
             {['pending', 'awaiting_confirmation', 'accepted', 'in-progress'].includes(request.status) && (
               <TouchableOpacity style={s.callCustomerBtn} onPress={handleCall}>
-                <Icon name="phone" size={15} color={C.onSuccess} /><Text style={s.callCustomerBtnText}>{t('detail.callCustomer')}</Text>
+                <Icon name="phone" size={15} color={C.successDeep} /><Text style={s.callCustomerBtnText}>{t('detail.callCustomer')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -2058,7 +2061,10 @@ const makeStyles = (theme) => {
   // Simple White Header
   headerOuter: { backgroundColor: C.white, paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: C.hairline, zIndex: 10 },
   headerTopRow: { flexDirection: 'row', alignItems: 'center' },
-  headerBackBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.hairline, justifyContent: 'center', alignItems: 'center' },
+  headerBackBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'transparent', justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1,
+    borderColor: C.borderMedium,
+  },
   headerServiceName: { fontSize: 17, fontWeight: '700', color: C.text },
   headerRequestId: { fontSize: 12, color: C.textMuted, fontWeight: '500' },
   headerEventBadge: { backgroundColor: C.purpleFill, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
@@ -2140,8 +2146,11 @@ const makeStyles = (theme) => {
   otpExpiredIconCircle: { width: 38, height: 38, borderRadius: 19, backgroundColor: C.dangerFill, alignItems: 'center', justifyContent: 'center' },
   otpExpiredTitle: { fontSize: 16, fontWeight: '700', color: C.danger },
   otpExpiredDesc: { fontSize: 13, color: C.danger, textAlign: 'center', marginBottom: 14, lineHeight: 18 },
-  otpResendBtn: { flexDirection: 'row', backgroundColor: C.danger, paddingHorizontal: 20, paddingVertical: 11, borderRadius: 14, gap: 6, alignItems: 'center' },
-  otpResendBtnText: { color: C.onDanger, fontWeight: '700', fontSize: 14 },
+  otpResendBtn: { flexDirection: 'row', backgroundColor: C.dangerFill, paddingHorizontal: 20, paddingVertical: 11, borderRadius: 14, gap: 6, alignItems: 'center',
+    borderWidth: 1,
+    borderColor: C.dangerLine,
+  },
+  otpResendBtnText: { color: C.danger, fontWeight: '700', fontSize: 14 },
 
   // Provider Card
   providerName: { fontSize: 16, fontWeight: '700', color: C.text },
@@ -2149,10 +2158,16 @@ const makeStyles = (theme) => {
   providerAvatarFallback: { width: 48, height: 48, borderRadius: 24, backgroundColor: C.secondary, justifyContent: 'center', alignItems: 'center' },
   providerAvatarChar: { fontSize: 18, fontWeight: '700', color: C.white },
   verifiedBadge: { position: 'absolute', bottom: -1, right: -2, width: 18, height: 18, borderRadius: 9, backgroundColor: C.success, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: C.white },
-  callBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.success, borderRadius: 14, paddingVertical: 11 },
-  callBtnText: { color: C.onSuccess, fontWeight: '700', fontSize: 14 },
-  trackBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.primary, borderRadius: 14, paddingVertical: 11 },
-  trackBtnText: { color: C.onPrimary, fontWeight: '700', fontSize: 14 },
+  callBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.successFill, borderRadius: 14, paddingVertical: 11,
+    borderWidth: 1,
+    borderColor: C.successBorder,
+  },
+  callBtnText: { color: C.successDeep, fontWeight: '700', fontSize: 14 },
+  trackBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.infoFill, borderRadius: 14, paddingVertical: 11,
+    borderWidth: 1,
+    borderColor: C.infoBorder,
+  },
+  trackBtnText: { color: C.infoDeep, fontWeight: '700', fontSize: 14 },
 
   // Map
   mapPreviewWrap: { height: 160, borderRadius: 20, overflow: 'hidden', marginBottom: 10, backgroundColor: C.sunken },
@@ -2174,16 +2189,25 @@ const makeStyles = (theme) => {
   fullMapPin: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.danger, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: stableDark.ink, shadowColor: stableDark.shadowBase, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 6 },
   fullMapPinShadow: { width: 14, height: 5, borderRadius: 7, backgroundColor: mapOverlay.pinShadowStrong, marginTop: 3 },
   fullMapTopBar: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 52, paddingHorizontal: 16, paddingBottom: 12, backgroundColor: C.white },
-  fullMapCloseBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.hairline, justifyContent: 'center', alignItems: 'center' },
+  fullMapCloseBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'transparent', justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1,
+    borderColor: C.borderMedium,
+  },
   fullMapTitle: { fontSize: 17, fontWeight: '700', color: C.text },
   fullMapBottom: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.white, paddingTop: 18, paddingBottom: 34, paddingHorizontal: 18, borderTopLeftRadius: 24, borderTopRightRadius: 24, shadowColor: C.shadow, shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 8 },
   fullMapAddr: { flex: 1, fontSize: 14, color: C.text, lineHeight: 20 },
-  fullMapDirBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.secondary, paddingVertical: 13, borderRadius: 14, gap: 8 },
+  fullMapDirBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.infoFill, paddingVertical: 13, borderRadius: 14, gap: 8,
+    borderWidth: 1,
+    borderColor: C.infoBorder,
+  },
   fullMapDirText: { fontSize: 15, fontWeight: '700', color: C.onSecondary },
 
   // Directions
-  directionsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.secondary, borderRadius: 14, paddingVertical: 12 },
-  directionsBtnText: { fontSize: 14, fontWeight: '700', color: C.onSecondary },
+  directionsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.infoFill, borderRadius: 14, paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: C.infoBorder,
+  },
+  directionsBtnText: { fontSize: 14, fontWeight: '700', color: C.infoDeep },
 
   // Compact Action Card (provider)
   compactActionCard: { backgroundColor: C.white, borderRadius: 20, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: C.line, shadowColor: C.shadow, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8 },
@@ -2200,9 +2224,12 @@ const makeStyles = (theme) => {
   providerOtpInputRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   providerOtpInput: { flex: 1, backgroundColor: C.white, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, fontSize: 18, fontWeight: '700', letterSpacing: 6, borderWidth: 1.5, borderColor: C.purpleLine, textAlign: 'center' },
   providerOtpBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, borderRadius: 14, paddingHorizontal: 16 },
-  providerOtpBtnEnabled: { backgroundColor: C.success, shadowColor: C.success, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4 },
+  providerOtpBtnEnabled: { backgroundColor: C.successFill, shadowColor: C.success, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4,
+    borderWidth: 1,
+    borderColor: C.successBorder,
+  },
   providerOtpBtnDisabled: { backgroundColor: C.disabledFill },
-  providerOtpBtnText: { fontSize: 14, fontWeight: '700', color: C.onSuccess },
+  providerOtpBtnText: { fontSize: 14, fontWeight: '700', color: C.successDeep },
   providerOtpBtnTextDisabled: {
     color: C.muted },
 
@@ -2232,8 +2259,11 @@ const makeStyles = (theme) => {
   noProviderInfo: { flex: 1 },
   noProviderTitle: { fontSize: 15, fontWeight: '700', color: C.text },
   noProviderDesc: { fontSize: 12, color: C.textMuted, marginTop: 3 },
-  findProvidersBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.secondary, borderRadius: 12, paddingVertical: 14 },
-  findProvidersBtnText: { fontSize: 15, fontWeight: '700', color: C.onSecondary },
+  findProvidersBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.infoFill, borderRadius: 12, paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: C.infoBorder,
+  },
+  findProvidersBtnText: { fontSize: 15, fontWeight: '700', color: C.infoDeep },
   waitingPill: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.blueBg, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: C.secondary + '20' },
   waitingPillText: { fontSize: 13, fontWeight: '600', color: C.info, flex: 1 },
   cancelSentBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12, backgroundColor: C.dangerBg, borderRadius: 12, paddingVertical: 13, borderWidth: 1, borderColor: C.dangerLine },
@@ -2254,12 +2284,18 @@ const makeStyles = (theme) => {
   serviceLocationLabel: { fontSize: 10, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 },
   openInMapsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.blueBg, borderRadius: 10, paddingVertical: 8, borderWidth: 1, borderColor: C.blueLine },
   openInMapsBtnText: { fontSize: 12, fontWeight: '600', color: C.info },
-  callCustomerBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.success, borderRadius: 14, paddingVertical: 12 },
-  callCustomerBtnText: { color: C.onSuccess, fontSize: 14, fontWeight: '700' },
+  callCustomerBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.successFill, borderRadius: 14, paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: C.successBorder,
+  },
+  callCustomerBtnText: { color: C.successDeep, fontSize: 14, fontWeight: '700' },
 
   // Track provider
-  trackLiveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.secondary, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 18, gap: 8 },
-  trackLiveBtnText: { color: C.onSecondary, fontWeight: '700', fontSize: 14 },
+  trackLiveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.infoFill, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 18, gap: 8,
+    borderWidth: 1,
+    borderColor: C.infoBorder,
+  },
+  trackLiveBtnText: { color: C.infoDeep, fontWeight: '700', fontSize: 14 },
 
   // Pricing
   priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
