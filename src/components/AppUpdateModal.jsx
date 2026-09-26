@@ -24,28 +24,32 @@ import {  View,
 import TouchableOpacity from './TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { dismissUpdate, openStorePage } from '../services/appUpdateService';
+import { useThemedStyles } from '../theme';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
-const COLORS = {
-  primary: '#f67c16',
-  primaryDark: '#e06b0a',
-  background: '#FFFFFF',
-  darkText: '#0F172A',
-  secondaryText: '#64748B',
-  border: '#E2E8F0',
-  criticalRed: '#DC2626',
-  criticalRedLight: '#FEF2F2',
-  updateGreen: '#059669',
-  updateGreenLight: '#ECFDF5',
-  overlay: 'rgba(0, 0, 0, 0.6)',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  background: c.surface,
+  darkText: c.textPrimary,
+  secondaryText: c.textSecondary,
+  criticalRed: c.danger,
+  criticalRedLight: c.dangerContainer,
+  updateGreen: c.success,
+  updateGreenLight: c.successContainer,
+  // Dismissible unless the update is forced, so this keeps the standard scrim.
+  overlay: c.overlay,
+  sunken: c.surfaceSunken,
+  shadow: c.shadow,
+});
 
 const AppUpdateModal = ({
   visible,
   updateInfo,
   onDismiss,
 }) => {
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -255,182 +259,185 @@ const AppUpdateModal = ({
   );
 };
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: COLORS.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  container: {
-    backgroundColor: COLORS.background,
-    borderRadius: 24,
-    padding: 32,
-    width: '100%',
-    maxWidth: 400,
-    alignItems: 'center',
-    elevation: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-  },
-  logoContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 18,
-    overflow: 'hidden',
-    marginBottom: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-  },
-  logo: {
-    width: 72,
-    height: 72,
-  },
-  badge: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginBottom: 16,
-  },
-  badgeCritical: {
-    backgroundColor: COLORS.criticalRedLight,
-  },
-  badgeOptional: {
-    backgroundColor: COLORS.updateGreenLight,
-  },
-  badgeText: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  badgeTextCritical: {
-    color: COLORS.criticalRed,
-  },
-  badgeTextOptional: {
-    color: COLORS.updateGreen,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: COLORS.darkText,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  message: {
-    fontSize: 15,
-    color: COLORS.secondaryText,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
-  },
-  versionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    padding: 16,
-    width: '100%',
-  },
-  versionItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  versionLabel: {
-    fontSize: 12,
-    color: COLORS.secondaryText,
-    fontWeight: '500',
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  versionValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.darkText,
-  },
-  versionValueNew: {
-    color: COLORS.primary,
-  },
-  versionArrow: {
-    paddingHorizontal: 12,
-  },
-  arrowText: {
-    fontSize: 20,
-    color: COLORS.secondaryText,
-  },
-  releaseNotes: {
-    width: '100%',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-  },
-  releaseNotesTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.darkText,
-    marginBottom: 8,
-  },
-  releaseNotesText: {
-    fontSize: 14,
-    color: COLORS.secondaryText,
-    lineHeight: 20,
-  },
-  autoRedirectText: {
-    fontSize: 14,
-    color: COLORS.primary,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  buttonContainer: {
-    width: '100%',
-    gap: 12,
-  },
-  updateButton: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    width: '100%',
-  },
-  updateButtonText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  dismissButton: {
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  dismissButtonText: {
-    color: COLORS.secondaryText,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  closeAppButton: {
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  closeAppButtonText: {
-    color: COLORS.criticalRed,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  iosCloseHint: {
-    fontSize: 13,
-    color: COLORS.secondaryText,
-    fontWeight: '500',
-    textAlign: 'center',
-    paddingVertical: 8,
-  },
-});
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: C.overlay,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 24,
+    },
+    container: {
+      backgroundColor: C.background,
+      borderRadius: 24,
+      padding: 32,
+      width: '100%',
+      maxWidth: 400,
+      alignItems: 'center',
+      elevation: 20,
+      shadowColor: C.shadow,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.25,
+      shadowRadius: 20,
+    },
+    logoContainer: {
+      width: 72,
+      height: 72,
+      borderRadius: 18,
+      overflow: 'hidden',
+      marginBottom: 20,
+      elevation: 4,
+      shadowColor: C.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+    },
+    logo: {
+      width: 72,
+      height: 72,
+    },
+    badge: {
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+      borderRadius: 20,
+      marginBottom: 16,
+    },
+    badgeCritical: {
+      backgroundColor: C.criticalRedLight,
+    },
+    badgeOptional: {
+      backgroundColor: C.updateGreenLight,
+    },
+    badgeText: {
+      fontSize: 13,
+      fontWeight: '700',
+      letterSpacing: 0.5,
+    },
+    badgeTextCritical: {
+      color: C.criticalRed,
+    },
+    badgeTextOptional: {
+      color: C.updateGreen,
+    },
+    title: {
+      fontSize: 24,
+      fontWeight: '800',
+      color: C.darkText,
+      textAlign: 'center',
+      marginBottom: 12,
+    },
+    message: {
+      fontSize: 15,
+      color: C.secondaryText,
+      textAlign: 'center',
+      lineHeight: 22,
+      marginBottom: 24,
+    },
+    versionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 24,
+      backgroundColor: C.sunken,
+      borderRadius: 14,
+      padding: 16,
+      width: '100%',
+    },
+    versionItem: {
+      alignItems: 'center',
+      flex: 1,
+    },
+    versionLabel: {
+      fontSize: 12,
+      color: C.secondaryText,
+      fontWeight: '500',
+      marginBottom: 4,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    versionValue: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: C.darkText,
+    },
+    versionValueNew: {
+      color: C.primary,
+    },
+    versionArrow: {
+      paddingHorizontal: 12,
+    },
+    arrowText: {
+      fontSize: 20,
+      color: C.secondaryText,
+    },
+    releaseNotes: {
+      width: '100%',
+      backgroundColor: C.sunken,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 24,
+    },
+    releaseNotesTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: C.darkText,
+      marginBottom: 8,
+    },
+    releaseNotesText: {
+      fontSize: 14,
+      color: C.secondaryText,
+      lineHeight: 20,
+    },
+    autoRedirectText: {
+      fontSize: 14,
+      color: C.primary,
+      fontWeight: '600',
+      marginBottom: 16,
+    },
+    buttonContainer: {
+      width: '100%',
+      gap: 12,
+    },
+    updateButton: {
+      backgroundColor: C.primary,
+      borderRadius: 14,
+      paddingVertical: 16,
+      alignItems: 'center',
+      width: '100%',
+    },
+    updateButtonText: {
+      color: C.onPrimary,
+      fontSize: 17,
+      fontWeight: '700',
+    },
+    dismissButton: {
+      paddingVertical: 12,
+      alignItems: 'center',
+    },
+    dismissButtonText: {
+      color: C.secondaryText,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    closeAppButton: {
+      paddingVertical: 12,
+      alignItems: 'center',
+    },
+    closeAppButtonText: {
+      color: C.criticalRed,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    iosCloseHint: {
+      fontSize: 13,
+      color: C.secondaryText,
+      fontWeight: '500',
+      textAlign: 'center',
+      paddingVertical: 8,
+    },
+  });
+};
 
 export default AppUpdateModal;

@@ -21,6 +21,10 @@ import Geolocation from '@react-native-community/geolocation';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 
 import { initializeMapbox } from '../../config/mapbox';
+import {
+  useThemedStyles,
+  mapPin,
+} from '../../theme';
 
 // Initialize Mapbox at module level — BEFORE any MapView renders.
 // In release builds, useEffect runs after first render, by which time
@@ -60,7 +64,8 @@ const requestLocationPermission = async () => {
  * Uses MarkerView on iOS (PointAnnotation has bugs with Fabric/New Architecture)
  * Uses PointAnnotation on Android (works correctly)
  */
-const CustomMarker = ({ coordinate, title, color = '#2563EB', icon = '📍', onPress }) => {
+const CustomMarker = ({ coordinate, title, color = mapPin.markerDefault, icon = '📍', onPress }) => {
+  const styles = useThemedStyles(makeStyles);
   const coord = [coordinate.longitude, coordinate.latitude];
   if (Platform.OS === 'ios') {
     return (
@@ -92,6 +97,7 @@ const CustomMarker = ({ coordinate, title, color = '#2563EB', icon = '📍', onP
  * User Location Marker
  */
 const UserLocationMarker = ({ coordinate }) => {
+  const styles = useThemedStyles(makeStyles);
   const coord = [coordinate.longitude, coordinate.latitude];
   if (Platform.OS === 'ios') {
     return (
@@ -132,6 +138,7 @@ const LocationMap = forwardRef(({
   externalLocation = null, // From LocationContext — skips independent GPS
   children,
 }, ref) => {
+  const styles = useThemedStyles(makeStyles);
   const cameraRef = useRef(null);
   const [isMapReady, setIsMapReady] = useState(false);
   const [userLocation, setUserLocation] = useState(externalLocation || null);
@@ -340,14 +347,14 @@ const LocationMap = forwardRef(({
             <Mapbox.FillLayer
               id="search-radius-fill"
               style={{
-                fillColor: 'rgba(37, 99, 235, 0.1)',
-                fillOutlineColor: 'rgba(37, 99, 235, 0.5)',
+                fillColor: mapPin.geofenceFill,
+                fillOutlineColor: mapPin.geofenceLine,
               }}
             />
             <Mapbox.LineLayer
               id="search-radius-line"
               style={{
-                lineColor: 'rgba(37, 99, 235, 0.5)',
+                lineColor: mapPin.geofenceLine,
                 lineWidth: 2,
               }}
             />
@@ -365,7 +372,7 @@ const LocationMap = forwardRef(({
             >
               <View style={styles.serviceLocationMarker}>
                 <View style={styles.serviceLocationPin}>
-                  <MaterialIcon name="place" size={32} color="#FFFFFF" />
+                  <MaterialIcon name="place" size={32} color={mapPin.ink} />
                 </View>
                 <View style={styles.serviceLocationPinTail} />
               </View>
@@ -378,7 +385,7 @@ const LocationMap = forwardRef(({
             >
               <View style={styles.serviceLocationMarker}>
                 <View style={styles.serviceLocationPin}>
-                  <MaterialIcon name="place" size={32} color="#FFFFFF" />
+                  <MaterialIcon name="place" size={32} color={mapPin.ink} />
                 </View>
                 <View style={styles.serviceLocationPinTail} />
               </View>
@@ -396,7 +403,7 @@ const LocationMap = forwardRef(({
               longitude: marker.longitude,
             }}
             title={marker.title}
-            color={marker.color || '#2563EB'}
+            color={marker.color || mapPin.markerDefault}
             icon={marker.icon || '📍'}
             onPress={() => marker.onPress?.(marker)}
           />
@@ -409,105 +416,108 @@ const LocationMap = forwardRef(({
   );
 });
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  map: {
-    flex: 1,
-  },
-  loadingContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  errorContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FEF2F2',
-  },
-  errorIcon: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  errorText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#DC2626',
-    marginBottom: 4,
-  },
-  errorSubtext: {
-    fontSize: 14,
-    color: '#EF4444',
-  },
-  // Marker styles
-  markerContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  markerIcon: {
-    fontSize: 18,
-  },
-  // User location marker
-  userMarkerOuter: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(37, 99, 235, 0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  userMarkerInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#2563EB',
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  // Selected service location marker (orange pin)
-  serviceLocationMarker: {
-    alignItems: 'center',
-  },
-  serviceLocationPin: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#f67c16',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 8,
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-  },
-  serviceLocationPinTail: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 8,
-    borderRightWidth: 8,
-    borderTopWidth: 10,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: '#f67c16',
-    marginTop: -2,
-  },
-});
+const makeStyles = (theme) => {
+  const C = theme.colors;
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    map: {
+      flex: 1,
+    },
+    loadingContainer: {
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: C.surfaceSunken,
+    },
+    loadingText: {
+      marginTop: 12,
+      fontSize: 14,
+      color: C.textSecondary,
+    },
+    errorContainer: {
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: C.dangerContainer,
+    },
+    errorIcon: {
+      fontSize: 48,
+      marginBottom: 12,
+    },
+    errorText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: C.danger,
+      marginBottom: 4,
+    },
+    errorSubtext: {
+      fontSize: 14,
+      color: C.danger,
+    },
+    // Marker styles
+    markerContainer: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: mapPin.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 5,
+    },
+    markerIcon: {
+      fontSize: 18,
+    },
+    // User location marker
+    userMarkerOuter: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: mapPin.userHalo,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    userMarkerInner: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      backgroundColor: mapPin.userDot,
+      borderWidth: 2,
+      borderColor: mapPin.ring,
+    },
+    // Selected service location marker (orange pin)
+    serviceLocationMarker: {
+      alignItems: 'center',
+    },
+    serviceLocationPin: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: mapPin.servicePin,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: mapPin.shadow,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.35,
+      shadowRadius: 6,
+      elevation: 8,
+      borderWidth: 3,
+      borderColor: mapPin.ring,
+    },
+    serviceLocationPinTail: {
+      width: 0,
+      height: 0,
+      borderLeftWidth: 8,
+      borderRightWidth: 8,
+      borderTopWidth: 10,
+      borderLeftColor: 'transparent',
+      borderRightColor: 'transparent',
+      borderTopColor: mapPin.servicePin,
+      marginTop: -2,
+    },
+  });
+};
 
 export default LocationMap;

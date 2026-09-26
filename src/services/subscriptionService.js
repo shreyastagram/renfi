@@ -24,6 +24,7 @@ import { authFetch } from '../utils/authFetch';
 import { getRazorpayKeyId, getEnvironmentName } from '../config/environment';
 import { Analytics, EV } from './analytics';
 import { getTokens } from '../utils/storage';
+import { brand } from '../theme';
 
 // Platform-gated import: react-native-razorpay has Android-only native code.
 // Importing it on iOS will crash the app at module load time.
@@ -298,7 +299,12 @@ export const openRazorpayCheckout = async ({ order, plan, prefill, razorpayKeyId
         name: prefill.name || '',
       },
       theme: {
-        color: '#2563EB', // Blue theme matching app
+        // Razorpay renders its own native checkout sheet, and this is the accent it
+        // paints. It is not a theme token: a service module has no hook access, and
+        // the sheet does its own light/dark. Previously '#2563EB' behind a comment
+        // claiming it matched the app — it is indigo, not the Fixhomi blue. Now it
+        // actually matches.
+        color: brand.blue,
       },
       retry: {
         enabled: true,

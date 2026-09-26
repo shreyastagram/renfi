@@ -3,7 +3,7 @@
 **Branch:** `feature/theme-v2` (off tag **`v1.0.9`** = `b74f862`)
 **Colour contract:** `docs/COLOUR_MAP.md`
 **Also read:** `FIXORA_APP/WORK_AVAILABILITY_TRACKER.md` — Working Hours is live in prod.
-**Last updated:** 2026-09-25, after Phase 7 batch 1.
+**Last updated:** 2026-09-26, after the components sweep — `src/` is now literal-free.
 
 > **Read this file BEFORE touching code.** If it contradicts the code, **STOP and flag it** —
 > do not proceed on a false premise.
@@ -15,36 +15,32 @@
 
 ## ▶ 1. WHERE WE ARE RIGHT NOW
 
-**Phases 0–5a, 6a, ALL of 6b, and Phase 7 batches 1–3 done.**
+**Phases 0–9 done. Every file under `src/` is now free of colour literals.**
 
-- The theme engine is live and **11 components consume it**. The Appearance control ships.
-- Switching to Dark currently changes: the status bar, dialogs, alerts, inputs, icons,
-  skeleton loaders, the notification banner, the drawer menu, and the tab-bar pill on
-  low-end devices. **Screens themselves are not themed yet.**
-- `npm run verify` exits 0. Working tree clean apart from the owner's `.vscode/settings.json`
-  and `android/clean.log`.
-- **Eight user screens are now themed** (`PSATriggerScreen`, `PSAContactsScreen`,
-  `ReferralScreen`, `FavoritesScreen`, `LiveTrackingScreen`, `EventServicesScreen`,
-  `CreateServiceRequestScreen`, `UserServiceHistoryScreen`), and the live-tracking map
-  follows the theme via `StyleURL.TrafficNight`.
-- **Nothing is device-verified.** This environment cannot run the app.
+- **Zero colour literals remain anywhere in `src/`** — all 38 screens and every component.
+  The only literals left in the app are `src/theme/tokens/palette.js` (the one file allowed
+  them) and `navigation/RootNavigator.jsx` (26, intentional — see §15).
+- Switching to Dark now changes the whole app, including the splash hand-off and the crash
+  screen.
+- `npm run verify` exits **0** — verify by exit code, never by grepping for "OK".
+- **Nothing is device-verified.** This environment cannot run the app. Two Firebase builds
+  have shipped to the tester: `1.1.0-beta.1` (37) and `1.1.0-beta.2` (38, the true-black ramp).
 
 ### Next action
 
-**Every screen is themed. Phase 5b's verification screens and `InsuranceScreen` came with
-Phase 9, since they shared the same slate ramp.**
+**The colour migration is finished.** What is left is not colour work.
 
 Remaining, in the order I would take it:
 
-1. **22 components, ~520 literals** — none reachable from a themed screen, so none block a
-   device test. Mostly leaf pieces and a few unused-looking files worth checking before
-   theming (see Phase 4's method: prove unused, then delete).
-2. **17 `SafeAreaView` call sites across 15 files** → `<Screen>`. This is the one with
-   real user impact left: `targetSdk 36` enforces edge-to-edge, and the tester build may
+1. **17 `SafeAreaView` call sites across 15 files** → `<Screen>`. **The only item left with
+   real user impact:** `targetSdk 36` enforces edge-to-edge, and the tester build may
    already show it on 3-button navigation.
-3. **Phase 5b, behaviour only** — verification defects V1–V6 and `profile.emailPending`.
-   Zero colour work; it is the only functional item left in the whole plan.
-4. **Phase 10** — full sweep + the device checklist above.
+2. **Phase 5b, behaviour only** — verification defects V1–V6 and `profile.emailPending`
+   (i18n 2074 → 2075). Zero colour work; the only functional item left in the plan.
+3. **Phase 10** — full sweep + the device checklist above.
+
+Open, awaiting the owner's word: deepen `surfaceElevated` from `#26262B` to `#1A1A1F`
+(one usage in the whole app).
 
 ---
 
@@ -61,14 +57,14 @@ contract.
 - [x] **Phase 5a** — Settings Appearance control (Light / Dark / System), 7 i18n keys
 - [ ] **Phase 5b** — Verification module + defects V1–V6 + `profile.emailPending`
 - [x] **Phase 6a** — Pilot: `CustomDialog` (proved the `useThemedStyles` pattern)
-- [ ] **Phase 6b** — Rest of shared chrome
+- [x] **Phase 6b** — Rest of shared chrome
   - [x] batch 1 — `Button`, `Alert`, `ShimmerLoader` (zero security exposure)
   - [x] batch 2 — `Input`, `Icon`, `GlobalBanner` (+ category-map dedupe)
   - [x] batch 3 — `DrawerMenu` (full), `RootNavigator` (surgical — see §15)
   - [x] batch 4 — `<Screen>` primitive built + piloted on `EmailVerifyHandlerScreen`.
         **17 SafeAreaView sites still to swap** — they land with their own phases
         (auth screens in 9, verification in 5b), not as a big-bang change.
-- [ ] **Phase 7** — User screens + Mapbox theme following (`TrafficNight`)
+- [x] **Phase 7** — User screens + Mapbox theme following (`TrafficNight`)
   - [x] batch 1 — `PSATriggerScreen`, `PSAContactsScreen`, `ReferralScreen` (zero-security)
   - [x] batch 2 — `FavoritesScreen`, `LiveTrackingScreen`, `EventServicesScreen`
   - [x] batch 3 — `CreateServiceRequestScreen`, `UserServiceHistoryScreen`
@@ -84,6 +80,15 @@ contract.
   - [x] `ProviderRegisterScreen`, `ProviderServiceHistoryScreen`
   - [x] `ServiceApprovalsScreen`
 - [x] **Phase 9** — Auth screens (and the verification + insurance screens, which shared the same ramp)
+- [x] **Phase 9b** — Components sweep: the last 13 files
+    - [x] Proved-unused then deleted: `ThreadBackground`, `SVGFixhomi` (unreferenced at
+          `v1.0.9` too — dead before this work started)
+    - [x] `ErrorBoundary` — the crash screen, which needed a context-free theme read (§17)
+    - [x] `GoogleLogo` → `vendor`; `SupportSheet` (+ `vendor.whatsappGreen`)
+    - [x] `MaintenanceModal`, `AppUpdateModal`, `InlineFieldCollectorModal`, `WelcomeModal`
+    - [x] `SplashScreen` → new `splash` group; `LocationMap` → new `mapPin` group
+    - [x] `AddressForm` (37 literals, 3 components to wire — the largest single file)
+    - [x] `subscriptionService.js` — the Razorpay checkout accent
 - [ ] **Phase 10** — Full sweep + device-test checklist
 
 ---
@@ -92,11 +97,11 @@ contract.
 
 | Measure | Value |
 |---|---|
-| Colour literals remaining | **552** (3,329 at v1.0.9) — measured, see note |
-| Files on the hex allowlist | **82** |
-| Components fully themed | **8** — CustomDialog, Button, Alert, ShimmerLoader, Input, Icon, GlobalBanner, DrawerMenu (+ RootNavigator surgically) |
-| Screens fully themed | **ALL OF THEM** — 38 screens, zero colour literals left in `src/screens` |
-| Theme unit tests | 30 across 6 suites |
+| Colour literals remaining | **0 in `src/`** (3,329 at v1.0.9). Repo total 414: 321 in `palette.js` (the one file allowed them), 26 in `RootNavigator` (§15), the rest is comment prose |
+| Files on the hex allowlist | **93** |
+| Components fully themed | **ALL OF THEM** |
+| Screens fully themed | **ALL OF THEM** — 38 screens |
+| Theme unit tests | 40 across 8 suites |
 | Owner's Working Hours tests | 86 — **must never regress** |
 | i18n | **2074** × en/hi/mr (2067 baseline + 7 theme keys) |
 
@@ -116,6 +121,11 @@ series, one measurement per commit:
 | batch 4b `605c97f` | 2,365 | 173 |
 | batch 5 | **2,249** | 173 |
 | ProfileScreen | **1,961** | 173 |
+| components sweep | **414** | 175 |
+
+At 414 the formula has bottomed out: it counts comment text and `palette.js`, so it can
+never reach zero. The measure that matters from here is the comment-excluding count over
+`src/` minus `palette.js`, which is **0**.
 
 Recount with:
 
@@ -138,11 +148,9 @@ pattern is proven. The remaining literals are mechanical.
 
 | Area | Colours | Phase |
 |---|---|---|
-| Everything else (screens) | ~1,492 | 7–9 |
-| Verification surfaces | 395 | 5b |
-| Working Hours | 126 | 8 |
-| Settings screen | 47 | 6b/7 |
-| `RootNavigator` (adaptive-tone values, intentionally literal) | ~24 | n/a — see §15 |
+| `RootNavigator` (adaptive-tone values, intentionally literal) | 26 | n/a — see §15 |
+
+Everything else is done.
 
 ---
 
@@ -400,7 +408,19 @@ const MyScreen = () => {
 ### Theme-independent groups (added as screens needed them)
 
 `categoryAccent`, `iconAccent`, `medal`, `brandTint`, `vendor`, `mapRoute`, `mapOverlay`,
-`stableDark`, `stableEmergency`, **`premium`**.
+`stableDark`, `stableEmergency`, `premium`, `heroGradient`, **`mapPin`**, **`splash`**.
+
+`mapPin` is markers and geofence geometry drawn ON the map. They sit over Mapbox tiles, not
+over our surfaces: a pin that inverted with the app theme would still have to stay legible
+against satellite imagery and street tiles, which no single flip achieves. Same rule as
+`mapRoute` and `mapOverlay`.
+
+`splash` is the cold-start brand panel — deep navy, white ink, orange glow. It is shown
+*before* the theme has been read from storage, so flipping it would mean a light splash
+handing off to a dark app on every cold start: exactly the flash this work exists to remove.
+
+**When you add a group, add it to the `resolvable` list in `scripts/check-light-fidelity.js`**
+or the gate reports its colours as unexplained drift.
 
 `premium` is the navy + gold subscription system — the hero, the active-plan header band
 and the launch-offer chip. Deliberately separate from `stableDark` (slate + white chrome):
@@ -508,6 +528,21 @@ expiry; `PhoneChangeModal` has a reentry guard, mirror-sync retry and process-de
    surface separation by 8-bit code-value gap instead.
 8. **`formatServiceName` ×3 have DIVERGED** — do not merge. `getErrorMessage` ×2 are
    different functions sharing a name — do not merge.
+9. **A gate that does not list your file passes vacuously.** `check:light` iterates
+   `scripts/migrated-files.json`. The components sweep passed all five gates while those 13
+   files were unlisted; adding them surfaced 16 real undeclared changes. **Register a file
+   in `migrated-files.json` in the same commit that migrates it**, and re-run the gate to
+   confirm it now has something to say.
+10. **Track the style block by a line that ENDS with `{`.** A rule keyed on the enclosing
+   style key silently moved scope when it hit `shadowOffset: { width: 0, height: 4 },` — a
+   nested object on one line, not a new block. Anchor the regex with `\s*$`.
+11. **Zero literals is not working code.** The no-undef count is the check that matters:
+   `LocationMap` reached zero literals while `CustomMarker` and `UserLocationMarker` still
+   referenced a `styles` that no longer existed at module scope. Run eslint per file and
+   compare it rule-for-rule against the same file at `HEAD` before calling it done.
+12. **Replace order matters when one rule feeds another.** Renaming `WHATSAPP_GREEN` →
+   `vendor.whatsappGreen` consumed its own `const` declaration, so the later rule that was
+   meant to delete that line found nothing. Delete declarations before renaming references.
 
 ---
 
@@ -557,6 +592,28 @@ conflated:
 Everything else in that file (`tint`, `lensBg`, `lensBorder`, `DARK_*`) belongs to system 1
 and is intentionally still literal. **Do not "finish" this file without re-reading the
 above** — RootNavigator is therefore NOT on the hex allowlist, on purpose.
+
+## 17. The crash screen reads the theme WITHOUT context
+
+`ErrorBoundary` is mounted **above** `ThemeProvider` in `App.tsx` — deliberately, or it
+could not catch a crash inside the provider. That placement means it can never read theme
+context: `useThemeColors()` called from there, or from a wrapper around it, is outside the
+provider and always returns the light fallback. A dark-mode user would get a full-screen
+white flash at the exact moment the app fails.
+
+So `src/theme/lastResolvedTheme.js` is a module singleton: `ThemeProvider` **pushes** its
+resolved name in an effect, and the crash screen **pulls** it synchronously — no context,
+no hooks, no storage read on the crash path. It falls back to `Appearance.getColorScheme()`
+(covers a crash before the provider ever mounted), then to light, and every step is wrapped
+because a throw there would take down the one screen whose job is surviving a throw.
+
+**This is not a general escape hatch.** A module singleton does not re-render, so any live
+component reading it would go stale on a theme switch. The crash screen is exempt only
+because it renders once, after the tree it would have re-rendered with is already gone.
+`src/theme/__tests__/lastResolvedTheme.test.js` asserts the dark path and asserts that
+`ErrorBoundary` contains no hook *call*.
+
+---
 
 ## 14. MOCKUPS (approved)
 

@@ -42,5 +42,7 @@ export {
   brandTint,
   mapRoute,
   mapOverlay,
+  mapPin,
   brand,
+  splash,
 } from './tokens/palette.js';

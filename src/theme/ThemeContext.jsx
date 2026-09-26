@@ -24,6 +24,7 @@ import React, {
 import { Appearance } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { themes, lightTheme } from './themes.js';
+import { publishResolvedTheme } from './lastResolvedTheme.js';
 import {
   resolveThemeName,
   THEME_MODE_KEY,
@@ -83,6 +84,14 @@ export const ThemeProvider = ({ children }) => {
 
   const themeName = resolveThemeName(mode, systemScheme);
   const theme = themes[themeName] || lightTheme;
+
+  // Hand the resolved name to the context-free reader, so ErrorBoundary — which is
+  // mounted above this provider and therefore cannot subscribe — can still paint the
+  // crash screen in the user's theme. In an effect, not in render, because this is a
+  // write to module state.
+  useEffect(() => {
+    publishResolvedTheme(themeName);
+  }, [themeName]);
 
   const value = useMemo(
     () => ({

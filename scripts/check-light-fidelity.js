@@ -37,6 +37,34 @@ const palette = require('../src/theme/tokens/palette.js');
  * disappears is reported as a possible regression.
  */
 const EXPECTED_CHANGES = {
+  'src/components/AddressForm.jsx': {
+    '#faf7f7': 'the one warm-white input well converged onto surfaceSunken (#F8FAFC) -- the cool-white every other input already used',
+    '#f3f4f6': 'gray-100 chips converged onto surfaceSunken (#F8FAFC) -- one neutral family instead of two',
+    '#fee2e2': 'converged onto dangerContainer (#FEF2F2)',
+    '#ecfdf5': 'converged onto successContainer (#F0FDF4) -- emerald-50 and green-50 are the same step',
+    '#a7f3d0': 'converged onto successBorder (#BBF7D0)',
+    '#fca5a5': 'converged onto dangerBorder (#FECACA) -- the lighter of the two, matching Alert',
+  },
+  'src/components/AppUpdateModal.jsx': {
+    '#e06b0a': 'the primaryDark key was declared and never referenced, at v1.0.9 too -- removed rather than tokenised',
+    '#059669': 'converged onto the success token (#15803D), which passes AA as text',
+    '#ecfdf5': 'converged onto successContainer (#F0FDF4)',
+    'rgba(0,0,0,0.6)': 'modal scrims unified onto theme.colors.overlay -- lighter, and slate-tinted rather than pure black',
+  },
+  'src/components/MaintenanceModal.jsx': {
+    '#d97706': 'converged onto the warning token (#B45309), which passes AA as text',
+    '#fffbeb': 'converged onto warningContainer (#FFF7ED)',
+    'rgba(0,0,0,0.7)': 'a maintenance gate is never dismissible, so it takes overlayStrong (0.85) -- deliberately heavier than a sheet scrim',
+  },
+  'src/components/MapView/LocationMap.jsx': {
+    '#f3f4f6': 'the map loading panel converged onto surfaceSunken (#F8FAFC)',
+  },
+  'src/components/SupportSheet.jsx': {
+    '#eef2f6': 'converged onto the border token (#E2E8F0) -- one hairline colour app-wide',
+  },
+  'src/components/WelcomeModal.jsx': {
+    'rgba(15,23,42,0.55)': 'modal scrims unified onto theme.colors.overlay; slightly lighter',
+  },
   'src/components/CustomDialog.jsx': {
     '#FFFFFF': 'a11y: white on the orange primary button was 2.69:1 -> onBrandOrange',
     '#EF4444': 'converged onto the danger token (#B91C1C), which passes AA',
@@ -1147,6 +1175,8 @@ for (const group of [
   'premium',
   'heroGradient',
   'vendor',
+  'mapPin',
+  'splash',
 ]) {
   const g = palette[group];
   if (g) Object.values(g).forEach((v) => resolvable.add(norm(String(v))));

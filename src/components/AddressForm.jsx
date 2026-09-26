@@ -30,16 +30,34 @@ import { addAddress, updateAddress } from '../services/addressService';
 import MapPickerModal from './MapPickerModal';
 
 // Brand colors - User side uses blue as accent
-const BRAND = {
-  primary: '#f67c16', // Orange
-  secondary: '#2b76bc', // Blue - user side accent
-  background: '#faf7f7',
-  white: '#FFFFFF',
-  neutral: '#6B7280',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  secondary: c.brandBlue,
+  onSecondary: c.onBrandBlue,
+  surface: c.surface,
+  sunken: c.surfaceSunken,
+  border: c.border,
+  text: c.textPrimary,
+  body: c.textBody,
+  neutral: c.textSecondary,
+  muted: c.textMuted,
+  info: c.info,
+  infoFill: c.infoContainer,
+  success: c.success,
+  successFill: c.successContainer,
+  successLine: c.successBorder,
+  danger: c.danger,
+  dangerFill: c.dangerContainer,
+  dangerLine: c.dangerBorder,
+  warnFill: c.warningContainer,
+});
 
 // Mapbox Access Token (from .env via centralized config)
 import { MAPBOX_ACCESS_TOKEN } from '../config/mapbox';
+import {
+  useThemedStyles,
+  useThemeColors,
+} from '../theme';
 
 /**
  * Reverse geocode coordinates using Mapbox
@@ -83,22 +101,26 @@ const reverseGeocode = async (latitude, longitude) => {
 /**
  * Label Chip Component
  */
-const LabelChip = ({ icon, label, selected, onPress }) => (
-  <TouchableOpacity
-    style={[styles.labelChip, selected && styles.labelChipSelected]}
-    onPress={onPress}
-    activeOpacity={0.7}
-  >
-    <MaterialIcon 
-      name={icon} 
-      size={18} 
-      color={selected ? BRAND.white : BRAND.neutral} 
-    />
-    <Text style={[styles.labelChipText, selected && styles.labelChipTextSelected]}>
-      {label}
-    </Text>
-  </TouchableOpacity>
-);
+const LabelChip = ({ icon, label, selected, onPress }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  return (
+    <TouchableOpacity
+      style={[styles.labelChip, selected && styles.labelChipSelected]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <MaterialIcon 
+        name={icon} 
+        size={18} 
+        color={selected ? C.onSecondary : C.neutral} 
+      />
+      <Text style={[styles.labelChipText, selected && styles.labelChipTextSelected]}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+};
 
 /**
  * Form Input Component
@@ -113,29 +135,33 @@ const FormInput = ({
   multiline = false,
   keyboardType = 'default',
   maxLength,
-}) => (
-  <View style={styles.inputContainer}>
-    <Text style={styles.inputLabel}>
-      {label}
-      {required && <Text style={styles.requiredStar}> *</Text>}
-    </Text>
-    <TextInput
-      style={[
-        styles.input,
-        multiline && styles.inputMultiline,
-        error && styles.inputError,
-      ]}
-      value={value}
-      onChangeText={onChangeText}
-      placeholder={placeholder}
-      placeholderTextColor="#9CA3AF"
-      multiline={multiline}
-      keyboardType={keyboardType}
-      maxLength={maxLength}
-    />
-    {error && <Text style={styles.errorText}>{error}</Text>}
-  </View>
-);
+}) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
+  return (
+    <View style={styles.inputContainer}>
+      <Text style={styles.inputLabel}>
+        {label}
+        {required && <Text style={styles.requiredStar}> *</Text>}
+      </Text>
+      <TextInput
+        style={[
+          styles.input,
+          multiline && styles.inputMultiline,
+          error && styles.inputError,
+        ]}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={C.muted}
+        multiline={multiline}
+        keyboardType={keyboardType}
+        maxLength={maxLength}
+      />
+      {error && <Text style={styles.errorText}>{error}</Text>}
+    </View>
+  );
+};
 
 /**
  * AddressForm Component
@@ -146,6 +172,8 @@ const FormInput = ({
  * @param {Function} onClose - Callback to close form
  */
 const AddressForm = ({ userId, address, onSave, onClose }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
   const isEditing = !!address;
@@ -405,7 +433,7 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <MaterialIcon name="close" size={24} color="#374151" />
+          <MaterialIcon name="close" size={24} color={C.body} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
           {isEditing ? 'Edit Address' : 'Add New Address'}
@@ -460,19 +488,19 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
           /* Location is set — show confirmation with place name and change/clear options */
           <View style={[styles.locationButton, styles.locationButtonSuccess]}>
             <View style={styles.locationButtonIcon}>
-              <MaterialIcon name="check-circle" size={22} color="#10B981" />
+              <MaterialIcon name="check-circle" size={22} color={C.success} />
             </View>
             <View style={styles.locationButtonContent}>
               <Text style={styles.locationButtonTitle}>Location Set</Text>
-              <Text style={[styles.locationButtonSubtitle, { color: '#374151' }]} numberOfLines={2}>
+              <Text style={[styles.locationButtonSubtitle, { color: C.body }]} numberOfLines={2}>
                 {locationName || 'Location detected'}
               </Text>
             </View>
             <TouchableOpacity 
               onPress={handleClearLocation}
-              style={{ padding: 8, backgroundColor: '#FEE2E2', borderRadius: 8 }}
+              style={{ padding: 8, backgroundColor: C.dangerFill, borderRadius: 8 }}
             >
-              <MaterialIcon name="close" size={18} color="#EF4444" />
+              <MaterialIcon name="close" size={18} color={C.danger} />
             </TouchableOpacity>
           </View>
         ) : (
@@ -487,10 +515,10 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
               disabled={gettingLocation}
             >
               {gettingLocation ? (
-                <ActivityIndicator size="small" color="#3B82F6" />
+                <ActivityIndicator size="small" color={C.info} />
               ) : (
                 <View style={styles.locationButtonIcon}>
-                  <MaterialIcon name="my-location" size={22} color="#3B82F6" />
+                  <MaterialIcon name="my-location" size={22} color={C.info} />
                 </View>
               )}
               <View style={styles.locationButtonContent}>
@@ -507,8 +535,8 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
               onPress={() => setShowMapPicker(true)}
               activeOpacity={0.7}
             >
-              <View style={[styles.locationButtonIcon, { backgroundColor: '#FFF7ED' }]}>
-                <MaterialIcon name="map" size={22} color={BRAND.primary} />
+              <View style={[styles.locationButtonIcon, { backgroundColor: C.warnFill }]}>
+                <MaterialIcon name="map" size={22} color={C.primary} />
               </View>
               <View style={styles.locationButtonContent}>
                 <Text style={styles.locationButtonTitle}>Choose on Map</Text>
@@ -516,7 +544,7 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
                   Pick a location by moving the map
                 </Text>
               </View>
-              <MaterialIcon name="chevron-right" size={22} color="#9CA3AF" />
+              <MaterialIcon name="chevron-right" size={22} color={C.muted} />
             </TouchableOpacity>
           </View>
         )}
@@ -529,21 +557,21 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
               disabled={gettingLocation}
             >
               {gettingLocation ? (
-                <ActivityIndicator size="small" color="#3B82F6" />
+                <ActivityIndicator size="small" color={C.info} />
               ) : (
-                <MaterialIcon name="my-location" size={16} color="#3B82F6" />
+                <MaterialIcon name="my-location" size={16} color={C.info} />
               )}
-              <Text style={[styles.locationActionText, { color: '#3B82F6' }]}>
+              <Text style={[styles.locationActionText, { color: C.info }]}>
                 {gettingLocation ? 'Detecting...' : 'Re-detect GPS'}
               </Text>
             </TouchableOpacity>
             
             <TouchableOpacity
-              style={[styles.locationActionChip, { backgroundColor: '#FFF7ED' }]}
+              style={[styles.locationActionChip, { backgroundColor: C.warnFill }]}
               onPress={() => setShowMapPicker(true)}
             >
-              <MaterialIcon name="map" size={16} color={BRAND.primary} />
-              <Text style={[styles.locationActionText, { color: BRAND.primary }]}>
+              <MaterialIcon name="map" size={16} color={C.primary} />
+              <Text style={[styles.locationActionText, { color: C.primary }]}>
                 Pick on Map
               </Text>
             </TouchableOpacity>
@@ -621,10 +649,10 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
           activeOpacity={0.8}
         >
           {saving ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
+            <ActivityIndicator size="small" color={C.onSecondary} />
           ) : (
             <>
-              <MaterialIcon name="check" size={20} color="#FFFFFF" />
+              <MaterialIcon name="check" size={20} color={C.onSecondary} />
               <Text style={styles.saveButtonText}>
                 {isEditing ? 'Update Address' : 'Save Address'}
               </Text>
@@ -645,214 +673,217 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: BRAND.white,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: BRAND.neutral,
-    marginBottom: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  labelContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
-  },
-  labelChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 24,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  labelChipSelected: {
-    backgroundColor: BRAND.secondary,
-    borderColor: BRAND.secondary,
-  },
-  labelChipText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: BRAND.neutral,
-  },
-  labelChipTextSelected: {
-    color: BRAND.white,
-  },
-  locationButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: BRAND.secondary + '10',
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: BRAND.secondary + '40',
-    borderStyle: 'dashed',
-  },
-  locationButtonSuccess: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
-    borderStyle: 'solid',
-  },
-  locationButtonError: {
-    borderColor: '#FCA5A5',
-  },
-  locationButtonIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: BRAND.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  locationButtonContent: {
-    flex: 1,
-  },
-  locationButtonTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  locationButtonSubtitle: {
-    fontSize: 12,
-    color: BRAND.neutral,
-    marginTop: 2,
-  },
-  mapPickerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: BRAND.primary + '08',
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: BRAND.primary + '30',
-    marginTop: 10,
-  },
-  locationActionsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 10,
-  },
-  locationActionChip: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    padding: 10,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 10,
-  },
-  locationActionText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  inputContainer: {
-    marginBottom: 18,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  requiredStar: {
-    color: '#EF4444',
-  },
-  input: {
-    fontSize: 15,
-    color: '#1F2937',
-    padding: 14,
-    backgroundColor: BRAND.background,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-  },
-  inputMultiline: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  inputError: {
-    borderColor: '#EF4444',
-  },
-  errorText: {
-    fontSize: 12,
-    color: '#EF4444',
-    marginTop: 6,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  halfInput: {
-    flex: 1,
-  },
-  footer: {
-    padding: 16,
-    paddingBottom: 32,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    backgroundColor: BRAND.white,
-  },
-  saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 16,
-    backgroundColor: BRAND.secondary,
-    borderRadius: 14,
-    shadowColor: BRAND.secondary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: BRAND.white,
-  },
-});
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: C.surface,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: C.border,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: C.text,
+    },
+    closeButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: C.sunken,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      padding: 16,
+      paddingBottom: 32,
+    },
+    sectionTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: C.neutral,
+      marginBottom: 12,
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
+    },
+    labelContainer: {
+      flexDirection: 'row',
+      gap: 12,
+      marginBottom: 20,
+    },
+    labelChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 18,
+      paddingVertical: 12,
+      backgroundColor: C.sunken,
+      borderRadius: 24,
+      borderWidth: 2,
+      borderColor: 'transparent',
+    },
+    labelChipSelected: {
+      backgroundColor: C.secondary,
+      borderColor: C.secondary,
+    },
+    labelChipText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: C.neutral,
+    },
+    labelChipTextSelected: {
+      color: C.onSecondary,
+    },
+    locationButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 16,
+      backgroundColor: C.secondary + '10',
+      borderRadius: 14,
+      borderWidth: 2,
+      borderColor: C.secondary + '40',
+      borderStyle: 'dashed',
+    },
+    locationButtonSuccess: {
+      backgroundColor: C.successFill,
+      borderColor: C.successLine,
+      borderStyle: 'solid',
+    },
+    locationButtonError: {
+      borderColor: C.dangerLine,
+    },
+    locationButtonIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: C.sunken,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
+    locationButtonContent: {
+      flex: 1,
+    },
+    locationButtonTitle: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: C.text,
+    },
+    locationButtonSubtitle: {
+      fontSize: 12,
+      color: C.neutral,
+      marginTop: 2,
+    },
+    mapPickerButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 16,
+      backgroundColor: C.primary + '08',
+      borderRadius: 14,
+      borderWidth: 1.5,
+      borderColor: C.primary + '30',
+      marginTop: 10,
+    },
+    locationActionsRow: {
+      flexDirection: 'row',
+      gap: 10,
+      marginTop: 10,
+    },
+    locationActionChip: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      padding: 10,
+      backgroundColor: C.infoFill,
+      borderRadius: 10,
+    },
+    locationActionText: {
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    inputContainer: {
+      marginBottom: 18,
+    },
+    inputLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: C.body,
+      marginBottom: 8,
+    },
+    requiredStar: {
+      color: C.danger,
+    },
+    input: {
+      fontSize: 15,
+      color: C.text,
+      padding: 14,
+      backgroundColor: C.sunken,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      borderColor: C.border,
+    },
+    inputMultiline: {
+      minHeight: 80,
+      textAlignVertical: 'top',
+    },
+    inputError: {
+      borderColor: C.danger,
+    },
+    errorText: {
+      fontSize: 12,
+      color: C.danger,
+      marginTop: 6,
+    },
+    row: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    halfInput: {
+      flex: 1,
+    },
+    footer: {
+      padding: 16,
+      paddingBottom: 32,
+      borderTopWidth: 1,
+      borderTopColor: C.border,
+      backgroundColor: C.surface,
+    },
+    saveButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      paddingVertical: 16,
+      backgroundColor: C.secondary,
+      borderRadius: 14,
+      shadowColor: C.secondary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    saveButtonDisabled: {
+      opacity: 0.6,
+    },
+    saveButtonText: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: C.onSecondary,
+    },
+  });
+};
 
 export default AddressForm;

@@ -25,18 +25,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAppVersionLabel } from '../config/appVersion';
+import { splash } from '../theme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Brand colors (matches UserTypeScreen)
-const BRAND = {
-  primary: '#f67c16',    // Orange
-  secondary: '#2b76bc',  // Blue
-  dark: '#0B1120',       // Deep navy
-  darker: '#060D1B',     // Almost black navy
-  accent: '#FF8C2E',     // Lighter orange
-  white: '#FFFFFF',
-};
 
 // Logo image
 const LOGO_IMAGE = require('../assets/fixhomi_logo.jpg');
@@ -93,7 +86,7 @@ const FloatingDot = ({ delay, startX, startY, size, duration }) => {
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        backgroundColor: splash.floaterFill,
         opacity,
         transform: [{ translateY }],
       }}
@@ -443,7 +436,7 @@ const styles = StyleSheet.create({
   },
   bgBase: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: BRAND.dark,
+    backgroundColor: splash.dark,
   },
   bgGradientTop: {
     position: 'absolute',
@@ -451,7 +444,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: SCREEN_HEIGHT * 0.5,
-    backgroundColor: BRAND.darker,
+    backgroundColor: splash.darker,
     opacity: 0.7,
   },
   bgGradientBottom: {
@@ -460,7 +453,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: SCREEN_HEIGHT * 0.35,
-    backgroundColor: BRAND.primary,
+    backgroundColor: splash.primary,
     opacity: 0.08,
     borderTopLeftRadius: SCREEN_WIDTH,
     borderTopRightRadius: SCREEN_WIDTH,
@@ -474,7 +467,7 @@ const styles = StyleSheet.create({
     height: 350,
     top: -120,
     right: -100,
-    backgroundColor: BRAND.primary,
+    backgroundColor: splash.primary,
     opacity: 0.06,
   },
   circle2: {
@@ -482,7 +475,7 @@ const styles = StyleSheet.create({
     height: 250,
     bottom: 60,
     left: -100,
-    backgroundColor: BRAND.secondary,
+    backgroundColor: splash.secondary,
     opacity: 0.08,
   },
   circle3: {
@@ -490,7 +483,7 @@ const styles = StyleSheet.create({
     height: 180,
     top: '35%',
     right: -60,
-    backgroundColor: BRAND.accent,
+    backgroundColor: splash.accent,
     opacity: 0.05,
   },
   circle4: {
@@ -498,7 +491,7 @@ const styles = StyleSheet.create({
     height: 120,
     bottom: '25%',
     right: SCREEN_WIDTH * 0.3,
-    backgroundColor: BRAND.secondary,
+    backgroundColor: splash.secondary,
     opacity: 0.04,
   },
   content: {
@@ -512,8 +505,8 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 100,
     borderWidth: 2,
-    borderColor: 'rgba(246, 124, 22, 0.25)',
-    backgroundColor: 'rgba(246, 124, 22, 0.04)',
+    borderColor: splash.glowLine,
+    backgroundColor: splash.glowFill,
   },
   logoContainer: {
     marginBottom: 28,
@@ -522,10 +515,10 @@ const styles = StyleSheet.create({
     width: 150,
     height: 150,
     borderRadius: 38,
-    backgroundColor: BRAND.white,
+    backgroundColor: splash.white,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: BRAND.primary,
+    shadowColor: splash.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 24,
@@ -540,22 +533,22 @@ const styles = StyleSheet.create({
   brandName: {
     fontSize: 46,
     fontWeight: '800',
-    color: BRAND.white,
+    color: splash.white,
     letterSpacing: 3,
-    textShadowColor: 'rgba(246, 124, 22, 0.3)',
+    textShadowColor: splash.nameGlow,
     textShadowOffset: { width: 0, height: 3 },
     textShadowRadius: 12,
   },
   accentBar: {
     height: 3,
-    backgroundColor: BRAND.primary,
+    backgroundColor: splash.primary,
     borderRadius: 2,
     marginTop: 12,
     marginBottom: 12,
   },
   tagline: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.75)',
+    color: splash.inkMuted,
     fontWeight: '500',
     letterSpacing: 1.5,
   },
@@ -570,10 +563,10 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: splash.dot,
   },
   dotAccent: {
-    backgroundColor: BRAND.primary,
+    backgroundColor: splash.primary,
   },
   footer: {
     position: 'absolute',
@@ -585,13 +578,13 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.45)',
+    color: splash.inkFaint,
     fontWeight: '400',
     letterSpacing: 0.5,
   },
   footerVersion: {
     fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.25)',
+    color: splash.inkFaintest,
     fontWeight: '500',
   },
 });

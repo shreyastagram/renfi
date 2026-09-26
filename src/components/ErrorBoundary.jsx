@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Linking} from 'react-native';
 import TouchableOpacity from './TouchableOpacity';
+import { getResolvedThemeOutsideProvider } from '../theme/lastResolvedTheme.js';
 
 let crashlytics = null;
 try {
@@ -8,6 +9,14 @@ try {
 } catch (e) {
   // Crashlytics not installed yet — graceful fallback
 }
+
+// Keyed by theme name, mirroring useThemedStyles. A crash screen renders once, but
+// "Try Again" can fail again, and rebuilding a StyleSheet per attempt is waste.
+const sheetCache = new Map();
+const stylesFor = (theme) => {
+  if (!sheetCache.has(theme.name)) sheetCache.set(theme.name, build(theme.colors));
+  return sheetCache.get(theme.name);
+};
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -54,6 +63,9 @@ class ErrorBoundary extends React.Component {
 
   render() {
     if (this.state.hasError) {
+      // Read without context: this component sits ABOVE ThemeProvider so it can catch
+      // a crash inside it, which also means it cannot subscribe to it.
+      const styles = stylesFor(getResolvedThemeOutsideProvider());
       return (
         <View style={styles.container}>
           <View style={styles.content}>
@@ -90,66 +102,67 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
-  content: {
-    alignItems: 'center',
-    maxWidth: 340,
-    width: '100%',
-  },
-  icon: {
-    fontSize: 56,
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1E293B',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 15,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 36,
-  },
-  primaryButton: {
-    backgroundColor: '#2563EB',
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    backgroundColor: 'transparent',
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#2563EB',
-    width: '100%',
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: '#2563EB',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
+const build = (C) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: C.bg,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 32,
+    },
+    content: {
+      alignItems: 'center',
+      maxWidth: 340,
+      width: '100%',
+    },
+    icon: {
+      fontSize: 56,
+      marginBottom: 24,
+    },
+    title: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: C.textPrimary,
+      marginBottom: 12,
+      textAlign: 'center',
+    },
+    subtitle: {
+      fontSize: 15,
+      color: C.textSecondary,
+      textAlign: 'center',
+      lineHeight: 22,
+      marginBottom: 36,
+    },
+    primaryButton: {
+      backgroundColor: C.altBlueIndigo,
+      paddingVertical: 14,
+      paddingHorizontal: 32,
+      borderRadius: 12,
+      width: '100%',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    primaryButtonText: {
+      color: C.onAltBlueIndigo,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    secondaryButton: {
+      backgroundColor: 'transparent',
+      paddingVertical: 14,
+      paddingHorizontal: 32,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      borderColor: C.altBlueIndigo,
+      width: '100%',
+      alignItems: 'center',
+    },
+    secondaryButtonText: {
+      color: C.altBlueIndigo,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+  });
 
 export default ErrorBoundary;

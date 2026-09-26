@@ -40,24 +40,32 @@ import {
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import TouchableOpacity from './TouchableOpacity';
 import { useLanguage } from '../context/LanguageContext';
+import {
+  useThemedStyles,
+  useThemeColors,
+  brandTint,
+} from '../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const COLORS = {
-  primary: '#f67c16',
-  white: '#FFFFFF',
-  text: '#0F172A',
-  textSecondary: '#64748B',
-  border: '#E2E8F0',
-  error: '#EF4444',
-  errorBg: '#FEF2F2',
-  overlay: 'rgba(15, 23, 42, 0.55)',
-  inputBg: '#F8FAFC',
-  disabled: '#94A3B8',
-  cardBg: '#FFFFFF',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  text: c.textPrimary,
+  textSecondary: c.textSecondary,
+  border: c.border,
+  error: c.danger,
+  errorBg: c.dangerContainer,
+  overlay: c.overlay,
+  inputBg: c.surfaceSunken,
+  disabled: c.textMuted,
+  cardBg: c.surface,
+  shadow: c.shadow,
+});
 
 const WelcomeModal = ({ visible, needsName, initialReferralCode, onComplete, onSkip }) => {
+  const styles = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { t } = useLanguage();
 
   const [fullName, setFullName] = useState('');
@@ -174,7 +182,7 @@ const WelcomeModal = ({ visible, needsName, initialReferralCode, onComplete, onS
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.iconCircle}>
-                <MaterialIcons name="celebration" size={28} color={COLORS.primary} />
+                <MaterialIcons name="celebration" size={28} color={C.primary} />
               </View>
               <Text style={styles.title}>
                 {t('auth.welcomeToFixhomi') || 'Welcome to FixHomi'}
@@ -203,7 +211,7 @@ const WelcomeModal = ({ visible, needsName, initialReferralCode, onComplete, onS
                     if (error) setError('');
                   }}
                   placeholder={t('auth.yourNamePlaceholder') || 'Your name (optional)'}
-                  placeholderTextColor={COLORS.disabled}
+                  placeholderTextColor={C.disabled}
                   autoCapitalize="words"
                   autoComplete="name"
                   autoCorrect={false}
@@ -219,7 +227,7 @@ const WelcomeModal = ({ visible, needsName, initialReferralCode, onComplete, onS
                 {t('auth.haveReferralCode') || 'Have a referral code?'}
               </Text>
               <View style={styles.referralInputRow}>
-                <MaterialIcons name="redeem" size={18} color="#94A3B8" style={styles.referralIcon} />
+                <MaterialIcons name="redeem" size={18} color={C.disabled} style={styles.referralIcon} />
                 <TextInput
                   style={styles.referralInput}
                   value={referralCode}
@@ -228,7 +236,7 @@ const WelcomeModal = ({ visible, needsName, initialReferralCode, onComplete, onS
                     if (error) setError('');
                   }}
                   placeholder={t('auth.referralCodePlaceholder') || 'Enter referral code (optional)'}
-                  placeholderTextColor="#CBD5E1"
+                  placeholderTextColor={C.disabled}
                   autoCapitalize="characters"
                   autoCorrect={false}
                   maxLength={16}
@@ -247,7 +255,7 @@ const WelcomeModal = ({ visible, needsName, initialReferralCode, onComplete, onS
               accessibilityLabel={t('common.continue') || 'Continue'}
             >
               {loading ? (
-                <ActivityIndicator size="small" color={COLORS.white} />
+                <ActivityIndicator size="small" color={C.onPrimary} />
               ) : (
                 <Text style={styles.primaryButtonText}>
                   {t('common.continue') || 'Continue'}
@@ -275,108 +283,111 @@ const WelcomeModal = ({ visible, needsName, initialReferralCode, onComplete, onS
   );
 };
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: COLORS.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  overlayInner: {
-    flex: 1,
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  card: {
-    width: Math.min(SCREEN_WIDTH - 48, 380),
-    backgroundColor: COLORS.cardBg,
-    borderRadius: 22,
-    paddingTop: 28,
-    paddingHorizontal: 24,
-    paddingBottom: 22,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.18,
-        shadowRadius: 28,
-      },
-      android: {
-        elevation: 12,
-      },
-    }),
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  iconCircle: {
-    width: 56, height: 56, borderRadius: 16,
-    backgroundColor: 'rgba(246,124,22,0.08)',
-    justifyContent: 'center', alignItems: 'center',
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: COLORS.text,
-    textAlign: 'center',
-    marginBottom: 8,
-    letterSpacing: -0.2,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 19,
-  },
-  errorContainer: {
-    backgroundColor: COLORS.errorBg,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 14,
-  },
-  errorText: {
-    fontSize: 13,
-    color: COLORS.error,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  fieldWrap: { marginBottom: 14 },
-  fieldLabel: { fontSize: 13, fontWeight: '600', color: '#475569', marginBottom: 6 },
-  nameInput: {
-    backgroundColor: COLORS.inputBg,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: Platform.OS === 'ios' ? 13 : 11,
-    fontSize: 15,
-    color: COLORS.text,
-  },
-  // Referral row — mirrors RegisterChoice referralInputRow/referralInput
-  referralInputRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0',
-    borderRadius: 12, paddingHorizontal: 12, height: 46,
-  },
-  referralIcon: { marginRight: 8 },
-  referralInput: { flex: 1, fontSize: 14, color: '#1E293B', letterSpacing: 1.5, fontWeight: '600' },
-  primaryButton: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 50,
-    marginTop: 4,
-  },
-  primaryButtonDisabled: { opacity: 0.6 },
-  primaryButtonText: { color: COLORS.white, fontSize: 16, fontWeight: '700' },
-  skipButton: { paddingVertical: 12, alignItems: 'center', marginTop: 6 },
-  skipText: { fontSize: 14, color: COLORS.disabled, fontWeight: '600' },
-});
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: C.overlay,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    overlayInner: {
+      flex: 1,
+      width: '100%',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 24,
+    },
+    card: {
+      width: Math.min(SCREEN_WIDTH - 48, 380),
+      backgroundColor: C.cardBg,
+      borderRadius: 22,
+      paddingTop: 28,
+      paddingHorizontal: 24,
+      paddingBottom: 22,
+      ...Platform.select({
+        ios: {
+          shadowColor: C.shadow,
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.18,
+          shadowRadius: 28,
+        },
+        android: {
+          elevation: 12,
+        },
+      }),
+    },
+    header: {
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    iconCircle: {
+      width: 56, height: 56, borderRadius: 16,
+      backgroundColor: brandTint.orange08,
+      justifyContent: 'center', alignItems: 'center',
+      marginBottom: 12,
+    },
+    title: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: C.text,
+      textAlign: 'center',
+      marginBottom: 8,
+      letterSpacing: -0.2,
+    },
+    subtitle: {
+      fontSize: 13,
+      color: C.textSecondary,
+      textAlign: 'center',
+      lineHeight: 19,
+    },
+    errorContainer: {
+      backgroundColor: C.errorBg,
+      borderRadius: 10,
+      padding: 12,
+      marginBottom: 14,
+    },
+    errorText: {
+      fontSize: 13,
+      color: C.error,
+      textAlign: 'center',
+      lineHeight: 18,
+    },
+    fieldWrap: { marginBottom: 14 },
+    fieldLabel: { fontSize: 13, fontWeight: '600', color: C.textSecondary, marginBottom: 6 },
+    nameInput: {
+      backgroundColor: C.inputBg,
+      borderWidth: 1.5,
+      borderColor: C.border,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: Platform.OS === 'ios' ? 13 : 11,
+      fontSize: 15,
+      color: C.text,
+    },
+    // Referral row — mirrors RegisterChoice referralInputRow/referralInput
+    referralInputRow: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: C.inputBg, borderWidth: 1, borderColor: C.border,
+      borderRadius: 12, paddingHorizontal: 12, height: 46,
+    },
+    referralIcon: { marginRight: 8 },
+    referralInput: { flex: 1, fontSize: 14, color: C.text, letterSpacing: 1.5, fontWeight: '600' },
+    primaryButton: {
+      backgroundColor: C.primary,
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 50,
+      marginTop: 4,
+    },
+    primaryButtonDisabled: { opacity: 0.6 },
+    primaryButtonText: { color: C.onPrimary, fontSize: 16, fontWeight: '700' },
+    skipButton: { paddingVertical: 12, alignItems: 'center', marginTop: 6 },
+    skipText: { fontSize: 14, color: C.disabled, fontWeight: '600' },
+  });
+};
 
 export default WelcomeModal;

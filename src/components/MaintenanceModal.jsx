@@ -20,18 +20,24 @@ import {
 } from 'react-native';
 import TouchableOpacity from './TouchableOpacity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useThemedStyles } from '../theme';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
-const COLORS = {
-  background: '#FFFFFF',
-  darkText: '#0F172A',
-  secondaryText: '#64748B',
-  amber: '#D97706',
-  amberLight: '#FFFBEB',
-  overlay: 'rgba(0, 0, 0, 0.7)',
-  primary: '#f67c16',
-};
+const makeC = (c) => ({
+  background: c.surface,
+  darkText: c.textPrimary,
+  secondaryText: c.textSecondary,
+  amber: c.warning,
+  amberLight: c.warningContainer,
+  // A maintenance gate is never dismissible, so it takes the heavier blocking scrim
+  // rather than the bottom-sheet one.
+  overlay: c.overlayStrong,
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  sunken: c.surfaceSunken,
+  shadow: c.shadow,
+});
 
 /**
  * Format a date string for display
@@ -54,6 +60,7 @@ const formatTime = (dateStr) => {
 };
 
 const MaintenanceModal = ({ visible, info }) => {
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -186,143 +193,146 @@ const MaintenanceModal = ({ visible, info }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: COLORS.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  container: {
-    backgroundColor: COLORS.background,
-    borderRadius: 24,
-    padding: 32,
-    width: '100%',
-    maxWidth: 400,
-    alignItems: 'center',
-    elevation: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-  },
-  logoContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 18,
-    overflow: 'hidden',
-    marginBottom: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-  },
-  logo: {
-    width: 72,
-    height: 72,
-  },
-  badge: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginBottom: 16,
-    backgroundColor: COLORS.amberLight,
-  },
-  badgeText: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    color: COLORS.amber,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: COLORS.darkText,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  message: {
-    fontSize: 15,
-    color: COLORS.secondaryText,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
-  },
-  timeContainer: {
-    width: '100%',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 24,
-    gap: 12,
-  },
-  timeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  timeLabel: {
-    fontSize: 13,
-    color: COLORS.secondaryText,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  timeValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.darkText,
-  },
-  notesContainer: {
-    width: '100%',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-  },
-  notesTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.darkText,
-    marginBottom: 8,
-  },
-  notesText: {
-    fontSize: 14,
-    color: COLORS.secondaryText,
-    lineHeight: 20,
-  },
-  buttonContainer: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  closeButton: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    width: '100%',
-  },
-  closeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  iosHint: {
-    fontSize: 15,
-    color: COLORS.darkText,
-    fontWeight: '600',
-    textAlign: 'center',
-    lineHeight: 22,
-    paddingVertical: 16,
-  },
-  retryHint: {
-    marginTop: 12,
-    fontSize: 13,
-    color: COLORS.secondaryText,
-    fontWeight: '500',
-  },
-});
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: C.overlay,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 24,
+    },
+    container: {
+      backgroundColor: C.background,
+      borderRadius: 24,
+      padding: 32,
+      width: '100%',
+      maxWidth: 400,
+      alignItems: 'center',
+      elevation: 20,
+      shadowColor: C.shadow,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.25,
+      shadowRadius: 20,
+    },
+    logoContainer: {
+      width: 72,
+      height: 72,
+      borderRadius: 18,
+      overflow: 'hidden',
+      marginBottom: 20,
+      elevation: 4,
+      shadowColor: C.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+    },
+    logo: {
+      width: 72,
+      height: 72,
+    },
+    badge: {
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+      borderRadius: 20,
+      marginBottom: 16,
+      backgroundColor: C.amberLight,
+    },
+    badgeText: {
+      fontSize: 13,
+      fontWeight: '700',
+      letterSpacing: 0.5,
+      color: C.amber,
+    },
+    title: {
+      fontSize: 24,
+      fontWeight: '800',
+      color: C.darkText,
+      textAlign: 'center',
+      marginBottom: 12,
+    },
+    message: {
+      fontSize: 15,
+      color: C.secondaryText,
+      textAlign: 'center',
+      lineHeight: 22,
+      marginBottom: 24,
+    },
+    timeContainer: {
+      width: '100%',
+      backgroundColor: C.sunken,
+      borderRadius: 14,
+      padding: 16,
+      marginBottom: 24,
+      gap: 12,
+    },
+    timeRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    timeLabel: {
+      fontSize: 13,
+      color: C.secondaryText,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    timeValue: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: C.darkText,
+    },
+    notesContainer: {
+      width: '100%',
+      backgroundColor: C.sunken,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 24,
+    },
+    notesTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: C.darkText,
+      marginBottom: 8,
+    },
+    notesText: {
+      fontSize: 14,
+      color: C.secondaryText,
+      lineHeight: 20,
+    },
+    buttonContainer: {
+      width: '100%',
+      alignItems: 'center',
+    },
+    closeButton: {
+      backgroundColor: C.primary,
+      borderRadius: 14,
+      paddingVertical: 16,
+      alignItems: 'center',
+      width: '100%',
+    },
+    closeButtonText: {
+      color: C.onPrimary,
+      fontSize: 17,
+      fontWeight: '700',
+    },
+    iosHint: {
+      fontSize: 15,
+      color: C.darkText,
+      fontWeight: '600',
+      textAlign: 'center',
+      lineHeight: 22,
+      paddingVertical: 16,
+    },
+    retryHint: {
+      marginTop: 12,
+      fontSize: 13,
+      color: C.secondaryText,
+      fontWeight: '500',
+    },
+  });
+};
 
 export default MaintenanceModal;

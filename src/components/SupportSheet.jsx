@@ -31,21 +31,26 @@ import { useDialog } from '../context/DialogContext';
 import { useLanguage } from '../context/LanguageContext';
 import { Analytics, EV } from '../services/analytics';
 import { SUPPORT_LINKS } from '../utils/helpSupport';
+import {
+  useThemedStyles,
+  useThemeColors,
+  vendor,
+} from '../theme';
 
-const WHATSAPP_GREEN = '#25D366';
-const BRAND = {
-  primary: '#f67c16',
-  emailBlue: '#2b76bc',
-  text: '#0F172A',
-  sub: '#64748B',
-  border: '#EEF2F6',
-  white: '#FFFFFF',
-  sheet: '#FFFFFF',
-  chevron: '#CBD5E1',
-  backdrop: 'rgba(15,23,42,0.45)',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  emailBlue: c.brandBlue,
+  text: c.textPrimary,
+  sub: c.textSecondary,
+  border: c.border,
+  sheet: c.surface,
+  chevron: c.textMuted,
+  backdrop: c.overlay,
+});
 
 const SupportSheet = ({ userType, bottomInset = 0, onClose }) => {
+  const s = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { dialog } = useDialog();
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
@@ -118,7 +123,7 @@ const SupportSheet = ({ userType, bottomInset = 0, onClose }) => {
               accessibilityRole="button"
               accessibilityLabel={labels.cancel}
             >
-              <MaterialIcon name="close" size={22} color={BRAND.sub} />
+              <MaterialIcon name="close" size={22} color={C.sub} />
             </TouchableOpacity>
           </View>
           <Text style={s.subtitle}>{labels.subtitle}</Text>
@@ -131,14 +136,14 @@ const SupportSheet = ({ userType, bottomInset = 0, onClose }) => {
             accessibilityRole="button"
             accessibilityLabel={labels.whatsapp}
           >
-            <View style={[s.iconCircle, { backgroundColor: WHATSAPP_GREEN + '1A' }]}>
-              <MaterialCommunityIcon name="whatsapp" size={24} color={WHATSAPP_GREEN} />
+            <View style={[s.iconCircle, { backgroundColor: vendor.whatsappGreen + '1A' }]}>
+              <MaterialCommunityIcon name="whatsapp" size={24} color={vendor.whatsappGreen} />
             </View>
             <View style={s.rowTextWrap}>
               <Text style={s.rowTitle}>{labels.whatsapp}</Text>
               <Text style={s.rowSub}>{labels.whatsappSub}</Text>
             </View>
-            <MaterialIcon name="chevron-right" size={22} color={BRAND.chevron} />
+            <MaterialIcon name="chevron-right" size={22} color={C.chevron} />
           </TouchableOpacity>
 
           {/* Email — envelope glyph in a tinted circle */}
@@ -149,14 +154,14 @@ const SupportSheet = ({ userType, bottomInset = 0, onClose }) => {
             accessibilityRole="button"
             accessibilityLabel={labels.email}
           >
-            <View style={[s.iconCircle, { backgroundColor: BRAND.emailBlue + '1A' }]}>
-              <MaterialCommunityIcon name="email-outline" size={22} color={BRAND.emailBlue} />
+            <View style={[s.iconCircle, { backgroundColor: C.emailBlue + '1A' }]}>
+              <MaterialCommunityIcon name="email-outline" size={22} color={C.emailBlue} />
             </View>
             <View style={s.rowTextWrap}>
               <Text style={s.rowTitle}>{labels.email}</Text>
               <Text style={s.rowSub}>{SUPPORT_LINKS.SUPPORT_EMAIL}</Text>
             </View>
-            <MaterialIcon name="chevron-right" size={22} color={BRAND.chevron} />
+            <MaterialIcon name="chevron-right" size={22} color={C.chevron} />
           </TouchableOpacity>
 
           {/* Visit Support Page — plain text link, no icon (per spec) */}
@@ -175,54 +180,57 @@ const SupportSheet = ({ userType, bottomInset = 0, onClose }) => {
   );
 };
 
-const s = StyleSheet.create({
-  flex: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: BRAND.backdrop },
-  sheet: {
-    backgroundColor: BRAND.sheet,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    paddingHorizontal: 20,
-    paddingTop: 10,
-  },
-  handle: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#E2E8F0',
-    marginBottom: 14,
-  },
-  headerRow: { flexDirection: 'row', alignItems: 'center' },
-  title: { flex: 1, fontSize: 18, fontWeight: '700', color: BRAND.text },
-  subtitle: { fontSize: 13.5, lineHeight: 19, color: BRAND.sub, marginTop: 8, marginBottom: 10 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderTopWidth: 1,
-    borderTopColor: BRAND.border,
-  },
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  rowTextWrap: { flex: 1 },
-  rowTitle: { fontSize: 15.5, fontWeight: '600', color: BRAND.text },
-  rowSub: { fontSize: 12.5, color: BRAND.sub, marginTop: 2 },
-  webRow: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    marginTop: 6,
-    borderTopWidth: 1,
-    borderTopColor: BRAND.border,
-  },
-  webText: { fontSize: 14, fontWeight: '600', color: BRAND.primary },
-});
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
+    flex: { flex: 1, justifyContent: 'flex-end' },
+    backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: C.backdrop },
+    sheet: {
+      backgroundColor: C.sheet,
+      borderTopLeftRadius: 22,
+      borderTopRightRadius: 22,
+      paddingHorizontal: 20,
+      paddingTop: 10,
+    },
+    handle: {
+      alignSelf: 'center',
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: C.border,
+      marginBottom: 14,
+    },
+    headerRow: { flexDirection: 'row', alignItems: 'center' },
+    title: { flex: 1, fontSize: 18, fontWeight: '700', color: C.text },
+    subtitle: { fontSize: 13.5, lineHeight: 19, color: C.sub, marginTop: 8, marginBottom: 10 },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 14,
+      borderTopWidth: 1,
+      borderTopColor: C.border,
+    },
+    iconCircle: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 14,
+    },
+    rowTextWrap: { flex: 1 },
+    rowTitle: { fontSize: 15.5, fontWeight: '600', color: C.text },
+    rowSub: { fontSize: 12.5, color: C.sub, marginTop: 2 },
+    webRow: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 16,
+      marginTop: 6,
+      borderTopWidth: 1,
+      borderTopColor: C.border,
+    },
+    webText: { fontSize: 14, fontWeight: '600', color: C.primary },
+  });
+};
 
 export default React.memo(SupportSheet);

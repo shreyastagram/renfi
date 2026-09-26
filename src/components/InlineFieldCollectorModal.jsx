@@ -30,19 +30,24 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
+import {
+  useThemedStyles,
+  useThemeColors,
+} from '../theme';
 
-const BRAND = {
-  primary: '#f67c16',
-  text: '#0F172A',
-  sub: '#64748B',
-  border: '#E2E8F0',
-  inputBg: '#F8FAFC',
-  danger: '#DC2626',
-  success: '#16A34A',
-  white: '#FFFFFF',
-  sheet: '#FFFFFF',
-  backdrop: 'rgba(15,23,42,0.45)',
-};
+const makeC = (c) => ({
+  primary: c.brandOrange,
+  onPrimary: c.onBrandOrange,
+  text: c.textPrimary,
+  sub: c.textSecondary,
+  border: c.border,
+  inputBg: c.surfaceSunken,
+  danger: c.danger,
+  success: c.success,
+  onSuccess: c.onSuccess,
+  sheet: c.surface,
+  backdrop: c.overlay,
+});
 
 // Per-field config — extensible beyond `name`. `toUpdates` returns BOTH `name`
 // and `fullName` so the Mongo mirror and Java Auth (Neon) both receive it.
@@ -65,6 +70,8 @@ const FIELDS = {
 };
 
 const InlineFieldCollectorModal = ({ field = 'name', bottomInset = 0, onDone }) => {
+  const s = useThemedStyles(makeStyles);
+  const C = makeC(useThemeColors());
   const { user, profile, userType, updateProfileWithAutoSync, refreshProfile } = useApp();
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
@@ -176,7 +183,7 @@ const InlineFieldCollectorModal = ({ field = 'name', bottomInset = 0, onDone }) 
           {saved ? (
             <View style={s.successWrap}>
               <View style={s.successCircle}>
-                <MaterialIcon name="check" size={30} color={BRAND.white} />
+                <MaterialIcon name="check" size={30} color={C.onSuccess} />
               </View>
               <Text style={s.successText}>{labels.saved}</Text>
             </View>
@@ -191,7 +198,7 @@ const InlineFieldCollectorModal = ({ field = 'name', bottomInset = 0, onDone }) 
                   accessibilityRole="button"
                   accessibilityLabel={labels.cancel}
                 >
-                  <MaterialIcon name="close" size={22} color={BRAND.sub} />
+                  <MaterialIcon name="close" size={22} color={C.sub} />
                 </TouchableOpacity>
               </View>
 
@@ -206,7 +213,7 @@ const InlineFieldCollectorModal = ({ field = 'name', bottomInset = 0, onDone }) 
                   if (error) setError('');
                 }}
                 placeholder={labels.placeholder}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={C.textMuted}
                 autoCapitalize={cfg.autoCapitalize}
                 keyboardType={cfg.keyboardType}
                 maxLength={cfg.maxLength}
@@ -226,7 +233,7 @@ const InlineFieldCollectorModal = ({ field = 'name', bottomInset = 0, onDone }) 
                 accessibilityLabel={labels.save}
               >
                 {saving ? (
-                  <ActivityIndicator color={BRAND.white} />
+                  <ActivityIndicator color={C.onPrimary} />
                 ) : (
                   <Text style={s.ctaText}>{labels.save}</Text>
                 )}
@@ -239,60 +246,63 @@ const InlineFieldCollectorModal = ({ field = 'name', bottomInset = 0, onDone }) 
   );
 };
 
-const s = StyleSheet.create({
-  flex: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: BRAND.backdrop },
-  sheet: {
-    backgroundColor: BRAND.sheet,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 22,
-    paddingTop: 10,
-  },
-  handle: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#E2E8F0',
-    marginBottom: 18,
-  },
-  headerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
-  title: { flex: 1, fontSize: 20, fontWeight: '700', color: BRAND.text, letterSpacing: -0.3, paddingRight: 12 },
-  subtitle: { fontSize: 14, lineHeight: 20, color: BRAND.sub, marginTop: 8, marginBottom: 18 },
-  input: {
-    borderWidth: 1.5,
-    borderColor: BRAND.border,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: Platform.OS === 'ios' ? 15 : 11,
-    fontSize: 16.5,
-    color: BRAND.text,
-    backgroundColor: BRAND.inputBg,
-  },
-  inputError: { borderColor: BRAND.danger },
-  error: { color: BRAND.danger, fontSize: 13, marginTop: 8, marginLeft: 2 },
-  cta: {
-    marginTop: 18,
-    backgroundColor: BRAND.primary,
-    borderRadius: 14,
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ctaDisabled: { opacity: 0.6 },
-  ctaText: { color: BRAND.white, fontSize: 16.5, fontWeight: '700' },
-  successWrap: { alignItems: 'center', justifyContent: 'center', paddingVertical: 26 },
-  successCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: BRAND.success,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  successText: { fontSize: 17, fontWeight: '700', color: BRAND.text },
-});
+const makeStyles = (theme) => {
+  const C = makeC(theme.colors);
+  return StyleSheet.create({
+    flex: { flex: 1, justifyContent: 'flex-end' },
+    backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: C.backdrop },
+    sheet: {
+      backgroundColor: C.sheet,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      paddingHorizontal: 22,
+      paddingTop: 10,
+    },
+    handle: {
+      alignSelf: 'center',
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: C.border,
+      marginBottom: 18,
+    },
+    headerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+    title: { flex: 1, fontSize: 20, fontWeight: '700', color: C.text, letterSpacing: -0.3, paddingRight: 12 },
+    subtitle: { fontSize: 14, lineHeight: 20, color: C.sub, marginTop: 8, marginBottom: 18 },
+    input: {
+      borderWidth: 1.5,
+      borderColor: C.border,
+      borderRadius: 14,
+      paddingHorizontal: 16,
+      paddingVertical: Platform.OS === 'ios' ? 15 : 11,
+      fontSize: 16.5,
+      color: C.text,
+      backgroundColor: C.inputBg,
+    },
+    inputError: { borderColor: C.danger },
+    error: { color: C.danger, fontSize: 13, marginTop: 8, marginLeft: 2 },
+    cta: {
+      marginTop: 18,
+      backgroundColor: C.primary,
+      borderRadius: 14,
+      height: 52,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    ctaDisabled: { opacity: 0.6 },
+    ctaText: { color: C.onPrimary, fontSize: 16.5, fontWeight: '700' },
+    successWrap: { alignItems: 'center', justifyContent: 'center', paddingVertical: 26 },
+    successCircle: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: C.success,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 12,
+    },
+    successText: { fontSize: 17, fontWeight: '700', color: C.text },
+  });
+};
 
 export default React.memo(InlineFieldCollectorModal);

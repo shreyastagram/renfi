@@ -55,6 +55,9 @@ export const vendor = {
   googleRed: '#EA4335',
   googleYellow: '#FBBC05',
   googleGreen: '#34A853',
+  // WhatsApp's brand green, used for the "chat on WhatsApp" support row. Same rule
+  // as the others: it identifies WhatsApp, so it does not flip with our theme.
+  whatsappGreen: '#25D366',
 };
 
 // Service-category accents. THEME-INDEPENDENT on purpose: these identify a
@@ -553,4 +556,43 @@ export const overlay = {
   // in EITHER theme, because that is what a lightbox is. Not theme-dependent.
   photo: 'rgba(0,0,0,0.92)',
   photoSoft: 'rgba(0,0,0,0.5)',
+};
+
+// The splash screen: a deep-navy brand panel with white ink and an orange glow,
+// shown before the theme has even been read from storage. It is the same artwork in
+// both appearances -- flipping it would mean a light splash handing off to a dark app
+// (or the reverse) on every cold start, which is the flash the theme work exists to
+// remove. Grouped here for the same reason as heroGradient: one self-contained piece
+// of brand art with its own ramp.
+// Markers and geometry drawn ON the map. They sit over Mapbox tiles, not over our
+// surfaces, so they do not flip: a pin that inverted with the app theme would have to
+// stay legible against satellite imagery, street tiles and everything between, which
+// no single flip can do. Same rule as mapRoute and mapOverlay.
+export const mapPin = {
+  markerDefault: '#2563EB',
+  userDot: '#2563EB',
+  userHalo: 'rgba(37, 99, 235, 0.3)',
+  geofenceFill: 'rgba(37, 99, 235, 0.1)',
+  geofenceLine: 'rgba(37, 99, 235, 0.5)',
+  servicePin: brand.orange,
+  ring: '#FFFFFF', // the white collar that separates a pin from the tiles behind it
+  ink: '#FFFFFF',
+  shadow: '#000000',
+};
+
+export const splash = {
+  primary: brand.orange,
+  secondary: brand.blue,
+  dark: '#0B1120', // deep navy -- the gradient's light end
+  darker: '#060D1B', // almost-black navy -- its dark end
+  accent: '#FF8C2E', // a lighter orange, for the sweep highlight
+  white: '#FFFFFF',
+  floaterFill: 'rgba(255, 255, 255, 0.15)',
+  inkMuted: 'rgba(255, 255, 255, 0.75)',
+  dot: 'rgba(255, 255, 255, 0.6)',
+  inkFaint: 'rgba(255, 255, 255, 0.45)',
+  inkFaintest: 'rgba(255, 255, 255, 0.25)',
+  glowLine: 'rgba(246, 124, 22, 0.25)',
+  glowFill: 'rgba(246, 124, 22, 0.04)',
+  nameGlow: 'rgba(246, 124, 22, 0.3)',
 };
