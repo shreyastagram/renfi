@@ -1699,3 +1699,8 @@ on re-assignments.
 
 `check:ink` light baseline ratcheted **113 → 112**. Dark 0. Eleven gates pass;
 90 unit tests pass.
+
+| build | versionCode | notes |
+|---|---|---|
+| 1.1.0-beta.13 | 49 | §36 (the violet: bandFill shadowing) + §37 (branding the last yellows). `USE_DEV_STAGING=false`, production backends. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/1l6jht2in6mbo) |
+
