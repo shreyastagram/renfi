@@ -3,7 +3,7 @@
 **Branch:** `feature/theme-v2` (off tag **`v1.0.9`** = `b74f862`)
 **Colour contract:** `docs/COLOUR_MAP.md`
 **Also read:** `FIXORA_APP/WORK_AVAILABILITY_TRACKER.md` — Working Hours is live in prod.
-**Last updated:** 2026-09-26, after V5 + both AA fixes. Only V6 is open, and deliberately so.
+**Last updated:** 2026-09-26. Mockup approved, **1.1.0-beta.3 (39) distributed**. Awaiting the device pass.
 
 > **Read this file BEFORE touching code.** If it contradicts the code, **STOP and flag it** —
 > do not proceed on a false premise.
@@ -34,8 +34,16 @@ Remaining, in the order I would take it:
 
 Everything in the plan is done except **V6**, which was declined on purpose — see §11.
 
-Mockup for the last round (light + dark, real token values):
-<https://claude.ai/code/artifact/12998350-dead-4762-ad87-b2566fb02eeb>
+Mockup for the last round — **approved by the owner 2026-09-26** (light + dark, real
+token values): <https://claude.ai/code/artifact/12998350-dead-4762-ad87-b2566fb02eeb>
+
+**`1.1.0-beta.3` (versionCode 39) is with the tester.** Built `USE_DEV_STAGING = false`,
+so it hits PRODUCTION — same as beta.1 and beta.2, real data. The release notes carry the
+checklist below. Console:
+<https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/5r02mc4csrcoo>
+
+The only thing now standing between this work and done is **eyes on a cheap Android
+panel**. Nothing else is blocked.
 
 **The build is the owner's step.** No fastlane / App Distribution automation, and
 `USE_DEV_STAGING` lives in a do-not-commit file.
