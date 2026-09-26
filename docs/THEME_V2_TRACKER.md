@@ -1538,3 +1538,4 @@ matter what the container said. Content-sized with a 62pt floor; cell padding
 `check:ink` light baseline ratcheted **121 → 113**. Dark held at 0. All ten gates
 pass; 162 unit tests pass (`App.test.tsx`'s transform failure is pre-existing and
 unrelated).
+| beta.12 — six fixed colours | https://claude.ai/code/artifact/12f6ad7d-d60a-488b-8986-289bc94fd978 |
