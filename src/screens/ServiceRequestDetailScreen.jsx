@@ -86,6 +86,7 @@ import { getMapStyleURL } from '../config/mapbox';
 // `primary` / `secondary` are also used with hex-alpha concatenation, so they must
 // stay 6-digit hex in both themes -- asserted by the token tests.
 const makeC = (c) => ({
+  brandOrangeBorder: c.brandOrangeBorder,
   surface: c.surface,
   brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
@@ -2002,8 +2003,8 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         {/* Favorites */}
         {request.status === 'completed' && !isProvider && (request?.providerId || request?.assignedProviderDetails?._id) && (
           <TouchableOpacity style={[s.favBtn, isFavorited && s.favBtnActive]} onPress={handleToggleFavorite} disabled={togglingFavorite}>
-            {togglingFavorite ? <ActivityIndicator color={isFavorited ? C.danger : medal.gold} size="small" /> : (
-              <><Icon name={isFavorited ? 'favorite' : 'favorite-border'} size={16} color={isFavorited ? C.danger : medal.gold} /><Text style={[s.favBtnText, isFavorited && s.favBtnTextActive]}>{isFavorited ? t('detail.removeFavorite') : t('detail.addToFavorites')}</Text></>
+            {togglingFavorite ? <ActivityIndicator color={isFavorited ? C.danger : C.brandOrangeInk} size="small" /> : (
+              <><Icon name={isFavorited ? 'favorite' : 'favorite-border'} size={16} color={isFavorited ? C.danger : C.brandOrangeInk} /><Text style={[s.favBtnText, isFavorited && s.favBtnTextActive]}>{isFavorited ? t('detail.removeFavorite') : t('detail.addToFavorites')}</Text></>
             )}
           </TouchableOpacity>
         )}
@@ -2275,11 +2276,11 @@ const makeStyles = (theme) => {
   completedSub: { fontSize: 13, color: C.success, textAlign: 'center', marginTop: 4 },
 
   // Rate
-  rateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: medal.gold, paddingVertical: 12, paddingHorizontal: 28, borderRadius: 14, shadowColor: medal.gold, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 3 },
+  rateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.primary, paddingVertical: 12, paddingHorizontal: 28, borderRadius: 14, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 3 },
   rateBtnText: { fontSize: 15, fontWeight: '700', color: C.onGold },
 
   // Favorites
-  favBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.warningBg, borderRadius: 16, paddingVertical: 13, marginBottom: 12, borderWidth: 1, borderColor: medal.gold },
+  favBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.warningBg, borderRadius: 16, paddingVertical: 13, marginBottom: 12, borderWidth: 1, borderColor: C.brandOrangeBorder },
   favBtnActive: { backgroundColor: C.dangerBg, borderColor: C.danger },
   favBtnText: { fontSize: 14, fontWeight: '700', color: C.warning },
   favBtnTextActive: { color: C.danger },

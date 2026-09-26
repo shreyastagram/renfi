@@ -50,6 +50,8 @@ const makeBrand = (c) => ({
   white: stableDark.ink,
   surface: c.pageSolid, // the drawer body is a full sheet, so it takes the page: black in dark
   backdrop: stableDark.heroBackdrop,
+  success: c.success,
+  successBg: c.successContainer,
   danger: c.danger,
   dangerBg: c.dangerFill,
   dangerBorder: c.dangerLine,
@@ -483,7 +485,7 @@ export const DrawerMenu = ({
                   </View>
                   {isVerified && (
                     <View style={styles.verifiedBadge}>
-                      <Icon name="check-circle" size={10} color={stableDark.verifiedInk} style={{ marginRight: 3 }} />
+                      <Icon name="check-circle" size={10} color={BRAND.success} style={{ marginRight: 3 }} />
                       <Text style={styles.verifiedText}>{t('drawer.verified')}</Text>
                     </View>
                   )}
@@ -817,13 +819,16 @@ const makeStyles = (theme) => {
   verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: stableDark.onlineChip,
+    // Themed, not stableDark.onlineChip. That is green at 18% — over the black
+    // drawer it composites dark and the pale ink reads; over the light drawer it
+    // stays near-white and #86EFAC on it is 1.11:1. Same trap as the tab bar.
+    backgroundColor: BRAND.successBg,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
   verifiedText: {
-    color: stableDark.onlineInk,
+    color: BRAND.success,
     fontSize: 10.5,
     fontWeight: '700',
   },

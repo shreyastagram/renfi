@@ -99,6 +99,7 @@ const SHEET_MID_HEIGHT = SCREEN_HEIGHT * 0.40; // 40% for initial state - shows 
 // the base flips to the dark-mode blue, so the tint flips with it instead of
 // staying a light-blue wash that would be invisible on a near-black card.
 const makeC = (c) => ({
+  textMuted: c.textMuted,
   brandOrangeInk: c.brandOrangeInk,
   info: c.info,
   primary: c.brandOrange,
@@ -315,7 +316,7 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
         accessibilityLabel={`View details for ${provider.name}`}
         accessibilityRole="button"
       >
-        <MaterialIcon name="chevron-right" size={26} color={C.borderMedium} />
+        <MaterialIcon name="chevron-right" size={26} color={C.textMuted} />
       </TouchableOpacity>
     </View>
     <View style={styles.providerActions}>

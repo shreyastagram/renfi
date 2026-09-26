@@ -55,6 +55,7 @@ import {
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const makeC = (c) => ({
+  textMuted: c.textMuted,
   surface: c.surface,
   primary: c.brandOrange,
   secondary: c.brandBlue,
@@ -861,7 +862,7 @@ const SubscriptionScreen = ({ navigation }) => {
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.emptyState}>
-          <MaterialIcon name="lock-outline" size={56} color={C.borderMedium} />
+          <MaterialIcon name="lock-outline" size={56} color={C.textMuted} />
           <Text style={styles.emptyTitle}>{t('subscription.premiumOnly')}</Text>
           <Text style={styles.emptyDesc}>{t('subscription.premiumOnlySub')}</Text>
         </View>
@@ -1066,7 +1067,7 @@ const SubscriptionScreen = ({ navigation }) => {
           <View style={styles.sectionCard}>
             {transactions.length === 0 ? (
               <View style={styles.emptyTx}>
-                <MaterialIcon name="receipt-long" size={44} color={C.line} />
+                <MaterialIcon name="receipt-long" size={44} color={C.textMuted} />
                 <Text style={styles.emptyTxTitle}>{t('subscription.noTransactions')}</Text>
                 <Text style={styles.emptyTxDesc}>{t('subscription.noTransactionsSub')}</Text>
               </View>

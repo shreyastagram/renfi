@@ -1429,3 +1429,112 @@ because it renders once, after the tree it would have re-rendered with is alread
 | Working Hours, light + dark | https://claude.ai/code/artifact/4c095340-50d6-4cf7-be3d-3aeb083cbab1 |
 | Home + verification, near-black | https://claude.ai/code/artifact/98258b2b-958d-4a9f-b55e-2a8b1b76ecfb |
 | Dark ramp options (decision record) | https://claude.ai/code/artifact/35b84bee-5966-4e05-8533-2ea20ad5a079 |
+
+---
+
+## §35 — beta.12: the navy home, the violet, the yellow, and the tan tab bar
+
+Five reports from beta.11, plus an icon pass. Every one was a **fixed colour that
+did not flip with the theme** — the same root cause wearing five costumes.
+
+### 35.1 "Home is bluish / still not black"
+
+My own §18 fix. Stopping the provider greeting from inverting, I set `container`
+and `heroHeader` to `stableDark.heroSurface` (`#0F172A`) — reproducing v1.0.9's
+`BRAND.dark`. That froze the page at navy in **both** themes, making provider home
+the only screen in the app with a navy page.
+
+Owner's call: *"make the home screen light like other screen and dont keep it
+bluish."* Both are `C.bg` now — light like every other screen, black in dark. The
+hero stops being a panel and becomes the page, so its inks move with it:
+
+| element | was | now |
+|---|---|---|
+| `sectionTitle` | `stableDark.ink` | `C.textStrong` |
+| "(recent 3)" label | `C.borderMedium` — **1.36:1, invisible** | `C.textSecondary` |
+| logo chip fill / border | `stableDark.fillChip` / `heroDivider` | `C.wellFill` / `C.line` |
+| greeting / subtext | `stableDark.ink` / `inkSoft` | `C.textStrong` / `C.textSecondary` |
+| hero art, refresh spinner | `stableDark.ink` | `C.borderSubtle`, `C.primary` |
+
+**`check:light` has a blind spot here.** It asserts every v1.0.9 colour is still
+*reachable* from the light theme or declared. `#0F172A` is still reachable
+(`stableDark.heroSurface`), so a surface changing role from navy to page passes
+silently. The gate tracks palette drift, not surface identity. Worth knowing before
+trusting it on a layout change.
+
+### 35.2 The violet was never the platform
+
+I spent beta.10 and beta.11 hardening Android accents (`colorAccent`, `colorPrimary`,
+`android:colorEdgeEffect`) chasing "a violet tint appears when I scroll the profile."
+Wrong tree — and Android 12+ uses a *stretch* overscroll anyway, which has no colour.
+
+It is `ProfileScreen:2166`, `actionColor={C.purple}` → `accentViolet` **`#A78BFA`**
+on the portfolio section, plus a violet specialization chip. It appears *as you
+scroll to it*, which is exactly what an overscroll tint would look like. Both are
+brand now. The `styles.xml` hardening stays — correct on its own terms.
+
+**Lesson:** "appears on scroll" described *when* it was visible, not *what* produced
+it. I should have grepped the screen for violet before touching the platform theme.
+
+### 35.3 Yellow: brand accent vs status signal
+
+Owner's rule is *"no yellow anywhere, it's not our brand colour."* Applied with one
+distinction, which is a judgement call worth stating plainly:
+
+- **Removed** where yellow was a decorative/brand accent: the rating star
+  (`iconAccent.star` `#F59E0B` → `#f67c16`, 20 sites in one value), the gold Rate
+  button and favourite border on ServiceRequestDetail, the amber day chips and blue
+  links on WeeklyScheduleCard.
+- **Kept** where amber is a *semantic* signal: `status.pending`, `status.warning`,
+  `status.unverified`. A caution colour that reads as brand orange is worse than a
+  yellow one — the user can no longer tell "needs attention" from "on brand."
+- **Kept**: `categoryAccent.electrician` (one of ~12 hues whose whole job is being
+  distinguishable) and `medal.gold/silver/bronze` on the referral podium (a medal
+  metaphor, not branding).
+
+Chips that wanted "orange tint" were borrowing `warningContainer`, whose dark value
+`#2E2107` is **olive** — a direct source of the yellow. New `brandOrangeFill`
+(`#FFF3E8` / `#2A1708`) is hued off `#f67c16`.
+
+### 35.4 The tab bar stayed a light tan pill in dark
+
+`makeGlass` themed `fallback` but not `tint` — and `tint` paints **on top**, at 0.88
+opacity when blur is unavailable, which is precisely low-end Android. A themed dark
+fallback under a near-opaque cream tint is cream; the 0.58 `DARK_TINT` over that
+composites to ~`#767069`. Both stops flip with the theme now.
+
+> A translucent dark over a light material never yields a dark material. The
+> material itself has to be dark. This is the same trap as the drawer's verified
+> badge (35.5) — twice in one pass, so it is a pattern, not an accident.
+
+### 35.5 Icon pass — 0 dark, 43 → 37 light
+
+Dark was already at zero. The light failures split three ways:
+
+- **Real defects, fixed (6):** five icons coloured with a *border* token
+  (`C.borderMedium`/`C.line` at 1.23–1.42:1 — chevrons and empty-state glyphs that
+  were effectively invisible) → `C.textMuted`. Plus the drawer's verified badge:
+  `stableDark.onlineChip` is green at 18%, which darkens over the black drawer but
+  stays near-white over the light one, leaving `#86EFAC` at **1.11:1**. Themed to
+  `successContainer`/`success`.
+- **Gate false positives (2), no code change:** the emergency back arrow and the
+  image-viewer glyph. Both sit on fixed dark grounds (`darkHero` `#0F172A`,
+  `overlayPhoto`) that the ancestor-flattener failed to resolve, so it graded them
+  against the page. White ink is correct at both sites. **`check:ink` cannot always
+  find the styled ancestor** — dark is still 0, so nothing is hidden, but a light
+  failure on a known-dark panel deserves a look before it is "fixed."
+- **Brand baseline (~31):** `C.primary` on its own tint, stars, WhatsApp green on
+  its tint — 2.37–2.77:1. Unchanged; this is the standing brand-contrast decision.
+
+### 35.6 Stat strip ran to the screen edge
+
+`statCell` was `flex: 1`. Three flexed cells demand the full row, so the strip's
+`alignSelf: 'center'` could never shrink-wrap — the border went edge to edge no
+matter what the container said. Content-sized with a 62pt floor; cell padding
+11 → 4, since the box was also too tall for three short numbers.
+
+### 35.7 Gate state
+
+`check:ink` light baseline ratcheted **121 → 113**. Dark held at 0. All ten gates
+pass; 162 unit tests pass (`App.test.tsx`'s transform failure is pre-existing and
+unrelated).

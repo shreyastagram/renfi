@@ -139,7 +139,11 @@ export const iconAccent = {
   'chatbox': '#F67C16',
   'sms': '#F67C16',
   'chat': '#3B82F6',
-  'star': '#F59E0B',
+  // Brand orange, not amber (#F59E0B). A rating star is a decorative brand accent,
+  // not a status signal, so it has no claim on the caution hue — and the owner's
+  // rule is that yellow is not a Fixhomi colour. Status pending/warning keep amber:
+  // those ARE signals, and a caution colour that reads as brand is worse than yellow.
+  'star': '#f67c16',
   'cancel': '#EF4444',
   'my_location': '#3B82F6',
   'other_location': '#8B5CF6',

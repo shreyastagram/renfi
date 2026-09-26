@@ -95,6 +95,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Service labels for proper display
 const makeC = (c) => ({
+  textMuted: c.textMuted,
   brandOrangeInk: c.brandOrangeInk,
   rowRule: c.rowRule,
   pageSolid: c.pageSolid,
@@ -2375,7 +2376,7 @@ const ProfileScreen = ({ navigation, route }) => {
                                   ? t('phoneChange.changeAction')
                                   : t('phoneChange.verifyAction')}
                             </Text>
-                            <MaterialIcon name="chevron-right" size={20} color={C.borderMedium} />
+                            <MaterialIcon name="chevron-right" size={20} color={C.textMuted} />
                           </View>
                         }
                       />
@@ -2389,7 +2390,7 @@ const ProfileScreen = ({ navigation, route }) => {
                           iconName="email"
                           label={t('profile.emailLabel')}
                           value={displayData?.email || t('profile.notSet')}
-                          right={<MaterialIcon name="chevron-right" size={20} color={C.borderMedium} />}
+                          right={<MaterialIcon name="chevron-right" size={20} color={C.textMuted} />}
                         />
                       </TouchableOpacity>
                     )}
