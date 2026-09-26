@@ -79,6 +79,7 @@ import {
   useThemeColors,
   stableDark,
   premium,
+  useIsDark,
   heroGradient,
   iconAccent,
 } from '../theme';
@@ -407,21 +408,23 @@ const StatStrip = React.memo(({ items }) => {
  */
 const ProfileSkeletonLoader = ({ insets, onBack, provider }) => {
   const styles = useThemedStyles(makeStyles);
+  // The light ramp opens on a near-white stop, which is a slab on a black page.
+  const hg = useIsDark() ? heroGradient.dark : heroGradient;
   const shimmerAnim = useShimmerAnimation();
   return (
     <View style={styles.container}>
       <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainerFlat, { paddingBottom: insets.bottom + 94 }]} scrollEnabled={false}>
         <LinearGradient
           colors={provider
-            ? [heroGradient.userStop1, heroGradient.userStop2, heroGradient.userStop3, heroGradient.userStop4]
-            : [heroGradient.providerStop1, heroGradient.providerStop2, heroGradient.providerStop3, heroGradient.providerStop4]}
+            ? [hg.userStop1, hg.userStop2, hg.userStop3, hg.userStop4]
+            : [hg.providerStop1, hg.providerStop2, hg.providerStop3, hg.providerStop4]}
           locations={[0, 0.15, 0.56, 1]}
           style={styles.gHeader}
         >
           <View style={{ height: insets.top }} />
           <View style={styles.gNav}>
             <TouchableOpacity style={styles.gBackBtn} onPress={onBack}>
-              <Icon name="arrow_back" size={22} color={heroGradient.navInk} />
+              <Icon name="arrow_back" size={22} color={hg.navInk} />
             </TouchableOpacity>
             <Text style={styles.gNavTitle}>Profile</Text>
             <View style={styles.gNavSpacer} />
@@ -477,6 +480,7 @@ const ProfileSkeletonLoader = ({ insets, onBack, provider }) => {
 const ProfileScreen = ({ navigation, route }) => {
   const { isDark } = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const hg = useIsDark() ? heroGradient.dark : heroGradient;
   const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
@@ -1542,8 +1546,8 @@ const ProfileScreen = ({ navigation, route }) => {
     { value: heroExpText || t('profile.newProvider'), label: t('profile.statExperience') },
   ];
   const headerColors = isProvider
-    ? [heroGradient.userStop1, heroGradient.userStop2, heroGradient.userStop3, heroGradient.userStop4]
-    : [heroGradient.providerStop1, heroGradient.providerStop2, heroGradient.providerStop3, heroGradient.providerStop4];
+    ? [hg.userStop1, hg.userStop2, hg.userStop3, hg.userStop4]
+    : [hg.providerStop1, hg.providerStop2, hg.providerStop3, hg.providerStop4];
 
   return (
     <View style={styles.container}>
@@ -1577,7 +1581,7 @@ const ProfileScreen = ({ navigation, route }) => {
                 onPress={() => navigation.goBack()}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Icon name="arrow_back" size={22} color={heroGradient.navInk} />
+                <Icon name="arrow_back" size={22} color={hg.navInk} />
               </TouchableOpacity>
               <Text style={styles.gNavTitle}>{t('profile.title')}</Text>
               <View style={styles.gNavSpacer} />
@@ -1585,16 +1589,16 @@ const ProfileScreen = ({ navigation, route }) => {
             <View style={styles.gBand}>
               <View style={StyleSheet.absoluteFill}>
                 <Svg width="100%" height="100%" viewBox="0 0 400 70" preserveAspectRatio="xMidYMid slice">
-                  <Path d="M0 55 Q60 25 130 45 T260 32 T400 48" stroke={heroGradient.decorStroke} strokeWidth="1.5" fill="none" />
-                  <Path d="M0 64 Q80 36 170 54 T340 40 T400 60" stroke={heroGradient.decorStrokeSoft} strokeWidth="1" fill="none" />
-                  <Circle cx="342" cy="12" r="40" fill={heroGradient.decorBlob} />
-                  <Circle cx="60" cy="8" r="26" fill={heroGradient.decorBlobSoft} />
-                  <Circle cx="278" cy="42" r="3" fill={heroGradient.decorDot} />
+                  <Path d="M0 55 Q60 25 130 45 T260 32 T400 48" stroke={hg.decorStroke} strokeWidth="1.5" fill="none" />
+                  <Path d="M0 64 Q80 36 170 54 T340 40 T400 60" stroke={hg.decorStrokeSoft} strokeWidth="1" fill="none" />
+                  <Circle cx="342" cy="12" r="40" fill={hg.decorBlob} />
+                  <Circle cx="60" cy="8" r="26" fill={hg.decorBlobSoft} />
+                  <Circle cx="278" cy="42" r="3" fill={hg.decorDot} />
                 </Svg>
               </View>
               {/* Type badge — icon + label inline-aligned */}
               <View style={styles.gTypeBadge}>
-                <Icon name={isProvider ? 'provider' : 'user'} size={12} color={heroGradient.ink} />
+                <Icon name={isProvider ? 'provider' : 'user'} size={12} color={hg.ink} />
                 <Text style={styles.gTypeBadgeText}>
                   {isProvider ? t('profile.serviceProvider') : t('profile.user')}
                 </Text>
@@ -2887,6 +2891,9 @@ const ProfileScreen = ({ navigation, route }) => {
 
 const makeStyles = (theme) => {
   const C = makeC(theme.colors);
+  // Same ramp choice as the components: the light stops open near-white, which is a
+  // slab on a black page.
+  const hg = theme.name === 'dark' ? heroGradient.dark : heroGradient;
   return StyleSheet.create({
   container: {
     flex: 1,
@@ -2918,14 +2925,14 @@ const makeStyles = (theme) => {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: heroGradient.backBtnFill,
+    backgroundColor: hg.backBtnFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   gNavTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: heroGradient.navInk,
+    color: hg.navInk,
     letterSpacing: -0.2,
   },
   gNavSpacer: {
@@ -2943,7 +2950,7 @@ const makeStyles = (theme) => {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: heroGradient.chipFill,
+    backgroundColor: hg.chipFill,
     paddingHorizontal: 11,
     paddingVertical: 6,
     borderRadius: 20,
@@ -2951,7 +2958,7 @@ const makeStyles = (theme) => {
   gTypeBadgeText: {
     fontSize: 10.5,
     fontWeight: '800',
-    color: heroGradient.ink,
+    color: hg.ink,
     letterSpacing: 0.4,
   },
 
@@ -3074,10 +3081,12 @@ const makeStyles = (theme) => {
 
   // ─── Flat section system ───
   sectionBand: {
-    height: 9,
+    // In dark this is the page showing between raised cards, so it needs no rules —
+    // 11 bands x 2 hairlines was 22 lit edges. Light keeps the v1.0.9 ruled band.
+    height: theme.name === 'dark' ? 14 : 9,
     backgroundColor: C.bandFill,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: theme.name === 'dark' ? 0 : StyleSheet.hairlineWidth,
+    borderBottomWidth: theme.name === 'dark' ? 0 : StyleSheet.hairlineWidth,
     borderColor: C.line,
   },
   profileSection: {

@@ -907,18 +907,25 @@ on a black page. Set on all 15.
 **Lesson: `tintColor` + `colors` + `progressBackgroundColor` is three properties, not
 two.** Fixing two of three looked complete and was not.
 
-### Still open — profile in dark (mockup out for approval)
+### Profile in dark — approved and shipped
 
 Mockup: <https://claude.ai/code/artifact/74d9ca73-b62a-494d-8b30-f14ee9074692>
 
-1. **The hero** is one fixed gradient for both themes and its first stop is `#FFF3EA`
-   — luma **246**, effectively white. It blends into a white page and glares on black,
-   worst with no photo. Proposal: dark stops that emerge from the page and still END on
-   brand orange, with `navInk` flipped light.
-2. **11 section bands × 2 hairlines = 22 rules**, each a lit 4.26:1 edge in dark.
-   Proposal: in dark the gutter becomes the black page showing between raised cards —
-   the same tonal logic as §20. **The breakers stay**, as the owner asked; only how
-   they separate changes. Light untouched in both.
+**The hero.** One fixed gradient served both themes and its first stop is `#FFF3EA`,
+luma **246** — effectively white. It blends into a white page and glares on black,
+worst with no photo, when the solid orange avatar disc sits on top of it. Added
+`heroGradient.dark`: stops that open at the page and still END on brand
+(`#A85408` / `#174A7A`), with `navInk` flipped light. **Ink clears 4.5 against every
+one of the eight stops, worst case 4.87** — verified stop by stop, not just at the ends.
+
+**The bands.** 11 sections × a hairline top and bottom = 22 lit 4.26:1 rules in dark.
+New `bandFill` token: the v1.0.9 grey band in light, the black page in dark, with the
+rules dropped and the gutter widened 9px → 14px. **The breakers stay** — the owner
+asked for that explicitly; only how they separate changed, which is the same tonal
+logic as §20.
+
+Both dark-only. Light is byte-identical: `navInk` on the light stop still measures
+16.37, exactly as before.
 
 ---
 

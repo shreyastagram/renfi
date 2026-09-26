@@ -240,6 +240,33 @@ export const heroGradient = {
   ctaWarm2: '#F97316',
   ctaWarm3: '#EA580C',
   backBtnFill: 'rgba(255,255,255,0.55)',
+
+  // DARK VARIANT. The light ramp opens on #FFF3EA — luma 246, effectively white.
+  // On a white page that blends; on a black one it is a glaring slab, worst with no
+  // profile photo, which is when the owner noticed it. These stops start at the page
+  // and still END on brand, so the screen stays recognisably Fixhomi.
+  dark: {
+    userStop1: '#140F0A',
+    userStop2: '#241608',
+    userStop3: '#7A3D0B',
+    userStop4: '#A85408',
+    providerStop1: '#0A0E14',
+    providerStop2: '#101C2A',
+    providerStop3: '#1E5F9E',
+    providerStop4: '#174A7A',
+    // The light ramp's nav ink is near-black because it sits on the pale end. Here
+    // the pale end is gone, so the nav has to flip.
+    navInk: '#F1F5F9',
+    ink: '#F1F5F9',
+    decorStroke: 'rgba(255,255,255,0.10)',
+    decorStrokeSoft: 'rgba(255,255,255,0.06)',
+    decorBlob: 'rgba(255,255,255,0.04)',
+    decorBlobSoft: 'rgba(255,255,255,0.03)',
+    decorDot: 'rgba(255,255,255,0.12)',
+    chipFill: 'rgba(255,255,255,0.14)',
+    ctaWarm1: '#B4600F', ctaWarm2: '#A85408', ctaWarm3: '#8A4207',
+    backBtnFill: 'rgba(255,255,255,0.16)',
+  },
 };
 
 // The premium / subscription surface. THEME-INDEPENDENT, and a deliberately separate

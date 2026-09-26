@@ -38,6 +38,11 @@ export const lightColors = {
   pageSolid: slate[0],
   surfaceElevated: slate[0],
   surfaceSunken: slate[25],
+  // The strip between profile sections. In light it is a ruled grey band, as at
+  // v1.0.9. In dark it becomes the PAGE showing through between raised cards —
+  // 11 bands x 2 hairlines was 22 lit 4.26:1 rules, which reads as ruling
+  // rather than rhythm. The breakers stay; only how they separate changes.
+  bandFill: slate[50],
 
   // Lines — the *Neutral variants exist so files built on the gray ramp stay
   // pixel-identical in light mode. They collapse onto one value in dark.
@@ -166,6 +171,11 @@ export const darkColors = {
   pageSolid: dark.base,
   surfaceElevated: dark.elevated,
   surfaceSunken: dark.sunken,
+  // The strip between profile sections. In light it is a ruled grey band, as at
+  // v1.0.9. In dark it becomes the PAGE showing through between raised cards —
+  // 11 bands x 2 hairlines was 22 lit 4.26:1 rules, which reads as ruling
+  // rather than rhythm. The breakers stay; only how they separate changes.
+  bandFill: dark.base,
 
   // Lines — both light-mode ramps UNIFY here. Dark mode gets one clean scale.
   border: dark.border,
