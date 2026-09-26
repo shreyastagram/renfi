@@ -26,6 +26,7 @@ const APP_VERSION = (() => {
 })();
 import { getTokens, storeTokens, clearTokens, isTokenExpired, probeStorageState } from '../utils/storage';
 import { syncTokensToBackgroundService } from './backgroundLocationService';
+import { reportReachable, reportUnreachable } from './networkStatus';
 import {
   reportForcedLogout,
   reportStorageState,
@@ -336,6 +337,15 @@ const handleResponseError = async (error, client) => {
   };
   console.error('❌ [API] Response error:', errorInfo);
 
+  // Feed the offline detector. ONLY a failure with no response counts — a 404
+  // or a 500 came back over the network, which proves the network works. The
+  // store applies its own thresholds; one timeout here means nothing on its own.
+  if (!error.response && error.request) {
+    reportUnreachable();
+  } else if (error.response) {
+    reportReachable();
+  }
+
   // ──────────────────────────────────────────────────────────────────
   // AUTO-RETRY for transient network errors (no response received)
   // Handles: cold-start connections, mobile DNS flakiness, TLS init
@@ -548,6 +558,8 @@ const handleResponseError = async (error, client) => {
 apiClient.interceptors.response.use(
   (response) => {
     console.log(`📥 [API] Response ${response.status}:`, response.config.url);
+    // A response of ANY status proves the round trip worked.
+    reportReachable();
     return response;
   },
   (error) => handleResponseError(error, apiClient)
@@ -559,6 +571,7 @@ apiClient.interceptors.response.use(
 authClient.interceptors.response.use(
   (response) => {
     console.log(`📥 [AUTH] Response ${response.status}:`, response.config.url);
+    reportReachable();
     return response;
   },
   (error) => handleResponseError(error, authClient)

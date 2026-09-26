@@ -15,6 +15,8 @@ export default {
   },
   // ─── Common ───────────────────────────────────────────
   common: {
+    noInternet: 'No internet connection',
+    noInternetHint: 'Check your Wi-Fi or mobile data',
     ok: 'OK',
     cancel: 'Cancel',
     error: 'Error',

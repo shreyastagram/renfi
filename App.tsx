@@ -27,6 +27,7 @@ import RootNavigator, { linking as navLinking } from './navigation/RootNavigator
 import SplashScreen from './src/components/SplashScreen';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import GlobalBanner from './src/components/GlobalBanner';
+import OfflineBanner from './src/components/OfflineBanner';
 import AppUpdateModal from './src/components/AppUpdateModal';
 import MaintenanceModal from './src/components/MaintenanceModal';
 import { checkForAppUpdate } from './src/services/appUpdateService';
@@ -519,6 +520,9 @@ function AppContent() {
             }}
           >
             <RootNavigator />
+            {/* Offline bar. Mounted BEFORE GlobalBanner so a notification wins
+                the top slot when both are up. */}
+            <OfflineBanner />
             {/* Global notification banner — overlays all screens */}
             <GlobalBanner />
           </NavigationContainer>
