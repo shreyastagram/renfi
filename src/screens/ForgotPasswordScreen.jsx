@@ -41,6 +41,7 @@ import {
 import { brandTint } from '../theme';
 
 const makeC = (c) => ({
+  successContainer: c.successContainer,
   brandOrangeInk: c.brandOrangeInk,
   primaryLight: brandTint.orange10, // was a brand-orange tint
   primary: c.brandOrange,
@@ -759,7 +760,7 @@ const makeStyles = (theme) => {
   // ── Success ──
   successContainer: { flex: 1, alignItems: 'center', paddingTop: 24 },
   successIconContainer: {
-    width: 88, height: 88, borderRadius: 22, backgroundColor: C.successFill,
+    width: 88, height: 88, borderRadius: 22, backgroundColor: C.successContainer,
     alignItems: 'center', justifyContent: 'center', marginBottom: 24,
   },
   successTitle: { fontSize: 22, fontWeight: '800', color: C.text, marginBottom: 12 },

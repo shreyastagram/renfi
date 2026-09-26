@@ -44,9 +44,15 @@ import { useThemedStyles, useThemeColors } from '../theme';
 // takes the warning token -- the same call already made for warm accent text on
 // SubscriptionScreen and EmergencyServicesScreen. `white` was dead at v1.0.9.
 const makeC = (c) => ({
+  successContainer: c.successContainer,
   brandOrangeInk: c.brandOrangeInk,
   pageSolid: c.pageSolid,
-  primary: c.warning,
+  // c.brandOrange, not c.warning. A key called `primary` that resolves to the
+  // caution hue makes every C.primary on this screen amber — the spinner, the
+  // strength meter, the links. Nothing named it as a warning; it just was.
+  // brandOrangeInk rather than brandOrange because every use here is INK:
+  // raw #f67c16 measures 2.45 on the light page, the deep form 5.8.
+  primary: c.brandOrangeInk,
   primaryLight: c.warningContainer,
   background: c.surface,
   surface: c.surfaceSunken,
@@ -880,7 +886,7 @@ const makeStyles = (theme) => {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: C.successFill,
+    backgroundColor: C.successContainer,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
