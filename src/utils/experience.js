@@ -91,6 +91,41 @@ export const formatExperience = (startDate, legacyExperience, t = defaultT) => {
 };
 
 /**
+ * Format experience as ONE short token, for tight cells like the profile stat
+ * strip where "5 yrs 2 mos" is four words in a 62pt column.
+ *
+ * Years are a real fraction of the month count, NOT the month number pushed
+ * after a decimal point: 5 yrs 2 mos is 62 months, 62/12 = 5.17 -> "5.2 yrs".
+ * The naive version would print "5.02 yrs", and 4 months would become "0.4"
+ * when it is a third of a year. Under a year there is no sensible fraction to
+ * show, so it stays in whole months.
+ *
+ *   62 mo -> "5.2 yrs"    60 mo -> "5 yrs"    12 mo -> "1 yr"
+ *    8 mo -> "8 mos"       1 mo -> "1 mo"      0 mo -> "New"
+ *
+ * @returns {string|null} null when there is nothing to show
+ */
+export const formatExperienceCompact = (startDate, legacyExperience, t = defaultT) => {
+  let totalMonths = monthsSince(startDate);
+
+  if (totalMonths === null) {
+    const legacy = parseLegacyExperience(legacyExperience);
+    if (!legacy) return null;
+    totalMonths = legacy.unit === 'months' ? legacy.n : legacy.n * 12;
+  }
+
+  if (totalMonths < 1) return t('profile.newProvider');
+  if (totalMonths < 12) {
+    return totalMonths === 1 ? t('experience.oneMonth') : t('experience.months', { n: totalMonths });
+  }
+
+  // One decimal, and drop a trailing .0 so a clean 5 years is not "5.0 yrs".
+  const years = Math.round((totalMonths / 12) * 10) / 10;
+  if (years === 1) return t('experience.oneYear');
+  return t('experience.years', { n: Number.isInteger(years) ? years : years.toFixed(1) });
+};
+
+/**
  * Format a date as "Mar 2021" for the month+year picker field.
  */
 export const formatMonthYear = (date) => {
@@ -107,4 +142,4 @@ export const minExperienceStartDate = () => {
   return d;
 };
 
-export default { formatExperience, formatMonthYear, monthsSince, minExperienceStartDate };
+export default { formatExperience, formatExperienceCompact, formatMonthYear, monthsSince, minExperienceStartDate };

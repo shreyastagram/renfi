@@ -66,7 +66,11 @@ const makeC = (c) => ({
   muted: c.textMuted,
   // The shipped hairline and icon chip were both #F1F5F9 -- exactly `bg` in light,
   // a recessed seam on a dark surface.
-  border: c.bg,
+  // Two different jobs had one key. `border` fed five dividers AND the
+  // no-session chip's FILL, so it was aliased to c.bg to suit the chip — which
+  // made every divider #000000 in dark, i.e. invisible on a dark surface.
+  border: c.border,
+  chipNeutralFill: c.bg,
   iconBg: c.bg,
   infoFill: c.infoFill,
   shadow: c.shadow,
@@ -86,7 +90,7 @@ const makeHealthMap = (C) => ({
   [AUTH_HEALTH.HEALTHY]: { icon: 'verified-user', color: C.success, bg: C.successBg, labelKey: 'accountSecurity.healthy' },
   [AUTH_HEALTH.TOKEN_EXPIRING]: { icon: 'schedule', color: C.warning, bg: C.warningBg, labelKey: 'accountSecurity.tokenExpiring' },
   [AUTH_HEALTH.TOKEN_EXPIRED]: { icon: 'error-outline', color: C.danger, bg: C.dangerBg, labelKey: 'accountSecurity.tokenExpired' },
-  [AUTH_HEALTH.NO_SESSION]: { icon: 'cancel', color: C.muted, bg: C.border, labelKey: 'accountSecurity.noSession' },
+  [AUTH_HEALTH.NO_SESSION]: { icon: 'cancel', color: C.muted, bg: C.chipNeutralFill, labelKey: 'accountSecurity.noSession' },
   [AUTH_HEALTH.SERVICE_ERROR]: { icon: 'cloud-off', color: C.warning, bg: C.warningBg, labelKey: 'accountSecurity.serviceUnavailable' },
 });
 

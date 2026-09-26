@@ -1551,3 +1551,84 @@ artifact from beta.11 still on disk while gradle was mid-build. The wait loop
 exited immediately because it tested for the file's *existence*, not for gradle
 having finished. Always verify `aapt2 dump badging` reports the expected
 versionCode before distributing; the file being present proves nothing.
+
+---
+
+## §36 — the violet, finally: a token that was never repointed
+
+Three builds chasing this. It was never a colour anyone chose.
+
+### 36.1 What it actually was
+
+The owner marked the **grey bands between profile sections**. Those render
+`C.bandFill`, and ProfileScreen's `makeC` said:
+
+```js
+bandFill: c.surfaceSunken,   // #F4F6FA — the section band
+```
+
+`theme.colors.bandFill` has been `#FFFFFF` / **`#000000`** since §35 — introduced
+*precisely* so the gutter would be pure black in dark. The style's own comment
+said "in dark this is the page showing between raised cards." The tracker said
+it. And the file kept painting **`#252321`**, because its local alias still
+resolved `bandFill` to `surfaceSunken`.
+
+A flat dark-grey band at luma 35 on a pure-black page is also the exact
+luminance where Samsung AMOLED panels shift hue and smear during scroll. Hence
+"purple violet flash **when scrolling**, **in dark mode**" — all three qualifiers
+were describing an OLED artifact on a surface that should never have been grey.
+
+**Why three builds.** Each earlier guess explained part of the report and I
+stopped there. "Appears on scroll" → the platform overscroll (wrong: Android 12+
+uses a colourless stretch, and I had already set the accent to orange, so a glow
+could not have been violet). Then a real violet on the same screen → the
+portfolio section (a genuine find, genuinely not this). Neither time did I ask
+what was *underneath the pixels the owner was pointing at*. The screenshot with
+two arrows on the band answered it in seconds.
+
+### 36.2 The gate that would have caught it — `check:shadow`
+
+A `makeC` key must not carry the NAME of a real token while resolving to a
+different one. Aliasing is fine — `primary: c.brandOrange` is deliberate and
+`primary` is not a token. Shadowing is not: the style reads correctly and renders
+wrongly, and no existing gate can see it.
+
+- `check:tokens` asks only whether `C.bandFill` resolves. It did.
+- `check:hex` sees no literal.
+- `check:ink` grades the colour actually used — a legitimate colour, just not the
+  one the name promised.
+
+98 shadowed aliases existed. Ranked by luminance gap, exactly two mattered:
+
+| file | shadow | dark Δ | effect |
+|---|---|---|---|
+| ProfileScreen | `bandFill: c.surfaceSunken` | 37 | the grey band → the violet report |
+| AccountSecurityScreen | `border: c.bg` | **130** | five dividers painted `#000000`, invisible in dark |
+
+The second was a free catch — one key served both a chip's *fill* and five
+*dividers*, so it was aliased to suit the chip. Split into `border` +
+`chipNeutralFill`.
+
+The other 97 are small-delta family aliases (`borderMedium` → `borderMediumNeutral`,
+`dangerLine` → `dangerBorder`). Carried as a declining baseline; what it buys is
+that a new one cannot appear.
+
+> **The lesson worth keeping:** introducing a token is only half the change.
+> Every file that already had a key by that name kept its old meaning, silently.
+> Grep for the key name, not just for the old value.
+
+### 36.3 Stat strip — placement and the experience figure
+
+- **Placement.** It was `alignSelf: 'center'` in a header where the name,
+  headline and location are all left-aligned — the only centred element on the
+  screen. Now `flex-start`.
+- **Responsive.** Added `flexShrink: 1` to the cells. Content-sized cells with a
+  62pt floor can exceed a 320pt screen once Marathi labels are in, and the strip
+  is `overflow: 'hidden'`, so it would have clipped rather than ellipsised.
+- **"5 yrs 2 mos" → "5.2 yrs".** New `formatExperienceCompact`. The arithmetic is
+  the point: 62 months / 12 = 5.17 → `5.2`. Pushing the month number after the
+  decimal would say `5.02`, and 4 months would become `0.4` when it is a third of
+  a year. Under 12 months there is no honest fraction, so it stays in whole
+  months. Whole years drop the `.0`. Nine tests pin the boundaries; they use a
+  fixed `now` so they cannot drift with the calendar. The long form still appears
+  in the Experience section below.

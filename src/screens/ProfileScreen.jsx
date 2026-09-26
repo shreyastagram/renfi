@@ -36,7 +36,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { formatExperience, formatMonthYear, minExperienceStartDate } from '../utils/experience';
+import { formatExperienceCompact, formatExperience, formatMonthYear, minExperienceStartDate } from '../utils/experience';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { useApp } from '../context/AppContext';
 import { useDialog } from '../context/DialogContext';
@@ -112,7 +112,12 @@ const makeC = (c) => ({
   // This screen uses FOUR near-white neutrals. Each keeps its own token so the
   // light look is unchanged and each reads as a distinct step on a dark surface.
   surfaceTint: c.surface,      // #FCFDFE — the stat strip, a hair off white
-  bandFill: c.surfaceSunken,   // #F4F6FA — the section band
+  // c.bandFill, NOT c.surfaceSunken. surfaceSunken is #252321 in dark — a flat
+  // dark-grey band on a pure-black page, which is exactly the luminance where
+  // Samsung AMOLED panels shift hue and smear while scrolling. That is the
+  // 'purple violet flash'. The token has been #000000 in dark since §35; this
+  // one file was never repointed at it, so it kept painting the grey.
+  bandFill: c.bandFill,
   inputFill: c.surfaceSunken,  // #FAFBFC — text inputs
   sunkenNeutral: c.surfaceSunken,
   // Two hairline weights, matching the two the screen shipped with.
@@ -1536,7 +1541,9 @@ const ProfileScreen = ({ navigation, route }) => {
         : displayData?.serviceCategories) || [])
         .slice(0, 2).map(formatServiceName).join(' · ') || t('profile.serviceProvider')
     : t('profile.user');
-  const heroExpText = formatExperience(displayData?.experienceStartDate, displayData?.experience, t);
+  // Compact in the strip cell: '5.2 yrs', not '5 yrs 2 mos'. The long form is
+    // still what the Experience section below shows.
+    const heroExpText = formatExperienceCompact(displayData?.experienceStartDate, displayData?.experience, t);
   const completedJobs = displayData?.stats?.completedRequests || 0;
   const reviewCount = displayData?.ratings?.total || 0;
   const ratingAvg = displayData?.ratings?.average || displayData?.rating || 0;
@@ -3044,7 +3051,10 @@ const makeStyles = (theme) => {
     // The border stays — it groups the three figures — but tight. It was a 16-radius
     // card with a tinted fill and 14pt of padding around three short numbers.
     flexDirection: 'row',
-    alignSelf: 'center',
+    // Left-aligned, like the name, headline and location above it. Centring it
+    // was the only centred thing in a left-aligned header, which is what read as
+    // 'weird placement'. flex-start also lets it shrink to its content.
+    alignSelf: 'flex-start',
     maxWidth: '100%',
     marginTop: 10,
     marginBottom: 2,
@@ -3061,6 +3071,10 @@ const makeStyles = (theme) => {
     // alignSelf:'center' could never shrink-wrap and the border ran edge to edge.
     // Content-sized with a floor keeps the three figures aligned without stretching.
     minWidth: 62,
+    // Shrink before the row overflows. Marathi's 'अनुभव' and a long value can
+    // push three content-sized cells past a 320pt screen; without this the strip
+    // clips at overflow:'hidden' instead of ellipsising inside the cell.
+    flexShrink: 1,
     alignItems: 'center',
     paddingVertical: 4,
     paddingHorizontal: 10,
