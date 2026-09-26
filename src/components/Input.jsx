@@ -88,6 +88,7 @@ const Input = ({
         !editable && styles.inputDisabled,
       ]}>
         <TextInput
+      selectionColor={c.brandOrange}
           style={styles.input}
           value={value}
           onChangeText={onChangeText}

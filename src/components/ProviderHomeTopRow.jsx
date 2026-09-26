@@ -55,7 +55,7 @@ const PulsingDot = ({ isOnline, paused }) => {
         Animated.parallel([
           Animated.sequence([
             Animated.timing(pulseAnim, {
-              toValue: 1.8,
+              toValue: 1.62,   // 12 x 1.62 = 19.4, inside the 20pt container
               duration: 1200,
               useNativeDriver: true,
             }),
@@ -97,7 +97,10 @@ const PulsingDot = ({ isOnline, paused }) => {
             {
               transform: [{ scale: pulseAnim }],
               opacity: opacityAnim,
-              backgroundColor: C.online,
+              // The pad's INK, not C.online. When available the pad itself is C.online,
+                // so a green ring on a green pad rendered nothing at all — the
+                // pulse has been invisible in exactly the state it signals.
+                backgroundColor: C.onOnline,
             },
           ]}
         />
@@ -105,7 +108,13 @@ const PulsingDot = ({ isOnline, paused }) => {
       <View
         style={[
           styles.statusDotInner,
-          { backgroundColor: isOnline ? C.online : C.muted },
+          {
+              backgroundColor: isOnline ? C.onOnline : C.muted,
+              // The halo reads against the pad; on the green pad that is the pad
+              // itself, so the dot keeps a crisp edge without a white ring being
+              // the brightest thing on the control.
+              borderColor: isOnline ? C.online : C.white,
+            },
         ]}
       />
     </View>
@@ -404,14 +413,16 @@ const makeStyles = (theme) => {
   pulsingDotContainer: {
     width: 20,
     height: 20,
+    borderRadius: 10,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
   pulsingRing: {
     position: 'absolute',
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
   statusDotInner: {
     width: 12,

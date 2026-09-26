@@ -308,6 +308,7 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomIns
               <Text style={styles.subtitle}>{t('phoneChange.otpSub', { phone: `+91 ${newPhone}` })}</Text>
               <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
                 <TextInput
+      selectionColor={C.primary}
                   ref={otpInputRef}
                   style={[styles.otpInput, !!otpError && styles.otpInputError]}
                   value={otp}

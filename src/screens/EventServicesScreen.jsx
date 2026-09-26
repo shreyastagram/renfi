@@ -1309,6 +1309,7 @@ const EventServicesScreen = ({ navigation }) => {
                   <Text style={styles.bookingSectionTitle}>{t('eventServices.eventDetails')}</Text>
                 </View>
                 <TextInput
+      selectionColor={C.primary}
                   style={styles.eventDescriptionInput}
                   placeholder={t('eventServices.eventDetailsPlaceholder')}
                   placeholderTextColor={C.muted}

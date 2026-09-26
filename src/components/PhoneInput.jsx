@@ -84,6 +84,7 @@ const PhoneInput = ({
 
         {/* Phone number input */}
         <TextInput
+      selectionColor={C.primary}
           style={styles.input}
           value={value}
           onChangeText={handleChange}

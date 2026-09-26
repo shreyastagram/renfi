@@ -172,6 +172,7 @@ const makeFilterTabs = (C) => ([
 
 // Brand colors
 const makeC = (c) => ({
+  brandOrangeFill: c.brandOrangeFill,
   surface: c.surface,
   brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
@@ -2033,7 +2034,7 @@ const makeStyles = (theme) => {
     fontSize: 8,
     fontWeight: '700',
     color: C.brandOrangeInk,
-    backgroundColor: C.warningBg,
+    backgroundColor: C.brandOrangeFill,
     paddingHorizontal: 5,
     paddingVertical: 2,
     borderRadius: 4,
@@ -2044,7 +2045,7 @@ const makeStyles = (theme) => {
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: C.warningBg,
+    backgroundColor: C.brandOrangeFill,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,

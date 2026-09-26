@@ -305,6 +305,7 @@ const RatingModal = ({
             <View style={styles.reviewSection}>
               <Text style={styles.reviewLabel}>Write a Review (Optional)</Text>
               <TextInput
+      selectionColor={C.primary}
                 style={styles.reviewInput}
                 placeholder="Share your experience..."
                 placeholderTextColor={C.muted}

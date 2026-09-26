@@ -1552,6 +1552,7 @@ const SettingsScreen = ({ navigation }) => {
                         </Text>
 
                         <TextInput
+      selectionColor={C.primary}
                           style={[styles.iosOtpInput, isDeletingAccount && { opacity: 0.5 }]}
                           placeholder="000000"
                           placeholderTextColor={C.iosPlaceholder}
@@ -1568,6 +1569,7 @@ const SettingsScreen = ({ navigation }) => {
                         />
 
                         <TextInput
+      selectionColor={C.primary}
                           style={[styles.iosReasonInput, isDeletingAccount && { opacity: 0.5 }]}
                           placeholder={t('settings.deleteReasonPlaceholder')}
                           placeholderTextColor={C.iosPlaceholder}
@@ -1658,6 +1660,7 @@ const SettingsScreen = ({ navigation }) => {
                   </Text>
 
                   <TextInput
+      selectionColor={C.primary}
                     style={[styles.otpInput, isDeletingAccount && { opacity: 0.5 }]}
                     placeholder={t('settings.deleteOtpPlaceholder')}
                     placeholderTextColor={C.muted}
@@ -1672,6 +1675,7 @@ const SettingsScreen = ({ navigation }) => {
                   />
 
                   <TextInput
+      selectionColor={C.primary}
                     style={[styles.reasonInput, isDeletingAccount && { opacity: 0.5 }]}
                     placeholder={t('settings.deleteReasonPlaceholder')}
                     placeholderTextColor={C.muted}

@@ -161,6 +161,7 @@ const LinkInput = ({ platform, value, onChange, t }) => {
     <View style={styles.linkInputWrapper}>
       <Text style={styles.linkLabel}>{platform.label}</Text>
       <TextInput
+      selectionColor={C.primary}
         style={styles.linkInput}
         value={value}
         onChangeText={onChange}
@@ -424,6 +425,7 @@ const PortfolioEditScreen = ({ navigation }) => {
               <Text style={styles.sectionTitle}>{t('portfolio.aboutYou')}</Text>
             </View>
             <TextInput
+      selectionColor={C.primary}
               style={styles.bioInput}
               value={bio}
               onChangeText={setBio}
@@ -506,6 +508,7 @@ const PortfolioEditScreen = ({ navigation }) => {
             {/* Custom specialization input */}
             <View style={styles.customSpecContainer}>
               <TextInput
+      selectionColor={C.primary}
                 style={styles.customSpecInput}
                 value={customSpecialization}
                 onChangeText={setCustomSpecialization}

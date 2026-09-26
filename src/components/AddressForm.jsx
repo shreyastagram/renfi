@@ -146,6 +146,7 @@ const FormInput = ({
         {required && <Text style={styles.requiredStar}> *</Text>}
       </Text>
       <TextInput
+      selectionColor={C.primary}
         style={[
           styles.input,
           multiline && styles.inputMultiline,

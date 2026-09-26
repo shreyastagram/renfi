@@ -44,6 +44,7 @@ import { useThemedStyles, useThemeColors } from '../theme';
 // takes the warning token -- the same call already made for warm accent text on
 // SubscriptionScreen and EmergencyServicesScreen. `white` was dead at v1.0.9.
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   pageSolid: c.pageSolid,
   primary: c.warning,
   primaryLight: c.warningContainer,
@@ -464,6 +465,7 @@ const ChangePasswordScreen = ({ navigation, onGoBack, onSuccess }) => {
               <Text style={styles.otpLabel}>{t('changePassword.enterOtpLabel')}</Text>
               <View style={styles.otpInputContainer}>
                 <TextInput
+      selectionColor={C.brandOrangeInk}
                   style={styles.otpInput}
                   value={otp}
                   onChangeText={(text) => setOtp(text.replace(/[^0-9]/g, '').slice(0, 6))}

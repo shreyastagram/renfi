@@ -293,6 +293,7 @@ const RegisterChoice = ({
             <View style={styles.referralInputRow}>
               <MaterialIcons name="redeem" size={18} color={C.muted} style={styles.referralIcon} />
               <TextInput
+      selectionColor={C.primary}
                 style={styles.referralInput}
                 value={referralCode}
                 onChangeText={(v) => onReferralCodeChange(v.toUpperCase())}

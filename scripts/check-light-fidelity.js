@@ -268,6 +268,25 @@ const EXPECTED_CHANGES = {
     '#FFFFFF': 'the help icon was WHITE ON A WHITE HEADER at v1.0.9 -- invisible. Now brand orange, matching UserHomeScreen.',
   },
   'src/screens/SubscriptionScreen.jsx': {
+    '#0d1220': "premium palette retuned for a premium read (values only, no key renamed): the ground moves off mid blue-slate onto a deeper warm neutral, and the metal off #FFD700 — pure spectrum yellow — onto champagne.",
+    '#161d30': "premium palette retuned for a premium read (values only, no key renamed): the ground moves off mid blue-slate onto a deeper warm neutral, and the metal off #FFD700 — pure spectrum yellow — onto champagne.",
+    '#1a1f2e': "premium palette retuned for a premium read (values only, no key renamed): the ground moves off mid blue-slate onto a deeper warm neutral, and the metal off #FFD700 — pure spectrum yellow — onto champagne.",
+    '#131a2a': "premium palette retuned for a premium read (values only, no key renamed): the ground moves off mid blue-slate onto a deeper warm neutral, and the metal off #FFD700 — pure spectrum yellow — onto champagne.",
+    '#0f172a': "premium palette retuned for a premium read (values only, no key renamed): the ground moves off mid blue-slate onto a deeper warm neutral, and the metal off #FFD700 — pure spectrum yellow — onto champagne.",
+    '#1e293b': "premium palette retuned for a premium read (values only, no key renamed): the ground moves off mid blue-slate onto a deeper warm neutral, and the metal off #FFD700 — pure spectrum yellow — onto champagne.",
+    '#e8b54d': "premium palette retuned for a premium read (values only, no key renamed): the ground moves off mid blue-slate onto a deeper warm neutral, and the metal off #FFD700 — pure spectrum yellow — onto champagne.",
+    '#f2ce8a': "premium palette retuned for a premium read (values only, no key renamed): the ground moves off mid blue-slate onto a deeper warm neutral, and the metal off #FFD700 — pure spectrum yellow — onto champagne.",
+    '#b98a2f': "premium palette retuned for a premium read (values only, no key renamed): the ground moves off mid blue-slate onto a deeper warm neutral, and the metal off #FFD700 — pure spectrum yellow — onto champagne.",
+    '#ffd700': "premium palette retuned for a premium read (values only, no key renamed): the ground moves off mid blue-slate onto a deeper warm neutral, and the metal off #FFD700 — pure spectrum yellow — onto champagne.",
+    '#b9c0cf': "premium palette retuned for a premium read (values only, no key renamed): the ground moves off mid blue-slate onto a deeper warm neutral, and the metal off #FFD700 — pure spectrum yellow — onto champagne.",
+    '#8a93a6': "premium palette retuned for a premium read (values only, no key renamed): the ground moves off mid blue-slate onto a deeper warm neutral, and the metal off #FFD700 — pure spectrum yellow — onto champagne.",
+    'rgba(232,181,77,0.14)': "premium palette retuned for a premium read (values only, no key renamed): the ground moves off mid blue-slate onto a deeper warm neutral, and the metal off #FFD700 — pure spectrum yellow — onto champagne.",
+    'rgba(232,181,77,0.12)': "premium palette retuned for a premium read (values only, no key renamed): the ground moves off mid blue-slate onto a deeper warm neutral, and the metal off #FFD700 — pure spectrum yellow — onto champagne.",
+    'rgba(232,181,77,0.35)': "premium palette retuned for a premium read (values only, no key renamed): the ground moves off mid blue-slate onto a deeper warm neutral, and the metal off #FFD700 — pure spectrum yellow — onto champagne.",
+    'rgba(232,181,77,0.30)': "premium palette retuned for a premium read (values only, no key renamed): the ground moves off mid blue-slate onto a deeper warm neutral, and the metal off #FFD700 — pure spectrum yellow — onto champagne.",
+    'rgba(232,181,77,0.16)': "premium palette retuned for a premium read (values only, no key renamed): the ground moves off mid blue-slate onto a deeper warm neutral, and the metal off #FFD700 — pure spectrum yellow — onto champagne.",
+    'rgba(232,181,77,0.4)': "premium palette retuned for a premium read (values only, no key renamed): the ground moves off mid blue-slate onto a deeper warm neutral, and the metal off #FFD700 — pure spectrum yellow — onto champagne.",
+    'rgba(255,215,0,0.07)': "premium palette retuned for a premium read (values only, no key renamed): the ground moves off mid blue-slate onto a deeper warm neutral, and the metal off #FFD700 — pure spectrum yellow — onto champagne.",
     // The navy + gold hero, the active-plan header band and the launch-offer chip are
     // UNCHANGED -- they moved to the theme-independent `premium` group, which holds
     // their shipped values verbatim. Everything below is a light-surface change.
@@ -343,6 +362,8 @@ const EXPECTED_CHANGES = {
     '#FFFFFF': 'COLORS.white was dead at v1.0.9; the page background maps to surface',
   },
   'src/screens/ProfileScreen.jsx': {
+    '#ffd700': "premium palette retuned for a premium read (values only, no key renamed): #FFD700 is pure spectrum yellow and #E8B54D is brassy; both move to champagne. Shared with SubscriptionScreen.",
+    '#e8b54d': "premium palette retuned for a premium read (values only, no key renamed): #FFD700 is pure spectrum yellow and #E8B54D is brassy; both move to champagne. Shared with SubscriptionScreen.",
     // The brand-gradient hero and the premium card's dark header are UNCHANGED --
     // they moved to the theme-independent heroGradient / premium groups, which hold
     // their shipped values verbatim. Everything below is a light-surface change.

@@ -43,6 +43,7 @@ const OTP_LENGTH = 6;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const makeC = (c) => ({
+  brandOrangeFill: c.brandOrangeFill,
   brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
@@ -711,6 +712,7 @@ const VerificationScreen = ({
                 <View style={s.editWrap}>
                   <Text style={s.editLabel}>{t('verificationScreen.emailAddress')}</Text>
                   <TextInput
+      selectionColor={C.primary}
                     style={s.editInput}
                     value={editValue}
                     onChangeText={setEditValue}
@@ -834,6 +836,7 @@ const VerificationScreen = ({
                           <Text style={s.countryCodeText}>{t('verificationScreen.countryCode')}</Text>
                         </View>
                         <TextInput
+      selectionColor={C.primary}
                           style={[s.editInput, { flex: 1 }]}
                           value={editValue}
                           onChangeText={(text) => {
@@ -956,6 +959,7 @@ const VerificationScreen = ({
                           ]}
                         >
                           <TextInput
+      selectionColor={C.primary}
                             ref={(ref) => (inputRefs.current[index] = ref)}
                             style={[
                               s.otpDigitInput,
@@ -1505,7 +1509,7 @@ const makeStyles = (theme) => {
     paddingHorizontal: 20,
     paddingVertical: 11,
     borderRadius: 12,
-    backgroundColor: C.warningBg,
+    backgroundColor: C.brandOrangeFill,
   },
   resendBtnDisabled: {
     backgroundColor: C.hairline,

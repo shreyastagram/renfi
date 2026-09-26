@@ -206,6 +206,7 @@ const InlineFieldCollectorModal = ({ field = 'name', bottomInset = 0, onDone }) 
               <Text style={s.subtitle}>{labels.subtitle}</Text>
 
               <TextInput
+      selectionColor={C.primary}
                 ref={inputRef}
                 style={[s.input, error ? s.inputError : null]}
                 value={value}

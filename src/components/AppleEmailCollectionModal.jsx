@@ -38,6 +38,7 @@ import {
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const makeC = (c) => ({
+  brandOrangeFill: c.brandOrangeFill,
   brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
@@ -412,6 +413,7 @@ const AppleEmailCollectionModal = ({ visible, appleUserId, onVerified, onCancel 
               {step === STEPS.EMAIL_INPUT && (
                 <View style={styles.inputSection}>
                   <TextInput
+      selectionColor={C.primary}
                     ref={emailInputRef}
                     style={styles.emailInput}
                     placeholder={t('auth.appleEmailPlaceholder') || 'Enter your email address'}
@@ -453,6 +455,7 @@ const AppleEmailCollectionModal = ({ visible, appleUserId, onVerified, onCancel 
                   <View style={styles.otpContainer}>
                     {Array(OTP_LENGTH).fill(0).map((_, index) => (
                       <TextInput
+      selectionColor={C.primary}
                         key={index}
                         ref={(ref) => { otpInputRefs.current[index] = ref; }}
                         style={[
@@ -653,7 +656,7 @@ const makeStyles = (theme) => {
   },
   otpInputFilled: {
     borderColor: C.primary,
-    backgroundColor: C.warningBg,
+    backgroundColor: C.brandOrangeFill,
   },
   primaryButton: {
     backgroundColor: C.primary,

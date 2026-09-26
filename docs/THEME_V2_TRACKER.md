@@ -1704,3 +1704,80 @@ on re-assignments.
 |---|---|---|
 | 1.1.0-beta.13 | 49 | §36 (the violet: bandFill shadowing) + §37 (branding the last yellows). `USE_DEV_STAGING=false`, production backends. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/1l6jht2in6mbo) |
 
+
+---
+
+## §38 — controls off the caution hue, the pulse, premium, and iOS caret drift
+
+### 38.1 "Electrician still looks yellowish"
+
+Not `categoryAccent` at all — §37 recoloured that and the label did not move,
+because the profession label is `heroHeadlineProvider: { color: C.warning }`.
+
+That is the fourth yellow found one at a time, so this pass stopped guessing and
+swept it. `warning` is doing **two jobs**: a caution SIGNAL, and a warm
+decorative accent. Classified all 33 styles that use a `warning` token but whose
+own NAME does not say "warning", and applied one rule:
+
+> **Interactive controls and brand labels take brand. Notices and status keep amber.**
+
+15 styles moved: the profession label, an OTP resend button + its text, a focused
+OTP box, an OTP-sent badge + text, a favourites plate, a register CTA button, an
+add button, a resend button, a retry button, a favourite badge, a filled OTP
+input, a rating chip, an approvals subtitle.
+
+Deliberately left amber: `aadhaarNotice`, `outOfZoneBanner`, `permissionBar*`,
+`providerTip*`. Those are genuinely "needs attention" — a caution colour that
+reads as brand orange stops signalling.
+
+### 38.2 The online pulse was invisible
+
+Three faults in one 20pt control:
+
+| | was | now |
+|---|---|---|
+| ring colour | `C.online` — **on a `C.online` pad** | `C.onOnline` |
+| dot colour | `C.online` — same | `C.onOnline` |
+| ring size | 16 × 1.8 = **28.8pt in a 20pt box** | 12 × 1.62 = 19.4pt |
+| container | no clip | `borderRadius: 10, overflow: 'hidden'` |
+
+Green on green. The pulse has rendered nothing **in exactly the state it exists
+to signal** — it was only ever visible while offline, when it does not animate.
+The ring also escaped its container into the label. The dot's 2pt white border
+was doing all the visual work, which is why it looked like a ring rather than a
+dot; it now takes the pad colour so the dot reads as a disc.
+
+### 38.3 Manage Subscription — premium, colours only
+
+Fixed navy+gold identity, does not theme. Two things made it read cheap:
+
+- **`crown: #FFD700`** — pure spectrum yellow, the single cheapest-looking gold
+  there is. → `#E4C67E` champagne.
+- **the ground was mid blue-slate** (`#0D1220` … `#1E293B`), which reads like a
+  dashboard rather than a material. → deeper warm neutral (`#100E0D` … `#2A2523`),
+  the same family as the app's own dark ramp.
+
+Plus `gold` off brassy onto champagne, and the cool blue-grey inks warmed. 19
+values, **zero keys renamed** — so `navy` and `slate*` now name a warm dark
+rather than a hue, which is the cost of the owner's naming constraint and worth
+knowing when reading those styles.
+
+`check:ink` caught a real regression here: darkening `goldInk` to `#A8842E` put
+it at **4.42** on the dark info container, under the 4.5 floor. Solved to
+`#BE9138` (5.37) rather than waived.
+
+### 38.4 iOS/Android caret drift — `check:input`
+
+**40 of the app's 42 `<TextInput>`s had no `selectionColor`.** That prop has no
+theme hook on iOS: the caret and selection highlight are the system blue
+`#007AFF`. On Android they come from `colorAccent`, which this app sets to brand
+orange. So the same input had an **orange caret on Android and a blue one on
+iOS**, in one build.
+
+Nothing could see it — the caret is drawn by the OS, so `check:ink` has no
+element to grade and `check:hex` no literal to find. All 40 now set it; new gate
+`check:input` asserts both `selectionColor` and `placeholderTextColor` on every
+input. `placeholderTextColor` was already at 100%; it is asserted anyway, because
+the expensive failure is the quiet regression on input forty-three.
+
+Twelve gates now. All pass; 90 unit tests pass.

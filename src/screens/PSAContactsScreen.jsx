@@ -560,6 +560,7 @@ const ContactFormModal = ({ visible, contact, onClose, onSave }) => {
               <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bounces={false}>
                 <Text style={styles.inputLabel}>Name *</Text>
                 <TextInput
+                  selectionColor={themeColors.brandOrange}
                   style={styles.textInput}
                   value={name}
                   onChangeText={setName}
@@ -571,6 +572,7 @@ const ContactFormModal = ({ visible, contact, onClose, onSave }) => {
 
                 <Text style={styles.inputLabel}>Phone Number *</Text>
                 <TextInput
+                  selectionColor={themeColors.brandOrange}
                   style={styles.textInput}
                   value={phone}
                   onChangeText={setPhone}
@@ -582,6 +584,7 @@ const ContactFormModal = ({ visible, contact, onClose, onSave }) => {
 
                 <Text style={styles.inputLabel}>Email (optional)</Text>
                 <TextInput
+                  selectionColor={themeColors.brandOrange}
                   style={styles.textInput}
                   value={email}
                   onChangeText={setEmail}

@@ -246,6 +246,7 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
                         <Text style={styles.iosOtpSubtitle}>{t('providerHistory.enterCompletionOtpSub')}</Text>
 
                         <TextInput
+      selectionColor={C.primary}
                           style={[styles.iosOtpInput, isLocked && { backgroundColor: C.iosRed + '14' }]}
                           value={otp}
                           onChangeText={handleOtpChange}
@@ -332,6 +333,7 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
               </View>
               <Text style={styles.modalSubtitle}>{t('providerHistory.enterCompletionOtpSub')}</Text>
               <TextInput
+      selectionColor={C.primary}
                 style={[styles.otpInput, isLocked && { borderColor: C.danger, backgroundColor: C.dangerBg }]}
                 value={otp}
                 onChangeText={handleOtpChange}

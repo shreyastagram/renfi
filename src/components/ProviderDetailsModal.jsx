@@ -41,6 +41,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Brand colors
 const makeC = (c) => ({
+  brandOrangeFill: c.brandOrangeFill,
   star: iconAccent.star, // was #F59E0B, theme-independent
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
@@ -957,7 +958,7 @@ const makeStyles = (theme) => {
   reviewRating: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.warningBg,
+    backgroundColor: C.brandOrangeFill,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,

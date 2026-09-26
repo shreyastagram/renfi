@@ -204,6 +204,7 @@ const WelcomeModal = ({ visible, needsName, initialReferralCode, onComplete, onS
                   {t('auth.yourName') || 'Your name'}
                 </Text>
                 <TextInput
+      selectionColor={C.primary}
                   style={styles.nameInput}
                   value={fullName}
                   onChangeText={(v) => {
@@ -229,6 +230,7 @@ const WelcomeModal = ({ visible, needsName, initialReferralCode, onComplete, onS
               <View style={styles.referralInputRow}>
                 <MaterialIcons name="redeem" size={18} color={C.disabled} style={styles.referralIcon} />
                 <TextInput
+      selectionColor={C.primary}
                   style={styles.referralInput}
                   value={referralCode}
                   onChangeText={(v) => {

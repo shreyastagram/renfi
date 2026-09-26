@@ -536,6 +536,7 @@ const MapPickerModal = ({
           <View style={styles.searchBar}>
             <MaterialIcon name="search" size={22} color={C.muted} />
             <TextInput
+      selectionColor={C.primary}
               ref={searchInputRef}
               style={styles.searchInput}
               placeholder="Search area, landmark, or address..."

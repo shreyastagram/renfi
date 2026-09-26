@@ -153,6 +153,7 @@ const CityAutocomplete = ({
       <Text style={styles.label}>{label}</Text>
       <View style={styles.inputContainer}>
         <TextInput
+      selectionColor={C.primary}
           ref={inputRef}
           style={styles.input}
           value={query}

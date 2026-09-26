@@ -289,40 +289,45 @@ export const heroGradient = {
 // marketing. The hero, the active-plan header and the launch-offer chip are dark in
 // BOTH themes — they sell a product rather than reflect a UI mode — so nothing on
 // them may use a flipping token. Same trap as stableDark, different palette.
+// The Subscription screen is a fixed navy+gold identity that does not theme.
+// Retuned for a premium read, values only: the ground moves off mid blue-slate
+// onto a deeper warm neutral, and the metal moves off #FFD700 — pure spectrum
+// yellow, the cheapest-looking gold there is — onto champagne. Key names are
+// unchanged, so 'navy' and 'slate*' now describe a warm dark rather than a hue.
 export const premium = {
-  navy: '#0D1220',
-  navyLift: '#161D30',
-  navyGradA: '#1A1F2E',
-  navyGradC: '#131A2A',
-  slateHeader: '#0F172A', // the active-plan card's dark header band
+  navy: '#100E0D',
+  navyLift: '#1C1917',
+  navyGradA: '#231F1C',
+  navyGradC: '#161312',
+  slateHeader: '#131110', // the active-plan card's dark header band
   iosDark: '#1C1C1E', // the same band on iOS, which uses Apple's dark grey
-  slateCard: '#1E293B', // the inactive card's Android gradient base
+  slateCard: '#2A2523', // the inactive card's Android gradient base
   indigoShadow: '#4338CA', // the inactive card's coloured drop shadow
-  gold: '#E8B54D',
-  goldSoft: '#F2CE8A',
-  goldInk: '#B98A2F', // gold dark enough to read as TEXT on a light surface
-  crown: '#FFD700',
+  gold: '#DFB863',
+  goldSoft: '#EBD5A5',
+  goldInk: '#BE9138', // gold dark enough to read as TEXT on a light surface
+  crown: '#E4C67E',
   ink: '#FDFBF7',
   inkIvory: '#F4EFE6',
   inkPer: '#E7E2D6',
-  inkMuted: '#B9C0CF',
-  inkFaint: '#8A93A6',
+  inkMuted: '#C4BCB0',
+  inkFaint: '#928A80',
   inkBlue: '#8FBAE3',
   assure: '#7FD8A5',
   statusDot: '#4ADE80',
-  keyline: 'rgba(232,181,77,0.14)',
+  keyline: 'rgba(223,184,99,0.14)',
   keylineBlue: 'rgba(43,118,188,0.16)',
-  crownFill: 'rgba(232,181,77,0.12)',
-  crownLine: 'rgba(232,181,77,0.35)',
+  crownFill: 'rgba(223,184,99,0.12)',
+  crownLine: 'rgba(223,184,99,0.35)',
   divider: 'rgba(255,255,255,0.08)',
   glowOrange: 'rgba(246,124,22,0.20)',
-  glowGold: 'rgba(232,181,77,0.16)',
+  glowGold: 'rgba(223,184,99,0.16)',
   glowBlue: 'rgba(43,118,188,0.22)',
-  borderGold: 'rgba(232,181,77,0.30)',
+  borderGold: 'rgba(223,184,99,0.30)',
   borderBlue: 'rgba(43,118,188,0.38)',
-  offerLine: 'rgba(232,181,77,0.4)',
+  offerLine: 'rgba(223,184,99,0.4)',
   statusFill: 'rgba(22,163,74,0.15)',
-  decoGold: 'rgba(255,215,0,0.07)',
+  decoGold: 'rgba(228,198,126,0.07)',
   decoIndigo: 'rgba(99,102,241,0.06)',
 };
 

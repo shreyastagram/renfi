@@ -254,6 +254,7 @@ const CancellationReasonModal = ({
             {isOtherSelected && (
               <View style={styles.otherInputContainer}>
                 <TextInput
+      selectionColor={C.primary}
                   ref={otherInputRef}
                   style={styles.otherInput}
                   placeholder="Please describe your reason..."

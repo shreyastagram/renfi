@@ -75,6 +75,7 @@ const EMERGENCY_NOTES_PLACEHOLDERS = {
 
 // Premium design tokens
 const makeC = (c) => ({
+  brandOrangeFill: c.brandOrangeFill,
   surface: c.surface,
   brandOrangeInk: c.brandOrangeInk,
   darkHero: stableDark.heroSurface, // was #0F172A — a fixed brand panel
@@ -1547,6 +1548,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
           {/* Notes label + input */}
           <Text style={styles.notesLabel}>{t('emergencyServices.detailsOptional')}</Text>
           <TextInput
+      selectionColor={C.primary}
             style={styles.notesInput}
             placeholder={EMERGENCY_NOTES_PLACEHOLDERS[selectedService?.id] || t('emergencyServices.addDetails')}
             placeholderTextColor={C.muted}
@@ -1886,7 +1888,7 @@ const makeStyles = (theme) => {
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 8,
-    backgroundColor: C.warningBg,
+    backgroundColor: C.brandOrangeFill,
     borderRadius: 14,
   },
   providersList: {
@@ -1935,7 +1937,7 @@ const makeStyles = (theme) => {
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: C.warning,
+    borderColor: C.brandOrangeInk,
   },
   providerDetails: {
     flex: 1,

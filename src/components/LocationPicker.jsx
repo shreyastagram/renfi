@@ -779,6 +779,7 @@ const LocationPicker = ({
           <View style={styles.searchContainer}>
             <Icon name="search_location" size={20} color={C.textSecondary} />
             <TextInput
+      selectionColor={C.primary}
               style={styles.searchInput}
               value={searchQuery}
               onChangeText={handleSearchChange}

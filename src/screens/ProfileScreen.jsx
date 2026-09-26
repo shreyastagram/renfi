@@ -278,6 +278,7 @@ const EditableField = React.memo(({ label, value, onChangeText, placeholder, edi
         )}
       </View>
       <TextInput
+      selectionColor={C.primary}
         style={[styles.fieldInput, (!editable || locked) && styles.fieldInputDisabled]}
         value={value}
         onChangeText={onChangeText}
@@ -1932,6 +1933,7 @@ const ProfileScreen = ({ navigation, route }) => {
                 {editingSection === 'about' ? (
                   <View>
                     <TextInput
+      selectionColor={C.primary}
                       style={styles.aboutInput}
                       value={formData.bio}
                       onChangeText={(text) => setFormData(prev => ({ ...prev, bio: text }))}
@@ -2342,6 +2344,7 @@ const ProfileScreen = ({ navigation, route }) => {
                       <View style={styles.halfField}>
                         <Text style={styles.fieldLabel}>{t('profile.pincodeLabel')}</Text>
                         <TextInput
+      selectionColor={C.primary}
                           style={styles.fieldInput}
                           value={formData.pincode}
                           onChangeText={(text) => setFormData(prev => ({ ...prev, pincode: text }))}
@@ -2451,6 +2454,7 @@ const ProfileScreen = ({ navigation, route }) => {
                           ]}
                         >
                           <TextInput
+      selectionColor={C.primary}
                             ref={(ref) => (otpInputRefs.current[index] = ref)}
                             style={[
                               styles.otpBoxInput,
@@ -2581,6 +2585,7 @@ const ProfileScreen = ({ navigation, route }) => {
                           ]}
                         >
                           <TextInput
+      selectionColor={C.primary}
                             ref={(ref) => (otpInputRefs.current[index] = ref)}
                             style={[
                               styles.otpBoxInput,
@@ -3030,7 +3035,7 @@ const makeStyles = (theme) => {
     marginTop: 4,
   },
   heroHeadlineProvider: {
-    color: C.warning,
+    color: C.brandOrangeInk,
   },
   heroHeadlineUser: {
     color: C.info,
@@ -3057,6 +3062,10 @@ const makeStyles = (theme) => {
     // was the only centred thing in a left-aligned header, which is what read as
     // 'weird placement'. flex-start also lets it shrink to its content.
     alignSelf: 'flex-start',
+    // The strip is a SIBLING of heroIdBlock, not a child, so it does not inherit
+    // that block's paddingHorizontal:16 — flex-start put it flush against the
+    // screen edge while the name and location above it sat 16pt in. Match them.
+    marginHorizontal: 16,
     maxWidth: '100%',
     marginTop: 10,
     marginBottom: 2,
@@ -3333,7 +3342,7 @@ const makeStyles = (theme) => {
     marginTop: 8,
   },
   favoritesIconBg: {
-    backgroundColor: C.warningFill,
+    backgroundColor: C.brandOrangeFill,
   },
   // Premium promo — flat white wrapper holding the dark rounded card
   premiumFlat: {
@@ -3742,17 +3751,17 @@ const makeStyles = (theme) => {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: C.warningBg,
+    backgroundColor: C.brandOrangeFill,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: C.warningLine,
+    borderColor: C.brandOrangeLine,
     flexShrink: 0,
   },
   otpSentText: {
     fontSize: 11,
-    color: C.warning,
+    color: C.brandOrangeInk,
     fontWeight: '700',
   },
   verifyButton: {
@@ -3855,7 +3864,7 @@ const makeStyles = (theme) => {
     color: C.info,
   },
   otpBoxInputFocused: {
-    color: C.warning,
+    color: C.brandOrangeInk,
   },
   otpVerifyButton: {
     backgroundColor: C.primary,
@@ -3914,9 +3923,9 @@ const makeStyles = (theme) => {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: C.warningBg,
+    backgroundColor: C.brandOrangeFill,
     borderWidth: 1,
-    borderColor: C.warningLine,
+    borderColor: C.brandOrangeLine,
   },
   otpResendButtonContent: {
     flexDirection: 'row',
@@ -3926,7 +3935,7 @@ const makeStyles = (theme) => {
   otpResendButtonText: {
     fontSize: 13,
     fontWeight: '700',
-    color: C.warning,
+    color: C.brandOrangeInk,
   },
 
   // Editable Field

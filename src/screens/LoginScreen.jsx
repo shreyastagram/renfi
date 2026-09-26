@@ -714,6 +714,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
 };
 
 const makeC = (c) => ({
+  brandOrangeFill: c.brandOrangeFill,
   pageSolid: c.pageSolid,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
@@ -832,7 +833,7 @@ const makeStyles = (theme) => {
   registerCtaBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     width: '100%', paddingVertical: 14, borderRadius: 14,
-    backgroundColor: C.warningBg, borderWidth: 1.5, borderColor: C.primary,
+    backgroundColor: C.brandOrangeFill, borderWidth: 1.5, borderColor: C.primary,
     gap: 6,
   },
   registerCtaText: { fontSize: 15, fontWeight: '700', color: C.warning },

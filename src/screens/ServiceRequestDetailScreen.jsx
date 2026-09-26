@@ -1586,7 +1586,8 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                 <Text style={{ fontSize: 13, fontWeight: '700', color: C.purple }}>{t('detail.completeService')}</Text>
               </View>
               <View style={s.providerOtpInputRow}>
-                <TextInput style={s.providerOtpInput} value={enteredOtp} onChangeText={setEnteredOtp} placeholder="000000" placeholderTextColor={C.muted} keyboardType="number-pad" maxLength={6} />
+                <TextInput
+      selectionColor={C.primary} style={s.providerOtpInput} value={enteredOtp} onChangeText={setEnteredOtp} placeholder="000000" placeholderTextColor={C.muted} keyboardType="number-pad" maxLength={6} />
                 <TouchableOpacity style={[s.providerOtpBtn, enteredOtp.length === 6 ? s.providerOtpBtnEnabled : s.providerOtpBtnDisabled]} onPress={handleVerifyOtp} disabled={enteredOtp.length !== 6 || verifyingOtp}>
                   {verifyingOtp ? <ActivityIndicator size="small" color={C.onSuccess} /> : (<><Icon name="check" size={15} color={enteredOtp.length === 6 ? C.onSuccess : C.muted} /><Text style={[s.providerOtpBtnText, enteredOtp.length !== 6 && s.providerOtpBtnTextDisabled]}>{t('providerHistory.complete')}</Text></>)}
                 </TouchableOpacity>

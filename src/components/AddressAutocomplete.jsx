@@ -300,6 +300,7 @@ const AddressAutocomplete = ({
       <View style={styles.inputContainer}>
         <MaterialIcon name="search" size={20} color={C.muted} style={styles.searchIcon} />
         <TextInput
+      selectionColor={C.primary}
           ref={inputRef}
           style={styles.input}
           value={query}
