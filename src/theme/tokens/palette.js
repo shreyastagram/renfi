@@ -30,6 +30,11 @@ export const brand = {
   // fill the logo became a white SQUARE floating inside a near-black CIRCLE.
   // Keeping the plate white renders it as the brand tile it already is in light.
   plate: '#FFFFFF',
+  // Tinted fills for orange chips. They used to borrow warning/*, whose dark value
+  // (#2E2107) is olive — that is the yellow the owner keeps seeing. These are hued
+  // off #f67c16 instead, so a brand chip stays orange in both themes.
+  orangeFillLight: '#FFF3E8',
+  orangeFillDark: '#2A1708',
 };
 
 // Non-brand blues already in the app (~87 occurrences). Kept as distinct tokens

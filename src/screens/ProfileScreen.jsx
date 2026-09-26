@@ -141,8 +141,8 @@ const makeC = (c) => ({
   warningBg: c.warningContainer,
   warningLine: c.warningBorder,
   warningFill: c.warningFill,
-  purple: c.accentViolet,
-  purpleBg: c.accentVioletContainer,
+  purple: c.brandOrangeInk, // was accentViolet #A78BFA — a violet section on an orange-brand app
+  purpleBg: c.brandOrangeFill,
   cyan: c.info,
   cyanFill: c.infoFill,
   indigo: c.altBlueIndigo,
@@ -3044,10 +3044,11 @@ const makeStyles = (theme) => {
     // card with a tinted fill and 14pt of padding around three short numbers.
     flexDirection: 'row',
     alignSelf: 'center',
-    marginTop: 12,
+    maxWidth: '100%',
+    marginTop: 10,
     marginBottom: 2,
-    paddingVertical: 6,
-    paddingHorizontal: 4,
+    paddingVertical: 3,
+    paddingHorizontal: 2,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: C.line,
     borderRadius: 12,
@@ -3055,13 +3056,17 @@ const makeStyles = (theme) => {
     overflow: 'hidden',
   },
   statCell: {
-    flex: 1,
+    // NOT flex:1. Three flexed cells demand the full row width, so the strip's
+    // alignSelf:'center' could never shrink-wrap and the border ran edge to edge.
+    // Content-sized with a floor keeps the three figures aligned without stretching.
+    minWidth: 62,
     alignItems: 'center',
-    paddingVertical: 11,
-    paddingHorizontal: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
   },
   statDivider: {
-    width: 1,
+    width: StyleSheet.hairlineWidth,
+    marginVertical: 5,
     backgroundColor: C.line,
   },
   statValue: {

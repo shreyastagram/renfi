@@ -135,6 +135,7 @@ export const lightColors = {
   dangerBorder: semanticLightBorder.danger,
   infoBorder: semanticLightBorder.info,
   brandOrangeBorder: semanticLightBorder.brandOrange,
+  brandOrangeFill: brand.orangeFillLight,
   accentVioletBorder: semanticLightBorder.accentViolet,
 
   // Visible danger hairline + fill, for rows rather than chips. See semanticLine.
@@ -266,6 +267,7 @@ export const darkColors = {
   dangerBorder: semanticDarkBorder.danger,
   infoBorder: semanticDarkBorder.info,
   brandOrangeBorder: semanticDarkBorder.brandOrange,
+  brandOrangeFill: brand.orangeFillDark,
   accentVioletBorder: semanticDarkBorder.accentViolet,
   dangerLine: semanticDarkBorder.danger,
   dangerFill: semanticDark.dangerFill,

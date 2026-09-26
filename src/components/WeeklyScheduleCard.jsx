@@ -25,6 +25,8 @@ import { useThemedStyles, useThemeColors } from '../theme';
 const MAX_FONT_SCALE = 1.25;
 
 const makeC = (c) => ({
+  brandOrangeFill: c.brandOrangeFill,
+  brandOrangeLine: c.brandOrangeBorder,
   brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   secondary: c.brandBlue,
@@ -246,13 +248,13 @@ const makeStyles = (theme) => {
   return StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, marginBottom: 10, gap: 8 },
   sectionTitle: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: C.muted, textTransform: 'uppercase', letterSpacing: 0.8 },
-  editWeek: { fontSize: 13, fontWeight: '700', color: C.secondary },
+  editWeek: { fontSize: 13, fontWeight: '700', color: C.brandOrangeInk },
   card: {
     backgroundColor: C.white, borderRadius: 16, borderWidth: 1, borderColor: C.hairline,
     padding: 14, marginBottom: 16,
   },
   todayRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  todayIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.warningBg, alignItems: 'center', justifyContent: 'center' },
+  todayIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.brandOrangeFill, alignItems: 'center', justifyContent: 'center' },
   todayTextWrap: { flex: 1, minWidth: 0 },
   todayLabel: { fontSize: 12, fontWeight: '600', color: C.text },
   todayValue: { fontSize: 17, fontWeight: '800', color: C.dark, letterSpacing: -0.3, marginTop: 1 },
@@ -262,11 +264,11 @@ const makeStyles = (theme) => {
   statusDot: { width: 7, height: 7, borderRadius: 4 },
   statusText: { fontSize: 12.5, fontWeight: '700', flexShrink: 1 },
   week: { flexDirection: 'row', gap: 4, marginTop: 14 },
-  chip: { flex: 1, minWidth: 0, borderWidth: 1.5, borderColor: C.warningLine, backgroundColor: C.warningBg, borderRadius: 12, paddingVertical: 7, paddingHorizontal: 2, alignItems: 'center' },
+  chip: { flex: 1, minWidth: 0, borderWidth: 1.5, borderColor: C.brandOrangeLine, backgroundColor: C.brandOrangeFill, borderRadius: 12, paddingVertical: 7, paddingHorizontal: 2, alignItems: 'center' },
   chipOff: { backgroundColor: C.sunken, borderColor: C.line },
   chipToday: { borderColor: C.primary, borderWidth: 2 },
-  chipLetter: { fontSize: 13, fontWeight: '800', color: C.warning },
-  chipHours: { fontSize: 10, fontWeight: '600', color: C.warning, marginTop: 1 },
+  chipLetter: { fontSize: 13, fontWeight: '800', color: C.brandOrangeInk },
+  chipHours: { fontSize: 10, fontWeight: '600', color: C.brandOrangeInk, marginTop: 1 },
   // a11y: C.muted (#94A3B8) on the off-chip (#F8FAFC) is 2.45:1 and fails.
   // The chip is a live TouchableOpacity even when off, so the WCAG exemption for
   // disabled controls does not apply. #5B6878 is 5.43:1 and is the value the
@@ -275,10 +277,10 @@ const makeStyles = (theme) => {
   chipTextOff: { color: C.muted },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.hairline },
   locationText: { flex: 1, fontSize: 12.5, color: C.text },
-  locationAction: { fontSize: 12.5, fontWeight: '700', color: C.secondary },
+  locationAction: { fontSize: 12.5, fontWeight: '700', color: C.brandOrangeInk },
   errorBox: { paddingVertical: 6, gap: 6 },
   errorText: { fontSize: 13, color: C.danger, fontWeight: '600' },
-  retry: { fontSize: 13, fontWeight: '700', color: C.secondary },
+  retry: { fontSize: 13, fontWeight: '700', color: C.brandOrangeInk },
   });
 };
 

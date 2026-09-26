@@ -78,6 +78,9 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Brand colors
 const makeC = (c) => ({
+  bg: c.bg,
+  wellFill: c.wellFill,
+  heroArt: c.borderSubtle,
   brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
@@ -199,15 +202,15 @@ const HomeSkeletonLoader = ({ insets }) => {
       <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 96 }]} scrollEnabled={false}>
         {/* Hero Header skeleton */}
         <View style={[styles.heroHeader, { paddingTop: insets.top + 16 }]}>
-          <SvgArt color={stableDark.ink} height={110} />
+          <SvgArt color={C.heroArt} height={110} />
           <View style={styles.headerRow}>
-            <ShimmerBlock width={40} height={40} borderRadius={20} shimmerAnim={shimmerAnim} style={{ backgroundColor: stableDark.fill }} />
-            <ShimmerBlock width={40} height={40} borderRadius={20} shimmerAnim={shimmerAnim} style={{ backgroundColor: stableDark.fill }} />
+            <ShimmerBlock width={40} height={40} borderRadius={20} shimmerAnim={shimmerAnim} style={{ backgroundColor: C.wellFill }} />
+            <ShimmerBlock width={40} height={40} borderRadius={20} shimmerAnim={shimmerAnim} style={{ backgroundColor: C.wellFill }} />
           </View>
           <View style={styles.heroTextBlock}>
-            <ShimmerBlock width={100} height={14} borderRadius={6} shimmerAnim={shimmerAnim} style={{ backgroundColor: stableDark.fillChip, marginBottom: 8 }} />
-            <ShimmerBlock width={160} height={26} borderRadius={8} shimmerAnim={shimmerAnim} style={{ backgroundColor: stableDark.fill, marginBottom: 6 }} />
-            <ShimmerBlock width={200} height={12} borderRadius={6} shimmerAnim={shimmerAnim} style={{ backgroundColor: stableDark.heroDivider }} />
+            <ShimmerBlock width={100} height={14} borderRadius={6} shimmerAnim={shimmerAnim} style={{ backgroundColor: C.wellFill, marginBottom: 8 }} />
+            <ShimmerBlock width={160} height={26} borderRadius={8} shimmerAnim={shimmerAnim} style={{ backgroundColor: C.wellFill, marginBottom: 6 }} />
+            <ShimmerBlock width={200} height={12} borderRadius={6} shimmerAnim={shimmerAnim} style={{ backgroundColor: C.line }} />
           </View>
         </View>
 
@@ -1022,12 +1025,12 @@ const ProviderHomeScreen = ({ navigation }) => {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent} // brand footer image is the tail — it provides the tab-bar clearance
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={stableDark.ink} colors={[stableDark.ink]} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} />}
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Header */}
         <View style={[styles.heroHeader, { paddingTop: insets.top + 16 }]}>
-          <SvgArt color={stableDark.ink} height={110} />
+          <SvgArt color={C.heroArt} height={110} />
 
           <View style={styles.headerRow}>
             <TouchableOpacity onPress={() => setIsDrawerOpen(true)} activeOpacity={0.7} style={styles.headerLogoBtn}>
@@ -1039,7 +1042,7 @@ const ProviderHomeScreen = ({ navigation }) => {
               <Text style={styles.heroSubtextInline} numberOfLines={1}>{t('providerHome.manageServices')}</Text>
             </View>
 
-            <HelpSupportButton size={26} color={stableDark.ink} />
+            <HelpSupportButton size={26} color={C.textStrong} />
             <AvatarButton
               name={displayData?.fullName}
               profilePicture={displayData?.profilePicture}
@@ -1087,7 +1090,7 @@ const ProviderHomeScreen = ({ navigation }) => {
           </View>
 
           {/* Recent Active Services */}
-          <Text style={styles.sectionTitle}>{t('providerHome.activeJobs')} <Text style={{ color: C.borderMedium, fontSize: 11, fontWeight: '500', textTransform: 'none' }}>{t('providerHome.recentThree')}</Text></Text>
+          <Text style={styles.sectionTitle}>{t('providerHome.activeJobs')} <Text style={{ color: C.textSecondary, fontSize: 11, fontWeight: '500', textTransform: 'none' }}>{t('providerHome.recentThree')}</Text></Text>
 
           {!statsLoaded ? (
             /* Shimmer placeholders while stats are loading */
@@ -1504,13 +1507,10 @@ const makeStyles = (theme) => {
   return StyleSheet.create({
   container: {
     flex: 1,
-      // stableDark, NOT a themed ink token. This was BRAND.dark ('#0F172A') at
-      // v1.0.9 — a fixed brand panel — and the migration mapped it to C.dark, which
-      // is `textPrimary`. Ink tokens FLIP: in dark mode the panel turned near-white
-      // (#F1F5F9) with white text still on it, and in light the greeting resolved to
-      // #0F172A on #0F172A, 1.00:1. heroSurface is the token that exists for a panel
-      // that must stay dark in BOTH themes.
-    backgroundColor: stableDark.heroSurface,
+    // The page and its header are the ordinary page surface — light like every
+    // other screen, black in dark. A fixed #0F172A here made this the only screen
+    // with a navy page, which is the 'home is bluish / still not black' report.
+    backgroundColor: C.bg,
   },
   scrollView: {
     flex: 1,
@@ -1524,13 +1524,10 @@ const makeStyles = (theme) => {
 
   // ===== Hero Header =====
   heroHeader: {
-      // stableDark, NOT a themed ink token. This was BRAND.dark ('#0F172A') at
-      // v1.0.9 — a fixed brand panel — and the migration mapped it to C.dark, which
-      // is `textPrimary`. Ink tokens FLIP: in dark mode the panel turned near-white
-      // (#F1F5F9) with white text still on it, and in light the greeting resolved to
-      // #0F172A on #0F172A, 1.00:1. heroSurface is the token that exists for a panel
-      // that must stay dark in BOTH themes.
-    backgroundColor: stableDark.heroSurface,
+    // The page and its header are the ordinary page surface — light like every
+    // other screen, black in dark. A fixed #0F172A here made this the only screen
+    // with a navy page, which is the 'home is bluish / still not black' report.
+    backgroundColor: C.bg,
     paddingHorizontal: 20,
     paddingBottom: 18,
     overflow: 'hidden',
@@ -1570,11 +1567,11 @@ const makeStyles = (theme) => {
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: stableDark.fillChip,
+    backgroundColor: C.wellFill,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: stableDark.heroDivider,
+    borderColor: C.line,
   },
   headerLogoImg: {
     width: 32,
@@ -1589,13 +1586,13 @@ const makeStyles = (theme) => {
     fontWeight: '700',
       // White, matching heroSubtextInline directly beneath it. Was '#FFFFFF' at
       // v1.0.9; became onBrandOrange — near-black — on a near-black panel.
-    color: stableDark.ink,
+    color: C.textStrong,
     letterSpacing: -0.3,
   },
   heroSubtextInline: {
     fontSize: 12,
     fontWeight: '500',
-    color: stableDark.inkSoft,
+    color: C.textSecondary,
     marginTop: 2,
     letterSpacing: 0.1,
   },
@@ -1755,7 +1752,9 @@ const makeStyles = (theme) => {
   sectionTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: stableDark.ink,
+    // Themed, not stableDark.ink — these titles sit on the page, and the page is no
+    // longer a fixed navy. Near-white here was 1.10:1 on the light page.
+    color: C.textStrong,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 10,

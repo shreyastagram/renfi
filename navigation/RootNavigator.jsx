@@ -235,18 +235,29 @@ const SUPPORTS_BLUR = DEVICE_SUPPORTS_BLUR;
 // What DOES need the theme is `fallback`: it is only used when SUPPORTS_BLUR is
 // false, which is precisely low-end Android. Without this, a provider on a cheap
 // phone in dark mode would see a LIGHT pill floating on a dark screen.
-const makeGlass = (c) => ({
+//
+// `tint` needs the theme for the SAME reason, and this is what was still wrong: it
+// sits ON TOP of `fallback`, and with no blur it is 0.88 opaque. A themed dark
+// fallback under a near-opaque CREAM tint is still cream. Compositing the 0.58
+// DARK_TINT over that lands at ~#767069 — the light tan pill on a black screen.
+// Layering a translucent dark over a light material never gets you a dark material;
+// the material itself has to be dark, so both stops flip with the theme.
+const makeGlass = (c, isDark) => ({
   user: {
-    tint: SUPPORTS_BLUR ? 'rgba(235, 243, 250, 0.16)' : 'rgba(237, 244, 251, 0.88)',
+    tint: isDark
+      ? (SUPPORTS_BLUR ? 'rgba(25, 23, 22, 0.44)' : 'rgba(25, 23, 22, 0.94)')
+      : (SUPPORTS_BLUR ? 'rgba(235, 243, 250, 0.16)' : 'rgba(237, 244, 251, 0.88)'),
     lensBg: 'rgba(43, 118, 188, 0.12)',
     lensBorder: 'rgba(43, 118, 188, 0.20)',
-    fallback: c.surfaceElevated,
+    fallback: isDark ? c.surface : c.surfaceElevated,
   },
   provider: {
-    tint: SUPPORTS_BLUR ? 'rgba(253, 242, 232, 0.18)' : 'rgba(252, 242, 233, 0.88)',
+    tint: isDark
+      ? (SUPPORTS_BLUR ? 'rgba(28, 25, 23, 0.44)' : 'rgba(28, 25, 23, 0.94)')
+      : (SUPPORTS_BLUR ? 'rgba(253, 242, 232, 0.18)' : 'rgba(252, 242, 233, 0.88)'),
     lensBg: 'rgba(246, 124, 22, 0.13)',
     lensBorder: 'rgba(246, 124, 22, 0.22)',
-    fallback: c.surfaceElevated,
+    fallback: isDark ? c.surface : c.surfaceElevated,
   },
 });
 
@@ -269,7 +280,7 @@ const FloatingTabBar = ({ state, descriptors, navigation }) => {
   const tabColors = useThemeColors();
   // Not for a colour — for the tone floor. See the note above makeGlass.
   const appDark = useIsDark();
-  const GLASS = React.useMemo(() => makeGlass(tabColors), [tabColors]);
+  const GLASS = React.useMemo(() => makeGlass(tabColors, appDark), [tabColors, appDark]);
   const glass = state.routes.some((r) => r.name === 'JobsTab') ? GLASS.provider : GLASS.user;
 
   // ── Gliding glass lens ──
