@@ -327,7 +327,7 @@ export const DrawerMenu = ({
         { id: 'div1', type: 'divider' },
         { id: 'referral', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'gift-outline', label: 'Refer & Earn', screen: 'ReferralScreen' },
         { id: 'rsas', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'clipboard-check-outline', label: 'Service Approvals', screen: 'DocumentVerification' },
-        { id: 'subscription', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'diamond-stone', label: 'Professional Tools', screen: 'Subscription' },
+        { id: 'subscription', iconName: 'star', label: 'Professional Tools', screen: 'Subscription' },  // same Icon registry entry Settings uses, so the two cannot drift
         { id: 'psa', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'shield-alert-outline', label: 'Personal Safety', screen: 'PSAContacts', accent: true },
         { id: 'div2', type: 'divider' },
         { id: 'language', iconFamily: 'MaterialCommunityIcons', iconGlyph: 'translate', label: t('drawer.language') || 'Language', action: 'language' },

@@ -226,7 +226,9 @@ const GalleryImage = ({ image, onRemove }) => {
         style={styles.galleryImage}
         resizeMode="cover"
       />
-      <TouchableOpacity style={styles.removeImageButton} onPress={onRemove}>
+      <TouchableOpacity style={styles.removeImageButton} onPress={onRemove}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
         <MaterialIcon name="close" size={16} color={stableDark.ink} />
       </TouchableOpacity>
     </View>

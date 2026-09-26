@@ -82,6 +82,7 @@ import {
   useIsDark,
   heroGradient,
   iconAccent,
+  brandTint,
 } from '../theme';
 import {
   markSent as markEmailVerificationSent,
@@ -2883,6 +2884,23 @@ const ProfileScreen = ({ navigation, route }) => {
           {/* Footer — brand mark + member since (no User ID by design) */}
           <SectionBand />
           <View style={styles.profileFooter}>
+            {/* One brand colour fading in from each edge. Painted first so the
+                logo and the date sit on top; pointerEvents off so neither
+                intercepts a touch. */}
+            <LinearGradient
+              pointerEvents="none"
+              colors={[brandTint.orange12, 'transparent']}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={styles.footerEdgeLeft}
+            />
+            <LinearGradient
+              pointerEvents="none"
+              colors={['transparent', brandTint.blue10]}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={styles.footerEdgeRight}
+            />
             <Image source={FIXHOMI_LOGO} style={styles.footerLogo} />
             <Text style={styles.footerText}>
               {displayData?.createdAt
@@ -3075,34 +3093,39 @@ const makeStyles = (theme) => {
     maxWidth: '100%',
     marginTop: 10,
     marginBottom: 2,
-    paddingVertical: 3,
-    paddingHorizontal: 2,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: C.line,
-    borderRadius: 12,
+    borderRadius: 10,
     backgroundColor: 'transparent',
     overflow: 'hidden',
   },
   statCell: {
-    // NOT flex:1. Three flexed cells demand the full row width, so the strip's
-    // alignSelf:'center' could never shrink-wrap and the border ran edge to edge.
-    // Content-sized with a floor keeps the three figures aligned without stretching.
-    minWidth: 62,
+    // NOT flex:1 — three flexed cells demand the full row width, so the strip
+    // could never shrink-wrap and its border ran edge to edge.
+    //
+    // Value and label share a BASELINE rather than stacking. Stacked, a cell was
+    // 17pt of value + 3 margin + 11 of label + 8 padding = ~39pt to say two short
+    // words. On one line it is ~19pt, and each cell reads as a single fact rather
+    // than a two-row table.
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 5,
     // Shrink before the row overflows. Marathi's 'अनुभव' and a long value can
     // push three content-sized cells past a 320pt screen; without this the strip
     // clips at overflow:'hidden' instead of ellipsising inside the cell.
     flexShrink: 1,
-    alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 11,
   },
   statDivider: {
     width: StyleSheet.hairlineWidth,
-    marginVertical: 5,
+    marginVertical: 6,
     backgroundColor: C.line,
   },
   statValue: {
-    fontSize: 17,
+    fontSize: 14.5,
     fontWeight: '800',
     color: C.text,
     letterSpacing: -0.3,
@@ -3116,12 +3139,13 @@ const makeStyles = (theme) => {
     color: C.muted,
   },
   statLabel: {
-    fontSize: 10.5,
+    fontSize: 9.5,
     color: C.muted,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
-    marginTop: 3,
+    // No marginTop — the shared baseline does the alignment now.
+    flexShrink: 1,
   },
 
   // ─── Flat section system ───
@@ -3378,6 +3402,24 @@ const makeStyles = (theme) => {
     paddingVertical: 22,
     alignItems: 'center',
     gap: 10,
+    // Clips the two edge gradients to the card.
+    overflow: 'hidden',
+  },
+  // Percentage width, not a fixed one, so the fade keeps the same proportion
+  // of the card from a 320pt phone to a tablet.
+  footerEdgeLeft: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: '38%',
+  },
+  footerEdgeRight: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: '38%',
   },
   footerLogo: {
     width: 40,

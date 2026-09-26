@@ -624,7 +624,9 @@ const DocumentPreviewModal = ({ visible, service, documents, status, rejectionRe
       <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
         {/* Modal Header */}
         <View style={styles.modalHeader}>
-          <TouchableOpacity style={styles.modalCloseButton} onPress={onClose}>
+          <TouchableOpacity style={styles.modalCloseButton} onPress={onClose}
+              hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
+            >
             <MaterialIcon name="close" size={24} color={C.text} />
           </TouchableOpacity>
           <View style={styles.modalHeaderCenter}>
@@ -1528,7 +1530,9 @@ const ServiceApprovalsScreen = ({ navigation }) => {
             <Text style={styles.headerTitle}>Service Approvals</Text>
             <Text style={styles.headerSubtitle}>RSAS</Text>
           </View>
-          <TouchableOpacity style={styles.addButton} onPress={startNewRequest}>
+          <TouchableOpacity style={styles.addButton} onPress={startNewRequest}
+              hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
+            >
             <MaterialIcon name="add" size={22} color={C.brandOrangeInk} />
           </TouchableOpacity>
         </View>
