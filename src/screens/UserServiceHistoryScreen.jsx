@@ -561,6 +561,35 @@ const UserServiceHistoryScreen = ({ navigation }) => {
   const [filtersVisible, setFiltersVisible] = useState(false);
   const [stats, setStats] = useState({ total: 0, active: 0, completed: 0 });
 
+  // Counts DERIVED from the list, not held as separate state.
+
+  //
+
+  // `stats` is set inside the fetch, so it only refreshes when a fetch runs.
+
+  // Create or cancel a booking in-session and allRequests updates while stats
+
+  // does not — the owner had one active service and the segment read 0.
+
+  // Deriving makes the count and the list incapable of disagreeing.
+
+  //
+
+  // `total` still prefers the backend's count, which spans pages the client
+
+  // has not loaded; active and completed are about what the list can show.
+
+  const liveStats = useMemo(() => ({
+
+    total: Math.max(stats.total, allRequests.length),
+
+    active: allRequests.filter((r) => ACTIVE_STATUSES.includes(r.status)).length,
+
+    completed: allRequests.filter((r) => r.status === 'completed').length,
+
+  }), [stats.total, allRequests]);
+
+
   const hasActiveFilters = activeFilter !== 'all' || categoryFilter !== 'all' || datePreset !== 'all';
 
   const [page, setPage] = useState(1);
@@ -1082,9 +1111,12 @@ const UserServiceHistoryScreen = ({ navigation }) => {
                 value={activeFilter}
                 onChange={setActiveFilter}
                 items={[
-                  { key: 'all', label: t('userHistory.total'), value: stats.total, color: C.muted },
-                  { key: 'active', label: t('userHistory.active'), value: stats.active, color: C.primary },
-                  { key: 'completed', label: t('userHistory.done'), value: stats.completed, color: C.success },
+                  { key: 'all', label: t('userHistory.total'), value: liveStats.total, color: C.muted },
+                  // 'accepted', NOT 'active'. This screen's filter switch has a case for
+                    // 'accepted'; 'active' fell through to a status equality check that no
+                    // record can satisfy, so tapping it emptied the list.
+                    { key: 'accepted', label: t('userHistory.active'), value: liveStats.active, color: C.primary },
+                  { key: 'completed', label: t('userHistory.done'), value: liveStats.completed, color: C.success },
                 ]}
               />
             </View>

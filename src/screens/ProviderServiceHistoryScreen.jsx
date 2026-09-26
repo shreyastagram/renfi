@@ -592,6 +592,23 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
   const [stats, setStats] = useState({ total: 0, active: 0, completed: 0, pending: 0, rating: 0 });
   const scrollY = useRef(new Animated.Value(0)).current;
 
+  // Derived, not separate state — see the note on the user screen. The count
+
+  // and the list must not be able to disagree.
+
+  const liveStats = useMemo(() => ({
+
+    total: Math.max(stats.total, allRequests.length),
+
+    pending: allRequests.filter((r) => ['pending', 'awaiting_confirmation'].includes(r.status)).length,
+
+    active: allRequests.filter((r) => ['accepted', 'in-progress', 'in_transit', 'arrived'].includes(r.status)).length,
+
+    completed: allRequests.filter((r) => r.status === 'completed').length,
+
+  }), [stats.total, allRequests]);
+
+
   const hasActiveFilters = activeFilter !== 'all' || categoryFilter !== 'all' || datePreset !== 'all';
 
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
@@ -1151,13 +1168,13 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
                 value={activeFilter}
                 onChange={setActiveFilter}
                 items={[
-                  { key: 'all', label: t('providerHistory.statTotal'), value: stats.total, color: C.muted },
-                  { key: 'pending', label: t('providerHistory.statNew'), value: stats.pending, color: C.primary },
+                  { key: 'all', label: t('providerHistory.statTotal'), value: liveStats.total, color: C.muted },
+                  { key: 'pending', label: t('providerHistory.statNew'), value: liveStats.pending, color: C.primary },
                   // was C.purple (#7C3AED). Violet is not a brand colour and the owner has
                   // asked for it out three times; it survived here only because the local
                   // alias is named `purple` rather than anything a violet sweep would match.
-                  { key: 'active', label: t('providerHistory.filterActive'), value: stats.active, color: C.secondary },
-                  { key: 'completed', label: t('providerHistory.filterDone'), value: stats.completed, color: C.success },
+                  { key: 'active', label: t('providerHistory.filterActive'), value: liveStats.active, color: C.secondary },
+                  { key: 'completed', label: t('providerHistory.filterDone'), value: liveStats.completed, color: C.success },
                 ]}
               />
             </View>

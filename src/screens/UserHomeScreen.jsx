@@ -99,6 +99,10 @@ const SHEET_MID_HEIGHT = SCREEN_HEIGHT * 0.40; // 40% for initial state - shows 
 // the base flips to the dark-mode blue, so the tint flips with it instead of
 // staying a light-blue wash that would be invisible on a near-black card.
 const makeC = (c) => ({
+  brandOrangeLine: c.brandOrangeBorder,
+  brandOrangeFill: c.brandOrangeFill,
+  infoBorder: c.infoBorder,
+  infoFill: c.infoFill,
   pageSolid: c.pageSolid,
   textMuted: c.textMuted,
   brandOrangeInk: c.brandOrangeInk,
@@ -1681,17 +1685,17 @@ const UserHomeScreen = ({ navigation, route }) => {
               <QuickAccessCard
                 imageSource={Events3D}
                 label={t('userHome.events')}
-                borderColor={C.purpleLine}
-                bgColor={C.purpleBg}
-                iconBg={C.purpleFill}
+                borderColor={C.infoBorder}
+                bgColor={C.infoFill}
+                iconBg={C.infoFill}
                 onPress={() => navigation.navigate('EventServices')}
               />
               <QuickAccessCard
                 imageSource={Favorites3D}
                 label={t('userHome.favorites')}
-                borderColor={C.warningLine}
-                bgColor={C.warningBg}
-                iconBg={C.warningFill}
+                borderColor={C.brandOrangeLine}
+                bgColor={C.brandOrangeFill}
+                iconBg={C.brandOrangeFill}
                 onPress={() => navigation.navigate('Favorites')}
               />
             </View>
