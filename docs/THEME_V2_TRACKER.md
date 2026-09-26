@@ -1042,7 +1042,8 @@ dark material was `rgba(18, 24, 34, 0.55)` — a blue slate — and that bar sit
 | **`1.1.0-beta.7`** | 43 | 60 undefined tokens, dark ink at 0, light brand pass, switch/refresh fixes |
 | `1.1.0-beta.8` | 44 | pageSolid (12 screens truly black), refresh disc, dark hero ramp, section gutters |
 | `1.1.0-beta.9` | 45 | neutral dark ramp (blue cast removed everywhere), profile screen analysed and rebuilt in dark |
-| **`1.1.0-beta.10`** | **46** | **element pass: camera chip, stat strip, section bands, accent bar removed in 6 screens, drawer header 270pt -> 92pt** |
+| `1.1.0-beta.10` | 46 | element pass: camera chip, stat strip, section bands, accent bar removed in 6 screens, drawer header 270pt -> 92pt |
+| **`1.1.0-beta.11`** | **47** | **Android platform accents (violet overscroll), tab-bar tint, yellow + blue strays, drawer black** |
 
 All built with `USE_DEV_STAGING = false`, so every one hits PRODUCTION on real data.
 `android/app/build.gradle` stays UNCOMMITTED per the owner's rule — the version bump
