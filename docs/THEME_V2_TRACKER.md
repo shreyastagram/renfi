@@ -2170,3 +2170,67 @@ The Favorites tile on UserHomeScreen was `warningLine`/`warningBg`/
 | build | versionCode | notes |
 |---|---|---|
 | 1.1.0-beta.19 | 55 | §43 — Active filter/count bugs, record separation, redundant count, tile colours. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/0inh0lao94ea8) |
+
+---
+
+## §44 — one button convention
+
+Four conventions were in play at once. Now one:
+
+| role | treatment |
+|---|---|
+| primary, one per context | solid brand fill, on-ink |
+| utility / secondary | tinted fill + matching 1px edge + **deep** ink |
+| destructive secondary | danger tint + danger edge + danger ink |
+| never | a fill with no border that matches its own page |
+
+**The reported bug:** ProfileScreen's `editorCancel` used `C.hairline` — a
+*divider* tone — as a background with no border. On the dark page that is a
+black rectangle with no edge. `headerBackBtn` and `fullMapCloseBtn` on the
+detail screen had the same shape.
+
+**Re-toned to tinted + edged:** call, callCustomer, track, trackLive,
+directions, fullMapDir, findProviders, otpResend, providerOtpEnabled, and the
+round call/directions discs on both history screens.
+
+**Left solid deliberately:** accept, rate, goBack. They are the primary action
+where they appear, and making everything tinted would lose the distinction the
+rule exists to create.
+
+### 44.1 The support glyph
+
+Defaulted to `brandOrangeInk`, putting a fully saturated icon beside plain
+white siblings in the home header. It inherits `textStrong` now; callers that
+want it branded still pass `color`.
+
+### 44.2 SvgArt deleted
+
+The orange thread decoration at the top of the service sheet and across seven
+headers — 8 instances, component deleted, same family as GraphBackground.
+`check:hex` caught the dangling `migrated-files.json` entry immediately.
+
+### 44.3 check:ink did the real work
+
+Re-toning 11 buttons left their `on*` inks — `onSuccess`, `onSecondary`,
+`onPrimary`, `onDanger`, all near-white — on pale tints at **1.14–1.35:1**,
+including **two dark failures**. None of that is visible while writing the
+style change; all of it would have shipped.
+
+Two things worth keeping from how it was fixed:
+
+- The gate pointed at JSX lines, but the colour came from the **text styles**.
+  Patching the reported lines fixed nothing; the styles were the source.
+- `goBackBtnText` and `fullMapDirText` kept their on-inks, because those
+  buttons are **still solid**. Sweeping every `on*` ink would have been the
+  same mistake in reverse.
+
+### 44.4 Still open
+
+- A **colour-resolving audit** (§43.4): resolve every prop to its final value
+  and flag hues outside the brand. Five rounds of name-based yellow sweeps each
+  missed sites the next one found; this is the thing that would end it.
+- The responsive pass at 320/360/412pt.
+
+| build | versionCode | notes |
+|---|---|---|
+| 1.1.0-beta.20 | 56 | §44 — button convention, support glyph, SvgArt deleted, detail-screen pass. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/332u23jis6en0) |
