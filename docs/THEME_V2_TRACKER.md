@@ -2302,3 +2302,83 @@ not land: plain black/white per theme.
 | build | versionCode | notes |
 |---|---|---|
 | 1.1.0-beta.21 | 57 | §45 — step numbers, btnTrack, 47 status hues, sheet gradient. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/07bn91cuk0gg8) |
+
+---
+
+## §46 — the light-mode mud was five values, not a hundred call sites
+
+The owner: *"We don't want workarounds, we want robust fixes. Why is light mode
+not working correctly after these changes? What is the place where the changes
+didn't happen?"* Fair, and the answer is that three passes had been treating
+symptoms.
+
+### 46.1 The root cause
+
+Two families of tinted colour that look interchangeable in the token list:
+
+```
+xFill       rgba(30, 95, 158, 0.1)    10% of a DARK hue
+xContainer  #EFF6FF                    a solid pale tint
+```
+
+10% of a dark hue over **any** ground composites toward grey. Measured over
+white, every `xFill` landed at **4–10% saturation**. That is the mud.
+
+### 46.2 Why three site-by-site passes never held
+
+Checking what the *remaining* uses actually were:
+
+```js
+approved: { color: C.success, bg: C.successFill }
+<IconRow iconBg={C.infoFill} />
+```
+
+**Every one is passed as a `bg:` or `iconBg=` prop. Zero are borders, zero are
+shadows.** No search for `backgroundColor` can find them, so each sweep fixed
+what it could see and left the rest — and the next screenshot found another.
+
+And the token is named **`Fill`**, which is exactly what you reach for when you
+want a fill. It is the one thing that cannot safely fill anything. §27's lesson
+again: *a token must be named for its job*, and this one is named for the job
+it must never do.
+
+### 46.3 The fix
+
+**Five values.** The light `*FillLight` entries are solid tints now. Every call
+site becomes correct at once — including the prop-passed ones no sweep can
+reach and the screens never opened. Dark was already solid and is untouched.
+They sit slightly stronger than the matching `Container` so a filled chip still
+reads as more emphatic.
+
+> Fixing the value fixes the sites you cannot find. That is the difference
+> between a robust fix and a thorough one.
+
+`check:alpha` now fails any translucent token used as a surface and names the
+solid alternative. `iosFill` is exempt — Apple's system material, translucency
+is the point. **The gate is the safety net; the value change is the fix.**
+
+### 46.4 Also this build
+
+- **The welcome screen's grey band**: `colors={[C.warningBg, C.onPrimary, C.infoBg]}`
+  — `onPrimary` is `#0F172A`, an **ink**, as the middle gradient stop. In light
+  the screen faded amber → near-black → blue. The §18 class, again.
+- **`primary: c.warning`** in ChangePasswordScreen — a "primary" alias resolving
+  to the caution hue, so every `C.primary` there was amber. Now `brandOrangeInk`,
+  because every use is ink and raw `#f67c16` is 2.45 on the light page.
+- **Completion OTP** was violet → brand blue.
+- **Provider location** asserted "not sharing yet" before it had asked.
+  `locationSharingEnabled` defaults to `false`, indistinguishable from a real
+  negative. Added `locationStatusKnown`, set in a `finally` so a failed fetch
+  still counts, plus a loading card. Unknown is shown as unknown.
+- Service sheet fade shortened, clear space above the greeting.
+
+### 46.5 Auth audit — 31 candidates, 29 false positives
+
+`C.white` maps to `c.surface` in those files: a legitimate card fill. Verified
+the mapping rather than "fixing" 29 working styles. The five flagged buttons are
+layout wrappers around `<Button>` or conventional dialog text buttons. Recorded
+so the next pass does not re-audit them.
+
+| build | versionCode | notes |
+|---|---|---|
+| 1.1.0-beta.22 | 58 | §46 — solid fills at source, auth gradient ink, primary alias, OTP hue, location loading. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/5vjt0j78h21ig) |
