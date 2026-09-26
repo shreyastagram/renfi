@@ -326,7 +326,7 @@ const makeStyles = (theme) => {
     },
     iconCircle: {
       width: 56, height: 56, borderRadius: 16,
-      backgroundColor: brandTint.orange08,
+      backgroundColor: brandTint.orange10,  // was orange08 — no such key, so this fill rendered transparent
       justifyContent: 'center', alignItems: 'center',
       marginBottom: 12,
     },

@@ -498,6 +498,13 @@ const ProfileScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { dialog } = useDialog();
   const { user, profile, userType, refreshVerificationStatus, refreshProfile, aadhaarStatus, setAadhaarStatus, premiumStatus, setPremiumStatus, getPremiumWriteSeq, isProfileLoading } = useApp();
+
+  // Declared HERE, not 340 lines down. It was below the effects that read it,
+  // and Metro transpiles block scoping, so those reads resolved to `undefined`
+  // instead of throwing: the V5 email-pending effect carried a dep array of
+  // [undefined, undefined] and therefore never re-ran when the address or its
+  // verified flag changed. It only depends on user and profile, both above.
+  const displayData = { ...user, ...profile };
   const { t } = useLanguage();
 
   // Set status bar for light background when this tab is focused
@@ -845,7 +852,6 @@ const ProfileScreen = ({ navigation, route }) => {
   }, [editSectionParam]);
 
   // Combined user data
-  const displayData = { ...user, ...profile };
   const isProvider = userType === 'provider';
   const isVerified = displayData?.isPhoneVerified && displayData?.isEmailVerified;
 

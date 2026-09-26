@@ -297,9 +297,13 @@ const DocumentCard = ({ config, document, onUpload, onRemove, onView, isRejected
    MAIN SCREEN
    ═══════════════════════════════════════════════════════════════ */
 const InsuranceScreen = ({ navigation }) => {
-  const STATUS_MAP = makeStatusMap(C);
   const s = useThemedStyles(makeStyles);
   const C = makeC(useThemeColors());
+  // AFTER C. This line used to sit above it, which is a temporal dead zone:
+  // `const C` is hoisted but uninitialised, so reading it threw
+  // "Cannot access 'C' before initialization" on EVERY render — the screen
+  // could never open, it went straight to the error boundary.
+  const STATUS_MAP = makeStatusMap(C);
   const insets = useSafeAreaInsets();
   const { user, profile } = useApp();
   const { dialog } = useDialog();

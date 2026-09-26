@@ -72,6 +72,21 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomIns
   // (low-RAM phones die when the user hops to the SMS app). The OTP is still
   // valid server-side; losing the sheet's in-memory state shouldn't force a
   // fresh send. Persisted only between send and success/close/change-number.
+  // Declared above the effect that depends on it. It used to sit ~13 lines
+  // below, and Metro transpiles block scoping, so the dep array resolved it to
+  // `undefined` rather than throwing — the effect then never re-ran on a change
+  // to this callback, only on `visible`.
+  const resumeCountdown = useCallback((from) => {
+    setCountdown(from);
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) { clearInterval(timerRef.current); timerRef.current = null; return 0; }
+        return c - 1;
+      });
+    }, 1000);
+  }, []);
+
   useEffect(() => {
     if (visible) {
       let cancelled = false;
@@ -115,16 +130,6 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomIns
     return () => clearTimeout(id);
   }, [step]);
 
-  const resumeCountdown = useCallback((from) => {
-    setCountdown(from);
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      setCountdown((c) => {
-        if (c <= 1) { clearInterval(timerRef.current); timerRef.current = null; return 0; }
-        return c - 1;
-      });
-    }, 1000);
-  }, []);
   const startCountdown = useCallback(() => resumeCountdown(RESEND_SECONDS), [resumeCountdown]);
 
   const shake = useCallback(() => {
