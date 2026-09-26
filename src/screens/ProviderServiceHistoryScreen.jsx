@@ -70,6 +70,7 @@ import {
   useThemeColors,
   medal,
 } from '../theme';
+import { brand } from '../theme';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
@@ -1241,7 +1242,9 @@ const makeStyles = (theme) => {
   headerInlineSvg: { ...StyleSheet.absoluteFillObject },
   headerInlineLabel: { fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3 },
   headerInlineValue: { fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
-  headerLogoBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.white, alignItems: 'center', justifyContent: 'center', shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
+  // brand.plate, not a themed fill: the logo asset is an opaque white-backed JPEG,
+  // so a dark container leaves a white square floating in a dark circle.
+  headerLogoBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: brand.plate, alignItems: 'center', justifyContent: 'center', shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
   headerLogoImg: { width: 30, height: 30, borderRadius: 8 },
 
   // Loader

@@ -20,6 +20,12 @@ export const brand = {
   // Fixhomi orange rather than brown. Only for light: on a dark surface the
   // ordinary brand orange is already 7.17:1 and this would be muddy.
   orangeDeep: '#C2610B',
+  // The plate a brand mark sits on. fixhomi_logo.jpg is a JPEG — no alpha — with a
+  // pure-white background, and the mark inside it is orange and blue specified
+  // against white. So its container must stay light in BOTH themes: on a themed
+  // fill the logo became a white SQUARE floating inside a near-black CIRCLE.
+  // Keeping the plate white renders it as the brand tile it already is in light.
+  plate: '#FFFFFF',
 };
 
 // Non-brand blues already in the app (~87 occurrences). Kept as distinct tokens

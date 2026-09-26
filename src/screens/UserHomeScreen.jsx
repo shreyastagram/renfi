@@ -79,6 +79,7 @@ import {
   iconAccent,
   brandTint,
 } from '../theme';
+import { brand } from '../theme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SERVICE_CARD_WIDTH = Math.floor((SCREEN_WIDTH - 64) / 3);
@@ -1991,7 +1992,9 @@ const makeStyles = (theme) => {
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: C.white,
+    // brand.plate, not a themed fill: the logo asset is an opaque white-backed
+    // JPEG, so a dark container leaves a white square floating in a dark circle.
+    backgroundColor: brand.plate,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,

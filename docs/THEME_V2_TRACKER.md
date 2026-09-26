@@ -877,6 +877,41 @@ cognitive load and figure-ground.
 
 ---
 
+## 21. Opaque image assets — the logo was a white square on black
+
+Audited the image assets after the elevation work, on the theory that a themed surface
+cannot fix an asset that carries its own background.
+
+| asset | format | alpha | corner |
+|---|---|---|---|
+| `fixhomi_logo.jpg` | JPEG | **none** | pure white — used in **11 places** |
+| `brand_footer_user.jpg` | JPEG | **none** | light blue |
+| `brand_footer_provider.jpg` | JPEG | **none** | light blue |
+| `hero_home_services.png` | PNG | yes | transparent — fine |
+
+A JPEG cannot be transparent. The logo is an orange-and-blue mark (18% / 8% of pixels)
+**on a white plate**, and that plate ships with it.
+
+**The defect** was the two CIRCULAR logo buttons whose fill was `C.white`
+(`UserHomeScreen.topBarLogoBtn`, `ProviderServiceHistoryScreen.headerLogoBtn`). In light,
+white circle + white-backed logo read as one tile. In dark the circle became `#16161C`
+and the logo stayed pure white: **a white SQUARE floating inside a near-black CIRCLE.**
+
+**Fixed with `brand.plate` (`#FFFFFF`)** — the container stays light in both themes, so
+the mark renders as the brand tile it already is in light. Light mode is pixel-identical.
+
+**Why not make the logo transparent instead**, which was the first instinct: the mark is
+specified against white, and its blue component is only 3.0:1 on black. Punching the
+plate out would put the brand on a ground it was never designed for, and would also
+change the splash screen, where the white disc is deliberate. A light plate under a brand
+mark is standard on dark UIs and keeps brand fidelity.
+
+**Not changed:** `ProviderHomeScreen.headerLogoBtn` (already a white tile on the navy hero
+in both themes since v1.0.9) and the two modal `logoContainer`s (72px rounded brand tiles,
+which is what they look like). The two brand-footer JPEGs are light rectangles by design.
+
+---
+
 ## 19. Crystal borders and black maps (owner request, 2026-09-26)
 
 **Borders.** The dark border ramp is now a lit, cool edge instead of a dull grey:
