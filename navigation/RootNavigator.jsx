@@ -123,6 +123,11 @@ export const linking = {
  * the role: blue for users, orange for providers.
  */
 const VERIFIED_BLUE = '#2b76bc';
+// The dark bar needs its own accent. #2b76bc is 2.6:1 on the dark material —
+// which is why the focused icon was falling back to plain white, losing the
+// role colour exactly when the tab is active. This is brand blue lightened
+// enough to read on the dark pill; orange already works on both.
+const VERIFIED_BLUE_ON_DARK = '#5FA8E8';
 
 // Lucide icon per tab key — crisp geometric line icons
 const TAB_ICONS = {
@@ -138,11 +143,14 @@ const TAB_ICONS = {
 // the bar crossfades a light row and a dark row for the adaptive flip.
 // Labels carry an adaptive halo (Apple's own legibility mechanism: soft
 // glow that's invisible on flat backgrounds, decisive on busy imagery).
-const TabIcon = React.memo(({ focused, icon, label, accent = VERIFIED_BLUE, profilePicture, tone = 'light' }) => {
+const TabIcon = React.memo(({ focused, icon, label, accent = VERIFIED_BLUE, accentDark, profilePicture, tone = 'light' }) => {
   const dark = tone === 'dark';
-  const color = dark
-    ? (focused ? '#FFFFFF' : 'rgba(255,255,255,0.78)')
-    : (focused ? accent : '#5F6774');
+  // The ACTIVE tab keeps its role colour in both tones. It used to go white on
+  // the dark bar, so navigating showed the light row's orange for the length of
+  // the cross-fade and then settled on white — the owner's "shows an outer line
+  // of orange and then stays white".
+  const activeInk = dark ? (accentDark || accent) : accent;
+  const color = focused ? activeInk : (dark ? 'rgba(255,255,255,0.78)' : '#5F6774');
   const IconCmp = TAB_ICONS[icon] || House;
 
   // Arrival micro-bounce — the icon pops when its tab becomes active
@@ -170,7 +178,7 @@ const TabIcon = React.memo(({ focused, icon, label, accent = VERIFIED_BLUE, prof
     <View style={styles.tabIconWrapper}>
       <Animated.View style={[styles.tabPillSlot, { transform: [{ scale: pop }] }]}>
         {avatarUri ? (
-          <View style={[styles.tabAvatar, focused && { borderColor: dark ? '#FFFFFF' : accent, borderWidth: 2 }]}>
+          <View style={[styles.tabAvatar, focused && { borderColor: activeInk, borderWidth: 2 }]}>
             <Image source={{ uri: avatarUri }} style={styles.tabAvatarImg} />
           </View>
         ) : (
@@ -577,7 +585,7 @@ const UserTabNavigator = () => {
         component={UserHomeScreen}
         options={{
           tabBarIcon: ({ focused, tone }) => (
-            <TabIcon focused={focused} tone={tone} icon="home" label={t('nav.home')} accent={VERIFIED_BLUE} />
+            <TabIcon focused={focused} tone={tone} icon="home" label={t('nav.home')} accent={VERIFIED_BLUE} accentDark={VERIFIED_BLUE_ON_DARK} />
           ),
         }}
       />
@@ -586,7 +594,7 @@ const UserTabNavigator = () => {
         component={UserServiceHistoryScreen}
         options={{
           tabBarIcon: ({ focused, tone }) => (
-            <TabIcon focused={focused} tone={tone} icon="history" label={t('nav.history')} accent={VERIFIED_BLUE} />
+            <TabIcon focused={focused} tone={tone} icon="history" label={t('nav.history')} accent={VERIFIED_BLUE} accentDark={VERIFIED_BLUE_ON_DARK} />
           ),
         }}
       />
@@ -595,7 +603,7 @@ const UserTabNavigator = () => {
         component={SettingsScreen}
         options={{
           tabBarIcon: ({ focused, tone }) => (
-            <TabIcon focused={focused} tone={tone} icon="settings" label={t('nav.settings')} accent={VERIFIED_BLUE} />
+            <TabIcon focused={focused} tone={tone} icon="settings" label={t('nav.settings')} accent={VERIFIED_BLUE} accentDark={VERIFIED_BLUE_ON_DARK} />
           ),
         }}
       />
@@ -609,7 +617,7 @@ const UserTabNavigator = () => {
               focused={focused}
               icon="profile"
               label={t('nav.profile')}
-              accent={VERIFIED_BLUE}
+              accent={VERIFIED_BLUE} accentDark={VERIFIED_BLUE_ON_DARK}
               profilePicture={profilePicture}
             />
           ),

@@ -10,7 +10,7 @@
  * @version 1.0.0
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {  View,
   Text,
   StyleSheet,
@@ -59,6 +59,7 @@ import {
 } from '../services/socketService';
 import { useWorkSchedule } from '../context/WorkScheduleContext';
 import { buildDaysPatch, scheduleErrorKey } from '../utils/workSchedule';
+import { pickProTip } from '../utils/proTips';
 import { getProviderRequests } from '../services/traditionalServiceService';
 import { getVerificationDashboard } from '../services/verificationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -479,6 +480,10 @@ const VerificationStatusCard = ({ dashboard, onPress, isLoading = false, t }) =>
 const ProviderHomeScreen = ({ navigation }) => {
   const styles = useThemedStyles(makeStyles);
   const isDark = useIsDark();
+  // Memoised with no deps: one tip per mount. pickProTip is already
+  // deterministic on a 4-hour bucket, but the provider home re-renders on every
+  // socket update and a tip changing mid-read would be worse than a stale one.
+  const proTip = useMemo(() => pickProTip(), []);
   const C = makeC(useThemeColors());
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
@@ -1322,7 +1327,7 @@ const ProviderHomeScreen = ({ navigation }) => {
               <View style={styles.tipsContent}>
                 <Text style={styles.tipsBadge}>{t('providerHome.proTip')}</Text>
                 <Text style={styles.tipsText}>
-                  {t('providerHome.proTipText')}
+                  {proTip}
                 </Text>
               </View>
             </View>
