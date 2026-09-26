@@ -1232,7 +1232,6 @@ const EmergencyServicesScreen = ({ navigation }) => {
       {!isProvider && (
         <>
           <View style={styles.sectionHeader}>
-            <View style={styles.sectionAccentBar} />
             <View style={styles.sectionIconContainer}>
               <MaterialIcon name="location-on" size={20} color={C.brandOrangeInk} />
             </View>
@@ -1748,13 +1747,6 @@ const makeStyles = (theme) => {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 6,
-  },
-  sectionAccentBar: {
-    width: 4,
-    height: 20,
-    borderRadius: 2,
-    backgroundColor: C.primary,
-    marginRight: 10,
   },
   sectionIconContainer: {
     width: 32,

@@ -292,7 +292,6 @@ const SectionHeaderBar = ({ title, count }) => {
   const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.sectionHeader}>
-      <View style={styles.sectionAccentBar} />
       <Text style={styles.sectionTitle}>{title}</Text>
       {count > 0 && (
         <View style={styles.sectionCountBadge}>
@@ -648,13 +647,6 @@ const SHADOWS = makeShadows(C);
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
-  },
-  sectionAccentBar: {
-    width: 4,
-    height: 22,
-    borderRadius: 2,
-    backgroundColor: C.secondary,
-    marginRight: 10,
   },
   sectionTitle: {
     flex: 1,

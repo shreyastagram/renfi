@@ -971,6 +971,35 @@ for their JOB, which is why they can hold two values without becoming wrong.
 
 ---
 
+## 33. beta.9 feedback — element-level design pass
+
+| report | cause | fix |
+|---|---|---|
+| "camera icon bg is orange fill fully" | a saturated 32px brand disc at the avatar corner, fighting the avatar | a neutral dark chip with a white glyph, both themes |
+| "rating and experience doesn't need that big box" | `statStrip` had a border, radius and a tinted fill around three short numbers | borderless and transparent — the figures are the content |
+| "in-between grey of sections looks weird" | the band was fenced by a hairline top AND bottom | no rules in either theme; the gap is the separator |
+| "settings orange strip beside the label looks weird" | a 4×18 solid brand slab beside every section header, in **six** screens | removed in all six — the uppercase label carries it, which is what the profile already does, so it is now in sync |
+| "drawer name/email/badges/view profile takes too much space" | a CENTRED STACK costing ~270pt before a single menu item | a horizontal row: ~92pt for the same information, whole row still tappable so the "View Profile" link is redundant |
+
+The drawer's slide was already a spring with a parallel backdrop fade and
+`useNativeDriver`, so the animation itself was not the problem — the header height was.
+
+**The gate caught a half-fix mid-change.** Repointing the camera chip to a dark fill,
+I changed the spinner's colour and missed the glyph beside it, leaving `#0F172A` on
+`#0F172A` — exactly 1.00:1. `check:ink` failed the build before it shipped.
+
+### Still open from this round
+
+- **"home should be in sync"** — home's cards are `surface` while the profile's
+  sections are now the page. That is a deliberate difference (cards vs a flat list),
+  but it may be what reads as out of sync. Needs the owner's eye on beta.10 first.
+- **"contrast of some titles and lines is off"** — not specific enough to act on.
+  `check:ink` reports dark at 0 and light at 121 known brand-colour items, so a named
+  screen is needed.
+- **Responsive / overflow audit across device sizes** — not started.
+
+---
+
 ## 30. Builds
 
 | build | code | what it carried |

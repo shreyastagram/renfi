@@ -1634,9 +1634,9 @@ const ProfileScreen = ({ navigation, route }) => {
                 </View>
                 <View style={[styles.cameraIconOverlay, isProvider && styles.cameraIconOverlayProvider]}>
                   {uploadingPicture ? (
-                    <ActivityIndicator size="small" color={C.onPrimary} />
+                    <ActivityIndicator size="small" color={stableDark.ink} />
                   ) : (
-                    <MaterialIcon name="camera-alt" size={14} color={C.onPrimary} />
+                    <MaterialIcon name="camera-alt" size={14} color={stableDark.ink} />
                   )}
                 </View>
               </TouchableOpacity>
@@ -3043,10 +3043,12 @@ const makeStyles = (theme) => {
     marginHorizontal: 16,
     marginTop: 14,
     marginBottom: 2,
-    borderWidth: 1,
+    // No box. The figures are the content; a bordered tinted card around three
+    // short numbers was more chrome than information.
+    borderWidth: 0,
     borderColor: C.line,
-    borderRadius: 16,
-    backgroundColor: C.surfaceTint,
+    borderRadius: 0,
+    backgroundColor: 'transparent',
     overflow: 'hidden',
   },
   statCell: {
@@ -3088,9 +3090,10 @@ const makeStyles = (theme) => {
     // 11 bands x 2 hairlines was 22 lit edges. Light keeps the v1.0.9 ruled band.
     height: theme.name === 'dark' ? 20 : 9,
     backgroundColor: C.bandFill,
-    borderTopWidth: theme.name === 'dark' ? 0 : StyleSheet.hairlineWidth,
-    borderBottomWidth: theme.name === 'dark' ? 0 : StyleSheet.hairlineWidth,
-    borderColor: C.line,
+    // No rules in either theme. The gap IS the separator; a 9px band fenced by two
+    // hairlines was belt-and-braces from before sections had their own fill.
+    borderTopWidth: 0,
+    borderBottomWidth: 0,
   },
   profileSection: {
     // pageSolid: #FFFFFF in light exactly as v1.0.9; in dark the section IS the
@@ -3406,7 +3409,10 @@ const makeStyles = (theme) => {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: C.secondary,
+    // A neutral chip, not a brand blob. A saturated 32px disc at the avatar corner
+    // fought the avatar for attention; a dark chip with a light glyph reads as an
+    // affordance and works in both themes.
+    backgroundColor: stableDark.heroSurface,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
@@ -3424,7 +3430,7 @@ const makeStyles = (theme) => {
     }),
   },
   cameraIconOverlayProvider: {
-    backgroundColor: C.primary,
+    backgroundColor: stableDark.heroSurface,
   },
   avatarProvider: {
     backgroundColor: C.primary,

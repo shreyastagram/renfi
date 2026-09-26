@@ -176,7 +176,6 @@ const SectionHeader = ({ title, style: customStyle }) => {
   const styles = useThemedStyles(makeStyles);
   return (
     <View style={[styles.sectionHeaderRow, customStyle]}>
-      <View style={styles.sectionAccentBar} />
       <Text style={styles.sectionHeaderText}>{title}</Text>
     </View>
   );
@@ -1537,13 +1536,6 @@ const makeStyles = (theme) => {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 14,
-  },
-  sectionAccentBar: {
-    width: 4,
-    height: 20,
-    borderRadius: 2,
-    backgroundColor: C.primary,
-    marginRight: 10,
   },
   sectionHeaderText: {
     fontSize: 16,

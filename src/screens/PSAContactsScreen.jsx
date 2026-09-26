@@ -259,7 +259,6 @@ const PSAContactsScreen = ({ navigation }) => {
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
               <View style={styles.sectionHeaderContainer}>
-                <View style={styles.sectionAccentBar} />
                 <Text style={styles.sectionHeader}>Emergency Contacts</Text>
               </View>
               <Text style={styles.contactCount}>{contacts.length}/{MAX_CONTACTS}</Text>
@@ -673,7 +672,6 @@ const makeStyles = (theme) => {
   },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   sectionHeaderContainer: { flexDirection: 'row', alignItems: 'center' },
-  sectionAccentBar: { width: 4, height: 18, backgroundColor: COLORS.primary, borderRadius: 2, marginRight: 10 },
   sectionHeader: { fontSize: 14, fontWeight: '800', color: COLORS.textPrimary, textTransform: 'uppercase', letterSpacing: 0.8 },
   contactCount: { fontSize: 13, fontWeight: '600', color: COLORS.muted },
 

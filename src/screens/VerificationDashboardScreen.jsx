@@ -218,7 +218,6 @@ const SectionHeader = ({ title, subtitle }) => {
   const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.sectionHeaderRow}>
-      <View style={styles.sectionAccentBar} />
       <View style={styles.sectionHeaderContent}>
         <Text style={styles.sectionTitle}>{title}</Text>
         {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
@@ -1030,14 +1029,6 @@ const makeStyles = (theme) => {
     flexDirection: 'row',
     alignItems: 'flex-start',
     marginBottom: 14,
-  },
-  sectionAccentBar: {
-    width: 4,
-    height: 22,
-    borderRadius: 2,
-    backgroundColor: C.primary,
-    marginRight: 10,
-    marginTop: 1,
   },
   sectionHeaderContent: {
     flex: 1,

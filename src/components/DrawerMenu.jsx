@@ -450,7 +450,11 @@ export const DrawerMenu = ({
               <View style={styles.decorCircle2} />
               <View style={styles.decorCircle3} />
 
-              {/* Avatar with glowing ring */}
+              {/* Identity row. This was a CENTRED STACK — avatar, name, email, badges and a
+                  bordered "View Profile" row — costing roughly 270pt before a single menu
+                  item. Laid out horizontally it carries the same information in about a
+                  third of the height, and the whole row is still the tap target, so the
+                  separate link is redundant. */}
               <View style={styles.avatarCenter}>
                 <View style={[styles.glowRing, isProvider ? styles.glowRingProvider : styles.glowRingUser]}>
                   {profileUrl ? (
@@ -463,41 +467,27 @@ export const DrawerMenu = ({
                 </View>
                 <View style={styles.onlineDot} />
               </View>
-
-              {/* Name */}
-              <Text style={styles.userName} numberOfLines={1} ellipsizeMode="tail">
-                {user?.fullName || 'User'}
-              </Text>
-
-              {/* Email */}
-              <Text style={styles.userEmail} numberOfLines={1} ellipsizeMode="tail">
-                {user?.email || user?.phone || ''}
-              </Text>
-
-              {/* Badges */}
-              <View style={styles.badgeRow}>
-                <View style={[styles.typeBadge, isProvider && styles.typeBadgeProv]}>
-                  <Icon
-                    name={isProvider ? 'provider' : 'home'}
-                    size={10}
-                    color={BRAND.white}
-                    style={{ marginRight: 4 }}
-                  />
-                  <Text style={styles.typeBadgeText}>{isProvider ? t('drawer.provider') : t('drawer.user')}</Text>
-                </View>
-                {isVerified && (
-                  <View style={styles.verifiedBadge}>
-                    <Icon name="check-circle" size={10} color={stableDark.verifiedInk} style={{ marginRight: 3 }} />
-                    <Text style={styles.verifiedText}>{t('drawer.verified')}</Text>
+              <View style={styles.headerText}>
+                <Text style={styles.userName} numberOfLines={1} ellipsizeMode="tail">
+                  {user?.fullName || 'User'}
+                </Text>
+                <Text style={styles.userEmail} numberOfLines={1} ellipsizeMode="tail">
+                  {user?.email || user?.phone || ''}
+                </Text>
+                <View style={styles.badgeRow}>
+                  <View style={[styles.typeBadge, isProvider && styles.typeBadgeProv]}>
+                    <Icon name={isProvider ? 'provider' : 'home'} size={10} color={BRAND.white} style={{ marginRight: 4 }} />
+                    <Text style={styles.typeBadgeText}>{isProvider ? t('drawer.provider') : t('drawer.user')}</Text>
                   </View>
-                )}
+                  {isVerified && (
+                    <View style={styles.verifiedBadge}>
+                      <Icon name="check-circle" size={10} color={stableDark.verifiedInk} style={{ marginRight: 3 }} />
+                      <Text style={styles.verifiedText}>{t('drawer.verified')}</Text>
+                    </View>
+                  )}
+                </View>
               </View>
-
-              {/* View Profile link */}
-              <View style={styles.viewProfileRow}>
-                <Text style={styles.viewProfileText}>{t('drawer.viewProfile')}</Text>
-                <Icon name="chevron-right" size={14} color={stableDark.inkSoft} />
-              </View>
+              <Icon name="chevron-right" size={18} color={stableDark.inkSoft} />
             </TouchableOpacity>
           </Animated.View>
 
@@ -675,11 +665,12 @@ const makeStyles = (theme) => {
   // ─── Dark Hero Header ───
   header: {
     backgroundColor: BRAND.heroBg,
-    paddingHorizontal: 24,
-    paddingTop: 28,
-    paddingBottom: 20,
+    flexDirection: 'row',
     alignItems: 'center',
-    overflow: 'hidden',
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 18,
+    gap: 13,
   },
 
   decorCircle1: {
@@ -712,15 +703,14 @@ const makeStyles = (theme) => {
 
   avatarCenter: {
     position: 'relative',
-    marginBottom: 14,
   },
   glowRing: {
-    width: 82,
-    height: 82,
-    borderRadius: 41,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
+    borderWidth: 2,
   },
   glowRingUser: {
     borderColor: stableDark.brandBlueLineStrong,
@@ -751,9 +741,9 @@ const makeStyles = (theme) => {
     }),
   },
   headerAvatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   headerAvatarFallback: {
     width: 72,
@@ -786,25 +776,25 @@ const makeStyles = (theme) => {
 
   userName: {
     color: BRAND.white,
-    fontSize: 20,
+    fontSize: 16.5,
     fontWeight: '800',
-    letterSpacing: 0.3,
-    textAlign: 'center',
-    maxWidth: '90%',
+    letterSpacing: 0.1,
   },
   userEmail: {
     color: stableDark.inkSoft,
-    fontSize: 13,
-    marginTop: 4,
-    textAlign: 'center',
-    maxWidth: '90%',
+    fontSize: 12.5,
+    marginTop: 2,
+  },
+  headerText: {
+    flex: 1,
+    minWidth: 0, // a long name ellipsizes instead of shoving the chevron off-screen
   },
 
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
-    gap: 8,
+    marginTop: 7,
+    gap: 6,
   },
   typeBadge: {
     flexDirection: 'row',
@@ -835,22 +825,6 @@ const makeStyles = (theme) => {
     fontSize: 10.5,
     fontWeight: '700',
   },
-
-  viewProfileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 16,
-    paddingTop: 14,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: stableDark.heroDivider,
-  },
-  viewProfileText: {
-    color: stableDark.inkDim,
-    fontSize: 12.5,
-    fontWeight: '500',
-    marginRight: 4,
-  },
-
   // ─── Menu ───
   menuScroll: {
     flex: 1,
