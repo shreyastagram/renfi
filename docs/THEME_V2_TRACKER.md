@@ -1781,3 +1781,5 @@ input. `placeholderTextColor` was already at 100%; it is asserted anyway, becaus
 the expensive failure is the quiet regression on input forty-three.
 
 Twelve gates now. All pass; 90 unit tests pass.
+
+| beta.14 — premium, pulse, caret | https://claude.ai/code/artifact/43be436b-db80-4216-ac31-2ea69fb10e09 |
