@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Base application theme. -->
     <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
@@ -7,6 +7,16 @@
         <!-- Light cold-start background, the counterpart of the night variant. Without
              it the light theme flashes the platform default before JS mounts. -->
         <item name="android:windowBackground">@color/theme_window_background</item>
+        <!-- Platform accents. Without these, AppCompat falls back to its own
+             defaults — colorAccent #FF4081 and colorPrimary #3F51B5 — and Android
+             paints the OVERSCROLL GLOW, the text-selection handles and the ripple
+             with them. That is the violet flash the owner saw when scrolling the
+             profile: it is drawn by the platform, not by any JS style, so nothing
+             in the theme system could reach it. -->
+        <item name="colorAccent">#f67c16</item>
+        <item name="colorPrimary">#f67c16</item>
+        <item name="colorPrimaryDark">@color/theme_window_background</item>
+        <item name="android:colorEdgeEffect" tools:targetApi="21">#f67c16</item>
     </style>
 
 </resources>

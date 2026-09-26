@@ -48,7 +48,7 @@ const makeBrand = (c) => ({
   secondary: c.brandBlue,
   heroBg: stableDark.heroSurface,
   white: stableDark.ink,
-  surface: c.surface,
+  surface: c.pageSolid, // the drawer body is a full sheet, so it takes the page: black in dark
   backdrop: stableDark.heroBackdrop,
   danger: c.danger,
   dangerBg: c.dangerFill,
@@ -183,13 +183,15 @@ const AnimatedMenuItem = React.memo(({ item, index, onPress, isReady, isActive }
   }
 
   const accentColor = item.accent ? themeColors.danger : null;
-  const iconColor = item.danger ? BRAND.danger : accentColor || (isActive ? BRAND.secondary : BRAND.textSecondary);
+  // Neutral when active: brandBlue here read as a stray blue in a menu that has
+  // no other blue in it.
+  const iconColor = item.danger ? BRAND.danger : accentColor || (isActive ? BRAND.textPrimary : BRAND.textSecondary);
   const iconBgColor = item.danger
     ? BRAND.dangerBg
     : item.accent
       ? themeColors.dangerFill
       : isActive
-        ? `${BRAND.secondary}15`
+        ? `${BRAND.textPrimary}12`
         : BRAND.iconBg;
 
   return (
@@ -210,7 +212,7 @@ const AnimatedMenuItem = React.memo(({ item, index, onPress, isReady, isActive }
           )}
         </View>
         <Text style={[styles.menuLabel, item.danger && styles.menuLabelDanger, item.accent && styles.menuLabelAccent, isActive && styles.menuLabelActive]}>{item.label}</Text>
-        {!item.danger && <MaterialCommunityIcons name="chevron-right" size={18} color={isActive ? BRAND.secondary : BRAND.textMuted} style={{ marginLeft: 'auto' }} />}
+        {!item.danger && <MaterialCommunityIcons name="chevron-right" size={18} color={isActive ? BRAND.textPrimary : BRAND.textMuted} style={{ marginLeft: 'auto' }} />}
       </TouchableOpacity>
     </Animated.View>
   );
@@ -842,7 +844,7 @@ const makeStyles = (theme) => {
     borderRadius: 12,
   },
   menuItemActive: {
-    backgroundColor: theme.colors.infoContainer,
+    backgroundColor: theme.colors.wellFill,
     position: 'relative',
   },
   activeIndicator: {
@@ -884,9 +886,8 @@ const makeStyles = (theme) => {
     fontWeight: '700',
   },
   menuItemAccent: {
-    backgroundColor: theme.colors.dangerFill,
-    borderWidth: 1,
-    borderColor: theme.colors.dangerLine,
+    // No fill and no border. A boxed red row shouted louder than the destructive
+    // Log out below it; the red LABEL already carries the meaning.
   },
   menuLabelAccent: {
     color: theme.colors.danger,

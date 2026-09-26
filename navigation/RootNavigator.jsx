@@ -252,7 +252,9 @@ const makeGlass = (c) => ({
 
 // Dark variant — strong enough (0.55) that white text is guaranteed
 // readable even when the bar half-overlaps a dark surface.
-const DARK_TINT = 'rgba(18, 24, 34, 0.55)';
+// Warm-neutral, matching the dark ramp. This was rgba(18,24,34,.55) — a blue
+// slate — and the bar sits on EVERY screen, so it tinted the whole app bluish.
+const DARK_TINT = 'rgba(22, 20, 19, 0.58)';
 const DARK_LENS_BG = 'rgba(255, 255, 255, 0.16)';
 const DARK_LENS_BORDER = 'rgba(255, 255, 255, 0.26)';
 

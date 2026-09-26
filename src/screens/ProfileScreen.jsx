@@ -95,6 +95,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Service labels for proper display
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   rowRule: c.rowRule,
   pageSolid: c.pageSolid,
   wellFill: c.wellFill,
@@ -1966,7 +1967,7 @@ const ProfileScreen = ({ navigation, route }) => {
                   ? t('profile.addMoreServices')
                   : t('profile.getVerified')}
                 actionIcon="add-circle-outline"
-                actionColor={C.warning}
+                actionColor={C.brandOrangeInk}
                 onAction={() => navigation.navigate('DocumentVerification')}
               >
                 {(displayData?.verifiedServiceCategories?.length > 0) && (
@@ -3039,15 +3040,17 @@ const makeStyles = (theme) => {
 
   // ─── Provider stat strip ───
   statStrip: {
+    // The border stays — it groups the three figures — but tight. It was a 16-radius
+    // card with a tinted fill and 14pt of padding around three short numbers.
     flexDirection: 'row',
-    marginHorizontal: 16,
-    marginTop: 14,
+    alignSelf: 'center',
+    marginTop: 12,
     marginBottom: 2,
-    // No box. The figures are the content; a bordered tinted card around three
-    // short numbers was more chrome than information.
-    borderWidth: 0,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: C.line,
-    borderRadius: 0,
+    borderRadius: 12,
     backgroundColor: 'transparent',
     overflow: 'hidden',
   },

@@ -67,6 +67,7 @@ const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
 // Premium design tokens
 const makeC = (c) => ({
+  wellFill: c.wellFill,
   brandOrangeInk: c.brandOrangeInk,
   darkHero: stableDark.heroSurface, // was #0F172A — a fixed brand panel
   primary: c.brandOrange,
@@ -82,7 +83,7 @@ const makeC = (c) => ({
   dangerLight: c.dangerContainer,
   // The shipped icon chip and divider were both #F1F5F9 -- exactly `bg` in light,
   // a recessed seam on a dark surface.
-  iconBg: c.bg,
+  iconBg: c.wellFill, // was c.bg — #000000 in dark, so every icon disc was a black hole
   divider: c.bg,
   sunkenNeutral: c.surfaceSunken,
   switchTrackOff: c.border,
@@ -213,7 +214,7 @@ const ToggleRow = ({ iconName, title, subtitle, value, onValueChange, disabled, 
     >
       <Animated.View style={[styles.settingsRow, { transform: [{ scale: scaleAnim }] }]}>
         <View style={styles.rowIconContainer}>
-          <Icon name={iconName} size={20} color={C.secondary} />
+          <Icon name={iconName} size={20} color={C.textSecondary} />
         </View>
         <View style={styles.rowContent}>
           <View style={styles.rowTitleContainer}>
@@ -259,7 +260,7 @@ const ActionRow = ({ iconName, title, subtitle, onPress, showArrow = true, dange
       <View style={[styles.settingsRow, (loading || disabled) && { opacity: 0.6 }]}>
         <View style={[styles.rowIconContainer, danger && styles.rowIconDanger]}>
           {loading ? (
-            <ActivityIndicator size={18} color={danger ? C.danger : C.secondary} />
+            <ActivityIndicator size={18} color={danger ? C.danger : C.textSecondary} />
           ) : (
             <Icon name={iconName} size={20} color={danger ? C.danger : C.secondary} />
           )}
@@ -1144,7 +1145,7 @@ const SettingsScreen = ({ navigation }) => {
 
             <View style={styles.verificationNote}>
               <View style={styles.verificationNoteIconContainer}>
-                <Icon name="info" size={14} color={C.secondary} />
+                <Icon name="info" size={14} color={C.textSecondary} />
               </View>
               <Text style={styles.verificationNoteText}>
                 {displayData?.isFullyVerified
@@ -1188,7 +1189,7 @@ const SettingsScreen = ({ navigation }) => {
 
             <View style={styles.verificationNote}>
               <View style={styles.verificationNoteIconContainer}>
-                <Icon name="info" size={14} color={C.secondary} />
+                <Icon name="info" size={14} color={C.textSecondary} />
               </View>
               <Text style={styles.verificationNoteText}>
                 {t('settings.insuranceNote')}
@@ -1457,7 +1458,7 @@ const SettingsScreen = ({ navigation }) => {
                   <Text style={settingsLangStyles.optionSub}>{lang.label}</Text>
                 </View>
                 {language === lang.code && (
-                  <Icon name="check" size={20} color={C.secondary} />
+                  <Icon name="check" size={20} color={C.textSecondary} />
                 )}
               </TouchableOpacity>
             ))}
@@ -1507,7 +1508,7 @@ const SettingsScreen = ({ navigation }) => {
                   </Text>
                 </View>
                 {themeMode === m && (
-                  <Icon name="check" size={20} color={C.secondary} />
+                  <Icon name="check" size={20} color={C.textSecondary} />
                 )}
               </TouchableOpacity>
             ))}

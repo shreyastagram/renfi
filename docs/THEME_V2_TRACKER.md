@@ -1000,6 +1000,35 @@ I changed the spinner's colour and missed the glyph beside it, leaving `#0F172A`
 
 ---
 
+## 34. beta.10 feedback — the violet was the PLATFORM, not the app
+
+**"A violet tint appears when I scroll."** Nothing in the theme system could produce
+it, because nothing in the theme system draws it. `AppTheme` extends
+`Theme.AppCompat.DayNight.NoActionBar` and **never set `colorAccent` or
+`colorPrimary`**, so Android fell back to AppCompat's own defaults — `#FF4081` and
+`#3F51B5` — and paints the **overscroll glow**, text-selection handles and ripples
+with them. Both `values/` and `values-night/` now set the brand accents plus
+`android:colorEdgeEffect`.
+
+**Worth remembering: not every colour in the app comes from the app.** Nine gates
+grade JS tokens and not one of them can see `styles.xml`.
+
+**"Home still looks blue."** The ramp was already fixed, but the floating tab bar's
+dark material was `rgba(18, 24, 34, 0.55)` — a blue slate — and that bar sits on
+**every screen**. Now warm-neutral to match the ramp.
+
+| other reports | fix |
+|---|---|
+| "add more services looks yellow" | `actionColor` was `C.warning` = `#FBBF24` amber. Now the brand ink. Amber is not a brand colour and should not appear as one. |
+| settings "dark mode icons look blue" | five row icons were `C.secondary` = `#5FA8E8`. Now neutral — a settings list with one stray hue reads as an accident. |
+| settings icon discs | `iconBg` was `c.bg` — **`#000000` in dark**, the same black-hole bug as the profile's. Now `wellFill`. |
+| "rating/experience — keep the border, make it smaller" | border restored at hairline weight, radius 16→12, self-centred, padding 14→6/4 |
+| drawer "should be black bg" | the body was `c.surface`; now `pageSolid` |
+| drawer "remove the red box for personal safety, keep the text red" | fill and border dropped; `menuLabelAccent` already made the label red |
+| drawer active row | was `infoContainer`, a blue tint, with a blue icon and chevron. Now a neutral lift. |
+
+---
+
 ## 30. Builds
 
 | build | code | what it carried |
