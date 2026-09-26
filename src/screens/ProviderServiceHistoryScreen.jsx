@@ -1178,7 +1178,10 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
                 ]}
               />
             </View>
-            {hasActiveFilters ? (
+            {/* Only when there is something to count. At zero the empty state below
+                  already says "No Bookings Found", so this put a redundant
+                  "0 bookings" directly above it. */}
+              {hasActiveFilters && filteredRequests.length > 0 ? (
               <Text style={styles.resultCount}>{filteredRequests.length} {filteredRequests.length === 1 ? t('providerHistory.job') : t('providerHistory.jobs')}</Text>
             ) : null}
           </>
@@ -1323,7 +1326,7 @@ const makeStyles = (theme) => {
   dateChipText: { fontSize: 12, fontWeight: '600', color: C.textSec },
   dateChipTextOn: { color: C.white },
 
-  resultCount: { fontSize: 12, fontWeight: '600', color: C.muted, marginBottom: 6 },
+  resultCount: { fontSize: 12, fontWeight: '600', color: C.muted, marginBottom: 8, marginTop: 2, paddingHorizontal: 2 },
   listPad: { paddingHorizontal: 14, paddingTop: 4 },
 
   // Card

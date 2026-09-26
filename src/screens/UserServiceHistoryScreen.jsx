@@ -1120,7 +1120,10 @@ const UserServiceHistoryScreen = ({ navigation }) => {
                 ]}
               />
             </View>
-            {hasActiveFilters ? (
+            {/* Only when there is something to count. At zero the empty state below
+                  already says "No Bookings Found", so this put a redundant
+                  "0 bookings" directly above it. */}
+              {hasActiveFilters && filteredRequests.length > 0 ? (
               <Text style={styles.resultCount}>{filteredRequests.length} {filteredRequests.length === 1 ? 'booking' : 'bookings'}</Text>
             ) : null}
           </>
@@ -1274,7 +1277,7 @@ const makeStyles = (theme) => {
   dateChipTextOn: { color: C.white },
 
   // Result count
-  resultCount: { fontSize: 12, fontWeight: '600', color: C.muted, marginBottom: 6 },
+  resultCount: { fontSize: 12, fontWeight: '600', color: C.muted, marginBottom: 8, marginTop: 2, paddingHorizontal: 2 },
 
   // List
   listPad: { paddingHorizontal: 14, paddingTop: 4 },
