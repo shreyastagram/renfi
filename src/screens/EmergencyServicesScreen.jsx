@@ -75,6 +75,7 @@ const EMERGENCY_NOTES_PLACEHOLDERS = {
 
 // Premium design tokens
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   darkHero: stableDark.heroSurface, // was #0F172A — a fixed brand panel
   primary: c.brandOrange,
   secondary: c.brandBlue,
@@ -520,7 +521,7 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
                 {/* Distance */}
                 {(provider.distanceKm || provider.distance != null) && (
                   <View style={detailStyles.infoRow}>
-                    <MaterialIcon name="location-on" size={14} color={C.primary} />
+                    <MaterialIcon name="location-on" size={14} color={C.brandOrangeInk} />
                     <Text style={detailStyles.infoText}>
                       {provider.distanceKm ? `${formatDistance(provider.distanceKm, useKm)} ${t('common.away')}` :
                        `${formatDistanceFromMeters(Number(provider.distance), useKm)} ${t('common.away')}`}
@@ -1232,7 +1233,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
           <View style={styles.sectionHeader}>
             <View style={styles.sectionAccentBar} />
             <View style={styles.sectionIconContainer}>
-              <MaterialIcon name="location-on" size={20} color={C.primary} />
+              <MaterialIcon name="location-on" size={20} color={C.brandOrangeInk} />
             </View>
             <Text style={styles.sectionTitle}>{t('emergencyServices.locationBasedServices')}</Text>
           </View>
@@ -1560,7 +1561,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
           {/* Location preview */}
           <View style={styles.locationPreview}>
             <View style={styles.locationIconWrap}>
-              <MaterialIcon name="my-location" size={16} color={C.primary} />
+              <MaterialIcon name="my-location" size={16} color={C.brandOrangeInk} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.locationLabel}>{t('emergencyServices.yourLocationLabel')}</Text>
@@ -2040,7 +2041,7 @@ const makeStyles = (theme) => {
   bookButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: C.white,
+    color: C.onPrimary,
   },
 
   // ── Provider Status ─────────────────────────────────────
@@ -2123,7 +2124,7 @@ const makeStyles = (theme) => {
   retryLargeButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: C.white,
+    color: C.onPrimary,
   },
 
   // ── Cancel Button ───────────────────────────────────────
@@ -2434,7 +2435,7 @@ const makeStyles = (theme) => {
   locationLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: C.primary,
+    color: C.brandOrangeInk,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 2,
@@ -2485,7 +2486,7 @@ const makeStyles = (theme) => {
   notesModalConfirmText: {
     fontSize: 16,
     fontWeight: '700',
-    color: C.white,
+    color: C.onPrimary,
   },
   });
 };
@@ -2779,7 +2780,7 @@ const makeDetailStyles = (theme) => {
   bookActionText: {
     fontSize: 16,
     fontWeight: '700',
-    color: C.white,
+    color: C.onPrimary,
     marginLeft: 8,
   },
   });

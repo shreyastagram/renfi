@@ -166,7 +166,7 @@ const CityAutocomplete = ({
             if (suggestions.length > 0) setShowSuggestions(true);
           }}
         />
-        {loading && <ActivityIndicator size="small" color={C.primary} />}
+        {loading && <ActivityIndicator size="small" color={C.brandOrangeInk} />}
       </View>
 
       {showSuggestions && (
@@ -197,6 +197,7 @@ const CityAutocomplete = ({
 };
 
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,

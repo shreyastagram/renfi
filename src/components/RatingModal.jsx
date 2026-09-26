@@ -327,10 +327,10 @@ const RatingModal = ({
               disabled={rating === 0 || submitting || loading}
             >
               {submitting || loading ? (
-                <ActivityIndicator size="small" color={C.white} />
+                <ActivityIndicator size="small" color={C.onPrimary} />
               ) : (
                 <>
-                  <MaterialIcon name="star" size={20} color={C.white} />
+                  <MaterialIcon name="star" size={20} color={C.onPrimary} />
                   <Text style={styles.submitButtonText}>Submit Rating</Text>
                 </>
               )}
@@ -495,7 +495,7 @@ const makeStyles = (theme) => {
   submitButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: C.white,
+    color: C.onPrimary,
   },
   skipButton: {
     alignItems: 'center',

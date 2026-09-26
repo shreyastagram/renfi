@@ -52,6 +52,8 @@ import { getMapStyleURL } from '../config/mapbox';
 const { width: SCREEN_W } = Dimensions.get('window');
 
 const makeC = (c) => ({
+  onPrimary: c.onBrandOrange,
+  brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   secondary: c.brandBlue,
   bg: c.bg,
@@ -453,7 +455,7 @@ const LiveTrackingScreen = ({ navigation, route }) => {
       {!isMapReady && (
         <View style={styles.mapOverlay}>
           <View style={styles.mapOverlayInner}>
-            <ActivityIndicator size="large" color={C.primary} />
+            <ActivityIndicator size="large" color={C.brandOrangeInk} />
             <Text style={styles.mapOverlayText}>{t('tracking.loadingMap')}</Text>
           </View>
         </View>
@@ -535,7 +537,7 @@ const LiveTrackingScreen = ({ navigation, route }) => {
       <Animated.View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 16, transform: [{ translateY: sheetTranslate }] }]}>
         {isLoading ? (
           <View style={styles.sheetCenter}>
-            <ActivityIndicator size="large" color={C.primary} />
+            <ActivityIndicator size="large" color={C.brandOrangeInk} />
             <Text style={styles.sheetLoadingText}>{t('tracking.findingProvider')}</Text>
             <Text style={styles.sheetSubText}>{t('tracking.findingProviderSub')}</Text>
           </View>
@@ -550,11 +552,11 @@ const LiveTrackingScreen = ({ navigation, route }) => {
           </View>
         ) : error && !providerLocation ? (
           <View style={styles.sheetCenter}>
-            <View style={styles.errorIcon}><MaterialIcon name="location-searching" size={28} color={C.primary} /></View>
+            <View style={styles.errorIcon}><MaterialIcon name="location-searching" size={28} color={C.brandOrangeInk} /></View>
             <Text style={styles.errorTitle}>{error}</Text>
             <Text style={styles.errorSubText}>{t('tracking.checkingUpdates')}</Text>
             <TouchableOpacity style={styles.retryBtn} onPress={() => { setIsRefreshing(true); fetchProviderLocation(); }} activeOpacity={0.7}>
-              {isRefreshing ? <ActivityIndicator size="small" color={C.white} /> : <Text style={styles.retryBtnText}>{t('tracking.retryNow')}</Text>}
+              {isRefreshing ? <ActivityIndicator size="small" color={C.onPrimary} /> : <Text style={styles.retryBtnText}>{t('tracking.retryNow')}</Text>}
             </TouchableOpacity>
           </View>
         ) : (
@@ -594,7 +596,7 @@ const LiveTrackingScreen = ({ navigation, route }) => {
               <View style={styles.statsRow}>
                 <View style={styles.statItem}>
                   <View style={[styles.statIconWrap, { backgroundColor: C.warningContainer }]}>
-                    <MaterialIcon name="directions-car" size={18} color={C.primary} />
+                    <MaterialIcon name="directions-car" size={18} color={C.brandOrangeInk} />
                   </View>
                   <Text style={styles.statVal}>{formatDistance(Number(displayDist), useKm)}</Text>
                   <Text style={styles.statSub}>{routeDistance != null ? 'via road' : 'straight'}</Text>
@@ -625,7 +627,7 @@ const LiveTrackingScreen = ({ navigation, route }) => {
                 <Text style={styles.callBtnText}>Call Provider</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.dirBtn} onPress={openDirections} activeOpacity={0.8}>
-                <MaterialIcon name="directions" size={20} color={C.primary} />
+                <MaterialIcon name="directions" size={20} color={C.brandOrangeInk} />
                 <Text style={styles.dirBtnText}>Directions</Text>
               </TouchableOpacity>
             </View>
@@ -672,13 +674,13 @@ const makeStyles = (theme) => {
   errorTitle: { fontSize: 15, fontWeight: '700', color: C.text, textAlign: 'center' },
   errorSubText: { fontSize: 12, fontWeight: '500', color: C.muted, marginTop: 4 },
   retryBtn: { marginTop: 16, backgroundColor: C.primary, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 14, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
-  retryBtnText: { fontSize: 14, fontWeight: '700', color: C.white },
+  retryBtnText: { fontSize: 14, fontWeight: '700', color: C.onPrimary },
 
   // Provider row
   providerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
   avatar: { width: 48, height: 48, borderRadius: 16, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', marginRight: 12 },
   avatarImg: { width: 48, height: 48, borderRadius: 16 },
-  avatarInitial: { fontSize: 20, fontWeight: '800', color: C.white },
+  avatarInitial: { fontSize: 20, fontWeight: '800', color: C.onPrimary },
   providerName: { fontSize: 16, fontWeight: '700', color: C.text },
   providerSvc: { fontSize: 12, fontWeight: '500', color: C.muted, marginTop: 2, textTransform: 'capitalize' },
   statusChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.surfaceSunken, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, gap: 6 },
@@ -706,7 +708,7 @@ const makeStyles = (theme) => {
   callBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.success, paddingVertical: 14, borderRadius: 16, gap: 8, shadowColor: C.success, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
   callBtnText: { fontSize: 15, fontWeight: '700', color: C.white },
   dirBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.warningContainer, paddingVertical: 14, borderRadius: 16, gap: 8, borderWidth: 1.5, borderColor: C.primary },
-  dirBtnText: { fontSize: 15, fontWeight: '700', color: C.primary },
+  dirBtnText: { fontSize: 15, fontWeight: '700', color: C.brandOrangeInk },
   });
 };
 

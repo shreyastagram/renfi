@@ -71,6 +71,9 @@ import {
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const makeC = (c) => ({
+  onPrimary: c.onBrandOrange,
+  brandOrangeInk: c.brandOrangeInk,
+  info: c.info,
   primary: c.brandOrange,
   secondary: c.brandBlue,
   white: c.surface,
@@ -408,7 +411,7 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
                     </TouchableOpacity>
                     {isActive && (
                       <TouchableOpacity style={styles.btnTrack} onPress={() => onTrackProvider(request)} activeOpacity={0.7}>
-                        <Icon name="location" size={15} color={C.white} />
+                        <Icon name="location" size={15} color={C.onPrimary} />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -544,7 +547,7 @@ const EmptyState = ({ filter, onBookService }) => {
       <Text style={styles.emptyMsg}>{msg}</Text>
       {filter === 'all' && (
         <TouchableOpacity style={styles.emptyCta} onPress={onBookService} activeOpacity={0.7}>
-          <Icon name="add" size={16} color={C.white} />
+          <Icon name="add" size={16} color={C.onPrimary} />
           <Text style={styles.emptyCtaText}>{t('userHistory.bookService')}</Text>
         </TouchableOpacity>
       )}
@@ -1118,7 +1121,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
         renderItem={renderRequestItem}
         extraData={`${resendingOtpId}-${Object.keys(ratingStatuses).length}`}
         ListEmptyComponent={<EmptyState filter={activeFilter} onBookService={() => navigation.navigate('HomeTab')} />}
-        ListFooterComponent={loadingMore ? <View style={styles.footerLoader}><ActivityIndicator size="small" color={C.primary} /><Text style={styles.footerText}>{t('userHistory.loadingMore')}</Text></View> : null}
+        ListFooterComponent={loadingMore ? <View style={styles.footerLoader}><ActivityIndicator size="small" color={C.brandOrangeInk} /><Text style={styles.footerText}>{t('userHistory.loadingMore')}</Text></View> : null}
         onEndReached={loadMore}
         onEndReachedThreshold={0.3}
         contentContainerStyle={[styles.listPad, { paddingBottom: insets.bottom + 104 }]}
@@ -1208,7 +1211,7 @@ const makeStyles = (theme) => {
   filterPill: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: C.neutralFill, borderRadius: 20, borderWidth: 1, borderColor: C.line },
   filterPillActive: { backgroundColor: C.primary, borderColor: C.primary },
   filterPillText: { fontSize: 13, fontWeight: '600', color: C.textSec },
-  filterPillTextActive: { color: C.white },
+  filterPillTextActive: { color: C.onPrimary },
   // Filter bar — floating pill above tab bar
   filterBar: {
     position: 'absolute',
@@ -1250,7 +1253,7 @@ const makeStyles = (theme) => {
   categoryChip: { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: C.sunken, borderRadius: 16, borderWidth: 1, borderColor: C.line },
   categoryChipActive: { backgroundColor: C.blueBg, borderColor: C.secondary },
   categoryChipText: { fontSize: 12, fontWeight: '600', color: C.muted },
-  categoryChipTextActive: { color: C.secondary },
+  categoryChipTextActive: { color: C.info },
 
   // Date chips
   dateScroll: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8, gap: 6 },
@@ -1361,12 +1364,12 @@ const makeStyles = (theme) => {
   emptyTitle: { fontSize: 18, fontWeight: '800', color: C.text, marginBottom: 6 },
   emptyMsg: { fontSize: 13, fontWeight: '500', color: C.textSec, textAlign: 'center', lineHeight: 20, marginBottom: 20 },
   emptyCta: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: C.primary, paddingHorizontal: 22, paddingVertical: 13, borderRadius: 14, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
-  emptyCtaText: { fontSize: 14, fontWeight: '700', color: C.white },
+  emptyCtaText: { fontSize: 14, fontWeight: '700', color: C.onPrimary },
 
   // Sent-to / no-provider strips
   sentToStrip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.blueBg, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, marginBottom: 6, borderWidth: 1, borderColor: C.secondary + '20' },
   sentToStripRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
-  sentToStripText: { fontSize: 11, fontWeight: '600', color: C.secondary },
+  sentToStripText: { fontSize: 11, fontWeight: '600', color: C.info },
   cancelSentStripBtn: { backgroundColor: C.dangerBg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: C.dangerLine, marginLeft: 8 },
   cancelSentStripBtnText: { fontSize: 11, fontWeight: '700', color: C.danger },
   noProviderStrip: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, backgroundColor: C.warningBg, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: C.warningLine },

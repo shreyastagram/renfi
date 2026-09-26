@@ -78,6 +78,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Brand colors
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,
@@ -350,13 +351,13 @@ const VerificationStatusCard = ({ dashboard, onPress, isLoading = false, t }) =>
         >
           <View style={styles.verificationCardContent}>
             <View style={[styles.verificationProgress, { borderColor: C.primary + '40' }]}>
-              <ActivityIndicator size="small" color={C.primary} />
+              <ActivityIndicator size="small" color={C.brandOrangeInk} />
             </View>
             <View style={styles.verificationTextContent}>
               <ShimmerBlock width={180} height={14} borderRadius={6} />
               <ShimmerBlock width={140} height={11} borderRadius={6} style={{ marginTop: 6 }} />
             </View>
-            <Icon name="chevron-right" size={20} color={C.primary} />
+            <Icon name="chevron-right" size={20} color={C.brandOrangeInk} />
           </View>
           <View style={styles.verificationStepDots}>
             {[1, 2, 3, 4, 5].map(i => (
@@ -1422,13 +1423,13 @@ const ProviderHomeScreen = ({ navigation }) => {
                       {Platform.OS === 'ios' ? (
                         <Mapbox.MarkerView id="provider-loc" coordinate={[providerLocation.longitude, providerLocation.latitude]}>
                           <View style={styles.locationPinOuter}>
-                            <MaterialIcon name="person-pin-circle" size={36} color={C.primary} />
+                            <MaterialIcon name="person-pin-circle" size={36} color={C.brandOrangeInk} />
                           </View>
                         </Mapbox.MarkerView>
                       ) : (
                         <Mapbox.PointAnnotation id="provider-loc" coordinate={[providerLocation.longitude, providerLocation.latitude]}>
                           <View style={styles.locationPinOuter}>
-                            <MaterialIcon name="person-pin-circle" size={36} color={C.primary} />
+                            <MaterialIcon name="person-pin-circle" size={36} color={C.brandOrangeInk} />
                           </View>
                         </Mapbox.PointAnnotation>
                       )}
@@ -1444,7 +1445,7 @@ const ProviderHomeScreen = ({ navigation }) => {
                   </View>
 
                   <View style={styles.locationModalAddress}>
-                    <MaterialIcon name="place" size={16} color={C.primary} />
+                    <MaterialIcon name="place" size={16} color={C.brandOrangeInk} />
                     <Text style={styles.locationModalAddressMain} numberOfLines={1}>
                       {locationAddress?.shortAddress || locationAddress?.city || displayAddress || 'Your current location'}
                     </Text>
@@ -1905,12 +1906,12 @@ const makeStyles = (theme) => {
   },
   serviceTagText: {
     fontSize: 12,
-    color: C.secondary,
+    color: C.info,
     fontWeight: '700',
     letterSpacing: -0.1,
   },
   serviceTagTextPending: {
-    color: C.primary,
+    color: C.brandOrangeInk,
   },
   pendingBadge: {
     backgroundColor: C.primary,

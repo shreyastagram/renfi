@@ -348,7 +348,7 @@ const StepCard = ({ step, config, onAction, isLast, t }) => {
             <Text style={styles.stepActionText}>
               {step.phoneChanged ? t('verificationDashboard.reVerifyPhone') : (config.actionLabelKey ? t(config.actionLabelKey) : config.actionLabel)}
             </Text>
-            <Icon name="chevron-right" size={16} color={C.white} />
+            <Icon name="chevron-right" size={16} color={C.onPrimary} />
           </AnimatedPressable>
         )}
       </View>
@@ -898,7 +898,7 @@ const makeStyles = (theme) => {
     ...makeCardShadowLight(C),
   },
   retryButtonText: {
-    color: C.white,
+    color: C.onPrimary,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -1230,7 +1230,7 @@ const makeStyles = (theme) => {
   stepActionText: {
     fontSize: 13,
     fontWeight: '700',
-    color: C.white,
+    color: C.onPrimary,
   },
 
   // ─── Capability Card ───────────────────────────────────────

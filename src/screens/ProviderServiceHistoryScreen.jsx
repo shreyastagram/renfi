@@ -1267,7 +1267,7 @@ const makeStyles = (theme) => {
   filterPill: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: C.neutralFill, borderRadius: 20, borderWidth: 1, borderColor: C.line },
   filterPillActive: { backgroundColor: C.primary, borderColor: C.primary },
   filterPillText: { fontSize: 13, fontWeight: '600', color: C.textSec },
-  filterPillTextActive: { color: C.white },
+  filterPillTextActive: { color: C.onPrimary },
   // Filter FAB — draggable floating button
   // Filter bar — centered floating pill above tab bar
   filterBar: {
@@ -1310,7 +1310,7 @@ const makeStyles = (theme) => {
   categoryChip: { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: C.bg, borderRadius: 16, borderWidth: 1, borderColor: C.line },
   categoryChipActive: { backgroundColor: C.infoFill, borderColor: C.secondary },
   categoryChipText: { fontSize: 12, fontWeight: '600', color: C.muted },
-  categoryChipTextActive: { color: C.secondary },
+  categoryChipTextActive: { color: C.info },
 
   // Date chips
   dateScroll: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8, gap: 6 },

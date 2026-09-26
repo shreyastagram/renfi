@@ -62,6 +62,9 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Premium Design Tokens
 const makeC = (c) => ({
+  onPrimary: c.onBrandOrange,
+  brandOrangeInk: c.brandOrangeInk,
+  info: c.info,
   darkHero: c.textPrimary,
   background: c.bg,
   cardWhite: c.surface,
@@ -253,7 +256,7 @@ const ProviderCard = ({ provider, onCall, onRemove, onBook, onViewProfile, t }) 
               </View>
             )}
             <View style={cardStyles.avatarBadge}>
-              <MaterialIcon name="open-in-new" size={10} color={C.cardWhite} />
+              <MaterialIcon name="open-in-new" size={10} color={C.onPrimary} />
             </View>
           </TouchableOpacity>
 
@@ -333,7 +336,7 @@ const ProviderCard = ({ provider, onCall, onRemove, onBook, onViewProfile, t }) 
           </TouchableOpacity>
 
           <TouchableOpacity style={cardStyles.bookBtn} onPress={() => onBook(provider)} activeOpacity={0.8}>
-            <MaterialIcon name="bolt" size={18} color={C.cardWhite} />
+            <MaterialIcon name="bolt" size={18} color={C.onPrimary} />
             <Text style={cardStyles.bookBtnText}>{t('favoritesScreen.bookNow')}</Text>
           </TouchableOpacity>
         </View>
@@ -1015,7 +1018,7 @@ const FavoritesScreen = ({ navigation }) => {
         <View style={screenStyles.overlay}>
           <View style={screenStyles.overlayCard}>
             <View style={screenStyles.overlayIconWrap}>
-              <ActivityIndicator size="large" color={C.primary} />
+              <ActivityIndicator size="large" color={C.brandOrangeInk} />
             </View>
             <Text style={screenStyles.overlayTitle}>{t('favoritesScreen.sendingRequest')}</Text>
             <Text style={screenStyles.overlaySubtitle}>
@@ -1029,7 +1032,7 @@ const FavoritesScreen = ({ navigation }) => {
       {isLoading ? (
         <View style={screenStyles.center}>
           <View style={screenStyles.loadingCard}>
-            <ActivityIndicator size="large" color={C.primary} />
+            <ActivityIndicator size="large" color={C.brandOrangeInk} />
             <Text style={screenStyles.loadingText}>
               {t('favoritesScreen.loadingFavorites')}
             </Text>
@@ -1055,7 +1058,7 @@ const FavoritesScreen = ({ navigation }) => {
             onPress={() => navigation.goBack()}
             activeOpacity={0.8}
           >
-            <MaterialIcon name="search" size={18} color={C.cardWhite} />
+            <MaterialIcon name="search" size={18} color={C.onPrimary} />
             <Text style={screenStyles.emptyBtnText}>{t('favoritesScreen.findServices')}</Text>
           </TouchableOpacity>
         </View>
@@ -1360,7 +1363,7 @@ const makeScreenStyles = (theme) => {
   headerBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: C.primary,
+    color: C.brandOrangeInk,
   },
   headerRight: { width: 42 },
 
@@ -1448,7 +1451,7 @@ const makeScreenStyles = (theme) => {
       android: { elevation: 6 },
     }),
   },
-  emptyBtnText: { ...FONTS.button, color: C.cardWhite },
+  emptyBtnText: { ...FONTS.button, color: C.onPrimary },
 
   listContent: { padding: 20, paddingBottom: 40 },
   });
@@ -1600,7 +1603,7 @@ const makeCardStyles = (theme) => {
       android: { elevation: 4 },
     }),
   },
-  bookBtnText: { ...FONTS.button, color: C.cardWhite },
+  bookBtnText: { ...FONTS.button, color: C.onPrimary },
   });
 };
 
@@ -1748,7 +1751,7 @@ const makeModalStyles = (theme) => {
     flex: 1,
     fontSize: 12,
     fontWeight: '600',
-    color: C.secondary,
+    color: C.info,
   },
   });
 };

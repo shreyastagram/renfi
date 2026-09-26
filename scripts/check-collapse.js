@@ -45,8 +45,8 @@ const INTENTIONAL = new Set([
   'src/screens/ProviderServiceHistoryScreen.jsx:dateChipOn',
   // An active filter tab, filled with the tab's own colour and given a matching
   // border so switching state does not change its size. Inline, and identical at
-  // v1.0.9. Line-keyed, so re-check this entry if the file shifts.
-  'src/screens/ServiceApprovalsScreen.jsx:inline@L223',
+  // v1.0.9. Keyed by token, so it survives the file shifting.
+  'src/screens/ServiceApprovalsScreen.jsx:inline:tab.color',
   // Apple's sign-in card is specified black-on-black by Apple's guidelines, and a
   // checked checkbox is a solid fill whose border matches so checking it does not
   // change its size. Both were already backgroundColor === borderColor at v1.0.9.
@@ -89,15 +89,20 @@ for (const rel of config.migrated) {
     else if (inSheet && /^\}\);/.test(line)) inSheet = false;
     const k = inSheet && line.match(/^\s{2,4}([A-Za-z0-9_]+):\s*\{/);
     if (k) key = k[1];
-    else if (!inSheet) key = `inline@L${i + 1}`;
+    else if (!inSheet) key = null; // keyed by token below — a line number is not stable
 
     const fills = [...line.matchAll(FILL)].map((m) => m[1]);
     const borders = [...line.matchAll(BORDER)].map((m) => m[1]);
     const clash = fills.filter((f) => borders.includes(f));
     if (!clash.length) return;
-    if (INTENTIONAL.has(`${rel}:${key}`)) return;
+    // An inline clash is keyed by the TOKEN, not the line. The old key was
+    // `inline@L223`, and that entry broke the build the first time an unrelated edit
+    // shifted the file by one line — the comment beside it had predicted exactly
+    // that. A token key survives any reshuffle and is still specific.
+    const effKey = key === null ? `inline:${clash[0]}` : key;
+    if (INTENTIONAL.has(`${rel}:${effKey}`)) return;
 
-    failures.push({ rel, line: i + 1, key, token: clash[0] });
+    failures.push({ rel, line: i + 1, key: effKey, token: clash[0] });
   });
 }
 

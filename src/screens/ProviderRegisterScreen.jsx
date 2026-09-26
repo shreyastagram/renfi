@@ -66,6 +66,7 @@ import {
  */
 // This screen had no palette block -- every colour was inline.
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   secondary: c.brandBlue,
   onSecondary: c.onBrandBlue,
@@ -1357,7 +1358,7 @@ const makeStyles = (theme) => {
       android: { elevation: 5 },
     }),
   },
-  brandName: { fontSize: 18, fontWeight: '800', color: C.primary, marginTop: 10, letterSpacing: 0.3 },
+  brandName: { fontSize: 18, fontWeight: '800', color: C.brandOrangeInk, marginTop: 10, letterSpacing: 0.3 },
   title: { fontSize: 24, fontWeight: '800', color: C.text, marginTop: 10, marginBottom: 6 },
   subtitle: { fontSize: 14, color: C.textSecondary, lineHeight: 21, textAlign: 'center', paddingHorizontal: 8 },
 

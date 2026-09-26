@@ -38,6 +38,7 @@ import {
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,
@@ -436,7 +437,7 @@ const AppleEmailCollectionModal = ({ visible, appleUserId, onVerified, onCancel 
                     activeOpacity={0.7}
                   >
                     {loading ? (
-                      <ActivityIndicator size="small" color={C.white} />
+                      <ActivityIndicator size="small" color={C.onPrimary} />
                     ) : (
                       <Text style={styles.primaryButtonText}>
                         {t('auth.appleEmailSendOtp') || 'Send Verification Code'}
@@ -482,7 +483,7 @@ const AppleEmailCollectionModal = ({ visible, appleUserId, onVerified, onCancel 
                   >
                     {loading ? (
                       <View style={styles.loadingRow}>
-                        <ActivityIndicator size="small" color={C.white} />
+                        <ActivityIndicator size="small" color={C.onPrimary} />
                         <Text style={[styles.primaryButtonText, { marginLeft: 8 }]}>
                           {t('auth.appleEmailVerifying') || 'Verifying...'}
                         </Text>
@@ -666,7 +667,7 @@ const makeStyles = (theme) => {
     opacity: 0.6,
   },
   primaryButtonText: {
-    color: C.white,
+    color: C.onPrimary,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -685,7 +686,7 @@ const makeStyles = (theme) => {
   },
   linkText: {
     fontSize: 14,
-    color: C.primary,
+    color: C.brandOrangeInk,
     fontWeight: '600',
   },
   backLink: {

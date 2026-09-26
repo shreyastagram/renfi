@@ -86,6 +86,7 @@ import { getMapStyleURL } from '../config/mapbox';
 // `primary` / `secondary` are also used with hex-alpha concatenation, so they must
 // stay 6-digit hex in both themes -- asserted by the token tests.
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   secondary: c.brandBlue,
   onPrimary: c.onBrandOrange,
@@ -362,7 +363,7 @@ const StatusTimeline = ({ currentStatus, isProvider = false, cancelledBy = null 
                   isCurrent && s.timelineCircleCurrent,
                 ]}>
                   {isCompleted ? (
-                    <Icon name="check" size={14} color={C.white} />
+                    <Icon name="check" size={14} color={C.onPrimary} />
                   ) : isCurrent ? (
                     <PulsingDot color={C.white} size={5} />
                   ) : (
@@ -479,7 +480,7 @@ const OtpDisplay = ({ otp, expiresAt, onResend, resending }) => {
       )}
       {resending && (
         <View style={s.otpCopyRow}>
-          <ActivityIndicator size={12} color={C.primary} />
+          <ActivityIndicator size={12} color={C.brandOrangeInk} />
           <Text style={[s.otpCopyText, { color: C.primary }]}>{t('detail.generatingNewOtp')}</Text>
         </View>
       )}
@@ -1809,7 +1810,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             <View style={[s.rowBetween, { marginBottom: 12 }]}>
               <Text style={[s.sectionLabel, { marginBottom: 0 }]}>{t('detail.customerLabel')}</Text>
               {request.userDetails.isRepeatCustomer && (
-                <View style={s.repeatBadge}><Icon name="heart" size={10} color={C.primary} /><Text style={s.repeatBadgeText}>{t('detail.repeatBadge')}</Text></View>
+                <View style={s.repeatBadge}><Icon name="heart" size={10} color={C.brandOrangeInk} /><Text style={s.repeatBadgeText}>{t('detail.repeatBadge')}</Text></View>
               )}
             </View>
             <View style={[s.rowCenter, { marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: C.border }]}>
@@ -1848,7 +1849,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               return (
                 <View style={s.serviceLocationBox}>
                   <Text style={s.serviceLocationLabel}>{t('detail.serviceLocation')}</Text>
-                  <View style={[s.rowCenter, { gap: 8, marginBottom: 8 }]}><Icon name="pin" size={13} color={C.primary} /><Text style={{ flex: 1, fontSize: 12, color: C.text, lineHeight: 17 }}>{locAddr || t('detail.serviceLocation')}</Text></View>
+                  <View style={[s.rowCenter, { gap: 8, marginBottom: 8 }]}><Icon name="pin" size={13} color={C.brandOrangeInk} /><Text style={{ flex: 1, fontSize: 12, color: C.text, lineHeight: 17 }}>{locAddr || t('detail.serviceLocation')}</Text></View>
                   <TouchableOpacity
                     style={s.openInMapsBtn}
                     onPress={() => {
@@ -1974,7 +1975,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
           <View style={s.card}>
             {ratingCheckLoading ? (
               <View style={{ alignItems: 'center', paddingVertical: 10 }}>
-                <ActivityIndicator size="small" color={C.primary} />
+                <ActivityIndicator size="small" color={C.brandOrangeInk} />
                 <Text style={{ fontSize: 12, color: C.textMuted, marginTop: 6 }}>{t('detail.checkingRating')}</Text>
               </View>
             ) : hasRated ? (
@@ -2010,7 +2011,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
         <View style={[s.card, { alignItems: 'center' }]}>
           <Text style={{ fontSize: 14, fontWeight: '700', color: C.text, marginBottom: 4 }}>{t('detail.needHelp')}</Text>
           <Text style={{ fontSize: 12, color: C.textSecondary, textAlign: 'center', marginBottom: 10 }}>{t('detail.needHelpSub')}</Text>
-          <TouchableOpacity style={s.helpBtn} onPress={() => openSupport(userType)}><Icon name="email" size={14} color={C.secondary} /><Text style={s.helpBtnText}>{t('detail.contactSupport')}</Text></TouchableOpacity>
+          <TouchableOpacity style={s.helpBtn} onPress={() => openSupport(userType)}><Icon name="email" size={14} color={C.info} /><Text style={s.helpBtnText}>{t('detail.contactSupport')}</Text></TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -2205,7 +2206,7 @@ const makeStyles = (theme) => {
   // Accept/Reject
   acceptRejectCard: { backgroundColor: C.white, borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1.5, borderColor: C.primary + '25', shadowColor: C.shadow, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8, overflow: 'hidden' },
   acceptRejectSvgBg: { position: 'absolute', top: 0, left: 0, right: 0, height: 100 },
-  acceptRejectTitle: { fontSize: 14, fontWeight: '700', color: C.primary, marginBottom: 12, textAlign: 'center' },
+  acceptRejectTitle: { fontSize: 14, fontWeight: '700', color: C.brandOrangeInk, marginBottom: 12, textAlign: 'center' },
   acceptRejectRow: { flexDirection: 'row', gap: 10 },
   rejectBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: 'transparent', borderRadius: 14, paddingVertical: 13, borderWidth: 1.5, borderColor: C.line },
   rejectBtnText: { fontSize: 15, fontWeight: '600', color: C.textSecondary },
@@ -2231,7 +2232,7 @@ const makeStyles = (theme) => {
   findProvidersBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.secondary, borderRadius: 12, paddingVertical: 14 },
   findProvidersBtnText: { fontSize: 15, fontWeight: '700', color: C.onSecondary },
   waitingPill: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.blueBg, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: C.secondary + '20' },
-  waitingPillText: { fontSize: 13, fontWeight: '600', color: C.secondary, flex: 1 },
+  waitingPillText: { fontSize: 13, fontWeight: '600', color: C.info, flex: 1 },
   cancelSentBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12, backgroundColor: C.dangerBg, borderRadius: 12, paddingVertical: 13, borderWidth: 1, borderColor: C.dangerLine },
   cancelSentBtnText: { fontSize: 14, fontWeight: '700', color: C.danger },
   noProviderWarning: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.dangerBg, borderRadius: 12, padding: 12 },
@@ -2245,11 +2246,11 @@ const makeStyles = (theme) => {
 
   // Customer card extras
   repeatBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.warningBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
-  repeatBadgeText: { fontSize: 10, fontWeight: '700', color: C.primary },
+  repeatBadgeText: { fontSize: 10, fontWeight: '700', color: C.brandOrangeInk },
   serviceLocationBox: { backgroundColor: C.warningBg, borderRadius: 14, padding: 10, marginBottom: 12 },
   serviceLocationLabel: { fontSize: 10, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 },
   openInMapsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.blueBg, borderRadius: 10, paddingVertical: 8, borderWidth: 1, borderColor: C.blueLine },
-  openInMapsBtnText: { fontSize: 12, fontWeight: '600', color: C.secondary },
+  openInMapsBtnText: { fontSize: 12, fontWeight: '600', color: C.info },
   callCustomerBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.success, borderRadius: 14, paddingVertical: 12 },
   callCustomerBtnText: { color: C.onSuccess, fontSize: 14, fontWeight: '700' },
 

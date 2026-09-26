@@ -43,6 +43,7 @@ const OTP_LENGTH = 6;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,
@@ -728,7 +729,7 @@ const VerificationScreen = ({
                       activeOpacity={0.8}
                     >
                       {savingValue ? (
-                        <ActivityIndicator size="small" color={C.white} />
+                        <ActivityIndicator size="small" color={C.onPrimary} />
                       ) : (
                         <Text style={s.ctaButtonText}>{t('verificationScreen.saveEmail')}</Text>
                       )}
@@ -778,12 +779,12 @@ const VerificationScreen = ({
               >
                 {sendLoading ? (
                   <View style={s.ctaRow}>
-                    <ActivityIndicator size="small" color={C.white} />
+                    <ActivityIndicator size="small" color={C.onPrimary} />
                     <Text style={s.ctaButtonText}>{t('verificationScreen.sendingBtn')}</Text>
                   </View>
                 ) : (
                   <View style={s.ctaRow}>
-                    <MaterialIcon name="send" size={20} color={C.white} />
+                    <MaterialIcon name="send" size={20} color={C.onPrimary} />
                     <Text style={s.ctaButtonText}>{t('verificationScreen.sendVerificationEmail')}</Text>
                   </View>
                 )}
@@ -811,7 +812,7 @@ const VerificationScreen = ({
                 <View style={[s.card, makeCardShadow(C)]}>
                   <View style={s.cardHeaderRow}>
                     <View style={[s.cardIconCircle, { backgroundColor: C.warningBg }]}>
-                      <MaterialIcon name="phone-android" size={22} color={C.primary} />
+                      <MaterialIcon name="phone-android" size={22} color={C.brandOrangeInk} />
                     </View>
                     <View style={{ flex: 1, marginLeft: 12 }}>
                       <Text style={s.sectionLabel}>{t('verificationScreen.phoneVerification')}</Text>
@@ -858,7 +859,7 @@ const VerificationScreen = ({
                           activeOpacity={0.8}
                         >
                           {savingValue ? (
-                            <ActivityIndicator size="small" color={C.white} />
+                            <ActivityIndicator size="small" color={C.onPrimary} />
                           ) : (
                             <Text style={s.ctaButtonText}>{t('verificationScreen.savePhone')}</Text>
                           )}
@@ -908,12 +909,12 @@ const VerificationScreen = ({
                   >
                     {sendLoading ? (
                       <View style={s.ctaRow}>
-                        <ActivityIndicator size="small" color={C.white} />
+                        <ActivityIndicator size="small" color={C.onPrimary} />
                         <Text style={s.ctaButtonText}>{t('verificationScreen.sendingOtp')}</Text>
                       </View>
                     ) : (
                       <View style={s.ctaRow}>
-                        <MaterialIcon name="sms" size={20} color={C.white} />
+                        <MaterialIcon name="sms" size={20} color={C.onPrimary} />
                         <Text style={s.ctaButtonText}>{t('verificationScreen.sendOtp')}</Text>
                       </View>
                     )}
@@ -1021,12 +1022,12 @@ const VerificationScreen = ({
                 >
                   {loading ? (
                     <View style={s.ctaRow}>
-                      <ActivityIndicator size="small" color={C.white} />
+                      <ActivityIndicator size="small" color={C.onPrimary} />
                       <Text style={s.ctaButtonText}>{t('verificationScreen.verifyingBtn')}</Text>
                     </View>
                   ) : (
                     <View style={s.ctaRow}>
-                      <MaterialIcon name="verified" size={20} color={C.white} />
+                      <MaterialIcon name="verified" size={20} color={C.onPrimary} />
                       <Text style={s.ctaButtonText}>{t('verificationScreen.verifyOtp')}</Text>
                     </View>
                   )}
@@ -1045,7 +1046,7 @@ const VerificationScreen = ({
                     activeOpacity={0.7}
                   >
                     {sendLoading ? (
-                      <ActivityIndicator size="small" color={C.primary} />
+                      <ActivityIndicator size="small" color={C.brandOrangeInk} />
                     ) : (
                       <>
                         <MaterialIcon name="refresh" size={16} color={(!canResend || sendLoading) ? C.muted : C.primary} />
@@ -1250,7 +1251,7 @@ const makeStyles = (theme) => {
   editPillText: {
     fontSize: 13,
     fontWeight: '600',
-    color: C.secondary,
+    color: C.info,
   },
 
   /* ─── Edit Mode ────────────────────────────────────────────────── */
@@ -1321,7 +1322,7 @@ const makeStyles = (theme) => {
     elevation: 0,
   },
   ctaButtonText: {
-    color: C.white,
+    color: C.onPrimary,
     fontSize: 16,
     fontWeight: '700',
   },

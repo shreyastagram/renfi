@@ -316,7 +316,7 @@ const AddressAutocomplete = ({
           }}
         />
         {loading && (
-          <ActivityIndicator size="small" color={C.primary} style={styles.loader} />
+          <ActivityIndicator size="small" color={C.brandOrangeInk} style={styles.loader} />
         )}
         {query.length > 0 && !loading && (
           <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
@@ -372,6 +372,7 @@ const AddressAutocomplete = ({
 };
 
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,

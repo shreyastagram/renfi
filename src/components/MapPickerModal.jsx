@@ -40,6 +40,7 @@ import { useIsDark } from '../theme';
 
 // Brand colors
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   borderStrong: c.borderStrong,
@@ -556,7 +557,7 @@ const MapPickerModal = ({
             <View style={styles.searchResultsContainer}>
               {isSearching ? (
                 <View style={styles.searchLoadingRow}>
-                  <ActivityIndicator size="small" color={C.primary} />
+                  <ActivityIndicator size="small" color={C.brandOrangeInk} />
                   <Text style={styles.searchLoadingText}>Searching...</Text>
                 </View>
               ) : searchResults.length === 0 ? (
@@ -575,7 +576,7 @@ const MapPickerModal = ({
                       style={styles.searchResultItem}
                       onPress={() => handleSearchSelect(item)}
                     >
-                      <MaterialIcon name="location-on" size={20} color={C.primary} style={{ marginTop: 2 }} />
+                      <MaterialIcon name="location-on" size={20} color={C.brandOrangeInk} style={{ marginTop: 2 }} />
                       <View style={{ flex: 1 }}>
                         <Text style={styles.searchResultName} numberOfLines={1}>{item.name}</Text>
                         <Text style={styles.searchResultAddress} numberOfLines={1}>{item.fullAddress}</Text>
@@ -626,7 +627,7 @@ const MapPickerModal = ({
           <View style={styles.centerPinContainer} pointerEvents="none">
             <Animated.View style={[styles.centerPin, { transform: [{ translateY: pinBounce }] }]}>
               <View style={styles.pinHead}>
-                <MaterialIcon name="place" size={40} color={C.primary} />
+                <MaterialIcon name="place" size={40} color={C.brandOrangeInk} />
               </View>
             </Animated.View>
             <View style={styles.pinShadow} />
@@ -646,7 +647,7 @@ const MapPickerModal = ({
           <View style={styles.addressContainer}>
             {isLoading ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={C.primary} />
+                <ActivityIndicator size="small" color={C.brandOrangeInk} />
                 <Text style={styles.loadingText}>Finding address...</Text>
               </View>
             ) : (
@@ -671,7 +672,7 @@ const MapPickerModal = ({
             onPress={handleConfirm}
             disabled={!selectedAddress || isLoading}
           >
-            <MaterialIcon name="check" size={22} color={C.white} />
+            <MaterialIcon name="check" size={22} color={C.onPrimary} />
             <Text style={styles.confirmButtonText}>Confirm Location</Text>
           </TouchableOpacity>
         </View>

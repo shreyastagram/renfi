@@ -41,6 +41,7 @@ import {
 import { brandTint } from '../theme';
 
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   primaryLight: brandTint.orange10, // was a brand-orange tint
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
@@ -712,7 +713,7 @@ const makeStyles = (theme) => {
     }),
   },
   methodTabText: { fontSize: 14, fontWeight: '500', color: C.muted },
-  methodTabTextActive: { color: C.primary, fontWeight: '700' },
+  methodTabTextActive: { color: C.brandOrangeInk, fontWeight: '700' },
 
   // ── Header ──
   header: { marginBottom: 28 },

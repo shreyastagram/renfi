@@ -172,6 +172,7 @@ const makeFilterTabs = (C) => ([
 
 // Brand colors
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,
@@ -696,7 +697,7 @@ const DocumentPreviewModal = ({ visible, service, documents, status, rejectionRe
             <>
               {imageLoading && (
                 <View style={styles.imageLoadingContainer}>
-                  <ActivityIndicator size="large" color={C.primary} />
+                  <ActivityIndicator size="large" color={C.brandOrangeInk} />
                   <Text style={styles.imageLoadingText}>Loading image...</Text>
                 </View>
               )}
@@ -813,7 +814,7 @@ const StatsBanner = ({ approved, pending, rejected }) => {
       <View style={styles.statDivider} />
       <View style={styles.statItem}>
         <View style={[styles.statIconContainer, { backgroundColor: C.warningBg }]}>
-          <MaterialIcon name="schedule" size={14} color={C.primary} />
+          <MaterialIcon name="schedule" size={14} color={C.brandOrangeInk} />
         </View>
         <View>
           <Text style={styles.statValue}>{pending}</Text>
@@ -1526,7 +1527,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
             <Text style={styles.headerSubtitle}>RSAS</Text>
           </View>
           <TouchableOpacity style={styles.addButton} onPress={startNewRequest}>
-            <MaterialIcon name="add" size={22} color={C.primary} />
+            <MaterialIcon name="add" size={22} color={C.brandOrangeInk} />
           </TouchableOpacity>
         </View>
 
@@ -2030,7 +2031,7 @@ const makeStyles = (theme) => {
   headerSubtitle: {
     fontSize: 8,
     fontWeight: '700',
-    color: C.primary,
+    color: C.brandOrangeInk,
     backgroundColor: C.warningBg,
     paddingHorizontal: 5,
     paddingVertical: 2,
@@ -2527,7 +2528,7 @@ const makeStyles = (theme) => {
   openPdfButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: C.secondary,
+    color: C.info,
   },
   documentInfoBar: {
     flexDirection: 'row',
@@ -2645,7 +2646,7 @@ const makeStyles = (theme) => {
   stepBadgeText: {
     fontSize: 10,
     fontWeight: '600',
-    color: C.secondary,
+    color: C.info,
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
@@ -2856,7 +2857,7 @@ const makeStyles = (theme) => {
     lineHeight: 14,
   },
   servicePillCountActive: {
-    color: C.secondary,
+    color: C.info,
   },
 
   // Zoomable Image Viewer

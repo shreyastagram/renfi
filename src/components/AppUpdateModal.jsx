@@ -29,6 +29,7 @@ import { useThemedStyles } from '../theme';
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   background: c.surface,
@@ -363,7 +364,7 @@ const makeStyles = (theme) => {
       color: C.darkText,
     },
     versionValueNew: {
-      color: C.primary,
+      color: C.brandOrangeInk,
     },
     versionArrow: {
       paddingHorizontal: 12,
@@ -392,7 +393,7 @@ const makeStyles = (theme) => {
     },
     autoRedirectText: {
       fontSize: 14,
-      color: C.primary,
+      color: C.brandOrangeInk,
       fontWeight: '600',
       marginBottom: 16,
     },

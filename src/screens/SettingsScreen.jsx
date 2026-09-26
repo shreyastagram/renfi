@@ -67,6 +67,7 @@ const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
 // Premium design tokens
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   darkHero: stableDark.heroSurface, // was #0F172A — a fixed brand panel
   primary: c.brandOrange,
   secondary: c.brandBlue,
@@ -1688,7 +1689,7 @@ const SettingsScreen = ({ navigation }) => {
                   >
                     {isRequestingOtp ? (
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <ActivityIndicator size={14} color={C.primary} />
+                        <ActivityIndicator size={14} color={C.brandOrangeInk} />
                         <Text style={styles.resendButtonText}>{t('settings.sending')}</Text>
                       </View>
                     ) : (
@@ -1738,7 +1739,7 @@ const SettingsScreen = ({ navigation }) => {
       {isLoggingOut && (
         <View style={styles.logoutOverlay}>
           <View style={styles.logoutOverlayCard}>
-            <ActivityIndicator size="large" color={C.primary} />
+            <ActivityIndicator size="large" color={C.brandOrangeInk} />
             <Text style={styles.logoutOverlayText}>{t('settings.signingOut')}</Text>
           </View>
         </View>
@@ -1946,7 +1947,7 @@ const makeStyles = (theme) => {
   brandFooterText: {
     fontSize: 20,
     fontWeight: '800',
-    color: C.primary,
+    color: C.brandOrangeInk,
     letterSpacing: 0.5,
   },
   brandFooterTagline: {
@@ -2023,7 +2024,7 @@ const makeStyles = (theme) => {
   },
   resendButtonText: {
     fontSize: 14,
-    color: C.primary,
+    color: C.brandOrangeInk,
     fontWeight: '700',
   },
   modalButtons: {

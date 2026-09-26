@@ -54,6 +54,7 @@ import {
 
 // ─── Design Tokens ─────────────────────────────────────────────
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   iconBg: c.bg, // was #F1F5F9
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
@@ -694,7 +695,7 @@ const InsuranceScreen = ({ navigation }) => {
         {/* ── Address Proof Note ───────────────────────────── */}
         <View style={s.addressProofNote}>
           <View style={s.addressProofNoteHeader}>
-            <MaterialIcon name="home" size={16} color={C.primary} />
+            <MaterialIcon name="home" size={16} color={C.brandOrangeInk} />
             <Text style={s.addressProofNoteTitle}>{t('insurance.addressProof')}</Text>
             <View style={s.requiredBadge}><Text style={s.requiredBadgeText}>{t('common.required')}</Text></View>
           </View>
@@ -848,7 +849,7 @@ const makeStyles = (theme) => {
 
   // Info Banner
   infoBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: C.infoBg, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: C.secondary + '15' },
-  infoBannerText: { flex: 1, fontSize: 12, color: C.secondary, lineHeight: 17 },
+  infoBannerText: { flex: 1, fontSize: 12, color: C.info, lineHeight: 17 },
 
   // Address Proof Note
   addressProofNote: { backgroundColor: C.white, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: C.line },
@@ -869,7 +870,7 @@ const makeStyles = (theme) => {
   requiredBadge: { backgroundColor: C.dangerFill, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
   requiredBadgeText: { fontSize: 10, fontWeight: '700', color: C.danger },
   optionalBadge: { backgroundColor: C.infoBg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-  optionalBadgeText: { fontSize: 10, fontWeight: '700', color: C.secondary },
+  optionalBadgeText: { fontSize: 10, fontWeight: '700', color: C.info },
 
   // Rejection
   rejectionStrip: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: C.dangerBg, borderRadius: 8, padding: 10, marginBottom: 10, borderWidth: 1, borderColor: C.dangerLine },
@@ -888,7 +889,7 @@ const makeStyles = (theme) => {
 
   // Upload Button
   uploadBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.infoBg, borderRadius: 12, padding: 14, borderWidth: 1.5, borderColor: C.secondary + '25', borderStyle: 'dashed' },
-  uploadBtnText: { fontSize: 14, fontWeight: '700', color: C.secondary },
+  uploadBtnText: { fontSize: 14, fontWeight: '700', color: C.info },
   uploadBtnHint: { fontSize: 11, color: C.muted, marginTop: 1 },
 
   // T&C

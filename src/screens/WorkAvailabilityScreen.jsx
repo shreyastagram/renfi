@@ -24,6 +24,7 @@ import { useThemedStyles, useThemeColors, stableDark } from '../theme';
 import { brand } from '../theme';
 
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   background: c.bg,
   white: c.surface,
   primary: c.brandOrange,
@@ -114,7 +115,7 @@ const WorkAvailabilityScreen = ({ navigation }) => {
           </View>
         )}
 
-        {loading && !days && <ActivityIndicator color={C.primary} style={styles.loader} />}
+        {loading && !days && <ActivityIndicator color={C.brandOrangeInk} style={styles.loader} />}
 
         {!!error && !days && (
           <View style={styles.errorBox}>
@@ -149,7 +150,7 @@ const WorkAvailabilityScreen = ({ navigation }) => {
                 </Text>
               </View>
               {busy ? (
-                <ActivityIndicator size="small" color={C.primary} />
+                <ActivityIndicator size="small" color={C.brandOrangeInk} />
               ) : (
                 <Switch
                   value={day.enabled}
@@ -223,7 +224,7 @@ const makeStyles = (theme) => {
   dayName: { fontSize: 15, fontWeight: '700', color: C.text },
   dayNameOff: { color: C.muted },
   todayBadge: { backgroundColor: C.warningBg, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 },
-  todayBadgeText: { fontSize: 10, fontWeight: '800', color: C.primary, textTransform: 'uppercase' },
+  todayBadgeText: { fontSize: 10, fontWeight: '800', color: C.brandOrangeInk, textTransform: 'uppercase' },
   dayHours: { fontSize: 13.5, color: C.muted, marginTop: 2 },
   nightNote: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,

@@ -99,6 +99,8 @@ const SHEET_MID_HEIGHT = SCREEN_HEIGHT * 0.40; // 40% for initial state - shows 
 // the base flips to the dark-mode blue, so the tint flips with it instead of
 // staying a light-blue wash that would be invisible on a near-black card.
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
+  info: c.info,
   primary: c.brandOrange,
   secondary: c.brandBlue,
   onPrimary: c.onBrandOrange,
@@ -1461,7 +1463,7 @@ const UserHomeScreen = ({ navigation, route }) => {
                 <View style={styles.serviceAtDotBlue} />
                 <View style={styles.serviceAtDottedLine} />
                 {/* "To" pin */}
-                <MaterialIcon name="place" size={22} color={C.primary} />
+                <MaterialIcon name="place" size={22} color={C.brandOrangeInk} />
               </View>
               <View style={styles.serviceAtInfoCol}>
                 {/* Current location row */}
@@ -2126,7 +2128,7 @@ const makeStyles = (theme) => {
   dateStepServiceName: {
     fontSize: 13,
     fontWeight: '700',
-    color: C.secondary,
+    color: C.info,
     maxWidth: 110,
   },
 
@@ -2839,7 +2841,7 @@ const makeStyles = (theme) => {
   retryButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: C.white,
+    color: C.onPrimary,
     letterSpacing: -0.2,
   },
 

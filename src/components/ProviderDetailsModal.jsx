@@ -646,7 +646,7 @@ const ProviderDetailsModal = ({
                 style={styles.bookButton}
                 onPress={handleBook}
               >
-                <MaterialIcon name="send" size={20} color={C.white} />
+                <MaterialIcon name="send" size={20} color={C.onPrimary} />
                 <Text style={styles.bookButtonText}>Send Request</Text>
               </TouchableOpacity>
             </View>
@@ -1093,7 +1093,7 @@ const makeStyles = (theme) => {
   bookButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: C.white,
+    color: C.onPrimary,
   },
   });
 };

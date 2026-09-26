@@ -19,7 +19,7 @@ export const brand = {
   // asks of a control you must see to identify; this is 4.19:1 and still reads as
   // Fixhomi orange rather than brown. Only for light: on a dark surface the
   // ordinary brand orange is already 7.17:1 and this would be muddy.
-  orangeDeep: '#C2610B',
+  orangeDeep: '#A85408',
   // The plate a brand mark sits on. fixhomi_logo.jpg is a JPEG — no alpha — with a
   // pure-white background, and the mark inside it is orange and blue specified
   // against white. So its container must stay light in BOTH themes: on a themed

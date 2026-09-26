@@ -330,6 +330,7 @@ const RegisterChoice = ({
 };
 
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,
@@ -388,7 +389,7 @@ const makeStyles = (theme) => {
       android: { elevation: 5 },
     }),
   },
-  brandName: { fontSize: 15, fontWeight: '800', color: C.primary, marginTop: 6, marginBottom: 6, letterSpacing: 0.3 },
+  brandName: { fontSize: 15, fontWeight: '800', color: C.brandOrangeInk, marginTop: 6, marginBottom: 6, letterSpacing: 0.3 },
   title: { fontSize: 22, fontWeight: '800', color: C.text, marginBottom: 6 },
   subtitle: { fontSize: 13, color: C.textSecondary, textAlign: 'center', paddingHorizontal: 8, lineHeight: 19 },
 

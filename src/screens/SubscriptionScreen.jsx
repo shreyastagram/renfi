@@ -462,7 +462,7 @@ const makePlanStyles = (theme) => {
   desc: { fontSize: 13, color: C.textSecondary, marginTop: 3, lineHeight: 18 },
   priceWrap: { alignItems: 'flex-end' },
   price: { fontSize: 26, fontWeight: '800', color: C.text },
-  priceSelected: { color: C.secondary },
+  priceSelected: { color: C.info },
   duration: { fontSize: 12, color: C.muted, marginTop: -2 },
   features: { marginTop: 14, gap: 8 },
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

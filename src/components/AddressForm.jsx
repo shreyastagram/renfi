@@ -31,6 +31,7 @@ import MapPickerModal from './MapPickerModal';
 
 // Brand colors - User side uses blue as accent
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   secondary: c.brandBlue,
   onSecondary: c.onBrandBlue,
@@ -536,7 +537,7 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
               activeOpacity={0.7}
             >
               <View style={[styles.locationButtonIcon, { backgroundColor: C.warnFill }]}>
-                <MaterialIcon name="map" size={22} color={C.primary} />
+                <MaterialIcon name="map" size={22} color={C.brandOrangeInk} />
               </View>
               <View style={styles.locationButtonContent}>
                 <Text style={styles.locationButtonTitle}>Choose on Map</Text>
@@ -570,7 +571,7 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
               style={[styles.locationActionChip, { backgroundColor: C.warnFill }]}
               onPress={() => setShowMapPicker(true)}
             >
-              <MaterialIcon name="map" size={16} color={C.primary} />
+              <MaterialIcon name="map" size={16} color={C.brandOrangeInk} />
               <Text style={[styles.locationActionText, { color: C.primary }]}>
                 Pick on Map
               </Text>

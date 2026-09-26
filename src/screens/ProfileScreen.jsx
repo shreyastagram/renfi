@@ -235,7 +235,7 @@ const InfoRow = React.memo(({ label, value, iconName, verified, onVerify, isLoad
         ) : (
           <TouchableOpacity style={styles.verifyButton} onPress={onVerify} disabled={isLoading}>
             {isLoading ? (
-              <ActivityIndicator size="small" color={C.onSecondary} />
+              <ActivityIndicator size="small" color={C.onPrimary} />
             ) : (
               <Text style={styles.verifyButtonText}>{verifyLabel || 'Verify'}</Text>
             )}
@@ -367,7 +367,7 @@ const SectionEditorActions = React.memo(({ onCancel, onSave, saving, provider, c
         activeOpacity={0.8}
       >
         {saving ? (
-          <ActivityIndicator size="small" color={C.onSecondary} />
+          <ActivityIndicator size="small" color={C.onPrimary} />
         ) : (
           <Text style={styles.editorSaveText}>{saveLabel}</Text>
         )}
@@ -1626,9 +1626,9 @@ const ProfileScreen = ({ navigation, route }) => {
                 </View>
                 <View style={[styles.cameraIconOverlay, isProvider && styles.cameraIconOverlayProvider]}>
                   {uploadingPicture ? (
-                    <ActivityIndicator size="small" color={C.onSecondary} />
+                    <ActivityIndicator size="small" color={C.onPrimary} />
                   ) : (
-                    <MaterialIcon name="camera-alt" size={14} color={C.onSecondary} />
+                    <MaterialIcon name="camera-alt" size={14} color={C.onPrimary} />
                   )}
                 </View>
               </TouchableOpacity>
@@ -2493,7 +2493,7 @@ const ProfileScreen = ({ navigation, route }) => {
                       activeOpacity={0.8}
                     >
                       {verifyingPhone ? (
-                        <ActivityIndicator size="small" color={C.onSecondary} />
+                        <ActivityIndicator size="small" color={C.onPrimary} />
                       ) : (
                         <View style={styles.otpVerifyButtonContent}>
                           <MaterialIcon name="verified" size={18} color={C.onPrimary} />
@@ -2622,7 +2622,7 @@ const ProfileScreen = ({ navigation, route }) => {
                       activeOpacity={0.8}
                     >
                       {verifyingPhone ? (
-                        <ActivityIndicator size="small" color={C.onSecondary} />
+                        <ActivityIndicator size="small" color={C.onPrimary} />
                       ) : (
                         <View style={styles.otpVerifyButtonContent}>
                           <MaterialIcon name="verified" size={18} color={C.onPrimary} />
@@ -3193,7 +3193,7 @@ const makeStyles = (theme) => {
   editorSaveText: {
     fontSize: 14,
     fontWeight: '700',
-    color: C.onSecondary,
+    color: C.onPrimary,
   },
   zIndexCity: {
     zIndex: 998,
@@ -3415,7 +3415,7 @@ const makeStyles = (theme) => {
     backgroundColor: C.primary,
   },
   avatarText: {
-    color: C.onSecondary,
+    color: C.onPrimary,
     fontSize: 32,
     fontWeight: '800',
   },

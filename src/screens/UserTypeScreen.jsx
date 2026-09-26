@@ -34,6 +34,7 @@ import {
 } from '../theme';
 
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,
@@ -123,9 +124,9 @@ const UserTypeScreen = ({ navigation }) => {
         onPress={() => setShowLangPicker(true)}
         activeOpacity={0.7}
       >
-        <MaterialIcon name="language" size={20} color={C.primary} />
+        <MaterialIcon name="language" size={20} color={C.brandOrangeInk} />
         <Text style={styles.langButtonText}>{currentLang?.nativeLabel || 'English'}</Text>
-        <MaterialIcon name="arrow-drop-down" size={20} color={C.primary} />
+        <MaterialIcon name="arrow-drop-down" size={20} color={C.brandOrangeInk} />
       </TouchableOpacity>
 
       <View style={styles.content}>

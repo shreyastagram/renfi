@@ -117,6 +117,11 @@ const fillFromStyleProp = (attr, code, blocks) => {
   const txt = exprOf(attr.value, code);
   let found = null;
   for (const r of txt.matchAll(/(?:styles|s|detailStyles)\.(\w+)/g)) {
+    // A conditional `cond && styles.xDisabled` is the LAST entry in the array, so
+    // taking the last fill blindly grades every button in its disabled state — and
+    // WCAG 1.4.3/1.4.11 exempt inactive controls anyway. Skip those layers so the
+    // enabled fill, which is what the user normally sees, is the one graded.
+    if (/disabled|inactive|readonly/i.test(r[1])) continue;
     const b = blocks[r[1]];
     if (!b) continue;
     const g = /backgroundColor:\s*([^,\n}]+)/.exec(b);

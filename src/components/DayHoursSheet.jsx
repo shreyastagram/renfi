@@ -170,7 +170,7 @@ const DayHoursSheet = ({ visible, dayKey, initial, saving = false, onClose, onSa
               disabled={!!errorCode || saving}
               accessibilityRole="button"
             >
-              {saving ? <ActivityIndicator color={C.white} /> : <Text style={styles.saveText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t('workHours.save')}</Text>}
+              {saving ? <ActivityIndicator color={C.onPrimary} /> : <Text style={styles.saveText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t('workHours.save')}</Text>}
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.cancel} onPress={onClose} disabled={saving} accessibilityRole="button">
@@ -212,13 +212,13 @@ const makeStyles = (theme) => {
   segBtn: { borderWidth: 1.5, borderColor: C.lineSlate, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 8 },
   segBtnOn: { borderColor: C.secondary, backgroundColor: C.infoBg },
   segText: { fontSize: 13, fontWeight: '600', color: C.text },
-  segTextOn: { color: C.secondary },
+  segTextOn: { color: C.info },
   save: {
     height: 52, borderRadius: 14, backgroundColor: C.primary,
     alignItems: 'center', justifyContent: 'center', marginTop: 18,
   },
   saveDisabled: { opacity: 0.45 },
-  saveText: { color: C.white, fontSize: 16, fontWeight: '800' },
+  saveText: { color: C.onPrimary, fontSize: 16, fontWeight: '800' },
   cancel: { alignItems: 'center', paddingVertical: 12, marginTop: 4 },
   cancelText: { color: C.muted, fontSize: 14, fontWeight: '700' },
   });

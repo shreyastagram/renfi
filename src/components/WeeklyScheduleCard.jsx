@@ -25,6 +25,7 @@ import { useThemedStyles, useThemeColors } from '../theme';
 const MAX_FONT_SCALE = 1.25;
 
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   secondary: c.brandBlue,
   white: c.surface,
@@ -153,7 +154,7 @@ const WeeklyScheduleCard = ({
           <>
             <View style={styles.todayRow}>
               <View style={styles.todayIcon}>
-                <Icon name="clock" size={20} color={C.primary} />
+                <Icon name="clock" size={20} color={C.brandOrangeInk} />
               </View>
               <View style={styles.todayTextWrap}>
                 <Text style={styles.todayLabel} maxFontSizeMultiplier={MAX_FONT_SCALE}>

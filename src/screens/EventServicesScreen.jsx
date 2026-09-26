@@ -58,6 +58,8 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Premium design tokens
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
+  info: c.info,
   background: c.bg,
   cardWhite: c.surface,
   primary: c.brandOrange,
@@ -1277,7 +1279,7 @@ const EventServicesScreen = ({ navigation }) => {
               <View style={styles.bookingSection}>
                 <View style={styles.bookingSectionTitleRow}>
                   <View style={styles.bookingSectionIconWrap}>
-                    <MaterialIcon name="event" size={18} color={C.primary} />
+                    <MaterialIcon name="event" size={18} color={C.brandOrangeInk} />
                   </View>
                   <Text style={styles.bookingSectionTitle}>{t('eventServices.eventDate')}</Text>
                 </View>
@@ -1303,7 +1305,7 @@ const EventServicesScreen = ({ navigation }) => {
               <View style={styles.bookingSection}>
                 <View style={styles.bookingSectionTitleRow}>
                   <View style={styles.bookingSectionIconWrap}>
-                    <MaterialIcon name="description" size={18} color={C.primary} />
+                    <MaterialIcon name="description" size={18} color={C.brandOrangeInk} />
                   </View>
                   <Text style={styles.bookingSectionTitle}>{t('eventServices.eventDetails')}</Text>
                 </View>
@@ -1323,7 +1325,7 @@ const EventServicesScreen = ({ navigation }) => {
               <View style={styles.bookingSection}>
                 <View style={styles.bookingSectionTitleRow}>
                   <View style={styles.bookingSectionIconWrap}>
-                    <MaterialIcon name="location-on" size={18} color={C.primary} />
+                    <MaterialIcon name="location-on" size={18} color={C.brandOrangeInk} />
                   </View>
                   <Text style={styles.bookingSectionTitle}>{t('eventServices.eventVenue')}</Text>
                 </View>
@@ -1337,7 +1339,7 @@ const EventServicesScreen = ({ navigation }) => {
                   >
                     <View style={styles.venueSelectedRow}>
                       <View style={styles.venueIconWrap}>
-                        <MaterialIcon name="place" size={22} color={C.primary} />
+                        <MaterialIcon name="place" size={22} color={C.brandOrangeInk} />
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.venueSelectedAddress} numberOfLines={2}>
@@ -1707,7 +1709,7 @@ const makeStyles = (theme) => {
   },
   specializationText: {
     fontSize: 12,
-    color: C.secondary,
+    color: C.info,
     fontWeight: '600',
   },
 
@@ -2003,7 +2005,7 @@ const makeStyles = (theme) => {
   portfolioLinkText: {
     fontSize: 13,
     fontWeight: '600',
-    color: C.secondary,
+    color: C.info,
   },
 
   // ─── Gallery ───
@@ -2268,7 +2270,7 @@ const makeStyles = (theme) => {
   venueCurrentButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: C.secondary,
+    color: C.info,
   },
   venueSelectedCard: {
     backgroundColor: C.successLight,
@@ -2314,7 +2316,7 @@ const makeStyles = (theme) => {
   bookingSummaryTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: C.primary,
+    color: C.brandOrangeInk,
     marginBottom: 14,
     textTransform: 'uppercase',
     letterSpacing: 0.8,

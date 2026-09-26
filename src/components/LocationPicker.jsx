@@ -44,6 +44,7 @@ import {
 
 // Brand colors
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,
@@ -823,7 +824,7 @@ const LocationPicker = ({
               setTimeout(() => setShowMapPicker(true), 300);
             }}
           >
-            <Icon name="map" size={20} color={C.primary} />
+            <Icon name="map" size={20} color={C.brandOrangeInk} />
             <Text style={[styles.chooseOnMapText, { color: C.primary }]}>Choose location on map</Text>
           </TouchableOpacity>
           
