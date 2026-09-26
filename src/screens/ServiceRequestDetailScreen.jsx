@@ -86,6 +86,7 @@ import { getMapStyleURL } from '../config/mapbox';
 // `primary` / `secondary` are also used with hex-alpha concatenation, so they must
 // stay 6-digit hex in both themes -- asserted by the token tests.
 const makeC = (c) => ({
+  surface: c.surface,
   brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   secondary: c.brandBlue,
@@ -1460,7 +1461,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
       <ScrollView
         style={s.scrollView}
         contentContainerStyle={s.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[C.primary]} tintColor={C.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[C.primary]} tintColor={C.primary} progressBackgroundColor={C.surface} />}
         showsVerticalScrollIndicator={false}
       >
         {/* Status Description Pill — only show for terminal states */}

@@ -186,7 +186,7 @@ const EmailVerifyHandlerScreen = ({ route, navigation }) => {
 const makeStyles = (theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.pageSolid,
   },
   centerContent: {
     flex: 1,

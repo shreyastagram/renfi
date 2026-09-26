@@ -50,6 +50,7 @@ import { useThemedStyles, useThemeColors } from '../theme';
 // ─── Design Tokens (matching Settings / Profile) ────────────────────
 // `dark` was dead at v1.0.9 -- defined, never referenced -- so it is not mapped.
 const makeC = (c) => ({
+  surface: c.surface,
   bg: c.bg,
   white: c.surface,
   primary: c.brandOrange,
@@ -303,7 +304,7 @@ const AccountSecurityScreen = () => {
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 30 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} progressBackgroundColor={C.surface} />}
         showsVerticalScrollIndicator={false}
       >
         {/* ─── Auth Health Card ────────────────────────────────── */}

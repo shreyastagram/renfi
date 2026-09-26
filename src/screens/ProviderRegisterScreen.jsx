@@ -66,6 +66,7 @@ import {
  */
 // This screen had no palette block -- every colour was inline.
 const makeC = (c) => ({
+  pageSolid: c.pageSolid,
   brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   secondary: c.brandBlue,
@@ -1339,7 +1340,8 @@ const makeStyles = (theme) => {
   const C = makeC(theme.colors);
   return StyleSheet.create({
   // ── Layout ──
-  container: { flex: 1, backgroundColor: C.white },
+  container: { flex: 1, // pageSolid: white in light exactly as v1.0.9, pure black in dark.
+    backgroundColor: C.pageSolid },
   keyboardView: { flex: 1 },
   scrollView: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 },

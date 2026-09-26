@@ -71,6 +71,7 @@ import {
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const makeC = (c) => ({
+  surface: c.surface,
   onPrimary: c.onBrandOrange,
   brandOrangeInk: c.brandOrangeInk,
   info: c.info,
@@ -1127,7 +1128,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
         onEndReached={loadMore}
         onEndReachedThreshold={0.3}
         contentContainerStyle={[styles.listPad, { paddingBottom: insets.bottom + 104 }]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} progressBackgroundColor={C.surface} />}
         showsVerticalScrollIndicator={false}
       />
 

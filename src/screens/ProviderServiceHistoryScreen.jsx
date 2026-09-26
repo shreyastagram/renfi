@@ -75,6 +75,7 @@ import { brand } from '../theme';
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
 const makeC = (c) => ({
+  surface: c.surface,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,
@@ -1187,7 +1188,7 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
         extraData={`${acceptingId}-${rejectingId}`}
         ListEmptyComponent={<EmptyState filter={activeFilter} />}
         contentContainerStyle={[styles.listPad, { paddingBottom: insets.bottom + 104 }]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} progressBackgroundColor={C.surface} />}
         showsVerticalScrollIndicator={false}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
         scrollEventThrottle={16}

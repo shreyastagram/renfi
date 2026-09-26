@@ -41,6 +41,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Premium design-language tokens
 const makeC = (c) => ({
+  surface: c.surface,
   hero: stableDark.heroSurface, // was #0F172A — the premium header panel
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
@@ -637,8 +638,7 @@ const VerificationDashboardScreen = ({ navigation }) => {
             refreshing={refreshing}
             onRefresh={onRefresh}
             tintColor={C.primary}
-            colors={[C.primary]}
-          />
+            colors={[C.primary]} progressBackgroundColor={C.surface} />
         }
         showsVerticalScrollIndicator={false}
       >

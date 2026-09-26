@@ -863,7 +863,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
               refreshControl={
                 <RefreshControl
                   refreshing={isFetchingProviders}
-                  onRefresh={() => handleFetchProviders()} tintColor={C.accent} colors={[C.accent]} />
+                  onRefresh={() => handleFetchProviders()} tintColor={C.accent} colors={[C.accent]} progressBackgroundColor={C.surface} />
               }
             />
           </>

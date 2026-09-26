@@ -44,6 +44,7 @@ import { useThemedStyles, useThemeColors } from '../theme';
 // takes the warning token -- the same call already made for warm accent text on
 // SubscriptionScreen and EmergencyServicesScreen. `white` was dead at v1.0.9.
 const makeC = (c) => ({
+  pageSolid: c.pageSolid,
   primary: c.warning,
   primaryLight: c.warningContainer,
   background: c.surface,
@@ -755,7 +756,8 @@ const makeStyles = (theme) => {
   return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.background,
+    // pageSolid: white in light exactly as v1.0.9, pure black in dark.
+    backgroundColor: C.pageSolid,
   },
   keyboardAvoid: {
     flex: 1,

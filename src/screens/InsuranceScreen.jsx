@@ -54,6 +54,7 @@ import {
 
 // ─── Design Tokens ─────────────────────────────────────────────
 const makeC = (c) => ({
+  surface: c.surface,
   brandOrangeInk: c.brandOrangeInk,
   iconBg: c.bg, // was #F1F5F9
   primary: c.brandOrange,
@@ -645,7 +646,7 @@ const InsuranceScreen = ({ navigation }) => {
         style={s.scroll}
         contentContainerStyle={[s.scrollContent, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.secondary} colors={[C.secondary]} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.secondary} colors={[C.secondary]} progressBackgroundColor={C.surface} />}
       >
         {/* ── Status Banner ─────────────────────────────────── */}
         <View style={[s.statusBanner, { backgroundColor: statusConfig.bg }]}>

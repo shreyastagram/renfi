@@ -249,6 +249,7 @@ const PhoneSignupScreen = ({ onOtpSent, onBack, signupExtras = {} }) => {
 };
 
 const makeC = (c) => ({
+  pageSolid: c.pageSolid,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,
@@ -287,7 +288,8 @@ const makeC = (c) => ({
 const makeStyles = (theme) => {
   const C = makeC(theme.colors);
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.white },
+  container: { flex: 1, // pageSolid: white in light exactly as v1.0.9, pure black in dark.
+    backgroundColor: C.pageSolid },
   keyboardView: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24 },
 

@@ -94,6 +94,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Service labels for proper display
 const makeC = (c) => ({
+  surface: c.surface,
   primary: c.brandOrange,
   secondary: c.brandBlue,
   secondaryDeep: c.info,
@@ -1556,7 +1557,7 @@ const ProfileScreen = ({ navigation, route }) => {
           style={styles.content}
           contentContainerStyle={[styles.contentContainerFlat, { paddingBottom: insets.bottom + 94 }]}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} progressBackgroundColor={C.surface} />
           }
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"

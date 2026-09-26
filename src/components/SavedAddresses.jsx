@@ -44,6 +44,7 @@ import { stableDark } from '../theme';
 
 // Premium Design Tokens
 const makeC = (c) => ({
+  surface: c.surface,
   darkHero: stableDark.heroSurface, // was #0F172A
   iconBg: c.bg, // was #F1F5F9
   primary: c.brandOrange,
@@ -521,8 +522,7 @@ const SavedAddresses = ({
                 refreshing={refreshing}
                 onRefresh={handleRefresh}
                 colors={[C.secondary]}
-                tintColor={C.secondary}
-              />
+                tintColor={C.secondary} progressBackgroundColor={C.surface} />
             }
             showsVerticalScrollIndicator={false}
           />

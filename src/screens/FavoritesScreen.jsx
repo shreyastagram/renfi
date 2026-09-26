@@ -62,6 +62,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Premium Design Tokens
 const makeC = (c) => ({
+  surface: c.surface,
   onPrimary: c.onBrandOrange,
   brandOrangeInk: c.brandOrangeInk,
   info: c.info,
@@ -1092,8 +1093,7 @@ const FavoritesScreen = ({ navigation }) => {
               refreshing={refreshing}
               onRefresh={() => fetchFavorites(true)}
               colors={[C.primary]}
-              tintColor={C.primary}
-            />
+              tintColor={C.primary} progressBackgroundColor={C.surface} />
           }
         />
       )}

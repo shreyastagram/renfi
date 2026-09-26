@@ -75,6 +75,7 @@ const EMERGENCY_NOTES_PLACEHOLDERS = {
 
 // Premium design tokens
 const makeC = (c) => ({
+  surface: c.surface,
   brandOrangeInk: c.brandOrangeInk,
   darkHero: stableDark.heroSurface, // was #0F172A — a fixed brand panel
   primary: c.brandOrange,
@@ -1394,8 +1395,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
               refreshing={refreshing}
               onRefresh={handleRetrySearch}
               colors={[C.primary]}
-              tintColor={C.primary}
-            />
+              tintColor={C.primary} progressBackgroundColor={C.surface} />
           }
         />
       )}

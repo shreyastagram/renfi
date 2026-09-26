@@ -31,6 +31,11 @@ export const lightColors = {
   // Surfaces
   bg: slate[50],
   surface: slate[0],
+  // A full-bleed page with no cards on it — the auth screens. At v1.0.9 these
+  // were solid #FFFFFF, so the migration mapped them to `surface`; correct in
+  // light, but it left twelve whole screens at #16161C in dark, which is why
+  // the app still did not read as black. Light keeps the exact v1.0.9 white.
+  pageSolid: slate[0],
   surfaceElevated: slate[0],
   surfaceSunken: slate[25],
 
@@ -154,6 +159,11 @@ export const darkColors = {
   // Surfaces
   bg: dark.base,
   surface: dark.surface,
+  // A full-bleed page with no cards on it — the auth screens. At v1.0.9 these
+  // were solid #FFFFFF, so the migration mapped them to `surface`; correct in
+  // light, but it left twelve whole screens at #16161C in dark, which is why
+  // the app still did not read as black. Light keeps the exact v1.0.9 white.
+  pageSolid: dark.base,
   surfaceElevated: dark.elevated,
   surfaceSunken: dark.sunken,
 

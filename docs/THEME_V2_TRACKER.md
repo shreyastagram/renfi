@@ -879,6 +879,49 @@ cognitive load and figure-ground.
 
 ---
 
+## 31. beta.7 feedback — "still not pure black" and the refresh spinner
+
+Owner on beta.7: everything fixed **except pull-to-refresh**, plus "it still doesn't
+look pure black", the profile hero looks wrong in dark with no photo, and the profile
+has too many breaker lines.
+
+### Why it was not pure black — 12 whole screens
+
+The page token IS `#000000`. But **twelve screens painted their entire page with
+`c.surface`** (`#16161C`), so most of the auth flow was a dark grey sheet, not black.
+
+The cause is honest and specific: at v1.0.9 those screens were solid `#FFFFFF`, and the
+migration mapped white to `surface`. That is correct in light and wrong in dark, and no
+gate could see it — `surface` is a perfectly legitimate token.
+
+Fixed with a new semantic token, **`pageSolid`**: `#FFFFFF` in light (byte-identical to
+v1.0.9) and `#000000` in dark. A full-bleed page with no cards on it is a different
+thing from a card, and now has its own name.
+
+### Pull-to-refresh — the spinner was fine, the disc was not
+
+I set `tintColor` and `colors` last round and missed the third prop. Android draws the
+spinner **on a disc**, and `progressBackgroundColor` defaults to WHITE — a white circle
+on a black page. Set on all 15.
+
+**Lesson: `tintColor` + `colors` + `progressBackgroundColor` is three properties, not
+two.** Fixing two of three looked complete and was not.
+
+### Still open — profile in dark (mockup out for approval)
+
+Mockup: <https://claude.ai/code/artifact/74d9ca73-b62a-494d-8b30-f14ee9074692>
+
+1. **The hero** is one fixed gradient for both themes and its first stop is `#FFF3EA`
+   — luma **246**, effectively white. It blends into a white page and glares on black,
+   worst with no photo. Proposal: dark stops that emerge from the page and still END on
+   brand orange, with `navInk` flipped light.
+2. **11 section bands × 2 hairlines = 22 rules**, each a lit 4.26:1 edge in dark.
+   Proposal: in dark the gutter becomes the black page showing between raised cards —
+   the same tonal logic as §20. **The breakers stay**, as the owner asked; only how
+   they separate changes. Light untouched in both.
+
+---
+
 ## 30. Builds
 
 | build | code | what it carried |

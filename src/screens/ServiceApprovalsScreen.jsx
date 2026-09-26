@@ -172,6 +172,7 @@ const makeFilterTabs = (C) => ([
 
 // Brand colors
 const makeC = (c) => ({
+  surface: c.surface,
   brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
@@ -1563,7 +1564,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
           style={styles.content}
           contentContainerStyle={styles.contentContainer}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} colors={[C.primary]} progressBackgroundColor={C.surface} />
           }
         >
           {filteredServices.length === 0 ? (

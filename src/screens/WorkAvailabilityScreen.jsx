@@ -24,6 +24,7 @@ import { useThemedStyles, useThemeColors, stableDark } from '../theme';
 import { brand } from '../theme';
 
 const makeC = (c) => ({
+  surface: c.surface,
   brandOrangeInk: c.brandOrangeInk,
   background: c.bg,
   white: c.surface,
@@ -105,7 +106,7 @@ const WorkAvailabilityScreen = ({ navigation }) => {
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={loading && !!days} onRefresh={() => refresh({ force: true })} tintColor={C.primary} colors={[C.primary]} />}
+        refreshControl={<RefreshControl refreshing={loading && !!days} onRefresh={() => refresh({ force: true })} tintColor={C.primary} colors={[C.primary]} progressBackgroundColor={C.surface} />}
       >
         <Text style={styles.intro}>{t('workHours.screenIntro')}</Text>
 

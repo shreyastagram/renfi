@@ -55,6 +55,7 @@ import {
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const makeC = (c) => ({
+  surface: c.surface,
   primary: c.brandOrange,
   secondary: c.brandBlue,
   onPrimary: c.onBrandOrange,
@@ -940,7 +941,7 @@ const SubscriptionScreen = ({ navigation }) => {
       <ScrollView
         style={styles.content}
         contentContainerStyle={{ paddingBottom: insets.bottom + 30 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={C.primary} colors={[C.primary]} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={C.primary} colors={[C.primary]} progressBackgroundColor={C.surface} />}
         showsVerticalScrollIndicator={false}
       >
         {/* ── 2-months-free offer states ──
