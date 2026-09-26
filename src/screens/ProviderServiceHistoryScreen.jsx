@@ -529,12 +529,6 @@ const RequestCard = React.memo(({ request, onPress, onCall, onDirections, onComp
               </TouchableOpacity>
             </View>
           )}
-
-          {/* View details */}
-          <TouchableOpacity style={styles.detailsRow} onPress={onPress} activeOpacity={0.6}>
-            <Text style={styles.detailsText}>{t('common.viewDetails')}</Text>
-            <Icon name="chevron-right" size={15} color={C.infoDeep} />
-          </TouchableOpacity>
         </>
       )}
     </TouchableOpacity>
@@ -1371,11 +1365,14 @@ const makeStyles = (theme) => {
   descInline: { fontSize: 12, color: C.textSec, marginBottom: 8 },
 
   // Date/Time
-  dtRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.bg, borderRadius: 12, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: C.line },
-  dtItem: { flex: 1, alignItems: 'center' },
-  dtLabel: { fontSize: 9, fontWeight: '700', color: C.muted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 3 },
-  dtVal: { fontSize: 13, fontWeight: '600', color: C.text },
-  dtDiv: { width: 1, height: 28, backgroundColor: C.line, marginHorizontal: 4 },
+  // A LINE, not a box. This was a filled, bordered, 12pt-padded container
+  // holding two centred columns with stacked labels — roughly 100pt of the
+  // row to carry a date and a time. Label and value share a baseline now.
+  dtRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  dtItem: { flexDirection: 'row', alignItems: 'baseline', gap: 5, flexShrink: 1 },
+  dtLabel: { fontSize: 9, fontWeight: '700', color: C.muted, textTransform: 'uppercase', letterSpacing: 0.4 },
+  dtVal: { fontSize: 12.5, fontWeight: '650', color: C.text },
+  dtDiv: { width: StyleSheet.hairlineWidth, height: 12, backgroundColor: C.line, marginHorizontal: 10 },
 
   // Pending: Map + Accept/Reject row
   pendingActionRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
@@ -1433,8 +1430,6 @@ const makeStyles = (theme) => {
   cancelBtnText: { fontSize: 13, fontWeight: '600', color: C.danger },
 
   // Details row
-  detailsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border },
-  detailsText: { fontSize: 13, fontWeight: '600', color: C.infoDeep },
 
   // Empty
   emptyWrap: { alignItems: 'center', paddingVertical: 70, paddingHorizontal: 40 },
