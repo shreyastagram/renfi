@@ -1793,7 +1793,7 @@ const UserHomeScreen = ({ navigation, route }) => {
         </TouchableOpacity>
         <View style={styles.topBarSpacer} />
         {/* Help & Support */}
-        <HelpSupportButton size={24} color={C.primary} style={styles.addressManageButton} />
+        <HelpSupportButton size={24} style={styles.addressManageButton} />
         {/* Address Management Icon */}
         <TouchableOpacity
           style={styles.addressManageButton}
@@ -2659,7 +2659,11 @@ const makeStyles = (theme) => {
   },
   providerRating: {
     fontSize: 13,
-    color: C.primary,
+    // The numeral is TEXT and needs 4.5:1. Brand orange on a white card is 2.69
+    // and failed. The orange now lives entirely in the star beside it — the
+    // coloured-star / dark-numeral pairing every maps and booking app uses, which
+    // reads as more deliberate than orange type did. 17.85:1 light, 17.58 dark.
+    color: C.text,
     fontWeight: '700',
   },
   providerRatingCount: {

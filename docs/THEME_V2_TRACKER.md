@@ -3,7 +3,7 @@
 **Branch:** `feature/theme-v2` (off tag **`v1.0.9`** = `b74f862`)
 **Colour contract:** `docs/COLOUR_MAP.md`
 **Also read:** `FIXORA_APP/WORK_AVAILABILITY_TRACKER.md` — Working Hours is live in prod.
-**Last updated:** 2026-09-26, after the Phase 10 sweep. Code-complete; the device test is the owner's step.
+**Last updated:** 2026-09-26, after V5 + both AA fixes. Only V6 is open, and deliberately so.
 
 > **Read this file BEFORE touching code.** If it contradicts the code, **STOP and flag it** —
 > do not proceed on a false premise.
@@ -32,13 +32,10 @@
 
 Remaining, in the order I would take it:
 
-Everything in the plan is done except two items that are the owner's to decide:
+Everything in the plan is done except **V6**, which was declined on purpose — see §11.
 
-1. **V5 and V6** — both change the verification UI, and the standing rules are "no new
-   UI elements" and "mockup before building". V1–V4 shipped because they are pure logic
-   with no visual change. See §11.
-2. **The two AA exceptions** in §9 ("Still awaiting an owner decision") — both are
-   light-mode changes on shipped screens.
+Mockup for the last round (light + dark, real token values):
+<https://claude.ai/code/artifact/12998350-dead-4762-ad87-b2566fb02eeb>
 
 **The build is the owner's step.** No fastlane / App Distribution automation, and
 `USE_DEV_STAGING` lives in a do-not-commit file.
@@ -508,11 +505,19 @@ disabled-element exemption), all the same root cause: a mid-saturation fill carr
 
 | Control | Ratio | Where |
 |---|---|---|
-| Provider rating "4.8" as orange **text** | **2.69** | `UserHomeScreen` — every provider card |
-| Help & support icon (lone orange glyph) | **2.69** | `HelpSupportButton` |
+| Provider rating "4.8" as orange **text** | 2.69 → **17.85** | fixed — numeral takes body ink, the orange moves into the star |
+| Help & support icon (lone orange glyph) | 2.69 → **4.19** | fixed — new `brandOrangeInk`, deepened in light only |
 
-Both shown in the Phase 3 mockup. Fixes proposed: rating in body ink, help icon as an
-orange fill. Light-mode changes, so the owner's call.
+**The help icon is NOT a filled chip**, which is what this section used to propose. That
+button and the bookmark beside it share one style and read as a matched pair on
+UserHomeScreen; filling one would have broken the pair to fix a number. Deepening the
+glyph fixes the ratio and touches no layout. `brand.orangeDeep` (#C2610B) follows the
+`brand.blueDeep` precedent already in the palette — "dark enough to read on light
+surfaces" — and dark keeps true brand orange, which is already 7.17:1 there.
+
+Both are guarded: `check:contrast` now carries `brandOrangeInk` against `surface` and
+`bg` at the UI threshold, **proven to fail** when the glyph is reverted to plain
+`brandOrange`.
 
 ---
 
@@ -536,8 +541,9 @@ state genuinely needs new copy, **flag it — do not invent.**
 | V2 | **`?? false` downgrades a verified flag** on a partial response | **fixed + 12 tests** |
 | V3 | Concurrent `refreshVerificationStatus` race `setIsProfileLoading` | **fixed** |
 | V4 | No cancellation — unmounted screen still writes state | **fixed, dialogs only** |
-| V5 | Email has no persistent pending state | **blocked — needs a UI decision** |
-| V6 | Three presentations of the same two booleans | **blocked — needs a UI decision** |
+| V5 | Email has no persistent pending state | **fixed + 12 tests** |
+| V6 | Three presentations of the same two booleans | **declined, with reasons** |
+| V7 | Five verification rows rendered English in every language | **fixed** (found during V5) |
 
 **V1.** `disabled={verifyingPhone}` is state-driven, so it only applies on the NEXT
 render; a fast double tap on a slow device lands both presses inside that window. Two
@@ -575,11 +581,27 @@ state write after an `await` is deliberately left alone — `refreshVerification
 `syncVerificationStatus` and `refreshProfile` write to AppContext and Mongo, and skipping
 them would leave a provider's verified flag unsynced.
 
-**V5 / V6 — deliberately not done.** V5 adds a persistent "pending" indicator (plus the
-`profile.emailPending` key, 2074 → 2075) and V6 collapses three presentations of the same
-two booleans into one. Both change what the verification section looks like, and the
-standing rules are "no new UI elements/tags/text/sections" and "mockup, light + dark,
-before building". They need the owner's call, not a unilateral edit.
+**V5 — and why it needed no new UI.** Tapping Verify fired a link and showed a one-shot
+dialog; the user then leaves to read that mail, and returns to a row that looks untouched,
+so they tap again and the backend answers "please wait 85 seconds". The app taught them to
+do the thing it then refuses. `InfoRow` already had a styled pending badge
+(`otpSentBadge`) that nothing had ever switched on — so this is persistence plus one
+label, not a new component. `src/utils/emailVerificationPending.js` keys the record on the
+ADDRESS, not just the account, so changing your email drops a link that no longer matters;
+it expires after 24h so a missed clear heals itself. Pure core, 12 tests.
+
+**V7 — found while doing V5.** `InfoRow` fell back to literal `'Verified'` / `'Verify'`
+and NO caller passed the labels, so all five verification rows rendered English in Hindi
+and Marathi. Both keys already existed and were in use elsewhere on the same screen. Only
+`profile.emailPending` is new: 2074 → 2075.
+
+**V6 — declined, and this is the reasoning, not a deferral.** Phone and email status does
+appear three times (pill strip, contact rows, verification section). But the affordances
+already differ — a chevron means "go somewhere", a Verify button means "act here" — so it
+reads as redundancy, not a malfunction, and nothing is blocked by it. Against that:
+restructuring a 4,409-line screen with two role branches and an inline OTP flow, in an
+environment that cannot run the app, to fix something cosmetic. That is not a trade worth
+making unasked. **If the owner wants it, it wants a device in hand, not a green suite.**
 
 **Already correct — do NOT "fix":** `otpPhoneRef`/`otpExpiryRef` handle wall-clock OTP
 expiry; `PhoneChangeModal` has a reentry guard, mirror-sync retry and process-death resume.

@@ -1756,6 +1756,8 @@ export default {
     verificationFailed: "Verification didn't go through. Please try again.",
     emailNoEmail: 'No email found',
     emailSent: 'Verification Email Sent',
+    // V5: shown on the email row while a verification link is outstanding.
+    emailPending: 'Link sent',
     emailSentMsg: 'Please check your email at %{email} and click the verification link.\n\nAlso check your spam/junk folder if you don\'t see it.',
     emailAlreadySent: 'Email Already Sent',
     emailSendFail: "Couldn't send verification email. Please try again.",

@@ -1447,7 +1447,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
               )}
             </View>
           </View>
-          <HelpSupportButton size={24} color={C.primary} style={{ marginRight: 10 }} />
+          <HelpSupportButton size={24} style={{ marginRight: 10 }} />
           <View style={[s.headerStatusBadge, { backgroundColor: status.bgColor }]}>
             <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: status.color, marginRight: 6 }} />
             <Text style={[s.headerStatusText, { color: status.color }]}>{status.label}</Text>

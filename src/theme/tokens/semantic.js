@@ -57,6 +57,9 @@ export const lightColors = {
 
   // Brand
   brandOrange: brand.orange,
+  // A brand-orange GLYPH on this theme's surfaces. Light deepens it to clear
+  // WCAG 1.4.11; dark keeps the true brand orange, already 7.17:1.
+  brandOrangeInk: brand.orangeDeep,
   onBrandOrange: slate[900], // NEVER white — white on orange is 2.69:1
   brandBlue: brand.blue,
   onBrandBlue: slate[0],
@@ -169,6 +172,9 @@ export const darkColors = {
 
   // Brand — orange survives dark mode unchanged, blue must lighten
   brandOrange: brand.orange,
+  // A brand-orange GLYPH on this theme's surfaces. Light deepens it to clear
+  // WCAG 1.4.11; dark keeps the true brand orange, already 7.17:1.
+  brandOrangeInk: brand.orange,
   onBrandOrange: slate[900],
   brandBlue: brand.blueLight,
   onBrandBlue: slate[900],

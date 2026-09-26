@@ -82,6 +82,11 @@ import {
   heroGradient,
   iconAccent,
 } from '../theme';
+import {
+  markSent as markEmailVerificationSent,
+  readPending as readEmailVerificationPending,
+  clearPending as clearEmailVerificationPending,
+} from '../utils/emailVerificationPending';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
@@ -200,7 +205,7 @@ const getErrorMessage = (error, fallback = 'An error occurred') => {
 /**
  * Info Row (Read-only)
  */
-const InfoRow = React.memo(({ label, value, iconName, verified, onVerify, isLoading, otpSent, verifiedLabel, verifyLabel, iconColor, iconBg, materialIcon }) => {
+const InfoRow = React.memo(({ label, value, iconName, verified, onVerify, isLoading, otpSent, pendingLabel, verifiedLabel, verifyLabel, iconColor, iconBg, materialIcon }) => {
   const styles = useThemedStyles(makeStyles);
   const C = makeC(useThemeColors());
   return (
@@ -225,7 +230,7 @@ const InfoRow = React.memo(({ label, value, iconName, verified, onVerify, isLoad
         ) : otpSent ? (
           <View style={styles.otpSentBadge}>
             <MaterialIcon name="mark-email-read" size={14} color={C.warning} />
-            <Text style={styles.otpSentText}>OTP Sent</Text>
+            <Text style={styles.otpSentText}>{pendingLabel || 'OTP Sent'}</Text>
           </View>
         ) : (
           <TouchableOpacity style={styles.verifyButton} onPress={onVerify} disabled={isLoading}>
@@ -527,6 +532,9 @@ const ProfileScreen = ({ navigation, route }) => {
   // Verification state
   const [verifyingPhone, setVerifyingPhone] = useState(false);
   const [verifyingEmail, setVerifyingEmail] = useState(false);
+  // V5 — a verification link already sitting in the user's inbox. Persisted, so it
+  // survives the round trip to their mail app and back (see the util's header).
+  const [emailPending, setEmailPending] = useState(false);
   // Verify-then-replace phone change (add / change / re-verify) — same sheet for both roles
   const [showPhoneChangeModal, setShowPhoneChangeModal] = useState(false);
   const [phoneOtpSent, setPhoneOtpSent] = useState(false);
@@ -547,6 +555,33 @@ const ProfileScreen = ({ navigation, route }) => {
   const phoneVerifyInFlight = useRef(false);
   const otpVerifyInFlight = useRef(false);
   const emailVerifyInFlight = useRef(false);
+
+  // V5 — keep the "link sent" badge honest.
+  //
+  // Reads on mount and whenever the address or its verified flag changes, so the
+  // badge is right after a cold start, after a profile refresh, and after the user
+  // verifies elsewhere. Clears the moment the address IS verified — otherwise a
+  // verified row could still be claiming mail is on its way.
+  useEffect(() => {
+    let cancelled = false;
+    const uid = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+    const email = displayData?.email;
+    if (!uid || !email) {
+      setEmailPending(false);
+      return undefined;
+    }
+    if (displayData?.isEmailVerified) {
+      clearEmailVerificationPending(uid);
+      setEmailPending(false);
+      return undefined;
+    }
+    readEmailVerificationPending(uid, email).then((pending) => {
+      if (!cancelled) setEmailPending(pending);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.mongoId, user?._id, profile?.mongoId, profile?._id, displayData?.email, displayData?.isEmailVerified]);
 
   // V4 — a dialog must not appear on a screen the user has already left.
   //
@@ -1278,6 +1313,12 @@ const ProfileScreen = ({ navigation, route }) => {
       const result = await sendEmailVerification();
 
       if (result.success) {
+        // Persist BEFORE the dialog: if the screen is gone the dialog is suppressed
+        // (V4) but the link is still in flight, so the badge must still be right
+        // when they come back.
+        const uid = user?.mongoId || profile?.mongoId || user?._id || profile?._id;
+        await markEmailVerificationSent(uid, displayData.email);
+        setEmailPending(true);
         safeDialog(
           t('profile.emailSent'),
           t('profile.emailSentMsg', { email: displayData.email })
@@ -2364,6 +2405,8 @@ const ProfileScreen = ({ navigation, route }) => {
                 onVerify={() => setShowPhoneChangeModal(true)}
                 isLoading={false}
                 otpSent={false}
+                verifiedLabel={t('profile.verifiedLabel')}
+                verifyLabel={t('profile.verifyBtn')}
               />
 
               {/* Phone OTP Input — Modern 6-box design */}
@@ -2469,6 +2512,10 @@ const ProfileScreen = ({ navigation, route }) => {
                 verified={displayData?.isEmailVerified}
                 onVerify={handleEmailVerify}
                 isLoading={verifyingEmail}
+                otpSent={emailPending}
+                pendingLabel={t('profile.emailPending')}
+                verifiedLabel={t('profile.verifiedLabel')}
+                verifyLabel={t('profile.verifyBtn')}
               />
             </ProfileSection>
             </>
@@ -2488,6 +2535,8 @@ const ProfileScreen = ({ navigation, route }) => {
                 onVerify={() => setShowPhoneChangeModal(true)}
                 isLoading={false}
                 otpSent={false}
+                verifiedLabel={t('profile.verifiedLabel')}
+                verifyLabel={t('profile.verifyBtn')}
               />
 
               {/* Phone OTP Input — Modern 6-box design */}
@@ -2592,6 +2641,10 @@ const ProfileScreen = ({ navigation, route }) => {
                 verified={displayData?.isEmailVerified}
                 onVerify={handleEmailVerify}
                 isLoading={verifyingEmail}
+                otpSent={emailPending}
+                pendingLabel={t('profile.emailPending')}
+                verifiedLabel={t('profile.verifiedLabel')}
+                verifyLabel={t('profile.verifyBtn')}
               />
 
               {/* Aadhaar Verification - Providers Only */}
@@ -2615,6 +2668,8 @@ const ProfileScreen = ({ navigation, route }) => {
                     verified={isAadhaarVerified}
                     onVerify={() => setShowAadhaarModal(true)}
                     isLoading={false}
+                    verifiedLabel={t('profile.verifiedLabel')}
+                    verifyLabel={t('profile.verifyBtn')}
                   />
 
                   {/* Name locked notice after Aadhaar */}

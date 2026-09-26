@@ -35,6 +35,12 @@ const contrastRatio = (a, b) => {
 
 // [foregroundToken, backgroundToken, threshold, label]
 const REQUIRED_PAIRS = [
+  // The Help & Support glyph. UI threshold, not TEXT: WCAG 1.4.11 governs the
+  // parts of a control you must see to identify it. Brand orange itself was 2.69
+  // here, which is why brandOrangeInk exists — guarded so nobody reverts the glyph
+  // to plain brandOrange without this failing.
+  ['brandOrangeInk', 'surface', UI, 'help glyph on the white circular button'],
+  ['brandOrangeInk', 'bg', UI, 'help glyph on the page background'],
   ['textPrimary', 'bg', TEXT, 'body text on page background'],
   ['textPrimary', 'surface', TEXT, 'body text on card'],
   ['textPrimary', 'surfaceElevated', TEXT, 'body text on elevated card'],

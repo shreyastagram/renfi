@@ -1695,6 +1695,8 @@ export default {
     verificationFailed: 'सत्यापन नहीं हो सका। कृपया पुनः प्रयास करें।',
     emailNoEmail: 'कोई ईमेल नहीं मिला',
     emailSent: 'सत्यापन ईमेल भेजा गया',
+    // V5: shown on the email row while a verification link is outstanding.
+    emailPending: 'लिंक भेजा गया',
     emailSentMsg: 'कृपया %{email} पर अपना ईमेल जांचें और सत्यापन लिंक पर क्लिक करें।\n\nयदि नहीं दिखे तो स्पैम/जंक फ़ोल्डर भी जांचें।',
     emailAlreadySent: 'ईमेल पहले से भेजा गया',
     emailSendFail: 'सत्यापन ईमेल भेज नहीं सके। कृपया पुनः प्रयास करें।',

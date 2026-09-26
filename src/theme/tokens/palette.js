@@ -14,6 +14,12 @@ export const brand = {
   blue: '#2b76bc',
   blueDeep: '#1E5F9E', // blue dark enough to be readable AS TEXT on light surfaces
   blueLight: '#5FA8E8', // blue light enough to be readable on dark surfaces
+  // Orange dark enough to be readable AS A GLYPH on light surfaces — the twin of
+  // blueDeep above. Brand orange is 2.69:1 on white, under the 3:1 WCAG 1.4.11
+  // asks of a control you must see to identify; this is 4.19:1 and still reads as
+  // Fixhomi orange rather than brown. Only for light: on a dark surface the
+  // ordinary brand orange is already 7.17:1 and this would be muddy.
+  orangeDeep: '#C2610B',
 };
 
 // Non-brand blues already in the app (~87 occurrences). Kept as distinct tokens
