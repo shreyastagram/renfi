@@ -1539,3 +1539,15 @@ matter what the container said. Content-sized with a 62pt floor; cell padding
 pass; 162 unit tests pass (`App.test.tsx`'s transform failure is pre-existing and
 unrelated).
 | beta.12 — six fixed colours | https://claude.ai/code/artifact/12f6ad7d-d60a-488b-8986-289bc94fd978 |
+
+### §35.8 — build log
+
+| build | versionCode | notes |
+|---|---|---|
+| 1.1.0-beta.12 | 48 | §35 — navy home, violet, tan tab bar, decorative yellow, stat strip, icon pass. `USE_DEV_STAGING=false`, production backends. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/3p0og45qum1to) |
+
+**Caught during this build:** the first APK check read `versionCode 47` — a stale
+artifact from beta.11 still on disk while gradle was mid-build. The wait loop
+exited immediately because it tested for the file's *existence*, not for gradle
+having finished. Always verify `aapt2 dump badging` reports the expected
+versionCode before distributing; the file being present proves nothing.
