@@ -17,6 +17,7 @@ import {
   useThemedStyles,
   useThemeColors,
 } from '../theme';
+import { brand } from '../theme';
 
 const makeC = (c) => ({
   primary: c.brandOrange,
@@ -107,7 +108,7 @@ const DayHoursSheet = ({ visible, dayKey, initial, saving = false, onClose, onSa
                 onValueChange={setEnabled}
                 disabled={saving}
                 trackColor={{ false: C.lineSlate, true: C.primary }}
-                thumbColor={C.white}
+                thumbColor={brand.plate}
               />
             </View>
 

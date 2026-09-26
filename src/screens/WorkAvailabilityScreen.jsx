@@ -21,6 +21,7 @@ import { useWorkSchedule } from '../context/WorkScheduleContext';
 import { useApp } from '../context/AppContext';
 import { DAY_KEYS, buildDaysPatch, formatTime12, getIstMoment, scheduleErrorKey } from '../utils/workSchedule';
 import { useThemedStyles, useThemeColors, stableDark } from '../theme';
+import { brand } from '../theme';
 
 const makeC = (c) => ({
   background: c.bg,
@@ -155,7 +156,7 @@ const WorkAvailabilityScreen = ({ navigation }) => {
                   onValueChange={() => handleToggleDay(key)}
                   disabled={!!saving}
                   trackColor={{ false: C.border, true: C.primary }}
-                  thumbColor={C.white}
+                  thumbColor={brand.plate}
                   accessibilityLabel={t('workHours.iWorkOn', { day: t(`workHours.days.${key}`) })}
                 />
               )}

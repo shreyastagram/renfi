@@ -72,8 +72,10 @@ contract.
 - [x] **Phase 3** — Verification mockup re-confirmed, home mockup rebuilt on near-black
 - [x] **Phase 4** — Dead-file removal (2,105 lines) + DRY audit
 - [x] **Phase 5a** — Settings Appearance control (Light / Dark / System), 7 i18n keys
-- [~] **Phase 5b** — V1–V4 done (pure logic). V5/V6 + `profile.emailPending` blocked on
-      an owner decision, because both change the verification UI.
+- [~] **Phase 5b** — V1–V4 **and V5** done, plus `profile.emailPending` (i18n 2074→2075),
+      shipped in `0d61e04`. **Only V6 remains**, declined with reasons in §11 — the board
+      said V5 was still blocked long after it shipped, which is exactly the drift this
+      file exists to prevent.
 - [x] **Phase 6a** — Pilot: `CustomDialog` (proved the `useThemedStyles` pattern)
 - [x] **Phase 6b** — Rest of shared chrome
   - [x] batch 1 — `Button`, `Alert`, `ShimmerLoader` (zero security exposure)
@@ -874,6 +876,29 @@ Mockup, updated to the shipped state:
 
 Sources: Material 3 *Applying elevation* and *Dark theme*; 2026 dark-mode UX write-ups on
 cognitive load and figure-ground.
+
+---
+
+## 26. Switch thumbs — one was invisible, and the three disagreed
+
+Continuing §25's theme: native props the colour gates cannot see.
+
+**`SettingsScreen`, Android, switch ON: `thumbColor` was `C.primary` and
+`trackColor.true` was also `C.primary` — 1.00:1.** The thumb vanished into the track in
+BOTH themes, on every toggle in Settings. Material's own switch gets away with
+thumb-equals-primary because its track is translucent; this track is fully opaque, so
+the two matched exactly.
+
+The three switches also disagreed. The other two used `C.white`, which maps to
+`c.surface` — so their thumb turned **near-black in dark**. Readable (6.7:1) but not what
+a switch thumb should do, and not what iOS does two screens away.
+
+All three now use `brand.plate`: a fixed white thumb, identical in both themes, which is
+what iOS ships natively and what the `onIosAccent` branch in Settings was already doing.
+
+**Rule worth keeping: a switch thumb must never resolve to its own track.** That is not
+something any existing gate can express, because both live in JSX props rather than a
+stylesheet.
 
 ---
 

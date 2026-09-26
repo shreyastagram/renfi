@@ -61,6 +61,7 @@ import { authFetch } from '../utils/authFetch';
 import { getTokens } from '../utils/storage';
 import { playNotificationSound } from '../utils/notificationSound';
 import { getAutoUpdateEnabled, setAutoUpdateEnabled, getCurrentAppVersion, checkForAppUpdate, openStorePage } from '../services/appUpdateService';
+import { brand } from '../theme';
 
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
@@ -229,7 +230,7 @@ const ToggleRow = ({ iconName, title, subtitle, value, onValueChange, disabled, 
           onValueChange={onValueChange}
           disabled={disabled}
           trackColor={{ false: C.switchTrackOff, true: C.primary }}
-          thumbColor={Platform.OS === 'ios' ? C.onIosAccent : (value ? C.primary : C.switchThumbOff)}
+          thumbColor={Platform.OS === 'ios' ? C.onIosAccent : (value ? brand.plate : C.switchThumbOff)}
           ios_backgroundColor={C.switchTrackOff}
           accessibilityLabel={title}
           accessibilityRole="switch"
