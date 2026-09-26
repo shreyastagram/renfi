@@ -3,7 +3,7 @@
 **Branch:** `feature/theme-v2` (off tag **`v1.0.9`** = `b74f862`)
 **Colour contract:** `docs/COLOUR_MAP.md`
 **Also read:** `FIXORA_APP/WORK_AVAILABILITY_TRACKER.md` — Working Hours is live in prod.
-**Last updated:** 2026-09-26. **Tonal elevation shipped (§20)** — the real cause of "the placements look weird".
+**Last updated:** 2026-09-26. **1.1.0-beta.7 (43) distributed.** Dark mode at 0 ink failures, 94% checked.
 
 > **Read this file BEFORE touching code.** If it contradicts the code, **STOP and flag it** —
 > do not proceed on a false premise.
@@ -876,6 +876,28 @@ Mockup, updated to the shipped state:
 
 Sources: Material 3 *Applying elevation* and *Dark theme*; 2026 dark-mode UX write-ups on
 cognitive load and figure-ground.
+
+---
+
+## 30. Builds
+
+| build | code | what it carried |
+|---|---|---|
+| `1.1.0-beta.1` | 37 | first themed build |
+| `1.1.0-beta.2` | 38 | true-black dark ramp |
+| `1.1.0-beta.3` | 39 | screens complete, `<Screen>`, V1–V4, both AA fixes |
+| `1.1.0-beta.4` | 40 | crystal borders, all six maps black |
+| `1.1.0-beta.5` | 41 | washed-out colour fixes (ink-as-background) |
+| `1.1.0-beta.6` | 42 | tab-bar tone, tonal elevation, icon tiles, logo plate |
+| **`1.1.0-beta.7`** | **43** | **60 undefined tokens, dark ink at 0, light brand pass, switch/refresh fixes** |
+
+All built with `USE_DEV_STAGING = false`, so every one hits PRODUCTION on real data.
+`android/app/build.gradle` stays UNCOMMITTED per the owner's rule — the version bump
+lives in the working tree only.
+
+**beta.7 is the one to look at.** Everything before it was mostly colour; this one
+carries the defect that was actually making text invisible (§27) and the first build
+where dark mode has been measured end to end rather than eyeballed.
 
 ---
 
