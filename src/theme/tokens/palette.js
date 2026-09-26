@@ -604,12 +604,23 @@ export const semanticDark = {
 // container borders below, because a row has no fill to sit against.
 export const semanticLine = {
   dangerLight: 'rgba(239, 68, 68, 0.15)',
-  dangerFillLight: 'rgba(239, 68, 68, 0.08)',
+  // SOLID, not translucent. These were low-alpha versions of a dark hue, and
+  // 10% of a dark hue over ANY ground composites toward grey — measured over
+  // white they all landed at 4-10% saturation. That is why the history stat
+  // pills, the home Events tile and a dozen status chips read as mud in light
+  // mode, and why fixing them site by site never held: every one of these is
+  // passed as a `bg:` or `iconBg=` PROP, so no search for `backgroundColor`
+  // could find them. Solving it at the value fixes every call site at once,
+  // including the ones that cannot be found statically.
+  //
+  // Slightly stronger than the matching *Container tokens, so a filled chip
+  // still reads as more emphatic than a container.
+  dangerFillLight: '#FDE9E9',
   warningLight: 'rgba(217, 119, 6, 0.25)',
-  warningFillLight: 'rgba(217, 119, 6, 0.12)',
-  accentVioletFillLight: 'rgba(124, 58, 237, 0.1)',
-  successFillLight: 'rgba(21, 128, 61, 0.1)',
-  infoFillLight: 'rgba(30, 95, 158, 0.1)',
+  warningFillLight: '#FDEEDC',
+  accentVioletFillLight: '#EBDDFB',
+  successFillLight: '#E2F5E9',
+  infoFillLight: '#E2EDFA',
 };
 
 // Borders for the status CONTAINERS — a tint-200 hairline that gives a filled

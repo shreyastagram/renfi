@@ -172,6 +172,8 @@ const makeFilterTabs = (C) => ([
 
 // Brand colors
 const makeC = (c) => ({
+  infoContainer: c.infoContainer,
+  dangerContainer: c.dangerContainer,
   brandOrangeFill: c.brandOrangeFill,
   surface: c.surface,
   brandOrangeInk: c.brandOrangeInk,
@@ -807,7 +809,7 @@ const StatsBanner = ({ approved, pending, rejected }) => {
   return (
     <View style={styles.statsBanner}>
       <View style={styles.statItem}>
-        <View style={[styles.statIconContainer, { backgroundColor: C.infoFill }]}>
+        <View style={[styles.statIconContainer, { backgroundColor: C.infoContainer }]}>
           <MaterialIcon name="verified" size={14} color={C.secondary} />
         </View>
         <View>
@@ -2313,7 +2315,7 @@ const makeStyles = (theme) => {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: C.dangerFill,
+    backgroundColor: C.dangerContainer,
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 6,
@@ -2528,7 +2530,7 @@ const makeStyles = (theme) => {
     marginTop: 12,
     paddingHorizontal: 14,
     paddingVertical: 7,
-    backgroundColor: C.infoFill,
+    backgroundColor: C.infoContainer,
     borderRadius: 6,
   },
   openPdfButtonText: {
@@ -2559,7 +2561,7 @@ const makeStyles = (theme) => {
   instructionCard: {
     flexDirection: 'row',
     gap: 8,
-    backgroundColor: C.infoFill,
+    backgroundColor: C.infoContainer,
     padding: 12,
     borderRadius: 8,
     marginBottom: 14,
@@ -2594,7 +2596,7 @@ const makeStyles = (theme) => {
   },
   selectServiceCardSelected: {
     borderColor: C.secondary,
-    backgroundColor: C.infoFill,
+    backgroundColor: C.infoContainer,
   },
   selectServiceCardDisabled: {
     opacity: 0.5,
@@ -2645,7 +2647,7 @@ const makeStyles = (theme) => {
 
   // Upload - Refined
   stepBadge: {
-    backgroundColor: C.infoFill,
+    backgroundColor: C.infoContainer,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -2667,7 +2669,7 @@ const makeStyles = (theme) => {
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: C.infoFill,
+    backgroundColor: C.infoContainer,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2855,7 +2857,7 @@ const makeStyles = (theme) => {
     alignItems: 'center',
   },
   servicePillBadgeActive: {
-    backgroundColor: C.infoFill,
+    backgroundColor: C.infoContainer,
   },
   servicePillCount: {
     fontSize: 11,

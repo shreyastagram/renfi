@@ -41,6 +41,9 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Brand colors
 const makeC = (c) => ({
+  infoContainer: c.infoContainer,
+  successContainer: c.successContainer,
+  dangerContainer: c.dangerContainer,
   brandOrangeFill: c.brandOrangeFill,
   star: iconAccent.star, // was #F59E0B, theme-independent
   primary: c.brandOrange,
@@ -548,7 +551,7 @@ const ProviderDetailsModal = ({
                         style={styles.portfolioLinkCard}
                         onPress={() => handleOpenLink(provider.portfolioLinks.youtube)}
                       >
-                        <View style={[styles.portfolioLinkIcon, { backgroundColor: C.dangerFill }]}>
+                        <View style={[styles.portfolioLinkIcon, { backgroundColor: C.dangerContainer }]}>
                           <MaterialIcon name="play-circle-filled" size={22} color={C.danger} />
                         </View>
                         <Text style={styles.portfolioLinkLabel}>YouTube</Text>
@@ -559,7 +562,7 @@ const ProviderDetailsModal = ({
                         style={styles.portfolioLinkCard}
                         onPress={() => handleOpenLink(provider.portfolioLinks.facebook)}
                       >
-                        <View style={[styles.portfolioLinkIcon, { backgroundColor: C.infoFill }]}>
+                        <View style={[styles.portfolioLinkIcon, { backgroundColor: C.infoContainer }]}>
                           <MaterialIcon name="facebook" size={22} color={C.indigo} />
                         </View>
                         <Text style={styles.portfolioLinkLabel}>Facebook</Text>
@@ -846,7 +849,7 @@ const makeStyles = (theme) => {
   serviceChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.successFill,
+    backgroundColor: C.successContainer,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
@@ -1071,7 +1074,7 @@ const makeStyles = (theme) => {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: C.successFill,
+    backgroundColor: C.successContainer,
     borderRadius: 12,
     paddingVertical: 14,
     gap: 8,

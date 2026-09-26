@@ -75,6 +75,9 @@ const EMERGENCY_NOTES_PLACEHOLDERS = {
 
 // Premium design tokens
 const makeC = (c) => ({
+  infoContainer: c.infoContainer,
+  dangerContainer: c.dangerContainer,
+  warningContainer: c.warningContainer,
   brandOrangeFill: c.brandOrangeFill,
   surface: c.surface,
   brandOrangeInk: c.brandOrangeInk,
@@ -1281,7 +1284,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
       {/* Government Helplines Section */}
       <View style={[styles.sectionHeader, { marginTop: 28 }]}>
         <View style={[styles.sectionAccentBar, { backgroundColor: C.secondary }]} />
-        <View style={[styles.sectionIconContainer, { backgroundColor: C.infoFill }]}>
+        <View style={[styles.sectionIconContainer, { backgroundColor: C.infoContainer }]}>
           <MaterialIcon name="account-balance" size={20} color={C.secondary} />
         </View>
         <Text style={styles.sectionTitle}>Government Helplines</Text>
@@ -1613,7 +1616,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
         <View style={styles.loadingContainer}>
           {loadingTimedOut ? (
             <>
-              <View style={[styles.loadingIconCircle, { backgroundColor: C.dangerFill }]}>
+              <View style={[styles.loadingIconCircle, { backgroundColor: C.dangerContainer }]}>
                 <MaterialIcon name="error-outline" size={40} color={C.danger} />
               </View>
               <Text style={styles.loadingText}>{t('emergencyServices.takingTooLong')}</Text>
@@ -1754,7 +1757,7 @@ const makeStyles = (theme) => {
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: C.warningFill,
+    backgroundColor: C.warningContainer,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
@@ -1802,7 +1805,7 @@ const makeStyles = (theme) => {
     marginBottom: 12,
   },
   staticIconContainer: {
-    backgroundColor: C.dangerFill,
+    backgroundColor: C.dangerContainer,
   },
   serviceName: {
     fontSize: 13,
@@ -1817,7 +1820,7 @@ const makeStyles = (theme) => {
     marginTop: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    backgroundColor: C.dangerFill,
+    backgroundColor: C.dangerContainer,
     borderRadius: 10,
   },
   staticBadgeText: {
@@ -1842,7 +1845,7 @@ const makeStyles = (theme) => {
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: C.dangerFill,
+    backgroundColor: C.dangerContainer,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -2372,7 +2375,7 @@ const makeStyles = (theme) => {
     width: 50,
     height: 50,
     borderRadius: 16,
-    backgroundColor: C.warningFill,
+    backgroundColor: C.warningContainer,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -2421,7 +2424,7 @@ const makeStyles = (theme) => {
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: C.warningFill,
+    backgroundColor: C.warningContainer,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,

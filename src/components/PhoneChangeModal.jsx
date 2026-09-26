@@ -366,6 +366,7 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomIns
 };
 
 const makeC = (c) => ({
+  infoContainer: c.infoContainer,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,
@@ -416,7 +417,7 @@ const makeStyles = (theme) => {
   title: { fontSize: 19, fontWeight: '800', color: C.text, letterSpacing: -0.3, marginTop: 4 },
   subtitle: { fontSize: 13.5, color: C.textSecondary, lineHeight: 20, marginTop: 6, marginBottom: 16 },
   primaryBtn: { backgroundColor: C.secondary, borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center', marginTop: 18 },
-  primaryBtnDisabled: { backgroundColor: C.infoFill },
+  primaryBtnDisabled: { backgroundColor: C.infoContainer },
   primaryBtnText: { color: C.onSecondary, fontSize: 15.5, fontWeight: '700' },
   otpInput: {
     borderWidth: 2, borderColor: C.line, borderRadius: 14, height: 60, textAlign: 'center',

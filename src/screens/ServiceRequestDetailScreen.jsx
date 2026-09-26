@@ -84,6 +84,7 @@ import { getMapStyleURL } from '../config/mapbox';
 // `primary` / `secondary` are also used with hex-alpha concatenation, so they must
 // stay 6-digit hex in both themes -- asserted by the token tests.
 const makeC = (c) => ({
+  warningContainer: c.warningContainer,
   infoContainer: c.infoContainer,
   successContainer: c.successContainer,
   dangerContainer: c.dangerContainer,
@@ -144,7 +145,7 @@ const makeStatusConfig = (C) => ({
   pending: {
     label: 'Pending',
     color: C.warning,
-    bgColor: C.warningFill,
+    bgColor: C.warningContainer,
     iconName: 'clock',
     userDescription: 'Waiting for a provider to accept your request',
     providerDescription: 'Customer is waiting for you to accept this request',
@@ -198,7 +199,7 @@ const makeStatusConfig = (C) => ({
   awaiting_confirmation: {
     label: 'Awaiting Confirmation',
     color: C.warning,
-    bgColor: C.warningFill,
+    bgColor: C.warningContainer,
     iconName: 'hourglass-empty',
     userDescription: 'Waiting for the provider to confirm',
     providerDescription: 'Please confirm this emergency request',
@@ -1811,7 +1812,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
             return (
               <View style={s.card}>
                 <View style={[s.rowCenter, { gap: 10, marginBottom: 8 }]}>
-                  <View style={[s.iconCircle, { backgroundColor: C.warningFill }]}><ActivityIndicator size="small" color={C.warning} /></View>
+                  <View style={[s.iconCircle, { backgroundColor: C.warningContainer }]}><ActivityIndicator size="small" color={C.warning} /></View>
                   <View style={{ flex: 1 }}><Text style={{ fontSize: 14, fontWeight: '700', color: C.text }}>{t('detail.providerLocation')}</Text><Text style={{ fontSize: 11, color: C.warning }}>{t('detail.acquiringLocation')}</Text></View>
                 </View>
                 <Text style={{ fontSize: 11, color: C.textMuted, paddingLeft: 44, lineHeight: 17 }}>{t('detail.acquiringLocationDesc')}</Text>
@@ -2294,7 +2295,7 @@ const makeStyles = (theme) => {
   // No Provider Selected
   noProviderRow: { gap: 12, marginBottom: 12 },
   noProviderIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
-  noProviderIconActive: { backgroundColor: C.warningFill, borderColor: C.primary + '30' },
+  noProviderIconActive: { backgroundColor: C.warningContainer, borderColor: C.primary + '30' },
   noProviderIconExpiring: { backgroundColor: C.dangerContainer, borderColor: C.dangerLine },
   noProviderInfo: { flex: 1 },
   noProviderTitle: { fontSize: 15, fontWeight: '700', color: C.text },

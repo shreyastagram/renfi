@@ -55,6 +55,8 @@ import {
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const makeC = (c) => ({
+  successContainer: c.successContainer,
+  warningContainer: c.warningContainer,
   textMuted: c.textMuted,
   surface: c.surface,
   primary: c.brandOrange,
@@ -373,11 +375,11 @@ const makeJourneyStyles = (theme) => {
   nodeCol: { alignItems: 'center', width: 36 },
   node: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: C.warningBg, borderWidth: 1, borderColor: C.warningLine },
   nodeDone: { backgroundColor: C.primary, borderColor: C.warning },
-  thread: { width: 2, flex: 1, minHeight: 24, backgroundColor: C.warningLine },
+  thread: { width: 2, flex: 1, minHeight: 24, backgroundColor: C.warningContainer },
   stepText: { flex: 1, minWidth: 0, paddingTop: 6, paddingBottom: 22 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   stepTitle: { fontSize: 14.5, fontWeight: '700', color: C.text, letterSpacing: -0.1 },
-  tag: { backgroundColor: C.warningFill, borderWidth: 1, borderColor: C.warningLine, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 9 },
+  tag: { backgroundColor: C.warningContainer, borderWidth: 1, borderColor: C.warningLine, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 9 },
   tagText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.8, color: C.warning },
   stepDesc: { fontSize: 12.5, color: C.textSecondary, lineHeight: 19, marginTop: 4 },
   });
@@ -595,7 +597,7 @@ const TransactionDetailModal = ({ visible, transaction, onClose, t }) => {
               <Text style={modalStyles.amountLabel}>{t('subscription.amountPaid')}</Text>
               <Text style={modalStyles.amountValue}>{transaction.amountDisplay}</Text>
               <View style={[modalStyles.statusBadge, {
-                backgroundColor: transaction.status === 'captured' ? C.successFill : C.dangerFill,
+                backgroundColor: transaction.status === 'captured' ? C.successContainer : C.dangerFill,
               }]}>
                 <MaterialIcon
                   name={transaction.status === 'captured' ? 'check-circle' : 'error'}

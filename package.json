@@ -22,7 +22,8 @@
     "check:shadow": "node scripts/check-token-shadowing.js",
     "check:input": "node scripts/check-input-props.js",
     "check:tdz": "node scripts/check-tdz.js",
-    "check:palette": "NODE_NO_WARNINGS=1 node scripts/check-palette-refs.js"
+    "check:palette": "NODE_NO_WARNINGS=1 node scripts/check-palette-refs.js",
+    "check:alpha": "NODE_NO_WARNINGS=1 node scripts/check-alpha-fills.js"
   },
   "dependencies": {
     "@invertase/react-native-apple-authentication": "^2.5.1",

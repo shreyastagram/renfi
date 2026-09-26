@@ -48,6 +48,7 @@ import { useThemedStyles, useThemeColors } from '../theme';
 // ─── Design Tokens (matching Settings / Profile) ────────────────────
 // `dark` was dead at v1.0.9 -- defined, never referenced -- so it is not mapped.
 const makeC = (c) => ({
+  infoContainer: c.infoContainer,
   surface: c.surface,
   bg: c.bg,
   white: c.surface,
@@ -135,7 +136,7 @@ const SessionCard = ({ session, isCurrentDevice, onRevoke, isRevoking }) => {
   return (
     <View style={[s.sessionCard, isCurrentDevice && s.sessionCardCurrent]}>
       <View style={s.sessionRow}>
-        <View style={[s.menuIcon, { backgroundColor: isCurrentDevice ? C.infoFill : C.iconBg }]}>
+        <View style={[s.menuIcon, { backgroundColor: isCurrentDevice ? C.infoContainer : C.iconBg }]}>
           <MaterialIcon name={platformIcon} size={22} color={isCurrentDevice ? C.secondary : C.textSec} />
         </View>
         <View style={s.menuTextWrap}>

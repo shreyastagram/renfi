@@ -18,6 +18,7 @@ import { getMapStyleURL } from '../config/mapbox';
 import { useIsDark } from '../theme';
 
 const makeC = (c) => ({
+  successContainer: c.successContainer,
   primary: c.brandOrange,
   white: c.surface,
   dark: c.textPrimary,
@@ -454,7 +455,7 @@ const makeStyles = (theme) => {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: C.successFill,
+    backgroundColor: C.successContainer,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,

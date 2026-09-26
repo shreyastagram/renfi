@@ -129,6 +129,7 @@ const EXPECTED_CHANGES = {
     '#000': 'stableDark.shadowBase',
   },
   'src/components/DrawerMenu.jsx': {
+    'rgba(239,68,68,0.08)': "the *Fill family became SOLID — a low-alpha hue over any ground composites toward grey, and every use is passed as a bg/iconBg prop that no site sweep could reach. Fixed at the value.",
     '#f67c16': 'brandOrange', '#2b76bc': 'brandBlue', '#0F172A': 'stableDark.heroSurface',
     '#FFFFFF': 'stableDark.ink', '#FBCFE8': 'n/a', '#FBFCFE': 'surface',
     '#EF4444': 'danger token', '#1E293B': 'textStrong', '#64748B': 'textSecondary',
@@ -143,6 +144,7 @@ const EXPECTED_CHANGES = {
     'rgba(220,38,38,0.12)': 'accent-row hairline converged onto dangerLine',
   },
   'src/screens/PSAContactsScreen.jsx': {
+    'rgba(217,119,6,0.12)': "the *Fill family became SOLID. A low-alpha hue over any ground composites toward grey, which is why status chips read as mud in light mode; every one of these is passed as a bg/iconBg prop so no site-by-site sweep could reach them. Fixed at the value.",
     // This screen carried its own warning family (amber-600/50) alongside the
     // semantic one (amber-700/orange-50). Converged, same call as Alert.
     '#D97706': 'converged onto the warning token (#B45309), which also passes AA',

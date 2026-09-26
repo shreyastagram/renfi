@@ -306,6 +306,7 @@ const CancellationReasonModal = ({
 };
 
 const makeC = (c) => ({
+  dangerContainer: c.dangerContainer,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,
@@ -384,7 +385,7 @@ const makeStyles = (theme) => {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: C.dangerFill,
+    backgroundColor: C.dangerContainer,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -521,7 +522,7 @@ const makeStyles = (theme) => {
     gap: 6,
   },
   cancelButtonDisabled: {
-    backgroundColor: C.dangerLine,
+    backgroundColor: C.dangerContainer,
   },
   cancelButtonText: {
     fontSize: 15,

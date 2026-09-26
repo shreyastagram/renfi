@@ -54,6 +54,8 @@ import {
 
 // ─── Design Tokens ─────────────────────────────────────────────
 const makeC = (c) => ({
+  successContainer: c.successContainer,
+  dangerContainer: c.dangerContainer,
   surface: c.surface,
   brandOrangeInk: c.brandOrangeInk,
   iconBg: c.bg, // was #F1F5F9
@@ -244,12 +246,12 @@ const DocumentCard = ({ config, document, onUpload, onRemove, onView, isRejected
                 <Text style={[s.statusPillText, { color: C.warning }]}>Ready to submit</Text>
               </View>
             ) : document?.status === 'approved' ? (
-              <View style={[s.statusPill, { backgroundColor: C.successFill }]}>
+              <View style={[s.statusPill, { backgroundColor: C.successContainer }]}>
                 <MaterialIcon name="check-circle" size={13} color={C.success} />
                 <Text style={[s.statusPillText, { color: C.success }]}>Approved</Text>
               </View>
             ) : document?.status === 'rejected' ? (
-              <View style={[s.statusPill, { backgroundColor: C.dangerFill }]}>
+              <View style={[s.statusPill, { backgroundColor: C.dangerContainer }]}>
                 <MaterialIcon name="cancel" size={13} color={C.danger} />
                 <Text style={[s.statusPillText, { color: C.danger }]}>Rejected</Text>
               </View>
@@ -866,13 +868,13 @@ const makeStyles = (theme) => {
   docCard: { backgroundColor: C.white, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.line, ...Platform.select({ ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 }, android: { elevation: 2 } }) },
   docCardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 },
   docIconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.iconBg, alignItems: 'center', justifyContent: 'center' },
-  docIconCircleActive: { backgroundColor: C.successFill },
+  docIconCircleActive: { backgroundColor: C.successContainer },
   docTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   docTitle: { fontSize: 15, fontWeight: '700', color: C.text },
   docDesc: { fontSize: 12, color: C.muted, marginTop: 2, lineHeight: 17 },
 
   // Badges
-  requiredBadge: { backgroundColor: C.dangerFill, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  requiredBadge: { backgroundColor: C.dangerContainer, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
   requiredBadgeText: { fontSize: 10, fontWeight: '700', color: C.danger },
   optionalBadge: { backgroundColor: C.infoBg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
   optionalBadgeText: { fontSize: 10, fontWeight: '700', color: C.info },
@@ -890,7 +892,7 @@ const makeStyles = (theme) => {
   docPreviewMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 10 },
   statusPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   statusPillText: { fontSize: 12, fontWeight: '600' },
-  removeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.dangerFill, alignItems: 'center', justifyContent: 'center' },
+  removeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.dangerContainer, alignItems: 'center', justifyContent: 'center' },
 
   // Upload Button
   uploadBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.infoBg, borderRadius: 12, padding: 14, borderWidth: 1.5, borderColor: C.secondary + '25', borderStyle: 'dashed' },

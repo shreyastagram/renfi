@@ -31,6 +31,9 @@ import MapPickerModal from './MapPickerModal';
 
 // Brand colors - User side uses blue as accent
 const makeC = (c) => ({
+  infoContainer: c.infoContainer,
+  successContainer: c.successContainer,
+  dangerContainer: c.dangerContainer,
   brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   secondary: c.brandBlue,
@@ -500,7 +503,7 @@ const AddressForm = ({ userId, address, onSave, onClose }) => {
             </View>
             <TouchableOpacity 
               onPress={handleClearLocation}
-              style={{ padding: 8, backgroundColor: C.dangerFill, borderRadius: 8 }}
+              style={{ padding: 8, backgroundColor: C.dangerContainer, borderRadius: 8 }}
             >
               <MaterialIcon name="close" size={18} color={C.danger} />
             </TouchableOpacity>
@@ -758,7 +761,7 @@ const makeStyles = (theme) => {
       borderStyle: 'dashed',
     },
     locationButtonSuccess: {
-      backgroundColor: C.successFill,
+      backgroundColor: C.successContainer,
       borderColor: C.successLine,
       borderStyle: 'solid',
     },
@@ -809,7 +812,7 @@ const makeStyles = (theme) => {
       justifyContent: 'center',
       gap: 6,
       padding: 10,
-      backgroundColor: C.infoFill,
+      backgroundColor: C.infoContainer,
       borderRadius: 10,
     },
     locationActionText: {

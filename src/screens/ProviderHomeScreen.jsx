@@ -78,6 +78,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Brand colors
 const makeC = (c) => ({
+  dangerContainer: c.dangerContainer,
   brandOrangeFill: c.brandOrangeFill,
   brandOrangeLine: c.brandOrangeBorder,
   bg: c.bg,
@@ -1984,7 +1985,7 @@ const makeStyles = (theme) => {
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: C.dangerFill,
+    backgroundColor: C.dangerContainer,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -98,6 +98,7 @@ const SHEET_MID_HEIGHT = SCREEN_HEIGHT * 0.40; // 40% for initial state - shows 
 // the base flips to the dark-mode blue, so the tint flips with it instead of
 // staying a light-blue wash that would be invisible on a near-black card.
 const makeC = (c) => ({
+  warningContainer: c.warningContainer,
   infoContainer: c.infoContainer,
   dangerContainer: c.dangerContainer,
   brandOrangeLine: c.brandOrangeBorder,
@@ -2916,7 +2917,7 @@ const makeStyles = (theme) => {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: C.warningFill,
+    backgroundColor: C.warningContainer,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -95,6 +95,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Service labels for proper display
 const makeC = (c) => ({
+  warningContainer: c.warningContainer,
   brandOrangeFill: c.brandOrangeFill,
   brandOrangeLine: c.brandOrangeBorder,
   textMuted: c.textMuted,
@@ -4071,7 +4072,7 @@ const makeStyles = (theme) => {
   phoneChangeWarning: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: C.warningFill,
+    backgroundColor: C.warningContainer,
     padding: 14,
     borderRadius: 12,
     marginBottom: 16,
