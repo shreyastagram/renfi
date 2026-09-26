@@ -37,6 +37,7 @@ import {  View,
   InteractionManager
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
+import StatSegments from '../components/StatSegments';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { BlurView } from '../components/SafeBlurView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -179,24 +180,6 @@ const getDateRange = (preset) => {
 };
 
 /* ── Stat Pill ─────────────────────────────────────────────────────── */
-const StatPill = React.memo(({ value, label, color, bgColor }) => {
-  const styles = useThemedStyles(makeStyles);
-  return (
-    <View style={[styles.statPill, { backgroundColor: bgColor }]}>
-      <View style={styles.statSvgBg}>
-        <Svg width="100%" height="100%" viewBox="0 0 100 70" preserveAspectRatio="xMidYMid slice">
-          <Circle cx="85" cy="-5" r="35" fill={color} opacity={0.06} />
-          <Circle cx="90" cy="60" r="20" fill={color} opacity={0.05} />
-          <Path d="M0 50 Q25 30 50 45 T100 35" stroke={color} strokeWidth="1" fill="none" opacity={0.1} />
-          <Path d="M0 60 Q30 40 60 55 T100 50" stroke={color} strokeWidth="0.8" fill="none" opacity={0.07} />
-        </Svg>
-      </View>
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: color + 'B0' }]}>{label}</Text>
-    </View>
-  );
-});
-
 /* ── OTP Modal ─────────────────────────────────────────────────────── */
 const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
   const styles = useThemedStyles(makeStyles);
@@ -391,17 +374,6 @@ const RequestCard = React.memo(({ request, onPress, onCall, onDirections, onComp
 
   return (
     <TouchableOpacity style={[styles.card, isPending && styles.cardPending, isDone && styles.cardCompact]} onPress={() => onPress(request)} activeOpacity={0.7}>
-      {/* SVG accent for pending cards */}
-      {isPending && (
-        <View style={styles.cardSvgBg}>
-          <Svg width="100%" height="100%" viewBox="0 0 400 60" preserveAspectRatio="xMidYMid slice">
-            <Path d="M0 45 Q80 20 160 40 T320 30 T400 45" stroke={C.primary} strokeWidth="1" fill="none" opacity={0.1} />
-            <Path d="M0 55 Q100 30 200 50 T400 40" stroke={C.primary} strokeWidth="0.7" fill="none" opacity={0.07} />
-            <Circle cx="350" cy="12" r="20" fill={C.primary} opacity={0.04} />
-            <Circle cx="380" cy="45" r="12" fill={C.primary} opacity={0.03} />
-          </Svg>
-        </View>
-      )}
       {/* Header */}
       <View style={[styles.cardTop, isDone && { marginBottom: 4 }]}>
         <View style={styles.cardTopLeft}>
@@ -1174,12 +1146,19 @@ const ProviderServiceHistoryScreen = ({ navigation, route }) => {
         ListHeaderComponent={
           <>
             <View style={styles.statsBarInner}>
-              <View style={styles.statsRow}>
-                <StatPill value={stats.total} label={t('providerHistory.statTotal')} color={C.secondary} bgColor={C.infoFill} />
-                <StatPill value={stats.pending} label={t('providerHistory.statNew')} color={C.primary} bgColor={C.warningBg} />
-                <StatPill value={stats.active} label={t('providerHistory.filterActive')} color={C.purple} bgColor={C.purpleFill} />
-                <StatPill value={stats.completed} label={t('providerHistory.filterDone')} color={C.success} bgColor={C.successFill} />
-              </View>
+              <StatSegments
+                value={activeFilter}
+                onChange={setActiveFilter}
+                items={[
+                  { key: 'all', label: t('providerHistory.statTotal'), value: stats.total, color: C.muted },
+                  { key: 'pending', label: t('providerHistory.statNew'), value: stats.pending, color: C.primary },
+                  // was C.purple (#7C3AED). Violet is not a brand colour and the owner has
+                  // asked for it out three times; it survived here only because the local
+                  // alias is named `purple` rather than anything a violet sweep would match.
+                  { key: 'active', label: t('providerHistory.filterActive'), value: stats.active, color: C.secondary },
+                  { key: 'completed', label: t('providerHistory.filterDone'), value: stats.completed, color: C.success },
+                ]}
+              />
             </View>
             {hasActiveFilters ? (
               <Text style={styles.resultCount}>{filteredRequests.length} {filteredRequests.length === 1 ? t('providerHistory.job') : t('providerHistory.jobs')}</Text>
@@ -1329,7 +1308,6 @@ const makeStyles = (theme) => {
   card: { backgroundColor: C.white, borderRadius: 20, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: C.border, shadowColor: C.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 5, overflow: 'hidden' },
   cardPending: { borderColor: C.primary + '35', borderWidth: 1.5 },
   cardCompact: { padding: 14, marginBottom: 10 },
-  cardSvgBg: { position: 'absolute', top: 0, left: 0, right: 0, height: 60 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   cardTopLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 },
   svcIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.warningBg, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
