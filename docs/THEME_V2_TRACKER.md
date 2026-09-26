@@ -2234,3 +2234,71 @@ Two things worth keeping from how it was fixed:
 | build | versionCode | notes |
 |---|---|---|
 | 1.1.0-beta.20 | 56 | §44 — button convention, support glyph, SvgArt deleted, detail-screen pass. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/332u23jis6en0) |
+
+---
+
+## §45 — a comment that lied, and the gate's blind spot behind it
+
+### 45.1 The invisible step numbers
+
+```js
+timelineNumber: { // on C.primary, so the ink must be its on-colour
+  color: C.onPrimary,
+```
+
+The number renders **only** when the step is neither completed nor current, so
+its circle is `C.sunken` — never `C.primary`. An earlier fix read the wrong
+branch, wrote the assumption into a comment, and set near-black ink on
+`#252321`: **1.1:1**. Now `textSecondary`, 7.47:1.
+
+> The comment was the bug's best disguise. It was specific, confident, and
+> wrong, and it made the line look already-considered.
+
+### 45.2 Why `check:ink` could not see it
+
+All three states shared one container and swapped only the child:
+
+```jsx
+<View style={[circle, isCompleted && done, isCurrent && current]}>
+  {isCompleted ? <Icon/> : isCurrent ? <Dot/> : <Text/>}
+```
+
+The ink and the ground came from **different branches**, so the checker graded
+each child against whichever fill it flattened to. Two intermediate attempts
+failed for the same reason:
+
+- a **ternary** — it flattens both arms
+- **hoisting the state to a variable** — the ground then resolved to the base
+  for *every* child, so the ✓ (which sits on green) was flagged instead
+
+The fix is structural: **each state renders its own complete circle**. Tick on
+green, dot on orange, number on the sunken base — each pairing stated once in
+the markup, each independently checkable. The tick also moved `onPrimary` →
+`onSuccess`, which is what it should always have been on green.
+
+> A gate that cannot see a pairing is usually telling you the markup does not
+> express it either.
+
+### 45.3 The location disc, missed by a name
+
+The user screen calls it `btnTrack`; the provider's calls it `btnDir`. §44
+patched a key list, so the user's stayed a solid orange disc. Same failure mode
+as the five yellow rounds: **keyed sweeps find keys.**
+
+### 45.4 Status hues
+
+47 violet/amber references across both history screens → brand blue / brand
+orange. `C.purple` was *in-progress*, `C.warning` was *pending*; pending is
+already brand orange on the segment strip above, so the list now agrees with
+its own header. Cancelled stays red, completed stays green — those read as
+universal, not off-brand.
+
+### 45.5 Service sheet
+
+The member-since gradient at ~⅓ strength, one brand colour fading from each
+edge, `pointerEvents` off so the drag is untouched. Owner's fallback if it does
+not land: plain black/white per theme.
+
+| build | versionCode | notes |
+|---|---|---|
+| 1.1.0-beta.21 | 57 | §45 — step numbers, btnTrack, 47 status hues, sheet gradient. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/07bn91cuk0gg8) |
