@@ -40,9 +40,12 @@ import {
   useThemedStyles,
   useThemeColors,
 } from '../theme';
+import { stableDark } from '../theme';
 
 // Premium Design Tokens
 const makeC = (c) => ({
+  darkHero: stableDark.heroSurface, // was #0F172A
+  iconBg: c.bg, // was #F1F5F9
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,
@@ -220,7 +223,7 @@ const AddressCard = ({
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: C.dangerLight }]}
+            style={[styles.actionButton, { backgroundColor: C.dangerBg }]}
             onPress={() => onDelete?.(address._id)}
             hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           >
@@ -481,7 +484,7 @@ const SavedAddresses = ({
         >
           {onClose && (
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <MaterialIcon name="arrow-back-ios" size={20} color={C.textPrimary} />
+              <MaterialIcon name="arrow-back-ios" size={20} color={C.text} />
             </TouchableOpacity>
           )}
           <View style={styles.headerCenter}>
@@ -564,7 +567,7 @@ const SHADOWS = makeShadows(C);
   return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.background,
+    backgroundColor: C.bg,
   },
   header: {
     flexDirection: 'row',
@@ -572,7 +575,7 @@ const SHADOWS = makeShadows(C);
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: C.cardWhite,
+    backgroundColor: C.white,
     ...SHADOWS.header,
   },
   headerCenter: {
@@ -619,10 +622,10 @@ const SHADOWS = makeShadows(C);
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: C.background,
+    backgroundColor: C.bg,
   },
   loadingCard: {
-    backgroundColor: C.cardWhite,
+    backgroundColor: C.white,
     borderRadius: 22,
     paddingHorizontal: 40,
     paddingVertical: 32,
@@ -676,7 +679,7 @@ const SHADOWS = makeShadows(C);
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: C.cardWhite,
+    backgroundColor: C.white,
     borderRadius: 22,
     marginBottom: 12,
     ...SHADOWS.card,
@@ -705,7 +708,7 @@ const SHADOWS = makeShadows(C);
   addressLabel: {
     fontSize: 15,
     fontWeight: '800',
-    color: C.textPrimary,
+    color: C.text,
   },
   addressLabelDefault: {
     color: C.secondary,
@@ -730,7 +733,7 @@ const SHADOWS = makeShadows(C);
   addressLine1: {
     fontSize: 14,
     fontWeight: '500',
-    color: C.textPrimary,
+    color: C.text,
     marginBottom: 3,
     lineHeight: 20,
   },
@@ -763,7 +766,7 @@ const SHADOWS = makeShadows(C);
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: C.cardWhite,
+    backgroundColor: C.white,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,

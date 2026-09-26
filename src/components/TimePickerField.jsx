@@ -123,7 +123,7 @@ const makeStyles = (theme) => {
     paddingHorizontal: 12,
     backgroundColor: C.white,
   },
-  fieldActive: { borderColor: C.activeBorder, backgroundColor: C.activeFill },
+  fieldActive: { borderColor: C.primary, backgroundColor: C.activeFill },
   fieldDisabled: { opacity: 0.45 },
   label: { fontSize: 11.5, fontWeight: '600', color: C.label },
   value: { fontSize: 18, fontWeight: '700', color: C.value, marginTop: 1 },

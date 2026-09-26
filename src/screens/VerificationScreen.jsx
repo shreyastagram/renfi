@@ -594,7 +594,7 @@ const VerificationScreen = ({
             <MaterialIcon
               name={expired ? 'error-outline' : 'timer'}
               size={18}
-              color={expired ? C.red : C.secondary}
+              color={expired ? C.danger : C.secondary}
             />
           </View>
         </View>
@@ -714,7 +714,7 @@ const VerificationScreen = ({
                     value={editValue}
                     onChangeText={setEditValue}
                     placeholder={t('verificationScreen.emailPlaceholder')}
-                    placeholderTextColor={C.textMuted}
+                    placeholderTextColor={C.muted}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -793,7 +793,7 @@ const VerificationScreen = ({
             {/* Sent confirmation */}
             {maskedValue ? (
               <View style={s.sentCard}>
-                <MaterialIcon name="mark-email-read" size={20} color={C.successGreen} />
+                <MaterialIcon name="mark-email-read" size={20} color={C.success} />
                 <Text style={s.sentText} numberOfLines={2} ellipsizeMode="tail">
                   {t('verificationScreen.emailSentTo', { value: maskedValue })}
                 </Text>
@@ -843,7 +843,7 @@ const VerificationScreen = ({
                             setEditValue(digits.slice(0, 10));
                           }}
                           placeholder={t('verificationScreen.phonePlaceholder')}
-                          placeholderTextColor={C.textMuted}
+                          placeholderTextColor={C.muted}
                           keyboardType="number-pad"
                           maxLength={10}
                           editable={!savingValue}
@@ -1048,7 +1048,7 @@ const VerificationScreen = ({
                       <ActivityIndicator size="small" color={C.primary} />
                     ) : (
                       <>
-                        <MaterialIcon name="refresh" size={16} color={(!canResend || sendLoading) ? C.textMuted : C.primary} />
+                        <MaterialIcon name="refresh" size={16} color={(!canResend || sendLoading) ? C.muted : C.primary} />
                         <Text style={[
                           s.resendBtnText,
                           (!canResend || sendLoading) && s.resendBtnTextDisabled,
@@ -1072,12 +1072,12 @@ const VerificationScreen = ({
           activeOpacity={0.7}
         >
           <Text style={s.skipBtnText}>{t('verificationScreen.skipForNow')}</Text>
-          <MaterialIcon name="chevron-right" size={18} color={C.textMuted} />
+          <MaterialIcon name="chevron-right" size={18} color={C.muted} />
         </TouchableOpacity>
 
         {/* Footer Tip */}
         <View style={[s.footerCard, makeCardShadow(C)]}>
-          <MaterialIcon name="info-outline" size={18} color={C.textMuted} />
+          <MaterialIcon name="info-outline" size={18} color={C.muted} />
           <Text style={s.footerText}>
             {isEmailVerification
               ? t('verificationScreen.emailTip')
@@ -1180,7 +1180,7 @@ const makeStyles = (theme) => {
   sectionLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: C.textMuted,
+    color: C.muted,
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     marginBottom: 4,
@@ -1192,7 +1192,7 @@ const makeStyles = (theme) => {
   },
   separator: {
     height: 1,
-    backgroundColor: C.border,
+    backgroundColor: C.line,
     marginVertical: 16,
   },
 
@@ -1219,7 +1219,7 @@ const makeStyles = (theme) => {
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: C.line,
   },
   valueLabelCol: {
     flex: 1,
@@ -1228,7 +1228,7 @@ const makeStyles = (theme) => {
   valueLabelSmall: {
     fontSize: 10,
     fontWeight: '700',
-    color: C.textMuted,
+    color: C.muted,
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     marginBottom: 3,
@@ -1265,7 +1265,7 @@ const makeStyles = (theme) => {
   },
   editInput: {
     borderWidth: 1.5,
-    borderColor: C.border,
+    borderColor: C.line,
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -1275,7 +1275,7 @@ const makeStyles = (theme) => {
   },
   editHint: {
     fontSize: 12,
-    color: C.textMuted,
+    color: C.muted,
     marginTop: 6,
     marginBottom: 12,
   },
@@ -1295,7 +1295,7 @@ const makeStyles = (theme) => {
     borderRadius: 14,
     backgroundColor: C.sunken,
     borderWidth: 1.5,
-    borderColor: C.border,
+    borderColor: C.line,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1378,7 +1378,7 @@ const makeStyles = (theme) => {
     justifyContent: 'center',
   },
   countdownCircleExpired: {
-    borderColor: C.red,
+    borderColor: C.danger,
     backgroundColor: C.dangerBg,
   },
   countdownInner: {
@@ -1387,7 +1387,7 @@ const makeStyles = (theme) => {
   },
   countdownLabel: {
     fontSize: 12,
-    color: C.textMuted,
+    color: C.muted,
     fontWeight: '500',
   },
   countdownValue: {
@@ -1398,7 +1398,7 @@ const makeStyles = (theme) => {
   countdownExpiredText: {
     fontSize: 15,
     fontWeight: '700',
-    color: C.red,
+    color: C.danger,
   },
 
   /* ─── OTP Input ────────────────────────────────────────────────── */
@@ -1421,7 +1421,7 @@ const makeStyles = (theme) => {
     height: 60,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: C.border,
+    borderColor: C.line,
     backgroundColor: C.sunken,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1475,7 +1475,7 @@ const makeStyles = (theme) => {
     color: C.primary,
   },
   otpDigitDisabled: {
-    color: C.textMuted,
+    color: C.muted,
   },
   otpCursor: {
     position: 'absolute',
@@ -1494,7 +1494,7 @@ const makeStyles = (theme) => {
   },
   resendLabel: {
     fontSize: 14,
-    color: C.textMuted,
+    color: C.muted,
     fontWeight: '500',
   },
   resendBtn: {
@@ -1515,7 +1515,7 @@ const makeStyles = (theme) => {
     fontWeight: '700',
   },
   resendBtnTextDisabled: {
-    color: C.textMuted,
+    color: C.muted,
   },
 
   /* ─── Skip ─────────────────────────────────────────────────────── */
@@ -1529,7 +1529,7 @@ const makeStyles = (theme) => {
   },
   skipBtnText: {
     fontSize: 14,
-    color: C.textMuted,
+    color: C.muted,
     fontWeight: '500',
   },
 
@@ -1546,7 +1546,7 @@ const makeStyles = (theme) => {
   footerText: {
     flex: 1,
     fontSize: 13,
-    color: C.textMuted,
+    color: C.muted,
     lineHeight: 20,
   },
 
@@ -1569,12 +1569,12 @@ const makeStyles = (theme) => {
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: C.successGreen,
+    backgroundColor: C.success,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: C.successGreen,
+        shadowColor: C.success,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.35,
         shadowRadius: 16,
@@ -1588,7 +1588,7 @@ const makeStyles = (theme) => {
     height: 108,
     borderRadius: 54,
     borderWidth: 2,
-    borderColor: C.successGreen,
+    borderColor: C.success,
     opacity: 0.25,
   },
   successRingOuter: {
@@ -1597,7 +1597,7 @@ const makeStyles = (theme) => {
     height: 120,
     borderRadius: 60,
     borderWidth: 1.5,
-    borderColor: C.successGreen,
+    borderColor: C.success,
     opacity: 0.12,
   },
   successTitle: {

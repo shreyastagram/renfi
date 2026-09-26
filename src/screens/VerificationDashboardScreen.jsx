@@ -41,6 +41,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Premium design-language tokens
 const makeC = (c) => ({
+  hero: stableDark.heroSurface, // was #0F172A — the premium header panel
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,
@@ -363,7 +364,7 @@ const CapabilityCard = ({ iconName, title, enabled, description }) => {
   const C = makeC(useThemeColors());
   return (
     <View style={[styles.capabilityCard, enabled && styles.capabilityCardEnabled]}>
-      <View style={[styles.capabilityIcon, { backgroundColor: enabled ? C.success + '12' : C.grayLight }]}>
+      <View style={[styles.capabilityIcon, { backgroundColor: enabled ? C.success + '12' : C.bg }]}>
         <Icon name={iconName} size={20} color={enabled ? C.success : C.muted} />
       </View>
       <View style={styles.capabilityContent}>
@@ -777,7 +778,7 @@ const makeStyles = (theme) => {
   return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.background,
+    backgroundColor: C.bg,
   },
   centered: {
     justifyContent: 'center',
@@ -879,7 +880,7 @@ const makeStyles = (theme) => {
     marginTop: 16,
     fontSize: 18,
     fontWeight: '800',
-    color: C.textPrimary,
+    color: C.text,
   },
   errorText: {
     marginTop: 6,
@@ -925,7 +926,7 @@ const makeStyles = (theme) => {
   overviewTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: C.textPrimary,
+    color: C.text,
     marginBottom: 4,
   },
   overviewSubtitle: {
@@ -940,7 +941,7 @@ const makeStyles = (theme) => {
   progressBarTrack: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: C.grayLight,
+    backgroundColor: C.bg,
     overflow: 'hidden',
   },
   progressBarFill: {
@@ -1044,7 +1045,7 @@ const makeStyles = (theme) => {
   sectionTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: C.textPrimary,
+    color: C.text,
     letterSpacing: 0.1,
   },
   sectionSubtitle: {
@@ -1131,7 +1132,7 @@ const makeStyles = (theme) => {
   stepTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: C.textPrimary,
+    color: C.text,
     flex: 1,
   },
   stepTitleComplete: {
@@ -1260,7 +1261,7 @@ const makeStyles = (theme) => {
   capabilityTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: C.textPrimary,
+    color: C.text,
   },
   capabilityTitleEnabled: {
     color: C.success,

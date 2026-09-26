@@ -29,6 +29,12 @@ import {
 } from '../theme';
 
 const makeC = (c) => ({
+  selected: c.altBlueIndigo, // was #2563EB
+  instant: c.warning, // was #F59E0B amber accent
+  instantLight: c.warningBg, // was #FFFBEB
+  instantBorder: c.warningBorder, // was #FDE68A
+  primaryLight: c.infoBg, // was #EFF6FF
+  primaryBorder: c.infoBorder, // was #DBEAFE
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,
@@ -147,7 +153,7 @@ const DateChip = ({ option, selected, onPress }) => {
     : (isInstant ? C.instantLight : C.bg);
   const chipBorder = selected
     ? (isInstant ? C.instant : C.selected)
-    : (isInstant ? C.instantBorder : C.border);
+    : (isInstant ? C.instantBorder : C.line);
   const textColor = selected ? C.onSecondary : (isInstant ? C.warning : C.text);
 
   return (
@@ -331,7 +337,7 @@ const DateTimePickerComponent = ({
 
       {/* Section title */}
       <View style={styles.sectionHeader}>
-        <MaterialIcon name="event" size={16} color={C.textMuted} />
+        <MaterialIcon name="event" size={16} color={C.muted} />
         <Text style={styles.sectionTitle}>When do you need service?</Text>
       </View>
 
@@ -364,7 +370,7 @@ const DateTimePickerComponent = ({
       {showTime && value && !isInstantSelected && (
         <Animated.View style={[styles.timeSection, { opacity: timeFadeAnim }]}>
           <View style={styles.sectionHeader}>
-            <MaterialIcon name="schedule" size={16} color={C.textMuted} />
+            <MaterialIcon name="schedule" size={16} color={C.muted} />
             <Text style={styles.sectionTitle}>Preferred time</Text>
           </View>
           <View style={styles.timeSlotsGrid}>
@@ -403,7 +409,7 @@ const DateTimePickerComponent = ({
         </Text>
         {value && !isInstantSelected && (
           <TouchableOpacity onPress={() => setShowModal(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <MaterialIcon name="edit" size={16} color={C.textMuted} />
+            <MaterialIcon name="edit" size={16} color={C.muted} />
           </TouchableOpacity>
         )}
       </View>
@@ -502,7 +508,7 @@ const makeStyles = (theme) => {
   sectionTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: C.textMuted,
+    color: C.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -557,7 +563,7 @@ const makeStyles = (theme) => {
     backgroundColor: C.bg,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: C.border,
+    borderColor: C.line,
     minWidth: 82,
     alignItems: 'center',
   },
@@ -597,7 +603,7 @@ const makeStyles = (theme) => {
     backgroundColor: C.bg,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: C.border,
+    borderColor: C.line,
   },
   summaryBarInstant: {
     backgroundColor: C.instantLight,
@@ -610,7 +616,7 @@ const makeStyles = (theme) => {
     color: C.text,
   },
   summaryPlaceholder: {
-    color: C.textMuted,
+    color: C.muted,
     fontWeight: '500',
   },
   errorText: {
@@ -638,7 +644,7 @@ const makeStyles = (theme) => {
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    borderBottomColor: C.line,
   },
   modalTitle: {
     fontSize: 18,

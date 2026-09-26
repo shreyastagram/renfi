@@ -67,6 +67,7 @@ const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
 // Premium design tokens
 const makeC = (c) => ({
+  darkHero: stableDark.heroSurface, // was #0F172A — a fixed brand panel
   primary: c.brandOrange,
   secondary: c.brandBlue,
   background: c.bg,

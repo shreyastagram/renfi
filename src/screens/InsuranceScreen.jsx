@@ -54,6 +54,7 @@ import {
 
 // ─── Design Tokens ─────────────────────────────────────────────
 const makeC = (c) => ({
+  iconBg: c.bg, // was #F1F5F9
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,
@@ -613,7 +614,7 @@ const InsuranceScreen = ({ navigation }) => {
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <View style={s.heroHeader}>
           <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-            <Icon name="back" size={22} color={C.card} />
+            <Icon name="back" size={22} color={C.white} />
           </TouchableOpacity>
           <Text style={s.heroTitle}>{t('insurance.title')}</Text>
           <View style={{ width: 40 }} />
@@ -633,7 +634,7 @@ const InsuranceScreen = ({ navigation }) => {
       {/* ── Dark Hero Header ──────────────────────────────────── */}
       <View style={s.heroHeader}>
         <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-          <Icon name="back" size={22} color={C.card} />
+          <Icon name="back" size={22} color={C.white} />
         </TouchableOpacity>
         <Text style={s.heroTitle}>{t('insurance.title')}</Text>
         <View style={{ width: 40 }} />
@@ -816,7 +817,11 @@ const makeStyles = (theme) => {
 
   // Hero Header
   heroHeader: {
-    backgroundColor: C.dark,
+    // A FIXED brand panel, not an ink token. This was BRAND.dark ('#0F172A') and my
+    // first repoint sent it to C.text — which is textStrong, and ink flips. That is
+    // the same inversion that turned the provider hero near-white (§18); the
+    // inkNotBackground gate caught it here before it shipped.
+    backgroundColor: stableDark.heroSurface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -824,35 +829,35 @@ const makeStyles = (theme) => {
     paddingVertical: 14,
   },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: stableDark.heroDivider, alignItems: 'center', justifyContent: 'center' },
-  heroTitle: { fontSize: 18, fontWeight: '800', color: C.card, letterSpacing: -0.3 },
+  heroTitle: { fontSize: 18, fontWeight: '800', color: C.white, letterSpacing: -0.3 },
 
   // Loading
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  loadingText: { fontSize: 14, color: C.textSec },
+  loadingText: { fontSize: 14, color: C.textSecondary },
 
   // Scroll
   scroll: { flex: 1 },
   scrollContent: { padding: 16, gap: 12 },
 
   // Status Banner
-  statusBanner: { borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.border },
+  statusBanner: { borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.line },
   statusBannerLeft: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   statusIconCircle: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   statusTitle: { fontSize: 16, fontWeight: '800', marginBottom: 4, letterSpacing: -0.2 },
-  statusSubtitle: { fontSize: 13, color: C.textSec, lineHeight: 19 },
+  statusSubtitle: { fontSize: 13, color: C.textSecondary, lineHeight: 19 },
 
   // Info Banner
   infoBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: C.infoBg, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: C.secondary + '15' },
   infoBannerText: { flex: 1, fontSize: 12, color: C.secondary, lineHeight: 17 },
 
   // Address Proof Note
-  addressProofNote: { backgroundColor: C.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: C.border },
+  addressProofNote: { backgroundColor: C.white, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: C.line },
   addressProofNoteHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   addressProofNoteTitle: { fontSize: 14, fontWeight: '700', color: C.text },
-  addressProofNoteText: { fontSize: 12, color: C.textSec, lineHeight: 19 },
+  addressProofNoteText: { fontSize: 12, color: C.textSecondary, lineHeight: 19 },
 
   // Document Card
-  docCard: { backgroundColor: C.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.border, ...Platform.select({ ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 }, android: { elevation: 2 } }) },
+  docCard: { backgroundColor: C.white, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.line, ...Platform.select({ ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 }, android: { elevation: 2 } }) },
   docCardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 },
   docIconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.iconBg, alignItems: 'center', justifyContent: 'center' },
   docIconCircleActive: { backgroundColor: C.successFill },
@@ -875,7 +880,7 @@ const makeStyles = (theme) => {
   docPreviewImage: { width: '100%', height: 160, borderTopLeftRadius: 12, borderTopRightRadius: 12, overflow: 'hidden' },
   docThumb: { width: '100%', height: '100%', resizeMode: 'cover' },
   pdfThumb: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', backgroundColor: C.dangerBg, gap: 6 },
-  pdfName: { fontSize: 12, color: C.textSec, maxWidth: '80%' },
+  pdfName: { fontSize: 12, color: C.textSecondary, maxWidth: '80%' },
   docPreviewMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 10 },
   statusPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   statusPillText: { fontSize: 12, fontWeight: '600' },
@@ -892,15 +897,15 @@ const makeStyles = (theme) => {
   tcLink: { color: C.secondary, fontWeight: '600', textDecorationLine: 'underline' },
 
   // Benefits
-  benefitsCard: { backgroundColor: C.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.border },
+  benefitsCard: { backgroundColor: C.white, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.line },
   benefitsTitle: { fontSize: 15, fontWeight: '800', color: C.text, marginBottom: 12, letterSpacing: -0.2 },
   benefitRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  benefitText: { fontSize: 13, color: C.textSec, flex: 1 },
+  benefitText: { fontSize: 13, color: C.textSecondary, flex: 1 },
   learnMoreBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   learnMoreText: { fontSize: 13, fontWeight: '700', color: C.secondary },
 
   // Sticky Footer
-  stickyFooter: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.card, borderTopWidth: 1, borderTopColor: C.border, paddingHorizontal: 16, paddingTop: 12, ...Platform.select({ ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12 }, android: { elevation: 8 } }) },
+  stickyFooter: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.white, borderTopWidth: 1, borderTopColor: C.line, paddingHorizontal: 16, paddingTop: 12, ...Platform.select({ ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12 }, android: { elevation: 8 } }) },
   submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: C.secondary, borderRadius: 14, paddingVertical: 15, minHeight: 52 },
   submitBtnDisabled: { backgroundColor: C.muted, opacity: 0.6 },
   submitBtnText: { fontSize: 16, fontWeight: '800', color: C.onPrimary, letterSpacing: -0.2 },
@@ -908,9 +913,9 @@ const makeStyles = (theme) => {
 
   // Submission overlay
   submittingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: C.overlay, zIndex: 100, alignItems: 'center', justifyContent: 'center' },
-  submittingCard: { backgroundColor: C.card, borderRadius: 20, padding: 32, alignItems: 'center', marginHorizontal: 40, gap: 14, ...Platform.select({ ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 20 }, android: { elevation: 12 } }) },
+  submittingCard: { backgroundColor: C.white, borderRadius: 20, padding: 32, alignItems: 'center', marginHorizontal: 40, gap: 14, ...Platform.select({ ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 20 }, android: { elevation: 12 } }) },
   submittingTitle: { fontSize: 17, fontWeight: '800', color: C.text, letterSpacing: -0.3 },
-  submittingSubtitle: { fontSize: 13, color: C.textSec, textAlign: 'center', lineHeight: 19 },
+  submittingSubtitle: { fontSize: 13, color: C.textSecondary, textAlign: 'center', lineHeight: 19 },
   });
 };
 

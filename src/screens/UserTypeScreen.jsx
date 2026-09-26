@@ -273,7 +273,7 @@ const makeStyles = (theme) => {
     }),
   },
   logo: { fontSize: 24, fontWeight: '800', color: C.primary, marginBottom: 6, letterSpacing: 0.3 },
-  title: { fontSize: 22, fontWeight: '800', color: C.textPrimary, marginBottom: 6 },
+  title: { fontSize: 22, fontWeight: '800', color: C.text, marginBottom: 6 },
   subtitle: { fontSize: 14, color: C.textSecondary, textAlign: 'center', lineHeight: 21, paddingHorizontal: 12 },
 
   // ── Hero Illustration ──
@@ -302,7 +302,7 @@ const makeStyles = (theme) => {
   },
   iconContainerSecondary: { backgroundColor: brandTint.blue08 },
   cardContent: { flex: 1 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: C.textPrimary, marginBottom: 3 },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: C.text, marginBottom: 3 },
   cardDescription: { fontSize: 13, color: C.textSecondary, lineHeight: 19 },
   chevron: {
     width: 32, height: 32, borderRadius: 10,
@@ -320,9 +320,9 @@ const makeStyles = (theme) => {
     flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end',
     marginTop: 6, marginRight: 16,
     paddingHorizontal: 12, paddingVertical: 7, borderRadius: 12,
-    backgroundColor: C.sunken, borderWidth: 1, borderColor: C.border,
+    backgroundColor: C.sunken, borderWidth: 1, borderColor: C.line,
   },
-  langButtonText: { fontSize: 13, fontWeight: '600', color: C.textPrimary, marginHorizontal: 4 },
+  langButtonText: { fontSize: 13, fontWeight: '600', color: C.text, marginHorizontal: 4 },
 
   // ── Language Modal ──
   modalOverlay: {
@@ -336,7 +336,7 @@ const makeStyles = (theme) => {
       android: { elevation: 10 },
     }),
   },
-  langModalTitle: { fontSize: 17, fontWeight: '700', color: C.textPrimary, marginBottom: 16, textAlign: 'center' },
+  langModalTitle: { fontSize: 17, fontWeight: '700', color: C.text, marginBottom: 16, textAlign: 'center' },
   langOption: {
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 13, paddingHorizontal: 14, borderRadius: 12, marginBottom: 6,
@@ -345,7 +345,7 @@ const makeStyles = (theme) => {
   langOptionActive: {
     backgroundColor: brandTint.orange06, borderWidth: 1, borderColor: stableDark.brandOrangeLine,
   },
-  langOptionText: { fontSize: 15, fontWeight: '600', color: C.textPrimary, flex: 1 },
+  langOptionText: { fontSize: 15, fontWeight: '600', color: C.text, flex: 1 },
   langOptionTextActive: { color: C.primary },
   langOptionSub: { fontSize: 12, color: C.muted, marginRight: 8 },
   });

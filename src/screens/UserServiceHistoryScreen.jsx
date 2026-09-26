@@ -1105,7 +1105,7 @@ const UserServiceHistoryScreen = ({ navigation }) => {
           <>
             <View style={styles.statsBarInner}>
               <View style={styles.statsRow}>
-                <StatPill value={stats.total} label={t('userHistory.total')} color={C.primary} bgColor={C.orangeBg} />
+                <StatPill value={stats.total} label={t('userHistory.total')} color={C.primary} bgColor={C.warningBg} />
                 <StatPill value={stats.active} label={t('userHistory.active')} color={C.success} bgColor={C.successBg} />
                 <StatPill value={stats.completed} label={t('userHistory.done')} color={C.secondary} bgColor={C.blueBg} />
               </View>
@@ -1272,7 +1272,7 @@ const makeStyles = (theme) => {
   cardSvgBg: { position: 'absolute', top: 0, left: 0, right: 0, height: 60 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   cardTopLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 },
-  svcIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.orangeBg, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  svcIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.warningBg, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   svcNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
   svcName: { fontSize: 15, fontWeight: '700', color: C.text, textTransform: 'capitalize', flexShrink: 1 },
   typeBadge: { backgroundColor: C.purpleBg, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },

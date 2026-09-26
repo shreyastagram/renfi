@@ -59,6 +59,7 @@ const STEPS = {
 };
 
 const makeC = (c) => ({
+  primaryLight: c.infoBg, // was #EFF6FF, blue-50
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,
@@ -559,7 +560,7 @@ const makeStyles = (theme) => {
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: C.border,
+    backgroundColor: C.line,
     alignSelf: 'center',
     marginBottom: 16,
   },
@@ -571,7 +572,7 @@ const makeStyles = (theme) => {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: C.bgSecondary,
+    backgroundColor: C.sunken,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -617,7 +618,7 @@ const makeStyles = (theme) => {
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: C.successLight,
+    backgroundColor: C.successBg,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -647,7 +648,7 @@ const makeStyles = (theme) => {
   warningCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: C.warningLight,
+    backgroundColor: C.warningBg,
     borderRadius: 12,
     padding: 14,
     marginBottom: 20,
@@ -703,7 +704,7 @@ const makeStyles = (theme) => {
     fontWeight: '600',
   },
   secondaryBtn: {
-    backgroundColor: C.bgSecondary,
+    backgroundColor: C.sunken,
     borderRadius: 14,
     height: 48,
     justifyContent: 'center',
@@ -711,7 +712,7 @@ const makeStyles = (theme) => {
     marginTop: 20,
     paddingHorizontal: 24,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: C.line,
   },
   secondaryBtnText: {
     color: C.text,
@@ -752,7 +753,7 @@ const makeStyles = (theme) => {
   },
   mutedSmall: {
     fontSize: 12,
-    color: C.textMuted,
+    color: C.muted,
     marginTop: 8,
   },
 

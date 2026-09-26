@@ -2449,7 +2449,7 @@ const makeStyles = (theme) => {
     fontSize: 13,
       // The pale tint that reads as secondary on a danger banner, which is what
       // v1.0.9 used. dangerFill is a BACKGROUND step and was only 3.09:1 as text.
-    color: C.dangerContainer,
+    color: C.dangerBg,
     lineHeight: 18,
   },
   documentTabs: {

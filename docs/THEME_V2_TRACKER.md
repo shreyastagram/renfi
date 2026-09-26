@@ -879,6 +879,55 @@ cognitive load and figure-ground.
 
 ---
 
+## 27. THE BIG ONE — 60 `C.*` references that resolved to `undefined`
+
+Found while building a parser-based ink auditor. **This is the worst defect in the
+project and the most likely source of the owner's original "black text in black bg".**
+
+`C` is a plain object, so `C.textMuted` on a `makeC` that only defines `muted` is not
+an error — it is `undefined`. React Native then drops the property:
+
+| written | actual |
+|---|---|
+| `color: undefined` | falls back to the platform default — **BLACK** |
+| `backgroundColor: undefined` | transparent; the surface disappears |
+| `borderColor: undefined` | the hairline vanishes |
+
+**60 such references across 19 files**, verified at runtime, not inferred:
+`VerificationScreen` alone had 27 (`C.textMuted` ×14, `C.border` ×5, `C.successGreen`
+×5, `C.red` ×3). `VerificationDashboardScreen`'s "Premium Header" referenced `C.hero`,
+which never existed — so the header had **no background at all** and its near-white ink
+rendered on the page: invisible in BOTH themes.
+
+**Nothing could have caught it.** eslint's `no-undef` sees a property access on a
+defined object and is satisfied. `check:hex` sees no literal. `check:contrast` never
+learns the pair exists. It is only wrong at runtime, on a device, and often in only one
+theme. That is why it survived every previous sweep in this file.
+
+### The fix
+
+118 references repointed to keys that exist, and 18 keys added where the name was
+meaningful — each reproducing its **v1.0.9 value**, recovered from git rather than
+guessed: `hero`/`darkHero` → `stableDark.heroSurface` (`#0F172A`), `star` →
+`iconAccent.star` (`#F59E0B`), `selected` → `altBlueIndigo` (`#2563EB`), and so on.
+
+### And the gate caught me mid-fix
+
+Mapping `C.dark` → `C.text` was right in two files, where `dark` was a text colour. In
+`InsuranceScreen` it was the **heroHeader's background**, so the repoint recreated
+exactly the ink-as-background inversion from §18. `inkNotBackground.test.js` failed the
+build before it shipped. **A gate written for an earlier bug caught a new one — that is
+the whole return on writing them.**
+
+### New gate
+
+`npm run check:tokens` → `scripts/check-token-refs.js`, wired into `verify` before
+`check:hex`. Deliberately dumb and exact: collect the keys `makeC` returns, collect
+every `C.` reference, diff them. No heuristics, so no false positives. Proven to fail on
+a reintroduced typo.
+
+---
+
 ## 26. Switch thumbs — one was invisible, and the three disagreed
 
 Continuing §25's theme: native props the colour gates cannot see.

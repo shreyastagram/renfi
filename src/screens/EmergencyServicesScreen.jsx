@@ -75,6 +75,7 @@ const EMERGENCY_NOTES_PLACEHOLDERS = {
 
 // Premium design tokens
 const makeC = (c) => ({
+  darkHero: stableDark.heroSurface, // was #0F172A — a fixed brand panel
   primary: c.brandOrange,
   secondary: c.brandBlue,
   onPrimary: c.onBrandOrange,

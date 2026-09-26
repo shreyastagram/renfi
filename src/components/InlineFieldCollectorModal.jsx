@@ -36,6 +36,7 @@ import {
 } from '../theme';
 
 const makeC = (c) => ({
+  muted: c.textMuted, // was the placeholder ink
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   text: c.textPrimary,
@@ -213,7 +214,7 @@ const InlineFieldCollectorModal = ({ field = 'name', bottomInset = 0, onDone }) 
                   if (error) setError('');
                 }}
                 placeholder={labels.placeholder}
-                placeholderTextColor={C.textMuted}
+                placeholderTextColor={C.muted}
                 autoCapitalize={cfg.autoCapitalize}
                 keyboardType={cfg.keyboardType}
                 maxLength={cfg.maxLength}

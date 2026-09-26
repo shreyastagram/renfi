@@ -38,8 +38,10 @@ import {
   useThemedStyles,
   useThemeColors,
 } from '../theme';
+import { brandTint } from '../theme';
 
 const makeC = (c) => ({
+  primaryLight: brandTint.orange10, // was a brand-orange tint
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,
@@ -679,7 +681,7 @@ const makeStyles = (theme) => {
   const C = makeC(theme.colors);
   return StyleSheet.create({
   // ── Layout ──
-  container: { flex: 1, backgroundColor: C.background },
+  container: { flex: 1, backgroundColor: C.bg },
   keyboardAvoid: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24 },
   alert: { marginBottom: 16 },
@@ -709,7 +711,7 @@ const makeStyles = (theme) => {
       android: { elevation: 2 },
     }),
   },
-  methodTabText: { fontSize: 14, fontWeight: '500', color: C.textLight },
+  methodTabText: { fontSize: 14, fontWeight: '500', color: C.muted },
   methodTabTextActive: { color: C.primary, fontWeight: '700' },
 
   // ── Header ──
@@ -730,13 +732,13 @@ const makeStyles = (theme) => {
   timerBadge: { backgroundColor: C.primaryLight, paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20 },
   timerBadgeText: { fontSize: 17, fontWeight: '700', color: C.primary, fontVariant: ['tabular-nums'] },
   timerBadgeExpired: { backgroundColor: C.dangerBg },
-  timerExpiredText: { fontSize: 14, color: C.error, fontWeight: '600' },
+  timerExpiredText: { fontSize: 14, color: C.danger, fontWeight: '600' },
 
   // ── OTP ──
   otpContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, paddingHorizontal: 4 },
   otpInput: {
-    width: 48, height: 56, borderWidth: 1.5, borderColor: C.border, borderRadius: 14,
-    fontSize: 22, fontWeight: '800', color: C.text, backgroundColor: C.surface, textAlign: 'center',
+    width: 48, height: 56, borderWidth: 1.5, borderColor: C.line, borderRadius: 14,
+    fontSize: 22, fontWeight: '800', color: C.text, backgroundColor: C.white, textAlign: 'center',
   },
   otpInputFilled: { borderColor: C.primary, backgroundColor: C.primaryLight },
   otpInputExpired: { borderColor: C.dangerLine, backgroundColor: C.dangerBg, color: C.muted },
@@ -744,11 +746,11 @@ const makeStyles = (theme) => {
   // ── Resend ──
   resendRow: { alignItems: 'center', marginBottom: 24 },
   resendText: { fontSize: 14, color: C.primary, fontWeight: '500' },
-  resendTextDisabled: { color: C.textLight },
+  resendTextDisabled: { color: C.muted },
   resendProminentText: { fontSize: 15, color: C.primary, fontWeight: '600' },
 
   // ── Password Hints ──
-  passwordHints: { backgroundColor: C.surface, borderRadius: 12, padding: 12, marginTop: 8, borderWidth: 1, borderColor: C.border },
+  passwordHints: { backgroundColor: C.white, borderRadius: 12, padding: 12, marginTop: 8, borderWidth: 1, borderColor: C.line },
   hintTitle: { fontSize: 12, fontWeight: '600', color: C.text, marginBottom: 4 },
   hintText: { fontSize: 11, color: C.textSecondary, marginBottom: 2 },
   hintMet: { color: C.success },

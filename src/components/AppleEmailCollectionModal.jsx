@@ -414,7 +414,7 @@ const AppleEmailCollectionModal = ({ visible, appleUserId, onVerified, onCancel 
                     ref={emailInputRef}
                     style={styles.emailInput}
                     placeholder={t('auth.appleEmailPlaceholder') || 'Enter your email address'}
-                    placeholderTextColor={C.disabled}
+                    placeholderTextColor={C.muted}
                     value={email}
                     onChangeText={(text) => {
                       setEmail(text);
@@ -553,7 +553,7 @@ const makeStyles = (theme) => {
   },
   card: {
     width: Math.min(SCREEN_WIDTH - 48, 380),
-    backgroundColor: C.cardBg,
+    backgroundColor: C.white,
     borderRadius: 22,
     paddingTop: 28,
     paddingHorizontal: 24,
@@ -594,14 +594,14 @@ const makeStyles = (theme) => {
     lineHeight: 20,
   },
   errorContainer: {
-    backgroundColor: C.errorBg,
+    backgroundColor: C.dangerBg,
     borderRadius: 10,
     padding: 12,
     marginBottom: 16,
   },
   errorText: {
     fontSize: 13,
-    color: C.error,
+    color: C.danger,
     textAlign: 'center',
     lineHeight: 18,
   },
@@ -622,9 +622,9 @@ const makeStyles = (theme) => {
     marginBottom: 8,
   },
   emailInput: {
-    backgroundColor: C.inputBg,
+    backgroundColor: C.sunken,
     borderWidth: 1.5,
-    borderColor: C.border,
+    borderColor: C.line,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: Platform.OS === 'ios' ? 14 : 12,
@@ -641,9 +641,9 @@ const makeStyles = (theme) => {
   otpInput: {
     flex: 1,
     height: 52,
-    backgroundColor: C.inputBg,
+    backgroundColor: C.sunken,
     borderWidth: 1.5,
-    borderColor: C.border,
+    borderColor: C.line,
     borderRadius: 12,
     textAlign: 'center',
     fontSize: 22,
@@ -681,7 +681,7 @@ const makeStyles = (theme) => {
   },
   countdownText: {
     fontSize: 14,
-    color: C.disabled,
+    color: C.muted,
   },
   linkText: {
     fontSize: 14,
@@ -702,7 +702,7 @@ const makeStyles = (theme) => {
   },
   cancelText: {
     fontSize: 14,
-    color: C.disabled,
+    color: C.muted,
     fontWeight: '600',
   },
   });

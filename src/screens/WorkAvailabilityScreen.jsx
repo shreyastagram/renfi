@@ -220,7 +220,7 @@ const makeStyles = (theme) => {
   },
   dayTextWrap: { flex: 1, minWidth: 0 },
   dayNameRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
-  dayName: { fontSize: 15, fontWeight: '700', color: C.dark },
+  dayName: { fontSize: 15, fontWeight: '700', color: C.text },
   dayNameOff: { color: C.muted },
   todayBadge: { backgroundColor: C.warningBg, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 },
   todayBadgeText: { fontSize: 10, fontWeight: '800', color: C.primary, textTransform: 'uppercase' },

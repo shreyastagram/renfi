@@ -186,7 +186,7 @@ const DayHoursSheet = ({ visible, dayKey, initial, saving = false, onClose, onSa
 const makeStyles = (theme) => {
   const C = makeC(theme.colors);
   return StyleSheet.create({
-  scrim: { flex: 1, backgroundColor: C.scrim, justifyContent: 'flex-end' },
+  scrim: { flex: 1, backgroundColor: C.overlay, justifyContent: 'flex-end' },
   scrimTap: { flex: 1 },
   sheet: {
     backgroundColor: C.white,
@@ -197,7 +197,7 @@ const makeStyles = (theme) => {
     maxHeight: '90%',
   },
   handle: { width: 40, height: 5, borderRadius: 3, backgroundColor: C.lineSlate, alignSelf: 'center', marginBottom: 12 },
-  title: { fontSize: 20, fontWeight: '800', color: C.dark },
+  title: { fontSize: 20, fontWeight: '800', color: C.text },
   subtitle: { fontSize: 13, color: C.muted, marginTop: 2, marginBottom: 14 },
   workRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

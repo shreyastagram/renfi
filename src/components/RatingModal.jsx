@@ -31,11 +31,14 @@ import {
   useThemedStyles,
   useThemeColors,
 } from '../theme';
+import { iconAccent } from '../theme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Brand colors
 const makeC = (c) => ({
+  star: iconAccent.star, // was #F59E0B
+  starEmpty: c.borderMedium, // was #D1D5DB
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,

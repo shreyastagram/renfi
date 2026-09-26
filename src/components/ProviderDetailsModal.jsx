@@ -41,6 +41,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Brand colors
 const makeC = (c) => ({
+  star: iconAccent.star, // was #F59E0B, theme-independent
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
   secondary: c.brandBlue,
@@ -804,7 +805,7 @@ const makeStyles = (theme) => {
   },
   statsRow: {
     flexDirection: 'row',
-    backgroundColor: C.background,
+    backgroundColor: C.bg,
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
@@ -857,7 +858,7 @@ const makeStyles = (theme) => {
   },
   ratingBreakdown: {
     flexDirection: 'row',
-    backgroundColor: C.background,
+    backgroundColor: C.bg,
     borderRadius: 12,
     padding: 16,
   },
@@ -917,7 +918,7 @@ const makeStyles = (theme) => {
     textAlign: 'right',
   },
   reviewCard: {
-    backgroundColor: C.background,
+    backgroundColor: C.bg,
     borderRadius: 12,
     padding: 14,
     marginBottom: 10,
@@ -979,7 +980,7 @@ const makeStyles = (theme) => {
   },
   // Bio styles
   bioContainer: {
-    backgroundColor: C.background,
+    backgroundColor: C.bg,
     borderRadius: 12,
     padding: 16,
   },
@@ -1043,7 +1044,7 @@ const makeStyles = (theme) => {
   galleryImageContainer: {
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: C.background,
+    backgroundColor: C.bg,
     marginRight: 12,
   },
   galleryImage: {
