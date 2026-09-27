@@ -54,6 +54,9 @@ import {
 
 // ─── Design Tokens ─────────────────────────────────────────────
 const makeC = (c) => ({
+  infoDeep: c.info,
+  infoBorder: c.infoBorder,
+  infoContainer: c.infoContainer,
   successContainer: c.successContainer,
   dangerContainer: c.dangerContainer,
   surface: c.surface,
@@ -775,10 +778,10 @@ const InsuranceScreen = ({ navigation }) => {
             activeOpacity={0.8}
           >
             {submitting ? (
-              <ActivityIndicator color={C.onPrimary} size="small" />
+              <ActivityIndicator color={C.infoDeep} size="small" />
             ) : (
               <>
-                <MaterialIcon name="cloud-upload" size={20} color={C.onPrimary} />
+                <MaterialIcon name="cloud-upload" size={20} color={C.infoDeep} />
                 <Text style={s.submitBtnText}>
                   {isRejected ? t('insurance.resubmitDocuments') : t('insurance.submitForVerification')}
                 </Text>
@@ -914,9 +917,12 @@ const makeStyles = (theme) => {
 
   // Sticky Footer
   stickyFooter: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.white, borderTopWidth: 1, borderTopColor: C.line, paddingHorizontal: 16, paddingTop: 12, ...Platform.select({ ios: { shadowColor: C.shadow, shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12 }, android: { elevation: 8 } }) },
-  submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: C.secondary, borderRadius: 14, paddingVertical: 15, minHeight: 52 },
+  submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: C.infoContainer, borderRadius: 14, paddingVertical: 15, minHeight: 52,
+    borderWidth: 1,
+    borderColor: C.infoBorder,
+  },
   submitBtnDisabled: { backgroundColor: C.muted, opacity: 0.6 },
-  submitBtnText: { fontSize: 16, fontWeight: '800', color: C.onSecondary, letterSpacing: -0.2 },
+  submitBtnText: { fontSize: 16, fontWeight: '800', color: C.infoDeep, letterSpacing: -0.2 },
   submitHint: { fontSize: 11, color: C.muted, textAlign: 'center', marginTop: 6 },
 
   // Submission overlay

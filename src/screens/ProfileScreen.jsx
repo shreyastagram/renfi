@@ -95,6 +95,10 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Service labels for proper display
 const makeC = (c) => ({
+  infoDeep: c.info,
+  brandOrangeBorder: c.brandOrangeBorder,
+  infoBorder: c.infoBorder,
+  infoContainer: c.infoContainer,
   warningContainer: c.warningContainer,
   brandOrangeFill: c.brandOrangeFill,
   brandOrangeLine: c.brandOrangeBorder,
@@ -250,7 +254,7 @@ const InfoRow = React.memo(({ label, value, iconName, verified, onVerify, isLoad
         ) : (
           <TouchableOpacity style={styles.verifyButton} onPress={onVerify} disabled={isLoading}>
             {isLoading ? (
-              <ActivityIndicator size="small" color={C.onPrimary} />
+              <ActivityIndicator size="small" color={C.brandOrangeInk} />
             ) : (
               <Text style={styles.verifyButtonText}>{verifyLabel || 'Verify'}</Text>
             )}
@@ -2307,9 +2311,9 @@ const ProfileScreen = ({ navigation, route }) => {
                         activeOpacity={0.7}
                       >
                         {detectingLocation ? (
-                          <ActivityIndicator size="small" color={C.onSecondary} />
+                          <ActivityIndicator size="small" color={C.infoDeep} />
                         ) : (
-                          <MaterialIcon name="my-location" size={16} color={C.onSecondary} />
+                          <MaterialIcon name="my-location" size={16} color={C.infoDeep} />
                         )}
                         <Text style={styles.detectLocationBtnText}>
                           {detectingLocation ? t('profile.detectingLocation') : t('profile.detectMyLocation')}
@@ -2522,10 +2526,10 @@ const ProfileScreen = ({ navigation, route }) => {
                       activeOpacity={0.8}
                     >
                       {verifyingPhone ? (
-                        <ActivityIndicator size="small" color={C.onPrimary} />
+                        <ActivityIndicator size="small" color={C.brandOrangeInk} />
                       ) : (
                         <View style={styles.otpVerifyButtonContent}>
-                          <MaterialIcon name="verified" size={18} color={C.onPrimary} />
+                          <MaterialIcon name="verified" size={18} color={C.brandOrangeInk} />
                           <Text style={styles.otpVerifyButtonText}>{t('profile.verifyBtn')}</Text>
                         </View>
                       )}
@@ -2652,10 +2656,10 @@ const ProfileScreen = ({ navigation, route }) => {
                       activeOpacity={0.8}
                     >
                       {verifyingPhone ? (
-                        <ActivityIndicator size="small" color={C.onPrimary} />
+                        <ActivityIndicator size="small" color={C.brandOrangeInk} />
                       ) : (
                         <View style={styles.otpVerifyButtonContent}>
-                          <MaterialIcon name="verified" size={18} color={C.onPrimary} />
+                          <MaterialIcon name="verified" size={18} color={C.brandOrangeInk} />
                           <Text style={styles.otpVerifyButtonText}>{t('profile.verifyBtn')}</Text>
                         </View>
                       )}
@@ -3817,7 +3821,7 @@ const makeStyles = (theme) => {
     fontWeight: '700',
   },
   verifyButton: {
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 12,
@@ -3835,10 +3839,12 @@ const makeStyles = (theme) => {
         elevation: 3,
       },
     }),
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   verifyButtonText: {
     fontSize: 13,
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
     fontWeight: '700',
   },
 
@@ -3919,7 +3925,7 @@ const makeStyles = (theme) => {
     color: C.brandOrangeInk,
   },
   otpVerifyButton: {
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     borderRadius: 14,
     paddingVertical: 14,
     marginHorizontal: 12,
@@ -3932,6 +3938,8 @@ const makeStyles = (theme) => {
       },
       android: { elevation: 4 },
     }),
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   otpVerifyButtonDisabled: {
     backgroundColor: C.disabledFill,
@@ -3947,7 +3955,7 @@ const makeStyles = (theme) => {
     gap: 8,
   },
   otpVerifyButtonText: {
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -4329,7 +4337,7 @@ const makeStyles = (theme) => {
   detectLocationBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.secondary,
+    backgroundColor: C.infoContainer,
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: 22,
@@ -4343,6 +4351,8 @@ const makeStyles = (theme) => {
       },
       android: { elevation: 4 },
     }),
+    borderWidth: 1,
+    borderColor: C.infoBorder,
   },
   detectLocationBtnDisabled: {
     backgroundColor: C.blueLine,
@@ -4350,7 +4360,7 @@ const makeStyles = (theme) => {
   detectLocationBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: C.onSecondary,
+    color: C.infoDeep,
     letterSpacing: 0.2,
   },
 
@@ -4584,7 +4594,7 @@ const makeStyles = (theme) => {
   premiumInactiveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     paddingHorizontal: Platform.OS === 'ios' ? 24 : 28,
     paddingVertical: Platform.OS === 'ios' ? 13 : 14,
     borderRadius: Platform.OS === 'ios' ? 14 : 30,
@@ -4599,6 +4609,8 @@ const makeStyles = (theme) => {
       },
       android: { elevation: 5 },
     }),
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   premiumInactiveBtnText: {
     fontSize: Platform.OS === 'ios' ? 15 : 16,

@@ -172,6 +172,9 @@ const makeFilterTabs = (C) => ([
 
 // Brand colors
 const makeC = (c) => ({
+  infoDeep: c.info,
+  brandOrangeBorder: c.brandOrangeBorder,
+  infoBorder: c.infoBorder,
   infoContainer: c.infoContainer,
   dangerContainer: c.dangerContainer,
   brandOrangeFill: c.brandOrangeFill,
@@ -348,7 +351,7 @@ const ServiceRequestCard = ({
                 style={styles.resubmitButton}
                 onPress={onResubmit}
               >
-                <MaterialIcon name="refresh" size={18} color={C.onSecondary} />
+                <MaterialIcon name="refresh" size={18} color={C.infoDeep} />
                 <Text style={styles.resubmitButtonText}>Resubmit</Text>
               </TouchableOpacity>
             )}
@@ -792,7 +795,7 @@ const EmptyState = ({ filter, onAddService }) => {
       <Text style={styles.emptyStateDescription}>{content.description}</Text>
       {content.buttonText && (
         <TouchableOpacity style={styles.emptyStateButton} onPress={onAddService}>
-          <MaterialIcon name="add" size={20} color={C.onPrimary} />
+          <MaterialIcon name="add" size={20} color={C.brandOrangeInk} />
           <Text style={styles.emptyStateButtonText}>{content.buttonText}</Text>
         </TouchableOpacity>
       )}
@@ -1720,7 +1723,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
             <Text style={styles.primaryButtonText}>
               Continue ({selectedServices.length} selected)
             </Text>
-            <MaterialIcon name="arrow-forward" size={20} color={C.onPrimary} />
+            <MaterialIcon name="arrow-forward" size={20} color={C.brandOrangeInk} />
           </TouchableOpacity>
         </View>
       </View>
@@ -1962,7 +1965,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
             disabled={!isCurrentServiceComplete() || submitting}
           >
             {submitting ? (
-              <ActivityIndicator color={C.onPrimary} />
+              <ActivityIndicator color={C.brandOrangeInk} />
             ) : (
               <>
                 <Text style={styles.primaryButtonText}>
@@ -1970,7 +1973,7 @@ const ServiceApprovalsScreen = ({ navigation }) => {
                     ? 'Next Service'
                     : 'Submit for Approval'}
                 </Text>
-                <MaterialIcon name="arrow-forward" size={20} color={C.onPrimary} />
+                <MaterialIcon name="arrow-forward" size={20} color={C.brandOrangeInk} />
               </>
             )}
           </TouchableOpacity>
@@ -2299,17 +2302,19 @@ const makeStyles = (theme) => {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: C.secondary,
+    backgroundColor: C.infoContainer,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 6,
     flex: 1,
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: C.infoBorder,
   },
   resubmitButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: C.onSecondary,
+    color: C.infoDeep,
   },
   cancelRequestButton: {
     flexDirection: 'row',
@@ -2359,7 +2364,7 @@ const makeStyles = (theme) => {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 8,
@@ -2368,11 +2373,13 @@ const makeStyles = (theme) => {
     shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   emptyStateButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
   },
 
   // FAB - Sleek brand button
@@ -3018,7 +3025,7 @@ const makeStyles = (theme) => {
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     paddingVertical: 12,
     borderRadius: 8,
     shadowColor: C.shadow,
@@ -3026,6 +3033,8 @@ const makeStyles = (theme) => {
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   buttonDisabled: {
     backgroundColor: C.borderMedium,
@@ -3035,7 +3044,7 @@ const makeStyles = (theme) => {
   primaryButtonText: {
     fontSize: 14,
     fontWeight: '700',
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
     letterSpacing: -0.2,
   },
   });

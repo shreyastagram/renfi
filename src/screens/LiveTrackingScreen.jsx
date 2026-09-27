@@ -52,6 +52,12 @@ import { getMapStyleURL } from '../config/mapbox';
 const { width: SCREEN_W } = Dimensions.get('window');
 
 const makeC = (c) => ({
+  infoBorder: c.infoBorder,
+  infoContainer: c.infoContainer,
+  successDeep: c.successDeep,
+  brandOrangeBorder: c.brandOrangeBorder,
+  brandOrangeFill: c.brandOrangeFill,
+  successBorder: c.successBorder,
   onSecondary: c.onBrandBlue,
   onPrimary: c.onBrandOrange,
   brandOrangeInk: c.brandOrangeInk,
@@ -547,7 +553,7 @@ const LiveTrackingScreen = ({ navigation, route }) => {
             <View style={[styles.errorIcon, { backgroundColor: C.dangerContainer }]}><MaterialIcon name="location-off" size={28} color={C.danger} /></View>
             <Text style={styles.errorTitle}>{t('tracking.stoppedSharing')}</Text>
             <Text style={styles.errorSubText}>{t('tracking.lastKnown')}</Text>
-            <TouchableOpacity style={[styles.retryBtn, { backgroundColor: C.secondary }]} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+            <TouchableOpacity style={[styles.retryBtn, { backgroundColor: C.infoContainer, borderWidth: 1, borderColor: C.infoBorder }]} onPress={() => navigation.goBack()} activeOpacity={0.7}>
               <Text style={styles.retryBtnText}>{t('common.goBack')}</Text>
             </TouchableOpacity>
           </View>
@@ -557,7 +563,7 @@ const LiveTrackingScreen = ({ navigation, route }) => {
             <Text style={styles.errorTitle}>{error}</Text>
             <Text style={styles.errorSubText}>{t('tracking.checkingUpdates')}</Text>
             <TouchableOpacity style={styles.retryBtn} onPress={() => { setIsRefreshing(true); fetchProviderLocation(); }} activeOpacity={0.7}>
-              {isRefreshing ? <ActivityIndicator size="small" color={C.onPrimary} /> : <Text style={styles.retryBtnText}>{t('tracking.retryNow')}</Text>}
+              {isRefreshing ? <ActivityIndicator size="small" color={C.brandOrangeInk} /> : <Text style={styles.retryBtnText}>{t('tracking.retryNow')}</Text>}
             </TouchableOpacity>
           </View>
         ) : (
@@ -624,7 +630,7 @@ const LiveTrackingScreen = ({ navigation, route }) => {
             {/* Action buttons */}
             <View style={styles.actionsRow}>
               <TouchableOpacity style={styles.callBtn} onPress={callProvider} activeOpacity={0.8}>
-                <MaterialIcon name="phone" size={20} color={C.white} />
+                <MaterialIcon name="phone" size={20} color={C.successDeep} />
                 <Text style={styles.callBtnText}>Call Provider</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.dirBtn} onPress={openDirections} activeOpacity={0.8}>
@@ -674,8 +680,11 @@ const makeStyles = (theme) => {
   errorIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: C.warningContainer, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   errorTitle: { fontSize: 15, fontWeight: '700', color: C.text, textAlign: 'center' },
   errorSubText: { fontSize: 12, fontWeight: '500', color: C.muted, marginTop: 4 },
-  retryBtn: { marginTop: 16, backgroundColor: C.primary, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 14, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
-  retryBtnText: { fontSize: 14, fontWeight: '700', color: C.onSecondary },
+  retryBtn: { marginTop: 16, backgroundColor: C.brandOrangeFill, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 14, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
+  },
+  retryBtnText: { fontSize: 14, fontWeight: '700', color: C.brandOrangeInk },
 
   // Provider row
   providerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
@@ -706,8 +715,11 @@ const makeStyles = (theme) => {
 
   // Action buttons
   actionsRow: { flexDirection: 'row', gap: 10 },
-  callBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.success, paddingVertical: 14, borderRadius: 16, gap: 8, shadowColor: C.success, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
-  callBtnText: { fontSize: 15, fontWeight: '700', color: C.white },
+  callBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.successContainer, paddingVertical: 14, borderRadius: 16, gap: 8, shadowColor: C.success, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
+    borderWidth: 1,
+    borderColor: C.successBorder,
+  },
+  callBtnText: { fontSize: 15, fontWeight: '700', color: C.successDeep },
   dirBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.warningContainer, paddingVertical: 14, borderRadius: 16, gap: 8, borderWidth: 1.5, borderColor: C.primary },
   dirBtnText: { fontSize: 15, fontWeight: '700', color: C.brandOrangeInk },
   });

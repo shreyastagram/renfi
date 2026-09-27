@@ -74,6 +74,7 @@ import { brand } from '../theme';
 const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
 const makeC = (c) => ({
+  brandOrangeBorder: c.brandOrangeBorder,
   infoContainer: c.infoContainer,
   successContainer: c.successContainer,
   dangerContainer: c.dangerContainer,
@@ -272,7 +273,7 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
                           activeOpacity={0.7}
                         >
                           {isVerifying ? (
-                            <ActivityIndicator color={C.white} size="small" />
+                            <ActivityIndicator color={C.successDeep} size="small" />
                           ) : (
                             <Text style={[styles.iosVerifyBtnText, isDisabled && styles.iosVerifyBtnTextDisabled]}>
                               {t('providerHistory.verifyComplete')}
@@ -355,7 +356,7 @@ const OTPModal = ({ visible, onClose, onVerify, isVerifying, error }) => {
                 onPress={handleVerify}
                 disabled={otp.length !== 6 || isVerifying || isLocked}
               >
-                {isVerifying ? <ActivityIndicator color={C.onPrimary} /> : <Text style={styles.verifyBtnText}>{t('providerHistory.verifyComplete')}</Text>}
+                {isVerifying ? <ActivityIndicator color={C.successDeep} /> : <Text style={styles.verifyBtnText}>{t('providerHistory.verifyComplete')}</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -514,8 +515,8 @@ const RequestCard = React.memo(({ request, onPress, onCall, onDirections, onComp
                 onPress={() => onAccept(request)}
                 disabled={isAccepting || isRejecting}
               >
-                {isAccepting ? <ActivityIndicator color={C.onPrimary} size="small" /> : (
-                  <><Icon name="check" size={15} color={C.onPrimary} /><Text style={styles.acceptBtnText}>{t('providerHistory.accept')}</Text></>
+                {isAccepting ? <ActivityIndicator color={C.brandOrangeInk} size="small" /> : (
+                  <><Icon name="check" size={15} color={C.brandOrangeInk} /><Text style={styles.acceptBtnText}>{t('providerHistory.accept')}</Text></>
                 )}
               </TouchableOpacity>
             </View>
@@ -525,7 +526,7 @@ const RequestCard = React.memo(({ request, onPress, onCall, onDirections, onComp
           {isActive && (
             <View style={styles.actionRow}>
               <TouchableOpacity style={styles.completeBtn} onPress={() => onComplete(request)} activeOpacity={0.7}>
-                <Icon name="check-circle" size={15} color={C.white} />
+                <Icon name="check-circle" size={15} color={C.successDeep} />
                 <Text style={styles.completeBtnText}>{t('providerHistory.complete')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => onCancel(request)} activeOpacity={0.7}>
@@ -1398,11 +1399,14 @@ const makeStyles = (theme) => {
 
   // Pending: Map + Accept/Reject row
   pendingActionRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  viewMapBtnCompact: { width: 42, alignItems: 'center', justifyContent: 'center', backgroundColor: C.secondary + '12', borderRadius: 10, borderWidth: 1, borderColor: C.secondary + '30' },
+  viewMapBtnCompact: { width: 42, alignItems: 'center', justifyContent: 'center', backgroundColor: C.infoContainer + '12', borderRadius: 10, borderWidth: 1, borderColor: C.infoBorder + '30' },
   rejectBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', paddingVertical: 11, borderRadius: 12, gap: 5, borderWidth: 1.5, borderColor: C.line },
   rejectBtnText: { color: C.textSec, fontSize: 13, fontWeight: '600' },
-  acceptBtn: { flex: 1.3, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.primary, paddingVertical: 11, borderRadius: 10, gap: 5 },
-  acceptBtnText: { color: C.onPrimary, fontSize: 14, fontWeight: '600' },
+  acceptBtn: { flex: 1.3, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.brandOrangeFill, paddingVertical: 11, borderRadius: 10, gap: 5,
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
+  },
+  acceptBtnText: { color: C.brandOrangeInk, fontSize: 14, fontWeight: '600' },
   btnDisabled: { opacity: 0.5 },
 
   // Active: Complete + Cancel
@@ -1412,7 +1416,7 @@ const makeStyles = (theme) => {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: C.success,
+    backgroundColor: C.successContainer,
     paddingVertical: 12,
     gap: 6,
     ...Platform.select({
@@ -1428,8 +1432,10 @@ const makeStyles = (theme) => {
         elevation: 4,
       },
     }),
+    borderWidth: 1,
+    borderColor: C.successBorder,
   },
-  completeBtnText: { fontSize: 14, fontWeight: '700', color: C.white, letterSpacing: Platform.OS === 'ios' ? -0.2 : 0 },
+  completeBtnText: { fontSize: 14, fontWeight: '700', color: C.successDeep, letterSpacing: Platform.OS === 'ios' ? -0.2 : 0 },
   cancelBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1469,9 +1475,12 @@ const makeStyles = (theme) => {
   otpInput: { borderWidth: 1.5, borderColor: C.line, borderRadius: 14, fontSize: 26, fontWeight: '700', color: C.text, textAlign: 'center', paddingVertical: 14, letterSpacing: 10, marginBottom: 10 },
   otpError: { fontSize: 12, fontWeight: '500', color: C.danger, textAlign: 'center', marginBottom: 10 },
   otpHintText: { fontSize: 11, fontWeight: '500', textAlign: 'center', marginBottom: 10 },
-  verifyBtn: { backgroundColor: C.success, borderRadius: 14, paddingVertical: 15, alignItems: 'center', shadowColor: C.success, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
+  verifyBtn: { backgroundColor: C.successContainer, borderRadius: 14, paddingVertical: 15, alignItems: 'center', shadowColor: C.success, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
+    borderWidth: 1,
+    borderColor: C.successBorder,
+  },
   verifyBtnDisabled: { backgroundColor: C.muted, shadowOpacity: 0, elevation: 0 },
-  verifyBtnText: { fontSize: 15, fontWeight: '700', color: C.white },
+  verifyBtnText: { fontSize: 15, fontWeight: '700', color: C.successDeep },
 
   // ─── iOS OTP Modal ─────────────────────────────────────────────
   iosOtpBg: { flex: 1, backgroundColor: C.overlay },
@@ -1486,7 +1495,10 @@ const makeStyles = (theme) => {
   iosOtpError: { fontSize: 13, fontWeight: '400', color: C.iosRed, textAlign: 'center', marginBottom: 8, letterSpacing: -0.08 },
   iosOtpHint: { fontSize: 12, fontWeight: '400', color: C.iosPlaceholder, textAlign: 'center', marginBottom: 6 },
   iosOtpActions: { paddingHorizontal: 18, paddingTop: 14, paddingBottom: 18 },
-  iosVerifyBtn: { backgroundColor: C.success, borderRadius: 14, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
+  iosVerifyBtn: { backgroundColor: C.successContainer, borderRadius: 14, paddingVertical: 14, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: C.successBorder,
+  },
   iosVerifyBtnDisabled: { backgroundColor: C.iosDisabled },
   iosVerifyBtnText: { fontSize: 17, fontWeight: '600', color: C.onIosAccent, letterSpacing: -0.41 },
   iosVerifyBtnTextDisabled: {

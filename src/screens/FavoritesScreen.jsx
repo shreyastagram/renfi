@@ -62,6 +62,8 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Premium Design Tokens
 const makeC = (c) => ({
+  brandOrangeBorder: c.brandOrangeBorder,
+  brandOrangeFill: c.brandOrangeFill,
   surface: c.surface,
   onPrimary: c.onBrandOrange,
   brandOrangeInk: c.brandOrangeInk,
@@ -337,7 +339,7 @@ const ProviderCard = ({ provider, onCall, onRemove, onBook, onViewProfile, t }) 
           </TouchableOpacity>
 
           <TouchableOpacity style={cardStyles.bookBtn} onPress={() => onBook(provider)} activeOpacity={0.8}>
-            <MaterialIcon name="bolt" size={18} color={C.onPrimary} />
+            <MaterialIcon name="bolt" size={18} color={C.brandOrangeInk} />
             <Text style={cardStyles.bookBtnText}>{t('favoritesScreen.bookNow')}</Text>
           </TouchableOpacity>
         </View>
@@ -1059,7 +1061,7 @@ const FavoritesScreen = ({ navigation }) => {
             onPress={() => navigation.goBack()}
             activeOpacity={0.8}
           >
-            <MaterialIcon name="search" size={18} color={C.onPrimary} />
+            <MaterialIcon name="search" size={18} color={C.brandOrangeInk} />
             <Text style={screenStyles.emptyBtnText}>{t('favoritesScreen.findServices')}</Text>
           </TouchableOpacity>
         </View>
@@ -1436,7 +1438,7 @@ const makeScreenStyles = (theme) => {
   emptyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     paddingHorizontal: 28,
     paddingVertical: 14,
     borderRadius: 16,
@@ -1450,8 +1452,10 @@ const makeScreenStyles = (theme) => {
       },
       android: { elevation: 6 },
     }),
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
-  emptyBtnText: { ...FONTS.button, color: C.onPrimary },
+  emptyBtnText: { ...FONTS.button, color: C.brandOrangeInk },
 
   listContent: { padding: 20, paddingBottom: 40 },
   });
@@ -1589,7 +1593,7 @@ const makeCardStyles = (theme) => {
     flexDirection: 'row',
     height: 46,
     borderRadius: 14,
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
@@ -1602,8 +1606,10 @@ const makeCardStyles = (theme) => {
       },
       android: { elevation: 4 },
     }),
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
-  bookBtnText: { ...FONTS.button, color: C.onPrimary },
+  bookBtnText: { ...FONTS.button, color: C.brandOrangeInk },
   });
 };
 

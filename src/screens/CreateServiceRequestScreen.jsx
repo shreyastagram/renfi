@@ -76,6 +76,9 @@ const SERVICE_ICONS = {
 // -- the iOS blue stays `altBlueIos` rather than converging on the brand blue,
 // which would be a redesign of the screen, not a theme change.
 const makeC = (c) => ({
+  infoDeep: c.info,
+  infoBorder: c.infoBorder,
+  infoContainer: c.infoContainer,
   brandOrangeInk: c.brandOrangeInk,
   successDeep: c.successDeep,
   line: c.border,
@@ -759,7 +762,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
               disabled={isBooking}
             >
               {isBooking ? (
-                <ActivityIndicator size="small" color={C.onAccent} />
+                <ActivityIndicator size="small" color={C.infoDeep} />
               ) : (
                 <Text style={styles.bookButtonText}>{t('createRequest.bookProvider')}</Text>
               )}
@@ -1015,7 +1018,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
         disabled={!selectedService || !serviceDate || !location || isCreating}
       >
         {isCreating ? (
-          <ActivityIndicator color={C.onAccent} />
+          <ActivityIndicator color={C.infoDeep} />
         ) : (
           <Text style={styles.createButtonText}>{t('createRequest.createRequestBtn')}</Text>
         )}
@@ -1228,29 +1231,33 @@ const makeStyles = (theme) => {
     color: C.onAccent,
   },
   createButton: {
-    backgroundColor: C.accent,
+    backgroundColor: C.infoContainer,
     borderRadius: 12,
     padding: 18,
     alignItems: 'center',
     marginTop: 24,
+    borderWidth: 1,
+    borderColor: C.infoBorder,
   },
   createButtonDisabled: {
     backgroundColor: C.disabledFill,
   },
   createButtonText: {
-    color: C.onAccent,
+    color: C.infoDeep,
     fontSize: 18,
     fontWeight: '600',
   },
   fetchProvidersButton: {
-    backgroundColor: C.success,
+    backgroundColor: C.successContainer,
     borderRadius: 12,
     padding: 18,
     alignItems: 'center',
     marginTop: 16,
+    borderWidth: 1,
+    borderColor: C.successBorder,
   },
   fetchProvidersText: {
-    color: C.onSuccess,
+    color: C.successDeep,
     fontSize: 18,
     fontWeight: '600',
   },
@@ -1422,12 +1429,15 @@ const makeStyles = (theme) => {
   },
   // The ONE primary action in this card, so it stays solid. That contrast is
   // exactly what the tinted call button exists to create.
-  bookButton: { flex: 2, backgroundColor: C.accent, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
+  bookButton: { flex: 2, backgroundColor: C.infoContainer, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: C.infoBorder,
+  },
   bookButtonDisabled: {
     backgroundColor: C.disabledFill,
   },
   bookButtonText: {
-    color: C.onAccent,
+    color: C.infoDeep,
     fontSize: 16,
     fontWeight: '600',
   },

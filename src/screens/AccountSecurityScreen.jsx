@@ -48,6 +48,10 @@ import { useThemedStyles, useThemeColors } from '../theme';
 // ─── Design Tokens (matching Settings / Profile) ────────────────────
 // `dark` was dead at v1.0.9 -- defined, never referenced -- so it is not mapped.
 const makeC = (c) => ({
+  infoDeep: c.info,
+  dangerBorder: c.dangerBorder,
+  dangerContainer: c.dangerContainer,
+  infoBorder: c.infoBorder,
   infoContainer: c.infoContainer,
   surface: c.surface,
   bg: c.bg,
@@ -474,11 +478,14 @@ const makeStyles = (theme) => {
   // Device trust
   deviceTrustRow: { flexDirection: 'row', alignItems: 'center' },
   trustBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, minWidth: 70, alignItems: 'center' },
-  trustBtnOn: { backgroundColor: C.danger + '12', borderWidth: 1, borderColor: C.danger + '30' },
-  trustBtnOff: { backgroundColor: C.secondary, },
+  trustBtnOn: { backgroundColor: C.dangerContainer + '12', borderWidth: 1, borderColor: C.dangerBorder + '30' },
+  trustBtnOff: { backgroundColor: C.infoContainer,
+    borderWidth: 1,
+    borderColor: C.infoBorder,
+  },
   trustBtnText: { fontSize: 13, fontWeight: '700' },
   trustBtnTextOn: { color: C.danger },
-  trustBtnTextOff: { color: C.white },
+  trustBtnTextOff: { color: C.infoDeep },
   deviceIdRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border },
   deviceIdText: { fontSize: 11, color: C.muted, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
 

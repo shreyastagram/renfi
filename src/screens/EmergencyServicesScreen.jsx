@@ -75,6 +75,11 @@ const EMERGENCY_NOTES_PLACEHOLDERS = {
 
 // Premium design tokens
 const makeC = (c) => ({
+  dangerDeep: c.danger,
+  successDeep: c.successDeep,
+  brandOrangeBorder: c.brandOrangeBorder,
+  successBorder: c.successBorder,
+  successContainer: c.successContainer,
   infoContainer: c.infoContainer,
   dangerContainer: c.dangerContainer,
   warningContainer: c.warningContainer,
@@ -307,7 +312,7 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite, 
           }}
           activeOpacity={0.8}
         >
-          <MaterialIcon name="phone" size={20} color={C.onSuccess} />
+          <MaterialIcon name="phone" size={20} color={C.successDeep} />
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.bookButton, booking && styles.bookButtonLoading, !hasContacted && { opacity: 0.5 }]}
@@ -319,7 +324,7 @@ const ProviderCard = ({ provider, onCall, onBook, onPress, booking, isFavorite, 
           activeOpacity={0.8}
         >
           {booking ? (
-            <ActivityIndicator size="small" color={C.onPrimary} />
+            <ActivityIndicator size="small" color={C.brandOrangeInk} />
           ) : (
             <Text style={styles.bookButtonText}>{hasContacted ? t('common.sendRequest') : t('emergencyServices.sendRequestOrCallFirst')}</Text>
           )}
@@ -396,7 +401,7 @@ const StaticNumbersModal = ({ visible, onClose, numbers, serviceType }) => {
                   onPress={() => Linking.openURL(`tel:${item.number}`)}
                   activeOpacity={0.8}
                 >
-                  <MaterialIcon name="phone" size={20} color={C.onDanger} />
+                  <MaterialIcon name="phone" size={20} color={C.dangerDeep} />
                   <Text style={styles.callNumberText}>{item.number}</Text>
                 </TouchableOpacity>
               </View>
@@ -654,10 +659,10 @@ const EmergencyProviderDetailsModal = ({ visible, provider, onClose, onCall, onB
               activeOpacity={0.8}
             >
               {booking ? (
-                <ActivityIndicator size="small" color={C.onPrimary} />
+                <ActivityIndicator size="small" color={C.brandOrangeInk} />
               ) : (
                 <>
-                  <MaterialIcon name="send" size={18} color={C.onPrimary} />
+                  <MaterialIcon name="send" size={18} color={C.brandOrangeInk} />
                   <Text style={detailStyles.bookActionText}>
                     {hasContacted ? t('common.sendRequest') : t('emergencyServices.sendRequestOrCallFirst')}
                   </Text>
@@ -1372,7 +1377,7 @@ const EmergencyServicesScreen = ({ navigation }) => {
             onPress={handleRetrySearch}
             activeOpacity={0.8}
           >
-            <MaterialIcon name="refresh" size={18} color={C.onPrimary} style={{ marginRight: 6 }} />
+            <MaterialIcon name="refresh" size={18} color={C.brandOrangeInk} style={{ marginRight: 6 }} />
             <Text style={styles.retryLargeButtonText}>{t('emergencyServices.searchAgain')}</Text>
           </TouchableOpacity>
         </View>
@@ -1592,10 +1597,10 @@ const EmergencyServicesScreen = ({ navigation }) => {
               activeOpacity={0.8}
             >
               {isLoading ? (
-                <ActivityIndicator size="small" color={C.onPrimary} />
+                <ActivityIndicator size="small" color={C.brandOrangeInk} />
               ) : (
                 <>
-                  <MaterialIcon name="search" size={20} color={C.onPrimary} style={{ marginRight: 8 }} />
+                  <MaterialIcon name="search" size={20} color={C.brandOrangeInk} style={{ marginRight: 8 }} />
                   <Text style={styles.notesModalConfirmText}>{t('userHome.findProviders')}</Text>
                 </>
               )}
@@ -2001,7 +2006,7 @@ const makeStyles = (theme) => {
     width: 54,
     height: 54,
     borderRadius: 16,
-    backgroundColor: C.success,
+    backgroundColor: C.successContainer,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -2014,12 +2019,14 @@ const makeStyles = (theme) => {
       },
       android: { elevation: 4 },
     }),
+    borderWidth: 1,
+    borderColor: C.successBorder,
   },
   bookButton: {
     flex: 1,
     height: 54,
     borderRadius: 16,
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
@@ -2031,6 +2038,8 @@ const makeStyles = (theme) => {
       },
       android: { elevation: 4 },
     }),
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   bookButtonLoading: {
     opacity: 0.7,
@@ -2038,7 +2047,7 @@ const makeStyles = (theme) => {
   bookButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
   },
 
   // ── Provider Status ─────────────────────────────────────
@@ -2106,7 +2115,7 @@ const makeStyles = (theme) => {
     alignItems: 'center',
     paddingHorizontal: 28,
     paddingVertical: 14,
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     borderRadius: 14,
     ...Platform.select({
       ios: {
@@ -2117,11 +2126,13 @@ const makeStyles = (theme) => {
       },
       android: { elevation: 4 },
     }),
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   retryLargeButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
   },
 
   // ── Cancel Button ───────────────────────────────────────
@@ -2317,7 +2328,7 @@ const makeStyles = (theme) => {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: C.danger,
+    backgroundColor: C.dangerContainer,
     paddingHorizontal: 20,
     height: 52,
     borderRadius: 14,
@@ -2330,11 +2341,13 @@ const makeStyles = (theme) => {
       },
       android: { elevation: 4 },
     }),
+    borderWidth: 1,
+    borderColor: C.dangerBorder,
   },
   callNumberText: {
     fontSize: 16,
     fontWeight: '700',
-    color: C.white,
+    color: C.dangerDeep,
     marginLeft: 10,
     letterSpacing: 0.5,
   },
@@ -2465,7 +2478,7 @@ const makeStyles = (theme) => {
     flex: 2,
     height: 56,
     borderRadius: 16,
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -2479,11 +2492,13 @@ const makeStyles = (theme) => {
       },
       android: { elevation: 4 },
     }),
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   notesModalConfirmText: {
     fontSize: 16,
     fontWeight: '700',
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
   },
   });
 };
@@ -2763,7 +2778,7 @@ const makeDetailStyles = (theme) => {
     justifyContent: 'center',
     height: 56,
     borderRadius: 16,
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     ...Platform.select({
       ios: {
         shadowColor: C.primary,
@@ -2773,11 +2788,13 @@ const makeDetailStyles = (theme) => {
       },
       android: { elevation: 4 },
     }),
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   bookActionText: {
     fontSize: 16,
     fontWeight: '700',
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
     marginLeft: 8,
   },
   });

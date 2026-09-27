@@ -70,6 +70,10 @@ import {
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const makeC = (c) => ({
+  dangerDeep: c.danger,
+  brandOrangeBorder: c.brandOrangeBorder,
+  dangerBorder: c.dangerBorder,
+  dangerContainer: c.dangerContainer,
   infoContainer: c.infoContainer,
   successContainer: c.successContainer,
   brandOrangeLine: c.brandOrangeBorder,
@@ -422,7 +426,7 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
                     onPress={() => onFindProviders(request)}
                     activeOpacity={0.7}
                   >
-                    <Icon name="search" size={12} color={C.white} />
+                    <Icon name="search" size={12} color={C.infoDeep} />
                     <Text style={styles.findProvidersBtnText}>{t('userHistory.find')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -452,7 +456,7 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
                       onPress={() => onFindProviders(request)}
                       activeOpacity={0.7}
                     >
-                      <Icon name="search" size={12} color={C.white} />
+                      <Icon name="search" size={12} color={C.infoDeep} />
                       <Text style={styles.findProvidersBtnText}>{t('userHistory.findProviders')}</Text>
                     </TouchableOpacity>
                   )}
@@ -483,7 +487,7 @@ const RequestCard = React.memo(({ request, onPress, onCancel, onCallProvider, on
                     onPress={() => onResendOtp(request)}
                     activeOpacity={0.7}
                   >
-                    <Icon name="refresh" size={12} color={C.white} />
+                    <Icon name="refresh" size={12} color={C.dangerDeep} />
                     <Text style={styles.otpResendBtnText}>{t('userHistory.resend')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -520,7 +524,7 @@ const EmptyState = ({ filter, onBookService }) => {
       <Text style={styles.emptyMsg}>{msg}</Text>
       {filter === 'all' && (
         <TouchableOpacity style={styles.emptyCta} onPress={onBookService} activeOpacity={0.7}>
-          <Icon name="add" size={16} color={C.onPrimary} />
+          <Icon name="add" size={16} color={C.brandOrangeInk} />
           <Text style={styles.emptyCtaText}>{t('userHistory.bookService')}</Text>
         </TouchableOpacity>
       )}
@@ -1359,8 +1363,11 @@ const makeStyles = (theme) => {
   otpLabel: { fontSize: 12, fontWeight: '600', color: C.infoDeep },
   otpRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   otpDigits: { fontSize: 20, fontWeight: '800', color: C.text, letterSpacing: 6 },
-  otpResendBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: C.danger, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-  otpResendBtnText: { fontSize: 12, fontWeight: '700', color: C.white },
+  otpResendBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: C.dangerContainer, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8,
+    borderWidth: 1,
+    borderColor: C.dangerBorder,
+  },
+  otpResendBtnText: { fontSize: 12, fontWeight: '700', color: C.dangerDeep },
 
   // Cancel request
 
@@ -1374,8 +1381,11 @@ const makeStyles = (theme) => {
   emptyCircle: { width: 90, height: 90, borderRadius: 45, backgroundColor: C.neutralFill, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   emptyTitle: { fontSize: 18, fontWeight: '800', color: C.text, marginBottom: 6 },
   emptyMsg: { fontSize: 13, fontWeight: '500', color: C.textSec, textAlign: 'center', lineHeight: 20, marginBottom: 20 },
-  emptyCta: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: C.primary, paddingHorizontal: 22, paddingVertical: 13, borderRadius: 14, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
-  emptyCtaText: { fontSize: 14, fontWeight: '700', color: C.onPrimary },
+  emptyCta: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: C.brandOrangeFill, paddingHorizontal: 22, paddingVertical: 13, borderRadius: 14, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
+  },
+  emptyCtaText: { fontSize: 14, fontWeight: '700', color: C.brandOrangeInk },
 
   // Sent-to / no-provider strips
   sentToStrip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.blueBg, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, marginBottom: 6, borderWidth: 1, borderColor: C.secondary + '20' },
@@ -1385,8 +1395,11 @@ const makeStyles = (theme) => {
   cancelSentStripBtnText: { fontSize: 11, fontWeight: '700', color: C.danger },
   noProviderStrip: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, backgroundColor: C.brandOrangeFill, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: C.brandOrangeLine },
   noProviderStripText: { fontSize: 11, fontWeight: '600', color: C.brandOrangeInk, flex: 1 },
-  findProvidersBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.secondary, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-  findProvidersBtnText: { fontSize: 11, fontWeight: '700', color: C.white },
+  findProvidersBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.infoContainer, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
+    borderWidth: 1,
+    borderColor: C.infoBorder,
+  },
+  findProvidersBtnText: { fontSize: 11, fontWeight: '700', color: C.infoDeep },
   });
 };
 

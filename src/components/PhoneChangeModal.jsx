@@ -303,7 +303,7 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomIns
                 disabled={busy || newPhone.length !== 10}
                 activeOpacity={0.85}
               >
-                {sending ? <ActivityIndicator size="small" color={C.onPrimary} />
+                {sending ? <ActivityIndicator size="small" color={C.infoDeep} />
                   : <Text style={styles.primaryBtnText}>{t('phoneChange.sendOtp')}</Text>}
               </TouchableOpacity>
             </>
@@ -339,7 +339,7 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomIns
                 disabled={busy || otp.length !== OTP_LENGTH}
                 activeOpacity={0.85}
               >
-                {verifying ? <ActivityIndicator size="small" color={C.onPrimary} />
+                {verifying ? <ActivityIndicator size="small" color={C.infoDeep} />
                   : <Text style={styles.primaryBtnText}>{t('phoneChange.verifyChange')}</Text>}
               </TouchableOpacity>
               <View style={styles.resendRow}>
@@ -366,6 +366,8 @@ const PhoneChangeModal = ({ visible, onClose, currentPhone, onChanged, bottomIns
 };
 
 const makeC = (c) => ({
+  infoDeep: c.info,
+  infoBorder: c.infoBorder,
   infoContainer: c.infoContainer,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
@@ -416,9 +418,12 @@ const makeStyles = (theme) => {
   iconCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.infoBg, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 19, fontWeight: '800', color: C.text, letterSpacing: -0.3, marginTop: 4 },
   subtitle: { fontSize: 13.5, color: C.textSecondary, lineHeight: 20, marginTop: 6, marginBottom: 16 },
-  primaryBtn: { backgroundColor: C.secondary, borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center', marginTop: 18 },
+  primaryBtn: { backgroundColor: C.infoContainer, borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center', marginTop: 18,
+    borderWidth: 1,
+    borderColor: C.infoBorder,
+  },
   primaryBtnDisabled: { backgroundColor: C.infoContainer },
-  primaryBtnText: { color: C.onSecondary, fontSize: 15.5, fontWeight: '700' },
+  primaryBtnText: { color: C.infoDeep, fontSize: 15.5, fontWeight: '700' },
   otpInput: {
     borderWidth: 2, borderColor: C.line, borderRadius: 14, height: 60, textAlign: 'center',
     fontSize: 26, fontWeight: '700', letterSpacing: 8, color: C.text, backgroundColor: C.sunken,

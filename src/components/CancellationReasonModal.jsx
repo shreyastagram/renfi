@@ -290,10 +290,10 @@ const CancellationReasonModal = ({
               disabled={!canSubmit || loading}
             >
               {loading ? (
-                <ActivityIndicator size="small" color={C.onDanger} />
+                <ActivityIndicator size="small" color={C.dangerDeep} />
               ) : (
                 <>
-                  <MaterialIcon name="cancel" size={18} color={C.onDanger} />
+                  <MaterialIcon name="cancel" size={18} color={C.dangerDeep} />
                   <Text style={styles.cancelButtonText}>Confirm Cancel</Text>
                 </>
               )}
@@ -306,6 +306,8 @@ const CancellationReasonModal = ({
 };
 
 const makeC = (c) => ({
+  dangerDeep: c.danger,
+  dangerBorder: c.dangerBorder,
   dangerContainer: c.dangerContainer,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
@@ -516,10 +518,12 @@ const makeStyles = (theme) => {
     flexDirection: 'row',
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: C.danger,
+    backgroundColor: C.dangerContainer,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
+    borderWidth: 1,
+    borderColor: C.dangerBorder,
   },
   cancelButtonDisabled: {
     backgroundColor: C.dangerContainer,
@@ -527,7 +531,7 @@ const makeStyles = (theme) => {
   cancelButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: C.onDanger,
+    color: C.dangerDeep,
   },
   });
 };

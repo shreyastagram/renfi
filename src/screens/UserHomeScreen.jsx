@@ -98,6 +98,14 @@ const SHEET_MID_HEIGHT = SCREEN_HEIGHT * 0.40; // 40% for initial state - shows 
 // the base flips to the dark-mode blue, so the tint flips with it instead of
 // staying a light-blue wash that would be invisible on a near-black card.
 const makeC = (c) => ({
+  dangerDeep: c.danger,
+  infoDeep: c.info,
+  warningDeep: c.warning,
+  brandOrangeBorder: c.brandOrangeBorder,
+  dangerBorder: c.dangerBorder,
+  successBorder: c.successBorder,
+  successContainer: c.successContainer,
+  warningBorder: c.warningBorder,
   warningContainer: c.warningContainer,
   infoContainer: c.infoContainer,
   dangerContainer: c.dangerContainer,
@@ -1548,10 +1556,10 @@ const UserHomeScreen = ({ navigation, route }) => {
                 disabled={!selectedDateTime || creatingRequest || (!currentLocation && !serviceLocation)}
               >
                 {creatingRequest ? (
-                  <ActivityIndicator color={C.onPrimary} />
+                  <ActivityIndicator color={C.brandOrangeInk} />
                 ) : (
                   <>
-                    <MaterialIcon name="check-circle" size={22} color={C.onPrimary} />
+                    <MaterialIcon name="check-circle" size={22} color={C.brandOrangeInk} />
                     <Text style={styles.createButtonText}>{t('userHome.createRequest')}</Text>
                   </>
                 )}
@@ -1620,13 +1628,13 @@ const UserHomeScreen = ({ navigation, route }) => {
                         <Text style={styles.emptyText}>{t('userHome.allReviewedTitle')}</Text>
                         <Text style={styles.emptySubtext}>{t('userHome.allReviewedSubtitle')}</Text>
                         <TouchableOpacity
-                          style={[styles.retryButton, { backgroundColor: C.primary }]}
+                          style={styles.retryButton}
                           onPress={handleRetrySearch}
                         >
-                          {/* onPrimary, because this instance overrides retryButton's blue fill with
-                              orange. onSecondary is WHITE in light, so on orange it was 2.69:1. The
-                              sibling below keeps the blue fill and correctly keeps onSecondary. */}
-                          <Icon name="refresh" size={20} color={C.onPrimary} />
+                          {/* No fill override. This instance used to repaint the shared retryButton
+                              orange while its SIBLING kept the blue — two buttons, one text style,
+                              two grounds, so the label could only ever be right for one. */}
+                          <Icon name="refresh" size={20} color={C.infoDeep} />
                           <Text style={styles.retryButtonText}>{t('userHome.startFreshSearch')}</Text>
                         </TouchableOpacity>
                       </>
@@ -1638,7 +1646,7 @@ const UserHomeScreen = ({ navigation, route }) => {
                           style={styles.retryButton}
                           onPress={handleRetrySearch}
                         >
-                          <Icon name="refresh" size={20} color={C.onSecondary} />
+                          <Icon name="refresh" size={20} color={C.infoDeep} />
                           <Text style={styles.retryButtonText}>{t('userHome.retrySearch')}</Text>
                         </TouchableOpacity>
                       </>
@@ -2242,13 +2250,13 @@ const makeStyles = (theme) => {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: C.secondary + '12',
+    backgroundColor: C.infoContainer + '12',
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
     marginLeft: 10,
     borderWidth: 1,
-    borderColor: C.secondary + '20',
+    borderColor: C.infoBorder + '20',
   },
 
   // ─── Location Hint ─────────────────────────────────────────
@@ -2287,7 +2295,7 @@ const makeStyles = (theme) => {
     paddingBottom: 40,
   },
   createButton: {
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     height: 56,
     borderRadius: 16,
     flexDirection: 'row',
@@ -2305,6 +2313,8 @@ const makeStyles = (theme) => {
         elevation: 6,
       },
     }),
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   createButtonDisabled: {
     backgroundColor: C.disabledFill,
@@ -2316,7 +2326,7 @@ const makeStyles = (theme) => {
   createButtonText: {
     fontSize: 17,
     fontWeight: '800',
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
     letterSpacing: -0.3,
   },
 
@@ -2733,7 +2743,7 @@ const makeStyles = (theme) => {
     // Icon stays centered/unchanged; only the button width grows. (Task 5)
     flex: 1,
     height: 42,
-    backgroundColor: C.success,
+    backgroundColor: C.successContainer,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2748,6 +2758,8 @@ const makeStyles = (theme) => {
         elevation: 3,
       },
     }),
+    borderWidth: 1,
+    borderColor: C.successBorder,
   },
   callButtonCalling: {
     backgroundColor: C.disabledFill,
@@ -2759,7 +2771,7 @@ const makeStyles = (theme) => {
   bookButton: {
     flex: 1,
     height: 42,
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2774,6 +2786,8 @@ const makeStyles = (theme) => {
         elevation: 3,
       },
     }),
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   bookButtonLoading: {
     backgroundColor: brandTint.orangeSoft,
@@ -2857,7 +2871,7 @@ const makeStyles = (theme) => {
   retryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.secondary,
+    backgroundColor: C.infoContainer,
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 16,
@@ -2874,11 +2888,13 @@ const makeStyles = (theme) => {
         elevation: 4,
       },
     }),
+    borderWidth: 1,
+    borderColor: C.infoBorder,
   },
   retryButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: C.onSecondary,
+    color: C.infoDeep,
     letterSpacing: -0.2,
   },
 
@@ -2932,7 +2948,7 @@ const makeStyles = (theme) => {
     color: C.danger,
   },
   permissionBarButton: {
-    backgroundColor: C.warning,
+    backgroundColor: C.warningContainer,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
@@ -2947,22 +2963,26 @@ const makeStyles = (theme) => {
         elevation: 2,
       },
     }),
+    borderWidth: 1,
+    borderColor: C.warningBorder,
   },
   permissionBarButtonDanger: {
-    backgroundColor: C.danger,
+    backgroundColor: C.dangerContainer,
     ...Platform.select({
       ios: {
         shadowColor: C.danger,
       },
     }),
+    borderWidth: 1,
+    borderColor: C.dangerBorder,
   },
   permissionBarButtonText: {
     fontSize: 12,
     fontWeight: '700',
-    color: C.onWarning,
+    color: C.dangerDeep,
   },
   permissionBarButtonTextDanger: {
-    color: C.onDanger,
+    color: C.dangerDeep,
   },
 
   // ─── Notification Permission Modal ─────────────────────────
@@ -3017,7 +3037,7 @@ const makeStyles = (theme) => {
     marginBottom: 28,
   },
   permissionModalButton: {
-    backgroundColor: C.secondary,
+    backgroundColor: C.infoContainer,
     paddingVertical: 16,
     paddingHorizontal: 32,
     borderRadius: 16,
@@ -3034,11 +3054,13 @@ const makeStyles = (theme) => {
         elevation: 4,
       },
     }),
+    borderWidth: 1,
+    borderColor: C.infoBorder,
   },
   permissionModalButtonText: {
     fontSize: 16,
     fontWeight: '800',
-    color: C.onSecondary,
+    color: C.infoDeep,
     textAlign: 'center',
     letterSpacing: -0.2,
   },

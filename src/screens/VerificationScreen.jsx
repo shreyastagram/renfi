@@ -43,6 +43,10 @@ const OTP_LENGTH = 6;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const makeC = (c) => ({
+  infoDeep: c.info,
+  brandOrangeBorder: c.brandOrangeBorder,
+  infoBorder: c.infoBorder,
+  infoContainer: c.infoContainer,
   brandOrangeFill: c.brandOrangeFill,
   brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
@@ -637,7 +641,7 @@ const VerificationScreen = ({
             onPress={handleGoBack}
             activeOpacity={0.8}
           >
-            <MaterialIcon name="arrow-back" size={20} color={C.white} />
+            <MaterialIcon name="arrow-back" size={20} color={C.infoDeep} />
             <Text style={s.successBackBtnText}>{t('verificationScreen.backToProfile')}</Text>
           </TouchableOpacity>
         </View>
@@ -731,7 +735,7 @@ const VerificationScreen = ({
                       activeOpacity={0.8}
                     >
                       {savingValue ? (
-                        <ActivityIndicator size="small" color={C.onPrimary} />
+                        <ActivityIndicator size="small" color={C.brandOrangeInk} />
                       ) : (
                         <Text style={s.ctaButtonText}>{t('verificationScreen.saveEmail')}</Text>
                       )}
@@ -781,12 +785,12 @@ const VerificationScreen = ({
               >
                 {sendLoading ? (
                   <View style={s.ctaRow}>
-                    <ActivityIndicator size="small" color={C.onPrimary} />
+                    <ActivityIndicator size="small" color={C.brandOrangeInk} />
                     <Text style={s.ctaButtonText}>{t('verificationScreen.sendingBtn')}</Text>
                   </View>
                 ) : (
                   <View style={s.ctaRow}>
-                    <MaterialIcon name="send" size={20} color={C.onPrimary} />
+                    <MaterialIcon name="send" size={20} color={C.brandOrangeInk} />
                     <Text style={s.ctaButtonText}>{t('verificationScreen.sendVerificationEmail')}</Text>
                   </View>
                 )}
@@ -862,7 +866,7 @@ const VerificationScreen = ({
                           activeOpacity={0.8}
                         >
                           {savingValue ? (
-                            <ActivityIndicator size="small" color={C.onPrimary} />
+                            <ActivityIndicator size="small" color={C.brandOrangeInk} />
                           ) : (
                             <Text style={s.ctaButtonText}>{t('verificationScreen.savePhone')}</Text>
                           )}
@@ -912,12 +916,12 @@ const VerificationScreen = ({
                   >
                     {sendLoading ? (
                       <View style={s.ctaRow}>
-                        <ActivityIndicator size="small" color={C.onPrimary} />
+                        <ActivityIndicator size="small" color={C.brandOrangeInk} />
                         <Text style={s.ctaButtonText}>{t('verificationScreen.sendingOtp')}</Text>
                       </View>
                     ) : (
                       <View style={s.ctaRow}>
-                        <MaterialIcon name="sms" size={20} color={C.onPrimary} />
+                        <MaterialIcon name="sms" size={20} color={C.brandOrangeInk} />
                         <Text style={s.ctaButtonText}>{t('verificationScreen.sendOtp')}</Text>
                       </View>
                     )}
@@ -1026,12 +1030,12 @@ const VerificationScreen = ({
                 >
                   {loading ? (
                     <View style={s.ctaRow}>
-                      <ActivityIndicator size="small" color={C.onPrimary} />
+                      <ActivityIndicator size="small" color={C.brandOrangeInk} />
                       <Text style={s.ctaButtonText}>{t('verificationScreen.verifyingBtn')}</Text>
                     </View>
                   ) : (
                     <View style={s.ctaRow}>
-                      <MaterialIcon name="verified" size={20} color={C.onPrimary} />
+                      <MaterialIcon name="verified" size={20} color={C.brandOrangeInk} />
                       <Text style={s.ctaButtonText}>{t('verificationScreen.verifyOtp')}</Text>
                     </View>
                   )}
@@ -1313,12 +1317,14 @@ const makeStyles = (theme) => {
   /* ─── CTA Button ───────────────────────────────────────────────── */
   ctaButton: {
     flex: 1,
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     height: 56,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   ctaButtonDisabled: {
     backgroundColor: C.borderMedium,
@@ -1326,7 +1332,7 @@ const makeStyles = (theme) => {
     elevation: 0,
   },
   ctaButtonText: {
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -1624,7 +1630,7 @@ const makeStyles = (theme) => {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: C.secondary,
+    backgroundColor: C.infoContainer,
     paddingHorizontal: 32,
     height: 56,
     borderRadius: 16,
@@ -1637,11 +1643,13 @@ const makeStyles = (theme) => {
       },
       android: { elevation: 6 },
     }),
+    borderWidth: 1,
+    borderColor: C.infoBorder,
   },
   successBackBtnText: {
     fontSize: 16,
     fontWeight: '700',
-    color: C.white,
+    color: C.infoDeep,
   },
   });
 };

@@ -728,6 +728,8 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
 };
 
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
+  brandOrangeBorder: c.brandOrangeBorder,
   brandOrangeFill: c.brandOrangeFill,
   pageSolid: c.pageSolid,
   primary: c.brandOrange,
@@ -871,8 +873,11 @@ const makeStyles = (theme) => {
   modalTitle: { fontSize: 19, fontWeight: '700', color: C.text, textAlign: 'center', marginBottom: 12 },
   modalMessage: { fontSize: 14, color: C.textSecondary, textAlign: 'center', marginBottom: 24, lineHeight: 21 },
   modalButtons: { gap: 10 },
-  modalPrimaryButton: { backgroundColor: C.primary, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
-  modalPrimaryButtonText: { color: C.onPrimary, fontSize: 15, fontWeight: '700' },
+  modalPrimaryButton: { backgroundColor: C.brandOrangeFill, borderRadius: 14, paddingVertical: 15, alignItems: 'center',
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
+  },
+  modalPrimaryButtonText: { color: C.brandOrangeInk, fontSize: 15, fontWeight: '700' },
   modalDismissButton: { paddingVertical: 10, alignItems: 'center', marginTop: 4 },
   modalDismissText: { color: C.muted, fontSize: 14, fontWeight: '500' },
   });

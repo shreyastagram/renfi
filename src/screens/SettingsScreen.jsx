@@ -66,6 +66,9 @@ const FIXHOMI_LOGO = require('../assets/fixhomi_logo.jpg');
 
 // Premium design tokens
 const makeC = (c) => ({
+  dangerDeep: c.danger,
+  dangerBorder: c.dangerBorder,
+  dangerContainer: c.dangerContainer,
   wellFill: c.wellFill,
   brandOrangeInk: c.brandOrangeInk,
   darkHero: stableDark.heroSurface, // was #0F172A — a fixed brand panel
@@ -1723,7 +1726,7 @@ const SettingsScreen = ({ navigation }) => {
                       disabled={isDeletingAccount || deleteOtp.length !== 6}
                     >
                       {isDeletingAccount ? (
-                        <ActivityIndicator color={C.onDanger} size="small" />
+                        <ActivityIndicator color={C.dangerDeep} size="small" />
                       ) : (
                         <Text style={styles.deleteButtonText}>{t('settings.deleteAccount')}</Text>
                       )}
@@ -2035,12 +2038,14 @@ const makeStyles = (theme) => {
     color: C.textSecondary,
   },
   deleteButton: {
-    backgroundColor: C.danger,
+    backgroundColor: C.dangerContainer,
+    borderWidth: 1,
+    borderColor: C.dangerBorder,
   },
   deleteButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: C.cardWhite,
+    color: C.dangerDeep,
   },
   disabledButton: {
     opacity: 0.5,

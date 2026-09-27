@@ -44,6 +44,9 @@ import { stableDark } from '../theme';
 
 // Premium Design Tokens
 const makeC = (c) => ({
+  infoDeep: c.info,
+  infoBorder: c.infoBorder,
+  infoContainer: c.infoContainer,
   surface: c.surface,
   darkHero: stableDark.heroSurface, // was #0F172A
   iconBg: c.bg, // was #F1F5F9
@@ -277,7 +280,7 @@ const EmptyState = ({ onAddNew }) => {
           onPressOut={onPressOut}
           activeOpacity={0.85}
         >
-          <MaterialIcon name="add-location-alt" size={20} color={C.onPrimary} />
+          <MaterialIcon name="add-location-alt" size={20} color={C.infoDeep} />
           <Text style={styles.addButtonText}>Add New Address</Text>
         </TouchableOpacity>
       </Animated.View>
@@ -532,7 +535,7 @@ const SavedAddresses = ({
             onPress={handleAddNew}
             activeOpacity={0.8}
           >
-            <MaterialIcon name="add" size={28} color={C.onPrimary} />
+            <MaterialIcon name="add" size={28} color={C.infoDeep} />
           </TouchableOpacity>
         </>
       )}
@@ -615,9 +618,11 @@ const SHADOWS = makeShadows(C);
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: C.secondary + '12',
+    backgroundColor: C.infoContainer + '12',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: C.infoBorder,
   },
   loadingContainer: {
     flex: 1,
@@ -797,7 +802,7 @@ const SHADOWS = makeShadows(C);
     marginTop: 28,
     paddingHorizontal: 28,
     paddingVertical: 14,
-    backgroundColor: C.secondary,
+    backgroundColor: C.infoContainer,
     borderRadius: 16,
     ...Platform.select({
       ios: {
@@ -810,11 +815,13 @@ const SHADOWS = makeShadows(C);
         elevation: 6,
       },
     }),
+    borderWidth: 1,
+    borderColor: C.infoBorder,
   },
   addButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: C.onSecondary,
+    color: C.infoDeep,
   },
   floatingButton: {
     position: 'absolute',
@@ -823,7 +830,7 @@ const SHADOWS = makeShadows(C);
     width: 60,
     height: 60,
     borderRadius: 20,
-    backgroundColor: C.secondary,
+    backgroundColor: C.infoContainer,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
@@ -837,6 +844,8 @@ const SHADOWS = makeShadows(C);
         elevation: 12,
       },
     }),
+    borderWidth: 1,
+    borderColor: C.infoBorder,
   },
   });
 };

@@ -37,6 +37,9 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Brand colors
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
+  brandOrangeBorder: c.brandOrangeBorder,
+  brandOrangeFill: c.brandOrangeFill,
   star: iconAccent.star, // was #F59E0B
   starEmpty: c.borderMedium, // was #D1D5DB
   primary: c.brandOrange,
@@ -328,10 +331,10 @@ const RatingModal = ({
               disabled={rating === 0 || submitting || loading}
             >
               {submitting || loading ? (
-                <ActivityIndicator size="small" color={C.onPrimary} />
+                <ActivityIndicator size="small" color={C.brandOrangeInk} />
               ) : (
                 <>
-                  <MaterialIcon name="star" size={20} color={C.onPrimary} />
+                  <MaterialIcon name="star" size={20} color={C.brandOrangeInk} />
                   <Text style={styles.submitButtonText}>Submit Rating</Text>
                 </>
               )}
@@ -485,10 +488,12 @@ const makeStyles = (theme) => {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     borderRadius: 12,
     paddingVertical: 16,
     gap: 8,
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   submitButtonDisabled: {
     backgroundColor: C.borderMedium,
@@ -496,7 +501,7 @@ const makeStyles = (theme) => {
   submitButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
   },
   skipButton: {
     alignItems: 'center',

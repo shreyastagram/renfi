@@ -84,6 +84,7 @@ import { getMapStyleURL } from '../config/mapbox';
 // `primary` / `secondary` are also used with hex-alpha concatenation, so they must
 // stay 6-digit hex in both themes -- asserted by the token tests.
 const makeC = (c) => ({
+  brandOrangeFill: c.brandOrangeFill,
   warningContainer: c.warningContainer,
   infoContainer: c.infoContainer,
   successContainer: c.successContainer,
@@ -1510,7 +1511,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                 {rejecting ? <ActivityIndicator size="small" color={C.textSecondary} /> : (<><Icon name="close" size={16} color={C.muted} /><Text style={s.rejectBtnText}>{t('providerHistory.reject')}</Text></>)}
               </TouchableOpacity>
               <TouchableOpacity style={s.acceptBtn} onPress={handleAcceptRequest} disabled={accepting || rejecting}>
-                {accepting ? <ActivityIndicator size="small" color={C.onPrimary} /> : (<><Icon name="check" size={16} color={C.onPrimary} /><Text style={s.acceptBtnText}>{t('providerHistory.accept')}</Text></>)}
+                {accepting ? <ActivityIndicator size="small" color={C.brandOrangeInk} /> : (<><Icon name="check" size={16} color={C.brandOrangeInk} /><Text style={s.acceptBtnText}>{t('providerHistory.accept')}</Text></>)}
               </TouchableOpacity>
             </View>
           </View>
@@ -2033,7 +2034,7 @@ const ServiceRequestDetailScreen = ({ navigation, route }) => {
                 <Text style={{ fontSize: 16, fontWeight: '700', color: C.text, marginBottom: 4 }}>{t('detail.rateTitle')}</Text>
                 <Text style={{ fontSize: 13, color: C.textSecondary, marginBottom: 14 }}>{t('detail.rateSub')}</Text>
                 <TouchableOpacity style={s.rateBtn} onPress={() => setRatingModalVisible(true)}>
-                  <Icon name="star" size={16} color={C.onGold} /><Text style={s.rateBtnText}>{t('detail.rateBtn')}</Text>
+                  <Icon name="star" size={16} color={C.brandOrangeInk} /><Text style={s.rateBtnText}>{t('detail.rateBtn')}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -2093,8 +2094,11 @@ const makeStyles = (theme) => {
   loadingText: { marginTop: 12, fontSize: 14, color: C.textSecondary },
   errorWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   errorTitle: { fontSize: 18, fontWeight: '700', color: C.text, marginTop: 12, marginBottom: 16 },
-  goBackBtn: { backgroundColor: C.secondary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 },
-  goBackBtnText: { color: C.onSecondary, fontWeight: '700', fontSize: 14 },
+  goBackBtn: { backgroundColor: C.infoContainer, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14,
+    borderWidth: 1,
+    borderColor: C.infoBorder,
+  },
+  goBackBtnText: { color: C.infoDeep, fontWeight: '700', fontSize: 14 },
 
   // Simple White Header
   headerOuter: { backgroundColor: C.white, paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: C.hairline, zIndex: 10 },
@@ -2281,8 +2285,11 @@ const makeStyles = (theme) => {
   acceptRejectRow: { flexDirection: 'row', gap: 10 },
   rejectBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: 'transparent', borderRadius: 14, paddingVertical: 13, borderWidth: 1.5, borderColor: C.line },
   rejectBtnText: { fontSize: 15, fontWeight: '600', color: C.textSecondary },
-  acceptBtn: { flex: 1.3, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.primary, borderRadius: 14, paddingVertical: 13, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
-  acceptBtnText: { fontSize: 15, fontWeight: '700', color: C.onPrimary },
+  acceptBtn: { flex: 1.3, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.brandOrangeFill, borderRadius: 14, paddingVertical: 13, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
+  },
+  acceptBtnText: { fontSize: 15, fontWeight: '700', color: C.brandOrangeInk },
 
   // Cancel
   cancelActionBtn: { alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 16, borderWidth: 1.5, borderColor: C.dangerLine, backgroundColor: C.dangerBg, marginBottom: 12 },
@@ -2352,8 +2359,11 @@ const makeStyles = (theme) => {
   completedSub: { fontSize: 13, color: C.success, textAlign: 'center', marginTop: 4 },
 
   // Rate
-  rateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.primary, paddingVertical: 12, paddingHorizontal: 28, borderRadius: 14, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 3 },
-  rateBtnText: { fontSize: 15, fontWeight: '700', color: C.onGold },
+  rateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.brandOrangeFill, paddingVertical: 12, paddingHorizontal: 28, borderRadius: 14, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 3,
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
+  },
+  rateBtnText: { fontSize: 15, fontWeight: '700', color: C.brandOrangeInk },
 
   // Favorites
   favBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.warningBg, borderRadius: 16, paddingVertical: 13, marginBottom: 12, borderWidth: 1, borderColor: C.brandOrangeBorder },

@@ -992,6 +992,9 @@ const RegisterScreen = ({ navigation, onSwitchToPhoneSignup }) => {
 };
 
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
+  brandOrangeBorder: c.brandOrangeBorder,
+  brandOrangeFill: c.brandOrangeFill,
   pageSolid: c.pageSolid,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
@@ -1124,8 +1127,11 @@ const makeStyles = (theme) => {
   modalEmail: { fontSize: 14, color: C.textSecondary, textAlign: 'center', marginBottom: 8, fontStyle: 'italic' },
   modalMessage: { fontSize: 14, color: C.textSecondary, textAlign: 'center', marginBottom: 24, lineHeight: 21 },
   modalButtons: { gap: 10 },
-  modalPrimaryButton: { backgroundColor: C.primary, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
-  modalPrimaryButtonText: { color: C.onPrimary, fontSize: 15, fontWeight: '700' },
+  modalPrimaryButton: { backgroundColor: C.brandOrangeFill, borderRadius: 14, paddingVertical: 15, alignItems: 'center',
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
+  },
+  modalPrimaryButtonText: { color: C.brandOrangeInk, fontSize: 15, fontWeight: '700' },
   modalSecondaryButton: { backgroundColor: C.hairline, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
   modalSecondaryButtonText: { color: C.text, fontSize: 15, fontWeight: '600' },
   modalDismissButton: { paddingVertical: 10, alignItems: 'center', marginTop: 4 },

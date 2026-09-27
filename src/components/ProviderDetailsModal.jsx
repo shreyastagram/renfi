@@ -41,6 +41,10 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Brand colors
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
+  infoDeep: c.info,
+  brandOrangeBorder: c.brandOrangeBorder,
+  infoBorder: c.infoBorder,
   infoContainer: c.infoContainer,
   successContainer: c.successContainer,
   dangerContainer: c.dangerContainer,
@@ -650,7 +654,7 @@ const ProviderDetailsModal = ({
                 style={styles.bookButton}
                 onPress={handleBook}
               >
-                <MaterialIcon name="send" size={20} color={C.onPrimary} />
+                <MaterialIcon name="send" size={20} color={C.brandOrangeInk} />
                 <Text style={styles.bookButtonText}>Send Request</Text>
               </TouchableOpacity>
             </View>
@@ -723,11 +727,13 @@ const makeStyles = (theme) => {
     marginTop: 16,
     paddingHorizontal: 24,
     paddingVertical: 10,
-    backgroundColor: C.secondary,
+    backgroundColor: C.infoContainer,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: C.infoBorder,
   },
   retryButtonText: {
-    color: C.white,
+    color: C.infoDeep,
     fontWeight: '600',
   },
   scrollView: {
@@ -1089,15 +1095,17 @@ const makeStyles = (theme) => {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     borderRadius: 12,
     paddingVertical: 14,
     gap: 8,
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   bookButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
   },
   });
 };

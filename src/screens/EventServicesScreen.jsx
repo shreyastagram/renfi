@@ -58,6 +58,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Premium design tokens
 const makeC = (c) => ({
+  brandOrangeFill: c.brandOrangeFill,
   surface: c.surface,
   brandOrangeInk: c.brandOrangeInk,
   info: c.info,
@@ -365,7 +366,7 @@ const EventProviderCard = ({ provider, onViewDetails, onContact }) => {
           onPress={() => onContact(provider)}
           activeOpacity={0.7}
         >
-          <MaterialIcon name="phone" size={18} color={C.onPrimary} />
+          <MaterialIcon name="phone" size={18} color={C.brandOrangeInk} />
           <Text style={styles.contactButtonText}>{t('common.call')}</Text>
         </TouchableOpacity>
       </View>
@@ -681,10 +682,10 @@ const ProviderDetailsModal = ({ visible, provider, onClose, onBookNow, onContact
               activeOpacity={0.7}
             >
               {sending ? (
-                <ActivityIndicator size="small" color={C.onPrimary} />
+                <ActivityIndicator size="small" color={C.brandOrangeInk} />
               ) : (
                 <>
-                  <MaterialIcon name="event" size={20} color={C.onPrimary} />
+                  <MaterialIcon name="event" size={20} color={C.brandOrangeInk} />
                   <Text style={styles.sendRequestText}>{t('eventServices.bookNow')}</Text>
                 </>
               )}
@@ -1362,7 +1363,7 @@ const EventServicesScreen = ({ navigation }) => {
                       onPress={() => setShowMapPicker(true)}
                       activeOpacity={0.7}
                     >
-                      <MaterialIcon name="map" size={20} color={C.onPrimary} />
+                      <MaterialIcon name="map" size={20} color={C.brandOrangeInk} />
                       <Text style={styles.venueMapButtonText}>{t('eventServices.pickOnMap')}</Text>
                     </TouchableOpacity>
 
@@ -1435,10 +1436,10 @@ const EventServicesScreen = ({ navigation }) => {
                 activeOpacity={0.7}
               >
                 {sendingRequest ? (
-                  <ActivityIndicator size="small" color={C.onPrimary} />
+                  <ActivityIndicator size="small" color={C.brandOrangeInk} />
                 ) : (
                   <>
-                    <MaterialIcon name="send" size={20} color={C.onPrimary} />
+                    <MaterialIcon name="send" size={20} color={C.brandOrangeInk} />
                     <Text style={styles.confirmBookingText}>{t('eventServices.sendBookingRequest')}</Text>
                   </>
                 )}
@@ -1744,16 +1745,18 @@ const makeStyles = (theme) => {
     flex: 1,
     height: 44,
     borderRadius: 14,
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   contactButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
   },
 
   // ─── Loading & Empty ───
@@ -2080,16 +2083,18 @@ const makeStyles = (theme) => {
     flexDirection: 'row',
     height: 52,
     borderRadius: 16,
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
     ...SHADOW_LIGHT,
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   sendRequestText: {
     fontSize: 16,
     fontWeight: '800',
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
   },
 
   // ─── Booking Modal ───
@@ -2237,16 +2242,18 @@ const makeStyles = (theme) => {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     borderRadius: 16,
     paddingVertical: 14,
     gap: 8,
     ...SHADOW_LIGHT,
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   venueMapButtonText: {
     fontSize: 15,
     fontWeight: '800',
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
   },
   venueCurrentButton: {
     flex: 1,
@@ -2344,16 +2351,18 @@ const makeStyles = (theme) => {
     flexDirection: 'row',
     height: 56,
     borderRadius: 18,
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 10,
     ...SHADOWS,
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   confirmBookingText: {
     fontSize: 17,
     fontWeight: '800',
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
   },
   });
 };

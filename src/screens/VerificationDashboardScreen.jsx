@@ -41,6 +41,9 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Premium design-language tokens
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
+  brandOrangeBorder: c.brandOrangeBorder,
+  brandOrangeFill: c.brandOrangeFill,
   surface: c.surface,
   hero: stableDark.heroSurface, // was #0F172A — the premium header panel
   primary: c.brandOrange,
@@ -348,7 +351,7 @@ const StepCard = ({ step, config, onAction, isLast, t }) => {
             <Text style={styles.stepActionText}>
               {step.phoneChanged ? t('verificationDashboard.reVerifyPhone') : (config.actionLabelKey ? t(config.actionLabelKey) : config.actionLabel)}
             </Text>
-            <Icon name="chevron-right" size={16} color={C.onPrimary} />
+            <Icon name="chevron-right" size={16} color={C.brandOrangeInk} />
           </AnimatedPressable>
         )}
       </View>
@@ -890,14 +893,16 @@ const makeStyles = (theme) => {
   },
   retryButton: {
     marginTop: 20,
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 16,
     ...makeCardShadowLight(C),
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   retryButtonText: {
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -1201,7 +1206,7 @@ const makeStyles = (theme) => {
     alignSelf: 'flex-start',
     marginTop: 8,
     marginLeft: 44,
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,
@@ -1217,11 +1222,13 @@ const makeStyles = (theme) => {
         elevation: 3,
       },
     }),
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   stepActionText: {
     fontSize: 13,
     fontWeight: '700',
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
   },
 
   // ─── Capability Card ───────────────────────────────────────

@@ -40,6 +40,8 @@ import { useIsDark } from '../theme';
 
 // Brand colors
 const makeC = (c) => ({
+  brandOrangeBorder: c.brandOrangeBorder,
+  brandOrangeFill: c.brandOrangeFill,
   brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
@@ -673,7 +675,7 @@ const MapPickerModal = ({
             onPress={handleConfirm}
             disabled={!selectedAddress || isLoading}
           >
-            <MaterialIcon name="check" size={22} color={C.onPrimary} />
+            <MaterialIcon name="check" size={22} color={C.brandOrangeInk} />
             <Text style={styles.confirmButtonText}>Confirm Location</Text>
           </TouchableOpacity>
         </View>
@@ -885,8 +887,10 @@ const makeStyles = (theme) => {
     justifyContent: 'center',
     gap: 10,
     height: 54,
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     borderRadius: 14,
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   confirmButtonDisabled: {
     // borderStrong, not textMuted. A muted grey is the right LOOK for a disabled
@@ -900,7 +904,7 @@ const makeStyles = (theme) => {
     fontWeight: '700',
     // White on brand orange is 2.69:1 — the failure already fixed on every other
     // orange button in the app and simply missed here. Pre-existing since v1.0.9.
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
   },
   });
 };

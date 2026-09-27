@@ -59,6 +59,9 @@ const STEPS = {
 };
 
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
+  brandOrangeBorder: c.brandOrangeBorder,
+  brandOrangeFill: c.brandOrangeFill,
   primaryLight: c.infoBg, // was #EFF6FF, blue-50
   primary: c.brandOrange,
   onPrimary: c.onBrandOrange,
@@ -359,10 +362,10 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
         activeOpacity={0.8}
       >
         {loading ? (
-          <ActivityIndicator color={C.onPrimary} size="small" />
+          <ActivityIndicator color={C.brandOrangeInk} size="small" />
         ) : (
           <>
-            <MaterialIcon name="verified-user" size={20} color={C.onPrimary} />
+            <MaterialIcon name="verified-user" size={20} color={C.brandOrangeInk} />
             <Text style={s.primaryBtnText}>{t('aadhaar.startBtn')}</Text>
           </>
         )}
@@ -395,10 +398,10 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
         activeOpacity={0.8}
       >
         {loading ? (
-          <ActivityIndicator color={C.onPrimary} size="small" />
+          <ActivityIndicator color={C.brandOrangeInk} size="small" />
         ) : (
           <>
-            <MaterialIcon name="check-circle-outline" size={20} color={C.onPrimary} />
+            <MaterialIcon name="check-circle-outline" size={20} color={C.brandOrangeInk} />
             <Text style={s.primaryBtnText}>{t('aadhaar.yesProceed')}</Text>
           </>
         )}
@@ -475,7 +478,7 @@ const AadhaarVerificationModal = ({ visible, onClose, onVerified }) => {
       <Text style={[s.stepDesc, { marginBottom: 24 }]}>{error}</Text>
 
       <TouchableOpacity style={s.primaryBtn} onPress={handleRetry} activeOpacity={0.8}>
-        <MaterialIcon name="refresh" size={20} color={C.onPrimary} />
+        <MaterialIcon name="refresh" size={20} color={C.brandOrangeInk} />
         <Text style={s.primaryBtnText}>{t('aadhaar.tryAgain')}</Text>
       </TouchableOpacity>
 
@@ -665,7 +668,7 @@ const makeStyles = (theme) => {
 
   // ─── Buttons ─────────────────────
   primaryBtn: {
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     borderRadius: 14,
     height: 52,
     flexDirection: 'row',
@@ -678,10 +681,12 @@ const makeStyles = (theme) => {
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   btnDisabled: { opacity: 0.6 },
   primaryBtnText: {
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
     fontSize: 16,
     fontWeight: '600',
   },

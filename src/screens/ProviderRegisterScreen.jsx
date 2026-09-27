@@ -68,6 +68,11 @@ import {
  */
 // This screen had no palette block -- every colour was inline.
 const makeC = (c) => ({
+  infoDeep: c.info,
+  brandOrangeBorder: c.brandOrangeBorder,
+  brandOrangeFill: c.brandOrangeFill,
+  infoBorder: c.infoBorder,
+  infoContainer: c.infoContainer,
   pageSolid: c.pageSolid,
   brandOrangeInk: c.brandOrangeInk,
   primary: c.brandOrange,
@@ -1187,7 +1192,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
                 </View>
               ) : !locationLoading ? (
                 <TouchableOpacity onPress={getCurrentLocation} style={styles.getLocationButton} activeOpacity={0.7}>
-                  <Ionicons name="navigate" size={14} color={C.onSecondary} />
+                  <Ionicons name="navigate" size={14} color={C.infoDeep} />
                   <Text style={styles.getLocationButtonText}>{t('providerRegister.detectMyLocation')}</Text>
                 </TouchableOpacity>
               ) : null}
@@ -1419,15 +1424,19 @@ const makeStyles = (theme) => {
   locationErrorContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
   locationErrorText: { fontSize: 13, color: C.danger, flex: 1 },
   retryButton: {
-    backgroundColor: C.secondary, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, marginLeft: 8,
+    backgroundColor: C.infoContainer, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, marginLeft: 8,
+    borderWidth: 1,
+    borderColor: C.infoBorder,
   },
-  retryButtonText: { color: C.onSecondary, fontSize: 12, fontWeight: '700' },
+  retryButtonText: { color: C.infoDeep, fontSize: 12, fontWeight: '700' },
   getLocationButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: C.secondary, paddingVertical: 9, borderRadius: 10,
+    backgroundColor: C.infoContainer, paddingVertical: 9, borderRadius: 10,
     alignSelf: 'flex-start', paddingHorizontal: 16, marginBottom: 4,
+    borderWidth: 1,
+    borderColor: C.infoBorder,
   },
-  getLocationButtonText: { color: C.onSecondary, fontSize: 13, fontWeight: '700' },
+  getLocationButtonText: { color: C.infoDeep, fontSize: 13, fontWeight: '700' },
   locationHint: { fontSize: 11, color: C.muted, marginTop: 6 },
 
   // ── Submit Button ──
@@ -1498,8 +1507,11 @@ const makeStyles = (theme) => {
   modalEmail: { fontSize: 14, color: C.textSecondary, textAlign: 'center', marginBottom: 8, fontStyle: 'italic' },
   modalMessage: { fontSize: 14, color: C.textSecondary, textAlign: 'center', marginBottom: 24, lineHeight: 21 },
   modalButtons: { gap: 10 },
-  modalPrimaryButton: { backgroundColor: C.primary, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
-  modalPrimaryButtonText: { color: C.onPrimary, fontSize: 15, fontWeight: '700' },
+  modalPrimaryButton: { backgroundColor: C.brandOrangeFill, borderRadius: 14, paddingVertical: 15, alignItems: 'center',
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
+  },
+  modalPrimaryButtonText: { color: C.brandOrangeInk, fontSize: 15, fontWeight: '700' },
   modalSecondaryButton: { backgroundColor: C.hairline, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
   modalSecondaryButtonText: { color: C.text, fontSize: 15, fontWeight: '600' },
   modalDismissButton: { paddingVertical: 10, alignItems: 'center', marginTop: 4 },

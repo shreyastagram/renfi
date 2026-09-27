@@ -55,6 +55,9 @@ import {
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
+  brandOrangeBorder: c.brandOrangeBorder,
+  brandOrangeFill: c.brandOrangeFill,
   successContainer: c.successContainer,
   warningContainer: c.warningContainer,
   textMuted: c.textMuted,
@@ -180,10 +183,10 @@ const ActiveStatusCard = ({ subscription, onRenew, loading, t }) => {
       {isExpiringSoon && (
         <TouchableOpacity style={activeStyles.renewBtn} onPress={onRenew} disabled={loading} accessibilityLabel="Renew subscription" accessibilityRole="button">
           {loading ? (
-            <ActivityIndicator size="small" color={C.onPrimary} />
+            <ActivityIndicator size="small" color={C.brandOrangeInk} />
           ) : (
             <>
-              <MaterialIcon name="autorenew" size={18} color={C.onPrimary} />
+              <MaterialIcon name="autorenew" size={18} color={C.brandOrangeInk} />
               <Text style={activeStyles.renewText}>{t('subscription.renewNow')}</Text>
             </>
           )}
@@ -211,8 +214,11 @@ const makeActiveStyles = (theme) => {
   statValue: { fontSize: 28, fontWeight: '800', color: C.text },
   statLabel: { fontSize: 11.5, fontWeight: '600', color: C.muted, letterSpacing: 0.2 },
   statDivider: { width: 1, height: 34, backgroundColor: C.line },
-  renewBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.primary, marginHorizontal: 18, marginBottom: 18, paddingVertical: 14, borderRadius: 14, gap: 8, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4 },
-  renewText: { fontSize: 15, fontWeight: '700', color: C.onPrimary },
+  renewBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.brandOrangeFill, marginHorizontal: 18, marginBottom: 18, paddingVertical: 14, borderRadius: 14, gap: 8, shadowColor: C.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4,
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
+  },
+  renewText: { fontSize: 15, fontWeight: '700', color: C.brandOrangeInk },
   });
 };
 
@@ -911,7 +917,7 @@ const SubscriptionScreen = ({ navigation }) => {
             accessibilityLabel={t('common.retry')}
             accessibilityRole="button"
           >
-            <MaterialIcon name="refresh" size={20} color={C.onPrimary} />
+            <MaterialIcon name="refresh" size={20} color={C.brandOrangeInk} />
             <Text style={styles.subscribeBtnText}>{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
@@ -1008,7 +1014,7 @@ const SubscriptionScreen = ({ navigation }) => {
                       accessibilityLabel={t('subscription.ctaGetVerified')}
                       accessibilityRole="button"
                     >
-                      <MaterialIcon name="verified" size={20} color={C.onPrimary} />
+                      <MaterialIcon name="verified" size={20} color={C.brandOrangeInk} />
                       <Text style={styles.subscribeBtnText}>{t('subscription.ctaGetVerified')}</Text>
                     </TouchableOpacity>
                     <Text style={styles.webPaymentNote}>{t('subscription.ctaGetVerifiedSub')}</Text>
@@ -1025,10 +1031,10 @@ const SubscriptionScreen = ({ navigation }) => {
                     accessibilityRole="button"
                   >
                     {subscribing ? (
-                      <ActivityIndicator size="small" color={C.onPrimary} />
+                      <ActivityIndicator size="small" color={C.brandOrangeInk} />
                     ) : (
                       <>
-                        <MaterialIcon name="bolt" size={20} color={C.onPrimary} />
+                        <MaterialIcon name="bolt" size={20} color={C.brandOrangeInk} />
                         <Text style={styles.subscribeBtnText}>{t('subscription.ctaContinue', { price: selectedPlan.priceDisplay })}</Text>
                       </>
                     )}
@@ -1225,7 +1231,7 @@ const makeStyles = (theme) => {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: C.primary,
+    backgroundColor: C.brandOrangeFill,
     paddingVertical: 16,
     borderRadius: 16,
     marginTop: 8,
@@ -1235,6 +1241,8 @@ const makeStyles = (theme) => {
     shadowOpacity: 0.25,
     shadowRadius: 12,
     elevation: 5,
+    borderWidth: 1,
+    borderColor: C.brandOrangeBorder,
   },
   subscribeBtnDisabled: {
     opacity: 0.7,
@@ -1249,7 +1257,7 @@ const makeStyles = (theme) => {
   subscribeBtnText: {
     fontSize: 16,
     fontWeight: '700',
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
   },
   statsRow: {
     flexDirection: 'row',
