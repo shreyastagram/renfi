@@ -2612,3 +2612,64 @@ fail. **That practice has now caught three gates that did not work** (§43.1,
 | build | versionCode | notes |
 |---|---|---|
 | 1.1.0-beta.26 | 62 | §50 — spacing from Material/HIG guidance, vertical distribution, keyboard reachability. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/249amrrsu7v5o) |
+
+---
+
+## §51 — no button is a solid colour
+
+Owner's rule, overriding §44's "one solid primary per context": **every button
+is a tinted fill with a matching edge.** 69 buttons across 28 files were solid.
+
+```
+primary/brandOrange    -> brandOrangeFill + brandOrangeBorder
+secondary/accent/blue  -> infoContainer   + infoBorder
+success/online         -> successContainer + successBorder
+danger                 -> dangerContainer + dangerBorder
+warning                -> warningContainer + warningBorder
+```
+
+### 51.1 What it costs — recorded, not glossed
+
+With no solid fill anywhere, **nothing announces the primary action by
+weight**. Hierarchy now comes from ink strength and position. This is the trade
+the owner asked for; if a screen ever reads as having no obvious main action,
+this is the cause, and restoring one fill on that screen is a one-line change.
+
+### 51.2 The ink cascade — 311 failures from 69 fills
+
+Converting the fills left **163 dark and 148 light** failures: every label was
+an `on*` colour — near-white, chosen for a solid — suddenly on a pale tint at
+~1.06:1. `check:ink` enumerated all of them.
+
+Fixed in **three passes, because the inks live in three places**:
+
+| pass | where | count |
+|---|---|---|
+| 1 | inline `color={...}` props | 83 |
+| 2 | the **text styles** those lines reference | 59 |
+| 3 | inline fill overrides the style sweep could not see | 2 |
+
+> Pass 2 is the recurring lesson (§44.3): the gate reports the JSX line, but
+> the colour usually lives in the style that line references. Patching the
+> reported line fixes nothing.
+
+### 51.3 The find in pass 3
+
+UserHomeScreen had **two retry buttons sharing one text style**, where one
+instance repainted the shared blue fill orange. One label, two grounds — the
+colour could only ever be right for one of them. Dropped the override rather
+than adding a second text style: two identical buttons is also what "uniform"
+means.
+
+Dark back to **0**. Light baseline **102 → 98**.
+
+### 51.4 `check:buttons`
+
+Fails any button filled with a saturated token, matching **both** style
+definitions and inline overrides, and names the tinted pair to use. Ignores
+non-buttons — status dots, progress fills and the online pad are still solid
+and should be. Verified by reintroducing each shape.
+
+| build | versionCode | notes |
+|---|---|---|
+| 1.1.0-beta.28 | 64 | §51 — 69 buttons to one uniform tinted treatment, 144 inks repointed. `USE_DEV_STAGING=false` |
