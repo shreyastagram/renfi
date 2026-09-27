@@ -24,6 +24,7 @@ import {  View,
   Linking,
   ScrollView,
   Animated,
+  Easing,
   PanResponder,
   Platform,
   PermissionsAndroid,
@@ -98,6 +99,7 @@ const SHEET_MID_HEIGHT = SCREEN_HEIGHT * 0.40; // 40% for initial state - shows 
 // the base flips to the dark-mode blue, so the tint flips with it instead of
 // staying a light-blue wash that would be invisible on a near-black card.
 const makeC = (c) => ({
+  successDeep: c.successDeep,
   dangerDeep: c.danger,
   infoDeep: c.info,
   warningDeep: c.warning,
@@ -346,9 +348,9 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
         accessibilityRole="button"
       >
         {calling ? (
-          <ActivityIndicator size="small" color={C.onSuccess} />
+          <ActivityIndicator size="small" color={C.successDeep} />
         ) : (
-          <Icon name="phone" size={20} color={C.onSuccess} />
+          <Icon name="phone" size={20} color={C.successDeep} />
         )}
       </TouchableOpacity>
       <TouchableOpacity
@@ -526,6 +528,26 @@ const UserHomeScreen = ({ navigation, route }) => {
   const currentHeightRef = useRef(SHEET_MID_HEIGHT);
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const scrollOffsetRef = useRef(0); // tracks ScrollView scroll position
+
+  // Folds the radius pill and the contact tip away once the list is scrolled.
+  const headerFold = useRef(new Animated.Value(1)).current;
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
+  const headerCollapsedRef = useRef(false);
+  const onProvidersScroll = useCallback((e) => {
+    const y = e.nativeEvent.contentOffset.y;
+    // A dead band, not one threshold: collapse at 24, expand at 8. A single
+    // boundary flickers when a finger rests on it.
+    const next = headerCollapsedRef.current ? y > 8 : y > 24;
+    if (next === headerCollapsedRef.current) return;
+    headerCollapsedRef.current = next;
+    setHeaderCollapsed(next);
+    Animated.timing(headerFold, {
+      toValue: next ? 0 : 1,
+      duration: 200,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: false,   // maxHeight cannot be native-driven
+    }).start();
+  }, [headerFold]);
   const scrollViewRef = useRef(null);
   // Date view slides up from below to cover the select view (iOS modal style)
   const dateStepTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -1582,19 +1604,36 @@ const UserHomeScreen = ({ navigation, route }) => {
                 </TouchableOpacity>
               </View>
               <Text style={styles.providersTitle}>{fetchingProviders ? t('userHome.findingProviders') : t('userHome.providersFound', { count: providers.length })}</Text>
-              {searchRadius > 0 && (
-                <View style={styles.radiusPill}>
-                  <Icon name="location" size={13} color={C.secondary} />
-                  <Text style={styles.radiusPillText}>{t('userHome.within')} {formatDistanceFromMeters(searchRadius, useKm)}</Text>
-                </View>
-              )}
-              {/* Contact-first tip */}
-              {!fetchingProviders && providers.length > 0 && (
-                <View style={styles.providerTipRow}>
-                  <MaterialIcon name="info-outline" size={18} color={C.warning} />
-                  <Text style={styles.providerTipText}>{t('userHome.tipText')}</Text>
-                </View>
-              )}
+              {/* Orientation, not content: worth a glance on arrival and nothing
+                  once the user is scrolling, so it folds away and hands ~120pt
+                  back to the provider cards.
+
+                  Animated on a THRESHOLD, not per frame. A per-frame height
+                  interpolation cannot use the native driver, so it would run on
+                  the JS thread for the whole gesture — exactly the jank a low-end
+                  phone shows. One 200ms transition costs nothing while scrolling. */}
+              <Animated.View
+                style={{
+                  opacity: headerFold,
+                  maxHeight: headerFold.interpolate({ inputRange: [0, 1], outputRange: [0, 200] }),
+                  overflow: 'hidden',
+                }}
+                pointerEvents={headerCollapsed ? 'none' : 'auto'}
+              >
+                {searchRadius > 0 && (
+                  <View style={styles.radiusPill}>
+                    <Icon name="location" size={13} color={C.infoDeep} />
+                    <Text style={styles.radiusPillText}>{t('userHome.within')} {formatDistanceFromMeters(searchRadius, useKm)}</Text>
+                  </View>
+                )}
+                {/* Contact-first tip */}
+                {!fetchingProviders && providers.length > 0 && (
+                  <View style={styles.providerTipRow}>
+                    <MaterialIcon name="info-outline" size={18} color={C.warning} />
+                    <Text style={styles.providerTipText}>{t('userHome.tipText')}</Text>
+                  </View>
+                )}
+              </Animated.View>
             </View>
             {fetchingProviders ? (
               <View style={styles.loadingContainer}>
@@ -2721,27 +2760,17 @@ const makeStyles = (theme) => {
     alignItems: 'center',
   },
   callButton: {
-    // Equal width with "Send Request" (both flex:1) — Skip stays fixed at 46.
-    // Icon stays centered/unchanged; only the button width grows. (Task 5)
+    // Equal width with Send Request; Skip stays fixed at 46.
     flex: 1,
     height: 42,
     backgroundColor: C.successContainer,
+    borderWidth: 1,
+    borderColor: C.successBorder,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: C.success,
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.25,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-    borderWidth: 1,
-    borderColor: C.successBorder,
+    // No coloured shadow — the border is the edge now, and a green glow on a
+    // dark page is bloom.
   },
   callButtonCalling: {
     backgroundColor: C.disabledFill,
@@ -2788,20 +2817,13 @@ const makeStyles = (theme) => {
     width: 46,
     height: 42,
     borderRadius: 12,
-    backgroundColor: C.dangerBg,
+    backgroundColor: C.dangerContainer,
+    // Border, like its two siblings. Without one it read as a floating patch
+    // rather than the third button in the row.
+    borderWidth: 1,
+    borderColor: C.dangerBorder,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: C.danger,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
   },
   skipButtonLoading: {
     opacity: 0.5,
