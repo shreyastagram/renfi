@@ -2497,3 +2497,58 @@ variant of the artwork, or the illustration hidden in dark.
 | build | versionCode | notes |
 |---|---|---|
 | 1.1.0-beta.24 | 60 | §48 — one wordmark component, brand colours and case corrected, dark bloom. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/2bnigpp5k1fj0) |
+
+---
+
+## §49 — eleven screens, eleven rhythms
+
+Measured across the auth screens, all styling the same three elements:
+
+| | values found |
+|---|---|
+| brand → title gap | **10, 14, 18, 20** |
+| title size | **21, 22, 24** |
+| subtitle size | **13, 14** |
+| header → body gap | **8, 20, 24, 28, 32** |
+
+No single screen was wrong — which is exactly why it drifted. Each was edited
+alone and looked fine alone. It only reads as ill-organised when you *move
+between them* and the same three things keep changing size and position.
+
+Same shape as §48's wordmark: one idea, many copies, owned by nobody.
+`src/theme/authLayout.js` owns it now — tight at the top, looser toward the
+body, sized to hold on a 320pt screen at the largest accessible font scale
+without pushing the primary action below the fold. Ten screens take their
+rhythm from it, and **14 dead `brandName`/`logo` styles** are gone, orphaned
+when the wordmark became a component.
+
+### 49.1 The hero illustration — decided
+
+Hidden in dark. Stated three times and worth recording as closed: the asset's
+edges are alpha-feathered toward a light ground, **painted into the PNG**, so
+on black they render as a grey halo in a box. No style undoes that. Shipping
+a visible artefact was the worse option; dark gets the space, which also lifts
+the choice cards from the fold. One line to restore given a dark variant.
+
+### 49.2 A test that certified instead of checking
+
+The first version of `authLayout.test.js` matched only **multi-line** style
+blocks. These styles are written both ways, so it found nothing, reported
+green, and **passed when a hardcoded size was deliberately reintroduced.**
+
+> A test that cannot fail is worse than no test: it converts "unverified" into
+> "verified" at a glance.
+
+Rewritten to brace-count either shape, then verified against *two* drift
+shapes — a hardcoded `fontSize` and a hardcoded `marginBottom` — before being
+trusted. That verification also caught a real loss: the `git checkout` used to
+undo the injected bug reverted the file to HEAD and silently took its `AUTH`
+import with it.
+
+**Standing practice, now twice-proven (§43.1, here): after writing a gate or
+test, reintroduce the bug and watch it fail.** Both times the first version
+did not catch what it claimed.
+
+| build | versionCode | notes |
+|---|---|---|
+| 1.1.0-beta.25 | 61 | §49 — one auth scale across 10 screens, 14 dead styles removed, hero hidden in dark. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/3edcdp44ia5jg) |
