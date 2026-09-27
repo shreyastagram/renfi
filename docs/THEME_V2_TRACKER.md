@@ -2552,3 +2552,63 @@ did not catch what it claimed.
 | build | versionCode | notes |
 |---|---|---|
 | 1.1.0-beta.25 | 61 | §49 — one auth scale across 10 screens, 14 dead styles removed, hero hidden in dark. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/3edcdp44ia5jg) |
+
+---
+
+## §50 — compact was the wrong goal
+
+Owner: content clustered at the top, lower half empty. They were right, and
+**§49 caused it** — I optimised for density.
+
+> Optimised does not mean compact. It means the eye finds each thing in the
+> order it needs them, with enough room to separate them.
+
+### 50.1 Numbers from guidance, not taste
+
+| | §49 | now |
+|---|---|---|
+| titleGap | 6 | **8** |
+| brandGap | 12 | **16** |
+| headerGap | 26 | **32** |
+| gutter | 20 | **24** |
+| stackGap | 12 | **16** |
+| — | — | + `fieldGap 20`, `actionGap 24`, `touchTarget 48` |
+
+Material 3 builds on an **8dp grid** (4dp for fine alignment); form elements
+want **16–24dp** of separation; touch targets are **48dp** (Material) / 44dp
+(Apple HIG) with **8dp+** between adjacent targets. Every value is a multiple
+of 4, most of 8.
+
+**Because the screens reference `AUTH.*`, changing the scale moved all ten at
+once.** That is what §49's abstraction was for — the fix cost one file.
+
+### 50.2 Spacing alone does not fix clustering
+
+A short form pinned to the top of a tall phone leaves a dead lower half however
+the gaps are tuned. **Eight screens had `flexGrow` but no `justifyContent`** —
+they grew and still sat at the top. Now centred, falling back to normal
+scrolling once content exceeds the viewport or the keyboard is up.
+
+### 50.3 The keyboard — one real bug
+
+**LoginScreen had a `KeyboardAvoidingView` wrapping a plain `View`.** That is
+half the job: the view moves up, but with nothing scrollable inside, a covered
+sign-in button is *unreachable*. Every other auth screen already had the
+ScrollView — that one was the outlier, and an outlier stays invisible until
+someone opens that exact screen on that exact phone.
+
+`authKeyboard.test.js` asserts three things on all nine typed screens:
+
+| piece | what it does |
+|---|---|
+| `KeyboardAvoidingView` | moves the content up |
+| `<ScrollView>` | reaches what is still covered |
+| `keyboardShouldPersistTaps` | lets the **first** tap hit the button rather than be swallowed dismissing the keyboard |
+
+Verified by removing the ScrollView, then the persistTaps, and watching each
+fail. **That practice has now caught three gates that did not work** (§43.1,
+§49.2, here).
+
+| build | versionCode | notes |
+|---|---|---|
+| 1.1.0-beta.26 | 62 | §50 — spacing from Material/HIG guidance, vertical distribution, keyboard reachability. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/249amrrsu7v5o) |
