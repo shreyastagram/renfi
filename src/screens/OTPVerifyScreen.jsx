@@ -18,6 +18,7 @@ import {  View,
   ScrollView
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
+import FixhomiWordmark from '../components/FixhomiWordmark';
 import Screen from '../components/Screen';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Button, Alert, FixhomiLogo } from '../components';
@@ -437,7 +438,7 @@ const OTPVerifyScreen = ({
           <View style={styles.logoContainer}>
             <FixhomiLogo size={44} />
           </View>
-          <Text style={styles.brandName}>FixHomi</Text>
+          <FixhomiWordmark size={24} />
 
           {/* Header */}
           <View style={styles.header}>

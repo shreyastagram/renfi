@@ -30,6 +30,7 @@ import {
   Linking,
 } from 'react-native';
 import Screen from '../components/Screen';
+import FixhomiWordmark from '../components/FixhomiWordmark';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';
@@ -365,7 +366,7 @@ const UnifiedUserAuthScreen = ({ navigation, onPickPhone, onNewUserAuth }) => {
           <View style={styles.logoContainer}>
             <FixhomiLogo size={48} />
           </View>
-          <Text style={styles.brandName}>FixHomi</Text>
+          <FixhomiWordmark size={26} />
           <Text style={styles.title}>
             {t('auth.unifiedWelcomeTitle') || 'Welcome to FixHomi'}
           </Text>

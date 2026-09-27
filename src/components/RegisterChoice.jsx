@@ -28,6 +28,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Screen from './Screen';
+import FixhomiWordmark from './FixhomiWordmark';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import TouchableOpacity from './TouchableOpacity';
 import FixhomiLogo from './FixhomiLogo';
@@ -144,7 +145,7 @@ const RegisterChoice = ({
             <View style={styles.logoContainer}>
               <FixhomiLogo size={40} />
             </View>
-            <Text style={styles.brandName}>FixHomi</Text>
+            <FixhomiWordmark size={26} />
             <Text style={styles.title}>{t('auth.createAccount')}</Text>
             <Text style={styles.subtitle}>{t('auth.createAccountSubtitle')}</Text>
           </View>

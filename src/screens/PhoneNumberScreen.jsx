@@ -23,6 +23,7 @@ import {
   Platform,
 } from 'react-native';
 import Screen from '../components/Screen';
+import FixhomiWordmark from '../components/FixhomiWordmark';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { Button, PhoneInput, Alert, FixhomiLogo } from '../components';
@@ -150,7 +151,7 @@ const PhoneNumberScreen = ({ onOtpSent, onBack }) => {
             <View style={styles.logoContainer}>
               <FixhomiLogo size={44} />
             </View>
-            <Text style={styles.brandName}>FixHomi</Text>
+            <FixhomiWordmark size={24} />
             <Text style={styles.title}>
               {t('auth.phoneEntryTitle') || 'Continue with phone'}
             </Text>

@@ -19,6 +19,7 @@ import {  View,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import TouchableOpacity from '../components/TouchableOpacity';
+import FixhomiWordmark from '../components/FixhomiWordmark';
 import Screen from '../components/Screen';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -147,7 +148,7 @@ const UserTypeScreen = ({ navigation }) => {
           <View style={styles.logoContainer}>
             <FixhomiLogo size={72} />
           </View>
-          <Text style={styles.logo}>FixHomi</Text>
+          <FixhomiWordmark size={30} />
           <Text style={styles.title}>{t('userType.welcome')}</Text>
           <Text style={styles.subtitle}>
             {t('userType.chooseHow')}

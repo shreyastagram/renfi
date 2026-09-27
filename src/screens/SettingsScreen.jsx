@@ -32,6 +32,7 @@ import {  View,
   Keyboard
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
+import FixhomiWordmark from '../components/FixhomiWordmark';
 import { BlurView } from '../components/SafeBlurView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -1412,7 +1413,7 @@ const SettingsScreen = ({ navigation }) => {
           <View style={styles.brandLogoContainer}>
             <Image source={FIXHOMI_LOGO} style={styles.brandFooterLogo} />
           </View>
-          <Text style={styles.brandFooterText}>FixHomi</Text>
+          <FixhomiWordmark size={18} />
           <Text style={styles.brandFooterTagline}>Fix Your Home, Anytime</Text>
         </View>
       </ScrollView>

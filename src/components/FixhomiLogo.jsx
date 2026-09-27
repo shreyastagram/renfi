@@ -1,5 +1,6 @@
 import * as React from "react";
 import { View, Text, Image, StyleSheet, Animated } from "react-native";
+import FixhomiWordmark from "./FixhomiWordmark";
 import {
   useThemedStyles,
   brand,
@@ -37,7 +38,9 @@ const FixhomiLogoWithText = ({ size = 64, textColor = brand.orange }) => {
   return (
     <View style={styles.logoWithText}>
       <FixhomiLogo size={size} />
-      <Text style={[styles.brandText, { color: textColor, fontSize: size * 0.25 }]}>FixHomi</Text>
+      {/* One wordmark component app-wide — see FixhomiWordmark for why the
+          name is two colours and why there is no custom font. */}
+      <FixhomiWordmark size={Math.round(size * 0.25)} />
     </View>
   );
 };

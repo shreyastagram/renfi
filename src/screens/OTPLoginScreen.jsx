@@ -16,6 +16,7 @@ import {  View,
   Platform
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
+import FixhomiWordmark from '../components/FixhomiWordmark';
 import Screen from '../components/Screen';
 import { Button, Input, PhoneInput, Alert, FixhomiLogo } from '../components';
 import { 
@@ -232,7 +233,7 @@ const OTPLoginScreen = ({ navigation, onSwitchToPassword, onOtpSent, userType = 
             <View style={styles.logoContainer}>
               <FixhomiLogo size={44} />
             </View>
-            <Text style={styles.brandName}>FixHomi</Text>
+            <FixhomiWordmark size={24} />
             <Text style={styles.title}>{t('auth.signInWithOtpTitle')}</Text>
             <Text style={styles.subtitle}>
               {method === 'phone' ? t('auth.otpSubtitlePhone') : t('auth.otpSubtitleEmail')}

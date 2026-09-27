@@ -19,6 +19,7 @@ import {  View,
   ActivityIndicator,
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
+import FixhomiWordmark from '../components/FixhomiWordmark';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Screen from '../components/Screen';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -500,7 +501,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
             <View style={styles.logoContainer}>
               <FixhomiLogo size={44} />
             </View>
-            <Text style={styles.brandName}>FixHomi</Text>
+            <FixhomiWordmark size={26} />
             <Text style={styles.title}>{t('auth.welcomeBack')}</Text>
             <Text style={styles.subtitle}>
               {userType === 'provider' ? t('auth.signInProvider') : t('auth.signInContinue')}

@@ -20,6 +20,7 @@ import {  View,
   AppState
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
+import FixhomiWordmark from '../components/FixhomiWordmark';
 import Screen from '../components/Screen';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -665,7 +666,7 @@ const ForgotPasswordScreen = ({ navigation, onGoBack }) => {
           <View style={styles.logoContainer}>
             <FixhomiLogo size={44} />
           </View>
-          <Text style={styles.brandName}>FixHomi</Text>
+          <FixhomiWordmark size={24} />
 
           {/* Content */}
           {passwordResetSuccess

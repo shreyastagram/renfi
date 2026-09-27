@@ -24,6 +24,7 @@ import {  View,
   Linking
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
+import FixhomiWordmark from '../components/FixhomiWordmark';
 import Screen from '../components/Screen';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -967,7 +968,7 @@ const ProviderRegisterScreen = ({ navigation }) => {
             <View style={styles.logoContainer}>
               <FixhomiLogo size={44} />
             </View>
-            <Text style={styles.brandName}>FixHomi</Text>
+            <FixhomiWordmark size={26} />
             <Text style={styles.title}>{t('providerRegister.becomeProvider')}</Text>
             <Text style={styles.subtitle}>
               {t('providerRegister.joinSubtitle')}

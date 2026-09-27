@@ -1,3 +1,4 @@
+import FixhomiWordmark from './FixhomiWordmark';
 /**
  * SplashScreen Component — Premium Animated Launch
  * 
@@ -333,7 +334,7 @@ const SplashScreen = ({ visible = true, onFinish }) => {
             transform: [{ translateY: brandNameTranslateY }],
           }}
         >
-          <Text style={styles.brandName}>FixHomi</Text>
+          <FixhomiWordmark size={30} />
         </Animated.View>
 
         {/* Accent bar */}
