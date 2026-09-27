@@ -84,13 +84,21 @@ export const AUTH = {
   /**
    * For the auth ScrollView's contentContainerStyle.
    *
-   * flexGrow lets short content centre itself on a tall screen instead of
-   * clustering at the top; once content exceeds the viewport — a long form, or
-   * the keyboard open — it behaves as a normal scroll and nothing is clipped.
+   * flexGrow only — NOT justifyContent: 'center'.
+   *
+   * Centring was tried and was wrong. It squeezed every screen into a band in
+   * the middle with dead space above AND below, and floated the back arrow to
+   * the vertical centre, which is nowhere. An auth screen is read top-down: a
+   * back control, a brand, a question, then the field that answers it. Those
+   * belong at the top, and empty space below a short form is correct, not a
+   * defect.
+   *
+   * The clustering the owner originally reported was a SPACING problem, and
+   * the scale above fixes it. Centring was treating the symptom in the
+   * opposite direction.
    */
   contentContainer: {
     flexGrow: 1,
-    justifyContent: 'center',
   },
 };
 

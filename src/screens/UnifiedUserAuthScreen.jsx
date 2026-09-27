@@ -545,7 +545,7 @@ const makeStyles = (theme) => {
   return StyleSheet.create({
   container: { flex: 1, // pageSolid: white in light exactly as v1.0.9, pure black in dark.
     backgroundColor: C.pageSolid },
-  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 28, justifyContent: 'center'},
+  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 28},
 
   // ── Back Button ──
   backButton: {

@@ -25,7 +25,17 @@ const LOGO_IMAGE = require('../assets/fixhomi_logo.jpg');
 const FixhomiLogo = ({ size = 64, color, style }) => (
   <Image
     source={LOGO_IMAGE}
-    style={[{ width: size, height: size }, color ? { tintColor: color } : null, style]}
+    style={[
+      { width: size, height: size },
+      // The asset is a white square with the mark on it. Unrounded, that white
+      // reads as a hard square patch on a dark page — the owner's "it looks
+      // like a square". Rounding the IMAGE itself (with overflow clipped)
+      // rather than a wrapper means every caller gets it, including the ones
+      // that pass their own container. ~22% matches the platform icon shape.
+      { borderRadius: Math.round(size * 0.22), overflow: 'hidden' },
+      color ? { tintColor: color } : null,
+      style,
+    ]}
     resizeMode="contain"
   />
 );

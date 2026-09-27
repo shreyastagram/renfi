@@ -1036,7 +1036,7 @@ const makeStyles = (theme) => {
     backgroundColor: C.pageSolid },
   keyboardView: { flex: 1 },
   scrollView: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24, justifyContent: 'center'},
+  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24},
 
   // ── Header ──
   header: { marginBottom: AUTH.headerGap, alignItems: 'center' },

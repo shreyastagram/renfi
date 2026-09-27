@@ -250,7 +250,7 @@ const makeStyles = (theme) => {
   container: { flex: 1, // pageSolid: white in light exactly as v1.0.9, pure black in dark.
     backgroundColor: C.pageSolid },
   keyboardView: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24, justifyContent: 'center'},
+  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24},
 
   header: { marginBottom: AUTH.headerGap, alignItems: 'center' },
   backButton: {
