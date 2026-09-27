@@ -2382,3 +2382,63 @@ so the next pass does not re-audit them.
 | build | versionCode | notes |
 |---|---|---|
 | 1.1.0-beta.22 | 58 | §46 — solid fills at source, auth gradient ink, primary alias, OTP hue, location loading. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/5vjt0j78h21ig) |
+
+---
+
+## §47 — the tab pop, the glare, and a font requirement already met
+
+### 47.1 Fonts — the rule is satisfied by NOT having one
+
+Owner: *"Only use fonts that will support iOS and Android equally and will not
+break on older devices."*
+
+**The app ships zero custom fonts** — one `monospace` reference, the system face
+everywhere. That already is the rule: Roboto on Android, SF on iOS, no asset to
+load, nothing to fail. **Adding a typeface would break it** — bundled fonts are
+the classic older-Android failure and cost MBs.
+
+So the wordmark was retuned, not re-faced: 24pt/800 with **positive** tracking
+is a heavy word pulled apart; 27pt at -0.6 reads as a mark. Standing rule
+recorded: *system font only.*
+
+The same rule condemns **emoji in UI**: 📞 ✅ 📋 💡 📍 ⭐ render differently per OS
+and per Android version. Seven removed from the provider cards.
+
+### 47.2 The tab "pop from the back"
+
+`Animated.spring(pop, { toValue: 1.18 })` on arrival. Removed both roles, both
+themes. The gliding lens already marks the active tab in the brand colour,
+which is the signal the owner asked to keep.
+
+### 47.3 The glowing labels
+
+Every label carried a 5px text shadow — white at 0.9 on the light row, black at
+0.55 on the dark row. **Both rows are mounted and cross-faded**, so in dark the
+white halo bleeds through. That is the glow. Removed.
+
+### 47.4 The washed-out social buttons
+
+Not a gradient on the button: a `googleCardGlare` overlay, white 55% → clear,
+across the top. Built for a white card; on the dark one it washes the top
+third. Neutralised in dark across all three files that carry it
+(UnifiedUserAuth, Login, RegisterChoice); light keeps the gloss.
+
+### 47.5 The illustration — NOT fixable in code
+
+The asset's edges are alpha-feathered toward a **light** ground — the file's own
+comment says so — so on black that feather renders as a grey halo. **No style
+can undo a baked-in alpha ramp.** Hero shrunk 28% → 20% of the viewport, which
+reduces it; removing it needs a dark variant of the PNG. Flagged to the owner
+rather than worked around.
+
+### 47.6 Create request
+
+Cards 16 → 13 padding, 12 → 9 gap, shadow → hairline: a list that is scrolled
+and compared pays for vertical cost per card. Call tinted + edged; Book stays
+solid as the one primary action — that contrast is what the tinting is for.
+
+`check:ink` caught the call label still near-white on its new tint at **1.05:1**.
+
+| build | versionCode | notes |
+|---|---|---|
+| 1.1.0-beta.23 | 59 | §47 — tab pop and label glow removed, social glare, welcome compacted, provider cards. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/049ceqc9v4r0g) |
