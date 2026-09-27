@@ -687,7 +687,7 @@ const makeStyles = (theme) => {
   // ── Layout ──
   container: { flex: 1, backgroundColor: C.bg },
   keyboardAvoid: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24 },
+  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24, justifyContent: 'center'},
   alert: { marginBottom: 16 },
 
   // ── Logo ──

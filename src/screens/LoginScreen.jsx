@@ -13,6 +13,7 @@ import {  View,
   Text,
   StyleSheet,
   KeyboardAvoidingView,
+  ScrollView,
   Platform,
   Image,
   Modal,
@@ -496,7 +497,16 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={[styles.content, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
+        {/* A KeyboardAvoidingView wrapping a plain View is only half the job:
+            once the keyboard covered the sign-in button there was no way to
+            reach it, because nothing could scroll. Every other auth screen
+            already had this. */}
+        <ScrollView
+          style={styles.flex1}
+          contentContainerStyle={[styles.content, AUTH.contentContainer, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           {/* Header — compact */}
           <View style={styles.header}>
             <View style={styles.logoContainer}>
@@ -663,7 +673,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
               <MaterialIcons name="arrow-forward" size={18} color={themeColor} />
             </TouchableOpacity>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
 
       {/* Cross-Role Conflict Dialog */}
@@ -761,6 +771,7 @@ const makeStyles = (theme) => {
   // ── Layout (full-height flex, no scroll) ──
   container: { flex: 1, // pageSolid: white in light exactly as v1.0.9, pure black in dark.
     backgroundColor: C.pageSolid },
+  flex1: { flex: 1 },
   keyboardView: { flex: 1 },
   content: { flex: 1, paddingHorizontal: 24, paddingTop: 8 },
   flexSpacer: { flex: 1, minHeight: 12 },

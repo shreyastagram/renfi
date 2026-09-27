@@ -4,59 +4,93 @@
  * WHY THIS EXISTS
  *
  * Eleven auth screens each invented their own rhythm for the same three
- * elements. Measured across them:
+ * elements — four different gaps below the brand, three title sizes, five gaps
+ * above the form. No screen was wrong alone, which is why it drifted; it only
+ * reads as disorganised when you move between them.
  *
- *   brand -> title gap    10, 14, 18, 20      four values
- *   title size            21, 22, 24          three values
- *   subtitle size         13, 14              two values
- *   header -> body gap    8, 20, 24, 28, 32   five values
+ * WHY THE NUMBERS CHANGED (second pass)
  *
- * Nothing was wrong on any single screen, which is exactly why it drifted —
- * each was edited alone and each looked fine alone. Moving between them is
- * where it reads as ill-organised: the title changes size, the gaps breathe
- * differently, and the eye has to re-find the same three things every time.
+ * The first version of this scale was too tight — 6pt between title and
+ * subtitle, 12pt below the brand — and it clustered every screen's content
+ * against the top while the lower half sat empty. That is denser, not clearer.
  *
- * Same failure as the wordmark (§48): fourteen copies of one idea, owned by
- * nobody. The answer is the same — one definition, and a test that fails if a
- * screen goes back to inventing numbers.
+ * > Optimised does not mean compact. It means the eye finds each thing in the
+ * > order it needs them, with enough room to separate them.
  *
- * THE SCALE
+ * These values now come from published guidance rather than taste:
  *
- * Tight at the top, looser toward the body, so the header reads as one block
- * rather than three floating lines. Values are chosen to hold on a 320pt
- * screen at the largest accessible font scale without pushing the primary
- * action below the fold.
+ *   - Material 3 builds on an 8dp grid, with 4dp for fine alignment. Every
+ *     value here is a multiple of 4, most of 8.
+ *   - Form elements want 16–24dp of separation — enough to read as distinct
+ *     without breaking the group apart.
+ *   - Touch targets are 48dp minimum (Material) / 44dp (Apple HIG), with 8dp
+ *     or more between adjacent targets.
+ *
+ * VERTICAL DISTRIBUTION
+ *
+ * Spacing alone does not fix a clustered screen. A short form pinned to the
+ * top of a tall phone leaves a dead lower half, so the auth scroll containers
+ * use `flexGrow: 1` with the content centred: the form sits where the eye
+ * lands, and on a small screen or with the keyboard up it falls back to
+ * scrolling from the top with nothing clipped. See `contentContainer` below.
+ *
+ * Sources:
+ *   https://m3.material.io/styles/spacing/overview
+ *   https://m3.material.io/foundations/designing/structure
+ *   https://www.smashingmagazine.com/2018/08/best-practices-for-mobile-form-design/
  */
 
 export const AUTH = {
-  /** Logo mark -> wordmark. They are one lockup, so this is deliberately small. */
-  logoGap: 12,
+  /** Logo mark -> wordmark. One lockup, so the tightest gap on the screen. */
+  logoGap: 16,
 
   /** Wordmark -> title. */
-  brandGap: 12,
+  brandGap: 16,
 
-  /** Title -> subtitle. Within a sentence, so tighter than the gaps around it. */
-  titleGap: 6,
+  /** Title -> subtitle. Within one thought, so half the gap around it. */
+  titleGap: 8,
 
-  /** The whole header block -> the first field or card. */
-  headerGap: 26,
+  /** The header block -> the first field. The largest gap: it separates
+   *  "who we are" from "what we need from you". */
+  headerGap: 32,
 
   /** Screen side padding. */
-  gutter: 20,
+  gutter: 24,
 
-  /** Between stacked cards or fields. */
-  stackGap: 12,
+  /** Between stacked fields — the 16–24 band from the form guidance. */
+  stackGap: 16,
+
+  /** Between labelled groups, or a field and the action below it. */
+  fieldGap: 20,
+
+  /** Above the primary action, so it is never mistaken for another field. */
+  actionGap: 24,
+
+  /** Minimum interactive height. Material says 48, Apple 44; take the larger
+   *  so one number satisfies both. */
+  touchTarget: 48,
 
   type: {
     /** The screen's question. One size everywhere, so it stops moving. */
-    title: 23,
+    title: 24,
     titleWeight: '700',
-    /** Negative tracking on a large bold face — it reads as set, not spaced. */
+    /** Negative tracking on a large bold face reads as set, not spaced. */
     titleTracking: -0.4,
 
-    /** The supporting line under it. */
-    subtitle: 14,
-    subtitleLine: 20,
+    subtitle: 14.5,
+    subtitleLine: 21,
+  },
+
+  /**
+   * For the auth ScrollView's contentContainerStyle.
+   *
+   * flexGrow lets short content centre itself on a tall screen instead of
+   * clustering at the top; once content exceeds the viewport — a long form, or
+   * the keyboard open — it behaves as a normal scroll and nothing is clipped.
+   */
+  contentContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
 };
 
