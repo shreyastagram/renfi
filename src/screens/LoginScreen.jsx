@@ -51,6 +51,7 @@ import {
   stableDark,
   brandTint,
   vendor,
+  useIsDark,
 } from '../theme';
 
 /**
@@ -61,6 +62,7 @@ import {
 const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType = 'user' }) => {
   const styles = useThemedStyles(makeStyles);
   const C = makeC(useThemeColors());
+  const isDark = useIsDark();
   const { handleAuthSuccess } = useApp();
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
@@ -584,7 +586,7 @@ const LoginScreen = ({ navigation, onSwitchToRegister, onSwitchToOtp, userType =
                   <View style={styles.googleWhiteInner}>
                     {/* Subtle glare — soft white highlight at the top */}
                     <LinearGradient
-                      colors={[stableDark.inkSoft, stableDark.inkSoftFade]}
+                      colors={isDark ? [stableDark.inkSoftFade, stableDark.inkSoftFade] : [stableDark.inkSoft, stableDark.inkSoftFade]}
                       start={{ x: 0.5, y: 0 }}
                       end={{ x: 0.5, y: 1 }}
                       style={styles.googleGlare}

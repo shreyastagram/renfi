@@ -153,21 +153,10 @@ const TabIcon = React.memo(({ focused, icon, label, accent = VERIFIED_BLUE, acce
   const color = focused ? activeInk : (dark ? 'rgba(255,255,255,0.78)' : '#5F6774');
   const IconCmp = TAB_ICONS[icon] || House;
 
-  // Arrival micro-bounce — the icon pops when its tab becomes active
-  // (timed to land as the lens settles). Light row only; the dark overlay
-  // row mirrors colors, not motion.
-  const pop = useRef(new Animated.Value(1)).current;
-  const prevFocused = useRef(focused);
-  useEffect(() => {
-    if (focused && !prevFocused.current && !dark) {
-      Animated.sequence([
-        Animated.delay(160),
-        Animated.spring(pop, { toValue: 1.18, useNativeDriver: true, stiffness: 400, damping: 10 }),
-        Animated.spring(pop, { toValue: 1, useNativeDriver: true, stiffness: 300, damping: 12 }),
-      ]).start();
-    }
-    prevFocused.current = focused;
-  }, [focused, dark, pop]);
+  // No arrival bounce. The gliding lens already says which tab is active, and
+  // it says it in the brand colour; a second, louder signal scaling the icon
+  // to 1.18 read as something popping out from behind the bar. Removed for
+  // both roles and both themes — the highlight is the affordance.
 
   // Profile tab shows the avatar when a picture exists
   const avatarUri = profilePicture
@@ -176,7 +165,7 @@ const TabIcon = React.memo(({ focused, icon, label, accent = VERIFIED_BLUE, acce
 
   return (
     <View style={styles.tabIconWrapper}>
-      <Animated.View style={[styles.tabPillSlot, { transform: [{ scale: pop }] }]}>
+      <View style={styles.tabPillSlot}>
         {avatarUri ? (
           <View style={[styles.tabAvatar, focused && { borderColor: activeInk, borderWidth: 2 }]}>
             <Image source={{ uri: avatarUri }} style={styles.tabAvatarImg} />
@@ -184,7 +173,7 @@ const TabIcon = React.memo(({ focused, icon, label, accent = VERIFIED_BLUE, acce
         ) : (
           <IconCmp size={22} color={color} strokeWidth={focused ? 2.4 : 1.9} />
         )}
-      </Animated.View>
+      </View>
       <Text
         style={[
           styles.tabLabelText,
@@ -1099,16 +1088,13 @@ const styles = StyleSheet.create({
   },
   // Adaptive halos — Apple's legibility mechanism: invisible on flat
   // backgrounds, decisive on busy imagery behind the clear glass
-  tabLabelHaloLight: {
-    textShadowColor: 'rgba(255,255,255,0.9)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 5,
-  },
-  tabLabelHaloDark: {
-    textShadowColor: 'rgba(0,0,0,0.55)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 5,
-  },
+  tabLabelHaloLight: {},
+  // No halo. These were a 5px text shadow behind every label — white at 0.9 on
+  // the light row, black at 0.55 on the dark one. Both rows are mounted and
+  // cross-faded, so in dark you see the white one bleeding through: the glow.
+  // The bar has enough contrast on its own; the shadow was solving a problem
+  // the material no longer has.
+  tabLabelHaloDark: {},
   tabLabelActive: {
     fontWeight: '700',
   },

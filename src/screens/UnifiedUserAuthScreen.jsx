@@ -58,6 +58,7 @@ import {
   useThemeColors,
   stableDark,
   vendor,
+  useIsDark,
 } from '../theme';
 
 const TERMS_URL = 'https://fixhomi.com/terms';
@@ -66,6 +67,7 @@ const PRIVACY_URL = 'https://fixhomi.com/privacy';
 const UnifiedUserAuthScreen = ({ navigation, onPickPhone, onNewUserAuth }) => {
   const styles = useThemedStyles(makeStyles);
   const C = makeC(useThemeColors());
+  const isDark = useIsDark();
   const { handleAuthSuccess } = useApp();
   const { t } = useLanguage();
 
@@ -402,7 +404,7 @@ const UnifiedUserAuthScreen = ({ navigation, onPickPhone, onNewUserAuth }) => {
             >
               <View style={styles.googleCardInner}>
                 <LinearGradient
-                  colors={[stableDark.inkSoft, stableDark.inkSoftFade]}
+                  colors={isDark ? [stableDark.inkSoftFade, stableDark.inkSoftFade] : [stableDark.inkSoft, stableDark.inkSoftFade]}
                   start={{ x: 0.5, y: 0 }}
                   end={{ x: 0.5, y: 1 }}
                   style={styles.googleCardGlare}

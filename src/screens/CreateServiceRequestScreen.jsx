@@ -76,6 +76,11 @@ const SERVICE_ICONS = {
 // -- the iOS blue stays `altBlueIos` rather than converging on the brand blue,
 // which would be a redesign of the screen, not a theme change.
 const makeC = (c) => ({
+  brandOrangeInk: c.brandOrangeInk,
+  successDeep: c.successDeep,
+  line: c.border,
+  successContainer: c.successContainer,
+  successBorder: c.successBorder,
   bg: c.bg,
   surface: c.surface,
   surfaceSunken: c.surfaceSunken,
@@ -701,7 +706,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
         <View style={styles.providerStats}>
           {provider.distance !== undefined && (
             <View style={styles.statItem}>
-              <Text style={styles.statIcon}>📍</Text>
+              <MaterialIcon name="place" size={13} color={C.textMuted} />
               <Text style={styles.statText}>
                 {formatDistanceFromMeters(provider.distance, useKm)} {t('common.away')}
               </Text>
@@ -709,13 +714,13 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
           )}
           {provider.rating !== undefined && (
             <View style={styles.statItem}>
-              <Text style={styles.statIcon}>⭐</Text>
+              <MaterialIcon name="star" size={13} color={C.brandOrangeInk} />
               <Text style={styles.statText}>{provider.rating.toFixed(1)}</Text>
             </View>
           )}
           {provider.totalJobs !== undefined && (
             <View style={styles.statItem}>
-              <Text style={styles.statIcon}>✅</Text>
+              <MaterialIcon name="check-circle" size={13} color={C.successDeep} />
               <Text style={styles.statText}>{provider.totalJobs} {t('providerHistory.jobs')}</Text>
             </View>
           )}
@@ -738,7 +743,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
               onPress={() => handleCallProvider(provider.phone || provider.verifiedPhone, provider.name, provider._id)}
             >
               <Text style={styles.callButtonText}>
-                {contactedProviderIds.has(provider._id) ? `✅ ${t('createRequest.called')}` : `📞 ${t('userHome.callProvider')}`}
+                {contactedProviderIds.has(provider._id) ? t('createRequest.called') : t('userHome.callProvider')}
               </Text>
             </TouchableOpacity>
           )}
@@ -756,7 +761,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
               {isBooking ? (
                 <ActivityIndicator size="small" color={C.onAccent} />
               ) : (
-                <Text style={styles.bookButtonText}>📋 {t('createRequest.bookProvider')}</Text>
+                <Text style={styles.bookButtonText}>{t('createRequest.bookProvider')}</Text>
               )}
             </TouchableOpacity>
           ) : (
@@ -768,7 +773,7 @@ const CreateServiceRequestScreen = ({ navigation, route }) => {
 
         {/* Instructions */}
         <Text style={styles.providerInstructions}>
-          💡 {t('createRequest.callDiscussHint')}
+          {t('createRequest.callDiscussHint')}
         </Text>
       </View>
     );
@@ -1324,22 +1329,11 @@ const makeStyles = (theme) => {
   providersList: {
     padding: 16,
   },
-  providerCard: {
-    backgroundColor: C.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: C.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  providerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
+  // Compacted: 16 -> 13 padding, 12 -> 9 gap, shadow dropped. A list of these is
+  // scrolled and compared, so vertical cost per card is what matters, and the
+  // border already separates them.
+  providerCard: { backgroundColor: C.surface, borderRadius: 14, padding: 13, marginBottom: 9, borderWidth: StyleSheet.hairlineWidth, borderColor: C.line },
+  providerHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 9 },
   providerAvatar: {
     width: 50,
     height: 50,
@@ -1357,11 +1351,7 @@ const makeStyles = (theme) => {
     marginLeft: 12,
     flex: 1,
   },
-  providerName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: C.textPrimary,
-  },
+  providerName: { fontSize: 15.5, fontWeight: '700', color: C.textPrimary, letterSpacing: -0.2 },
   providerService: {
     fontSize: 14,
     color: C.textSecondary,
@@ -1422,27 +1412,17 @@ const makeStyles = (theme) => {
     gap: 12,
     marginBottom: 8,
   },
-  callButton: {
-    flex: 1,
-    backgroundColor: C.success,
-    borderRadius: 10,
-    padding: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  // Tinted + edged, not a solid slab — the convention already applied to call
+  // and directions on the history screens.
+  callButton: { flex: 1, backgroundColor: C.successContainer, borderWidth: 1, borderColor: C.successBorder, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
   callButtonText: {
-    color: C.onSuccess,
+    color: C.successDeep,
     fontSize: 16,
     fontWeight: '600',
   },
-  bookButton: {
-    flex: 2,
-    backgroundColor: C.accent,
-    borderRadius: 10,
-    padding: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  // The ONE primary action in this card, so it stays solid. That contrast is
+  // exactly what the tinted call button exists to create.
+  bookButton: { flex: 2, backgroundColor: C.accent, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
   bookButtonDisabled: {
     backgroundColor: C.disabledFill,
   },

@@ -85,7 +85,14 @@ const UserTypeScreen = ({ navigation }) => {
   const { height: windowHeight } = useWindowDimensions();
 
   // Cap hero height so logo + cards + footer still fit on short screens
-  const heroHeight = Math.min(Math.round(windowHeight * 0.28), 258);
+  // 0.28 of the viewport was a quarter of the screen for a decorative image,
+  // pushing the two choice cards toward the fold on short phones. 0.20 keeps
+  // it present and gives the cards the space.
+  //
+  // NOTE: the asset's edges are alpha-feathered toward a LIGHT ground, so on
+  // black it reads as a soft grey box rather than melting. That is baked into
+  // the PNG and no style can undo it — it needs a dark variant of the asset.
+  const heroHeight = Math.min(Math.round(windowHeight * 0.20), 196);
 
   // Show "Exit App?" confirmation on Android back button press
   useExitConfirmation();
@@ -268,7 +275,7 @@ const makeStyles = (theme) => {
   },
 
   // ── Header ──
-  header: { alignItems: 'center', marginBottom: 12 },
+  header: { alignItems: 'center', marginBottom: 8 },
   logoContainer: {
     width: 80, height: 80, borderRadius: 22, backgroundColor: C.white,
     justifyContent: 'center', alignItems: 'center', marginBottom: 14,
@@ -278,8 +285,14 @@ const makeStyles = (theme) => {
       android: { elevation: 6 },
     }),
   },
-  logo: { fontSize: 24, fontWeight: '800', color: C.primary, marginBottom: 6, letterSpacing: 0.3 },
-  title: { fontSize: 22, fontWeight: '800', color: C.text, marginBottom: 6 },
+  // The app uses the SYSTEM font everywhere — Roboto on Android, SF on iOS —
+  // and deliberately ships no custom face. A bundled font is the classic thing
+  // that fails on older Android and adds MBs, so the cross-platform rule is
+  // met by not having one. What was wrong here was the setting, not the face:
+  // 24pt at weight 800 with POSITIVE tracking is a heavy word pulled apart.
+  // Larger, and tracked in, reads as a wordmark instead of a bold label.
+  logo: { fontSize: 27, fontWeight: '800', color: C.primary, marginBottom: 4, letterSpacing: -0.6 },
+  title: { fontSize: 21, fontWeight: '700', color: C.text, marginBottom: 5, letterSpacing: -0.3 },
   subtitle: { fontSize: 14, color: C.textSecondary, textAlign: 'center', lineHeight: 21, paddingHorizontal: 12 },
 
   // ── Hero Illustration ──
@@ -290,7 +303,7 @@ const makeStyles = (theme) => {
   },
 
   // ── Cards ──
-  cardsContainer: { gap: 14 },
+  cardsContainer: { gap: 12 },
   card: {
     backgroundColor: C.white, borderRadius: 18, padding: 18,
     borderWidth: 1.5, borderColor: stableDark.brandOrangeLine,
