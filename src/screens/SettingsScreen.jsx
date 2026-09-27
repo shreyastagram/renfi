@@ -1938,12 +1938,6 @@ const makeStyles = (theme) => {
     height: 60,
     borderRadius: 18,
   },
-  brandFooterText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: C.brandOrangeInk,
-    letterSpacing: 0.5,
-  },
   brandFooterTagline: {
     fontSize: 12,
     color: C.muted,

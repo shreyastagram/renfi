@@ -32,6 +32,8 @@ import {
   useThemeColors,
   stableDark,
   brandTint,
+  AUTH,
+  useIsDark,
 } from '../theme';
 
 const makeC = (c) => ({
@@ -80,6 +82,7 @@ const makeC = (c) => ({
 const UserTypeScreen = ({ navigation }) => {
   const styles = useThemedStyles(makeStyles);
   const C = makeC(useThemeColors());
+  const isDark = useIsDark();
   const { selectUserType } = useApp();
   const { t, language, setLanguage, languages } = useLanguage();
   const [showLangPicker, setShowLangPicker] = React.useState(false);
@@ -156,12 +159,20 @@ const UserTypeScreen = ({ navigation }) => {
         </View>
 
         {/* Hero Illustration */}
-        <Image
-          source={require('../assets/hero_home_services.png')}
-          style={[styles.heroImage, { height: heroHeight, width: Math.round(heroHeight * 1.14) }]}
-          resizeMode="contain"
-          accessible={false}
-        />
+        {/* LIGHT ONLY. The asset's edges are alpha-feathered toward a light
+            ground, so on black that fade renders as a grey halo in a box — it
+            is painted into the PNG and no style can undo it. Rather than ship
+            a visible artefact, dark gets the space instead, which also lifts
+            the two choice cards further from the fold. Restore this the day
+            there is a dark variant of the artwork. */}
+        {!isDark && (
+          <Image
+            source={require('../assets/hero_home_services.png')}
+            style={[styles.heroImage, { height: heroHeight, width: Math.round(heroHeight * 1.14) }]}
+            resizeMode="contain"
+            accessible={false}
+          />
+        )}
 
         {/* Selection Cards */}
         <View style={styles.cardsContainer}>
@@ -276,7 +287,7 @@ const makeStyles = (theme) => {
   },
 
   // ── Header ──
-  header: { alignItems: 'center', marginBottom: 8 },
+  header: { alignItems: 'center', marginBottom: AUTH.headerGap },
   logoContainer: {
     width: 80, height: 80, borderRadius: 22, backgroundColor: C.white,
     justifyContent: 'center', alignItems: 'center', marginBottom: 14,
@@ -292,9 +303,8 @@ const makeStyles = (theme) => {
   // met by not having one. What was wrong here was the setting, not the face:
   // 24pt at weight 800 with POSITIVE tracking is a heavy word pulled apart.
   // Larger, and tracked in, reads as a wordmark instead of a bold label.
-  logo: { fontSize: 27, fontWeight: '800', color: C.primary, marginBottom: 4, letterSpacing: -0.6 },
-  title: { fontSize: 21, fontWeight: '700', color: C.text, marginBottom: 5, letterSpacing: -0.3 },
-  subtitle: { fontSize: 14, color: C.textSecondary, textAlign: 'center', lineHeight: 21, paddingHorizontal: 12 },
+  title: { fontSize: AUTH.type.title, fontWeight: '700', color: C.text, marginBottom: AUTH.titleGap, letterSpacing: -0.3 },
+  subtitle: { fontSize: AUTH.type.subtitle, color: C.textSecondary, textAlign: 'center', lineHeight: AUTH.type.subtitleLine, paddingHorizontal: 12 },
 
   // ── Hero Illustration ──
   // Edges are alpha-feathered in the asset itself so it melts into the gradient

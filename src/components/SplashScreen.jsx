@@ -531,15 +531,6 @@ const styles = StyleSheet.create({
     height: 150,
     borderRadius: 38,
   },
-  brandName: {
-    fontSize: 46,
-    fontWeight: '800',
-    color: splash.white,
-    letterSpacing: 3,
-    textShadowColor: splash.nameGlow,
-    textShadowOffset: { width: 0, height: 3 },
-    textShadowRadius: 12,
-  },
   accentBar: {
     height: 3,
     backgroundColor: splash.primary,

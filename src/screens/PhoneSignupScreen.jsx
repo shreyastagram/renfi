@@ -41,6 +41,7 @@ import { useLanguage } from '../context/LanguageContext';
 import {
   useThemedStyles,
   useThemeColors,
+  AUTH,
 } from '../theme';
 
 const PhoneSignupScreen = ({ onOtpSent, onBack, signupExtras = {} }) => {
@@ -294,7 +295,7 @@ const makeStyles = (theme) => {
   keyboardView: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24 },
 
-  header: { marginBottom: 28, alignItems: 'center' },
+  header: { marginBottom: AUTH.headerGap, alignItems: 'center' },
   backButton: {
     position: 'absolute',
     left: 0,
@@ -310,9 +311,8 @@ const makeStyles = (theme) => {
       android: { elevation: 5 },
     }),
   },
-  brandName: { fontSize: 18, fontWeight: '800', color: C.warning, marginTop: 10, marginBottom: 14, letterSpacing: 0.3 },
-  title: { fontSize: 24, fontWeight: '800', color: C.text, marginBottom: 6 },
-  subtitle: { fontSize: 14, color: C.textSecondary, lineHeight: 21, textAlign: 'center', paddingHorizontal: 8 },
+  title: { fontSize: AUTH.type.title, fontWeight: '800', color: C.text, marginBottom: AUTH.titleGap },
+  subtitle: { fontSize: AUTH.type.subtitle, color: C.textSecondary, lineHeight: AUTH.type.subtitleLine, textAlign: 'center', paddingHorizontal: 8 },
 
   alert: { marginBottom: 16 },
 

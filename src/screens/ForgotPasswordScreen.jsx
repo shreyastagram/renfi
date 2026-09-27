@@ -38,6 +38,7 @@ import { useLanguage } from '../context/LanguageContext';
 import {
   useThemedStyles,
   useThemeColors,
+  AUTH,
 } from '../theme';
 import { brandTint } from '../theme';
 
@@ -699,7 +700,6 @@ const makeStyles = (theme) => {
       android: { elevation: 5 },
     }),
   },
-  brandName: { fontSize: 18, fontWeight: '800', color: C.warning, textAlign: 'center', marginBottom: 20, letterSpacing: 0.3 },
 
   // ── Form ──
   formContainer: { flex: 1 },
@@ -718,9 +718,9 @@ const makeStyles = (theme) => {
   methodTabTextActive: { color: C.brandOrangeInk, fontWeight: '700' },
 
   // ── Header ──
-  header: { marginBottom: 28 },
-  title: { fontSize: 24, fontWeight: '800', color: C.text, marginBottom: 8 },
-  subtitle: { fontSize: 14, color: C.textSecondary, lineHeight: 22 },
+  header: { marginBottom: AUTH.headerGap },
+  title: { fontSize: AUTH.type.title, fontWeight: '800', color: C.text, marginBottom: AUTH.titleGap },
+  subtitle: { fontSize: AUTH.type.subtitle, color: C.textSecondary, lineHeight: AUTH.type.subtitleLine },
   maskedValue: { fontWeight: '700', color: C.text },
   inputLabel: { fontSize: 14, fontWeight: '600', color: C.text, marginBottom: 8 },
   actionButton: { marginTop: 24 },

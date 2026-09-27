@@ -53,6 +53,7 @@ import {
   brandTint,
   vendor,
   useIsDark,
+  AUTH,
 } from '../theme';
 
 /**
@@ -766,7 +767,7 @@ const makeStyles = (theme) => {
   breakLine: { height: 1, backgroundColor: C.line, marginVertical: 14 },
 
   // ── Header (compact) ──
-  header: { marginBottom: 20, alignItems: 'center' },
+  header: { marginBottom: AUTH.headerGap, alignItems: 'center' },
   logoContainer: {
     width: 56, height: 56, borderRadius: 14, backgroundColor: C.white,
     justifyContent: 'center', alignItems: 'center', overflow: 'hidden',
@@ -775,9 +776,8 @@ const makeStyles = (theme) => {
       android: { elevation: 5 },
     }),
   },
-  brandName: { fontSize: 16, fontWeight: '800', color: C.warning, marginTop: 8, marginBottom: 10, letterSpacing: 0.3 },
-  title: { fontSize: 22, fontWeight: '800', color: C.text, marginBottom: 4 },
-  subtitle: { fontSize: 13, color: C.textSecondary, lineHeight: 19, textAlign: 'center', paddingHorizontal: 8 },
+  title: { fontSize: AUTH.type.title, fontWeight: '800', color: C.text, marginBottom: AUTH.titleGap },
+  subtitle: { fontSize: AUTH.type.subtitle, color: C.textSecondary, lineHeight: AUTH.type.subtitleLine, textAlign: 'center', paddingHorizontal: 8 },
 
   // ── Alert ──
   alert: { marginBottom: 12 },

@@ -96,10 +96,6 @@ const makeStyles = (theme) => {
     alignItems: 'center',
     gap: 8,
   },
-  brandText: {
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
   marker: {
     backgroundColor: C.white,
     alignItems: 'center',

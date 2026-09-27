@@ -58,6 +58,7 @@ import {
   useThemeColors,
   brandTint,
   vendor,
+  AUTH,
 } from '../theme';
 
 /**
@@ -1348,7 +1349,7 @@ const makeStyles = (theme) => {
   scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 },
 
   // ── Header ──
-  header: { marginBottom: 28, alignItems: 'center' },
+  header: { marginBottom: AUTH.headerGap, alignItems: 'center' },
   backButton: {
     width: 38, height: 38, borderRadius: 12, backgroundColor: C.hairline,
     justifyContent: 'center', alignItems: 'center', alignSelf: 'flex-start', marginBottom: 18,
@@ -1361,9 +1362,8 @@ const makeStyles = (theme) => {
       android: { elevation: 5 },
     }),
   },
-  brandName: { fontSize: 18, fontWeight: '800', color: C.brandOrangeInk, marginTop: 10, letterSpacing: 0.3 },
-  title: { fontSize: 24, fontWeight: '800', color: C.text, marginTop: 10, marginBottom: 6 },
-  subtitle: { fontSize: 14, color: C.textSecondary, lineHeight: 21, textAlign: 'center', paddingHorizontal: 8 },
+  title: { fontSize: AUTH.type.title, fontWeight: '800', color: C.text, marginTop: 10, marginBottom: AUTH.titleGap },
+  subtitle: { fontSize: AUTH.type.subtitle, color: C.textSecondary, lineHeight: AUTH.type.subtitleLine, textAlign: 'center', paddingHorizontal: 8 },
 
   // ── Form ──
   form: { flex: 1 },

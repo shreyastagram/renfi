@@ -41,6 +41,7 @@ import {
   useThemeColors,
   stableDark,
   brandTint,
+  AUTH
 } from '../theme';
 
 const OTP_LENGTH = 6;
@@ -627,12 +628,11 @@ const makeStyles = (theme) => {
       android: { elevation: 5 },
     }),
   },
-  brandName: { fontSize: 18, fontWeight: '800', color: C.warning, textAlign: 'center', marginBottom: 18, letterSpacing: 0.3 },
 
   // ── Header ──
-  header: { marginBottom: 24 },
-  title: { fontSize: 24, fontWeight: '800', color: C.text, marginBottom: 8 },
-  subtitle: { fontSize: 14, color: C.textSecondary, lineHeight: 22, flexWrap: 'wrap' },
+  header: { marginBottom: AUTH.headerGap },
+  title: { fontSize: AUTH.type.title, fontWeight: '800', color: C.text, marginBottom: AUTH.titleGap },
+  subtitle: { fontSize: AUTH.type.subtitle, color: C.textSecondary, lineHeight: AUTH.type.subtitleLine, flexWrap: 'wrap' },
   maskedValue: { fontSize: 15, fontWeight: '700', color: C.text, lineHeight: 22, marginTop: 4, flexWrap: 'wrap' },
 
   // ── Timer ──

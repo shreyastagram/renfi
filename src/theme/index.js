@@ -56,3 +56,6 @@ export {
   brand,
   splash,
 } from './tokens/palette.js';
+
+// The shared vertical scale for the auth screens — see authLayout.js for why.
+export { AUTH } from './authLayout';

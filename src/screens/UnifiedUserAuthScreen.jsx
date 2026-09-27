@@ -60,6 +60,7 @@ import {
   stableDark,
   vendor,
   useIsDark,
+  AUTH,
 } from '../theme';
 
 const TERMS_URL = 'https://fixhomi.com/terms';
@@ -553,7 +554,7 @@ const makeStyles = (theme) => {
   },
 
   // ── Header ──
-  header: { alignItems: 'center', marginBottom: 32, marginTop: 4 },
+  header: { alignItems: 'center', marginBottom: AUTH.headerGap, marginTop: 4 },
   logoContainer: {
     width: 64, height: 64, borderRadius: 16, backgroundColor: C.white,
     justifyContent: 'center', alignItems: 'center', overflow: 'hidden',
@@ -562,9 +563,8 @@ const makeStyles = (theme) => {
       android: { elevation: 5 },
     }),
   },
-  brandName: { fontSize: 18, fontWeight: '800', color: C.warning, marginTop: 10, marginBottom: 14, letterSpacing: 0.3 },
-  title: { fontSize: 24, fontWeight: '800', color: C.text, marginBottom: 6 },
-  subtitle: { fontSize: 14, color: C.textSecondary, lineHeight: 21, textAlign: 'center', paddingHorizontal: 8 },
+  title: { fontSize: AUTH.type.title, fontWeight: '800', color: C.text, marginBottom: AUTH.titleGap },
+  subtitle: { fontSize: AUTH.type.subtitle, color: C.textSecondary, lineHeight: AUTH.type.subtitleLine, textAlign: 'center', paddingHorizontal: 8 },
 
   // ── Alert ──
   alert: { marginBottom: 16 },
