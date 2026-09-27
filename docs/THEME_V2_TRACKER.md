@@ -2442,3 +2442,58 @@ solid as the one primary action — that contrast is what the tinting is for.
 | build | versionCode | notes |
 |---|---|---|
 | 1.1.0-beta.23 | 59 | §47 — tab pop and label glow removed, social glare, welcome compacted, provider cards. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/049ceqc9v4r0g) |
+
+---
+
+## §48 — the wordmark
+
+The owner sent the real mark from fixhomi.com. It is **Fixhomi**: `Fix` in
+brand blue, `homi` in brand orange, one capital, set tight.
+
+The app was rendering **FixHomi** — camel-case, single colour, `letterSpacing:
++0.3`. Not a styling nit: a different word, in a different voice.
+
+### 48.1 Why it drifted
+
+**Fourteen places** each hand-rolled `<Text style={styles.brandName}>FixHomi</Text>`
+— ten screens and four components. Nothing owned the name, so nothing could
+keep it consistent. One `FixhomiWordmark` component now, and a test fails the
+build if the name is ever written as plain text again.
+
+### 48.2 The typeface — what was and was not matched
+
+The reference is a geometric sans. This is **not** pixel-identical, and saying
+otherwise would be dishonest.
+
+The app ships no custom font *by design* — a bundled face is the classic
+older-Android failure and costs MBs, which is the owner's own cross-platform
+rule (§47.1). So the mark matches what carries the identity and is free:
+
+| | before | now |
+|---|---|---|
+| case | `FixHomi` | `Fixhomi` |
+| colour | one, orange | `Fix` blue + `homi` orange |
+| weight | 800 | 800 |
+| tracking | **+0.3** | **-0.8** |
+
+Closing the last gap needs the font file shipped and measured on a low-end
+device. That is a decision to take deliberately, not a detail to slip in.
+
+### 48.3 The "cloudish" backdrop
+
+Brand blue is **2.6:1** on a black page — the `Fix` half of the mark nearly
+vanishes in dark. Rather than lighten the blue and lose the brand, a soft
+radial bloom sits behind the mark in dark only.
+
+`brandBlue` is already theme-aware (`#2b76bc` light → `#5FA8E8` dark) — it
+exists for exactly this reason — so the mark itself needed no branch.
+
+### 48.4 Still outstanding
+
+The illustration's grey halo. Restated from §47.5: the fade is painted into
+the PNG's alpha toward a light ground. **No code removes it.** It needs a dark
+variant of the artwork, or the illustration hidden in dark.
+
+| build | versionCode | notes |
+|---|---|---|
+| 1.1.0-beta.24 | 60 | §48 — one wordmark component, brand colours and case corrected, dark bloom. `USE_DEV_STAGING=false`. [Firebase release](https://console.firebase.google.com/project/fixhomi-f6382/appdistribution/app/android:com.renfi/releases/2bnigpp5k1fj0) |
