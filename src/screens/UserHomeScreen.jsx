@@ -361,7 +361,7 @@ const ProviderCard = ({ provider, onCall, onBook, onSkip, onPress, booking, cont
         accessibilityLabel={`Book ${provider.name}`}
         accessibilityRole="button"
       >
-        {booking ? <ActivityIndicator size="small" color={C.onPrimary} /> : <Text style={styles.bookButtonText}>{t('userHome.bookButton')}</Text>}
+        {booking ? <ActivityIndicator size="small" color={C.brandOrangeInk} /> : <Text style={styles.bookButtonText}>{t('userHome.bookButton')}</Text>}
       </TouchableOpacity>
       {/* Skip / Remove Provider Button */}
       <TouchableOpacity
@@ -1577,7 +1577,7 @@ const UserHomeScreen = ({ navigation, route }) => {
                 {/* No "Done" button — it would leave the request in pending with no provider assigned.
                     After booking, the success Alert already calls resetFlow automatically. */}
                 <TouchableOpacity style={styles.cancelPill} onPress={handleCancelRequest}>
-                  <MaterialIcon name="cancel" size={16} color={C.onDanger} />
+                  <MaterialIcon name="cancel" size={16} color={C.dangerDeep} />
                   <Text style={styles.cancelPillText}>{t('userHome.cancelRequest')}</Text>
                 </TouchableOpacity>
               </View>
@@ -2146,12 +2146,12 @@ const makeStyles = (theme) => {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: C.secondary + '10',
+    backgroundColor: C.infoContainer + '10',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: C.secondary + '20',
+    borderColor: C.infoBorder + '20',
   },
   backText: {
     fontSize: 14,
@@ -2302,17 +2302,6 @@ const makeStyles = (theme) => {
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    ...Platform.select({
-      ios: {
-        shadowColor: C.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 10,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
     borderWidth: 1,
     borderColor: C.brandOrangeBorder,
   },
@@ -2503,26 +2492,19 @@ const makeStyles = (theme) => {
   cancelPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.danger,
+    // Tinted + edged like every other button. It was a solid C.danger slab,
+    // missed by the conversion because it is named 'Pill' rather than 'Button'.
+    backgroundColor: C.dangerContainer,
+    borderWidth: 1,
+    borderColor: C.dangerBorder,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     gap: 4,
-    ...Platform.select({
-      ios: {
-        shadowColor: C.danger,
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.25,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
   },
   cancelPillText: {
     fontSize: 13,
-    color: C.onDanger,
+    color: C.dangerDeep,
     fontWeight: '700',
   },
   providersTitle: {
@@ -2537,13 +2519,13 @@ const makeStyles = (theme) => {
     alignItems: 'center',
     gap: 5,
     marginTop: 6,
-    backgroundColor: C.secondary + '0D',
+    backgroundColor: C.infoContainer + '0D',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 14,
     alignSelf: 'flex-start',
     borderWidth: 1,
-    borderColor: C.secondary + '18',
+    borderColor: C.infoBorder + '18',
   },
   radiusPillText: {
     fontSize: 13,
@@ -2790,7 +2772,7 @@ const makeStyles = (theme) => {
     borderColor: C.brandOrangeBorder,
   },
   bookButtonLoading: {
-    backgroundColor: brandTint.orangeSoft,
+    backgroundColor: C.brandOrangeFill,
     ...Platform.select({
       ios: { shadowOpacity: 0 },
       android: { elevation: 0 },
@@ -2799,7 +2781,7 @@ const makeStyles = (theme) => {
   bookButtonText: {
     fontSize: 14,
     fontWeight: '700',
-    color: C.onPrimary,
+    color: C.brandOrangeInk,
     letterSpacing: -0.2,
   },
   skipButton: {

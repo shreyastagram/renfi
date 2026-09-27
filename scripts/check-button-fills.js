@@ -11,6 +11,11 @@
  * asked for, not an oversight — if a screen ever reads as having no obvious
  * primary action, this is the reason.
  *
+ * The name pattern covers Btn/Button/CTA/Pill/Action. 'Pill' was added after a
+ * solid C.danger 'cancelPill' survived the first sweep AND the first version of
+ * this gate — both keyed on the word 'button'. A control is a control whatever
+ * its style is called.
+ *
  * Solid fills are still right for things that are NOT buttons: status dots,
  * progress fills, avatars, the online pad. This checks button styles only,
  * matched by name.
@@ -51,7 +56,7 @@ for (const file of walk(path.join(ROOT, 'src'))) {
   scanned += 1;
 
   // style definitions named like a button
-  for (const m of src.matchAll(/^  (\w*(?:[Bb]tn|[Bb]utton|CTA|Cta)\w*): \{/gm)) {
+  for (const m of src.matchAll(/^  (\w*(?:[Bb]tn|[Bb]utton|CTA|Cta|Pill|Action)\w*): \{/gm)) {
     const key = m[1];
     if (/Text$|Label$|Icon$|Row$|Wrap$|Container$/.test(key)) continue;
     const body = block(src, m.index + key.length + 4).replace(/\w+:\s*\{[^{}]*\}/g, '');
@@ -66,7 +71,7 @@ for (const file of walk(path.join(ROOT, 'src'))) {
   }
 
   // inline overrides — `style={[styles.btn, { backgroundColor: C.primary }]}`
-  for (const m of src.matchAll(/styles\.\w*(?:[Bb]tn|[Bb]utton)\w*,\s*\{[^}]*backgroundColor:\s*(C\.\w+)/g)) {
+  for (const m of src.matchAll(/styles\.\w*(?:[Bb]tn|[Bb]utton|Pill|Action)\w*,\s*\{[^}]*backgroundColor:\s*(C\.\w+)/g)) {
     if (!SOLID.test(m[1])) continue;
     offenders.push({
       rel: path.relative(ROOT, file),

@@ -1227,9 +1227,9 @@ const makeStyles = (theme) => {
   filterDivider: { height: 1, backgroundColor: C.neutralFill, marginHorizontal: 16, marginVertical: 4 },
   filterScroll: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
   filterPill: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: C.neutralFill, borderRadius: 20, borderWidth: 1, borderColor: C.line },
-  filterPillActive: { backgroundColor: C.primary, borderColor: C.primary },
+  filterPillActive: { backgroundColor: C.brandOrangeFill, borderColor: C.primary, borderWidth: 1, borderColor: C.brandOrangeBorder },
   filterPillText: { fontSize: 13, fontWeight: '600', color: C.textSec },
-  filterPillTextActive: { color: C.onPrimary },
+  filterPillTextActive: { color: C.brandOrangeInk },
   // Filter bar — floating pill above tab bar
   filterBar: {
     position: 'absolute',
